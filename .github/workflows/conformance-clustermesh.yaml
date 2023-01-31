@@ -1,0 +1,533 @@
+name: ClusterMesh
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 3/6 * * *'
+  ### FOR TESTING PURPOSES
+  # This workflow runs in the context of `master`, and ignores changes to
+  # workflow files in PRs. For testing changes to this workflow from a PR:
+  # - Make sure the PR uses a branch from the base repository (requires write
+  #   privileges). It will not work with a branch from a fork (missing secrets).
+  # - Uncomment the `pull_request` event below, commit separately with a `DO
+  #   NOT MERGE` message, and push to the PR. As long as the commit is present,
+  #   any push to the PR will trigger this workflow.
+  # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
+  #   will disappear from the PR checks: please provide a direct link to the
+  #   successful workflow run (can be found from Actions tab) in a comment.
+  #
+  # pull_request: {}
+  ###
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - issue_comment: PR number
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing:
+  # - schedule: {name} schedule {SHA}
+  # - issue_comment: {name} issue_comment {PR number}
+  # - pull_request: {name} pull_request {PR number}
+  #
+  # Note: for `issue_comment` triggers, we additionally need to filter out based
+  # on comment content, otherwise any comment will interrupt workflow runs.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-multicluster' ||
+        github.event.comment.body == '/test'
+      ) && github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
+  cancel-in-progress: true
+
+env:
+  kind_version: v0.17.0
+  cilium_cli_version: v0.12.12
+  clusterName1: cluster1-${{ github.run_id }}
+  clusterName2: cluster2-${{ github.run_id }}
+  contextName1: kind-cluster1-${{ github.run_id }}
+  contextName2: kind-cluster2-${{ github.run_id }}
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    if: |
+      (github.event_name == 'issue_comment' &&
+        (github.event.comment.body == '/ci-multicluster' ||
+         github.event.comment.body == '/test')) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  # This job is skipped when the workflow was triggered with the generic `/test`
+  # trigger if the only modified files were under `test/` or `Documentation/`.
+  installation-and-connectivity:
+    needs: check_changes
+    name: Setup & Test
+    if: |
+      ((github.event_name == 'issue_comment' &&
+        ((github.event.comment.body == '/ci-multicluster') ||
+         (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true'))) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: '1'
+            tunnel: 'disabled'
+            ipfamily: 'ipv4'
+
+          - name: '2'
+            tunnel: 'disabled'
+            ipfamily: 'ipv6'
+
+          - name: '3'
+            tunnel: 'disabled'
+            ipfamily: 'dual'
+
+          - name: '4'
+            tunnel: 'vxlan'
+            ipfamily: 'ipv4'
+
+        # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
+        #  - name: '5'
+        #    tunnel: 'vxlan'
+        #    ipfamily: 'ipv6'
+
+          - name: '6'
+            tunnel: 'vxlan'
+            ipfamily: 'dual'
+
+    steps:
+    - name: Checkout GitHub master
+      uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
+
+    - name: Set up job variables for GHA environment
+      id: vars
+      run: |
+        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+          PR_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+          SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+        else
+          SHA=${{ github.sha }}
+          OWNER=${{ github.sha }}
+        fi
+
+        CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+          --helm-set=image.useDigest=false \
+          --helm-set=image.tag=${SHA} \
+          --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+          --helm-set=operator.image.suffix=-ci \
+          --helm-set=operator.image.tag=${SHA} \
+          --helm-set=operator.image.useDigest=false \
+          --config monitor-aggregation=none \
+          --rollback=false \
+          --version="
+
+        CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
+        if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+          CILIUM_INSTALL_TUNNEL="--helm-set-string=tunnel=disabled \
+            --helm-set=autoDirectNodeRoutes=true \
+            --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
+            --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"
+        fi
+
+        case "${{ matrix.ipFamily }}" in
+          ipv4)
+            CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=false"
+            KIND_POD_CIDR_1="10.242.0.0/16"
+            KIND_SVC_CIDR_1="10.243.0.0/16"
+            KIND_POD_CIDR_2="10.244.0.0/16"
+            KIND_SVC_CIDR_2="10.245.0.0/16"
+            ;;
+          ipv6)
+            CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=false --helm-set=ipv6.enabled=true"
+            KIND_POD_CIDR_1="fd00:10:242::/48"
+            KIND_SVC_CIDR_1="fd00:10:243::/112"
+            KIND_POD_CIDR_2="fd00:10:244::/48"
+            KIND_SVC_CIDR_2="fd00:10:245::/112"
+            ;;
+          dual)
+            CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
+            KIND_POD_CIDR_1="10.242.0.0/16,fd00:10:242::/48"
+            KIND_SVC_CIDR_1="10.243.0.0/16,fd00:10:243::/112"
+            KIND_POD_CIDR_2="10.244.0.0/16,fd00:10:244::/48"
+            KIND_SVC_CIDR_2="10.245.0.0/16,fd00:10:245::/112"
+            ;;
+          *)
+            echo "Unknown IP family '${{ matrix.ipFamily }}'" && false
+            ;;
+        esac
+
+        HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
+          --relay-version=${SHA}"
+        CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+          --apiserver-version=${SHA} --service-type=NodePort"
+
+        CONNECTIVITY_TEST_DEFAULTS="--context ${{ env.contextName1 }} \
+          --multi-cluster ${{ env.contextName2 }} \
+          --test '!/pod-to-.*-nodeport' \
+          --test '!no-policies/pod-to-service' \
+          --test '!/pod-to-world' \
+          --test '!/pod-to-cidr' \
+          --flow-validation=disabled \
+          --hubble=false \
+          --collect-sysdump-on-failure"
+        # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
+        # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
+        # is fixed.
+
+        echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_IPFAMILY}" >> $GITHUB_OUTPUT
+        echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+        echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+        echo clustermesh_enable_defaults=${CLUSTERMESH_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+
+        echo kind_pod_cidr_1=${KIND_POD_CIDR_1} >> $GITHUB_OUTPUT
+        echo kind_svc_cidr_1=${KIND_SVC_CIDR_1} >> $GITHUB_OUTPUT
+        echo kind_pod_cidr_2=${KIND_POD_CIDR_2} >> $GITHUB_OUTPUT
+        echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
+
+        echo sha=${SHA} >> $GITHUB_OUTPUT
+        echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+    - name: Set commit status to pending
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Connectivity test in progress...
+        state: pending
+        target_url: ${{ env.check_url }}
+
+    - name: Checkout code
+      uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      with:
+        ref: ${{ steps.vars.outputs.sha }}
+        persist-credentials: false
+
+    - name: Install Cilium CLI
+      run: |
+        curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+        sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+        sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+        rm cilium-linux-amd64.tar.gz{,.sha256sum}
+        cilium version
+
+    - name: Generate Kind configuration for cluster 1
+      uses: danielr1996/envsubst-action@b10d6e6eb5dba1c22527571460ceb83bc17c0b28
+      env:
+          PODCIDR: ${{ steps.vars.outputs.kind_pod_cidr_1 }}
+          SVCCIDR: ${{ steps.vars.outputs.kind_svc_cidr_1 }}
+          IPFAMILY: ${{ matrix.ipFamily }}
+      with:
+        input: ./.github/kind-config.yaml.tmpl
+        output: ./.github/kind-config-cluster1.yaml
+
+    - name: Create Kind cluster 1
+      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+      with:
+        cluster_name: ${{ env.clusterName1 }}
+        version: ${{ env.kind_version }}
+        config: ./.github/kind-config-cluster1.yaml
+
+    - name: Generate Kind configuration for cluster 2
+      uses: danielr1996/envsubst-action@b10d6e6eb5dba1c22527571460ceb83bc17c0b28
+      env:
+          PODCIDR: ${{ steps.vars.outputs.kind_pod_cidr_2 }}
+          SVCCIDR: ${{ steps.vars.outputs.kind_svc_cidr_2 }}
+          IPFAMILY: ${{ matrix.ipFamily }}
+      with:
+        input: ./.github/kind-config.yaml.tmpl
+        output: ./.github/kind-config-cluster2.yaml
+
+    - name: Create Kind cluster 2
+      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+      with:
+        cluster_name: ${{ env.clusterName2 }}
+        version: ${{ env.kind_version }}
+        config: ./.github/kind-config-cluster2.yaml
+
+    - name: Wait for images to be available
+      timeout-minutes: 10
+      shell: bash
+      run: |
+        for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+        done
+
+    - name: Install Cilium in cluster1
+      run: |
+        cilium --context ${{ env.contextName1 }} install \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --helm-set cluster.name=${{ env.clusterName1 }} \
+          --helm-set cluster.id=1
+
+    - name: Install Cilium in cluster2
+      run: |
+        cilium --context ${{ env.contextName2 }} install \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --helm-set cluster.name=${{ env.clusterName2 }} \
+          --helm-set cluster.id=255 \
+          --inherit-ca ${{ env.contextName1 }}
+
+    - name: Enable Relay
+      run: |
+        cilium hubble enable --context ${{ env.contextName1 }} ${{ steps.vars.outputs.hubble_enable_defaults }} --wait=false
+        cilium hubble enable --context ${{ env.contextName2 }} ${{ steps.vars.outputs.hubble_enable_defaults }} --relay=false
+        cilium status --wait --context ${{ env.contextName1 }}
+
+    - name: Enable Cluster Mesh
+      run: |
+        cilium --context ${{ env.contextName1 }} clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
+        cilium --context ${{ env.contextName2 }} clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
+
+    # TODO: remove this step once cilium/cilium-cli#1362 is merged and released.
+    - name: Patch the clustermesh deployments
+      run: |
+        cat<<'EOF' > patch.yaml
+        spec:
+          template:
+            spec:
+              containers:
+              - name: etcd
+                args:
+                - --data-dir=/var/run/etcd
+                - --name=clustermesh-apiserver
+                - --client-cert-auth
+                - --trusted-ca-file=/var/lib/etcd-secrets/ca.crt
+                - --cert-file=/var/lib/etcd-secrets/tls.crt
+                - --key-file=/var/lib/etcd-secrets/tls.key
+                - --listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379
+                - --advertise-client-urls=https://[$(HOSTNAME_IP)]:2379
+                - --initial-cluster-token=clustermesh-apiserver
+                - --auto-compaction-retention=1
+        EOF
+
+        for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+          kubectl config use-context "$ctx"
+          kubectl patch deployment -n kube-system clustermesh-apiserver --patch "$(cat patch.yaml)"
+        done
+
+
+    - name: Wait for cluster mesh status to be ready
+      run: |
+        cilium --context ${{ env.contextName1 }} clustermesh status --wait
+        cilium --context ${{ env.contextName2 }} clustermesh status --wait
+
+    - name: Connect clusters
+      run: |
+        cilium --context ${{ env.contextName1 }} clustermesh connect --destination-context ${{ env.contextName2 }}
+
+    - name: Wait for cluster mesh status to be ready
+      run: |
+        cilium --context ${{ env.contextName1 }} clustermesh status --wait
+        cilium --context ${{ env.contextName2 }} clustermesh status --wait
+
+    - name: Port forward Relay
+      run: |
+        cilium hubble port-forward --context ${{ env.contextName1 }} &
+        sleep 10s
+        [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+
+    - name: Run connectivity test
+      run: |
+        cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+
+    - name: Restart the cilium and cluster mesh pods in one cluster
+      run: |
+        kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system daemonset/cilium
+        kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system deployment/clustermesh-apiserver
+        cilium --context ${{ env.contextName2 }} status --wait
+
+    - name: Wait for cluster mesh status to be ready
+      run: |
+        cilium --context ${{ env.contextName1 }} clustermesh status --wait
+        cilium --context ${{ env.contextName2 }} clustermesh status --wait
+
+    - name: Run connectivity test
+      run: |
+        cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+
+    - name: Enable WireGuard
+      # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters
+      if: ${{ matrix.ipfamily != 'ipv6' }}
+      run: |
+        for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+          kubectl config use-context "$ctx"
+          cilium config set --restart=false enable-wireguard true
+          cilium config set --restart=false enable-wireguard-userspace-fallback true
+          cilium config set --restart=true  enable-l7-proxy false
+          cilium status --wait
+        done
+
+    - name: Run connectivity test with WireGuard
+      # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters
+      if: ${{ matrix.ipfamily != 'ipv6' }}
+      run: |
+        cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+
+    - name: Enable IPsec
+      # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
+      if: ${{ matrix.ipfamily != 'ipv6' }}
+      run: |
+        cat<<'EOF' > patch.yaml
+        spec:
+          template:
+            spec:
+              containers:
+              - name: cilium-agent
+                volumeMounts:
+                - name: cilium-ipsec-secrets
+                  mountPath: /etc/ipsec
+              volumes:
+              - name: cilium-ipsec-secrets
+                secret:
+                  secretName: cilium-ipsec-keys
+        EOF
+
+        key=$(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64))
+        for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+          kubectl config use-context "$ctx"
+
+          cilium config set --restart=false enable-wireguard false
+          cilium config set --restart=false enable-wireguard-userspace-fallback false
+          cilium config set --restart=false enable-ipsec true
+          cilium config set --restart=false ipsec-key-file /etc/ipsec/keys
+
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+            --from-literal=keys="3 rfc4106(gcm(aes)) $key 128"
+
+          kubectl patch daemonset -n kube-system cilium --patch "$(cat patch.yaml)"
+          cilium status --wait
+        done
+
+    - name: Run connectivity test with IPsec
+      # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
+      if: ${{ matrix.ipfamily != 'ipv6' }}
+      run: |
+        cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+
+    - name: Post-test information gathering
+      if: ${{ !success() }}
+      run: |
+        cilium status --context ${{ env.contextName1 }}
+        cilium clustermesh status --context ${{ env.contextName1 }}
+        cilium status --context ${{ env.contextName2 }}
+        cilium clustermesh status --context ${{ env.contextName2 }}
+
+        kubectl config use-context ${{ env.contextName1 }}
+        kubectl get pods --all-namespaces -o wide
+        cilium sysdump --output-filename cilium-sysdump-context1-final
+
+        kubectl config use-context ${{ env.contextName2 }}
+        kubectl get pods --all-namespaces -o wide
+        cilium sysdump --output-filename cilium-sysdump-context2-final
+      shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+    - name: Upload artifacts
+      if: ${{ !success() }}
+      uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+      with:
+        name: cilium-sysdumps-${{ matrix.name }}
+        path: cilium-sysdump-*.zip
+        retention-days: 5
+
+    - name: Set commit status to success
+      if: ${{ success() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Connectivity test successful
+        state: success
+        target_url: ${{ env.check_url }}
+
+    - name: Set commit status to failure
+      if: ${{ failure() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Connectivity test failed
+        state: failure
+        target_url: ${{ env.check_url }}
+
+    - name: Set commit status to cancelled
+      if: ${{ cancelled() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Connectivity test cancelled
+        state: error
+        target_url: ${{ env.check_url }}
