@@ -26,6 +26,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentBGPVRFConfigsGetter
 	IsovalentClusterwideEncryptionPoliciesGetter
 	IsovalentFQDNGroupsGetter
+	IsovalentLBsGetter
 	IsovalentMeshEndpointsGetter
 	IsovalentMulticastGroupsGetter
 	IsovalentMulticastNodesGetter
@@ -83,6 +84,10 @@ func (c *IsovalentV1alpha1Client) IsovalentClusterwideEncryptionPolicies() Isova
 
 func (c *IsovalentV1alpha1Client) IsovalentFQDNGroups() IsovalentFQDNGroupInterface {
 	return newIsovalentFQDNGroups(c)
+}
+
+func (c *IsovalentV1alpha1Client) IsovalentLBs(namespace string) IsovalentLBInterface {
+	return newIsovalentLBs(c, namespace)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentMeshEndpoints(namespace string) IsovalentMeshEndpointInterface {

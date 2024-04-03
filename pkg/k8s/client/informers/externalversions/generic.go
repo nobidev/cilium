@@ -119,6 +119,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentClusterwideEncryptionPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentfqdngroups"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentFQDNGroups().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("isovalentlbs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentLBs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentmeshendpoints"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentMeshEndpoints().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentmulticastgroups"):

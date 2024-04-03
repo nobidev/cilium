@@ -33,6 +33,8 @@ type Interface interface {
 	IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInformer
 	// IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 	IsovalentFQDNGroups() IsovalentFQDNGroupInformer
+	// IsovalentLBs returns a IsovalentLBInformer.
+	IsovalentLBs() IsovalentLBInformer
 	// IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.
 	IsovalentMeshEndpoints() IsovalentMeshEndpointInformer
 	// IsovalentMulticastGroups returns a IsovalentMulticastGroupInformer.
@@ -115,6 +117,11 @@ func (v *version) IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideE
 // IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 func (v *version) IsovalentFQDNGroups() IsovalentFQDNGroupInformer {
 	return &isovalentFQDNGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentLBs returns a IsovalentLBInformer.
+func (v *version) IsovalentLBs() IsovalentLBInformer {
+	return &isovalentLBInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.

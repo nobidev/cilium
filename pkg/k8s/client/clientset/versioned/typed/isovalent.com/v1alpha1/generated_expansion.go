@@ -27,6 +27,8 @@ type IsovalentClusterwideEncryptionPolicyExpansion interface{}
 
 type IsovalentFQDNGroupExpansion interface{}
 
+type IsovalentLBExpansion interface{}
+
 type IsovalentMeshEndpointExpansion interface{}
 
 type IsovalentMulticastGroupExpansion interface{}

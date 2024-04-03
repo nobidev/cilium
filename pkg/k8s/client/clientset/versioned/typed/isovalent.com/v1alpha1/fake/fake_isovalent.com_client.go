@@ -59,6 +59,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentFQDNGroups() v1alpha1.IsovalentFQDNGrou
 	return &FakeIsovalentFQDNGroups{c}
 }
 
+func (c *FakeIsovalentV1alpha1) IsovalentLBs(namespace string) v1alpha1.IsovalentLBInterface {
+	return &FakeIsovalentLBs{c, namespace}
+}
+
 func (c *FakeIsovalentV1alpha1) IsovalentMeshEndpoints(namespace string) v1alpha1.IsovalentMeshEndpointInterface {
 	return &FakeIsovalentMeshEndpoints{c, namespace}
 }
