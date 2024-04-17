@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/enterprise/operator/pkg/ciliummesh"
+	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/operator/pkg/srv6/locatorpool"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
@@ -55,6 +56,8 @@ var (
 			multinetwork.Cell,
 			bgpv2.Cell,
 			bfd.Cell,
+
+			lb.Cell,
 		),
 	)
 )
