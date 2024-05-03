@@ -11,11 +11,8 @@
 package lb
 
 import (
-	"github.com/cilium/cilium/pkg/envoy"
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"fmt"
+	"time"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	corev3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -32,10 +29,21 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/pkg/envoy"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *v1.Service) (*cilium_api_v2.CiliumEnvoyConfig, error) {
 	clusterName, _ := api.ResourceQualifiedName(obj.Namespace, obj.Name, "cluster")
+
+	intervalDuration, err := time.ParseDuration(obj.Spec.Healthcheck.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse healthcheck interval duration: %w", err)
+	}
 
 	lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(obj.Spec.Backends))
 	for _, be := range obj.Spec.Backends {
@@ -44,7 +52,8 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 				Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{
 					Address:       be.IP,
 					PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: uint32(be.Port)},
-				}}}}},
+				}}},
+			}},
 		})
 	}
 	cluster := envoy_config_cluster_v3.Cluster{
@@ -55,15 +64,19 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 		ConnectTimeout: &durationpb.Duration{Seconds: 2},
 		HealthChecks: []*corev3.HealthCheck{
 			{
-				HealthyThreshold: &wrapperspb.UInt32Value{Value: 1},
 				HealthChecker: &corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &corev3.HealthCheck_HttpHealthCheck{
 					Host: "envoy",
 					Path: "/health",
 				}},
-				Interval:           &durationpb.Duration{Seconds: 60},
+				// T1->T2 health check interval should be half of the actual interval to keep reaction time lower
+				Interval:           &durationpb.Duration{Seconds: int64(intervalDuration.Seconds() * 0.5)},
 				Timeout:            &durationpb.Duration{Seconds: 5},
-				UnhealthyInterval:  &durationpb.Duration{Seconds: 15},
-				UnhealthyThreshold: &wrapperspb.UInt32Value{Value: 1},
+				HealthyThreshold:   &wrapperspb.UInt32Value{Value: 2},
+				UnhealthyThreshold: &wrapperspb.UInt32Value{Value: 2},
+				// T1's quarantine timeout
+				UnhealthyEdgeInterval: &durationpb.Duration{Seconds: 30},
+				// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
+				UnhealthyInterval: &durationpb.Duration{Seconds: int64(intervalDuration.Seconds())},
 			},
 		},
 		LbPolicy: envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
@@ -75,16 +88,17 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 				},
 			},
 		},
-		OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
-			ConsecutiveLocalOriginFailure:         &wrapperspb.UInt32Value{Value: 2},
-			EnforcingFailurePercentage:            &wrapperspb.UInt32Value{Value: 100},
-			EnforcingFailurePercentageLocalOrigin: &wrapperspb.UInt32Value{Value: 100},
-			FailurePercentageMinimumHosts:         &wrapperspb.UInt32Value{Value: 1},
-			FailurePercentageRequestVolume:        &wrapperspb.UInt32Value{Value: 1},
-			MaxEjectionPercent:                    &wrapperspb.UInt32Value{Value: 100},
-			MaxEjectionTime:                       &durationpb.Duration{Seconds: 30},
-			SplitExternalLocalOriginErrors:        false,
-		},
+		// Temporarily disable passive health checks
+		// OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
+		// 	ConsecutiveLocalOriginFailure:         &wrapperspb.UInt32Value{Value: 2},
+		// 	EnforcingFailurePercentage:            &wrapperspb.UInt32Value{Value: 100},
+		// 	EnforcingFailurePercentageLocalOrigin: &wrapperspb.UInt32Value{Value: 100},
+		// 	FailurePercentageMinimumHosts:         &wrapperspb.UInt32Value{Value: 1},
+		// 	FailurePercentageRequestVolume:        &wrapperspb.UInt32Value{Value: 1},
+		// 	MaxEjectionPercent:                    &wrapperspb.UInt32Value{Value: 100},
+		// 	MaxEjectionTime:                       &durationpb.Duration{Seconds: 30},
+		// 	SplitExternalLocalOriginErrors:        false,
+		// },
 	}
 	clusterBytes, err := proto.Marshal(&cluster)
 	if err != nil {

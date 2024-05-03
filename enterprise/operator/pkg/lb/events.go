@@ -59,8 +59,13 @@ func (lbm *LBManager) handleILBUpsert(ctx context.Context, obj *isovalent_api_v1
 	}
 	annos["io.cilium/lb-ipam-ips"] = obj.Spec.VIP
 	// Enable HTTP health-check. Hardcode for now.
-	annos["service.cilium.io/health-check-probe-interval"] = obj.Spec.Healthcheck.Interval
 	annos["service.cilium.io/health-check-http-path"] = "/health"
+	annos["service.cilium.io/health-check-http-method"] = "GET"
+	annos["service.cilium.io/health-check-probe-interval"] = obj.Spec.Healthcheck.Interval
+	annos["service.cilium.io/health-check-probe-timeout"] = "5s"
+	annos["service.cilium.io/health-check-threshold-healthy"] = "2"
+	annos["service.cilium.io/health-check-threshold-unhealthy"] = "2"
+	annos["service.cilium.io/health-check-quarantine-timeout"] = "30s"
 	annos["service.cilium.io/health-check-bgp-advertise-threshold"] = "1"
 	svc := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
