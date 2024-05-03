@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -74,8 +73,8 @@ func (lbm *LBManager) handleILBUpsert(ctx context.Context, obj *isovalent_api_v1
 			Annotations: annos,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentLBKindDefinition,
+					APIVersion: isovalent_api_v1alpha1.SchemeGroupVersion.String(),
+					Kind:       isovalent_api_v1alpha1.IsovalentLBKindDefinition,
 					Name:       obj.Name,
 					UID:        obj.UID,
 					// BlockOwnerDeletion: nil,
@@ -110,8 +109,8 @@ func (lbm *LBManager) handleILBUpsert(ctx context.Context, obj *isovalent_api_v1
 			Labels: obj.Labels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentLBKindDefinition,
+					APIVersion: isovalent_api_v1alpha1.SchemeGroupVersion.String(),
+					Kind:       isovalent_api_v1alpha1.IsovalentLBKindDefinition,
 					Name:       obj.Name,
 					UID:        obj.UID,
 				},

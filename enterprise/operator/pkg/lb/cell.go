@@ -13,11 +13,12 @@ package lb
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/spf13/pflag"
+
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/spf13/pflag"
 )
 
 var Cell = cell.Module(

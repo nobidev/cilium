@@ -17,15 +17,15 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/workqueue"
+
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-
-	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/util/workqueue"
 )
 
 type LBParams struct {
@@ -140,8 +140,6 @@ func (lbm *LBManager) Run(ctx context.Context) {
 	}
 }
 
-var (
-	eventsOpts = resource.WithRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute),
-	)
+var eventsOpts = resource.WithRateLimiter(
+	workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute),
 )
