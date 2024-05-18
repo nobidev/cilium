@@ -33,6 +33,7 @@ update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the curren
 values.yaml: $(VALUES_TMPL_FILE_NAME) $(ROOT_DIR)/VERSION $(MAKEFILE_VALUES)
 	$(ECHO_GEN)$@
 	$(call generate_values_yaml,$(VALUES_TMPL_FILE_NAME),$@)
+.PHONY: values.yaml
 
 update-versions: update-chart values.yaml # Update the Helm values file to point to the current version.
 
