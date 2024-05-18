@@ -82,7 +82,6 @@ var (
 	prometheusPort             = flag.Int("prometheus-port", 9967, "")
 	DNSNotificationSendWorkers = flag.Int("dns-notification-retry-workers", 128, "")
 	DNSNotificationChannelSize = flag.Int("dns-notification-channel-size", 16384, "This is the number of DNS messages that will generate a notification in Cilium Agent after it restarts. All DNS messages above this limit will be handled by proxy, but not generate notification after Cilium Agent restarts.")
-	FQDNProxyResponseMaxDelay  = flag.Duration("tofqdns-proxy-response-max-delay", 150*time.Millisecond, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
 	concurrencyLimit           = flag.Int("concurrency-limit", 0, "concurrency limit for dns proxy (0 for infinite)")
 	concurrencyGracePeriod     = flag.Duration("concurrency-processing-grace-period", 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	FQDNRegexCompileLRUSize    = flag.Int("fqdn-regex-compile-lru-size", 1024, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
