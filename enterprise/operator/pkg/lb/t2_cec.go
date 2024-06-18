@@ -27,25 +27,21 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/policy/api"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *v1.Service) (*cilium_api_v2.CiliumEnvoyConfig, error) {
-	clusterName, _ := api.ResourceQualifiedName(obj.Namespace, obj.Name, "cluster")
-
-	intervalDuration, err := time.ParseDuration(obj.Spec.Healthcheck.Interval)
+func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.IsovalentLB) (*ciliumv2.CiliumEnvoyConfig, error) {
+	intervalDuration, err := time.ParseDuration(lb.Spec.Healthcheck.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse healthcheck interval duration: %w", err)
 	}
 
-	lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(obj.Spec.Backends))
-	for _, be := range obj.Spec.Backends {
+	lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(lb.Spec.Backends))
+	for _, be := range lb.Spec.Backends {
 		lbEndpoints = append(lbEndpoints, &endpointv3.LbEndpoint{
 			HostIdentifier: &endpointv3.LbEndpoint_Endpoint{Endpoint: &endpointv3.Endpoint{
 				Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{
@@ -106,8 +102,8 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 	listener := envoy_config_listener_v3.Listener{
 		Name: "listener",
 		Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{
-			Address:       obj.Spec.VIP,
-			PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: uint32(obj.Spec.Port)},
+			Address:       lb.Spec.VIP,
+			PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: uint32(lb.Spec.Port)},
 		}}},
 		FilterChains: []*envoy_config_listener_v3.FilterChain{
 			{
@@ -122,7 +118,7 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{TypedConfig: toAny(&health_check_v3.HealthCheck{
 										PassThroughMode: &wrapperspb.BoolValue{Value: false},
 										ClusterMinHealthyPercentages: map[string]*typev3.Percent{
-											clusterName: {
+											"cluster": {
 												Value: 20,
 											},
 										},
@@ -173,27 +169,13 @@ func (lbm *LBManager) populateCEC(obj *isovalent_api_v1alpha1.IsovalentLB, svc *
 	if err != nil {
 		return nil, err
 	}
-	return &cilium_api_v2.CiliumEnvoyConfig{
+	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      obj.Name,
-			Namespace: obj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: isovalent_api_v1alpha1.SchemeGroupVersion.String(),
-					Kind:       isovalent_api_v1alpha1.IsovalentLBKindDefinition,
-					Name:       obj.Name,
-					UID:        obj.UID,
-				},
-				{
-					APIVersion: "v1",
-					Kind:       "Service",
-					Name:       svc.Name,
-					UID:        svc.UID,
-				},
-			},
+			Namespace: lb.Namespace,
+			Name:      lb.Name,
 		},
-		Spec: cilium_api_v2.CiliumEnvoyConfigSpec{
-			Resources: []cilium_api_v2.XDSResource{
+		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			Resources: []ciliumv2.XDSResource{
 				{
 					Any: &anypb.Any{
 						TypeUrl: envoy.ClusterTypeURL,

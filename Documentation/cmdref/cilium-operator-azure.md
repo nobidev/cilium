@@ -106,7 +106,6 @@ cilium-operator-azure [flags]
       --kube-proxy-replacement string                                Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                               Key-value store type
       --kvstore-opt map                                              Key-value store options e.g. etcd.address=127.0.0.1:4001
-      --lb-enabled                                                   TODO
       --leader-election-lease-duration duration                      Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration                      Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration                        Duration that LeaderElector clients should wait between retries of the actions (default 2s)
@@ -137,6 +136,7 @@ cilium-operator-azure [flags]
       --set-cilium-node-taints                                       Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
+      --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
       --subnet-ids-filter strings                                    Subnets IDs (separated by commas)
       --subnet-tags-filter map                                       Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                                        Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)

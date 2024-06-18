@@ -11,47 +11,63 @@
 package lb
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
-
+	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
-	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/utils"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 var Cell = cell.Module(
-	"service",
-	"L7 LB service manager",
+	"standalone-lb-controlplane",
+	"Standalone LoadBalancer controlplane",
 
-	cell.Provide(newLBManager),
 	//exhaustruct:ignore
 	cell.Config(Config{}),
-
-	cell.ProvidePrivate(
-		newILBResource,
-	),
-
-	// Invoke an empty function to force its construction.
-	cell.Invoke(func(*LBManager) {}),
+	cell.Invoke(registerReconciler),
+	cell.ProvidePrivate(newNodeSource),
 )
 
 type Config struct {
-	Enabled bool `mapstructure:"lb-enabled"`
+	StandaloneLbEnabled bool
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("lb-enabled", cfg.Enabled, "TODO")
+	flags.Bool("standalone-lb-enabled", false, "Whether or not the standalone lb controlplane is enabled.")
 }
 
-func newILBResource(lc cell.Lifecycle, c client.Clientset, cfg Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentLB] {
-	// if !cfg.Enabled {
-	// 	return nil
-	// }
+type reconcilerParams struct {
+	cell.In
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentLB](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentLBList](
-			c.IsovalentV1alpha1().IsovalentLBs(""),
-		), resource.WithMetric("IsovalentLB"))
+	Logger   logrus.FieldLogger
+	JobGroup job.Group
+	Config   Config
+
+	CtrlRuntimeManager ctrlRuntime.Manager
+	Scheme             *runtime.Scheme
+
+	NodeSource *ciliumNodeSource
+}
+
+func registerReconciler(params reconcilerParams) error {
+	if !params.Config.StandaloneLbEnabled {
+		return nil
+	}
+
+	if err := isovalentv1alpha1.AddToScheme(params.Scheme); err != nil {
+		return fmt.Errorf("failed to add scheme: %w", err)
+	}
+
+	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource)
+
+	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("failed to setup standalone lb reconciler: %w", err)
+	}
+
+	return nil
 }

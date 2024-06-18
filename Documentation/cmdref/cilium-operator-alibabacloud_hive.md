@@ -79,7 +79,6 @@ cilium-operator-alibabacloud hive [flags]
       --k8s-kubeconfig-path string                                   Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kube-proxy-replacement string                                Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
-      --lb-enabled                                                   TODO
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.
       --max-connected-clusters uint32                                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
@@ -97,6 +96,7 @@ cilium-operator-alibabacloud hive [flags]
       --operator-prometheus-serve-addr string                        Address to serve Prometheus metrics (default ":9963")
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
+      --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
       --validate-network-policy                                      Whether to enable or disable the informational network policy validator (default true)
 ```
 
