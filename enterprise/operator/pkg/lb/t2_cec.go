@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.IsovalentLB) (*ciliumv2.CiliumEnvoyConfig, error) {
@@ -182,6 +183,11 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.
 			Name:      lb.Name,
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			NodeSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+					"lb.cilium.io/tier": "t2",
+				},
+			},
 			Resources: []ciliumv2.XDSResource{
 				{
 					Any: &anypb.Any{
