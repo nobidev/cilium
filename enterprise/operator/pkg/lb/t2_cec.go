@@ -40,17 +40,21 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	listener := r.desiredEnvoyListener(lbFrontend)
 
-	listenerBytes, err := proto.Marshal(&listener)
+	listenerXdsResource, err := toXdsResource(&listener, envoy.ListenerTypeURL)
 	if err != nil {
 		return nil, err
 	}
 
-	envoyResources = append(envoyResources, ciliumv2.XDSResource{
-		Any: &anypb.Any{
-			TypeUrl: envoy.ListenerTypeURL,
-			Value:   listenerBytes,
-		},
-	})
+	envoyResources = append(envoyResources, listenerXdsResource)
+
+	routeConfig := r.desiredEnvoyRouteConfig(lbFrontend)
+
+	routeConfigXdsResource, err := toXdsResource(&routeConfig, envoy.RouteTypeURL)
+	if err != nil {
+		return nil, err
+	}
+
+	envoyResources = append(envoyResources, routeConfigXdsResource)
 
 	// Backend(s)-> Envoy Cluster(s)
 
@@ -60,18 +64,12 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 	}
 
 	for _, c := range clusters {
-
-		clusterBytes, err := proto.Marshal(c)
+		clusterXdsResource, err := toXdsResource(c, envoy.ClusterTypeURL)
 		if err != nil {
 			return nil, err
 		}
 
-		envoyResources = append(envoyResources, ciliumv2.XDSResource{
-			Any: &anypb.Any{
-				TypeUrl: envoy.ClusterTypeURL,
-				Value:   clusterBytes,
-			},
-		})
+		envoyResources = append(envoyResources, clusterXdsResource)
 	}
 
 	return &ciliumv2.CiliumEnvoyConfig{
@@ -120,10 +118,9 @@ func (r *standaloneLbReconciler) desiredEnvoyListener(lbFrontend *lbFrontend) en
 										},
 									},
 								},
-								RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_RouteConfig{
-									RouteConfig: &envoy_config_route_v3.RouteConfiguration{
-										Name:         "local_route",
-										VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(lbFrontend),
+								RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
+									Rds: &envoy_hcm_v3.Rds{
+										RouteConfigName: "frontend_routeconfig",
 									},
 								},
 							}),
@@ -132,6 +129,13 @@ func (r *standaloneLbReconciler) desiredEnvoyListener(lbFrontend *lbFrontend) en
 				},
 			},
 		},
+	}
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyRouteConfig(lbFrontend *lbFrontend) envoy_config_route_v3.RouteConfiguration {
+	return envoy_config_route_v3.RouteConfiguration{
+		Name:         "frontend_routeconfig",
+		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(lbFrontend),
 	}
 }
 
@@ -177,7 +181,7 @@ func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(lbFrontend *lbF
 	for hostname, httpRoutes := range hostnameToHttpRoutes {
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
-				Name:    "local_service",
+				Name:    fmt.Sprintf("frontend_virtualhost_%s", hostname),
 				Domains: []string{hostname},
 				Routes:  httpRoutes,
 			},
@@ -282,6 +286,20 @@ func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_Lb
 	default:
 		return envoy_config_cluster_v3.Cluster_ROUND_ROBIN
 	}
+}
+
+func toXdsResource(m proto.Message, typeUrl string) (ciliumv2.XDSResource, error) {
+	protoBytes, err := proto.Marshal(m)
+	if err != nil {
+		return ciliumv2.XDSResource{}, err
+	}
+
+	return ciliumv2.XDSResource{
+		Any: &anypb.Any{
+			TypeUrl: typeUrl,
+			Value:   protoBytes,
+		},
+	}, nil
 }
 
 func toAny(message proto.Message) *anypb.Any {
