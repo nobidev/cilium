@@ -53,10 +53,14 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.
 	}
 	cluster := envoy_config_cluster_v3.Cluster{
 		Name: "cluster",
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STATIC,
+		},
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
+			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
 			HealthyPanicThreshold: &typev3.Percent{Value: 0.0},
 		},
-		ConnectTimeout: &durationpb.Duration{Seconds: 2},
+		ConnectTimeout: &durationpb.Duration{Seconds: 5}, // default
 		HealthChecks: []*corev3.HealthCheck{
 			{
 				HealthChecker: &corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &corev3.HealthCheck_HttpHealthCheck{
@@ -71,7 +75,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.
 				// T1's quarantine timeout
 				UnhealthyEdgeInterval: &durationpb.Duration{Seconds: 30},
 				// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
-				UnhealthyInterval: &durationpb.Duration{Seconds: int64(intervalDuration.Seconds())},
+				UnhealthyInterval: &durationpb.Duration{Seconds: int64(intervalDuration.Seconds() * 0.5)},
 			},
 		},
 		LbPolicy: envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
@@ -83,17 +87,6 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.
 				},
 			},
 		},
-		// Temporarily disable passive health checks
-		// OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
-		// 	ConsecutiveLocalOriginFailure:         &wrapperspb.UInt32Value{Value: 2},
-		// 	EnforcingFailurePercentage:            &wrapperspb.UInt32Value{Value: 100},
-		// 	EnforcingFailurePercentageLocalOrigin: &wrapperspb.UInt32Value{Value: 100},
-		// 	FailurePercentageMinimumHosts:         &wrapperspb.UInt32Value{Value: 1},
-		// 	FailurePercentageRequestVolume:        &wrapperspb.UInt32Value{Value: 1},
-		// 	MaxEjectionPercent:                    &wrapperspb.UInt32Value{Value: 100},
-		// 	MaxEjectionTime:                       &durationpb.Duration{Seconds: 30},
-		// 	SplitExternalLocalOriginErrors:        false,
-		// },
 	}
 	clusterBytes, err := proto.Marshal(&cluster)
 	if err != nil {
@@ -110,56 +103,70 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lb *isovalentv1alpha1.
 				Filters: []*envoy_config_listener_v3.Filter{
 					{
 						Name: "envoy.filters.network.http_connection_manager",
-						ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{TypedConfig: toAny(&http_connection_manager_v3.HttpConnectionManager{
-							CodecType: http_connection_manager_v3.HttpConnectionManager_AUTO,
-							HttpFilters: []*http_connection_manager_v3.HttpFilter{
-								{
-									Name: "envoy.filters.http.health_check",
-									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{TypedConfig: toAny(&health_check_v3.HealthCheck{
-										PassThroughMode: &wrapperspb.BoolValue{Value: false},
-										ClusterMinHealthyPercentages: map[string]*typev3.Percent{
-											"cluster": {
-												Value: 20,
-											},
+						ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+							TypedConfig: toAny(&http_connection_manager_v3.HttpConnectionManager{
+								StatPrefix: "listener_http",
+								CodecType:  http_connection_manager_v3.HttpConnectionManager_AUTO,
+								HttpFilters: []*http_connection_manager_v3.HttpFilter{
+									{
+										Name: "envoy.filters.http.health_check",
+										ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+											TypedConfig: toAny(&health_check_v3.HealthCheck{
+												PassThroughMode: &wrapperspb.BoolValue{Value: false},
+												ClusterMinHealthyPercentages: map[string]*typev3.Percent{
+													"cluster": {
+														Value: 20,
+													},
+												},
+												Headers: []*envoy_config_route_v3.HeaderMatcher{
+													{
+														HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: healthCheckHttpPath},
+														Name:                 ":path",
+													},
+													{
+														HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: healthCheckHttpMethod},
+														Name:                 ":method",
+													},
+												},
+											}),
 										},
-										Headers: []*envoy_config_route_v3.HeaderMatcher{
-											{
-												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: "/health"},
-												Name:                 ":path",
-											},
+									},
+									{
+										Name: "envoy.filters.http.router",
+										ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+											TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 										},
-									})},
-								},
-								{
-									Name: "envoy.filters.http.router",
-									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
-										TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 									},
 								},
-							},
-							RouteSpecifier: &http_connection_manager_v3.HttpConnectionManager_RouteConfig{
-								RouteConfig: &envoy_config_route_v3.RouteConfiguration{
-									Name: "local_route",
-									VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-										{
-											Name:    "local_service",
-											Domains: []string{"*"},
-											Routes: []*envoy_config_route_v3.Route{
-												{
-													Match: &envoy_config_route_v3.RouteMatch{PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{Prefix: "/"}},
-													Action: &envoy_config_route_v3.Route_Route{
-														Route: &envoy_config_route_v3.RouteAction{ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-															Cluster: "cluster",
-														}},
+								RouteSpecifier: &http_connection_manager_v3.HttpConnectionManager_RouteConfig{
+									RouteConfig: &envoy_config_route_v3.RouteConfiguration{
+										Name: "local_route",
+										VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+											{
+												Name:    "local_service",
+												Domains: []string{"*"},
+												Routes: []*envoy_config_route_v3.Route{
+													{
+														Match: &envoy_config_route_v3.RouteMatch{
+															PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+																Prefix: "/",
+															},
+														},
+														Action: &envoy_config_route_v3.Route_Route{
+															Route: &envoy_config_route_v3.RouteAction{
+																ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+																	Cluster: "cluster",
+																},
+															},
+														},
 													},
 												},
 											},
 										},
 									},
 								},
-							},
-							StatPrefix: "ingress_http",
-						})},
+							}),
+						},
 					},
 				},
 			},

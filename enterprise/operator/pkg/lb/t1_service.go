@@ -43,8 +43,8 @@ func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentL
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
 
 	// T1 -> T2 health checking
-	annotations[annotation.ServiceHealthHTTPPath] = "/health"
-	annotations[annotation.ServiceHealthHTTPMethod] = "GET"
+	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
+	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
 	annotations[annotation.ServiceHealthProbeInterval] = lb.Spec.Healthcheck.Interval
 	annotations[annotation.ServiceHealthProbeTimeout] = "5s"
 	annotations[annotation.ServiceHealthThresholdHealthy] = "2"
