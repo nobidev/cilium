@@ -34,6 +34,11 @@ func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentL
 	// LB IPAM
 	annotations[ossannotation.LBIPAMIPsKey] = lb.Spec.VIP
 
+	// Support different LB frontends having the same VIP but a different port
+	// For the sake of simplicity, the VIP itself is used as sharing key
+	annotations[ossannotation.LBIPAMSharingKey] = lb.Spec.VIP
+	annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
+
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
 
