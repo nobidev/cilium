@@ -36,14 +36,16 @@ type standaloneLbReconciler struct {
 	client     client.Client
 	scheme     *runtime.Scheme
 	nodeSource *ciliumNodeSource
+	ingestor   *ingestor
 }
 
-func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource) *standaloneLbReconciler {
+func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor) *standaloneLbReconciler {
 	return &standaloneLbReconciler{
 		logger:     logger,
 		client:     client,
 		scheme:     scheme,
 		nodeSource: nodeSource,
+		ingestor:   ingestor,
 	}
 }
 
@@ -105,15 +107,21 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 }
 
 func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb *isovalentv1alpha1.IsovalentLB) error {
-	// Build desired resources
-	desiredT1Service := r.desiredService(lb)
+	// Translate into internal model
+	lbFrontend, err := r.ingestor.ingest(lb)
+	if err != nil {
+		return fmt.Errorf("failed to ingest IsovalentLB into model: %w", err)
+	}
 
-	desiredT1Endpoints, err := r.desiredEndpoints(ctx, lb)
+	// Build desired resources
+	desiredT1Service := r.desiredService(lbFrontend)
+
+	desiredT1Endpoints, err := r.desiredEndpoints(ctx, lbFrontend)
 	if err != nil {
 		return err
 	}
 
-	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(lb)
+	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(lbFrontend)
 	if err != nil {
 		return err
 	}

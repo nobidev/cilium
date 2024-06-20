@@ -19,12 +19,11 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentLB) *corev1.Service {
+func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.Service {
 	labels := map[string]string{
 		"lb.cilium.io/tier": "t1",
 	}
@@ -32,12 +31,14 @@ func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentL
 	annotations := map[string]string{}
 
 	// LB IPAM
-	annotations[ossannotation.LBIPAMIPsKey] = lb.Spec.VIP
+	annotations[ossannotation.LBIPAMIPsKey] = lbFrontend.ip
 
 	// Support different LB frontends having the same VIP but a different port
 	// For the sake of simplicity, the VIP itself is used as sharing key
-	annotations[ossannotation.LBIPAMSharingKey] = lb.Spec.VIP
+	annotations[ossannotation.LBIPAMSharingKey] = lbFrontend.ip
 	annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
+
+	// TODO: should the following config be part of the lbFrontend model? (infra?)
 
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
@@ -45,16 +46,16 @@ func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentL
 	// T1 -> T2 health checking
 	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
 	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
-	annotations[annotation.ServiceHealthProbeInterval] = lb.Spec.Healthcheck.Interval
+	annotations[annotation.ServiceHealthProbeInterval] = "5s" // TODO: evaluate interval based on all backend healtcheck intervals?
 	annotations[annotation.ServiceHealthProbeTimeout] = "5s"
-	annotations[annotation.ServiceHealthThresholdHealthy] = "2"
+	annotations[annotation.ServiceHealthThresholdHealthy] = "2" // TODO: set threshold to 1 (healthy & unhealthy) as we want to directly use it once T2 flips over. Or is it enough to keep the probe interval low?
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "2"
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "30s"
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   lb.Namespace,
-			Name:        lb.Name,
+			Namespace:   lbFrontend.namespace,
+			Name:        lbFrontend.name,
 			Labels:      labels,
 			Annotations: annotations,
 		},
@@ -64,18 +65,19 @@ func (r *standaloneLbReconciler) desiredService(lb *isovalentv1alpha1.IsovalentL
 				{
 					Name:     "http",
 					Protocol: "TCP",
-					Port:     lb.Spec.Port,
+					Port:     lbFrontend.port,
 				},
 			},
 		},
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEndpoints(ctx context.Context, lb *isovalentv1alpha1.IsovalentLB) (*corev1.Endpoints, error) {
+func (r *standaloneLbReconciler) desiredEndpoints(ctx context.Context, lbFrontend *lbFrontend) (*corev1.Endpoints, error) {
 	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}
+
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
@@ -83,8 +85,8 @@ func (r *standaloneLbReconciler) desiredEndpoints(ctx context.Context, lb *isova
 
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: lb.Namespace,
-			Name:      lb.Name,
+			Namespace: lbFrontend.namespace,
+			Name:      lbFrontend.name,
 		},
 		Subsets: []corev1.EndpointSubset{
 			{

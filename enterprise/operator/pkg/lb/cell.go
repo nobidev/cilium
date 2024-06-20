@@ -63,7 +63,7 @@ func registerReconciler(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource)
+	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{})
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("failed to setup standalone lb reconciler: %w", err)
