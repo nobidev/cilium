@@ -192,8 +192,8 @@ func (r *standaloneLbReconciler) createOrUpdateService(ctx context.Context, desi
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, svc, func() error {
 		svc.Spec = desiredService.Spec
 		svc.OwnerReferences = desiredService.OwnerReferences
-		svc.Annotations = mergeMap(svc.Annotations, desiredService.Annotations)
-		svc.Labels = mergeMap(svc.Labels, desiredService.Labels)
+		svc.Annotations = desiredService.Annotations
+		svc.Labels = desiredService.Labels
 
 		return nil
 	})
@@ -212,8 +212,8 @@ func (r *standaloneLbReconciler) createOrUpdateEndpoints(ctx context.Context, de
 		result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
 			ep.Subsets = desiredEndpoints.Subsets
 			ep.OwnerReferences = desiredEndpoints.OwnerReferences
-			ep.Annotations = mergeMap(ep.Annotations, desiredEndpoints.Annotations)
-			ep.Labels = mergeMap(ep.Labels, desiredEndpoints.Labels)
+			ep.Annotations = desiredEndpoints.Annotations
+			ep.Labels = desiredEndpoints.Labels
 
 			return nil
 		})
@@ -246,8 +246,8 @@ func (r *standaloneLbReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Con
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, cec, func() error {
 		cec.Spec = desiredCEC.Spec
 		cec.OwnerReferences = desiredCEC.OwnerReferences
-		cec.Annotations = mergeMap(cec.Annotations, desiredCEC.Annotations)
-		cec.Labels = mergeMap(cec.Labels, desiredCEC.Labels)
+		cec.Annotations = desiredCEC.Annotations
+		cec.Labels = desiredCEC.Labels
 
 		return nil
 	})
@@ -258,23 +258,6 @@ func (r *standaloneLbReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Con
 	r.logger.Debugf("CiliumEnvoyConfig %s has been %s", client.ObjectKeyFromObject(cec), result)
 
 	return nil
-}
-
-// mergeMap merges the content from src into dst. Existing entries are overwritten.
-func mergeMap(dst, src map[string]string) map[string]string {
-	if src == nil {
-		return dst
-	}
-
-	if dst == nil {
-		dst = map[string]string{}
-	}
-
-	for key, value := range src {
-		dst[key] = value
-	}
-
-	return dst
 }
 
 func (r *standaloneLbReconciler) enqueueAllIsovalentLBs() handler.EventHandler {
