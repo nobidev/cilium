@@ -10,6 +10,9 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent},singular="isovalentlb",path="isovalentlbs",scope="Namespaced",shortName={ilb}
+// +kubebuilder:printcolumn:JSONPath=".spec.vip",name="Requested VIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.vip",name="Assigned VIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion

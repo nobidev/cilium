@@ -20,6 +20,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.vip
+      name: Requested VIP
+      type: string
+    - jsonPath: .status.vip
+      name: Assigned VIP
+      type: string
+    - jsonPath: .spec.port
+      name: Port
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
