@@ -94,8 +94,8 @@ func (r *standaloneLbReconciler) desiredEndpoints(ctx context.Context, lbFronten
 				Ports: []corev1.EndpointPort{
 					{
 						Name:     "http",
-						Port:     80,
 						Protocol: "TCP",
+						Port:     lbFrontend.port,
 					},
 				},
 			},
