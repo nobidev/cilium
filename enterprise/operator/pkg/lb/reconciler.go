@@ -103,6 +103,11 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return controllerruntime.Fail(fmt.Errorf("failed to reconcile IsovalentLB: %w", err))
 	}
 
+	// Status
+	if err := r.client.Status().Update(ctx, lb); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update IsovalentLB status: %w", err))
+	}
+
 	return controllerruntime.Success()
 }
 
@@ -125,6 +130,8 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 	if err != nil {
 		return fmt.Errorf("failed to ingest IsovalentLB into model: %w", err)
 	}
+
+	r.updateAssignedIpInStatus(lbFrontend, lb)
 
 	//
 	// T1
@@ -281,4 +288,12 @@ func (r *standaloneLbReconciler) enqueueAllIsovalentLBs() handler.EventHandler {
 
 		return result
 	})
+}
+
+func (*standaloneLbReconciler) updateAssignedIpInStatus(lbFrontend *lbFrontend, lb *isovalentv1alpha1.IsovalentLB) {
+	statusAssignedIP := "<pending>"
+	if lbFrontend.assignedIP != nil {
+		statusAssignedIP = *lbFrontend.assignedIP
+	}
+	lb.Status.VIP = statusAssignedIP
 }

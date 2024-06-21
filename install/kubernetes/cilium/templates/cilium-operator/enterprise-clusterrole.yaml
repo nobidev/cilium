@@ -50,6 +50,15 @@ rules:
 - apiGroups:
   - isovalent.com
   resources:
+  - isovalentlbs/status
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - isovalent.com
+  resources:
   - isovalentsrv6sidmanagers
   - isovalentlbs
   verbs:

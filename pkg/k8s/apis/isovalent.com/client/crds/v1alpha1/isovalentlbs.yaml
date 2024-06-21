@@ -82,10 +82,11 @@ spec:
           status:
             description: Status is a status .
             properties:
-              bar:
+              vip:
+                description: VIP is the VIP that is assigned to the IsovalentLB.
                 type: string
             required:
-            - bar
+            - vip
             type: object
         required:
         - spec

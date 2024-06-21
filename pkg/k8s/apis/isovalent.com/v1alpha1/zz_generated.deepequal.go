@@ -1313,7 +1313,7 @@ func (in *IsovalentLBStatus) DeepEqual(other *IsovalentLBStatus) bool {
 		return false
 	}
 
-	if in.Bar != other.Bar {
+	if in.VIP != other.VIP {
 		return false
 	}
 

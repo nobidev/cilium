@@ -61,8 +61,10 @@ type Healthcheck struct {
 }
 
 type IsovalentLBStatus struct {
+	// VIP is the VIP that is assigned to the IsovalentLB.
+	//
 	// +kubebuilder:validation:Required
-	Bar string `json:"bar"`
+	VIP string `json:"vip"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
