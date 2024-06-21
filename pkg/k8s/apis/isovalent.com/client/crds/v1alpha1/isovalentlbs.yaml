@@ -78,7 +78,6 @@ spec:
             - backends
             - healthcheck
             - port
-            - vip
             type: object
           status:
             description: Status is a status .

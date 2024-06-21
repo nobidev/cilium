@@ -1271,9 +1271,14 @@ func (in *IsovalentLBSpec) DeepEqual(other *IsovalentLBSpec) bool {
 		return false
 	}
 
-	if in.VIP != other.VIP {
+	if (in.VIP == nil) != (other.VIP == nil) {
 		return false
+	} else if in.VIP != nil {
+		if *in.VIP != *other.VIP {
+			return false
+		}
 	}
+
 	if in.Port != other.Port {
 		return false
 	}

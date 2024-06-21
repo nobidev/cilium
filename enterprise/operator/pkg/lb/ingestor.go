@@ -35,13 +35,11 @@ func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.S
 		return nil, fmt.Errorf("failed to parse HC interval: %w", err)
 	}
 
-	staticIP, assignedIP := getIPs(lb, t1Service)
-
 	return &lbFrontend{
 		namespace:  lb.Namespace,
 		name:       lb.Name,
-		staticIP:   staticIP,
-		assignedIP: assignedIP,
+		staticIP:   lb.Spec.VIP,
+		assignedIP: getAssignedIP(t1Service),
 		port:       lb.Spec.Port,
 		routes: []lbRoute{
 			{
@@ -76,18 +74,12 @@ func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.S
 	}, nil
 }
 
-// getIPs evaluates and returns the optionally configured static and actually assigned IP.
-func getIPs(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.Service) (*string, *string) {
-	var staticIP *string
-	var assignedIP *string
-
-	if lb.Spec.VIP != "" {
-		staticIP = &lb.Spec.VIP
-	}
-
+// getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the T1 Service.
+// If there's no assigned loadbalancer IP assigned yet, nil is returned instead.
+func getAssignedIP(t1Service *corev1.Service) *string {
 	if t1Service != nil && len(t1Service.Status.LoadBalancer.Ingress) > 0 && t1Service.Status.LoadBalancer.Ingress[0].IP != "" {
-		assignedIP = &t1Service.Status.LoadBalancer.Ingress[0].IP
+		return &t1Service.Status.LoadBalancer.Ingress[0].IP
 	}
 
-	return staticIP, assignedIP
+	return nil
 }

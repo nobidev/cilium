@@ -33,8 +33,8 @@ type IsovalentLB struct {
 }
 
 type IsovalentLBSpec struct {
-	// +kubebuilder:validation:Required
-	VIP string `json:"vip"`
+	// +kubebuilder:validation:Optional
+	VIP *string `json:"vip,omitempty"`
 
 	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
