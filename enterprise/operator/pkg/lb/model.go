@@ -15,11 +15,12 @@ package lb
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
 type lbFrontend struct {
-	namespace string
-	name      string
-	ip        string
-	port      int32
-	routes    []lbRoute
+	namespace  string
+	name       string
+	staticIP   *string
+	assignedIP *string
+	port       int32
+	routes     []lbRoute
 }
 
 type lbRoute struct {

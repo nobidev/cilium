@@ -11,6 +11,7 @@
 package lb
 
 import (
+	"errors"
 	"fmt"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -34,13 +35,17 @@ import (
 )
 
 func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
+	if lbFrontend.assignedIP == nil {
+		return nil, errors.New("no assigned IP")
+	}
+
 	envoyResources := []ciliumv2.XDSResource{}
 
 	// Frontend (with route(s)) -> Envoy Listener & Route(s)
 
 	listener := r.desiredEnvoyListener(lbFrontend)
 
-	listenerXdsResource, err := toXdsResource(&listener, envoy.ListenerTypeURL)
+	listenerXdsResource, err := toXdsResource(listener, envoy.ListenerTypeURL)
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +63,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	// Backend(s)-> Envoy Cluster(s)
 
-	clusters, err := r.desiredEnvoyClusters(lbFrontend)
-	if err != nil {
-		return nil, err
-	}
+	clusters := r.desiredEnvoyClusters(lbFrontend)
 
 	for _, c := range clusters {
 		clusterXdsResource, err := toXdsResource(c, envoy.ClusterTypeURL)
@@ -88,11 +90,11 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 	}, nil
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListener(lbFrontend *lbFrontend) envoy_config_listener_v3.Listener {
-	return envoy_config_listener_v3.Listener{
+func (r *standaloneLbReconciler) desiredEnvoyListener(lbFrontend *lbFrontend) *envoy_config_listener_v3.Listener {
+	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
 		Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
-			Address:       lbFrontend.ip,
+			Address:       *lbFrontend.assignedIP,
 			PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(lbFrontend.port)},
 		}}},
 		FilterChains: []*envoy_config_listener_v3.FilterChain{
@@ -216,7 +218,7 @@ func desiredHealthCheckFilter(lbFrontend *lbFrontend) *envoy_health_check_v3.Hea
 	return healthCheckFilter
 }
 
-func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) ([]*envoy_config_cluster_v3.Cluster, error) {
+func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
 	for i, route := range lbFrontend.routes {
@@ -276,7 +278,7 @@ func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) ([]*
 		clusters = append(clusters, &cluster)
 	}
 
-	return clusters, nil
+	return clusters
 }
 
 func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

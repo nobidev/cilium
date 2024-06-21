@@ -31,12 +31,14 @@ func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.
 	annotations := map[string]string{}
 
 	// LB IPAM
-	annotations[ossannotation.LBIPAMIPsKey] = lbFrontend.ip
+	if lbFrontend.staticIP != nil {
+		annotations[ossannotation.LBIPAMIPsKey] = *lbFrontend.staticIP
 
-	// Support different LB frontends having the same VIP but a different port
-	// For the sake of simplicity, the VIP itself is used as sharing key
-	annotations[ossannotation.LBIPAMSharingKey] = lbFrontend.ip
-	annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
+		// Support different LB frontends having the same VIP but a different port
+		// For the sake of simplicity, the VIP itself is used as sharing key
+		annotations[ossannotation.LBIPAMSharingKey] = *lbFrontend.staticIP
+		annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
+	}
 
 	// TODO: should the following config be part of the lbFrontend model? (infra?)
 

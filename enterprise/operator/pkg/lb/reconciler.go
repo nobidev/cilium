@@ -107,21 +107,33 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 }
 
 func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb *isovalentv1alpha1.IsovalentLB) error {
+	//
 	// Translate into internal model
-	lbFrontend, err := r.ingestor.ingest(lb)
+	//
+
+	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
+	existingT1Service := &corev1.Service{}
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(lb), existingT1Service); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get T1 Service: %w", err)
+		}
+
+		// Continue if not found
+	}
+
+	lbFrontend, err := r.ingestor.ingest(lb, existingT1Service)
 	if err != nil {
 		return fmt.Errorf("failed to ingest IsovalentLB into model: %w", err)
 	}
+
+	//
+	// T1
+	//
 
 	// Build desired resources
 	desiredT1Service := r.desiredService(lbFrontend)
 
 	desiredT1Endpoints, err := r.desiredEndpoints(ctx, lbFrontend)
-	if err != nil {
-		return err
-	}
-
-	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(lbFrontend)
 	if err != nil {
 		return err
 	}
@@ -135,10 +147,6 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 		return fmt.Errorf("failed to set ownerreference on T1 Endpoints: %w", err)
 	}
 
-	if err := controllerutil.SetControllerReference(lb, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
-		return fmt.Errorf("failed to set ownerreference on T2 CiliumEnvoyConfig: %w", err)
-	}
-
 	// Create or update resources
 	if err := r.createOrUpdateService(ctx, desiredT1Service); err != nil {
 		return err
@@ -148,6 +156,29 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 		return err
 	}
 
+	//
+	// T2
+	//
+
+	if lbFrontend.assignedIP == nil {
+		// Stop reconciliation as assigned IP is not available yet
+		// Any changes on the T1 Service (e.g. LB IPAM setting the loadbalancer ip in the status)
+		// will trigger an additional reconciliation.
+		return nil
+	}
+
+	// Build desired resources
+	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(lbFrontend)
+	if err != nil {
+		return err
+	}
+
+	// Set controlling ownerreferences
+	if err := controllerutil.SetControllerReference(lb, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
+		return fmt.Errorf("failed to set ownerreference on T2 CiliumEnvoyConfig: %w", err)
+	}
+
+	// Create or update resources
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredT2CiliumEnvoyConfig); err != nil {
 		return err
 	}

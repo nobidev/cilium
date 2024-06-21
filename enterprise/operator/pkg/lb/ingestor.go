@@ -13,13 +13,15 @@ package lb
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB) (*lbFrontend, error) {
+func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.Service) (*lbFrontend, error) {
 	ipBackends := []lbBackend{}
 	for _, ipb := range lb.Spec.Backends {
 		ipBackends = append(ipBackends, lbBackend{
@@ -33,11 +35,14 @@ func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB) (*lbFrontend, error
 		return nil, fmt.Errorf("failed to parse HC interval: %w", err)
 	}
 
+	staticIP, assignedIP := getIPs(lb, t1Service)
+
 	return &lbFrontend{
-		namespace: lb.Namespace,
-		name:      lb.Name,
-		ip:        lb.Spec.VIP,
-		port:      lb.Spec.Port,
+		namespace:  lb.Namespace,
+		name:       lb.Name,
+		staticIP:   staticIP,
+		assignedIP: assignedIP,
+		port:       lb.Spec.Port,
 		routes: []lbRoute{
 			{
 				http: &lbRouteHttp{
@@ -69,4 +74,20 @@ func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB) (*lbFrontend, error
 			},
 		},
 	}, nil
+}
+
+// getIPs evaluates and returns the optionally configured static and actually assigned IP.
+func getIPs(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.Service) (*string, *string) {
+	var staticIP *string
+	var assignedIP *string
+
+	if lb.Spec.VIP != "" {
+		staticIP = &lb.Spec.VIP
+	}
+
+	if t1Service != nil && len(t1Service.Status.LoadBalancer.Ingress) > 0 && t1Service.Status.LoadBalancer.Ingress[0].IP != "" {
+		assignedIP = &t1Service.Status.LoadBalancer.Ingress[0].IP
+	}
+
+	return staticIP, assignedIP
 }
