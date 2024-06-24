@@ -74,12 +74,7 @@ func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEndpoints(ctx context.Context, lbFrontend *lbFrontend) (*corev1.Endpoints, error) {
-	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
-	}
-
+func (r *standaloneLbReconciler) desiredEndpoints(lbFrontend *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})

@@ -11,7 +11,6 @@
 package lb
 
 import (
-	"errors"
 	"fmt"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -36,7 +35,7 @@ import (
 
 func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
 	if lbFrontend.assignedIP == nil {
-		return nil, errors.New("no assigned IP")
+		return nil, nil
 	}
 
 	envoyResources := []ciliumv2.XDSResource{}

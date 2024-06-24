@@ -140,7 +140,12 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 	// Build desired resources
 	desiredT1Service := r.desiredService(lbFrontend)
 
-	desiredT1Endpoints, err := r.desiredEndpoints(ctx, lbFrontend)
+	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+	}
+
+	desiredT1Endpoints, err := r.desiredEndpoints(lbFrontend, t2NodeIPs)
 	if err != nil {
 		return err
 	}
