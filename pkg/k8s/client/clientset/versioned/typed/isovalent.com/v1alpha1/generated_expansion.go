@@ -27,8 +27,6 @@ type IsovalentClusterwideEncryptionPolicyExpansion interface{}
 
 type IsovalentFQDNGroupExpansion interface{}
 
-type IsovalentLBExpansion interface{}
-
 type IsovalentMeshEndpointExpansion interface{}
 
 type IsovalentMulticastGroupExpansion interface{}
@@ -44,3 +42,5 @@ type IsovalentSRv6LocatorPoolExpansion interface{}
 type IsovalentSRv6SIDManagerExpansion interface{}
 
 type IsovalentVRFExpansion interface{}
+
+type LBFrontendExpansion interface{}

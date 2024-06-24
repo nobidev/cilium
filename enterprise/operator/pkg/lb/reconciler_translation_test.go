@@ -57,8 +57,8 @@ func TestTranslation(t *testing.T) {
 func testTranslationSingle(tc testcase) func(t *testing.T) {
 	return func(t *testing.T) {
 		// read input files
-		inputLb := &isovalentv1alpha1.IsovalentLB{}
-		readInputCR(t, fmt.Sprintf("./testdata/translation/%s/input-ilb.yaml", tc.name), inputLb)
+		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
+		readInputCR(t, fmt.Sprintf("./testdata/translation/%s/input-lbfrontend.yaml", tc.name), inputLBFrontend)
 
 		var inputService *corev1.Service
 		if _, err := os.Stat(fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name)); err == nil {
@@ -73,7 +73,8 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 
 		// ingestion
 		ing := &ingestor{}
-		model, err := ing.ingest(inputLb, inputService)
+
+		model, err := ing.ingest(inputLBFrontend, inputService)
 		require.NoError(t, err)
 
 		// translation

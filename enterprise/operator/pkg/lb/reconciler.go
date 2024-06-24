@@ -53,16 +53,16 @@ func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, 
 // the different watches. All the watcher trigger a reconciliation.
 func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Watch for changed IsovalentLb resources (main resource)
-		For(&isovalentv1alpha1.IsovalentLB{}).
-		// T1 Service resource with OwnerReference to the IsovalentLb
+		// Watch for changed LBFrontend resources (main resource)
+		For(&isovalentv1alpha1.LBFrontend{}).
+		// T1 Service resource with OwnerReference to the LBFrontend
 		Owns(&corev1.Service{}).
-		// T1 Endpoints resource with OwnerReference to the IsovalentLb
+		// T1 Endpoints resource with OwnerReference to the LBFrontend
 		Owns(&corev1.Endpoints{}).
-		// T2 CiliumEnvoyConfig resource with OwnerReference to the IsovalentLb
+		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBFrontend
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		// CiliumNode changes should trigger a reconciliation of all IsovalentLBs T1 Endpoints addresses (T2 nodes))
-		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllIsovalentLBs())).
+		// CiliumNode changes should trigger a reconciliation of all LBFrontends T1 Endpoints addresses (T2 nodes))
+		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBFrontends())).
 		Complete(r)
 }
 
@@ -73,45 +73,45 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		logfields.Resource:   req.NamespacedName,
 	})
 
-	scopedLog.Info("Reconciling IsovalentLB")
-	lb := &isovalentv1alpha1.IsovalentLB{}
+	scopedLog.Info("Reconciling LBFrontend")
+	lb := &isovalentv1alpha1.LBFrontend{}
 	if err := r.client.Get(ctx, req.NamespacedName, lb); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return controllerruntime.Fail(fmt.Errorf("failed to get IsovalentLB: %w", err))
+			return controllerruntime.Fail(fmt.Errorf("failed to get LBFrontend: %w", err))
 		}
 
 		return controllerruntime.Success()
 	}
 
-	// IsovalentLB gets deleted via foreground deletion (DeletionTimestamp set)
+	// LBFrontend gets deleted via foreground deletion (DeletionTimestamp set)
 	// -> abort and wait for the actual deletion to trigger a reconcile
 	if lb.GetDeletionTimestamp() != nil {
-		scopedLog.Debug("IsovalentLB is marked for deletion - waiting for actual deletion")
+		scopedLog.Debug("LBFrontend is marked for deletion - waiting for actual deletion")
 		return controllerruntime.Success()
 	}
 
 	if err := r.createOrUpdateResources(ctx, lb); err != nil {
 		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
 			// The creation of one of the resources failed because the
-			// namespace is terminating. The IsovalentLb resource itself is also expected
+			// namespace is terminating. The LBFrontend resource itself is also expected
 			// to be marked for deletion, but we haven't yet received the
 			// corresponding event, so let's not print an error message.
 			scopedLog.Info("Aborting reconciliation because namespace is being terminated")
 			return controllerruntime.Success()
 		}
 
-		return controllerruntime.Fail(fmt.Errorf("failed to reconcile IsovalentLB: %w", err))
+		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBFrontend: %w", err))
 	}
 
 	// Status
 	if err := r.client.Status().Update(ctx, lb); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update IsovalentLB status: %w", err))
+		return controllerruntime.Fail(fmt.Errorf("failed to update LBFrontend status: %w", err))
 	}
 
 	return controllerruntime.Success()
 }
 
-func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb *isovalentv1alpha1.IsovalentLB) error {
+func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb *isovalentv1alpha1.LBFrontend) error {
 	//
 	// Translate into internal model
 	//
@@ -128,7 +128,7 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 
 	lbFrontend, err := r.ingestor.ingest(lb, existingT1Service)
 	if err != nil {
-		return fmt.Errorf("failed to ingest IsovalentLB into model: %w", err)
+		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
 	}
 
 	r.updateAssignedIpInStatus(lbFrontend, lb)
@@ -272,11 +272,11 @@ func (r *standaloneLbReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Con
 	return nil
 }
 
-func (r *standaloneLbReconciler) enqueueAllIsovalentLBs() handler.EventHandler {
+func (r *standaloneLbReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		lbList := isovalentv1alpha1.IsovalentLBList{}
+		lbList := isovalentv1alpha1.LBFrontendList{}
 		if err := r.client.List(ctx, &lbList); err != nil {
-			r.logger.WithError(err).Warn("Failed to list IsovalentLBs")
+			r.logger.WithError(err).Warn("Failed to list LBFrontends")
 			return nil
 		}
 
@@ -295,7 +295,7 @@ func (r *standaloneLbReconciler) enqueueAllIsovalentLBs() handler.EventHandler {
 	})
 }
 
-func (*standaloneLbReconciler) updateAssignedIpInStatus(lbFrontend *lbFrontend, lb *isovalentv1alpha1.IsovalentLB) {
+func (*standaloneLbReconciler) updateAssignedIpInStatus(lbFrontend *lbFrontend, lb *isovalentv1alpha1.LBFrontend) {
 	statusAssignedIP := "<pending>"
 	if lbFrontend.assignedIP != nil {
 		statusAssignedIP = *lbFrontend.assignedIP

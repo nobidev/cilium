@@ -39,7 +39,7 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          isovalentbgpnodeconfigoverrides \
                          isovalentbgpvrfconfigs \
                          isovalentclusterwideencryptionpolicies \
-                         isovalentlbs"
+                         lbfrontends"
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
 go run sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${CRD_PATHS}" output:crd:artifacts:config="${TMPDIR}"
@@ -47,15 +47,15 @@ go run ${SCRIPT_ROOT}/../../tools/crdcheck "${TMPDIR}"
 
 # Clean up old CRD state and start with a blank state.
 for path in ${CRDS_ISOVALENT_PATHS}; do
-  rm -rf "${path}" && mkdir "${path}"
+	rm -rf "${path}" && mkdir "${path}"
 done
 
 for file in ${CRDS_ISOVALENT_V1}; do
-  mv "${TMPDIR}/isovalent.com_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1/${file}.yaml";
+	mv "${TMPDIR}/isovalent.com_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1/${file}.yaml"
 done
 
 for file in ${CRDS_ISOVALENT_V1ALPHA1}; do
-  mv "${TMPDIR}/isovalent.com_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/${file}.yaml";
+	mv "${TMPDIR}/isovalent.com_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/${file}.yaml"
 done
 
 rm -rf "${TMPDIR}"

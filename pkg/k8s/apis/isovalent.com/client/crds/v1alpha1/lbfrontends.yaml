@@ -4,19 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: isovalentlbs.isovalent.com
+  name: lbfrontends.isovalent.com
 spec:
   group: isovalent.com
   names:
     categories:
     - cilium
     - isovalent
-    kind: IsovalentLB
-    listKind: IsovalentLBList
-    plural: isovalentlbs
+    - loadbalancer
+    kind: LBFrontend
+    listKind: LBFrontendList
+    plural: lbfrontends
     shortNames:
-    - ilb
-    singular: isovalentlb
+    - lbfe
+    singular: lbfrontend
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -92,7 +93,7 @@ spec:
             description: Status is a status .
             properties:
               vip:
-                description: VIP is the VIP that is assigned to the IsovalentLB.
+                description: VIP is the VIP that is assigned to the loadbalancer frontend.
                 type: string
             required:
             - vip

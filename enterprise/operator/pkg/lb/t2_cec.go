@@ -33,8 +33,8 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
-	if lbFrontend.assignedIP == nil {
+func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
+	if model.assignedIP == nil {
 		return nil, nil
 	}
 
@@ -42,7 +42,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	// Frontend (with route(s)) -> Envoy Listener & Route(s)
 
-	listener := r.desiredEnvoyListener(lbFrontend)
+	listener := r.desiredEnvoyListener(model)
 
 	listenerXdsResource, err := toXdsResource(listener, envoy.ListenerTypeURL)
 	if err != nil {
@@ -51,7 +51,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	envoyResources = append(envoyResources, listenerXdsResource)
 
-	routeConfig := r.desiredEnvoyRouteConfig(lbFrontend)
+	routeConfig := r.desiredEnvoyRouteConfig(model)
 
 	routeConfigXdsResource, err := toXdsResource(&routeConfig, envoy.RouteTypeURL)
 	if err != nil {
@@ -62,7 +62,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	// Backend(s)-> Envoy Cluster(s)
 
-	clusters := r.desiredEnvoyClusters(lbFrontend)
+	clusters := r.desiredEnvoyClusters(model)
 
 	for _, c := range clusters {
 		clusterXdsResource, err := toXdsResource(c, envoy.ClusterTypeURL)
@@ -75,8 +75,8 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(lbFrontend *lbFrontend
 
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: lbFrontend.namespace,
-			Name:      lbFrontend.name,
+			Namespace: model.namespace,
+			Name:      model.name,
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{

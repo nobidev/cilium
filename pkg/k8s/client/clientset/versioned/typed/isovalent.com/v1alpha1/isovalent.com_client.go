@@ -26,7 +26,6 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentBGPVRFConfigsGetter
 	IsovalentClusterwideEncryptionPoliciesGetter
 	IsovalentFQDNGroupsGetter
-	IsovalentLBsGetter
 	IsovalentMeshEndpointsGetter
 	IsovalentMulticastGroupsGetter
 	IsovalentMulticastNodesGetter
@@ -35,6 +34,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentSRv6LocatorPoolsGetter
 	IsovalentSRv6SIDManagersGetter
 	IsovalentVRFsGetter
+	LBFrontendsGetter
 }
 
 // IsovalentV1alpha1Client is used to interact with features provided by the isovalent.com group.
@@ -86,10 +86,6 @@ func (c *IsovalentV1alpha1Client) IsovalentFQDNGroups() IsovalentFQDNGroupInterf
 	return newIsovalentFQDNGroups(c)
 }
 
-func (c *IsovalentV1alpha1Client) IsovalentLBs(namespace string) IsovalentLBInterface {
-	return newIsovalentLBs(c, namespace)
-}
-
 func (c *IsovalentV1alpha1Client) IsovalentMeshEndpoints(namespace string) IsovalentMeshEndpointInterface {
 	return newIsovalentMeshEndpoints(c, namespace)
 }
@@ -120,6 +116,10 @@ func (c *IsovalentV1alpha1Client) IsovalentSRv6SIDManagers() IsovalentSRv6SIDMan
 
 func (c *IsovalentV1alpha1Client) IsovalentVRFs() IsovalentVRFInterface {
 	return newIsovalentVRFs(c)
+}
+
+func (c *IsovalentV1alpha1Client) LBFrontends(namespace string) LBFrontendInterface {
+	return newLBFrontends(c, namespace)
 }
 
 // NewForConfig creates a new IsovalentV1alpha1Client for the given config.

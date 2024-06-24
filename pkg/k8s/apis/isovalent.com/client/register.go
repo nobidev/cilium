@@ -89,8 +89,8 @@ const (
 	// IsovalentClusterwideEncryptionPolicyCRDName is the full name of the IsovalentClusterwideEncryptionPolicyCRDName CRD.
 	IsovalentClusterwideEncryptionPolicyCRDName = k8sconstv1alpha1.ICEPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
-	// IsovalentLBCRDName is the full name of the IsovalentLB CRD.
-	IsovalentLBCRDName = k8sconstv1alpha1.IsovalentLBKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	// LBFrontendCRDName is the full name of the LBFrontend CRD.
+	LBFrontendCRDName = k8sconstv1alpha1.LBFrontendKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -124,7 +124,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName): createBGPNodeConfigOverrideCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentLBName):                    createFooCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.LBFrontendName):                     createLBFrontendCRD,
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -200,8 +200,8 @@ var (
 	//go:embed crds/v1alpha1/isovalentclusterwideencryptionpolicies.yaml
 	crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides []byte
 
-	//go:embed crds/v1alpha1/isovalentlbs.yaml
-	crdsv1Alpha1IsovalentLBs []byte
+	//go:embed crds/v1alpha1/lbfrontends.yaml
+	crdsv1Alpha1LBFrontends []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -257,8 +257,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1IsovalentBGPVRFConfigs
 	case IsovalentClusterwideEncryptionPolicyCRDName:
 		crdBytes = crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides
-	case IsovalentLBCRDName:
-		crdBytes = crdsv1Alpha1IsovalentLBs
+	case LBFrontendCRDName:
+		crdBytes = crdsv1Alpha1LBFrontends
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -532,13 +532,13 @@ func createICEPCRD(clientset apiextensionsclient.Interface) error {
 	)
 }
 
-// createBFDNodeConfigCRD creates and updates the IsovalentBFDNodeConfig CRD.
-func createFooCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentLBCRDName)
+// createLBFrontendCRD creates and updates the LBFrontend CRD.
+func createLBFrontendCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(LBFrontendCRDName)
 
 	return crdhelpers.CreateUpdateCRD(
 		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentLBName, ciliumCRD),
+		constructV1CRD(k8sconstv1alpha1.LBFrontendName, ciliumCRD),
 		crdhelpers.NewDefaultPoller(),
 		k8sconst.CustomResourceDefinitionSchemaVersionKey,
 		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),

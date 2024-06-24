@@ -59,10 +59,6 @@ func (c *FakeIsovalentV1alpha1) IsovalentFQDNGroups() v1alpha1.IsovalentFQDNGrou
 	return &FakeIsovalentFQDNGroups{c}
 }
 
-func (c *FakeIsovalentV1alpha1) IsovalentLBs(namespace string) v1alpha1.IsovalentLBInterface {
-	return &FakeIsovalentLBs{c, namespace}
-}
-
 func (c *FakeIsovalentV1alpha1) IsovalentMeshEndpoints(namespace string) v1alpha1.IsovalentMeshEndpointInterface {
 	return &FakeIsovalentMeshEndpoints{c, namespace}
 }
@@ -93,6 +89,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentSRv6SIDManagers() v1alpha1.IsovalentSRv
 
 func (c *FakeIsovalentV1alpha1) IsovalentVRFs() v1alpha1.IsovalentVRFInterface {
 	return &FakeIsovalentVRFs{c}
+}
+
+func (c *FakeIsovalentV1alpha1) LBFrontends(namespace string) v1alpha1.LBFrontendInterface {
+	return &FakeLBFrontends{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

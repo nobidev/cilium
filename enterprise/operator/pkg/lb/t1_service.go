@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.Service {
+func (r *standaloneLbReconciler) desiredService(model *lbFrontend) *corev1.Service {
 	labels := map[string]string{
 		"lb.cilium.io/tier": "t1",
 	}
@@ -31,12 +31,12 @@ func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.
 	annotations := map[string]string{}
 
 	// LB IPAM
-	if lbFrontend.staticIP != nil {
-		annotations[ossannotation.LBIPAMIPsKey] = *lbFrontend.staticIP
+	if model.staticIP != nil {
+		annotations[ossannotation.LBIPAMIPsKey] = *model.staticIP
 
 		// Support different LB frontends having the same VIP but a different port
 		// For the sake of simplicity, the VIP itself is used as sharing key
-		annotations[ossannotation.LBIPAMSharingKey] = *lbFrontend.staticIP
+		annotations[ossannotation.LBIPAMSharingKey] = *model.staticIP
 		annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
 	}
 
@@ -56,8 +56,8 @@ func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   lbFrontend.namespace,
-			Name:        lbFrontend.name,
+			Namespace:   model.namespace,
+			Name:        model.name,
 			Labels:      labels,
 			Annotations: annotations,
 		},
@@ -67,14 +67,14 @@ func (r *standaloneLbReconciler) desiredService(lbFrontend *lbFrontend) *corev1.
 				{
 					Name:     "http",
 					Protocol: "TCP",
-					Port:     lbFrontend.port,
+					Port:     model.port,
 				},
 			},
 		},
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEndpoints(lbFrontend *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
+func (r *standaloneLbReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
@@ -82,8 +82,8 @@ func (r *standaloneLbReconciler) desiredEndpoints(lbFrontend *lbFrontend, t2Node
 
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: lbFrontend.namespace,
-			Name:      lbFrontend.name,
+			Namespace: model.namespace,
+			Name:      model.name,
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
@@ -92,7 +92,7 @@ func (r *standaloneLbReconciler) desiredEndpoints(lbFrontend *lbFrontend, t2Node
 					{
 						Name:     "http",
 						Protocol: "TCP",
-						Port:     lbFrontend.port,
+						Port:     model.port,
 					},
 				},
 			},

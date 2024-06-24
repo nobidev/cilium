@@ -33,8 +33,6 @@ type Interface interface {
 	IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInformer
 	// IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 	IsovalentFQDNGroups() IsovalentFQDNGroupInformer
-	// IsovalentLBs returns a IsovalentLBInformer.
-	IsovalentLBs() IsovalentLBInformer
 	// IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.
 	IsovalentMeshEndpoints() IsovalentMeshEndpointInformer
 	// IsovalentMulticastGroups returns a IsovalentMulticastGroupInformer.
@@ -51,6 +49,8 @@ type Interface interface {
 	IsovalentSRv6SIDManagers() IsovalentSRv6SIDManagerInformer
 	// IsovalentVRFs returns a IsovalentVRFInformer.
 	IsovalentVRFs() IsovalentVRFInformer
+	// LBFrontends returns a LBFrontendInformer.
+	LBFrontends() LBFrontendInformer
 }
 
 type version struct {
@@ -119,11 +119,6 @@ func (v *version) IsovalentFQDNGroups() IsovalentFQDNGroupInformer {
 	return &isovalentFQDNGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// IsovalentLBs returns a IsovalentLBInformer.
-func (v *version) IsovalentLBs() IsovalentLBInformer {
-	return &isovalentLBInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.
 func (v *version) IsovalentMeshEndpoints() IsovalentMeshEndpointInformer {
 	return &isovalentMeshEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -162,4 +157,9 @@ func (v *version) IsovalentSRv6SIDManagers() IsovalentSRv6SIDManagerInformer {
 // IsovalentVRFs returns a IsovalentVRFInformer.
 func (v *version) IsovalentVRFs() IsovalentVRFInformer {
 	return &isovalentVRFInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// LBFrontends returns a LBFrontendInformer.
+func (v *version) LBFrontends() LBFrontendInformer {
+	return &lBFrontendInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

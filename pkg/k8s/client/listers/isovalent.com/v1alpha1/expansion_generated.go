@@ -49,14 +49,6 @@ type IsovalentClusterwideEncryptionPolicyListerExpansion interface{}
 // IsovalentFQDNGroupLister.
 type IsovalentFQDNGroupListerExpansion interface{}
 
-// IsovalentLBListerExpansion allows custom methods to be added to
-// IsovalentLBLister.
-type IsovalentLBListerExpansion interface{}
-
-// IsovalentLBNamespaceListerExpansion allows custom methods to be added to
-// IsovalentLBNamespaceLister.
-type IsovalentLBNamespaceListerExpansion interface{}
-
 // IsovalentMeshEndpointListerExpansion allows custom methods to be added to
 // IsovalentMeshEndpointLister.
 type IsovalentMeshEndpointListerExpansion interface{}
@@ -92,3 +84,11 @@ type IsovalentSRv6SIDManagerListerExpansion interface{}
 // IsovalentVRFListerExpansion allows custom methods to be added to
 // IsovalentVRFLister.
 type IsovalentVRFListerExpansion interface{}
+
+// LBFrontendListerExpansion allows custom methods to be added to
+// LBFrontendLister.
+type LBFrontendListerExpansion interface{}
+
+// LBFrontendNamespaceListerExpansion allows custom methods to be added to
+// LBFrontendNamespaceLister.
+type LBFrontendNamespaceListerExpansion interface{}

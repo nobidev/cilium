@@ -104,10 +104,10 @@ const (
 	ICEPKindDefinition = "IsovalentClusterwideEncryptionPolicy"
 	ICEPName           = ICEPPluralName + "." + CustomResourceDefinitionGroup
 
-	// IsovalentLB
-	IsovalentLBPluralName     = "isovalentlbs"
-	IsovalentLBKindDefinition = "IsovalentLB"
-	IsovalentLBName           = IsovalentLBPluralName + "." + CustomResourceDefinitionGroup
+	// LBFrontend
+	LBFrontendPluralName     = "lbfrontends"
+	LBFrontendKindDefinition = "LBFrontend"
+	LBFrontendName           = LBFrontendPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -188,8 +188,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentBGPVRFConfig{},
 		&IsovalentBGPVRFConfigList{},
 		&IsovalentClusterwideEncryptionPolicy{},
-		&IsovalentLB{},
-		&IsovalentLBList{},
+		&LBFrontend{},
+		&LBFrontendList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

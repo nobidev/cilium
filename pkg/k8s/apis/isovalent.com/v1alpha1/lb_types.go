@@ -9,7 +9,7 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium,isovalent},singular="isovalentlb",path="isovalentlbs",scope="Namespaced",shortName={ilb}
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbfrontend",path="lbfrontends",scope="Namespaced",shortName={lbfe}
 // +kubebuilder:printcolumn:JSONPath=".spec.vip",name="Requested VIP",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.vip",name="Assigned VIP",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
@@ -17,7 +17,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-type IsovalentLB struct {
+type LBFrontend struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 
@@ -27,15 +27,15 @@ type IsovalentLB struct {
 	// Spec is a spec .
 	//
 	// +kubebuilder:validation:Required
-	Spec IsovalentLBSpec `json:"spec"`
+	Spec LBFrontendSpec `json:"spec"`
 
 	// Status is a status .
 	//
 	// +kubebuilder:validation:Optional
-	Status IsovalentLBStatus `json:"status,omitempty"`
+	Status LBFrontendStatus `json:"status,omitempty"`
 }
 
-type IsovalentLBSpec struct {
+type LBFrontendSpec struct {
 	// +kubebuilder:validation:Optional
 	VIP *string `json:"vip,omitempty"`
 
@@ -63,8 +63,8 @@ type Healthcheck struct {
 	Interval string `json:"interval"`
 }
 
-type IsovalentLBStatus struct {
-	// VIP is the VIP that is assigned to the IsovalentLB.
+type LBFrontendStatus struct {
+	// VIP is the VIP that is assigned to the loadbalancer frontend.
 	//
 	// +kubebuilder:validation:Required
 	VIP string `json:"vip"`
@@ -74,11 +74,11 @@ type IsovalentLBStatus struct {
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
 
-type IsovalentLBList struct {
+type LBFrontendList struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []IsovalentLB `json:"items"`
+	Items []LBFrontend `json:"items"`
 }

@@ -37,7 +37,7 @@ rules:
 {{- if .Values.enterprise.ciliummesh.enabled }}
   - isovalentmeshendpoints.isovalent.com
 {{- end }}
-  - isovalentlbs.isovalent.com
+  - lbfrontends.isovalent.com
 - apiGroups:
   - isovalent.com
   resources:
@@ -50,7 +50,7 @@ rules:
 - apiGroups:
   - isovalent.com
   resources:
-  - isovalentlbs/status
+  - lbfrontends/status
   verbs:
   - get
   - list
@@ -60,7 +60,7 @@ rules:
   - isovalent.com
   resources:
   - isovalentsrv6sidmanagers
-  - isovalentlbs
+  - lbfrontends
   verbs:
   - get
   - list
@@ -174,7 +174,7 @@ rules:
   - delete
   - patch
 {{- end }}
-# TODO: Wrap within Helm value for L7LB CRD and IsovalentLB
+# TODO: Wrap within Helm value for L7LB CRD and LBFrontend
 - apiGroups:
   - ""
   resources:

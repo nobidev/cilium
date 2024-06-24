@@ -21,26 +21,26 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(lb *isovalentv1alpha1.IsovalentLB, t1Service *corev1.Service) (*lbFrontend, error) {
+func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, t1Service *corev1.Service) (*lbFrontend, error) {
 	ipBackends := []lbBackend{}
-	for _, ipb := range lb.Spec.Backends {
+	for _, ipb := range frontend.Spec.Backends {
 		ipBackends = append(ipBackends, lbBackend{
 			address: ipb.IP,
 			port:    uint32(ipb.Port),
 		})
 	}
 
-	intervalDuration, err := time.ParseDuration(lb.Spec.Healthcheck.Interval)
+	intervalDuration, err := time.ParseDuration(frontend.Spec.Healthcheck.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HC interval: %w", err)
 	}
 
 	return &lbFrontend{
-		namespace:  lb.Namespace,
-		name:       lb.Name,
-		staticIP:   lb.Spec.VIP,
+		namespace:  frontend.Namespace,
+		name:       frontend.Name,
+		staticIP:   frontend.Spec.VIP,
 		assignedIP: getAssignedIP(t1Service),
-		port:       lb.Spec.Port,
+		port:       frontend.Spec.Port,
 		routes: []lbRoute{
 			{
 				http: &lbRouteHttp{
