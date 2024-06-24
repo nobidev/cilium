@@ -1,0 +1,81 @@
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: lb-1
+  namespace: default
+spec:
+  nodeSelector:
+    matchLabels:
+      lb.cilium.io/tier: t2
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      address:
+        socketAddress:
+          address: 100.64.0.1
+          portValue: 80
+      filterChains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                httpFilters:
+                  - name: envoy.filters.http.health_check
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
+                      clusterMinHealthyPercentages:
+                        backend_cluster_0:
+                          value: 20
+                      headers:
+                        - exactMatch: /health
+                          name: :path
+                        - exactMatch: GET
+                          name: :method
+                      passThroughMode: false
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                rds:
+                  routeConfigName: frontend_routeconfig
+                statPrefix: frontend_listener_http
+      name: frontend_listener
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: frontend_routeconfig
+      virtualHosts:
+        - domains:
+            - "*"
+          name: frontend_virtualhost_*
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_0
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 2
+          httpHealthCheck:
+            host: envoy
+            path: /health
+          interval: 1000s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 1000s
+          unhealthyThreshold: 2
+      loadAssignment:
+        clusterName: backend_cluster_0
+        endpoints:
+          - lbEndpoints:
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.5
+                      portValue: 8080
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.6
+                      portValue: 8080
+      name: backend_cluster_0
+      type: STATIC
