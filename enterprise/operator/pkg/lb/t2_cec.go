@@ -221,11 +221,11 @@ func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) []*e
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
 	for i, route := range lbFrontend.routes {
-		backendGroup := route.backendGroup
+		backend := route.backend
 
-		lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(backendGroup.ips))
+		lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(backend.ips))
 
-		for _, ipBackends := range backendGroup.ips {
+		for _, ipBackends := range backend.ips {
 			lbEndpoints = append(lbEndpoints, &envoy_endpointv3.LbEndpoint{
 				HostIdentifier: &envoy_endpointv3.LbEndpoint_Endpoint{Endpoint: &envoy_endpointv3.Endpoint{
 					Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
@@ -250,20 +250,20 @@ func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) []*e
 				{
 					// TODO: create HC depending on health check type
 					HealthChecker: &envoy_corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
-						Host: backendGroup.healthCheckConfig.http.host,
-						Path: backendGroup.healthCheckConfig.http.path,
+						Host: backend.healthCheckConfig.http.host,
+						Path: backend.healthCheckConfig.http.path,
 					}},
-					Interval:           &durationpb.Duration{Seconds: int64(backendGroup.healthCheckConfig.intervalSeconds)},
-					Timeout:            &durationpb.Duration{Seconds: int64(backendGroup.healthCheckConfig.timeoutSeconds)},
-					HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(backendGroup.healthCheckConfig.healthyThreshold)},
-					UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(backendGroup.healthCheckConfig.unhealthyThreshold)},
+					Interval:           &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.intervalSeconds)},
+					Timeout:            &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.timeoutSeconds)},
+					HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.healthyThreshold)},
+					UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.unhealthyThreshold)},
 					// T1's quarantine timeout
-					UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(backendGroup.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
+					UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
 					// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
-					UnhealthyInterval: &durationpb.Duration{Seconds: int64(backendGroup.healthCheckConfig.unhealthyIntervalSeconds)},
+					UnhealthyInterval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyIntervalSeconds)},
 				},
 			},
-			LbPolicy: mapLbPolicy(backendGroup.lbAlgorithm),
+			LbPolicy: mapLbPolicy(backend.lbAlgorithm),
 			LoadAssignment: &envoy_endpointv3.ClusterLoadAssignment{
 				ClusterName: fmt.Sprintf("backend_cluster_%d", i),
 				Endpoints: []*envoy_endpointv3.LocalityLbEndpoints{

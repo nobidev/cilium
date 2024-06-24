@@ -51,7 +51,7 @@ func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, t1Service *cor
 				},
 				tls: nil,
 				tcp: nil,
-				backendGroup: lbBackendGroup{
+				backend: backend{
 					ips:         ipBackends,
 					hostnames:   []lbBackend{},
 					lbAlgorithm: lbAlgorithmRoundRobin,

@@ -24,10 +24,10 @@ type lbFrontend struct {
 }
 
 type lbRoute struct {
-	http         *lbRouteHttp
-	tls          *lbRouteTls
-	tcp          *lbRouteTcp
-	backendGroup lbBackendGroup
+	http    *lbRouteHttp
+	tls     *lbRouteTls
+	tcp     *lbRouteTcp
+	backend backend
 }
 
 type lbRouteHttp struct {
@@ -53,7 +53,7 @@ type lbRouteTls struct {
 
 type lbRouteTcp struct{}
 
-type lbBackendGroup struct {
+type backend struct {
 	ips               []lbBackend
 	hostnames         []lbBackend
 	lbAlgorithm       lbAlgorithmType
