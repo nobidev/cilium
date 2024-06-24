@@ -21,18 +21,10 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, t1Service *corev1.Service) (*lbFrontend, error) {
-	ipBackends := []lbBackend{}
-	for _, ipb := range frontend.Spec.Backends {
-		ipBackends = append(ipBackends, lbBackend{
-			address: ipb.IP,
-			port:    uint32(ipb.Port),
-		})
-	}
-
-	intervalDuration, err := time.ParseDuration(frontend.Spec.Healthcheck.Interval)
+func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend, t1Service *corev1.Service) (*lbFrontend, error) {
+	routes, err := r.toRoutes(frontend, backends)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+		return nil, fmt.Errorf("failed to ingest routes: %w", err)
 	}
 
 	return &lbFrontend{
@@ -41,37 +33,74 @@ func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, t1Service *cor
 		staticIP:   frontend.Spec.VIP,
 		assignedIP: getAssignedIP(t1Service),
 		port:       frontend.Spec.Port,
-		routes: []lbRoute{
-			{
-				http: &lbRouteHttp{
-					tls:      nil,
-					hostname: "*",
-					path:     "/",
-					pathType: pathTypePrefix,
-				},
-				tls: nil,
-				tcp: nil,
-				backend: backend{
-					ips:         ipBackends,
-					hostnames:   []lbBackend{},
-					lbAlgorithm: lbAlgorithmRoundRobin,
-					healthCheckConfig: lbBackendHealthCheckConfig{
-						http: &lbBackendHealthCheckHttpConfig{
-							host: "envoy",
-							path: "/health",
-						},
-						tcp:                          nil,
-						intervalSeconds:              int(intervalDuration.Seconds()),
-						timeoutSeconds:               5,
-						healthyThreshold:             2,
-						unhealthyThreshold:           2,
-						unhealthyEdgeIntervalSeconds: 30,
-						unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+		routes:     routes,
+	}, nil
+}
+
+func (*ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) ([]lbRoute, error) {
+	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	for _, b := range backends {
+		backendIndex[b.Name] = b
+	}
+
+	routes := []lbRoute{}
+
+	for _, lr := range frontend.Spec.Routes {
+		if lr.HTTP == nil {
+			// TODO: support non-http
+			continue
+		}
+
+		routeBackend, ok := backendIndex[lr.HTTP.Backend]
+		if !ok {
+			// TODO: handle backend not found
+			continue
+		}
+
+		ipBackends := []lbBackend{}
+		for _, ipAddress := range routeBackend.Spec.Addresses {
+			ipBackends = append(ipBackends, lbBackend{
+				address: ipAddress.IP,
+				port:    uint32(ipAddress.Port),
+			})
+		}
+
+		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+		}
+
+		routes = append(routes, lbRoute{
+			http: &lbRouteHttp{
+				tls:      nil,
+				hostname: "*",
+				path:     "/",
+				pathType: pathTypePrefix,
+			},
+			tls: nil,
+			tcp: nil,
+			backend: backend{
+				ips:         ipBackends,
+				hostnames:   []lbBackend{},
+				lbAlgorithm: lbAlgorithmRoundRobin,
+				healthCheckConfig: lbBackendHealthCheckConfig{
+					http: &lbBackendHealthCheckHttpConfig{
+						host: "envoy",
+						path: "/health",
 					},
+					tcp:                          nil,
+					intervalSeconds:              int(intervalDuration.Seconds()),
+					timeoutSeconds:               5,
+					healthyThreshold:             2,
+					unhealthyThreshold:           2,
+					unhealthyEdgeIntervalSeconds: 30,
+					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
 				},
 			},
-		},
-	}, nil
+		})
+	}
+
+	return routes, nil
 }
 
 // getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the T1 Service.

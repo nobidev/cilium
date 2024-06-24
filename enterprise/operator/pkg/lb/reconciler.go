@@ -69,7 +69,7 @@ func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile implements the main reconciliation loop that gets triggered whenever a StandaloneLB resource or a related resource changes.
 func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "standalone-lb",
+		logfields.Controller: "LBFrontend",
 		logfields.Resource:   req.NamespacedName,
 	})
 
@@ -90,7 +90,7 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return controllerruntime.Success()
 	}
 
-	if err := r.createOrUpdateResources(ctx, lb); err != nil {
+	if err := r.createOrUpdateResources(ctx, scopedLog, lb); err != nil {
 		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
 			// The creation of one of the resources failed because the
 			// namespace is terminating. The LBFrontend resource itself is also expected
@@ -111,14 +111,14 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	return controllerruntime.Success()
 }
 
-func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb *isovalentv1alpha1.LBFrontend) error {
+func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
 	//
 	// Translate into internal model
 	//
 
 	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
 	existingT1Service := &corev1.Service{}
-	if err := r.client.Get(ctx, client.ObjectKeyFromObject(lb), existingT1Service); err != nil {
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(frontend), existingT1Service); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get T1 Service: %w", err)
 		}
@@ -126,36 +126,68 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 		// Continue if not found
 	}
 
-	lbFrontend, err := r.ingestor.ingest(lb, existingT1Service)
+	// Try loading referenced LBBackends (in same namespace)
+	backends := []*isovalentv1alpha1.LBBackend{}
+	missingBackends := []string{}
+	for _, lr := range frontend.Spec.Routes {
+		if lr.HTTP == nil {
+			continue
+		}
+
+		b := &isovalentv1alpha1.LBBackend{}
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: lr.HTTP.Backend}, b); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to get referenced LBBackend: %w", err)
+			}
+
+			// Continue reconciliation if backends don't exist (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced backends gets created it will trigger a reconciliation
+			missingBackends = append(missingBackends, lr.HTTP.Backend)
+			continue
+		}
+
+		backends = append(backends, b)
+	}
+
+	if len(missingBackends) > 0 {
+		scopedLogger.
+			WithField("backends", missingBackends).
+			Debug("Some referenced LBBackends don't exist")
+
+		// TODO: write status (get all missing backends first)
+	}
+
+	model, err := r.ingestor.ingest(frontend, backends, existingT1Service)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
 	}
 
-	r.updateAssignedIpInStatus(lbFrontend, lb)
+	r.updateAssignedIpInStatus(model, frontend)
 
 	//
 	// T1
 	//
 
 	// Build desired resources
-	desiredT1Service := r.desiredService(lbFrontend)
+	desiredT1Service := r.desiredService(model)
 
 	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}
 
-	desiredT1Endpoints, err := r.desiredEndpoints(lbFrontend, t2NodeIPs)
+	desiredT1Endpoints, err := r.desiredEndpoints(model, t2NodeIPs)
 	if err != nil {
 		return err
 	}
 
 	// Set controlling ownerreferences
-	if err := controllerutil.SetControllerReference(lb, desiredT1Service, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(frontend, desiredT1Service, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Service: %w", err)
 	}
 
-	if err := controllerutil.SetControllerReference(lb, desiredT1Endpoints, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(frontend, desiredT1Endpoints, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Endpoints: %w", err)
 	}
 
@@ -172,7 +204,7 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 	// T2
 	//
 
-	if lbFrontend.assignedIP == nil {
+	if model.assignedIP == nil {
 		// Stop reconciliation as assigned IP is not available yet
 		// Any changes on the T1 Service (e.g. LB IPAM setting the loadbalancer ip in the status)
 		// will trigger an additional reconciliation.
@@ -180,13 +212,13 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, lb
 	}
 
 	// Build desired resources
-	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(lbFrontend)
+	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(model)
 	if err != nil {
 		return err
 	}
 
 	// Set controlling ownerreferences
-	if err := controllerutil.SetControllerReference(lb, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(frontend, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T2 CiliumEnvoyConfig: %w", err)
 	}
 

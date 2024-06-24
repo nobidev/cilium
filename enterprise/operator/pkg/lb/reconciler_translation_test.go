@@ -60,6 +60,21 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
 		readInputCR(t, fmt.Sprintf("./testdata/translation/%s/input-lbfrontend.yaml", tc.name), inputLBFrontend)
 
+		entries, err := os.ReadDir("./testdata/translation/" + tc.name)
+		require.NoError(t, err)
+
+		inputLBBackends := []*isovalentv1alpha1.LBBackend{}
+
+		for _, d := range entries {
+			if d.IsDir() || !strings.HasPrefix(d.Name(), "input-lbbackend-") {
+				continue
+			}
+
+			inputLBBackend := &isovalentv1alpha1.LBBackend{}
+			readInputCR(t, fmt.Sprintf("./testdata/translation/%s/%s", tc.name, d.Name()), inputLBBackend)
+			inputLBBackends = append(inputLBBackends, inputLBBackend)
+		}
+
 		var inputService *corev1.Service
 		if _, err := os.Stat(fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name)); err == nil {
 			inputService = &corev1.Service{}
@@ -74,7 +89,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBFrontend, inputService)
+		model, err := ing.ingest(inputLBFrontend, inputLBBackends, inputService)
 		require.NoError(t, err)
 
 		// translation

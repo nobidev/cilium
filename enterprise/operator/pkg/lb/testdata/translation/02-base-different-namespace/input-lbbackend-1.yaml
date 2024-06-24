@@ -1,0 +1,13 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBBackend
+metadata:
+  namespace: special-namespace
+  name: lb-1
+spec:
+  addresses:
+    - ip: 172.18.0.5
+      port: 8080
+    - ip: 172.18.0.6
+      port: 8080
+  healthcheck:
+    interval: 1000s

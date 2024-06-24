@@ -43,10 +43,17 @@ type LBFrontendSpec struct {
 	Port int32 `json:"port"`
 
 	// +kubebuilder:validation:Required
-	Backends []Address `json:"backends"`
+	Routes []LBFrontendRoute `json:"routes"`
+}
 
+type LBFrontendRoute struct {
+	// +kubebuilder:validation:Optional
+	HTTP *LBFrontendRouteHTTP `json:"http"`
+}
+
+type LBFrontendRouteHTTP struct {
 	// +kubebuilder:validation:Required
-	Healthcheck Healthcheck `json:"healthcheck"`
+	Backend string `json:"backend"`
 }
 
 type LBFrontendStatus struct {

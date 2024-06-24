@@ -57,37 +57,26 @@ spec:
           spec:
             description: Spec is a spec .
             properties:
-              backends:
-                items:
-                  properties:
-                    ip:
-                      format: ip
-                      type: string
-                    port:
-                      format: int32
-                      type: integer
-                  required:
-                  - ip
-                  - port
-                  type: object
-                type: array
-              healthcheck:
-                properties:
-                  interval:
-                    format: duration
-                    type: string
-                required:
-                - interval
-                type: object
               port:
                 format: int32
                 type: integer
+              routes:
+                items:
+                  properties:
+                    http:
+                      properties:
+                        backend:
+                          type: string
+                      required:
+                      - backend
+                      type: object
+                  type: object
+                type: array
               vip:
                 type: string
             required:
-            - backends
-            - healthcheck
             - port
+            - routes
             type: object
           status:
             description: Status is a status .
