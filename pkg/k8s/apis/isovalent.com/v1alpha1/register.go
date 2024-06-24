@@ -108,6 +108,11 @@ const (
 	LBFrontendPluralName     = "lbfrontends"
 	LBFrontendKindDefinition = "LBFrontend"
 	LBFrontendName           = LBFrontendPluralName + "." + CustomResourceDefinitionGroup
+
+	// LBBackend
+	LBBackendPluralName     = "lbbackends"
+	LBBackendKindDefinition = "LBBackend"
+	LBBackendName           = LBBackendPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -190,6 +195,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentClusterwideEncryptionPolicy{},
 		&LBFrontend{},
 		&LBFrontendList{},
+		&LBBackend{},
+		&LBBackendList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

@@ -85,6 +85,14 @@ type IsovalentSRv6SIDManagerListerExpansion interface{}
 // IsovalentVRFLister.
 type IsovalentVRFListerExpansion interface{}
 
+// LBBackendListerExpansion allows custom methods to be added to
+// LBBackendLister.
+type LBBackendListerExpansion interface{}
+
+// LBBackendNamespaceListerExpansion allows custom methods to be added to
+// LBBackendNamespaceLister.
+type LBBackendNamespaceListerExpansion interface{}
+
 // LBFrontendListerExpansion allows custom methods to be added to
 // LBFrontendLister.
 type LBFrontendListerExpansion interface{}

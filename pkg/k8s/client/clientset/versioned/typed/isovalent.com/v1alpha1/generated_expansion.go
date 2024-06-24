@@ -43,4 +43,6 @@ type IsovalentSRv6SIDManagerExpansion interface{}
 
 type IsovalentVRFExpansion interface{}
 
+type LBBackendExpansion interface{}
+
 type LBFrontendExpansion interface{}

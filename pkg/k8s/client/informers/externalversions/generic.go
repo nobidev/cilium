@@ -135,6 +135,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentSRv6SIDManagers().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentvrfs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentVRFs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("lbbackends"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBBackends().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("lbfrontends"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBFrontends().Informer()}, nil
 

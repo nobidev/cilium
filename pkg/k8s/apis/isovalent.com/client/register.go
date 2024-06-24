@@ -91,6 +91,9 @@ const (
 
 	// LBFrontendCRDName is the full name of the LBFrontend CRD.
 	LBFrontendCRDName = k8sconstv1alpha1.LBFrontendKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// LBBackendCRDName is the full name of the LBBackend CRD.
+	LBBackendCRDName = k8sconstv1alpha1.LBBackendKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -125,6 +128,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBFrontendName):                     createLBFrontendCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.LBBackendName):                      createLBBackendCRD,
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -202,6 +206,9 @@ var (
 
 	//go:embed crds/v1alpha1/lbfrontends.yaml
 	crdsv1Alpha1LBFrontends []byte
+
+	//go:embed crds/v1alpha1/lbbackends.yaml
+	crdsv1Alpha1LBBackends []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -259,6 +266,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides
 	case LBFrontendCRDName:
 		crdBytes = crdsv1Alpha1LBFrontends
+	case LBBackendCRDName:
+		crdBytes = crdsv1Alpha1LBBackends
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -539,6 +548,19 @@ func createLBFrontendCRD(clientset apiextensionsclient.Interface) error {
 	return crdhelpers.CreateUpdateCRD(
 		clientset,
 		constructV1CRD(k8sconstv1alpha1.LBFrontendName, ciliumCRD),
+		crdhelpers.NewDefaultPoller(),
+		k8sconst.CustomResourceDefinitionSchemaVersionKey,
+		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+	)
+}
+
+// createLBBackendCRD creates and updates the LBBackend CRD.
+func createLBBackendCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(LBBackendCRDName)
+
+	return crdhelpers.CreateUpdateCRD(
+		clientset,
+		constructV1CRD(k8sconstv1alpha1.LBBackendName, ciliumCRD),
 		crdhelpers.NewDefaultPoller(),
 		k8sconst.CustomResourceDefinitionSchemaVersionKey,
 		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),

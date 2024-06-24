@@ -34,6 +34,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentSRv6LocatorPoolsGetter
 	IsovalentSRv6SIDManagersGetter
 	IsovalentVRFsGetter
+	LBBackendsGetter
 	LBFrontendsGetter
 }
 
@@ -116,6 +117,10 @@ func (c *IsovalentV1alpha1Client) IsovalentSRv6SIDManagers() IsovalentSRv6SIDMan
 
 func (c *IsovalentV1alpha1Client) IsovalentVRFs() IsovalentVRFInterface {
 	return newIsovalentVRFs(c)
+}
+
+func (c *IsovalentV1alpha1Client) LBBackends(namespace string) LBBackendInterface {
+	return newLBBackends(c, namespace)
 }
 
 func (c *IsovalentV1alpha1Client) LBFrontends(namespace string) LBFrontendInterface {

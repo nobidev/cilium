@@ -43,24 +43,10 @@ type LBFrontendSpec struct {
 	Port int32 `json:"port"`
 
 	// +kubebuilder:validation:Required
-	Backends []Backend `json:"backends"`
+	Backends []Address `json:"backends"`
 
 	// +kubebuilder:validation:Required
 	Healthcheck Healthcheck `json:"healthcheck"`
-}
-
-type Backend struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=ip
-	IP string `json:"ip"`
-	// +kubebuilder:validation:Required
-	Port int32 `json:"port"`
-}
-
-type Healthcheck struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=duration
-	Interval string `json:"interval"`
 }
 
 type LBFrontendStatus struct {
@@ -81,4 +67,66 @@ type LBFrontendList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []LBFrontend `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbbackend",path="lbbackends",scope="Namespaced",shortName={lbbe}
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+
+type LBBackend struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec is a spec .
+	//
+	// +kubebuilder:validation:Required
+	Spec LBBackendSpec `json:"spec"`
+
+	// Status is a status .
+	//
+	// +kubebuilder:validation:Optional
+	Status LBBackendStatus `json:"status,omitempty"`
+}
+
+type LBBackendSpec struct {
+	// +kubebuilder:validation:Required
+	Addresses []Address `json:"addresses"`
+
+	// +kubebuilder:validation:Required
+	Healthcheck Healthcheck `json:"healthcheck"`
+}
+
+type Address struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ip
+	IP string `json:"ip"`
+	// +kubebuilder:validation:Required
+	Port int32 `json:"port"`
+}
+
+type Healthcheck struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=duration
+	Interval string `json:"interval"`
+}
+
+type LBBackendStatus struct{}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +deepequal-gen=false
+
+type LBBackendList struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []LBBackend `json:"items"`
 }

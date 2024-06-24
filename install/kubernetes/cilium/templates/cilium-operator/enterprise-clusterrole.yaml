@@ -38,6 +38,7 @@ rules:
   - isovalentmeshendpoints.isovalent.com
 {{- end }}
   - lbfrontends.isovalent.com
+  - lbbackends.isovalent.com
 - apiGroups:
   - isovalent.com
   resources:
@@ -51,6 +52,7 @@ rules:
   - isovalent.com
   resources:
   - lbfrontends/status
+  - lbbackends/status
   verbs:
   - get
   - list
@@ -61,6 +63,7 @@ rules:
   resources:
   - isovalentsrv6sidmanagers
   - lbfrontends
+  - lbbackends
   verbs:
   - get
   - list
