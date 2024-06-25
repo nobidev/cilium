@@ -61,7 +61,30 @@ type LBFrontendStatus struct {
 	//
 	// +kubebuilder:validation:Required
 	VIP string `json:"vip"`
+
+	// Conditions describe the current conditions of the LBFrontend.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+const (
+	ConditionTypeIPAssigned    = "lb.cilium.io/IPAssigned"
+	ConditionTypeBackendsExist = "lb.cilium.io/BackendsExist"
+)
+
+const (
+	IPAssignedConditionReasonIPPending  = "IPPending"
+	IPAssignedConditionReasonIPAssigned = "IPAssigned"
+)
+
+const (
+	BackendsExistConditionReasonAllBackendsExist = "AllBackendsExist"
+	BackendsExistConditionReasonMissingBackends  = "MissingBackends"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true

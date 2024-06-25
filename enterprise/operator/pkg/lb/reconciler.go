@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -166,9 +167,9 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 		scopedLogger.
 			WithField("backends", missingBackends).
 			Debug("Some referenced LBBackends don't exist")
-
-		// TODO: write status (get all missing backends first)
 	}
+
+	r.updateBackendsInStatus(frontend, missingBackends)
 
 	model, err := r.ingestor.ingest(frontend, backends, existingT1Service)
 	if err != nil {
@@ -388,10 +389,63 @@ func (r *standaloneLbReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	})
 }
 
-func (*standaloneLbReconciler) updateAssignedIpInStatus(lbFrontend *lbFrontend, lb *isovalentv1alpha1.LBFrontend) {
-	statusAssignedIP := "<pending>"
-	if lbFrontend.assignedIP != nil {
-		statusAssignedIP = *lbFrontend.assignedIP
+func (*standaloneLbReconciler) updateAssignedIpInStatus(model *lbFrontend, frontend *isovalentv1alpha1.LBFrontend) {
+	ipAssignedCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeIPAssigned,
+		Status:             metav1.ConditionFalse,
+		Reason:             isovalentv1alpha1.IPAssignedConditionReasonIPPending,
+		Message:            "VIP pending",
+		ObservedGeneration: frontend.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
 	}
-	lb.Status.VIP = statusAssignedIP
+
+	if model.assignedIP != nil {
+		ipAssignedCondition.Status = metav1.ConditionTrue
+		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
+		ipAssignedCondition.Message = "VIP assigned"
+
+		frontend.Status.VIP = *model.assignedIP
+	}
+
+	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+}
+
+func (*standaloneLbReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingBackends []string) {
+	backendsExistCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeBackendsExist,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.BackendsExistConditionReasonAllBackendsExist,
+		Message:            "All referenced backends exist",
+		ObservedGeneration: frontend.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(missingBackends) > 0 {
+		backendsExistCondition.Status = metav1.ConditionFalse
+		backendsExistCondition.Reason = isovalentv1alpha1.BackendsExistConditionReasonMissingBackends
+		backendsExistCondition.Message = fmt.Sprintf("There are referenced backends that do not exist: %v", missingBackends)
+	}
+
+	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+}
+
+func upsertCondition(frontend *isovalentv1alpha1.LBFrontend, conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range frontend.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				frontend.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		frontend.Status.Conditions = append(frontend.Status.Conditions, condition)
+	}
 }

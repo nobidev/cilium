@@ -1874,7 +1874,7 @@ func (in *LBFrontend) DeepEqual(other *LBFrontend) bool {
 		return false
 	}
 
-	if in.Status != other.Status {
+	if !in.Status.DeepEqual(&other.Status) {
 		return false
 	}
 
