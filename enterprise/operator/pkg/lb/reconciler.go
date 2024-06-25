@@ -13,10 +13,12 @@ package lb
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,6 +31,10 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+const (
+	lbFrontendBackendIndexName = ".spec.routes.http.backend"
 )
 
 type standaloneLbReconciler struct {
@@ -52,9 +58,15 @@ func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, 
 // SetupWithManager sets up the controller with the Manager and configures
 // the different watches. All the watcher trigger a reconciliation.
 func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBFrontend{}, lbFrontendBackendIndexName, backendIndexerFunc); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", lbFrontendBackendIndexName, err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch for changed LBFrontend resources (main resource)
 		For(&isovalentv1alpha1.LBFrontend{}).
+		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
+		Watches(&isovalentv1alpha1.LBBackend{}, r.enqueueReferencingLBFrontends()).
 		// T1 Service resource with OwnerReference to the LBFrontend
 		Owns(&corev1.Service{}).
 		// T1 Endpoints resource with OwnerReference to the LBFrontend
@@ -302,6 +314,55 @@ func (r *standaloneLbReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Con
 	r.logger.Debugf("CiliumEnvoyConfig %s has been %s", client.ObjectKeyFromObject(cec), result)
 
 	return nil
+}
+
+func backendIndexerFunc(rawObj client.Object) []string {
+	backends := []string{}
+
+	// Extract the backend references
+	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
+	for _, lr := range lbFrontend.Spec.Routes {
+		if lr.HTTP == nil {
+			continue
+		}
+
+		if slices.Contains(backends, lr.HTTP.Backend) {
+			continue
+		}
+
+		backends = append(backends, lr.HTTP.Backend)
+	}
+
+	return backends
+}
+
+func (r *standaloneLbReconciler) enqueueReferencingLBFrontends() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		lbList := isovalentv1alpha1.LBFrontendList{}
+
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(lbFrontendBackendIndexName, obj.GetName()),
+			Namespace:     obj.GetNamespace(),
+		}
+
+		if err := r.client.List(ctx, &lbList, listOps); err != nil {
+			r.logger.WithError(err).Warn("Failed to list LBFrontends")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+
+		for _, i := range lbList.Items {
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: i.Namespace,
+					Name:      i.Name,
+				},
+			})
+		}
+
+		return result
+	})
 }
 
 func (r *standaloneLbReconciler) enqueueAllLBFrontends() handler.EventHandler {

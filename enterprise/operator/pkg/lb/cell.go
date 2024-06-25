@@ -44,9 +44,10 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 type reconcilerParams struct {
 	cell.In
 
-	Logger   logrus.FieldLogger
-	JobGroup job.Group
-	Config   Config
+	Logger    logrus.FieldLogger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Config    Config
 
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
@@ -65,9 +66,16 @@ func registerReconciler(params reconcilerParams) error {
 
 	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{})
 
-	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-		return fmt.Errorf("failed to setup standalone lb reconciler: %w", err)
-	}
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hookContext cell.HookContext) error {
+			// register reconciler to manager in lifecycle to ensure that CRDs are installed on the cluster
+			if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+				return fmt.Errorf("failed to setup standalone lb reconciler: %w", err)
+			}
+
+			return nil
+		},
+	})
 
 	return nil
 }
