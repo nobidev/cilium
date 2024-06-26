@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -62,7 +63,12 @@ func isReferencedByLBFrontend(ctx context.Context, c client.Client, logger *slog
 func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) []*isovalentv1alpha1.LBFrontend {
 	lbList := isovalentv1alpha1.LBFrontendList{}
 
-	if err := c.List(ctx, &lbList); err != nil {
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(lbFrontendTlsSecretIndexName, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+
+	if err := c.List(ctx, &lbList, listOps); err != nil {
 		logger.Warn("Failed to list LBFrontends", logfields.Error, err)
 		return nil
 	}
@@ -70,14 +76,8 @@ func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.
 	result := []*isovalentv1alpha1.LBFrontend{}
 
 	for _, i := range lbList.Items {
-		if i.Namespace == secret.Namespace && i.Spec.TLS != nil {
-			for _, c := range i.Spec.TLS.Certificates {
-				if c.SecretName == secret.Name {
-					lbfe := i
-					result = append(result, &lbfe)
-				}
-			}
-		}
+		lbfe := i
+		result = append(result, &lbfe)
 	}
 
 	return result

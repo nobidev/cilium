@@ -23,9 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -35,7 +38,8 @@ import (
 )
 
 const (
-	lbFrontendBackendIndexName = ".spec.routes.http.backend"
+	lbFrontendBackendIndexName   = ".spec.routes.http.backend"
+	lbFrontendTlsSecretIndexName = ".spec.tls.certificates.secretname"
 )
 
 type standaloneLbReconciler struct {
@@ -63,15 +67,23 @@ func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, 
 // SetupWithManager sets up the controller with the Manager and configures
 // the different watches. All the watcher trigger a reconciliation.
 func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBFrontend{}, lbFrontendBackendIndexName, backendIndexerFunc); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", lbFrontendBackendIndexName, err)
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		lbFrontendBackendIndexName:   backendIndexerFunc,
+		lbFrontendTlsSecretIndexName: tlsSecretIndexerFunc,
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBFrontend{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch for changed LBFrontend resources (main resource)
 		For(&isovalentv1alpha1.LBFrontend{}).
 		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
-		Watches(&isovalentv1alpha1.LBBackend{}, r.enqueueReferencingLBFrontends()).
+		Watches(&isovalentv1alpha1.LBBackend{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
+		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret. Only K8s Secrets of type TLS are relevant.
+		// This is mainly to update the status. The actual certificates of the Secret are getting transferred via sDS.
+		Watches(&corev1.Secret{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendTlsSecretIndexName), r.isTLSSecret()).
 		// T1 Service resource with OwnerReference to the LBFrontend
 		Owns(&corev1.Service{}).
 		// T1 Endpoints resource with OwnerReference to the LBFrontend
@@ -347,12 +359,33 @@ func backendIndexerFunc(rawObj client.Object) []string {
 	return backends
 }
 
-func (r *standaloneLbReconciler) enqueueReferencingLBFrontends() handler.EventHandler {
+func tlsSecretIndexerFunc(rawObj client.Object) []string {
+	secrets := []string{}
+
+	// Extract the TLS secret references
+	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
+
+	if lbFrontend.Spec.TLS == nil {
+		return secrets
+	}
+
+	for _, c := range lbFrontend.Spec.TLS.Certificates {
+		if slices.Contains(secrets, c.SecretName) {
+			continue
+		}
+
+		secrets = append(secrets, c.SecretName)
+	}
+
+	return secrets
+}
+
+func (r *standaloneLbReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBFrontendList{}
 
 		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(lbFrontendBackendIndexName, obj.GetName()),
+			FieldSelector: fields.OneTermEqualSelector(indexName, obj.GetName()),
 			Namespace:     obj.GetNamespace(),
 		}
 
@@ -458,4 +491,32 @@ func upsertCondition(frontend *isovalentv1alpha1.LBFrontend, conditionType strin
 	if !conditionExists {
 		frontend.Status.Conditions = append(frontend.Status.Conditions, condition)
 	}
+}
+
+func (r *standaloneLbReconciler) isTLSSecret() builder.WatchesOption {
+	return builder.WithPredicates(&isTLSSecretPredicate{})
+}
+
+var _ predicate.Predicate = &isTLSSecretPredicate{}
+
+type isTLSSecretPredicate struct{}
+
+func (r *isTLSSecretPredicate) Create(event event.CreateEvent) bool {
+	return r.isTLSSecret(event.Object.(*corev1.Secret))
+}
+
+func (r *isTLSSecretPredicate) Update(event event.UpdateEvent) bool {
+	return r.isTLSSecret(event.ObjectNew.(*corev1.Secret))
+}
+
+func (r *isTLSSecretPredicate) Delete(event event.DeleteEvent) bool {
+	return r.isTLSSecret(event.Object.(*corev1.Secret))
+}
+
+func (r *isTLSSecretPredicate) Generic(event event.GenericEvent) bool {
+	return r.isTLSSecret(event.Object.(*corev1.Secret))
+}
+
+func (r *isTLSSecretPredicate) isTLSSecret(secret *corev1.Secret) bool {
+	return secret.Type == corev1.SecretTypeTLS
 }
