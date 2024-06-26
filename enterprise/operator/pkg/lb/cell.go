@@ -68,7 +68,7 @@ func registerReconciler(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{})
+	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{}, params.Config.StandaloneLbSecretsNamespace)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {

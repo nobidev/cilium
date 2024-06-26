@@ -33,8 +33,31 @@ func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, backends []*is
 		staticIP:   frontend.Spec.VIP,
 		assignedIP: getAssignedIP(t1Service),
 		port:       frontend.Spec.Port,
+		tls:        r.toTLS(frontend),
 		routes:     routes,
 	}, nil
+}
+
+func (*ingestor) toTLS(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLS {
+	if frontend.Spec.TLS == nil {
+		return nil
+	}
+
+	domainNames := []string{}
+	certificateSecretNames := []string{}
+
+	for _, dn := range frontend.Spec.TLS.DomainNames {
+		domainNames = append(domainNames, string(dn))
+	}
+
+	for _, c := range frontend.Spec.TLS.Certificates {
+		certificateSecretNames = append(certificateSecretNames, c.SecretName)
+	}
+
+	return &lbFrontendTLS{
+		domainNames:        domainNames,
+		certificateSecrets: certificateSecretNames,
+	}
 }
 
 func (*ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) ([]lbRoute, error) {
@@ -71,7 +94,7 @@ func (*ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*is
 		}
 
 		routes = append(routes, lbRoute{
-			http: &lbRouteHttp{
+			http: &lbRouteHTTP{
 				tls:      nil,
 				hostname: "*",
 				path:     "/",
@@ -84,7 +107,7 @@ func (*ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*is
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
-					http: &lbBackendHealthCheckHttpConfig{
+					http: &lbBackendHealthCheckHTTPConfig{
 						host: "envoy",
 						path: "/health",
 					},

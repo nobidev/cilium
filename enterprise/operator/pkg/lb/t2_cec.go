@@ -20,7 +20,9 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_health_check_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_typev3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -51,14 +53,16 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*c
 
 	envoyResources = append(envoyResources, listenerXdsResource)
 
-	routeConfig := r.desiredEnvoyRouteConfig(model)
+	routeConfigs := r.desiredEnvoyRouteConfigs(model)
 
-	routeConfigXdsResource, err := toXdsResource(&routeConfig, envoy.RouteTypeURL)
-	if err != nil {
-		return nil, err
+	for _, rc := range routeConfigs {
+		routeConfigXdsResource, err := toXdsResource(rc, envoy.RouteTypeURL)
+		if err != nil {
+			return nil, err
+		}
+
+		envoyResources = append(envoyResources, routeConfigXdsResource)
 	}
-
-	envoyResources = append(envoyResources, routeConfigXdsResource)
 
 	// Backend(s)-> Envoy Cluster(s)
 
@@ -89,61 +93,187 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*c
 	}, nil
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListener(lbFrontend *lbFrontend) *envoy_config_listener_v3.Listener {
+func (r *standaloneLbReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_config_listener_v3.Listener {
 	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
-		Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
-			Address:       *lbFrontend.assignedIP,
-			PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(lbFrontend.port)},
-		}}},
-		FilterChains: []*envoy_config_listener_v3.FilterChain{
-			{
-				Filters: []*envoy_config_listener_v3.Filter{
-					{
-						Name: "envoy.filters.network.http_connection_manager",
-						ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-							TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
-								StatPrefix: "frontend_listener_http",
-								CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
-								HttpFilters: []*envoy_hcm_v3.HttpFilter{
-									{
-										Name: "envoy.filters.http.health_check",
-										ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
-											TypedConfig: toAny(desiredHealthCheckFilter(lbFrontend)),
-										},
-									},
-									{
-										Name: "envoy.filters.http.router",
-										ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
-											TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
-										},
-									},
-								},
-								RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
-									Rds: &envoy_hcm_v3.Rds{
-										RouteConfigName: "frontend_routeconfig",
-									},
-								},
-							}),
-						},
+		Address: &envoy_corev3.Address{
+			Address: &envoy_corev3.Address_SocketAddress{
+				SocketAddress: &envoy_corev3.SocketAddress{
+					Address: *model.assignedIP,
+					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{
+						PortValue: uint32(model.port),
 					},
+				},
+			},
+		},
+		ListenerFilters: []*envoy_config_listener_v3.ListenerFilter{
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+		},
+		FilterChains: r.desiredEnvoyListenerFilterChains(model),
+	}
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyListenerFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
+	filterChains := []*envoy_config_listener_v3.FilterChain{}
+
+	httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
+	filterChains = append(filterChains, httpFilterChain)
+
+	if model.tls != nil {
+		httpsFilterChain := r.desiredEnvoyListenerHttpsFilterChain(model)
+		filterChains = append(filterChains, httpsFilterChain)
+	}
+
+	return filterChains
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
+	return &envoy_config_listener_v3.FilterChain{
+		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
+			TransportProtocol: "raw_buffer",
+		},
+		Filters: []*envoy_config_listener_v3.Filter{
+			{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						StatPrefix: "frontend_listener_http",
+						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
+						HttpFilters: []*envoy_hcm_v3.HttpFilter{
+							// Health Check filter is only exposed on HTTP
+							{
+								Name: "envoy.filters.http.health_check",
+								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+									TypedConfig: toAny(desiredHealthCheckFilter(model)),
+								},
+							},
+							{
+								Name: "envoy.filters.http.router",
+								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+								},
+							},
+						},
+						RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
+							Rds: &envoy_hcm_v3.Rds{
+								RouteConfigName: "frontend_routeconfig_http",
+							},
+						},
+					}),
 				},
 			},
 		},
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyRouteConfig(lbFrontend *lbFrontend) envoy_config_route_v3.RouteConfiguration {
-	return envoy_config_route_v3.RouteConfiguration{
-		Name:         "frontend_routeconfig",
-		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(lbFrontend),
+func toServerNames(domainNames []string) []string {
+	serverNames := []string{}
+
+	for _, dn := range domainNames {
+		if dn == "*" {
+			continue
+		}
+
+		// TODO: validate for * only as starting prefix with *.
+
+		serverNames = append(serverNames, dn)
+	}
+
+	return serverNames
+}
+
+func (r *standaloneLbReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
+	secrets := []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{}
+
+	for _, cs := range model.tls.certificateSecrets {
+		secrets = append(secrets, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+			Name: fmt.Sprintf("%s/%s-%s", r.secretsNamespace, model.namespace, cs),
+		})
+	}
+
+	return secrets
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
+	return &envoy_config_listener_v3.FilterChain{
+		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
+			TransportProtocol: "tls",
+			ServerNames:       toServerNames(model.tls.domainNames),
+		},
+		TransportSocket: &envoy_corev3.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+						TlsCertificateSdsSecretConfigs: r.toSdsConfigs(model),
+					},
+				}),
+			},
+		},
+		Filters: []*envoy_config_listener_v3.Filter{
+			{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						StatPrefix: "frontend_listener_https",
+						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
+						HttpFilters: []*envoy_hcm_v3.HttpFilter{
+							{
+								Name: "envoy.filters.http.router",
+								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+								},
+							},
+						},
+						RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
+							Rds: &envoy_hcm_v3.Rds{
+								RouteConfigName: "frontend_routeconfig_https",
+							},
+						},
+					}),
+				},
+			},
+		},
 	}
 }
 
-func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(lbFrontend *lbFrontend) []*envoy_config_route_v3.VirtualHost {
+func (r *standaloneLbReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*envoy_config_route_v3.RouteConfiguration {
+	routeConfigs := []*envoy_config_route_v3.RouteConfiguration{}
+
+	httpRouteConfig := r.desiredEnvoyHttpRouteConfig(model)
+	routeConfigs = append(routeConfigs, httpRouteConfig)
+
+	if model.tls != nil {
+		httpsRouteConfig := r.desiredEnvoyHttpsRouteConfig(model)
+		routeConfigs = append(routeConfigs, httpsRouteConfig)
+
+	}
+	return routeConfigs
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyHttpRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
+	return &envoy_config_route_v3.RouteConfiguration{
+		Name:         "frontend_routeconfig_http",
+		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "http"),
+	}
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
+	return &envoy_config_route_v3.RouteConfiguration{
+		Name:         "frontend_routeconfig_https",
+		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "https"),
+	}
+}
+
+func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
 	hostnameToHttpRoutes := map[string][]*envoy_config_route_v3.Route{}
 
-	for i, route := range lbFrontend.routes {
+	for i, route := range model.routes {
 		// TODO: currently only http routes supported
 		if route.http != nil {
 			httpRoute := &envoy_config_route_v3.Route{
@@ -182,7 +312,7 @@ func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(lbFrontend *lbF
 	for hostname, httpRoutes := range hostnameToHttpRoutes {
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
-				Name:    fmt.Sprintf("frontend_virtualhost_%s", hostname),
+				Name:    fmt.Sprintf("frontend_virtualhost_%s_%s", httpType, hostname),
 				Domains: []string{hostname},
 				Routes:  httpRoutes,
 			},
@@ -192,10 +322,10 @@ func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(lbFrontend *lbF
 	return virtualHosts
 }
 
-func desiredHealthCheckFilter(lbFrontend *lbFrontend) *envoy_health_check_v3.HealthCheck {
+func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCheck {
 	healthCheckFilterClusters := map[string]*envoy_typev3.Percent{}
 
-	for i := range lbFrontend.routes {
+	for i := range model.routes {
 		healthCheckFilterClusters[fmt.Sprintf("backend_cluster_%d", i)] = &envoy_typev3.Percent{Value: 20}
 	}
 
@@ -217,10 +347,10 @@ func desiredHealthCheckFilter(lbFrontend *lbFrontend) *envoy_health_check_v3.Hea
 	return healthCheckFilter
 }
 
-func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) []*envoy_config_cluster_v3.Cluster {
+func (*standaloneLbReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
-	for i, route := range lbFrontend.routes {
+	for i, route := range model.routes {
 		backend := route.backend
 
 		lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(backend.ips))
@@ -253,7 +383,9 @@ func (*standaloneLbReconciler) desiredEnvoyClusters(lbFrontend *lbFrontend) []*e
 						Host: backend.healthCheckConfig.http.host,
 						Path: backend.healthCheckConfig.http.path,
 					}},
-					Interval:           &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.intervalSeconds)},
+					Interval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.intervalSeconds)},
+					// TODO: NoTrafficInterval
+					// TODO: Jitter
 					Timeout:            &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.timeoutSeconds)},
 					HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.healthyThreshold)},
 					UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.unhealthyThreshold)},

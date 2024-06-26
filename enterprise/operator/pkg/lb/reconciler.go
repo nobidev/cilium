@@ -44,15 +44,19 @@ type standaloneLbReconciler struct {
 	scheme     *runtime.Scheme
 	nodeSource *ciliumNodeSource
 	ingestor   *ingestor
+
+	secretsNamespace string
 }
 
-func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor) *standaloneLbReconciler {
+func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, secretsNamespace string) *standaloneLbReconciler {
 	return &standaloneLbReconciler{
 		logger:     logger,
 		client:     client,
 		scheme:     scheme,
 		nodeSource: nodeSource,
 		ingestor:   ingestor,
+
+		secretsNamespace: secretsNamespace,
 	}
 }
 
@@ -93,6 +97,7 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 			return controllerruntime.Fail(fmt.Errorf("failed to get LBFrontend: %w", err))
 		}
 
+		// LBFrontend has been deleted in the meantime
 		return controllerruntime.Success()
 	}
 
@@ -116,7 +121,7 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBFrontend: %w", err))
 	}
 
-	// Status
+	// Update the status of LBFrontend
 	if err := r.client.Status().Update(ctx, lb); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update LBFrontend status: %w", err))
 	}
@@ -126,7 +131,7 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
 	//
-	// Translate into internal model
+	// Load dependent resources that have relevant input for the model
 	//
 
 	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
@@ -171,6 +176,10 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 
 	r.updateBackendsInStatus(frontend, missingBackends)
 
+	//
+	// Translate into internal model
+	//
+
 	model, err := r.ingestor.ingest(frontend, backends, existingT1Service)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
@@ -185,6 +194,7 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 	// Build desired resources
 	desiredT1Service := r.desiredService(model)
 
+	// TODO: include in model?
 	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)

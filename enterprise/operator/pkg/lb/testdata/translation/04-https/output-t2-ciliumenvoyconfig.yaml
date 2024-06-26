@@ -39,6 +39,28 @@ spec:
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http
+        - filterChainMatch:
+            serverNames:
+              - foo.acme.io
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                httpFilters:
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                rds:
+                  routeConfigName: frontend_routeconfig_https
+                statPrefix: frontend_listener_https
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificateSdsSecretConfigs:
+                  - name: /default-test
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -50,6 +72,17 @@ spec:
         - domains:
             - "*"
           name: frontend_virtualhost_http_*
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_0
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: frontend_routeconfig_https
+      virtualHosts:
+        - domains:
+            - "*"
+          name: frontend_virtualhost_https_*
           routes:
             - match:
                 prefix: /

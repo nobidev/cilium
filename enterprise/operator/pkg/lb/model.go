@@ -19,25 +19,31 @@ type lbFrontend struct {
 	name       string
 	staticIP   *string
 	assignedIP *string
+	tls        *lbFrontendTLS
 	port       int32
 	routes     []lbRoute
 }
 
+type lbFrontendTLS struct {
+	domainNames        []string
+	certificateSecrets []string
+}
+
 type lbRoute struct {
-	http    *lbRouteHttp
-	tls     *lbRouteTls
-	tcp     *lbRouteTcp
+	http    *lbRouteHTTP
+	tls     *lbRouteTLS
+	tcp     *lbRouteTCP
 	backend backend
 }
 
-type lbRouteHttp struct {
-	tls      *lbRouteTlsConfig
+type lbRouteHTTP struct {
+	tls      *lbRouteTLSConfig
 	hostname string
 	path     string
 	pathType pathTypeType
 }
 
-type lbRouteTlsConfig struct {
+type lbRouteTLSConfig struct {
 	// secret resourceReference
 }
 
@@ -47,11 +53,11 @@ const (
 	pathTypePrefix pathTypeType = iota
 )
 
-type lbRouteTls struct {
+type lbRouteTLS struct {
 	// hostname string
 }
 
-type lbRouteTcp struct{}
+type lbRouteTCP struct{}
 
 type backend struct {
 	ips               []lbBackend
@@ -72,8 +78,8 @@ const (
 )
 
 type lbBackendHealthCheckConfig struct {
-	http                         *lbBackendHealthCheckHttpConfig
-	tcp                          *lbBackendHealthCheckTcpConfig
+	http                         *lbBackendHealthCheckHTTPConfig
+	tcp                          *lbBackendHealthCheckTCPConfig
 	intervalSeconds              int
 	timeoutSeconds               int
 	healthyThreshold             int
@@ -82,9 +88,9 @@ type lbBackendHealthCheckConfig struct {
 	unhealthyIntervalSeconds     int
 }
 
-type lbBackendHealthCheckHttpConfig struct {
+type lbBackendHealthCheckHTTPConfig struct {
 	host string
 	path string
 }
 
-type lbBackendHealthCheckTcpConfig struct{}
+type lbBackendHealthCheckTCPConfig struct{}
