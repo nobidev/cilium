@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
+	"github.com/cilium/cilium/operator/pkg/secretsync"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
@@ -30,15 +31,18 @@ var Cell = cell.Module(
 	//exhaustruct:ignore
 	cell.Config(Config{}),
 	cell.Invoke(registerReconciler),
+	cell.Provide(registerSecretSync),
 	cell.ProvidePrivate(newNodeSource),
 )
 
 type Config struct {
-	StandaloneLbEnabled bool
+	StandaloneLbEnabled          bool
+	StandaloneLbSecretsNamespace string
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("standalone-lb-enabled", false, "Whether or not the standalone lb controlplane is enabled.")
+	flags.String("standalone-lb-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by Standalone LB.")
 }
 
 type reconcilerParams struct {
@@ -78,4 +82,21 @@ func registerReconciler(params reconcilerParams) error {
 	})
 
 	return nil
+}
+
+// registerSecretSync registers the Standalone LB controlplane for secret synchronization based on TLS secrets referenced
+// by the LBFrontends.
+func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrationOut {
+	if !params.Config.StandaloneLbEnabled {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
+	return secretsync.SecretSyncRegistrationOut{
+		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
+			RefObject:            &isovalentv1alpha1.LBFrontend{},
+			RefObjectEnqueueFunc: enqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
+			RefObjectCheckFunc:   isReferencedByLBFrontend,
+			SecretsNamespace:     params.Config.StandaloneLbSecretsNamespace,
+		},
+	}
 }

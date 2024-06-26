@@ -102,6 +102,7 @@ cilium-operator-generic hive dot-graph [flags]
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
       --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
+      --standalone-lb-secrets-namespace string                       Namespace that should be used when syncing TLS secrets used by Standalone LB. (default "cilium-secrets")
       --validate-network-policy                                      Whether to enable or disable the informational network policy validator (default true)
 ```
 

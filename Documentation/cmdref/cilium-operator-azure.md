@@ -137,6 +137,7 @@ cilium-operator-azure [flags]
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
       --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
+      --standalone-lb-secrets-namespace string                       Namespace that should be used when syncing TLS secrets used by Standalone LB. (default "cilium-secrets")
       --subnet-ids-filter strings                                    Subnets IDs (separated by commas)
       --subnet-tags-filter map                                       Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                                        Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
