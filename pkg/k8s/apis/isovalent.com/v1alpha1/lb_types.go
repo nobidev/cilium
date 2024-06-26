@@ -42,8 +42,30 @@ type LBFrontendSpec struct {
 	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
 
+	// +kubebuilder:validation:Optional
+	TLS *LBFrontendTLS `json:"tls,omitempty"`
+
 	// +kubebuilder:validation:Required
 	Routes []LBFrontendRoute `json:"routes"`
+}
+
+type LBFrontendTLS struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	DomainNames []LBFrontendTLSDomainName `json:"domainNames"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Certificates []LBFrontendTLSCertificate `json:"certificates"`
+}
+
+// +kubebuilder:validation:MinLength=1
+type LBFrontendTLSDomainName string
+
+type LBFrontendTLSCertificate struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	SecretName string `json:"secretName"`
 }
 
 type LBFrontendRoute struct {

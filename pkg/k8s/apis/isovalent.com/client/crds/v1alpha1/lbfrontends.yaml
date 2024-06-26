@@ -72,6 +72,29 @@ spec:
                       type: object
                   type: object
                 type: array
+              tls:
+                properties:
+                  certificates:
+                    items:
+                      properties:
+                        secretName:
+                          minLength: 1
+                          type: string
+                      required:
+                      - secretName
+                      type: object
+                    minItems: 1
+                    type: array
+                  domainNames:
+                    items:
+                      minLength: 1
+                      type: string
+                    minItems: 1
+                    type: array
+                required:
+                - certificates
+                - domainNames
+                type: object
               vip:
                 type: string
             required:
