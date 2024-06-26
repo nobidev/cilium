@@ -96,6 +96,7 @@ type LBFrontendStatus struct {
 const (
 	ConditionTypeIPAssigned    = "lb.cilium.io/IPAssigned"
 	ConditionTypeBackendsExist = "lb.cilium.io/BackendsExist"
+	ConditionTypeSecretsExist  = "lb.cilium.io/SecretsExist"
 )
 
 const (
@@ -106,6 +107,11 @@ const (
 const (
 	BackendsExistConditionReasonAllBackendsExist = "AllBackendsExist"
 	BackendsExistConditionReasonMissingBackends  = "MissingBackends"
+)
+
+const (
+	SecretsExistConditionReasonAllSecretsExist = "AllSecretsExist"
+	SecretsExistConditionReasonMissingSecrets  = "MissingSecrets"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

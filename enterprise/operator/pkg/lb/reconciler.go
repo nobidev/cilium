@@ -188,6 +188,20 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 
 	r.updateBackendsInStatus(frontend, missingBackends)
 
+	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
+	missingSecrets, err := r.getMissingTLSSecrets(ctx, frontend)
+	if err != nil {
+		return fmt.Errorf("failed to load referenced TLS secrets: %w", err)
+	}
+
+	if len(missingSecrets) > 0 {
+		scopedLogger.
+			WithField("secrets", missingSecrets).
+			Debug("Some referenced TLS Secrets don't exist")
+	}
+
+	r.updateSecretsInStatus(frontend, missingSecrets)
+
 	//
 	// Translate into internal model
 	//
@@ -263,6 +277,30 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 	}
 
 	return nil
+}
+
+func (r *standaloneLbReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]string, error) {
+	if frontend.Spec.TLS == nil {
+		return nil, nil
+	}
+
+	missingSecrets := []string{}
+
+	for _, c := range frontend.Spec.TLS.Certificates {
+		s := &corev1.Secret{}
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: c.SecretName}, s); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("failed to get referenced TLS Secret: %w", err)
+			}
+
+			// Continue reconciliation if TLS Secrets don't exist (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced backends gets created it will trigger a reconciliation
+			missingSecrets = append(missingSecrets, c.SecretName)
+		}
+	}
+
+	return missingSecrets, nil
 }
 
 func (r *standaloneLbReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
@@ -470,6 +508,25 @@ func (*standaloneLbReconciler) updateBackendsInStatus(frontend *isovalentv1alpha
 	}
 
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+}
+
+func (*standaloneLbReconciler) updateSecretsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingSecrets []string) {
+	secretsExistCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeSecretsExist,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.SecretsExistConditionReasonAllSecretsExist,
+		Message:            "All referenced TLS secrets exist",
+		ObservedGeneration: frontend.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(missingSecrets) > 0 {
+		secretsExistCondition.Status = metav1.ConditionFalse
+		secretsExistCondition.Reason = isovalentv1alpha1.SecretsExistConditionReasonMissingSecrets
+		secretsExistCondition.Message = fmt.Sprintf("There are referenced TLS secrets that do not exist: %v", missingSecrets)
+	}
+
+	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
 }
 
 func upsertCondition(frontend *isovalentv1alpha1.LBFrontend, conditionType string, condition metav1.Condition) {
