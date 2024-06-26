@@ -157,27 +157,9 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 	}
 
 	// Try loading referenced LBBackends (in same namespace)
-	backends := []*isovalentv1alpha1.LBBackend{}
-	missingBackends := []string{}
-	for _, lr := range frontend.Spec.Routes {
-		if lr.HTTP == nil {
-			continue
-		}
-
-		b := &isovalentv1alpha1.LBBackend{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: lr.HTTP.Backend}, b); err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("failed to get referenced LBBackend: %w", err)
-			}
-
-			// Continue reconciliation if backends don't exist (yet).
-			// But keep track of them to report in log and status later on.
-			// Once the missing referenced backends gets created it will trigger a reconciliation
-			missingBackends = append(missingBackends, lr.HTTP.Backend)
-			continue
-		}
-
-		backends = append(backends, b)
+	backends, missingBackends, err := r.loadBackends(ctx, frontend)
+	if err != nil {
+		return fmt.Errorf("failed to load referenced backends: %w", err)
 	}
 
 	if len(missingBackends) > 0 {
@@ -277,6 +259,33 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 	}
 
 	return nil
+}
+
+func (r *standaloneLbReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
+	backends := []*isovalentv1alpha1.LBBackend{}
+	missingBackends := []string{}
+	for _, lr := range frontend.Spec.Routes {
+		if lr.HTTP == nil {
+			continue
+		}
+
+		b := &isovalentv1alpha1.LBBackend{}
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: lr.HTTP.Backend}, b); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return nil, nil, fmt.Errorf("failed to get referenced LBBackend: %w", err)
+			}
+
+			// Continue reconciliation if backends don't exist (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced backends gets created it will trigger a reconciliation
+			missingBackends = append(missingBackends, lr.HTTP.Backend)
+			continue
+		}
+
+		backends = append(backends, b)
+	}
+
+	return backends, missingBackends, nil
 }
 
 func (r *standaloneLbReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]string, error) {
