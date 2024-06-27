@@ -37,8 +37,10 @@ rules:
 {{- if .Values.enterprise.ciliummesh.enabled }}
   - isovalentmeshendpoints.isovalent.com
 {{- end }}
+{{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
   - lbfrontends.isovalent.com
   - lbbackends.isovalent.com
+{{- end }}
 - apiGroups:
   - isovalent.com
   resources:
@@ -48,6 +50,7 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
 - apiGroups:
   - isovalent.com
   resources:
@@ -58,12 +61,15 @@ rules:
   - list
   - watch
   - update
+{{- end }}
 - apiGroups:
   - isovalent.com
   resources:
   - isovalentsrv6sidmanagers
+{{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
   - lbfrontends
   - lbbackends
+{{- end }}
   verbs:
   - get
   - list
@@ -178,6 +184,7 @@ rules:
   - patch
 {{- end }}
 # TODO: Wrap within Helm value for L7LB CRD and LBFrontend
+{{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -187,6 +194,16 @@ rules:
   - create
   - update
   - delete
+- apiGroups:
+  - ""
+  resources:
+  # Read all Secrets for Secret Sync into Envoy Secret Namespace
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:

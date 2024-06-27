@@ -3816,3 +3816,6 @@ enterprise:
     policy:
       # -- Enables support for encryption policies
       enabled: false
+  standaloneLoadbalancer:
+    # -- Enables Standalone Loadbalancer
+    enabled: false

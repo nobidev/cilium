@@ -1292,6 +1292,10 @@
      - Enables custom SRv6 SID locator pool operator support.
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.standaloneLoadbalancer.enabled`
+     - Enables Standalone Loadbalancer
+     - bool
+     - ``false``
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object

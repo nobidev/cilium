@@ -1900,6 +1900,14 @@
             }
           },
           "type": "object"
+        },
+        "standaloneLoadbalancer": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
