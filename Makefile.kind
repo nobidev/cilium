@@ -12,6 +12,10 @@ kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
 	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
 	kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
+.PHONY: kind-standalonelb
+kind-standalonelb: ## Create a kind cluster for Standalone Loadbalancer Cilium development.
+	$(QUIET)SED=$(SED) WORKERS=2 ./contrib/scripts/kind.sh --xdp
+
 .PHONY: kind-down
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
