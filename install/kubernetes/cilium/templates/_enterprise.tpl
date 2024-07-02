@@ -80,7 +80,7 @@ enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quot
 
 {{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
 standalone-lb-enabled: "true"
-standalone-lb-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.Name | quote }}
+standalone-lb-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 {{- end }}
 
 {{- end }}
