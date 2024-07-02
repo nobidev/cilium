@@ -36,13 +36,17 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	StandaloneLbEnabled          bool
-	StandaloneLbSecretsNamespace string
+	StandaloneLbEnabled             bool
+	StandaloneLbSecretsNamespace    string
+	StandaloneLbAccessLogFormatHTTP string
+	StandaloneLbAccessLogExcludeHC  bool
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("standalone-lb-enabled", false, "Whether or not the standalone lb controlplane is enabled.")
 	flags.String("standalone-lb-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by Standalone LB.")
+	flags.String("standalone-lb-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format (without the trailing newline)")
+	flags.Bool("standalone-lb-accesslog-exclude-hc", true, "Whether or not the HealthCheck requests should be excluded from the Access Log")
 }
 
 type reconcilerParams struct {
@@ -68,7 +72,12 @@ func registerReconciler(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{}, params.Config.StandaloneLbSecretsNamespace)
+	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
+		reconcilerConfig{
+			SecretsNamespace:    params.Config.StandaloneLbSecretsNamespace,
+			AccessLogFormatHTTP: params.Config.StandaloneLbAccessLogFormatHTTP,
+			AccessLogExcludeHC:  params.Config.StandaloneLbAccessLogExcludeHC,
+		})
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {

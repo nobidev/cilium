@@ -13,11 +13,13 @@ package lb
 import (
 	"fmt"
 
+	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_corev3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_endpointv3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener_v3 "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	envoy_health_check_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
@@ -142,6 +144,7 @@ func (r *standaloneLbReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFr
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						AccessLog:  r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix: "frontend_listener_http",
 						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
@@ -192,7 +195,7 @@ func (r *standaloneLbReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extens
 
 	for _, cs := range model.tls.certificateSecrets {
 		secrets = append(secrets, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
-			Name: fmt.Sprintf("%s/%s-%s", r.secretsNamespace, model.namespace, cs),
+			Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
 		})
 	}
 
@@ -220,6 +223,7 @@ func (r *standaloneLbReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbF
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						AccessLog:  r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix: "frontend_listener_https",
 						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
@@ -237,6 +241,49 @@ func (r *standaloneLbReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbF
 						},
 					}),
 				},
+			},
+		},
+	}
+}
+
+func (r *standaloneLbReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
+	var hcFilter *envoy_accesslog_v3.AccessLogFilter
+
+	if r.config.AccessLogExcludeHC {
+		// Exclude T1->T2 HC requests by the user-agent
+		hcFilter = &envoy_accesslog_v3.AccessLogFilter{
+			FilterSpecifier: &envoy_accesslog_v3.AccessLogFilter_HeaderFilter{
+				HeaderFilter: &envoy_accesslog_v3.HeaderFilter{
+					Header: &envoy_config_route_v3.HeaderMatcher{
+						InvertMatch: true,
+						Name:        "user-agent",
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_PrefixMatch{
+							PrefixMatch: "cilium-probe/", // Sent by T1 HC
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return []*envoy_accesslog_v3.AccessLog{
+		{
+			Name:   "stdout",
+			Filter: hcFilter,
+			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
+					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
+						LogFormat: &envoy_corev3.SubstitutionFormatString{
+							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_corev3.DataSource{
+									Specifier: &envoy_corev3.DataSource_InlineString{
+										InlineString: fmt.Sprintf("%s\n", r.config.AccessLogFormatHTTP),
+									},
+								},
+							},
+						},
+					},
+				}),
 			},
 		},
 	}

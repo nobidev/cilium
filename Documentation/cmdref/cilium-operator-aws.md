@@ -141,6 +141,8 @@ cilium-operator-aws [flags]
       --set-cilium-node-taints                                       Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
+      --standalone-lb-accesslog-exclude-hc                           Whether or not the HealthCheck requests should be excluded from the Access Log (default true)
+      --standalone-lb-accesslog-format-http string                   Envoy Access Log format (without the trailing newline) (default "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
       --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
       --standalone-lb-secrets-namespace string                       Namespace that should be used when syncing TLS secrets used by Standalone LB. (default "cilium-secrets")
       --subnet-ids-filter strings                                    Subnets IDs (separated by commas)

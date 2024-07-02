@@ -1,0 +1,3 @@
+SecretsNamespace: ""
+AccessLogFormatHTTP: "ACCESSLOG_FORMAT_STRING"
+AccessLogExcludeHC: true

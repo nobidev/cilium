@@ -49,10 +49,16 @@ type standaloneLbReconciler struct {
 	nodeSource *ciliumNodeSource
 	ingestor   *ingestor
 
-	secretsNamespace string
+	config reconcilerConfig
 }
 
-func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, secretsNamespace string) *standaloneLbReconciler {
+type reconcilerConfig struct {
+	SecretsNamespace    string
+	AccessLogFormatHTTP string
+	AccessLogExcludeHC  bool
+}
+
+func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *standaloneLbReconciler {
 	return &standaloneLbReconciler{
 		logger:     logger,
 		client:     client,
@@ -60,7 +66,7 @@ func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, 
 		nodeSource: nodeSource,
 		ingestor:   ingestor,
 
-		secretsNamespace: secretsNamespace,
+		config: config,
 	}
 }
 

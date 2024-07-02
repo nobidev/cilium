@@ -58,7 +58,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 	return func(t *testing.T) {
 		// read input files
 		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
-		readInputCR(t, fmt.Sprintf("./testdata/translation/%s/input-lbfrontend.yaml", tc.name), inputLBFrontend)
+		readInput(t, fmt.Sprintf("./testdata/translation/%s/input-lbfrontend.yaml", tc.name), inputLBFrontend)
 
 		entries, err := os.ReadDir("./testdata/translation/" + tc.name)
 		require.NoError(t, err)
@@ -71,14 +71,14 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			}
 
 			inputLBBackend := &isovalentv1alpha1.LBBackend{}
-			readInputCR(t, fmt.Sprintf("./testdata/translation/%s/%s", tc.name, d.Name()), inputLBBackend)
+			readInput(t, fmt.Sprintf("./testdata/translation/%s/%s", tc.name, d.Name()), inputLBBackend)
 			inputLBBackends = append(inputLBBackends, inputLBBackend)
 		}
 
 		var inputService *corev1.Service
 		if _, err := os.Stat(fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name)); err == nil {
 			inputService = &corev1.Service{}
-			readInputCR(t, fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name), inputService)
+			readInput(t, fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name), inputService)
 		}
 
 		// read output files
@@ -92,8 +92,15 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		model, err := ing.ingest(inputLBFrontend, inputLBBackends, inputService)
 		require.NoError(t, err)
 
+		// Input Config
+		config := reconcilerConfig{}
+
+		readInput(t, fmt.Sprintf("./testdata/translation/%s/input-config.yaml", tc.name), &config)
+
 		// translation
-		reconciler := &standaloneLbReconciler{}
+		reconciler := &standaloneLbReconciler{
+			config: config,
+		}
 
 		// T1 Service
 		service := reconciler.desiredService(model)
@@ -127,7 +134,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 	}
 }
 
-func readInputCR(t *testing.T, file string, obj any) {
+func readInput(t *testing.T, file string, obj any) {
 	inputYaml, err := os.ReadFile(file)
 	require.NoError(t, err)
 
