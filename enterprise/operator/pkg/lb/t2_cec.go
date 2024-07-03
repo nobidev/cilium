@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 
+	cilium_proxy "github.com/cilium/proxy/go/cilium/api"
 	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_corev3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -116,6 +117,17 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 				Name: "envoy.filters.listener.tls_inspector",
 				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+			// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
+			// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
+			// comes with BPF map lookups enabled.
+			{
+				Name: "cilium.bpf_metadata",
+				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&cilium_proxy.BpfMetadata{
+						BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
+					}),
 				},
 			},
 		},
