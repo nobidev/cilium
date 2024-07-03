@@ -1,8 +1,8 @@
 apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
-  name: lb-1
   namespace: default
+  name: lbfe-lb-1
 spec:
   nodeSelector:
     matchLabels:

@@ -80,7 +80,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*c
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
-			Name:      model.name,
+			Name:      model.getOwningResourceName(),
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{

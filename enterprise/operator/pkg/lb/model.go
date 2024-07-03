@@ -10,6 +10,10 @@
 
 package lb
 
+import (
+	"github.com/cilium/cilium/pkg/shortener"
+)
+
 // TODO: validation method
 // - tcp route -> only one route allowed
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
@@ -22,6 +26,17 @@ type lbFrontend struct {
 	tls        *lbFrontendTLS
 	port       int32
 	routes     []lbRoute
+}
+
+func (r lbFrontend) getOwningResourceName() string {
+	return getOwningResourceName(r.name)
+}
+
+func getOwningResourceName(parentName string) string {
+	name := "lbfe-" + parentName
+
+	// shorten to be below the max name length of k8s resources even after prefixing
+	return shortener.ShortenK8sResourceName(name)
 }
 
 type lbFrontendTLS struct {

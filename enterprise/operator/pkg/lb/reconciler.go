@@ -148,7 +148,7 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 
 	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
 	existingT1Service := &corev1.Service{}
-	if err := r.client.Get(ctx, client.ObjectKeyFromObject(frontend), existingT1Service); err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: getOwningResourceName(frontend.Name)}, existingT1Service); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get T1 Service: %w", err)
 		}

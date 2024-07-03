@@ -16,7 +16,7 @@ metadata:
   labels:
     lb.cilium.io/tier: t1
   namespace: default
-  name: lb-1
+  name: lbfe-lb-1
 spec:
   ports:
     - name: http

@@ -57,7 +57,7 @@ func (r *standaloneLbReconciler) desiredService(model *lbFrontend) *corev1.Servi
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   model.namespace,
-			Name:        model.name,
+			Name:        model.getOwningResourceName(),
 			Labels:      labels,
 			Annotations: annotations,
 		},
@@ -83,7 +83,7 @@ func (r *standaloneLbReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs [
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
-			Name:      model.name,
+			Name:      model.getOwningResourceName(),
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
