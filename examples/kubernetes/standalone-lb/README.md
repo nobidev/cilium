@@ -6,17 +6,10 @@
 make kind-standalonelb
 ```
 
-## Install Cilium
+## Install Cilium as Standalone LB
 
 ```
-ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-standalone-lb.yaml make kind-debug
-```
-
-## Configure Cilium as Standalone LB
-
-Wait until Cilium Operator created CRDs in the Cluster (especially the `CiliumNodeConfig`)
-
-```
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-standalone-lb.yaml make kind-debug && \
 ./examples/kubernetes/standalone-lb/configure_loadbalancer.sh
 ```
 
@@ -32,14 +25,9 @@ Wait until Cilium Operator created CRDs in the Cluster (especially the `CiliumNo
 ./examples/kubernetes/standalone-lb/test_example.sh
 ```
 
-## Cleanup
-
-```
-./examples/kubernetes/standalone-lb/cleanup_example.sh
-```
-
 ## Delete Kind Cluster
 
 ```
+./examples/kubernetes/standalone-lb/cleanup_example.sh && \
 make kind-down
 ```

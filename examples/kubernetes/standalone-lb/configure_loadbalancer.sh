@@ -23,6 +23,13 @@ kubectl -n kube-system delete ds kube-proxy 2>/dev/null || true
 
 # T1 nodeconfig
 
+echo "Waiting for CRDs "
+while ! kubectl get crds ciliumnodeconfigs.cilium.io &> /dev/null; do
+  echo -n "."
+  sleep 2
+done
+echo ""
+
 kubectl apply -f ${script_dir}/manifests/t1-nodeconfig.yml
 
 CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName=kind-control-plane -o name)
