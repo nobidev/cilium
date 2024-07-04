@@ -6,9 +6,9 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-VIP_LB1=$(kubectl -n default get svc lb-1 -ojson | jq -r '.status.loadBalancer.ingress[0].ip')
-VIP_LB2=$(kubectl -n default get svc lb-2 -ojson | jq -r '.status.loadBalancer.ingress[0].ip')
-VIP_LB3=$(kubectl -n default get svc lb-3 -ojson | jq -r '.status.loadBalancer.ingress[0].ip')
+VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
+VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
+VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
 
 docker exec frr bash -c "echo -n 'HTTP  T1: ' && curl -s http://${VIP_LB1}:80/"
 docker exec frr bash -c "echo -n 'HTTP  T2: ' && curl -s http://${VIP_LB2}:80/"
