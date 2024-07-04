@@ -20,17 +20,17 @@ docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3
 # FRR client
 
 docker rm -f frr 2>/dev/null
-sudo rm -rf ${script_dir}/frr/config
+rm -rf ${script_dir}/frr/config
 
 LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
 
 mkdir -p ${script_dir}/frr/config/etc/frr/config
 
-cat ${script_dir}/frr/templates/frr-vtysh.conf | sudo tee ${script_dir}/frr/config/etc/frr/vtysh.conf
-cat ${script_dir}/frr/templates/frr-daemons | sudo tee ${script_dir}/frr/config/etc/frr/daemons
-sed -E "s/neighbor\s\S+\s/neighbor ${LB_T1_IP} /" ${script_dir}/frr/templates/frr.conf | sudo tee ${script_dir}/frr/config/etc/frr/frr.conf
+cat ${script_dir}/frr/templates/frr-vtysh.conf | tee ${script_dir}/frr/config/etc/frr/vtysh.conf
+cat ${script_dir}/frr/templates/frr-daemons | tee ${script_dir}/frr/config/etc/frr/daemons
+sed -E "s/neighbor\s\S+\s/neighbor ${LB_T1_IP} /" ${script_dir}/frr/templates/frr.conf | tee ${script_dir}/frr/config/etc/frr/frr.conf
 
-docker run -d --privileged --restart=always -v ${script_dir}/frr/config/etc/frr:/etc/frr --name frr --network kind-cilium quay.io/frrouting/frr:7.5.1
+docker run -d --privileged --restart=always -v ${script_dir}/frr/config/etc/frr:/etc/frr:ro --name frr --network kind-cilium quay.io/frrouting/frr:7.5.1
 docker exec frr bash -c "apk update && apk add curl"
 
 # LB IPAM
