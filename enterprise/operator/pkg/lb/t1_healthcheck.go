@@ -11,6 +11,7 @@
 package lb
 
 const (
-	healthCheckHttpPath   = "/health"
-	healthCheckHttpMethod = "GET"
+	healthCheckHttpPath            = "/health"
+	healthCheckHttpMethod          = "GET"
+	healthCheckHttpUserAgentPrefix = "cilium-probe/"
 )

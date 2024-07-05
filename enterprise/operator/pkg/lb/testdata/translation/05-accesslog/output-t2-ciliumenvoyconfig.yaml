@@ -45,6 +45,8 @@ spec:
                           name: :path
                         - exactMatch: GET
                           name: :method
+                        - prefixMatch: cilium-probe/
+                          name: user-agent
                       passThroughMode: false
                   - name: envoy.filters.http.router
                     typedConfig:

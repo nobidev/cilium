@@ -388,6 +388,10 @@ func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCh
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: healthCheckHttpMethod},
 				Name:                 ":method",
 			},
+			{
+				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_PrefixMatch{PrefixMatch: healthCheckHttpUserAgentPrefix},
+				Name:                 "user-agent",
+			},
 		},
 	}
 
