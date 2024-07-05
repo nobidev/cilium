@@ -1,32 +1,22 @@
 # Isovalent LoadBalancer
 
-## Create Kind cluster for local development
+## Install Isovalent LoadBalancer on a local Kind cluster
 
-```
-make kind-loadbalancer
-```
-
-## Install Cilium as LoadBalancer
-
-```
+```sh
+make kind-loadbalancer && \
 ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-debug && \
-./examples/kubernetes/loadbalancer/configure_loadbalancer.sh
+./examples/kubernetes/loadbalancer/lb_configure.sh
 ```
 
-## Deploy LB scenario
+## Deploy & Test LoadBalancer example
 
-```
-./examples/kubernetes/loadbalancer/install_example.sh
-```
-
-## Test LB scenario
-
-```
-./examples/kubernetes/loadbalancer/test_example.sh
+```sh
+./examples/kubernetes/loadbalancer/example_install.sh && \
+./examples/kubernetes/loadbalancer/example_test.sh
 ```
 
-## Delete Kind Cluster & Docker Containers
+## Delete LoadBalancer Kind Cluster & example Docker Containers
 
-```
+```sh
 DELETE_CONTAINERS=true make kind-down
 ```

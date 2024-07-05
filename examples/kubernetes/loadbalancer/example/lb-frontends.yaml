@@ -1,0 +1,39 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  port: 80
+  tls:
+    domainNames:
+      - "foo.acme.io"
+    certificates:
+      - secretName: "test"
+  routes:
+    - http:
+        backend: lb-1
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-2
+spec:
+  vip: "100.64.0.101"
+  port: 80
+  routes:
+    - http:
+        backend: lb-2
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-3
+spec:
+  vip: "100.64.0.101"
+  port: 81
+  routes:
+    - http:
+        backend: lb-3

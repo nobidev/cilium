@@ -13,7 +13,6 @@ kubectl label node kind-worker lb.cilium.io/tier=t2
 kubectl label node kind-worker2 lb.cilium.io/tier=t2
 
 # Allow privileged ports (Envoy)
-# TODO: configure helm chart accordingly
 
 kind get nodes --name kind | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
 
@@ -21,17 +20,28 @@ kind get nodes --name kind | xargs -I container_name docker exec container_name 
 
 kubectl -n kube-system delete ds kube-proxy 2>/dev/null || true
 
-# T1 nodeconfig
 
-echo "Waiting for CRDs "
-while ! kubectl get crds ciliumnodeconfigs.cilium.io &> /dev/null; do
-  echo -n "."
-  sleep 2
+echo -n "Waiting for CRDs "
+crds=(
+  "ciliumnodeconfigs.cilium.io"
+  "ciliumloadbalancerippools.cilium.io"
+  "ciliumbgppeeringpolicies.cilium.io"
+  "isovalentbfdprofiles.isovalent.com"
+  "lbfrontends.isovalent.com"
+  "lbbackends.isovalent.com"
+)
+for crd in "${crds[@]}"
+do
+  while ! kubectl get crd "${crd}" &> /dev/null ; do
+    echo -n "."
+    sleep 2
+  done
 done
 echo ""
 
-kubectl apply -f ${script_dir}/manifests/t1-nodeconfig.yml
+# T1 nodeconfig
+kubectl apply -f "${script_dir}/lb/t1-nodeconfig.yaml"
 
 CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName=kind-control-plane -o name)
-kubectl delete -n kube-system ${CILIUM_T1_POD}
+kubectl delete -n kube-system "${CILIUM_T1_POD}"
 
