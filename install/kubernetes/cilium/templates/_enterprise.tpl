@@ -78,7 +78,7 @@ enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabl
 enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quote }}
 {{- end }}
 
-{{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
+{{- if .Values.enterprise.loadbalancer.enabled }}
 loadbalancer-cp-enabled: "true"
 loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 {{- end }}

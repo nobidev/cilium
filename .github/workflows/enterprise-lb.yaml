@@ -169,7 +169,7 @@ jobs:
              --helm-set=hubble.relay.image.repository=quay.io/isovalent-dev/hubble-relay-ci \
              --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
              --helm-set=hubble.relay.image.useDigest=false \
-             --helm-set=enterprise.standaloneLoadbalancer.enabled=true \
+             --helm-set=enterprise.loadbalancer.enabled=true \
              --helm-set=enterprise.bgpControlPlane.enableServiceHealthChecking=true \
              --helm-set=enterprise.bfd.enabled=true \
              --helm-set=debug.enabled=true \

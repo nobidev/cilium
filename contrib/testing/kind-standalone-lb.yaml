@@ -1,5 +1,5 @@
 enterprise:
-  standaloneLoadbalancer:
+  loadbalancer:
     enabled: true
   bgpControlPlane:
     enableServiceHealthChecking: true

@@ -1260,6 +1260,10 @@
      - 
      - list
      - ``[]``
+   * - :spelling:ignore:`enterprise.loadbalancer.enabled`
+     - Enables Loadbalancer mode (Control Plane)
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.multiNetwork`
      - Multi-network support (preview feature)
      - object
@@ -1290,10 +1294,6 @@
      - ``"reduced"``
    * - :spelling:ignore:`enterprise.srv6.locatorPoolEnabled`
      - Enables custom SRv6 SID locator pool operator support.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`enterprise.standaloneLoadbalancer.enabled`
-     - Enables Standalone Loadbalancer
      - bool
      - ``false``
    * - :spelling:ignore:`envoy.affinity`

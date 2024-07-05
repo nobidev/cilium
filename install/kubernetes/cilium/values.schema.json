@@ -1865,6 +1865,14 @@
           "items": {},
           "type": "array"
         },
+        "loadbalancer": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "multiNetwork": {
           "properties": {
             "autoCreateDefaultPodNetwork": {
@@ -1896,14 +1904,6 @@
               "type": "string"
             },
             "locatorPoolEnabled": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "standaloneLoadbalancer": {
-          "properties": {
-            "enabled": {
               "type": "boolean"
             }
           },
