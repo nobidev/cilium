@@ -2,7 +2,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNodeConfig
 metadata:
   namespace: kube-system
-  name: enable-xdp
+  name: t1-config
 spec:
   nodeSelector:
     matchLabels:

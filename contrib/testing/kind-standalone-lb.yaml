@@ -1,7 +1,6 @@
 enterprise:
   standaloneLoadbalancer:
     enabled: true
-    secretsNamespace: "cilium-secrets"
   bgpControlPlane:
     enableServiceHealthChecking: true
   bfd:
@@ -12,22 +11,15 @@ debug:
 bgpControlPlane:
   enabled: true
 envoy:
-  enabled: true
   nodeSelector:
     lb.cilium.io/tier: "t2"
   debug:
     admin:
       enabled: true
-      port: 9901
 envoyConfig:
   enabled: true
-  retryInterval: 15s
 bpf:
-  tproxy: true
   monitorAggregation: none
-## optional config
 kubeProxyReplacement: true
-ipv6:
-  enabled: false
 extraConfig:
   enable-ipip-termination: "true"
