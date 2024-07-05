@@ -37,7 +37,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
+func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
 	if model.assignedIP == nil {
 		return nil, nil
 	}
@@ -95,7 +95,7 @@ func (r *standaloneLbReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*c
 	}, nil
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_config_listener_v3.Listener {
+func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_config_listener_v3.Listener {
 	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
 		Address: &envoy_corev3.Address{
@@ -120,7 +120,7 @@ func (r *standaloneLbReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListenerFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
+func (r *lbFrontendReconciler) desiredEnvoyListenerFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
 	filterChains := []*envoy_config_listener_v3.FilterChain{}
 
 	httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
@@ -134,7 +134,7 @@ func (r *standaloneLbReconciler) desiredEnvoyListenerFilterChains(model *lbFront
 	return filterChains
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
+func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "raw_buffer",
@@ -190,7 +190,7 @@ func toServerNames(domainNames []string) []string {
 	return serverNames
 }
 
-func (r *standaloneLbReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
+func (r *lbFrontendReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
 	secrets := []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{}
 
 	for _, cs := range model.tls.certificateSecrets {
@@ -202,7 +202,7 @@ func (r *standaloneLbReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extens
 	return secrets
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
+func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "tls",
@@ -246,7 +246,7 @@ func (r *standaloneLbReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbF
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
+func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
 	var hcFilter *envoy_accesslog_v3.AccessLogFilter
 
 	if r.config.AccessLogExcludeHC {
@@ -289,7 +289,7 @@ func (r *standaloneLbReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_access
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*envoy_config_route_v3.RouteConfiguration {
+func (r *lbFrontendReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*envoy_config_route_v3.RouteConfiguration {
 	routeConfigs := []*envoy_config_route_v3.RouteConfiguration{}
 
 	httpRouteConfig := r.desiredEnvoyHttpRouteConfig(model)
@@ -303,21 +303,21 @@ func (r *standaloneLbReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*
 	return routeConfigs
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyHttpRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
+func (r *lbFrontendReconciler) desiredEnvoyHttpRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_http",
 		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "http"),
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
+func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_https",
 		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "https"),
 	}
 }
 
-func (*standaloneLbReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (*lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
 	hostnameToHttpRoutes := map[string][]*envoy_config_route_v3.Route{}
 
 	for i, route := range model.routes {
@@ -398,7 +398,7 @@ func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCh
 	return healthCheckFilter
 }
 
-func (*standaloneLbReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_config_cluster_v3.Cluster {
+func (*lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
 	for i, route := range model.routes {

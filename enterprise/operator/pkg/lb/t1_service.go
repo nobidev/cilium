@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func (r *standaloneLbReconciler) desiredService(model *lbFrontend) *corev1.Service {
+func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service {
 	labels := map[string]string{
 		"lb.cilium.io/tier": "t1",
 	}
@@ -74,7 +74,7 @@ func (r *standaloneLbReconciler) desiredService(model *lbFrontend) *corev1.Servi
 	}
 }
 
-func (r *standaloneLbReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
+func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
@@ -100,7 +100,7 @@ func (r *standaloneLbReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs [
 	}, nil
 }
 
-func (r *standaloneLbReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
+func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node store: %w", err)

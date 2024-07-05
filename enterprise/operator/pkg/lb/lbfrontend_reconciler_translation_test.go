@@ -98,7 +98,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		readInput(t, fmt.Sprintf("./testdata/translation/%s/input-config.yaml", tc.name), &config)
 
 		// translation
-		reconciler := &standaloneLbReconciler{
+		reconciler := &lbFrontendReconciler{
 			config: config,
 		}
 

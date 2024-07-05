@@ -72,7 +72,7 @@ func registerReconciler(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	reconciler := newStandaloneLbReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
+	lbFrontendReconciler := newLbFrontendReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
 		reconcilerConfig{
 			SecretsNamespace:    params.Config.StandaloneLbSecretsNamespace,
 			AccessLogFormatHTTP: params.Config.StandaloneLbAccessLogFormatHTTP,
@@ -82,8 +82,8 @@ func registerReconciler(params reconcilerParams) error {
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
 			// register reconciler to manager in lifecycle to ensure that CRDs are installed on the cluster
-			if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-				return fmt.Errorf("failed to setup standalone lb reconciler: %w", err)
+			if err := lbFrontendReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+				return fmt.Errorf("failed to setup LBFrontend reconciler: %w", err)
 			}
 
 			return nil

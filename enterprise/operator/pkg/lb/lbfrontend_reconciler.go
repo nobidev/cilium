@@ -42,7 +42,7 @@ const (
 	lbFrontendTlsSecretIndexName = ".spec.tls.certificates.secretname"
 )
 
-type standaloneLbReconciler struct {
+type lbFrontendReconciler struct {
 	logger     logrus.FieldLogger
 	client     client.Client
 	scheme     *runtime.Scheme
@@ -58,8 +58,8 @@ type reconcilerConfig struct {
 	AccessLogExcludeHC  bool
 }
 
-func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *standaloneLbReconciler {
-	return &standaloneLbReconciler{
+func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbFrontendReconciler {
+	return &lbFrontendReconciler{
 		logger:     logger,
 		client:     client,
 		scheme:     scheme,
@@ -72,7 +72,7 @@ func newStandaloneLbReconciler(logger logrus.FieldLogger, client client.Client, 
 
 // SetupWithManager sets up the controller with the Manager and configures
 // the different watches. All the watcher trigger a reconciliation.
-func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
 		lbFrontendBackendIndexName:   backendIndexerFunc,
 		lbFrontendTlsSecretIndexName: tlsSecretIndexerFunc,
@@ -101,8 +101,8 @@ func (r *standaloneLbReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// Reconcile implements the main reconciliation loop that gets triggered whenever a StandaloneLB resource or a related resource changes.
-func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+// Reconcile implements the main reconciliation loop that gets triggered whenever a LBFrontend resource or a related resource changes.
+func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
 		logfields.Controller: "LBFrontend",
 		logfields.Resource:   req.NamespacedName,
@@ -147,7 +147,7 @@ func (r *standaloneLbReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	return controllerruntime.Success()
 }
 
-func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
+func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
 	//
 	// Load dependent resources that have relevant input for the model
 	//
@@ -267,7 +267,7 @@ func (r *standaloneLbReconciler) createOrUpdateResources(ctx context.Context, sc
 	return nil
 }
 
-func (r *standaloneLbReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
+func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
 	backends := []*isovalentv1alpha1.LBBackend{}
 	missingBackends := []string{}
 	for _, lr := range frontend.Spec.Routes {
@@ -294,7 +294,7 @@ func (r *standaloneLbReconciler) loadBackends(ctx context.Context, frontend *iso
 	return backends, missingBackends, nil
 }
 
-func (r *standaloneLbReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]string, error) {
+func (r *lbFrontendReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]string, error) {
 	if frontend.Spec.TLS == nil {
 		return nil, nil
 	}
@@ -318,7 +318,7 @@ func (r *standaloneLbReconciler) getMissingTLSSecrets(ctx context.Context, front
 	return missingSecrets, nil
 }
 
-func (r *standaloneLbReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
+func (r *lbFrontendReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
 	svc := desiredService.DeepCopy()
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, svc, func() error {
@@ -338,7 +338,7 @@ func (r *standaloneLbReconciler) createOrUpdateService(ctx context.Context, desi
 	return nil
 }
 
-func (r *standaloneLbReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
+func (r *lbFrontendReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
 	if len(desiredEndpoints.Subsets[0].Addresses) != 0 {
 		ep := desiredEndpoints.DeepCopy()
 		result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
@@ -372,7 +372,7 @@ func (r *standaloneLbReconciler) createOrUpdateEndpoints(ctx context.Context, de
 	return nil
 }
 
-func (r *standaloneLbReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
+func (r *lbFrontendReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
 	cec := desiredCEC.DeepCopy()
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, cec, func() error {
@@ -433,7 +433,7 @@ func tlsSecretIndexerFunc(rawObj client.Object) []string {
 	return secrets
 }
 
-func (r *standaloneLbReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {
+func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBFrontendList{}
 
@@ -462,7 +462,7 @@ func (r *standaloneLbReconciler) enqueueReferencingLBFrontendsByIndex(indexName 
 	})
 }
 
-func (r *standaloneLbReconciler) enqueueAllLBFrontends() handler.EventHandler {
+func (r *lbFrontendReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBFrontendList{}
 		if err := r.client.List(ctx, &lbList); err != nil {
@@ -485,7 +485,7 @@ func (r *standaloneLbReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	})
 }
 
-func (*standaloneLbReconciler) updateAssignedIpInStatus(model *lbFrontend, frontend *isovalentv1alpha1.LBFrontend) {
+func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, frontend *isovalentv1alpha1.LBFrontend) {
 	ipAssignedCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeIPAssigned,
 		Status:             metav1.ConditionFalse,
@@ -506,7 +506,7 @@ func (*standaloneLbReconciler) updateAssignedIpInStatus(model *lbFrontend, front
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
-func (*standaloneLbReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingBackends []string) {
+func (*lbFrontendReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingBackends []string) {
 	backendsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeBackendsExist,
 		Status:             metav1.ConditionTrue,
@@ -525,7 +525,7 @@ func (*standaloneLbReconciler) updateBackendsInStatus(frontend *isovalentv1alpha
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
 }
 
-func (*standaloneLbReconciler) updateSecretsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingSecrets []string) {
+func (*lbFrontendReconciler) updateSecretsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingSecrets []string) {
 	secretsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeSecretsExist,
 		Status:             metav1.ConditionTrue,
@@ -565,7 +565,7 @@ func upsertCondition(frontend *isovalentv1alpha1.LBFrontend, conditionType strin
 	}
 }
 
-func (r *standaloneLbReconciler) isTLSSecret() builder.WatchesOption {
+func (r *lbFrontendReconciler) isTLSSecret() builder.WatchesOption {
 	return builder.WithPredicates(&isTLSSecretPredicate{})
 }
 
