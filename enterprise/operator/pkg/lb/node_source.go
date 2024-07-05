@@ -32,7 +32,7 @@ type ciliumNodeSource struct {
 }
 
 func newNodeSource(config Config, jobGroup job.Group, nodeResource resource.Resource[*ciliumv2.CiliumNode]) *ciliumNodeSource {
-	if !config.StandaloneLbEnabled {
+	if !config.LoadBalancerCPEnabled {
 		return nil
 	}
 
@@ -44,7 +44,7 @@ func newNodeSource(config Config, jobGroup job.Group, nodeResource resource.Reso
 		nodeEvents: nodeEvents,
 	}
 
-	jobGroup.Add(job.Observer("standalone-lb nodeevents", ciliumNodeSource.HandleEvent, nodeResource))
+	jobGroup.Add(job.Observer("loadbalancer cp nodeevents", ciliumNodeSource.HandleEvent, nodeResource))
 
 	return ciliumNodeSource
 }

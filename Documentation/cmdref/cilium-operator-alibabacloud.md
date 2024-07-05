@@ -108,6 +108,10 @@ cilium-operator-alibabacloud [flags]
       --leader-election-retry-period duration                        Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                                     Upper burst limit when accessing external APIs (default 20)
       --limit-ipam-api-qps float                                     Queries per second limit when accessing external IPAM APIs (default 4)
+      --loadbalancer-cp-accesslog-exclude-hc                         Whether or not the LoadBalancer control plane should configure T2 Envoy to exclude health check requests from the access log (default true)
+      --loadbalancer-cp-accesslog-format-http string                 Envoy Access Log format that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline) (default "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
+      --loadbalancer-cp-enabled                                      Whether or not the LoadBalancer control plane is enabled.
+      --loadbalancer-cp-secrets-namespace string                     Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane. (default "cilium-secrets")
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.
       --log-driver strings                                           Logging endpoints to use for example syslog
@@ -133,10 +137,6 @@ cilium-operator-alibabacloud [flags]
       --set-cilium-node-taints                                       Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
-      --standalone-lb-accesslog-exclude-hc                           Whether or not the HealthCheck requests should be excluded from the Access Log (default true)
-      --standalone-lb-accesslog-format-http string                   Envoy Access Log format (without the trailing newline) (default "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
-      --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
-      --standalone-lb-secrets-namespace string                       Namespace that should be used when syncing TLS secrets used by Standalone LB. (default "cilium-secrets")
       --subnet-ids-filter strings                                    Subnets IDs (separated by commas)
       --subnet-tags-filter map                                       Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                                        Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)

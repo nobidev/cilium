@@ -84,6 +84,10 @@ cilium-operator hive dot-graph [flags]
       --k8s-kubeconfig-path string                                   Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kube-proxy-replacement string                                Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
+      --loadbalancer-cp-accesslog-exclude-hc                         Whether or not the LoadBalancer control plane should configure T2 Envoy to exclude health check requests from the access log (default true)
+      --loadbalancer-cp-accesslog-format-http string                 Envoy Access Log format that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline) (default "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
+      --loadbalancer-cp-enabled                                      Whether or not the LoadBalancer control plane is enabled.
+      --loadbalancer-cp-secrets-namespace string                     Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane. (default "cilium-secrets")
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.
       --max-connected-clusters uint32                                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
@@ -101,10 +105,6 @@ cilium-operator hive dot-graph [flags]
       --operator-prometheus-serve-addr string                        Address to serve Prometheus metrics (default ":9963")
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
-      --standalone-lb-accesslog-exclude-hc                           Whether or not the HealthCheck requests should be excluded from the Access Log (default true)
-      --standalone-lb-accesslog-format-http string                   Envoy Access Log format (without the trailing newline) (default "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
-      --standalone-lb-enabled                                        Whether or not the standalone lb controlplane is enabled.
-      --standalone-lb-secrets-namespace string                       Namespace that should be used when syncing TLS secrets used by Standalone LB. (default "cilium-secrets")
       --validate-network-policy                                      Whether to enable or disable the informational network policy validator (default true)
 ```
 

@@ -25,8 +25,8 @@ import (
 )
 
 var Cell = cell.Module(
-	"standalone-lb-controlplane",
-	"Standalone LoadBalancer controlplane",
+	"loadbalancer-controlplane",
+	"LoadBalancer control plane",
 
 	//exhaustruct:ignore
 	cell.Config(Config{}),
@@ -36,17 +36,17 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	StandaloneLbEnabled             bool
-	StandaloneLbSecretsNamespace    string
-	StandaloneLbAccessLogFormatHTTP string
-	StandaloneLbAccessLogExcludeHC  bool
+	LoadBalancerCPEnabled             bool
+	LoadBalancerCPSecretsNamespace    string
+	LoadBalancerCPAccessLogFormatHTTP string
+	LoadBalancerCPAccessLogExcludeHC  bool
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("standalone-lb-enabled", false, "Whether or not the standalone lb controlplane is enabled.")
-	flags.String("standalone-lb-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by Standalone LB.")
-	flags.String("standalone-lb-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format (without the trailing newline)")
-	flags.Bool("standalone-lb-accesslog-exclude-hc", true, "Whether or not the HealthCheck requests should be excluded from the Access Log")
+	flags.Bool("loadbalancer-cp-enabled", false, "Whether or not the LoadBalancer control plane is enabled.")
+	flags.String("loadbalancer-cp-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane.")
+	flags.String("loadbalancer-cp-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
+	flags.Bool("loadbalancer-cp-accesslog-exclude-hc", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to exclude health check requests from the access log")
 }
 
 type reconcilerParams struct {
@@ -64,7 +64,7 @@ type reconcilerParams struct {
 }
 
 func registerReconciler(params reconcilerParams) error {
-	if !params.Config.StandaloneLbEnabled {
+	if !params.Config.LoadBalancerCPEnabled {
 		return nil
 	}
 
@@ -74,9 +74,9 @@ func registerReconciler(params reconcilerParams) error {
 
 	lbFrontendReconciler := newLbFrontendReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
 		reconcilerConfig{
-			SecretsNamespace:    params.Config.StandaloneLbSecretsNamespace,
-			AccessLogFormatHTTP: params.Config.StandaloneLbAccessLogFormatHTTP,
-			AccessLogExcludeHC:  params.Config.StandaloneLbAccessLogExcludeHC,
+			SecretsNamespace:    params.Config.LoadBalancerCPSecretsNamespace,
+			AccessLogFormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
+			AccessLogExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
 		})
 
 	params.Lifecycle.Append(cell.Hook{
@@ -93,10 +93,10 @@ func registerReconciler(params reconcilerParams) error {
 	return nil
 }
 
-// registerSecretSync registers the Standalone LB controlplane for secret synchronization based on TLS secrets referenced
+// registerSecretSync registers the LoadBalancer controlplane for secret synchronization based on TLS secrets referenced
 // by the LBFrontends.
 func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrationOut {
-	if !params.Config.StandaloneLbEnabled {
+	if !params.Config.LoadBalancerCPEnabled {
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
@@ -105,7 +105,7 @@ func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrati
 			RefObject:            &isovalentv1alpha1.LBFrontend{},
 			RefObjectEnqueueFunc: enqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
 			RefObjectCheckFunc:   isReferencedByLBFrontend,
-			SecretsNamespace:     params.Config.StandaloneLbSecretsNamespace,
+			SecretsNamespace:     params.Config.LoadBalancerCPSecretsNamespace,
 		},
 	}
 }

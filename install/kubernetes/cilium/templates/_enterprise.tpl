@@ -79,8 +79,8 @@ enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quot
 {{- end }}
 
 {{- if .Values.enterprise.standaloneLoadbalancer.enabled }}
-standalone-lb-enabled: "true"
-standalone-lb-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+loadbalancer-cp-enabled: "true"
+loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 {{- end }}
 
 {{- end }}
