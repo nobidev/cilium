@@ -25,9 +25,8 @@ ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-standalone-lb.yaml make kind-de
 ./examples/kubernetes/standalone-lb/test_example.sh
 ```
 
-## Delete Kind Cluster
+## Delete Kind Cluster & Docker Containers
 
 ```
-./examples/kubernetes/standalone-lb/cleanup_example.sh && \
-make kind-down
+DELETE_CONTAINERS=true make kind-down
 ```
