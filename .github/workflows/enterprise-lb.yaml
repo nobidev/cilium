@@ -230,7 +230,7 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            kubectl apply -f /host/examples/kubernetes/loadbalancer/manifests/lb-pool.yml
+            kubectl apply -f /host/test/l4l7lb/manifests/lb-pool.yaml
             BGP_FRR_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
             sed "s:PEER_ADDR:\${BGP_FRR_IP}/32:" /host/test/l4l7lb/manifests/bgp-policy.yaml | kubectl apply -f -
 
