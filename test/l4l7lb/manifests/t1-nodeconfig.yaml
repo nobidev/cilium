@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumNodeConfig
+metadata:
+  namespace: kube-system
+  name: t1-config
+spec:
+  nodeSelector:
+    matchLabels:
+      lb.cilium.io/tier: t1
+  defaults:
+    # standalone LB config
+    bpf-lb-acceleration: native
+    datapath-mode: lb-only
+    bpf-lb-mode: dsr
+    bpf-lb-dsr-dispatch: ipip
+    enable-ipip-termination: "false"
+    # other relevant config
+    enable-bgp-control-plane: "true"
+    enable-envoy-config: "false"

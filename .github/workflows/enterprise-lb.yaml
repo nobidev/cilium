@@ -1,0 +1,312 @@
+name: Enterprise LoadBalancer (ci-lb)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 5/6 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  cilium_cli_ci_version:
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  setup-and-test:
+    runs-on: ubuntu-latest-4cores-16gb
+    name: 'Setup & Test'
+    env:
+      job_name: 'Setup & Test'
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - name: '1'
+            kernel: '6.1-20240417.104652'
+
+    timeout-minutes: 60
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout PR
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+
+          echo kind-params="--xdp \"\" 2 \"\" \"\" \"none\" \"ipv4\"" >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@62bd4511031211b50a4623870955a5ad27b43e3b # v0.16.16
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Set infra and LB params
+        id: params
+        shell: bash
+        run: |
+
+      - name: Provision K8s control-plane on LVH VM
+        uses: ./.github/actions/lvh-kind
+        with:
+          test-name: enterprise-lb
+          kernel: ${{ matrix.kernel }}
+          kind-params: "${{ steps.vars.outputs.kind-params }}"
+          kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Preconfigure K8s nodes
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            kubectl label node kind-control-plane lb.cilium.io/tier=t1
+            kubectl label node kind-worker lb.cilium.io/tier=t2
+            kubectl label node kind-worker2 lb.cilium.io/tier=t2
+
+            kind get nodes --name kind  | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Isovalent LB
+        shell: bash
+        run: |
+          cilium install \
+             --wait --chart-directory=./install/kubernetes/cilium \
+             --helm-set=image.repository=quay.io/isovalent-dev/cilium-ci \
+             --helm-set=image.useDigest=false \
+             --helm-set=image.tag=${{ steps.vars.outputs.sha }} \
+             --helm-set=operator.image.repository=quay.io/isovalent-dev/operator \
+             --helm-set=operator.image.suffix=-ci \
+             --helm-set=operator.image.tag=${{ steps.vars.outputs.sha }} \
+             --helm-set=operator.image.useDigest=false \
+             --helm-set=hubble.relay.image.repository=quay.io/isovalent-dev/hubble-relay-ci \
+             --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
+             --helm-set=hubble.relay.image.useDigest=false \
+             --helm-set=enterprise.standaloneLoadbalancer.enabled=true \
+             --helm-set=enterprise.bgpControlPlane.enableServiceHealthChecking=true \
+             --helm-set=enterprise.bfd.enabled=true \
+             --helm-set=debug.enabled=true \
+             --helm-set=debug.verbose="envoy datapath" \
+             --helm-set=bgpControlPlane.enabled=true \
+             --helm-set-string=envoy.nodeSelector."lb\.cilium\.io/tier"=t2 \
+             --helm-set=envoy.debug.admin.enabled=true \
+             --helm-set=envoyConfig.enabled=true \
+             --helm-set=bpf.monitorAggregation=none \
+             --helm-set=kubeProxyReplacement=true \
+             --helm-set-string=extraConfig.enable-ipip-termination=true
+
+          cilium status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
+
+          echo "Waiting until CiliumNodeConfig CRD has been created"
+          while ! kubectl get crds ciliumnodeconfigs.cilium.io &> /dev/null; do
+            echo -n "."
+            sleep 2
+          done
+          echo ""
+
+          kubectl apply -f test/l4l7lb/manifests/t1-nodeconfig.yaml
+          kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
+          cilium status --wait
+
+      - name: Start LB backend applications
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            for i in \$(seq 1 3); do
+              docker rm -f app\${i} 2>/dev/null
+              docker run -d --name app\${i} --rm \
+                --env SERVICE_NAME=service\${i} --env INSTANCE_NAME=\${i} \
+                --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
+            done
+
+      - name: Deploy client (FRR)
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            LB_T1_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+
+            mkdir -p /tmp/frr/
+
+            cat /host/examples/kubernetes/standalone-lb/frr/templates/frr-vtysh.conf | tee /tmp/frr/vtysh.conf
+            cat /host/examples/kubernetes/standalone-lb/frr/templates/frr-daemons | tee /tmp/frr/daemons
+            sed -E "s/neighbor\s\S+\s/neighbor \${LB_T1_IP} /" /host/examples/kubernetes/standalone-lb/frr/templates/frr.conf | sudo tee /tmp/frr/frr.conf
+
+            docker run -d --privileged --restart=always -v /tmp/frr/:/etc/frr:ro --name frr --network kind-cilium quay.io/frrouting/frr:7.5.1
+            docker exec frr bash -c "apk update && apk add curl"
+
+      - name: Setup BGP
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            kubectl apply -f /host/examples/kubernetes/standalone-lb/manifests/lb-pool.yml
+            BGP_FRR_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
+            sed "s:PEER_ADDR:\${BGP_FRR_IP}/32:" /host/test/l4l7lb/manifests/bgp-policy.yaml | kubectl apply -f -
+
+      - name: Configure LB
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls.key -out /tmp/tls.crt -subj "/CN=foo.acme.io"
+            kubectl -n default create secret tls test --key="/tmp/tls.key" --cert="/tmp/tls.crt"
+
+            docker cp /tmp/tls.crt frr:/tmp/tls.crt
+
+            BACKEND1_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app1)
+            BACKEND2_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app2)
+            BACKEND3_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app3)
+
+            sed "s:BACKEND1_IP:\${BACKEND1_IP}:g" /host/test/l4l7lb/manifests/loadbalancer.yaml | \
+              sed "s:BACKEND2_IP:\${BACKEND2_IP}:g" | \
+              sed "s:BACKEND3_IP:\${BACKEND3_IP}:g" | kubectl apply -f -
+
+      - name: Run tests
+        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        with:
+          provision: 'false'
+          cmd: |
+            VIP_LB1=\$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
+            VIP_LB2=\$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
+            VIP_LB3=\$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
+
+            docker exec frr bash -c "echo -n 'HTTP  T1: ' && curl -s http://\${VIP_LB1}:80/"
+            docker exec frr bash -c "echo -n 'HTTP  T2: ' && curl -s http://\${VIP_LB2}:80/"
+            docker exec frr bash -c "echo -n 'HTTP  T3: ' && curl -s http://\${VIP_LB3}:81/"
+
+            docker exec frr bash -c "echo -n 'HTTPS T1: ' && curl -s --cacert /tmp/tls.crt --resolve foo.acme.io:80:\${VIP_LB1} https://foo.acme.io:80/"
+
+      - name: Fetch artifacts
+        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          mkdir -p cilium-sysdumps
+          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdumps-${{ matrix.name }}
+          path: cilium-sysdump-*.zip
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: setup-and-test
+    steps:
+      - name: Merge Sysdumps
+        if: ${{ needs.setup-and-test.result == 'failure' }}
+        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          retention-days: 5
+          delete-merged: true
+        continue-on-error: true
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}

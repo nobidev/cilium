@@ -12,6 +12,7 @@ triggers:
     - enterprise-srv6-datapath.yaml
     - enterprise-multicast.yaml
     - enterprise-conformance-cilium-mesh.yaml
+    - enterprise-lb.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
@@ -42,6 +43,9 @@ triggers:
   /fqdn-ha-perf:
     workflows:
     - enterprise-fqdn-ha-perf.yaml
+  /ci-lb:
+    workflows:
+    - enterprise-lb.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:
@@ -60,3 +64,5 @@ workflows:
     paths-ignore-regex: (test|Documentation|hubble)/
   enterprise-multicast.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
+  enterprise-lb.yaml:
+    paths-ignore-regex: Documentation/
