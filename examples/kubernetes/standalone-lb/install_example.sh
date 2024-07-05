@@ -7,15 +7,13 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Test HealthCheck backends
-pushd ${script_dir}/healthcheckapp && docker build -t healthcheckapp . && popd
-
 docker rm -f app1 2>/dev/null
 docker rm -f app2 2>/dev/null
 docker rm -f app3 2>/dev/null
 
-docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --network kind-cilium healthcheckapp
-docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --network kind-cilium healthcheckapp
-docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3 --network kind-cilium healthcheckapp
+docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
+docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
+docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
 
 # FRR client
 
