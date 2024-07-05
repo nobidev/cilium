@@ -3,7 +3,7 @@
 ## Create Kind cluster for local development
 
 ```
-make kind-standalonelb
+make kind-loadbalancer
 ```
 
 ## Install Cilium as Standalone LB
