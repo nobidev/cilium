@@ -85,7 +85,7 @@ jobs:
       matrix:
         include:
           - name: '1'
-            kernel: '6.1-20240417.104652'
+            kernel: '6.1-20240710.064909'
 
     timeout-minutes: 60
     steps:
@@ -134,17 +134,18 @@ jobs:
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.vars.outputs.kind-params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+          port-forward: '6443:6443,22375:2375'
 
       - name: Preconfigure K8s nodes
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            kubectl label node kind-control-plane lb.cilium.io/tier=t1
-            kubectl label node kind-worker lb.cilium.io/tier=t2
-            kubectl label node kind-worker2 lb.cilium.io/tier=t2
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-            kind get nodes --name kind  | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
+          kubectl label node kind-control-plane lb.cilium.io/tier=t1
+          kubectl label node kind-worker lb.cilium.io/tier=t2
+          kubectl label node kind-worker2 lb.cilium.io/tier=t2
+
+          kind get nodes --name kind  | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -198,19 +199,19 @@ jobs:
           cilium status --wait
 
       - name: Start LB backend applications
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            for i in \$(seq 1 3); do
-              docker rm -f app\${i} 2>/dev/null
-              docker run -d --name app\${i} --rm \
-                --env SERVICE_NAME=service\${i} --env INSTANCE_NAME=\${i} \
-                --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
-            done
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+
+          for i in $(seq 1 3); do
+            docker rm -f app${i} 2>/dev/null
+            docker run -d --name app${i} --rm \
+              --env SERVICE_NAME=service${i} --env INSTANCE_NAME=${i} \
+              --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
+          done
 
       - name: Deploy client (FRR)
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -226,46 +227,58 @@ jobs:
             docker exec frr bash -c "apk update && apk add curl"
 
       - name: Setup BGP
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            kubectl apply -f /host/test/l4l7lb/manifests/lb-pool.yaml
-            BGP_FRR_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
-            sed "s:PEER_ADDR:\${BGP_FRR_IP}/32:" /host/test/l4l7lb/manifests/bgp-policy.yaml | kubectl apply -f -
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+
+          kubectl apply -f ./test/l4l7lb/manifests/lb-pool.yaml
+          BGP_FRR_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
+          echo "BGP_FRR_IP=$BGP_FRR_IP"
+          sed "s:PEER_ADDR:${BGP_FRR_IP}/32:" ./test/l4l7lb/manifests/bgp-policy.yaml | kubectl apply -f -
 
       - name: Configure LB
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls.key -out /tmp/tls.crt -subj "/CN=foo.acme.io"
-            kubectl -n default create secret tls test --key="/tmp/tls.key" --cert="/tmp/tls.crt"
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-            docker cp /tmp/tls.crt frr:/tmp/tls.crt
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls.key -out /tmp/tls.crt -subj "/CN=foo.acme.io"
+          kubectl -n default create secret tls test --key="/tmp/tls.key" --cert="/tmp/tls.crt"
 
-            BACKEND1_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app1)
-            BACKEND2_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app2)
-            BACKEND3_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app3)
+          docker cp /tmp/tls.crt frr:/tmp/tls.crt
 
-            sed "s:BACKEND1_IP:\${BACKEND1_IP}:g" /host/test/l4l7lb/manifests/loadbalancer.yaml | \
-              sed "s:BACKEND2_IP:\${BACKEND2_IP}:g" | \
-              sed "s:BACKEND3_IP:\${BACKEND3_IP}:g" | kubectl apply -f -
+          BACKEND1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app1)
+          BACKEND2_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app2)
+          BACKEND3_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app3)
+
+          sed "s:BACKEND1_IP:${BACKEND1_IP}:g" ./test/l4l7lb/manifests/loadbalancer.yaml | \
+            sed "s:BACKEND2_IP:${BACKEND2_IP}:g" | \
+            sed "s:BACKEND3_IP:${BACKEND3_IP}:g" | kubectl apply -f -
 
       - name: Run tests
-        uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
-        with:
-          provision: 'false'
-          cmd: |
-            VIP_LB1=\$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
-            VIP_LB2=\$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
-            VIP_LB3=\$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-            docker exec frr bash -c "echo -n 'HTTP  T1: ' && curl -s http://\${VIP_LB1}:80/"
-            docker exec frr bash -c "echo -n 'HTTP  T2: ' && curl -s http://\${VIP_LB2}:80/"
-            docker exec frr bash -c "echo -n 'HTTP  T3: ' && curl -s http://\${VIP_LB3}:81/"
+          echo "Waiting until VIPs have been assigned"
+          while [ "${VIP_LB1}" = "" ] || [ "${VIP_LB2}" = "" ] || [ "${VIP_LB3}" = "" ]; do
+            VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
+            VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
+            VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
 
-            docker exec frr bash -c "echo -n 'HTTPS T1: ' && curl -s --cacert /tmp/tls.crt --resolve foo.acme.io:80:\${VIP_LB1} https://foo.acme.io:80/"
+            echo -n "."
+            sleep 1
+          done
+          echo ""
+
+          echo "VIP_LB1=$VIP_LB1"
+          echo "VIP_LB2=$VIP_LB2"
+          echo "VIP_LB3=$VIP_LB3"
+
+          docker exec frr bash -c "echo -n 'HTTP  T1: ' && curl -s http://${VIP_LB1}:80/"
+          docker exec frr bash -c "echo -n 'HTTP  T2: ' && curl -s http://${VIP_LB2}:80/"
+          docker exec frr bash -c "echo -n 'HTTP  T3: ' && curl -s http://${VIP_LB3}:81/"
+
+          docker exec frr bash -c "echo -n 'HTTPS T1: ' && curl -s --cacert /tmp/tls.crt --resolve foo.acme.io:80:${VIP_LB1} https://foo.acme.io:80/"
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
