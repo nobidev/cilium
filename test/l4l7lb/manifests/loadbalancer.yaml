@@ -20,12 +20,16 @@ metadata:
 spec:
   port: 80
   tls:
-    domainNames: # -> TLS domain names (additional context what domains are covered with the provided certificates)
-      - "foo.acme.io"
     certificates:
       - secretName: "test"
   routes:
     - http:
+        hostNames:
+          - "*"
+        backend: lb-1
+    - https:
+        hostNames:
+          - "foo.acme.io"
         backend: lb-1
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -52,6 +56,8 @@ spec:
   port: 80
   routes:
     - http:
+        hostNames:
+          - "*"
         backend: lb-2
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -78,4 +84,6 @@ spec:
   port: 81
   routes:
     - http:
+        hostNames:
+          - "*"
         backend: lb-3

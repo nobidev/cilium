@@ -39,27 +39,49 @@ func getOwningResourceName(parentName string) string {
 	return shortener.ShortenK8sResourceName(name)
 }
 
+func (r lbFrontend) hasHTTP() bool {
+	for _, lr := range r.routes {
+		if lr.http != nil {
+			return true
+		}
+	}
+
+	// Always return true as we need HTTP for T1->T2 HC
+	return true
+}
+
+func (r lbFrontend) hasHTTPS() bool {
+	for _, lr := range r.routes {
+		if lr.https != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 type lbFrontendTLS struct {
-	domainNames        []string
 	certificateSecrets []string
 }
 
 type lbRoute struct {
-	http    *lbRouteHTTP
-	tls     *lbRouteTLS
-	tcp     *lbRouteTCP
-	backend backend
+	http           *lbRouteHTTP
+	https          *lbRouteHTTPS
+	tlsPassthrough *lbRouteTLSPassthrough
+	tcp            *lbRouteTCP
+	backend        backend
 }
 
 type lbRouteHTTP struct {
-	tls      *lbRouteTLSConfig
-	hostname string
-	path     string
-	pathType pathTypeType
+	hostNames []string
+	path      string
+	pathType  pathTypeType
 }
 
-type lbRouteTLSConfig struct {
-	// secret resourceReference
+type lbRouteHTTPS struct {
+	hostNames []string
+	path      string
+	pathType  pathTypeType
 }
 
 type pathTypeType int
@@ -68,7 +90,7 @@ const (
 	pathTypePrefix pathTypeType = iota
 )
 
-type lbRouteTLS struct {
+type lbRouteTLSPassthrough struct {
 	// hostname string
 }
 

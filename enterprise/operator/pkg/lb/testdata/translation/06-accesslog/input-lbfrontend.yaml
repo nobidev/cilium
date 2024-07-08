@@ -6,11 +6,11 @@ metadata:
 spec:
   routes:
     - http:
+        hostNames:
+          - "*"
         backend: lb-1
   port: 80
   vip: 100.64.0.100
   tls:
-    domainnames:
-      - "foo.acme.io"
     certificates:
       - secretName: "test"

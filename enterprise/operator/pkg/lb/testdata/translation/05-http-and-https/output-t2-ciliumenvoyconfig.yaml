@@ -21,24 +21,20 @@ spec:
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 accessLog:
-                  - filter:
-                      headerFilter:
-                        header:
-                          invertMatch: true
-                          name: user-agent
-                          prefixMatch: cilium-probe/
-                    name: stdout
+                  - name: stdout
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
                       logFormat:
                         textFormatSource:
-                          inlineString: "ACCESSLOG_FORMAT_STRING\n"
+                          inlineString: "\n"
                 httpFilters:
                   - name: envoy.filters.http.health_check
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
                         backend_cluster_0:
+                          value: 20
+                        backend_cluster_1:
                           value: 20
                       headers:
                         - exactMatch: /health
@@ -63,18 +59,12 @@ spec:
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 accessLog:
-                  - filter:
-                      headerFilter:
-                        header:
-                          invertMatch: true
-                          name: user-agent
-                          prefixMatch: cilium-probe/
-                    name: stdout
+                  - name: stdout
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
                       logFormat:
                         textFormatSource:
-                          inlineString: "ACCESSLOG_FORMAT_STRING\n"
+                          inlineString: "\n"
                 httpFilters:
                   - name: envoy.filters.http.router
                     typedConfig:
@@ -98,19 +88,19 @@ spec:
       name: frontend_routeconfig_http
       virtualHosts:
         - domains:
-            - "*"
-          name: frontend_virtualhost_http_*
+            - "bla.acme.io"
+          name: frontend_virtualhost_http_1
           routes:
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_0
+                cluster: backend_cluster_1
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
-            - "*"
-          name: frontend_virtualhost_https_*
+            - "foo.acme.io:80"
+          name: frontend_virtualhost_https_0
           routes:
             - match:
                 prefix: /
@@ -145,4 +135,34 @@ spec:
                       address: 172.18.0.6
                       portValue: 8080
       name: backend_cluster_0
+      type: STATIC
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 2
+          httpHealthCheck:
+            host: envoy
+            path: /health
+          interval: 1000s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 1000s
+          unhealthyThreshold: 2
+      loadAssignment:
+        clusterName: backend_cluster_1
+        endpoints:
+          - lbEndpoints:
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.5
+                      portValue: 8080
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.6
+                      portValue: 8080
+      name: backend_cluster_1
       type: STATIC

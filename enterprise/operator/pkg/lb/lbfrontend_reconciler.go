@@ -271,12 +271,19 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 	backends := []*isovalentv1alpha1.LBBackend{}
 	missingBackends := []string{}
 	for _, lr := range frontend.Spec.Routes {
-		if lr.HTTP == nil {
+		backend := ""
+		if lr.HTTP != nil {
+			backend = lr.HTTP.Backend
+		} else if lr.HTTPS != nil {
+			backend = lr.HTTPS.Backend
+		}
+
+		if backend == "" {
 			continue
 		}
 
 		b := &isovalentv1alpha1.LBBackend{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: lr.HTTP.Backend}, b); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: backend}, b); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("failed to get referenced LBBackend: %w", err)
 			}
@@ -284,7 +291,7 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 			// Continue reconciliation if backends don't exist (yet).
 			// But keep track of them to report in log and status later on.
 			// Once the missing referenced backends gets created it will trigger a reconciliation
-			missingBackends = append(missingBackends, lr.HTTP.Backend)
+			missingBackends = append(missingBackends, backend)
 			continue
 		}
 
@@ -398,15 +405,19 @@ func backendIndexerFunc(rawObj client.Object) []string {
 	// Extract the backend references
 	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
 	for _, lr := range lbFrontend.Spec.Routes {
-		if lr.HTTP == nil {
+		backend := ""
+
+		if lr.HTTP != nil {
+			backend = lr.HTTP.Backend
+		} else if lr.HTTPS != nil {
+			backend = lr.HTTPS.Backend
+		}
+
+		if backend == "" || slices.Contains(backends, backend) {
 			continue
 		}
 
-		if slices.Contains(backends, lr.HTTP.Backend) {
-			continue
-		}
-
-		backends = append(backends, lr.HTTP.Backend)
+		backends = append(backends, backend)
 	}
 
 	return backends

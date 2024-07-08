@@ -5,12 +5,12 @@ metadata:
   name: lb-1
 spec:
   routes:
-    - http:
+    - https:
+        hostNames:
+          - "foo.acme.io"
         backend: lb-1
   port: 80
   vip: 100.64.0.100
   tls:
-    domainnames:
-      - "foo.acme.io"
     certificates:
       - secretName: "test"

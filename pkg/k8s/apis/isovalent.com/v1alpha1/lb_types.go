@@ -52,15 +52,11 @@ type LBFrontendSpec struct {
 type LBFrontendTLS struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	DomainNames []LBFrontendTLSDomainName `json:"domainNames"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
 	Certificates []LBFrontendTLSCertificate `json:"certificates"`
 }
 
 // +kubebuilder:validation:MinLength=1
-type LBFrontendTLSDomainName string
+type LBFrontendHostName string
 
 type LBFrontendTLSCertificate struct {
 	// +kubebuilder:validation:Required
@@ -71,9 +67,25 @@ type LBFrontendTLSCertificate struct {
 type LBFrontendRoute struct {
 	// +kubebuilder:validation:Optional
 	HTTP *LBFrontendRouteHTTP `json:"http"`
+
+	// +kubebuilder:validation:Optional
+	HTTPS *LBFrontendRouteHTTPS `json:"https"`
 }
 
 type LBFrontendRouteHTTP struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	HostNames []LBFrontendHostName `json:"hostNames"`
+
+	// +kubebuilder:validation:Required
+	Backend string `json:"backend"`
+}
+
+type LBFrontendRouteHTTPS struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	HostNames []LBFrontendHostName `json:"hostNames"`
+
 	// +kubebuilder:validation:Required
 	Backend string `json:"backend"`
 }

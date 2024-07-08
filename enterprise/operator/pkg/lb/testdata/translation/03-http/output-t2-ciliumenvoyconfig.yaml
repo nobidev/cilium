@@ -58,7 +58,7 @@ spec:
       virtualHosts:
         - domains:
             - "*"
-          name: frontend_virtualhost_http_*
+          name: frontend_virtualhost_http_0
           routes:
             - match:
                 prefix: /

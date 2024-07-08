@@ -67,8 +67,29 @@ spec:
                       properties:
                         backend:
                           type: string
+                        hostNames:
+                          items:
+                            minLength: 1
+                            type: string
+                          minItems: 1
+                          type: array
                       required:
                       - backend
+                      - hostNames
+                      type: object
+                    https:
+                      properties:
+                        backend:
+                          type: string
+                        hostNames:
+                          items:
+                            minLength: 1
+                            type: string
+                          minItems: 1
+                          type: array
+                      required:
+                      - backend
+                      - hostNames
                       type: object
                   type: object
                 type: array
@@ -85,15 +106,8 @@ spec:
                       type: object
                     minItems: 1
                     type: array
-                  domainNames:
-                    items:
-                      minLength: 1
-                      type: string
-                    minItems: 1
-                    type: array
                 required:
                 - certificates
-                - domainNames
                 type: object
               vip:
                 type: string

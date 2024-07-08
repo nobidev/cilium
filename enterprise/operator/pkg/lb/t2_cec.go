@@ -12,6 +12,7 @@ package lb
 
 import (
 	"fmt"
+	"slices"
 
 	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -123,10 +124,12 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 func (r *lbFrontendReconciler) desiredEnvoyListenerFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
 	filterChains := []*envoy_config_listener_v3.FilterChain{}
 
-	httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
-	filterChains = append(filterChains, httpFilterChain)
+	if model.hasHTTP() {
+		httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
+		filterChains = append(filterChains, httpFilterChain)
+	}
 
-	if model.tls != nil {
+	if model.hasHTTPS() {
 		httpsFilterChain := r.desiredEnvoyListenerHttpsFilterChain(model)
 		filterChains = append(filterChains, httpsFilterChain)
 	}
@@ -174,11 +177,24 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 	}
 }
 
-func toServerNames(domainNames []string) []string {
-	serverNames := []string{}
+func toServerNames(model *lbFrontend) []string {
+	// get all HTTPS hostnames
+	httpsDomainNames := []string{}
 
-	for _, dn := range domainNames {
+	for _, lr := range model.routes {
+		if lr.https != nil {
+			httpsDomainNames = append(httpsDomainNames, lr.https.hostNames...)
+		}
+	}
+
+	// remove duplicates and raw '*' that is not allowed by Envoy
+	serverNames := []string{}
+	for _, dn := range httpsDomainNames {
 		if dn == "*" {
+			continue
+		}
+
+		if slices.Contains(serverNames, dn) {
 			continue
 		}
 
@@ -187,6 +203,7 @@ func toServerNames(domainNames []string) []string {
 		serverNames = append(serverNames, dn)
 	}
 
+	slices.Sort(serverNames)
 	return serverNames
 }
 
@@ -206,7 +223,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "tls",
-			ServerNames:       toServerNames(model.tls.domainNames),
+			ServerNames:       toServerNames(model),
 		},
 		TransportSocket: &envoy_corev3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -292,10 +309,12 @@ func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslo
 func (r *lbFrontendReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*envoy_config_route_v3.RouteConfiguration {
 	routeConfigs := []*envoy_config_route_v3.RouteConfiguration{}
 
-	httpRouteConfig := r.desiredEnvoyHttpRouteConfig(model)
-	routeConfigs = append(routeConfigs, httpRouteConfig)
+	if model.hasHTTP() {
+		httpRouteConfig := r.desiredEnvoyHttpRouteConfig(model)
+		routeConfigs = append(routeConfigs, httpRouteConfig)
+	}
 
-	if model.tls != nil {
+	if model.hasHTTPS() {
 		httpsRouteConfig := r.desiredEnvoyHttpsRouteConfig(model)
 		routeConfigs = append(routeConfigs, httpsRouteConfig)
 
@@ -310,18 +329,10 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteConfig(model *lbFrontend) *e
 	}
 }
 
-func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
-	return &envoy_config_route_v3.RouteConfiguration{
-		Name:         "frontend_routeconfig_https",
-		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "https"),
-	}
-}
-
-func (*lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
-	hostnameToHttpRoutes := map[string][]*envoy_config_route_v3.Route{}
+func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
+	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
 	for i, route := range model.routes {
-		// TODO: currently only http routes supported
 		if route.http != nil {
 			httpRoute := &envoy_config_route_v3.Route{
 				Action: &envoy_config_route_v3.Route_Route{
@@ -345,28 +356,81 @@ func (*lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend
 			}
 
 			// TODO: wildcard handling?
-			_, ok := hostnameToHttpRoutes[route.http.hostname]
-			if !ok {
-				hostnameToHttpRoutes[route.http.hostname] = []*envoy_config_route_v3.Route{}
-			}
 
-			hostnameToHttpRoutes[route.http.hostname] = append(hostnameToHttpRoutes[route.http.hostname], httpRoute)
+			virtualHosts = append(virtualHosts,
+				&envoy_config_route_v3.VirtualHost{
+					Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
+					Domains: r.toHostNamesWithPort(route.http.hostNames, int32(80), model.port),
+					Routes:  []*envoy_config_route_v3.Route{httpRoute},
+				},
+			)
 		}
 	}
 
+	return virtualHosts
+}
+
+func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *envoy_config_route_v3.RouteConfiguration {
+	return &envoy_config_route_v3.RouteConfiguration{
+		Name:         "frontend_routeconfig_https",
+		VirtualHosts: r.desiredEnvoyHttpsRouteVirtualHosts(model, "https"),
+	}
+}
+
+func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
-	for hostname, httpRoutes := range hostnameToHttpRoutes {
-		virtualHosts = append(virtualHosts,
-			&envoy_config_route_v3.VirtualHost{
-				Name:    fmt.Sprintf("frontend_virtualhost_%s_%s", httpType, hostname),
-				Domains: []string{hostname},
-				Routes:  httpRoutes,
-			},
-		)
+	for i, route := range model.routes {
+		if route.https != nil {
+			httpRoute := &envoy_config_route_v3.Route{
+				Action: &envoy_config_route_v3.Route_Route{
+					Route: &envoy_config_route_v3.RouteAction{
+						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+							Cluster: fmt.Sprintf("backend_cluster_%d", i),
+						},
+					},
+				},
+			}
+
+			if route.https.pathType != pathTypePrefix {
+				// TODO: currently only pathtype prefix supported
+				continue
+			}
+
+			httpRoute.Match = &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+					Prefix: route.https.path,
+				},
+			}
+
+			// TODO: wildcard handling?
+
+			virtualHosts = append(virtualHosts,
+				&envoy_config_route_v3.VirtualHost{
+					Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
+					Domains: r.toHostNamesWithPort(route.https.hostNames, int32(443), model.port),
+					Routes:  []*envoy_config_route_v3.Route{httpRoute},
+				},
+			)
+		}
 	}
 
 	return virtualHosts
+}
+
+// toHostNamesWithPort appends the port to the hostname because Envoy' domain matching on the virtualhost
+// checks for port too. But only if it's different than the expected default port.
+func (r *lbFrontendReconciler) toHostNamesWithPort(hostnames []string, defaultPort int32, port int32) []string {
+	hostNamesWithPort := []string{}
+	for _, v := range hostnames {
+		if v == "*" || defaultPort == port {
+			hostNamesWithPort = append(hostNamesWithPort, v)
+		} else {
+			hostNamesWithPort = append(hostNamesWithPort, fmt.Sprintf("%s:%d", v, port))
+		}
+	}
+
+	return hostNamesWithPort
 }
 
 func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCheck {
