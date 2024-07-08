@@ -9,5 +9,9 @@ spec:
         hostNames:
           - "*"
         backend: lb-1
+    - http:
+        hostNames:
+          - "bar.acme.io"
+        backend: lb-1
   port: 80
   vip: 100.64.0.100

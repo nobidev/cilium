@@ -34,6 +34,8 @@ spec:
                       clusterMinHealthyPercentages:
                         backend_cluster_0:
                           value: 20
+                        backend_cluster_1:
+                          value: 20
                       headers:
                         - exactMatch: /health
                           name: :path
@@ -64,6 +66,14 @@ spec:
                 prefix: /
               route:
                 cluster: backend_cluster_0
+        - domains:
+            - "bar.acme.io"
+          name: frontend_virtualhost_http_1
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -93,4 +103,34 @@ spec:
                       address: 172.18.0.6
                       portValue: 8080
       name: backend_cluster_0
+      type: STATIC
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 2
+          httpHealthCheck:
+            host: envoy
+            path: /health
+          interval: 1000s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 1000s
+          unhealthyThreshold: 2
+      loadAssignment:
+        clusterName: backend_cluster_1
+        endpoints:
+          - lbEndpoints:
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.5
+                      portValue: 8080
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: 172.18.0.6
+                      portValue: 8080
+      name: backend_cluster_1
       type: STATIC

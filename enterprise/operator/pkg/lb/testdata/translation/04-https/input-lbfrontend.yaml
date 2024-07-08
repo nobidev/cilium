@@ -9,6 +9,10 @@ spec:
         hostNames:
           - "foo.acme.io"
         backend: lb-1
+    - https:
+        hostNames:
+          - "bar.acme.io"
+        backend: lb-1
   port: 80
   vip: 100.64.0.100
   tls:
