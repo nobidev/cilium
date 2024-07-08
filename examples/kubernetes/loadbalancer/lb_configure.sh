@@ -20,22 +20,20 @@ kind get nodes --name kind | xargs -I container_name docker exec container_name 
 
 kubectl -n kube-system delete ds kube-proxy 2>/dev/null || true
 
-
 echo -n "Waiting for CRDs "
 crds=(
-  "ciliumnodeconfigs.cilium.io"
-  "ciliumloadbalancerippools.cilium.io"
-  "ciliumbgppeeringpolicies.cilium.io"
-  "isovalentbfdprofiles.isovalent.com"
-  "lbfrontends.isovalent.com"
-  "lbbackends.isovalent.com"
+	"ciliumnodeconfigs.cilium.io"
+	"ciliumloadbalancerippools.cilium.io"
+	"ciliumbgppeeringpolicies.cilium.io"
+	"isovalentbfdprofiles.isovalent.com"
+	"lbfrontends.isovalent.com"
+	"lbbackends.isovalent.com"
 )
-for crd in "${crds[@]}"
-do
-  while ! kubectl get crd "${crd}" &> /dev/null ; do
-    echo -n "."
-    sleep 2
-  done
+for crd in "${crds[@]}"; do
+	while ! kubectl get crd "${crd}" &>/dev/null; do
+		echo -n "."
+		sleep 2
+	done
 done
 echo ""
 
@@ -45,3 +43,6 @@ kubectl apply -f "${script_dir}/lb/t1-nodeconfig.yaml"
 CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName=kind-control-plane -o name)
 kubectl delete -n kube-system "${CILIUM_T1_POD}"
 
+# Wait until LB nodes are ready
+echo -n "Waiting until LB nodes are ready ..."
+cilium status --wait --interactive=false
