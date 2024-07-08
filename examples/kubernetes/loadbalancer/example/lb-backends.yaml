@@ -39,3 +39,31 @@ spec:
       port: 8080
     - ip: 8.9.9.9
       port: 8080
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBBackend
+metadata:
+  namespace: default
+  name: lb-4
+spec:
+  healthcheck:
+    interval: "10s"
+  addresses:
+    - ip: 9.9.9.9
+      port: 8080
+    - ip: 8.9.9.9
+      port: 8080
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBBackend
+metadata:
+  namespace: default
+  name: lb-5
+spec:
+  healthcheck:
+    interval: "10s"
+  addresses:
+    - ip: 9.9.9.9
+      port: 8080
+    - ip: 8.9.9.9
+      port: 8080

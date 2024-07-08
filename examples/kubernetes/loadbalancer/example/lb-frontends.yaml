@@ -4,14 +4,14 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  port: 80
+  port: 443
   tls:
-    domainNames:
-      - "foo.acme.io"
     certificates:
-      - secretName: "test"
+      - secretName: "test-secure"
   routes:
-    - http:
+    - https:
+        hostNames:
+          - "secure.acme.io"
         backend: lb-1
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -24,6 +24,8 @@ spec:
   port: 80
   routes:
     - http:
+        hostNames:
+          - "insecure.acme.io"
         backend: lb-2
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -36,4 +38,38 @@ spec:
   port: 81
   routes:
     - http:
+        hostNames:
+          - "*"
         backend: lb-3
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-4
+spec:
+  vip: "100.64.0.102"
+  port: 80
+  routes:
+    - http:
+        hostNames:
+          - "mixed.acme.io"
+        backend: lb-4
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-5
+spec:
+  port: 80
+  tls:
+    certificates:
+      - secretName: "test-secure80"
+  routes:
+    - https:
+        hostNames:
+          - "secure-80.acme.io"
+        backend: lb-5
+---
+
