@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -569,6 +570,18 @@ func (*lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_co
 			})
 		}
 
+		var healthCheckTransportSocketMatchCriteria *structpb.Struct
+
+		// If TLS Passthrough is configured, HC requests to the upstream
+		// need to be send with TLS
+		if route.tlsPassthrough != nil {
+			healthCheckTransportSocketMatchCriteria = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"type": structpb.NewStringValue("tls"),
+				},
+			}
+		}
+
 		cluster := envoy_config_cluster_v3.Cluster{
 			Name: fmt.Sprintf("backend_cluster_%d", i),
 			ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
@@ -595,7 +608,8 @@ func (*lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_co
 					// T1's quarantine timeout
 					UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
 					// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
-					UnhealthyInterval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyIntervalSeconds)},
+					UnhealthyInterval:            &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyIntervalSeconds)},
+					TransportSocketMatchCriteria: healthCheckTransportSocketMatchCriteria,
 				},
 			},
 			LbPolicy: mapLbPolicy(backend.lbAlgorithm),
@@ -607,6 +621,27 @@ func (*lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_co
 					},
 				},
 			},
+		}
+
+		// If TLS Passthrough is configured, provide an additional TLS transport socket.
+		// This way, HC requests to the upstream can be send with TLS.
+		if route.tlsPassthrough != nil {
+			cluster.TransportSocketMatches = []*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
+				{
+					Name: "healthcheck_tls",
+					Match: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"type": structpb.NewStringValue("tls"),
+						},
+					},
+					TransportSocket: &envoy_corev3.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
+							TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{}),
+						},
+					},
+				},
+			}
 		}
 
 		clusters = append(clusters, &cluster)

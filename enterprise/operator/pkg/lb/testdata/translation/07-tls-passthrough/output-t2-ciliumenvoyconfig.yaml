@@ -102,6 +102,8 @@ spec:
             path: /health
           interval: 1000s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: tls
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
@@ -120,6 +122,14 @@ spec:
                       address: 172.18.0.6
                       portValue: 8080
       name: backend_cluster_0
+      transportSocketMatches:
+        - match:
+            type: tls
+          name: healthcheck_tls
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
       type: STATIC
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
@@ -132,6 +142,8 @@ spec:
             path: /health
           interval: 1000s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: tls
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
@@ -150,4 +162,12 @@ spec:
                       address: 172.18.0.6
                       portValue: 8080
       name: backend_cluster_1
+      transportSocketMatches:
+        - match:
+            type: tls
+          name: healthcheck_tls
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
       type: STATIC
