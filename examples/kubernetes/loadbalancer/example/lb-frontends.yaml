@@ -72,4 +72,21 @@ spec:
           - "secure-80.acme.io"
         backend: lb-5
 ---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-6
+spec:
+  port: 80
+  routes:
+    - tlsPassthrough:
+        hostNames:
+          - "passthrough.acme.io"
+        backend: lb-6
+    - tlsPassthrough:
+        hostNames:
+          - "passthrough-2.acme.io"
+        backend: lb-7
+---
 
