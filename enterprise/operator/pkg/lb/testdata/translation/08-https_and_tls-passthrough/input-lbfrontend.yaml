@@ -1,0 +1,20 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  routes:
+    - https:
+        hostNames:
+          - "bar.acme.io"
+        backend: lb-1
+    - tlsPassthrough:
+        hostNames:
+          - "foo.acme.io"
+        backend: lb-1
+  port: 80
+  vip: 100.64.0.100
+  tls:
+    certificates:
+      - secretName: "test"

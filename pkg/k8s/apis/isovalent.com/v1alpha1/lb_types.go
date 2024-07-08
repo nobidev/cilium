@@ -70,6 +70,9 @@ type LBFrontendRoute struct {
 
 	// +kubebuilder:validation:Optional
 	HTTPS *LBFrontendRouteHTTPS `json:"https"`
+
+	// +kubebuilder:validation:Optional
+	TLSPassthrough *LBFrontendRouteTLSPassthrough `json:"tlsPassthrough"`
 }
 
 type LBFrontendRouteHTTP struct {
@@ -82,6 +85,15 @@ type LBFrontendRouteHTTP struct {
 }
 
 type LBFrontendRouteHTTPS struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	HostNames []LBFrontendHostName `json:"hostNames"`
+
+	// +kubebuilder:validation:Required
+	Backend string `json:"backend"`
+}
+
+type LBFrontendRouteTLSPassthrough struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	HostNames []LBFrontendHostName `json:"hostNames"`

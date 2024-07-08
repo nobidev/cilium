@@ -25,6 +25,7 @@ import (
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_typev3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
@@ -134,6 +135,11 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerFilterChains(model *lbFronten
 		filterChains = append(filterChains, httpsFilterChain)
 	}
 
+	if model.hasTLSPassthrough() {
+		tlsPassthroughFilterChains := r.desiredEnvoyListenerTLSPassthroughFilterChains(model)
+		filterChains = append(filterChains, tlsPassthroughFilterChains...)
+	}
+
 	return filterChains
 }
 
@@ -177,7 +183,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 	}
 }
 
-func toServerNames(model *lbFrontend) []string {
+func toHTTPSServerNames(model *lbFrontend) []string {
 	// get all HTTPS hostnames
 	httpsDomainNames := []string{}
 
@@ -190,6 +196,27 @@ func toServerNames(model *lbFrontend) []string {
 	// remove duplicates and raw '*' that is not allowed by Envoy
 	serverNames := []string{}
 	for _, dn := range httpsDomainNames {
+		if dn == "*" {
+			continue
+		}
+
+		if slices.Contains(serverNames, dn) {
+			continue
+		}
+
+		// TODO: validate for * only as starting prefix with *.
+
+		serverNames = append(serverNames, dn)
+	}
+
+	slices.Sort(serverNames)
+	return serverNames
+}
+
+func toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
+	// remove duplicates and raw '*' that is not allowed by Envoy
+	serverNames := []string{}
+	for _, dn := range tlsPassthroughHostNames {
 		if dn == "*" {
 			continue
 		}
@@ -223,7 +250,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "tls",
-			ServerNames:       toServerNames(model),
+			ServerNames:       toHTTPSServerNames(model),
 		},
 		TransportSocket: &envoy_corev3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -263,6 +290,41 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 	}
 }
 
+func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
+	tlsPassthroughFilterChains := []*envoy_config_listener_v3.FilterChain{}
+
+	for i, tr := range model.routes {
+		if tr.tlsPassthrough == nil {
+			continue
+		}
+
+		f := &envoy_config_listener_v3.FilterChain{
+			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
+				TransportProtocol: "tls",
+				ServerNames:       toTLSPassthroughServerNames(tr.tlsPassthrough.hostNames),
+			},
+			Filters: []*envoy_config_listener_v3.Filter{
+				{
+					Name: "envoy.filters.network.tcp_proxy",
+					ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+						TypedConfig: toAny(&envoy_tcpproxy_v3.TcpProxy{
+							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
+							StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
+							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
+								Cluster: fmt.Sprintf("backend_cluster_%d", i),
+							},
+						}),
+					},
+				},
+			},
+		}
+
+		tlsPassthroughFilterChains = append(tlsPassthroughFilterChains, f)
+	}
+
+	return tlsPassthroughFilterChains
+}
+
 func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
 	var hcFilter *envoy_accesslog_v3.AccessLogFilter
 
@@ -295,6 +357,32 @@ func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslo
 								TextFormatSource: &envoy_corev3.DataSource{
 									Specifier: &envoy_corev3.DataSource_InlineString{
 										InlineString: fmt.Sprintf("%s\n", r.config.AccessLogFormatHTTP),
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+		},
+	}
+}
+
+func (r *lbFrontendReconciler) desiredEnvoyTLSAccessLoggers() []*envoy_accesslog_v3.AccessLog {
+	var hcFilter *envoy_accesslog_v3.AccessLogFilter
+
+	return []*envoy_accesslog_v3.AccessLog{
+		{
+			Name:   "stdout",
+			Filter: hcFilter,
+			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
+					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
+						LogFormat: &envoy_corev3.SubstitutionFormatString{
+							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_corev3.DataSource{
+									Specifier: &envoy_corev3.DataSource_InlineString{
+										InlineString: fmt.Sprintf("%s\n", r.config.AccessLogFormatTLS),
 									},
 								},
 							},

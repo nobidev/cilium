@@ -55,6 +55,7 @@ type lbFrontendReconciler struct {
 type reconcilerConfig struct {
 	SecretsNamespace    string
 	AccessLogFormatHTTP string
+	AccessLogFormatTLS  string
 	AccessLogExcludeHC  bool
 }
 
@@ -276,6 +277,8 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 			backend = lr.HTTP.Backend
 		} else if lr.HTTPS != nil {
 			backend = lr.HTTPS.Backend
+		} else if lr.TLSPassthrough != nil {
+			backend = lr.TLSPassthrough.Backend
 		}
 
 		if backend == "" {
@@ -411,6 +414,8 @@ func backendIndexerFunc(rawObj client.Object) []string {
 			backend = lr.HTTP.Backend
 		} else if lr.HTTPS != nil {
 			backend = lr.HTTPS.Backend
+		} else if lr.TLSPassthrough != nil {
+			backend = lr.TLSPassthrough.Backend
 		}
 
 		if backend == "" || slices.Contains(backends, backend) {

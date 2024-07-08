@@ -60,6 +60,16 @@ func (r lbFrontend) hasHTTPS() bool {
 	return false
 }
 
+func (r lbFrontend) hasTLSPassthrough() bool {
+	for _, lr := range r.routes {
+		if lr.tlsPassthrough != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 type lbFrontendTLS struct {
 	certificateSecrets []string
 }
@@ -91,7 +101,7 @@ const (
 )
 
 type lbRouteTLSPassthrough struct {
-	// hostname string
+	hostNames []string
 }
 
 type lbRouteTCP struct{}

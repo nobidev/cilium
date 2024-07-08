@@ -91,6 +91,20 @@ spec:
                       - backend
                       - hostNames
                       type: object
+                    tlsPassthrough:
+                      properties:
+                        backend:
+                          type: string
+                        hostNames:
+                          items:
+                            minLength: 1
+                            type: string
+                          minItems: 1
+                          type: array
+                      required:
+                      - backend
+                      - hostNames
+                      type: object
                   type: object
                 type: array
               tls:

@@ -143,6 +143,44 @@ func (r *ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*
 					},
 				},
 			})
+		} else if lr.TLSPassthrough != nil {
+			routeBackend, ok := backendIndex[lr.TLSPassthrough.Backend]
+			if !ok {
+				// backend not present yet
+				continue
+			}
+
+			intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+			}
+
+			routes = append(routes, lbRoute{
+				http:  nil,
+				https: nil,
+				tlsPassthrough: &lbRouteTLSPassthrough{
+					hostNames: r.toHostNames(lr.TLSPassthrough.HostNames),
+				},
+				tcp: nil,
+				backend: backend{
+					ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+					hostnames:   []lbBackend{},
+					lbAlgorithm: lbAlgorithmRoundRobin,
+					healthCheckConfig: lbBackendHealthCheckConfig{
+						http: &lbBackendHealthCheckHTTPConfig{
+							host: "envoy",
+							path: "/health",
+						},
+						tcp:                          nil,
+						intervalSeconds:              int(intervalDuration.Seconds()),
+						timeoutSeconds:               5,
+						healthyThreshold:             2,
+						unhealthyThreshold:           2,
+						unhealthyEdgeIntervalSeconds: 30,
+						unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+					},
+				},
+			})
 		}
 	}
 
