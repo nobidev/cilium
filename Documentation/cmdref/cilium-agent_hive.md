@@ -34,6 +34,7 @@ cilium-agent hive [flags]
       --egress-gateway-policy-map-max int                            Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration      Time between triggers of egress gateway state reconciliations (default 1s)
       --enable-active-connection-tracking                            Count open and active connections to services, grouped by zones defined in fixed-zone-mapping.
+      --enable-active-lb-health-checking                             Enable active health checking on loadbalancer services (default true)
       --enable-bandwidth-manager                                     Enable BPF bandwidth manager
       --enable-bbr                                                   Enable BBR for the bandwidth manager
       --enable-bfd                                                   Enables BFD subsystem

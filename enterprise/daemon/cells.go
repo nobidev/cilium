@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/multicast"
 	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/pkg/nat/stats"
+	"github.com/cilium/cilium/enterprise/pkg/service/healthchecker"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/promise"
@@ -85,6 +86,8 @@ var (
 		multicast.Cell,
 
 		fqdnha.Cell,
+
+		healthchecker.Cell,
 
 		// stats cell adds CE specific metrics, such as the top-k nat stats metric
 		// that depends on the OSS maps/nat/stats.Cell.

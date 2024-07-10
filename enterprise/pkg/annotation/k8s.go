@@ -10,14 +10,55 @@
 
 package annotation
 
-import ossannotation "github.com/cilium/cilium/pkg/annotation"
+import (
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
+)
 
 const (
-	// ServiceHealthProbeInterval annotation determines the probe interval of a service.
+	// ServiceHealthProbeInterval / ServiceHealthProbeTimeout annotations
+	// determine the probe interval of a service and timeout duration for
+	// when a probe is considered as failed.
 	// Allowed values:
 	//  - A duration, for example:
 	//    "service.cilium.io/health-check-probe-interval": "1s"
+	//    "service.cilium.io/health-check-probe-timeout": "5s"
 	ServiceHealthProbeInterval = ossannotation.ServicePrefix + "/health-check-probe-interval"
+	ServiceHealthProbeTimeout  = ossannotation.ServicePrefix + "/health-check-probe-timeout"
+
+	// ServiceHealthThresholdHealthy / ServiceHealthThresholdUnhealthy annotations
+	// determine the threshold of probes needed until a specific backend's state
+	// changes from healthy to unhealthy and vice versa.
+	// Allowed values:
+	//  - A number, for example:
+	//    "service.cilium.io/health-check-threshold-unhealthy": "3"
+	//    "service.cilium.io/health-check-threshold-healthy": "3"
+	ServiceHealthThresholdHealthy   = ossannotation.ServicePrefix + "/health-check-threshold-healthy"
+	ServiceHealthThresholdUnhealthy = ossannotation.ServicePrefix + "/health-check-threshold-unhealthy"
+
+	// ServiceHealthQuarantineTimeout annotation determines the timeout duration
+	// for a given backend to reside in unhealthy state before probes are resumed
+	// again.
+	// Allowed values:
+	//  - A duration, for example:
+	//    "service.cilium.io/health-check-quarantine-timeout": "30s"
+	ServiceHealthQuarantineTimeout = ossannotation.ServicePrefix + "/health-check-quarantine-timeout"
+
+	// ServiceHealthHTTP* annotations provide further information on HTTP/HTTPS
+	// health checking for the given service. ServiceHealthHTTPPath specifies
+	// the path, ServiceHealthHTTPMethod specifies the method with GET being the
+	// default if nothing was specified, ServiceHealthHTTPHost specifies the HTTP
+	// Host header / Server Name for SNI, and lastly ServiceHealthHTTPScheme
+	// specifies whether http (default) or https should be used for the probe.
+	// Allowed values:
+	//  - A string, for example:
+	//    "service.cilium.io/health-check-http-path": "/healthcheck"
+	//    "service.cilium.io/health-check-http-method": "GET"
+	//    "service.cilium.io/health-check-http-host": "my.host.com"
+	//    "service.cilium.io/health-check-http-scheme": "https"
+	ServiceHealthHTTPPath   = ossannotation.ServicePrefix + "/health-check-http-path"
+	ServiceHealthHTTPMethod = ossannotation.ServicePrefix + "/health-check-http-method"
+	ServiceHealthHTTPHost   = ossannotation.ServicePrefix + "/health-check-http-host"
+	ServiceHealthHTTPScheme = ossannotation.ServicePrefix + "/health-check-http-scheme"
 
 	// ServiceHealthBGPAdvertiseThreshold annotation defines threshold in minimal number of healthy backends,
 	// when service routes will be advertised by the BGP Control Plane.
