@@ -211,20 +211,13 @@ jobs:
           done
 
       - name: Deploy client (FRR)
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
-        with:
-          provision: 'false'
-          cmd: |
-            LB_T1_IP=\$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-            mkdir -p /tmp/frr/
-
-            cat /host/examples/kubernetes/loadbalancer/frr/templates/frr-vtysh.conf | tee /tmp/frr/vtysh.conf
-            cat /host/examples/kubernetes/loadbalancer/frr/templates/frr-daemons | tee /tmp/frr/daemons
-            sed -E "s/neighbor\s\S+\s/neighbor \${LB_T1_IP} /" /host/examples/kubernetes/loadbalancer/frr/templates/frr.conf | sudo tee /tmp/frr/frr.conf
-
-            docker run -d --privileged --restart=always -v /tmp/frr/:/etc/frr:ro --name frr --network kind-cilium quay.io/frrouting/frr:7.5.1
-            docker exec frr bash -c "apk update && apk add curl"
+          LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+          echo "LB_T1_IP=${LB_T1_IP}"
+          docker run --name frr -d --privileged --network kind-cilium -e NEIGHBOR=${LB_T1_IP} quay.io/isovalent-dev/lb-frr-client:v0.0.1
 
       - name: Setup BGP
         shell: bash
