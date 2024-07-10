@@ -25,18 +25,10 @@ docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3
 
 # BGP client (FRR)
 docker rm -f frr 2>/dev/null
-rm -rf ${script_dir}/frr/config
 
 LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
 
-mkdir -p "${script_dir}/frr/config/etc/frr/config"
-
-cat "${script_dir}/frr/templates/frr-vtysh.conf" | tee "${script_dir}/frr/config/etc/frr/vtysh.conf"
-cat "${script_dir}/frr/templates/frr-daemons" | tee "${script_dir}/frr/config/etc/frr/daemons"
-sed -E "s/neighbor\s\S+\s/neighbor ${LB_T1_IP} /" "${script_dir}/frr/templates/frr.conf" | tee "${script_dir}/frr/config/etc/frr/frr.conf"
-
-docker run -d --privileged --restart=always -v "${script_dir}/frr/config/etc/frr:/etc/frr:ro" --name frr --network kind-cilium quay.io/frrouting/frr:7.5.1
-docker exec frr bash -c "apk update && apk add curl"
+docker run -d --restart=always --name frr --privileged --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
 
 #
 # LB configuration
