@@ -113,6 +113,11 @@ const (
 	LBBackendPluralName     = "lbbackends"
 	LBBackendKindDefinition = "LBBackend"
 	LBBackendName           = LBBackendPluralName + "." + CustomResourceDefinitionGroup
+
+	// LBVIP
+	LBVIPPluralName     = "lbvips"
+	LBVIPKindDefinition = "LBVIP"
+	LBVIPName           = LBVIPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -197,6 +202,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LBFrontendList{},
 		&LBBackend{},
 		&LBBackendList{},
+		&LBVIP{},
+		&LBVIPList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

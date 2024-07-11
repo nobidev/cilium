@@ -94,6 +94,9 @@ const (
 
 	// LBBackendCRDName is the full name of the LBBackend CRD.
 	LBBackendCRDName = k8sconstv1alpha1.LBBackendKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// LBVIPCRDName is the full name of the LBVIP CRD.
+	LBVIPCRDName = k8sconstv1alpha1.LBVIPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -129,6 +132,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBFrontendName):                     createLBFrontendCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBBackendName):                      createLBBackendCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                          createLBVIPCRD,
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -209,6 +213,9 @@ var (
 
 	//go:embed crds/v1alpha1/lbbackends.yaml
 	crdsv1Alpha1LBBackends []byte
+
+	//go:embed crds/v1alpha1/lbvips.yaml
+	crdsv1Alpha1LBVIPs []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -268,6 +275,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1LBFrontends
 	case LBBackendCRDName:
 		crdBytes = crdsv1Alpha1LBBackends
+	case LBVIPCRDName:
+		crdBytes = crdsv1Alpha1LBVIPs
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -561,6 +570,19 @@ func createLBBackendCRD(clientset apiextensionsclient.Interface) error {
 	return crdhelpers.CreateUpdateCRD(
 		clientset,
 		constructV1CRD(k8sconstv1alpha1.LBBackendName, ciliumCRD),
+		crdhelpers.NewDefaultPoller(),
+		k8sconst.CustomResourceDefinitionSchemaVersionKey,
+		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+	)
+}
+
+// createLBVIPCRD creates and updates the LBVIP CRD.
+func createLBVIPCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(LBVIPCRDName)
+
+	return crdhelpers.CreateUpdateCRD(
+		clientset,
+		constructV1CRD(k8sconstv1alpha1.LBVIPName, ciliumCRD),
 		crdhelpers.NewDefaultPoller(),
 		k8sconst.CustomResourceDefinitionSchemaVersionKey,
 		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),

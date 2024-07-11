@@ -46,3 +46,5 @@ type IsovalentVRFExpansion interface{}
 type LBBackendExpansion interface{}
 
 type LBFrontendExpansion interface{}
+
+type LBVIPExpansion interface{}

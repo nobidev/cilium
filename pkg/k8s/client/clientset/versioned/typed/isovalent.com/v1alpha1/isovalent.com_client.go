@@ -36,6 +36,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentVRFsGetter
 	LBBackendsGetter
 	LBFrontendsGetter
+	LBVIPsGetter
 }
 
 // IsovalentV1alpha1Client is used to interact with features provided by the isovalent.com group.
@@ -125,6 +126,10 @@ func (c *IsovalentV1alpha1Client) LBBackends(namespace string) LBBackendInterfac
 
 func (c *IsovalentV1alpha1Client) LBFrontends(namespace string) LBFrontendInterface {
 	return newLBFrontends(c, namespace)
+}
+
+func (c *IsovalentV1alpha1Client) LBVIPs(namespace string) LBVIPInterface {
+	return newLBVIPs(c, namespace)
 }
 
 // NewForConfig creates a new IsovalentV1alpha1Client for the given config.

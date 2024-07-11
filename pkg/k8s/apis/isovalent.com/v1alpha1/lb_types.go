@@ -163,6 +163,15 @@ const (
 	SecretsExistConditionReasonMissingSecrets  = "MissingSecrets"
 )
 
+const (
+	ConditionTypeIPv4AddressAllocated = "lb.cilium.io/IPv4AddressAllocated"
+)
+
+const (
+	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
+	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
@@ -236,4 +245,72 @@ type LBBackendList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []LBBackend `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbvip",path="lbvips",scope="Namespaced",shortName={lbvip}
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="IPv4",type=string
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+
+type LBVIP struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec is a spec .
+	//
+	// +kubebuilder:validation:Required
+	Spec LBVIPSpec `json:"spec"`
+
+	// Status is a status .
+	//
+	// +kubebuilder:validation:Optional
+	Status LBVIPStatus `json:"status,omitempty"`
+}
+
+type LBVIPSpec struct {
+	// Desired IPv4 VIP. If the address is unspecified, it tries to
+	// allocate available VIP from the pool. If address is specified, it
+	// tries to allocate specified VIP from the pool.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=ipv4
+	IPv4Request *string `json:"ipv4Request,omitempty"`
+}
+
+type LBVIPStatus struct {
+	// Conditions describe the current conditions of the LBVIP.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Allocated addresses
+	//
+	// +kubebuilder:validation:Optional
+	Addresses LBVIPAddresses `json:"addresses,omitempty"`
+}
+
+type LBVIPAddresses struct {
+	IPv4 string `json:"ipv4"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +deepequal-gen=false
+
+type LBVIPList struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []LBVIP `json:"items"`
 }

@@ -99,6 +99,10 @@ func (c *FakeIsovalentV1alpha1) LBFrontends(namespace string) v1alpha1.LBFronten
 	return &FakeLBFrontends{c, namespace}
 }
 
+func (c *FakeIsovalentV1alpha1) LBVIPs(namespace string) v1alpha1.LBVIPInterface {
+	return &FakeLBVIPs{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeIsovalentV1alpha1) RESTClient() rest.Interface {

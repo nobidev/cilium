@@ -40,6 +40,7 @@ rules:
 {{- if .Values.enterprise.loadbalancer.enabled }}
   - lbfrontends.isovalent.com
   - lbbackends.isovalent.com
+  - lbvips.isovalent.com
 {{- end }}
 - apiGroups:
   - isovalent.com
@@ -56,6 +57,7 @@ rules:
   resources:
   - lbfrontends/status
   - lbbackends/status
+  - lbvips/status
   verbs:
   - get
   - list
@@ -69,6 +71,7 @@ rules:
 {{- if .Values.enterprise.loadbalancer.enabled }}
   - lbfrontends
   - lbbackends
+  - lbvips
 {{- end }}
   verbs:
   - get

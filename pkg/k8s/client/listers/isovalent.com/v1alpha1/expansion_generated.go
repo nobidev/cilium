@@ -100,3 +100,11 @@ type LBFrontendListerExpansion interface{}
 // LBFrontendNamespaceListerExpansion allows custom methods to be added to
 // LBFrontendNamespaceLister.
 type LBFrontendNamespaceListerExpansion interface{}
+
+// LBVIPListerExpansion allows custom methods to be added to
+// LBVIPLister.
+type LBVIPListerExpansion interface{}
+
+// LBVIPNamespaceListerExpansion allows custom methods to be added to
+// LBVIPNamespaceLister.
+type LBVIPNamespaceListerExpansion interface{}

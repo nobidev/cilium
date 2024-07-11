@@ -53,6 +53,8 @@ type Interface interface {
 	LBBackends() LBBackendInformer
 	// LBFrontends returns a LBFrontendInformer.
 	LBFrontends() LBFrontendInformer
+	// LBVIPs returns a LBVIPInformer.
+	LBVIPs() LBVIPInformer
 }
 
 type version struct {
@@ -169,4 +171,9 @@ func (v *version) LBBackends() LBBackendInformer {
 // LBFrontends returns a LBFrontendInformer.
 func (v *version) LBFrontends() LBFrontendInformer {
 	return &lBFrontendInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LBVIPs returns a LBVIPInformer.
+func (v *version) LBVIPs() LBVIPInformer {
+	return &lBVIPInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
