@@ -28,7 +28,7 @@ docker rm -f frr 2>/dev/null
 
 LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
 
-docker run -d --restart=always --name frr --privileged --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
+docker run -d --restart=always --name frr --privileged -e NEIGHBOR=${LB_T1_IP} --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
 
 #
 # LB configuration
