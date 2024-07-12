@@ -24,8 +24,8 @@ docker rm -f app5 2>/dev/null
 docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
 docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
 docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
-docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4 --env TLS_ENABLED=true --mount type=bind,source=${script_dir}/tls-secure-backend.crt,target=/tmp/tls.crt --mount type=bind,source=${script_dir}/tls-secure-backend.key,target=/tmp/tls.key --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
-docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --mount type=bind,source=${script_dir}/tls-secure-backend2.crt,target=/tmp/tls.crt --mount type=bind,source=${script_dir}/tls-secure-backend2.key,target=/tmp/tls.key --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
+docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4 --env TLS_ENABLED=true --mount "type=bind,source=${script_dir}/tls-secure-backend.crt,target=/tmp/tls.crt" --mount "type=bind,source=${script_dir}/tls-secure-backend.key,target=/tmp/tls.key" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
+docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --mount "type=bind,source=${script_dir}/tls-secure-backend2.crt,target=/tmp/tls.crt" --mount "type=bind,source=${script_dir}/tls-secure-backend2.key,target=/tmp/tls.key" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
 
 #
 # Client
@@ -36,7 +36,7 @@ docker rm -f frr 2>/dev/null
 
 LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
 
-docker run -d --restart=always --name frr --privileged -e NEIGHBOR=${LB_T1_IP} --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
+docker run -d --restart=always --name frr --privileged -e "NEIGHBOR=${LB_T1_IP}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
 
 # Copy Backend TLS secrets to FRR client
 docker cp ${script_dir}/tls-secure-backend.crt frr:/tmp/tls-secure-backend.crt

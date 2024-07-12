@@ -6,12 +6,23 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
-VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
-VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
-VIP_LB4=$(kubectl -n default get lbfe lb-4 -ojson | jq -r '.status.vip')
-VIP_LB5=$(kubectl -n default get lbfe lb-5 -ojson | jq -r '.status.vip')
-VIP_LB6=$(kubectl -n default get lbfe lb-6 -ojson | jq -r '.status.vip')
+echo -n "Waiting until VIPs have been assigned "
+while :; do
+  VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
+  VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
+  VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
+  VIP_LB4=$(kubectl -n default get lbfe lb-4 -ojson | jq -r '.status.vip')
+  VIP_LB5=$(kubectl -n default get lbfe lb-5 -ojson | jq -r '.status.vip')
+  VIP_LB6=$(kubectl -n default get lbfe lb-6 -ojson | jq -r '.status.vip')
+
+  if [ "${VIP_LB1}" != "" ] && [ "${VIP_LB2}" != "" ] && [ "${VIP_LB3}" != "" ] && [ "${VIP_LB4}" != "" ] && [ "${VIP_LB5}" != "" ] && [ "${VIP_LB6}" != "" ]; then
+    break
+  fi
+
+  echo -n "."
+  sleep 1
+done
+echo ""
 
 echo "Calling VIPs (might take some time until everything is up & running)"
 
