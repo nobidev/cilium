@@ -31,8 +31,12 @@ type testcase struct {
 	t2NodeIPs []string
 }
 
+const (
+	translationDir = "./testdata/lbfrontend_translation"
+)
+
 func TestTranslation(t *testing.T) {
-	entries, err := os.ReadDir("./testdata/translation")
+	entries, err := os.ReadDir(translationDir)
 	require.NoError(t, err)
 
 	testCases := []testcase{}
@@ -58,9 +62,9 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 	return func(t *testing.T) {
 		// read input files
 		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
-		readInput(t, fmt.Sprintf("./testdata/translation/%s/input-lbfrontend.yaml", tc.name), inputLBFrontend)
+		readInput(t, fmt.Sprintf("%s/%s/input-lbfrontend.yaml", translationDir, tc.name), inputLBFrontend)
 
-		entries, err := os.ReadDir("./testdata/translation/" + tc.name)
+		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
 		require.NoError(t, err)
 
 		inputLBBackends := []*isovalentv1alpha1.LBBackend{}
@@ -71,20 +75,20 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			}
 
 			inputLBBackend := &isovalentv1alpha1.LBBackend{}
-			readInput(t, fmt.Sprintf("./testdata/translation/%s/%s", tc.name, d.Name()), inputLBBackend)
+			readInput(t, fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name()), inputLBBackend)
 			inputLBBackends = append(inputLBBackends, inputLBBackend)
 		}
 
 		var inputService *corev1.Service
-		if _, err := os.Stat(fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name)); err == nil {
+		if _, err := os.Stat(fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name)); err == nil {
 			inputService = &corev1.Service{}
-			readInput(t, fmt.Sprintf("./testdata/translation/%s/input-t1-service.yaml", tc.name), inputService)
+			readInput(t, fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name), inputService)
 		}
 
 		// read output files
-		expectedServiceYaml := readOutput(t, fmt.Sprintf("./testdata/translation/%s/output-t1-service.yaml", tc.name), &corev1.Service{})
-		expectedEndpointsYaml := readOutput(t, fmt.Sprintf("./testdata/translation/%s/output-t1-endpoints.yaml", tc.name), &corev1.Endpoints{})
-		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("./testdata/translation/%s/output-t2-ciliumenvoyconfig.yaml", tc.name), &ciliumv2.CiliumEnvoyConfig{})
+		expectedServiceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-service.yaml", translationDir, tc.name), &corev1.Service{})
+		expectedEndpointsYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpoints.yaml", translationDir, tc.name), &corev1.Endpoints{})
+		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
 		ing := &ingestor{}
@@ -95,7 +99,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// Input Config
 		config := reconcilerConfig{}
 
-		readInput(t, fmt.Sprintf("./testdata/translation/%s/input-config.yaml", tc.name), &config)
+		readInput(t, fmt.Sprintf("%s/%s/input-config.yaml", translationDir, tc.name), &config)
 
 		// translation
 		reconciler := &lbFrontendReconciler{
