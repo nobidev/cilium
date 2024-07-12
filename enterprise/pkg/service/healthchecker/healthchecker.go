@@ -15,32 +15,30 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc-health-checker")
-
 // backendAddrKey is used as a key to context.Value(). It is used
 // to pass the backend address.
 type backendAddrKey struct{}
 
 type HealthChecker struct {
+	logger         *slog.Logger
 	datapathLbOnly bool
 	// Fixme: Replace slice with a set of backends
 	svcMap          map[svcAddr][]beAddr
@@ -135,10 +133,10 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 	}
 	// Fixme: (tbd) health check exception: do we want to quarantine kube-api server in case of failures???
 	if strings.ToLower(name.Name) == "kubernetes" {
-		log.Debugf("hc-debug skip health checks for svc %s", name)
+		hc.logger.Debug("hc-debug skip health checks for svc", logfields.ServiceName, name)
 		return
 	}
-	log.Debugf("hc-debug: service: %s, type: %s, config: %s", name, svcType, svcHealthCheckConfig)
+	hc.logger.Debug("hc-debug", logfields.ServiceName, name, "type", svcType, "config", svcHealthCheckConfig)
 	hc.svcMapLock.Lock()
 	defer hc.svcMapLock.Unlock()
 
@@ -198,7 +196,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 
 	// Service backends updated
 	if backendUpdate {
-		log.Debugf("hc-debug start health check %v", svcAddr)
+		hc.logger.Debug("hc-debug start health check", "svc-addr", svcAddr)
 		hc.svcEvents <- svcEvent{
 			evType:            SvcEventUpsert,
 			addr:              svcAddr,
@@ -218,7 +216,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 				config: svcHealthCheckConfig,
 			}
 		case HealthCheckDisabled:
-			log.Debugf("hc-debug service health checks disabled %v", svcAddr)
+			hc.logger.Debug("hc-debug service health checks disabled", "svc-addr", svcAddr)
 			delete(hc.configMap, svcAddr)
 			// Send updates to all the service backends health check probers.
 			hc.svcEvents <- svcEvent{
@@ -231,7 +229,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 }
 
 func (hc *HealthChecker) DeleteService(svcAddr lb.L3n4Addr, name lb.ServiceName) {
-	log.Debugf("hc-debug stop health checks for deleted service %s", name)
+	hc.logger.Debug("hc-debug stop health checks for deleted service", logfields.ServiceName, name)
 	hc.svcEvents <- svcEvent{
 		evType: SvcEventDelete,
 		addr:   svcAddr,
@@ -239,16 +237,20 @@ func (hc *HealthChecker) DeleteService(svcAddr lb.L3n4Addr, name lb.ServiceName)
 }
 
 // newHealthChecker provides an instance of the HealthChecker.
-func newHealthChecker(datapathLbOnly bool) *HealthChecker {
+func newHealthChecker(logger *slog.Logger, datapathLbOnly bool) *HealthChecker {
 	return &HealthChecker{
+		logger:         logger,
 		datapathLbOnly: datapathLbOnly,
 		svcMap:         make(map[svcAddr][]beAddr),
 		beMap:          make(map[beAddr]sets.Set[svcAddr]),
 		beHealthMap:    make(map[svcAddr]map[beAddr]*healthData),
 		configMap:      make(map[svcAddr]HealthCheckConfig),
-		prober:         &probeImpl{datapathLbOnly: datapathLbOnly},
-		svcEvents:      make(chan svcEvent, eventsChanSize),
-		close:          make(chan struct{}),
+		prober: &probeImpl{
+			logger:         logger,
+			datapathLbOnly: datapathLbOnly,
+		},
+		svcEvents: make(chan svcEvent, eventsChanSize),
+		close:     make(chan struct{}),
 	}
 }
 
@@ -256,10 +258,10 @@ func (hc *HealthChecker) run() {
 	for {
 		select {
 		case event := <-hc.svcEvents:
-			log.
-				WithField("type", event.evType).
-				WithField("addr", event.addr).
-				Debug("Handling Service Event")
+			hc.logger.Debug("Handling Service Event",
+				"type", event.evType,
+				"addr", event.addr,
+			)
 			switch event.evType {
 			case SvcEventUpsert:
 				hc.startHealthCheck(event.addr, event.config, event.unhealthyBackends)
@@ -351,11 +353,11 @@ func (hc *HealthChecker) stopBackendHealthCheck(svcAddr lb.L3n4Addr, be lb.L3n4A
 }
 
 func (hc *HealthChecker) removeServiceBackend(svcAddr lb.L3n4Addr, beAddr lb.L3n4Addr, reActivate bool) {
-	log.
-		WithField("svc", svcAddr).
-		WithField("be", beAddr).
-		WithField("reactivate", reActivate).
-		Debug("Remove Service Backend")
+	hc.logger.Debug("Remove Service Backend",
+		"svc", svcAddr,
+		"be", beAddr,
+		"reactivate", reActivate,
+	)
 
 	hc.beMapLock.Lock()
 	defer hc.beMapLock.Unlock()
@@ -394,7 +396,7 @@ func (hc *HealthChecker) updateHealthChecks(svcAddr lb.L3n4Addr, config HealthCh
 				healthy := beHD.probe.healthy
 				if !beHD.ticker.config.DeepEqual(&config) {
 					beHD.ticker.config = config
-					log.Debugf("hc-debug health config update %v -> %v", beHD.ticker.config, config)
+					hc.logger.Debug("hc-debug health config update", "old-config", beHD.ticker.config, "new-config", config)
 					beHD.stop()
 					<-beHD.ticker.stopped
 					// Trigger health probes with the updated configs, but preserve the
@@ -408,6 +410,7 @@ func (hc *HealthChecker) updateHealthChecks(svcAddr lb.L3n4Addr, config HealthCh
 }
 
 type probeImpl struct {
+	logger         *slog.Logger
 	datapathLbOnly bool
 }
 
@@ -435,12 +438,12 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	for {
 		select {
 		case <-ht.stop:
-			log.Debugf("health probes stopped %v - %v", svcAddr, beAddr)
+			hc.logger.Debug("health probes stopped", "svc-addr", svcAddr, "backend-addr", beAddr)
 			close(ht.stopped)
 			return
 		case <-ht.ticker.C:
 			if !waitingOnProbe {
-				log.Debugf("hc-debug sending health probe for svc %v and be %v", svcAddr, beAddr)
+				hc.logger.Debug("hc-debug sending health probe", "svc-addr", svcAddr, "backend-addr", beAddr)
 				if config.L7 {
 					waitingOnProbe = true
 					go hc.prober.sendL7Probe(config, svcAddr, beAddr, probeOut)
@@ -464,12 +467,12 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 					if probeHealthyCount < config.ThresholdHealthy {
 						continue
 					}
-					log.WithFields(logrus.Fields{
-						"config":  config,
-						"svc":     svcAddr,
-						"be":      beAddr,
-						"message": newProbe.message,
-					}).Debug("Marking service backend as active")
+					hc.logger.Debug("Marking service backend as active",
+						"config", config,
+						"svc", svcAddr,
+						"be", beAddr,
+						"message", newProbe.message,
+					)
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -481,12 +484,12 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 					if probeUnhealthyCount < config.ThresholdUnhealthy {
 						continue
 					}
-					log.WithFields(logrus.Fields{
-						"config":  config,
-						"svc":     svcAddr,
-						"be":      beAddr,
-						"message": newProbe.message,
-					}).Debug("Marking service backend as quarantined")
+					hc.logger.Debug("Marking service backend as quarantined",
+						"config", config,
+						"svc", svcAddr,
+						"be", beAddr,
+						"message", newProbe.message,
+					)
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -538,11 +541,12 @@ func (pr *probeImpl) dialerConnSetup(ctx context.Context, network string, addres
 	}
 	backend := ctx.Value(backendAddrKey{}).(string)
 
-	log.
-		WithField("network", network).
-		WithField("address", address).
-		WithField("backend", backend).
-		Debug("dialerConnSetup")
+	pr.logger.
+		Debug("dialerConnSetup",
+			"network", network,
+			"address", address,
+			"backend", backend,
+		)
 
 	switch network {
 	case "tcp4", "tcp6":
@@ -625,14 +629,14 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 			probeOut <- getProbeData(fmt.Errorf("err: %w", err))
 			return
 		}
-		log.Debugf("Dial TCP failed while sending out probe to [%v]: %v", beAddr, err)
+		pr.logger.Debug("Dial TCP failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
 	defer conn.Close()
 
 	probe := getProbeData(nil)
-	log.Debugf("hc-debug health check success %v probe %v", beAddr, probe)
+	pr.logger.Debug("hc-debug health check success", "backend-addr", beAddr, "probe", probe)
 
 	probeOut <- probe
 }
@@ -655,7 +659,7 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
 	conn, err := d.DialContext(ctx, "udp", connAddr)
 	if err != nil {
-		log.Debugf("DialUDP() failed while sending out probe to [%v]: %v", beAddr, err)
+		pr.logger.Debug("DialUDP() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
@@ -664,7 +668,7 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	// the timeout here. But just in case...
 	conn.SetDeadline(time.Now().Add(config.ProbeTimeout))
 	if _, err = conn.Write([]byte("t")); err != nil {
-		log.Debugf("Write() failed while sending out probe to [%v]: %v", beAddr, err)
+		pr.logger.Debug("Write() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
@@ -674,18 +678,18 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 		// ECONNREFUSED wraps ICMP_PORT_UNREACHABLE
 		// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
 		if errors.Is(err, syscall.ECONNREFUSED) {
-			log.Debugf("probe failed [%v]: %v", beAddr, err)
+			pr.logger.Debug("probe failed", "backend-addr", beAddr, logfields.Error, err)
 			probeOut <- getProbeData(fmt.Errorf("error: %w", err))
 			return
 		}
 	} else if os.IsTimeout(err) {
-		log.Debugf("probe failed [%v]: %v", beAddr, err)
+		pr.logger.Debug("probe failed", "backend-addr", beAddr, logfields.Error, err)
 		probeOut <- getProbeData(fmt.Errorf("error: %w", err))
 		return
 	}
 
 	probe := getProbeData(nil)
-	log.Debugf("hc-debug health check success %v probe %v", beAddr, probe)
+	pr.logger.Debug("hc-debug health check success", "backend-addr", beAddr, "probe", probe)
 
 	probeOut <- probe
 }

@@ -11,6 +11,8 @@
 package healthchecker
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -37,12 +39,16 @@ func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-active-lb-health-checking", true, "Enable active health checking on loadbalancer services")
 }
 
-func registerActiveHealthChecker(lifecycle cell.Lifecycle, cfg config) healthCheckerResult {
+func registerActiveHealthChecker(
+	lifecycle cell.Lifecycle,
+	logger *slog.Logger,
+	cfg config,
+) healthCheckerResult {
 	if !cfg.EnableActiveLbHealthChecking {
 		return healthCheckerResult{}
 	}
 
-	activeHealthChecker := newHealthChecker(option.Config.DatapathMode == datapathOption.DatapathModeLBOnly)
+	activeHealthChecker := newHealthChecker(logger, option.Config.DatapathMode == datapathOption.DatapathModeLBOnly)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {

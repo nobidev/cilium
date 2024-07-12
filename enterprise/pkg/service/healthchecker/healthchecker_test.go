@@ -11,6 +11,7 @@
 package healthchecker
 
 import (
+	"log/slog"
 	"maps"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -144,7 +146,10 @@ func setupTest(t *testing.T, prober Prober) *TestHealthChecker {
 	thc := &TestHealthChecker{
 		Events: make(chan TestHealthCheckCBEvent),
 	}
-	thc.hc = newHealthChecker(true)
+
+	logger := slog.New(logging.SlogNopHandler)
+
+	thc.hc = newHealthChecker(logger, true)
 	thc.hc.SetCallback(thc.HealthCheckCBTest)
 
 	if prober != nil {

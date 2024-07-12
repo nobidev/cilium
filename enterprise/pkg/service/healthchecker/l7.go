@@ -14,14 +14,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -57,13 +57,19 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 	}
 	method := getSvcHTTPMethod(config)
 	backend := getAddrStr(beAddr)
-	logFields := logrus.Fields{"url": url, "method": method, "host": config.HTTPHost, "backend": backend}
+	logFields := []slog.Attr{
+		slog.String("url", url),
+		slog.String("method", method),
+		slog.String("host", config.HTTPHost),
+		slog.String("backend", backend),
+	}
 
 	// create a request with proper method, URL and HTTP Host
 	ctx := context.WithValue(context.Background(), backendAddrKey{}, backend)
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
-		log.WithError(err).WithFields(logFields).Debug("L7 health check failure")
+		fields := append(logFields, slog.Any(logfields.Error, err))
+		pr.logger.LogAttrs(context.Background(), slog.LevelDebug, "L7 health check failure", fields...)
 		probeOut <- getProbeData(err)
 		return
 	}
@@ -77,7 +83,8 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 		defer res.Body.Close()
 	}
 	if err != nil {
-		log.WithError(err).WithFields(logFields).Debug("L7 health check failure")
+		fields := append(logFields, slog.Any(logfields.Error, err))
+		pr.logger.LogAttrs(context.Background(), slog.LevelDebug, "L7 health check failure", fields...)
 		probeOut <- getProbeData(err)
 		return
 	}
@@ -85,12 +92,13 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 	// consider status codes 200-399 as success
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusBadRequest {
 		err = fmt.Errorf("invalid status code: %d", res.StatusCode)
-		log.WithError(err).WithFields(logFields).Debug("L7 health check failure")
+		fields := append(logFields, slog.Any(logfields.Error, err))
+		pr.logger.LogAttrs(context.Background(), slog.LevelDebug, "L7 health check failure", fields...)
 		probeOut <- getProbeData(err)
 		return
 	}
 
-	log.WithFields(logFields).Debug("L7 health check success")
+	pr.logger.LogAttrs(context.Background(), slog.LevelDebug, "L7 health check success", logFields...)
 
 	probeOut <- getProbeData(nil)
 }
