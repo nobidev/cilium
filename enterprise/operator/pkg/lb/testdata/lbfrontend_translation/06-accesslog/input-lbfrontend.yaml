@@ -4,13 +4,12 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-1
-  port: 80
   vip: 100.64.0.100
-  tls:
-    certificates:
-      - secretName: "test"
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-1

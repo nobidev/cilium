@@ -5,14 +5,16 @@ metadata:
   name: lb-1
 spec:
   port: 443
-  tls:
-    certificates:
-      - secretName: "test-secure"
-  routes:
-    - https:
-        hostNames:
-          - "secure.acme.io"
-        backend: lb-1
+  applications:
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure"
+      routes:
+        - hostNames:
+            - "secure.acme.io"
+          backendRef:
+            name: lb-1
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBFrontend
@@ -22,11 +24,13 @@ metadata:
 spec:
   vip: "100.64.0.101"
   port: 80
-  routes:
-    - http:
-        hostNames:
-          - "insecure.acme.io"
-        backend: lb-2
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "insecure.acme.io"
+          backendRef:
+            name: lb-2
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBFrontend
@@ -36,11 +40,13 @@ metadata:
 spec:
   vip: "100.64.0.101"
   port: 81
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-3
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-3
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBFrontend
@@ -50,11 +56,13 @@ metadata:
 spec:
   vip: "100.64.0.102"
   port: 80
-  routes:
-    - http:
-        hostNames:
-          - "mixed.acme.io"
-        backend: lb-4
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "mixed.acme.io"
+          backendRef:
+            name: lb-4
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBFrontend
@@ -63,14 +71,16 @@ metadata:
   name: lb-5
 spec:
   port: 80
-  tls:
-    certificates:
-      - secretName: "test-secure80"
-  routes:
-    - https:
-        hostNames:
-          - "secure-80.acme.io"
-        backend: lb-5
+  applications:
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure80"
+      routes:
+        - hostNames:
+            - "secure-80.acme.io"
+          backendRef:
+            name: lb-5
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBFrontend
@@ -79,14 +89,16 @@ metadata:
   name: lb-6
 spec:
   port: 80
-  routes:
-    - tlsPassthrough:
-        hostNames:
-          - "passthrough.acme.io"
-        backend: lb-6
-    - tlsPassthrough:
-        hostNames:
-          - "passthrough-2.acme.io"
-        backend: lb-7
+  applications:
+    tlsPassthrough:
+      routes:
+        - hostNames:
+            - "passthrough.acme.io"
+          backendRef:
+            name: lb-6
+        - hostNames:
+            - "passthrough-2.acme.io"
+          backendRef:
+            name: lb-7
 ---
 

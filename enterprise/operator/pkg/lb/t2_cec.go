@@ -201,9 +201,9 @@ func toHTTPSServerNames(model *lbFrontend) []string {
 	// get all HTTPS hostnames
 	httpsDomainNames := []string{}
 
-	for _, lr := range model.routes {
-		if lr.https != nil {
-			httpsDomainNames = append(httpsDomainNames, lr.https.hostNames...)
+	if model.applications.httpsProxy != nil {
+		for _, lr := range model.applications.httpsProxy.routes {
+			httpsDomainNames = append(httpsDomainNames, lr.hostNames...)
 		}
 	}
 
@@ -214,17 +214,13 @@ func toHTTPSServerNames(model *lbFrontend) []string {
 			continue
 		}
 
-		if slices.Contains(serverNames, dn) {
-			continue
-		}
-
 		// TODO: validate for * only as starting prefix with *.
 
 		serverNames = append(serverNames, dn)
 	}
 
 	slices.Sort(serverNames)
-	return serverNames
+	return slices.Compact(serverNames)
 }
 
 func toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
@@ -235,23 +231,23 @@ func toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
 			continue
 		}
 
-		if slices.Contains(serverNames, dn) {
-			continue
-		}
-
 		// TODO: validate for * only as starting prefix with *.
 
 		serverNames = append(serverNames, dn)
 	}
 
 	slices.Sort(serverNames)
-	return serverNames
+	return slices.Compact(serverNames)
 }
 
 func (r *lbFrontendReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
 	secrets := []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{}
 
-	for _, cs := range model.tls.certificateSecrets {
+	if model.applications.httpsProxy == nil || model.applications.httpsProxy.tlsConfig == nil {
+		return secrets
+	}
+
+	for _, cs := range model.applications.httpsProxy.tlsConfig.certificateSecrets {
 		secrets = append(secrets, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
 			Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
 		})
@@ -307,15 +303,14 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
 	tlsPassthroughFilterChains := []*envoy_config_listener_v3.FilterChain{}
 
-	for i, tr := range model.routes {
-		if tr.tlsPassthrough == nil {
-			continue
-		}
-
+	if model.applications.tlsPassthrough == nil {
+		return tlsPassthroughFilterChains
+	}
+	for i, tr := range model.applications.tlsPassthrough.routes {
 		f := &envoy_config_listener_v3.FilterChain{
 			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 				TransportProtocol: "tls",
-				ServerNames:       toTLSPassthroughServerNames(tr.tlsPassthrough.hostNames),
+				ServerNames:       toTLSPassthroughServerNames(tr.hostNames),
 			},
 			Filters: []*envoy_config_listener_v3.Filter{
 				{
@@ -325,7 +320,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mo
 							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
 							StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
 							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
-								Cluster: fmt.Sprintf("backend_cluster_%d", i),
+								Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
 							},
 						}),
 					},
@@ -438,39 +433,41 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteConfig(model *lbFrontend) *e
 func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
-	for i, route := range model.routes {
-		if route.http != nil {
-			httpRoute := &envoy_config_route_v3.Route{
-				Action: &envoy_config_route_v3.Route_Route{
-					Route: &envoy_config_route_v3.RouteAction{
-						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-							Cluster: fmt.Sprintf("backend_cluster_%d", i),
-						},
+	if model.applications.httpProxy == nil {
+		return virtualHosts
+	}
+
+	for i, route := range model.applications.httpProxy.routes {
+		httpRoute := &envoy_config_route_v3.Route{
+			Action: &envoy_config_route_v3.Route_Route{
+				Route: &envoy_config_route_v3.RouteAction{
+					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+						Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
 					},
 				},
-			}
-
-			if route.http.pathType != pathTypePrefix {
-				// TODO: currently only pathtype prefix supported
-				continue
-			}
-
-			httpRoute.Match = &envoy_config_route_v3.RouteMatch{
-				PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-					Prefix: route.http.path,
-				},
-			}
-
-			// TODO: wildcard handling?
-
-			virtualHosts = append(virtualHosts,
-				&envoy_config_route_v3.VirtualHost{
-					Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-					Domains: r.toHostNamesWithPort(route.http.hostNames, int32(80), model.port),
-					Routes:  []*envoy_config_route_v3.Route{httpRoute},
-				},
-			)
+			},
 		}
+
+		if route.pathType != pathTypePrefix {
+			// TODO: currently only pathtype prefix supported
+			continue
+		}
+
+		httpRoute.Match = &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: route.path,
+			},
+		}
+
+		// TODO: wildcard handling?
+
+		virtualHosts = append(virtualHosts,
+			&envoy_config_route_v3.VirtualHost{
+				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
+				Domains: r.toHostNamesWithPort(route.hostNames, int32(80), model.port),
+				Routes:  []*envoy_config_route_v3.Route{httpRoute},
+			},
+		)
 	}
 
 	return virtualHosts
@@ -486,39 +483,41 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteConfig(model *lbFrontend) *
 func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFrontend, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
-	for i, route := range model.routes {
-		if route.https != nil {
-			httpRoute := &envoy_config_route_v3.Route{
-				Action: &envoy_config_route_v3.Route_Route{
-					Route: &envoy_config_route_v3.RouteAction{
-						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-							Cluster: fmt.Sprintf("backend_cluster_%d", i),
-						},
+	if model.applications.httpsProxy == nil {
+		return virtualHosts
+	}
+
+	for i, route := range model.applications.httpsProxy.routes {
+		httpRoute := &envoy_config_route_v3.Route{
+			Action: &envoy_config_route_v3.Route_Route{
+				Route: &envoy_config_route_v3.RouteAction{
+					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+						Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
 					},
 				},
-			}
-
-			if route.https.pathType != pathTypePrefix {
-				// TODO: currently only pathtype prefix supported
-				continue
-			}
-
-			httpRoute.Match = &envoy_config_route_v3.RouteMatch{
-				PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-					Prefix: route.https.path,
-				},
-			}
-
-			// TODO: wildcard handling?
-
-			virtualHosts = append(virtualHosts,
-				&envoy_config_route_v3.VirtualHost{
-					Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-					Domains: r.toHostNamesWithPort(route.https.hostNames, int32(443), model.port),
-					Routes:  []*envoy_config_route_v3.Route{httpRoute},
-				},
-			)
+			},
 		}
+
+		if route.pathType != pathTypePrefix {
+			// TODO: currently only pathtype prefix supported
+			continue
+		}
+
+		httpRoute.Match = &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: route.path,
+			},
+		}
+
+		// TODO: wildcard handling?
+
+		virtualHosts = append(virtualHosts,
+			&envoy_config_route_v3.VirtualHost{
+				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
+				Domains: r.toHostNamesWithPort(route.hostNames, int32(443), model.port),
+				Routes:  []*envoy_config_route_v3.Route{httpRoute},
+			},
+		)
 	}
 
 	return virtualHosts
@@ -542,8 +541,20 @@ func (r *lbFrontendReconciler) toHostNamesWithPort(hostnames []string, defaultPo
 func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCheck {
 	healthCheckFilterClusters := map[string]*envoy_typev3.Percent{}
 
-	for i := range model.routes {
-		healthCheckFilterClusters[fmt.Sprintf("backend_cluster_%d", i)] = &envoy_typev3.Percent{Value: 20}
+	if model.applications.httpProxy != nil {
+		for i := range model.applications.httpProxy.routes {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_typev3.Percent{Value: 20}
+		}
+	}
+	if model.applications.httpsProxy != nil {
+		for i := range model.applications.httpsProxy.routes {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_typev3.Percent{Value: 20}
+		}
+	}
+	if model.applications.tlsPassthrough != nil {
+		for i := range model.applications.tlsPassthrough.routes {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_typev3.Percent{Value: 20}
+		}
 	}
 
 	healthCheckFilter := &envoy_health_check_v3.HealthCheck{
@@ -586,103 +597,107 @@ func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCh
 	return healthCheckFilter
 }
 
-func (*lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_config_cluster_v3.Cluster {
+func (r *lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
-	for i, route := range model.routes {
-		backend := route.backend
-
-		lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(backend.ips))
-
-		for _, ipBackends := range backend.ips {
-			lbEndpoints = append(lbEndpoints, &envoy_endpointv3.LbEndpoint{
-				HostIdentifier: &envoy_endpointv3.LbEndpoint_Endpoint{Endpoint: &envoy_endpointv3.Endpoint{
-					Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
-						Address:       ipBackends.address,
-						PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
-					}}},
-				}},
-			})
+	if model.applications.httpProxy != nil {
+		for i, lrh := range model.applications.httpProxy.routes {
+			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_http_%d", i), lrh.backend, nil, nil))
 		}
-
-		var healthCheckTransportSocketMatchCriteria *structpb.Struct
-
-		// If TLS Passthrough is configured, HC requests to the upstream
-		// need to be send with TLS
-		if route.tlsPassthrough != nil {
-			healthCheckTransportSocketMatchCriteria = &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"type": structpb.NewStringValue("tls"),
-				},
-			}
+	}
+	if model.applications.httpsProxy != nil {
+		for i, lrh := range model.applications.httpsProxy.routes {
+			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_https_%d", i), lrh.backend, nil, nil))
 		}
-
-		cluster := envoy_config_cluster_v3.Cluster{
-			Name: fmt.Sprintf("backend_cluster_%d", i),
-			ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-				Type: envoy_config_cluster_v3.Cluster_STATIC,
-			},
-			CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
-				// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
-				HealthyPanicThreshold: &envoy_typev3.Percent{Value: 0.0},
-			},
-			ConnectTimeout: &durationpb.Duration{Seconds: 5}, // default
-			HealthChecks: []*envoy_corev3.HealthCheck{
-				{
-					// TODO: create HC depending on health check type
-					HealthChecker: &envoy_corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
-						Host: backend.healthCheckConfig.http.host,
-						Path: backend.healthCheckConfig.http.path,
-					}},
-					Interval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.intervalSeconds)},
-					// TODO: NoTrafficInterval
-					// TODO: Jitter
-					Timeout:            &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.timeoutSeconds)},
-					HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.healthyThreshold)},
-					UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(backend.healthCheckConfig.unhealthyThreshold)},
-					// T1's quarantine timeout
-					UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
-					// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
-					UnhealthyInterval:            &durationpb.Duration{Seconds: int64(backend.healthCheckConfig.unhealthyIntervalSeconds)},
-					TransportSocketMatchCriteria: healthCheckTransportSocketMatchCriteria,
-				},
-			},
-			LbPolicy: mapLbPolicy(backend.lbAlgorithm),
-			LoadAssignment: &envoy_endpointv3.ClusterLoadAssignment{
-				ClusterName: fmt.Sprintf("backend_cluster_%d", i),
-				Endpoints: []*envoy_endpointv3.LocalityLbEndpoints{
+	}
+	if model.applications.tlsPassthrough != nil {
+		for i, lrh := range model.applications.tlsPassthrough.routes {
+			clusters = append(clusters, r.desiredEnvoyCluster(
+				fmt.Sprintf("backend_cluster_tlspt_%d", i),
+				lrh.backend,
+				[]*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
 					{
-						LbEndpoints: lbEndpoints,
-					},
-				},
-			},
-		}
-
-		// If TLS Passthrough is configured, provide an additional TLS transport socket.
-		// This way, HC requests to the upstream can be send with TLS.
-		if route.tlsPassthrough != nil {
-			cluster.TransportSocketMatches = []*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
-				{
-					Name: "healthcheck_tls",
-					Match: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"type": structpb.NewStringValue("tls"),
+						Name: "healthcheck_tls",
+						Match: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"type": structpb.NewStringValue("tls"),
+							},
 						},
-					},
-					TransportSocket: &envoy_corev3.TransportSocket{
-						Name: "envoy.transport_sockets.tls",
-						ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{}),
+						TransportSocket: &envoy_corev3.TransportSocket{
+							Name: "envoy.transport_sockets.tls",
+							ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
+								TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{}),
+							},
 						},
 					},
 				},
-			}
+				&structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"type": structpb.NewStringValue("tls"),
+					},
+				},
+			))
 		}
-
-		clusters = append(clusters, &cluster)
 	}
 
 	return clusters
+}
+
+func (*lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
+	lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(b.ips))
+
+	for _, ipBackends := range b.ips {
+		lbEndpoints = append(lbEndpoints, &envoy_endpointv3.LbEndpoint{
+			HostIdentifier: &envoy_endpointv3.LbEndpoint_Endpoint{Endpoint: &envoy_endpointv3.Endpoint{
+				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
+					Address:       ipBackends.address,
+					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
+				}}},
+			}},
+		})
+	}
+
+	return &envoy_config_cluster_v3.Cluster{
+		Name: name,
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STATIC,
+		},
+		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
+			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
+			HealthyPanicThreshold: &envoy_typev3.Percent{Value: 0.0},
+		},
+		ConnectTimeout:         &durationpb.Duration{Seconds: 5}, // default
+		TransportSocketMatches: transportSocketMatches,
+		HealthChecks: []*envoy_corev3.HealthCheck{
+			{
+				// TODO: create HC depending on health check type
+				HealthChecker: &envoy_corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
+					Host: b.healthCheckConfig.http.host,
+					Path: b.healthCheckConfig.http.path,
+				}},
+				Interval: &durationpb.Duration{Seconds: int64(b.healthCheckConfig.intervalSeconds)},
+				// TODO: NoTrafficInterval
+				// TODO: Jitter
+				Timeout:            &durationpb.Duration{Seconds: int64(b.healthCheckConfig.timeoutSeconds)},
+				HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(b.healthCheckConfig.healthyThreshold)},
+				UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(b.healthCheckConfig.unhealthyThreshold)},
+				// T1's quarantine timeout
+				UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(b.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
+				// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
+				UnhealthyInterval:            &durationpb.Duration{Seconds: int64(b.healthCheckConfig.unhealthyIntervalSeconds)},
+				TransportSocketMatchCriteria: hcTransportSocketMatchCriteria,
+			},
+		},
+		LbPolicy: mapLbPolicy(b.lbAlgorithm),
+		LoadAssignment: &envoy_endpointv3.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints: []*envoy_endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: lbEndpoints,
+				},
+			},
+		},
+	}
 }
 
 func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

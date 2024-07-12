@@ -4,14 +4,16 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-1
-    - http:
-        hostNames:
-          - "bar.acme.io"
-        backend: lb-1
-  port: 80
   vip: 100.64.0.100
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-1
+        - hostNames:
+            - "bar.acme.io"
+          backendRef:
+            name: lb-1

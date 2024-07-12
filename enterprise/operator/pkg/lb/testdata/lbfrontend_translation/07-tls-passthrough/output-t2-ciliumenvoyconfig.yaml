@@ -32,9 +32,9 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_0:
+                        backend_cluster_tlspt_0:
                           value: 20
-                        backend_cluster_1:
+                        backend_cluster_tlspt_1:
                           value: 20
                       headers:
                         - name: :path
@@ -68,7 +68,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                cluster: backend_cluster_0
+                cluster: backend_cluster_tlspt_0
                 statPrefix: frontend_listener_tls_passthrough_0
         - filterChainMatch:
             serverNames:
@@ -85,7 +85,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                cluster: backend_cluster_1
+                cluster: backend_cluster_tlspt_1
                 statPrefix: frontend_listener_tls_passthrough_1
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
@@ -114,7 +114,7 @@ spec:
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
       loadAssignment:
-        clusterName: backend_cluster_0
+        clusterName: backend_cluster_tlspt_0
         endpoints:
           - lbEndpoints:
               - endpoint:
@@ -127,7 +127,7 @@ spec:
                     socketAddress:
                       address: 172.18.0.6
                       portValue: 8080
-      name: backend_cluster_0
+      name: backend_cluster_tlspt_0
       transportSocketMatches:
         - match:
             type: tls
@@ -154,7 +154,7 @@ spec:
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
       loadAssignment:
-        clusterName: backend_cluster_1
+        clusterName: backend_cluster_tlspt_1
         endpoints:
           - lbEndpoints:
               - endpoint:
@@ -167,7 +167,7 @@ spec:
                     socketAddress:
                       address: 172.18.0.6
                       portValue: 8080
-      name: backend_cluster_1
+      name: backend_cluster_tlspt_1
       transportSocketMatches:
         - match:
             type: tls

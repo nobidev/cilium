@@ -39,11 +39,11 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 		}
 
 		var reqs []reconcile.Request
-		if lbFrontend.Spec.TLS == nil {
+		if lbFrontend.Spec.Applications.HTTPSProxy == nil || lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 			return reqs
 		}
 
-		for _, c := range lbFrontend.Spec.TLS.Certificates {
+		for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			s := types.NamespacedName{
 				Namespace: lbFrontend.Namespace,
 				Name:      string(c.SecretName),

@@ -271,22 +271,12 @@ func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scop
 func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
 	backends := []*isovalentv1alpha1.LBBackend{}
 	missingBackends := []string{}
-	for _, lr := range frontend.Spec.Routes {
-		backend := ""
-		if lr.HTTP != nil {
-			backend = lr.HTTP.Backend
-		} else if lr.HTTPS != nil {
-			backend = lr.HTTPS.Backend
-		} else if lr.TLSPassthrough != nil {
-			backend = lr.TLSPassthrough.Backend
-		}
 
-		if backend == "" {
-			continue
-		}
+	backendNames := allBackendNames(frontend)
 
+	for _, bName := range backendNames {
 		b := &isovalentv1alpha1.LBBackend{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: backend}, b); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: bName}, b); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("failed to get referenced LBBackend: %w", err)
 			}
@@ -294,7 +284,7 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 			// Continue reconciliation if backends don't exist (yet).
 			// But keep track of them to report in log and status later on.
 			// Once the missing referenced backends gets created it will trigger a reconciliation
-			missingBackends = append(missingBackends, backend)
+			missingBackends = append(missingBackends, bName)
 			continue
 		}
 
@@ -305,15 +295,13 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 }
 
 func (r *lbFrontendReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]string, error) {
-	if frontend.Spec.TLS == nil {
-		return nil, nil
-	}
+	allSecretNames := allSecretNames(frontend)
 
 	missingSecrets := []string{}
 
-	for _, c := range frontend.Spec.TLS.Certificates {
+	for _, secretName := range allSecretNames {
 		s := &corev1.Secret{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: c.SecretName}, s); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: secretName}, s); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("failed to get referenced TLS Secret: %w", err)
 			}
@@ -321,7 +309,7 @@ func (r *lbFrontendReconciler) getMissingTLSSecrets(ctx context.Context, fronten
 			// Continue reconciliation if TLS Secrets don't exist (yet).
 			// But keep track of them to report in log and status later on.
 			// Once the missing referenced backends gets created it will trigger a reconciliation
-			missingSecrets = append(missingSecrets, c.SecretName)
+			missingSecrets = append(missingSecrets, secretName)
 		}
 	}
 
@@ -403,50 +391,53 @@ func (r *lbFrontendReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Conte
 }
 
 func backendIndexerFunc(rawObj client.Object) []string {
-	backends := []string{}
-
 	// Extract the backend references
 	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
-	for _, lr := range lbFrontend.Spec.Routes {
-		backend := ""
 
-		if lr.HTTP != nil {
-			backend = lr.HTTP.Backend
-		} else if lr.HTTPS != nil {
-			backend = lr.HTTPS.Backend
-		} else if lr.TLSPassthrough != nil {
-			backend = lr.TLSPassthrough.Backend
+	return allBackendNames(lbFrontend)
+}
+
+func allBackendNames(lbFrontend *isovalentv1alpha1.LBFrontend) []string {
+	backends := []string{}
+
+	if lbFrontend.Spec.Applications.HTTPProxy != nil {
+		for _, lr := range lbFrontend.Spec.Applications.HTTPProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
 		}
-
-		if backend == "" || slices.Contains(backends, backend) {
-			continue
-		}
-
-		backends = append(backends, backend)
 	}
-
-	return backends
+	if lbFrontend.Spec.Applications.HTTPSProxy != nil {
+		for _, lr := range lbFrontend.Spec.Applications.HTTPSProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if lbFrontend.Spec.Applications.TLSPassthrough != nil {
+		for _, lr := range lbFrontend.Spec.Applications.TLSPassthrough.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	slices.Sort(backends)
+	return slices.Compact(backends)
 }
 
 func tlsSecretIndexerFunc(rawObj client.Object) []string {
-	secrets := []string{}
-
 	// Extract the TLS secret references
 	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
 
-	if lbFrontend.Spec.TLS == nil {
+	return allSecretNames(lbFrontend)
+}
+
+func allSecretNames(lbFrontend *isovalentv1alpha1.LBFrontend) []string {
+	secrets := []string{}
+	if lbFrontend.Spec.Applications.HTTPSProxy == nil || lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return secrets
 	}
 
-	for _, c := range lbFrontend.Spec.TLS.Certificates {
-		if slices.Contains(secrets, c.SecretName) {
-			continue
-		}
-
+	for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 		secrets = append(secrets, c.SecretName)
 	}
 
-	return secrets
+	slices.Sort(secrets)
+	return slices.Compact(secrets)
 }
 
 func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {

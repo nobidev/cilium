@@ -4,21 +4,27 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  routes:
-    - https:
-        hostNames:
-          - "foo.acme.io"
-        backend: lb-1
-    - http:
-        hostNames:
-          - "bla.acme.io"
-        backend: lb-1
-    - tlsPassthrough:
-        hostNames:
-          - "passthrough.acme.io"
-        backend: lb-1
-  port: 80
   vip: 100.64.0.100
-  tls:
-    certificates:
-      - secretName: "test"
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "bla.acme.io"
+          backendRef:
+            name: lb-1
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test"
+      routes:
+        - hostNames:
+            - "foo.acme.io"
+          backendRef:
+            name: lb-1
+    tlsPassthrough:
+      routes:
+        - hostNames:
+            - "passthrough.acme.io"
+          backendRef:
+            name: lb-1

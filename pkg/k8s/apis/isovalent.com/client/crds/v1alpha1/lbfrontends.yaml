@@ -57,77 +57,114 @@ spec:
           spec:
             description: Spec is a spec .
             properties:
+              applications:
+                properties:
+                  httpProxy:
+                    properties:
+                      routes:
+                        items:
+                          properties:
+                            backendRef:
+                              properties:
+                                name:
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            hostNames:
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                          required:
+                          - backendRef
+                          - hostNames
+                          type: object
+                        type: array
+                    required:
+                    - routes
+                    type: object
+                  httpsProxy:
+                    properties:
+                      routes:
+                        items:
+                          properties:
+                            backendRef:
+                              properties:
+                                name:
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            hostNames:
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                          required:
+                          - backendRef
+                          - hostNames
+                          type: object
+                        type: array
+                      tlsConfig:
+                        properties:
+                          certificates:
+                            items:
+                              properties:
+                                secretName:
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - secretName
+                              type: object
+                            minItems: 1
+                            type: array
+                        required:
+                        - certificates
+                        type: object
+                    required:
+                    - routes
+                    type: object
+                  tlsPassthrough:
+                    properties:
+                      routes:
+                        items:
+                          properties:
+                            backendRef:
+                              properties:
+                                name:
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            hostNames:
+                              items:
+                                minLength: 1
+                                type: string
+                              minItems: 1
+                              type: array
+                          required:
+                          - backendRef
+                          - hostNames
+                          type: object
+                        type: array
+                    required:
+                    - routes
+                    type: object
+                type: object
               port:
                 format: int32
                 type: integer
-              routes:
-                items:
-                  properties:
-                    http:
-                      properties:
-                        backend:
-                          type: string
-                        hostNames:
-                          items:
-                            minLength: 1
-                            type: string
-                          minItems: 1
-                          type: array
-                      required:
-                      - backend
-                      - hostNames
-                      type: object
-                    https:
-                      properties:
-                        backend:
-                          type: string
-                        hostNames:
-                          items:
-                            minLength: 1
-                            type: string
-                          minItems: 1
-                          type: array
-                      required:
-                      - backend
-                      - hostNames
-                      type: object
-                    tlsPassthrough:
-                      properties:
-                        backend:
-                          type: string
-                        hostNames:
-                          items:
-                            minLength: 1
-                            type: string
-                          minItems: 1
-                          type: array
-                      required:
-                      - backend
-                      - hostNames
-                      type: object
-                  type: object
-                type: array
-              tls:
-                properties:
-                  certificates:
-                    items:
-                      properties:
-                        secretName:
-                          minLength: 1
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    minItems: 1
-                    type: array
-                required:
-                - certificates
-                type: object
               vip:
                 type: string
             required:
+            - applications
             - port
-            - routes
             type: object
           status:
             description: Status is a status .

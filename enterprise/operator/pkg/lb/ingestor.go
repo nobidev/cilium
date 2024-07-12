@@ -22,169 +22,219 @@ import (
 type ingestor struct{}
 
 func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend, t1Service *corev1.Service) (*lbFrontend, error) {
-	routes, err := r.toRoutes(frontend, backends)
+	applications, err := r.toApplications(frontend, backends)
 	if err != nil {
-		return nil, fmt.Errorf("failed to ingest routes: %w", err)
+		return nil, fmt.Errorf("failed to ingest applications: %w", err)
 	}
 
 	return &lbFrontend{
-		namespace:  frontend.Namespace,
-		name:       frontend.Name,
-		staticIP:   frontend.Spec.VIP,
-		assignedIP: getAssignedIP(t1Service),
-		port:       frontend.Spec.Port,
-		tls:        r.toTLS(frontend),
-		routes:     routes,
+		namespace:    frontend.Namespace,
+		name:         frontend.Name,
+		staticIP:     frontend.Spec.VIP,
+		assignedIP:   getAssignedIP(t1Service),
+		port:         frontend.Spec.Port,
+		applications: applications,
 	}, nil
 }
 
-func (*ingestor) toTLS(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLS {
-	if frontend.Spec.TLS == nil {
+func (*ingestor) toTLS(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLSConfig {
+	if frontend.Spec.Applications.HTTPSProxy == nil || frontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return nil
 	}
 
 	certificateSecretNames := []string{}
 
-	for _, c := range frontend.Spec.TLS.Certificates {
+	for _, c := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 		certificateSecretNames = append(certificateSecretNames, c.SecretName)
 	}
 
-	return &lbFrontendTLS{
+	return &lbFrontendTLSConfig{
 		certificateSecrets: certificateSecretNames,
 	}
 }
 
-func (r *ingestor) toRoutes(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) ([]lbRoute, error) {
+func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (lbApplications, error) {
+	http, err := r.toApplicationHTTP(frontend, backends)
+	if err != nil {
+		return lbApplications{}, err
+	}
+
+	https, err := r.toApplicationHTTPS(frontend, backends)
+	if err != nil {
+		return lbApplications{}, err
+	}
+
+	tlsPassthrough, err := r.toApplicationTLSPassthrough(frontend, backends)
+	if err != nil {
+		return lbApplications{}, err
+	}
+
+	return lbApplications{
+		httpProxy:      http,
+		httpsProxy:     https,
+		tlsPassthrough: tlsPassthrough,
+	}, nil
+}
+
+func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationHTTPProxy, error) {
+	if frontend.Spec.Applications.HTTPProxy == nil {
+		return nil, nil
+	}
+
 	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
 	for _, b := range backends {
 		backendIndex[b.Name] = b
 	}
 
-	routes := []lbRoute{}
+	routes := []lbRouteHTTP{}
 
-	for _, lr := range frontend.Spec.Routes {
-		if lr.HTTP != nil {
-			routeBackend, ok := backendIndex[lr.HTTP.Backend]
-			if !ok {
-				// backend not present yet
-				continue
-			}
-
-			intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-			}
-
-			routes = append(routes, lbRoute{
-				http: &lbRouteHTTP{
-					hostNames: r.toHostNames(lr.HTTP.HostNames),
-					path:      "/",
-					pathType:  pathTypePrefix,
-				},
-				https:          nil,
-				tlsPassthrough: nil,
-				tcp:            nil,
-				backend: backend{
-					ips:         r.toIPBackends(routeBackend.Spec.Addresses),
-					hostnames:   []lbBackend{},
-					lbAlgorithm: lbAlgorithmRoundRobin,
-					healthCheckConfig: lbBackendHealthCheckConfig{
-						http: &lbBackendHealthCheckHTTPConfig{
-							host: "envoy",
-							path: "/health",
-						},
-						tcp:                          nil,
-						intervalSeconds:              int(intervalDuration.Seconds()),
-						timeoutSeconds:               5,
-						healthyThreshold:             2,
-						unhealthyThreshold:           2,
-						unhealthyEdgeIntervalSeconds: 30,
-						unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
-					},
-				},
-			})
-		} else if lr.HTTPS != nil {
-			routeBackend, ok := backendIndex[lr.HTTPS.Backend]
-			if !ok {
-				// backend not present yet
-				continue
-			}
-
-			intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-			}
-
-			routes = append(routes, lbRoute{
-				http: nil,
-				https: &lbRouteHTTPS{
-					hostNames: r.toHostNames(lr.HTTPS.HostNames),
-					path:      "/",
-					pathType:  pathTypePrefix,
-				},
-				tlsPassthrough: nil,
-				tcp:            nil,
-				backend: backend{
-					ips:         r.toIPBackends(routeBackend.Spec.Addresses),
-					hostnames:   []lbBackend{},
-					lbAlgorithm: lbAlgorithmRoundRobin,
-					healthCheckConfig: lbBackendHealthCheckConfig{
-						http: &lbBackendHealthCheckHTTPConfig{
-							host: "envoy",
-							path: "/health",
-						},
-						tcp:                          nil,
-						intervalSeconds:              int(intervalDuration.Seconds()),
-						timeoutSeconds:               5,
-						healthyThreshold:             2,
-						unhealthyThreshold:           2,
-						unhealthyEdgeIntervalSeconds: 30,
-						unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
-					},
-				},
-			})
-		} else if lr.TLSPassthrough != nil {
-			routeBackend, ok := backendIndex[lr.TLSPassthrough.Backend]
-			if !ok {
-				// backend not present yet
-				continue
-			}
-
-			intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-			}
-
-			routes = append(routes, lbRoute{
-				http:  nil,
-				https: nil,
-				tlsPassthrough: &lbRouteTLSPassthrough{
-					hostNames: r.toHostNames(lr.TLSPassthrough.HostNames),
-				},
-				tcp: nil,
-				backend: backend{
-					ips:         r.toIPBackends(routeBackend.Spec.Addresses),
-					hostnames:   []lbBackend{},
-					lbAlgorithm: lbAlgorithmRoundRobin,
-					healthCheckConfig: lbBackendHealthCheckConfig{
-						http: &lbBackendHealthCheckHTTPConfig{
-							host: "envoy",
-							path: "/health",
-						},
-						tcp:                          nil,
-						intervalSeconds:              int(intervalDuration.Seconds()),
-						timeoutSeconds:               5,
-						healthyThreshold:             2,
-						unhealthyThreshold:           2,
-						unhealthyEdgeIntervalSeconds: 30,
-						unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
-					},
-				},
-			})
+	for _, lr := range frontend.Spec.Applications.HTTPProxy.Routes {
+		routeBackend, ok := backendIndex[lr.BackendRef.Name]
+		if !ok {
+			// backend not present yet
+			continue
 		}
+
+		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+		}
+
+		routes = append(routes, lbRouteHTTP{
+			hostNames: r.toHostNames(lr.HostNames),
+			path:      "/",
+			pathType:  pathTypePrefix,
+			backend: backend{
+				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				hostnames:   []lbBackend{},
+				lbAlgorithm: lbAlgorithmRoundRobin,
+				healthCheckConfig: lbBackendHealthCheckConfig{
+					http: &lbBackendHealthCheckHTTPConfig{
+						host: "envoy",
+						path: "/health",
+					},
+					tcp:                          nil,
+					intervalSeconds:              int(intervalDuration.Seconds()),
+					timeoutSeconds:               5,
+					healthyThreshold:             2,
+					unhealthyThreshold:           2,
+					unhealthyEdgeIntervalSeconds: 30,
+					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+				},
+			},
+		})
 	}
 
-	return routes, nil
+	return &lbApplicationHTTPProxy{
+		routes: routes,
+	}, nil
+}
+
+func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationHTTPSProxy, error) {
+	if frontend.Spec.Applications.HTTPSProxy == nil {
+		return nil, nil
+	}
+
+	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	for _, b := range backends {
+		backendIndex[b.Name] = b
+	}
+
+	routes := []lbRouteHTTPS{}
+
+	for _, lr := range frontend.Spec.Applications.HTTPSProxy.Routes {
+		routeBackend, ok := backendIndex[lr.BackendRef.Name]
+		if !ok {
+			// backend not present yet
+			continue
+		}
+
+		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+		}
+
+		routes = append(routes, lbRouteHTTPS{
+			hostNames: r.toHostNames(lr.HostNames),
+			path:      "/",
+			pathType:  pathTypePrefix,
+			backend: backend{
+				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				hostnames:   []lbBackend{},
+				lbAlgorithm: lbAlgorithmRoundRobin,
+				healthCheckConfig: lbBackendHealthCheckConfig{
+					http: &lbBackendHealthCheckHTTPConfig{
+						host: "envoy",
+						path: "/health",
+					},
+					tcp:                          nil,
+					intervalSeconds:              int(intervalDuration.Seconds()),
+					timeoutSeconds:               5,
+					healthyThreshold:             2,
+					unhealthyThreshold:           2,
+					unhealthyEdgeIntervalSeconds: 30,
+					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+				},
+			},
+		})
+	}
+
+	return &lbApplicationHTTPSProxy{
+		tlsConfig: r.toTLS(frontend),
+		routes:    routes,
+	}, nil
+}
+
+func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationTLSPassthrough, error) {
+	if frontend.Spec.Applications.TLSPassthrough == nil {
+		return nil, nil
+	}
+
+	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	for _, b := range backends {
+		backendIndex[b.Name] = b
+	}
+
+	routes := []lbRouteTLSPassthrough{}
+
+	for _, lr := range frontend.Spec.Applications.TLSPassthrough.Routes {
+		routeBackend, ok := backendIndex[lr.BackendRef.Name]
+		if !ok {
+			// backend not present yet
+			continue
+		}
+
+		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
+		}
+
+		routes = append(routes, lbRouteTLSPassthrough{
+			hostNames: r.toHostNames(lr.HostNames),
+			backend: backend{
+				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				hostnames:   []lbBackend{},
+				lbAlgorithm: lbAlgorithmRoundRobin,
+				healthCheckConfig: lbBackendHealthCheckConfig{
+					http: &lbBackendHealthCheckHTTPConfig{
+						host: "envoy",
+						path: "/health",
+					},
+					tcp:                          nil,
+					intervalSeconds:              int(intervalDuration.Seconds()),
+					timeoutSeconds:               5,
+					healthyThreshold:             2,
+					unhealthyThreshold:           2,
+					unhealthyEdgeIntervalSeconds: 30,
+					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+				},
+			},
+		})
+	}
+
+	return &lbApplicationTLSPassthrough{
+		routes: routes,
+	}, nil
 }
 
 func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBackend {

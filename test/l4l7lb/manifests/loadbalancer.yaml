@@ -19,18 +19,22 @@ metadata:
   name: lb-1
 spec:
   port: 80
-  tls:
-    certificates:
-      - secretName: "test"
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-1
-    - https:
-        hostNames:
-          - "foo.acme.io"
-        backend: lb-1
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-1
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test"
+      routes:
+        - hostNames:
+            - "foo.acme.io"
+          backendRef:
+            name: lb-1
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBBackend
@@ -54,11 +58,13 @@ metadata:
 spec:
   vip: "100.64.0.101"
   port: 80
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-2
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-2
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBBackend
@@ -82,8 +88,10 @@ metadata:
 spec:
   vip: "100.64.0.101"
   port: 81
-  routes:
-    - http:
-        hostNames:
-          - "*"
-        backend: lb-3
+  applications:
+    httpProxy:
+      routes:
+        - hostNames:
+            - "*"
+          backendRef:
+            name: lb-3

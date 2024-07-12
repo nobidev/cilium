@@ -42,14 +42,40 @@ type LBFrontendSpec struct {
 	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
 
-	// +kubebuilder:validation:Optional
-	TLS *LBFrontendTLS `json:"tls,omitempty"`
-
 	// +kubebuilder:validation:Required
-	Routes []LBFrontendRoute `json:"routes"`
+	Applications LBFrontendApplications `json:"applications"`
 }
 
-type LBFrontendTLS struct {
+type LBFrontendApplications struct {
+	// +kubebuilder:validation:Optional
+	HTTPProxy *LBFrontendApplicationHTTPProxy `json:"httpProxy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	HTTPSProxy *LBFrontendApplicationHTTPSProxy `json:"httpsProxy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	TLSPassthrough *LBFrontendApplicationTLSPassthrough `json:"tlsPassthrough,omitempty"`
+}
+
+type LBFrontendApplicationHTTPProxy struct {
+	// +kubebuilder:validation:Required
+	Routes []LBFrontendHTTPRoute `json:"routes"`
+}
+
+type LBFrontendApplicationHTTPSProxy struct {
+	// +kubebuilder:validation:Optional
+	TLSConfig *LBFrontendTLSConfig `json:"tlsConfig,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Routes []LBFrontendHTTPSRoute `json:"routes"`
+}
+
+type LBFrontendApplicationTLSPassthrough struct {
+	// +kubebuilder:validation:Required
+	Routes []LBFrontendTLSPassthroughRoute `json:"routes"`
+}
+
+type LBFrontendTLSConfig struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Certificates []LBFrontendTLSCertificate `json:"certificates"`
@@ -64,42 +90,37 @@ type LBFrontendTLSCertificate struct {
 	SecretName string `json:"secretName"`
 }
 
-type LBFrontendRoute struct {
-	// +kubebuilder:validation:Optional
-	HTTP *LBFrontendRouteHTTP `json:"http"`
-
-	// +kubebuilder:validation:Optional
-	HTTPS *LBFrontendRouteHTTPS `json:"https"`
-
-	// +kubebuilder:validation:Optional
-	TLSPassthrough *LBFrontendRouteTLSPassthrough `json:"tlsPassthrough"`
-}
-
-type LBFrontendRouteHTTP struct {
+type LBFrontendHTTPRoute struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
 	// +kubebuilder:validation:Required
-	Backend string `json:"backend"`
+	BackendRef LBFrontendBackendRef `json:"backendRef"`
 }
 
-type LBFrontendRouteHTTPS struct {
+type LBFrontendHTTPSRoute struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
 	// +kubebuilder:validation:Required
-	Backend string `json:"backend"`
+	BackendRef LBFrontendBackendRef `json:"backendRef"`
 }
 
-type LBFrontendRouteTLSPassthrough struct {
+type LBFrontendTLSPassthroughRoute struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
 	// +kubebuilder:validation:Required
-	Backend string `json:"backend"`
+	BackendRef LBFrontendBackendRef `json:"backendRef"`
+}
+
+type LBFrontendBackendRef struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 type LBFrontendStatus struct {

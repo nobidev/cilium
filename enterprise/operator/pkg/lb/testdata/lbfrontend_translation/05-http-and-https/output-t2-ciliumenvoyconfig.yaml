@@ -32,9 +32,9 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_0:
+                        backend_cluster_http_0:
                           value: 20
-                        backend_cluster_1:
+                        backend_cluster_https_0:
                           value: 20
                       headers:
                         - name: :path
@@ -95,12 +95,12 @@ spec:
       virtualHosts:
         - domains:
             - "bla.acme.io"
-          name: frontend_virtualhost_http_1
+          name: frontend_virtualhost_http_0
           routes:
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_1
+                cluster: backend_cluster_http_0
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_https
       virtualHosts:
@@ -111,7 +111,7 @@ spec:
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_0
+                cluster: backend_cluster_https_0
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -127,7 +127,7 @@ spec:
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
       loadAssignment:
-        clusterName: backend_cluster_0
+        clusterName: backend_cluster_http_0
         endpoints:
           - lbEndpoints:
               - endpoint:
@@ -140,7 +140,7 @@ spec:
                     socketAddress:
                       address: 172.18.0.6
                       portValue: 8080
-      name: backend_cluster_0
+      name: backend_cluster_http_0
       type: STATIC
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
@@ -157,7 +157,7 @@ spec:
           unhealthyInterval: 1000s
           unhealthyThreshold: 2
       loadAssignment:
-        clusterName: backend_cluster_1
+        clusterName: backend_cluster_https_0
         endpoints:
           - lbEndpoints:
               - endpoint:
@@ -170,5 +170,5 @@ spec:
                     socketAddress:
                       address: 172.18.0.6
                       portValue: 8080
-      name: backend_cluster_1
+      name: backend_cluster_https_0
       type: STATIC

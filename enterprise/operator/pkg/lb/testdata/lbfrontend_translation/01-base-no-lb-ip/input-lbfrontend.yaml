@@ -4,8 +4,10 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  routes:
-    - http:
-        backend: lb-1
-  port: 80
   vip: 100.64.0.100
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - backendRef:
+            name: lb-1

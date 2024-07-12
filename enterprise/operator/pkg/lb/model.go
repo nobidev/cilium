@@ -19,13 +19,12 @@ import (
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
 type lbFrontend struct {
-	namespace  string
-	name       string
-	staticIP   *string
-	assignedIP *string
-	tls        *lbFrontendTLS
-	port       int32
-	routes     []lbRoute
+	namespace    string
+	name         string
+	staticIP     *string
+	assignedIP   *string
+	port         int32
+	applications lbApplications
 }
 
 func (r lbFrontend) getOwningResourceName() string {
@@ -40,58 +39,55 @@ func getOwningResourceName(parentName string) string {
 }
 
 func (r lbFrontend) hasHTTP() bool {
-	for _, lr := range r.routes {
-		if lr.http != nil {
-			return true
-		}
-	}
+	// return   r.applications.httpProxy != nil
 
 	// Always return true as we need HTTP for T1->T2 HC
 	return true
 }
 
 func (r lbFrontend) hasHTTPS() bool {
-	for _, lr := range r.routes {
-		if lr.https != nil {
-			return true
-		}
-	}
-
-	return false
+	return r.applications.httpsProxy != nil
 }
 
 func (r lbFrontend) hasTLSPassthrough() bool {
-	for _, lr := range r.routes {
-		if lr.tlsPassthrough != nil {
-			return true
-		}
-	}
-
-	return false
+	return r.applications.tlsPassthrough != nil
 }
 
-type lbFrontendTLS struct {
+type lbFrontendTLSConfig struct {
 	certificateSecrets []string
 }
 
-type lbRoute struct {
-	http           *lbRouteHTTP
-	https          *lbRouteHTTPS
-	tlsPassthrough *lbRouteTLSPassthrough
-	tcp            *lbRouteTCP
-	backend        backend
+type lbApplications struct {
+	httpProxy      *lbApplicationHTTPProxy
+	httpsProxy     *lbApplicationHTTPSProxy
+	tlsPassthrough *lbApplicationTLSPassthrough
+}
+
+type lbApplicationHTTPProxy struct {
+	routes []lbRouteHTTP
+}
+
+type lbApplicationHTTPSProxy struct {
+	tlsConfig *lbFrontendTLSConfig
+	routes    []lbRouteHTTPS
+}
+
+type lbApplicationTLSPassthrough struct {
+	routes []lbRouteTLSPassthrough
 }
 
 type lbRouteHTTP struct {
 	hostNames []string
 	path      string
 	pathType  pathTypeType
+	backend   backend
 }
 
 type lbRouteHTTPS struct {
 	hostNames []string
 	path      string
 	pathType  pathTypeType
+	backend   backend
 }
 
 type pathTypeType int
@@ -102,9 +98,8 @@ const (
 
 type lbRouteTLSPassthrough struct {
 	hostNames []string
+	backend   backend
 }
-
-type lbRouteTCP struct{}
 
 type backend struct {
 	ips               []lbBackend
