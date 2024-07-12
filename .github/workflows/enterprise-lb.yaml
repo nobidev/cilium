@@ -16,10 +16,10 @@ on:
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
-        default: '{}'
+        default: "{}"
   # Run every 6 hours
   schedule:
-    - cron: '0 5/6 * * *'
+    - cron: "0 5/6 * * *"
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -76,16 +76,16 @@ jobs:
 
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
-    name: 'Setup & Test'
+    name: "Setup & Test"
     env:
-      job_name: 'Setup & Test'
+      job_name: "Setup & Test"
     strategy:
       fail-fast: false
       max-parallel: 4
       matrix:
         include:
-          - name: '1'
-            kernel: '6.1-20240710.064909'
+          - name: "1"
+            kernel: "6.1-20240710.064909"
 
     timeout-minutes: 60
     steps:
@@ -252,7 +252,7 @@ jobs:
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          echo "Waiting until VIPs have been assigned"
+          echo -n "Waiting until VIPs have been assigned "
           while [ "${VIP_LB1}" = "" ] || [ "${VIP_LB2}" = "" ] || [ "${VIP_LB3}" = "" ]; do
             VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
             VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
