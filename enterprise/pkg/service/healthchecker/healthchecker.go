@@ -135,10 +135,10 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 	}
 	// Fixme: (tbd) health check exception: do we want to quarantine kube-api server in case of failures???
 	if strings.ToLower(name.Name) == "kubernetes" {
-		log.Infof("hc-debug skip health checks for svc %s", name)
+		log.Debugf("hc-debug skip health checks for svc %s", name)
 		return
 	}
-	log.Infof("hc-debug: service: %s, type: %s, config: %s", name, svcType, svcHealthCheckConfig)
+	log.Debugf("hc-debug: service: %s, type: %s, config: %s", name, svcType, svcHealthCheckConfig)
 	hc.svcMapLock.Lock()
 	defer hc.svcMapLock.Unlock()
 
@@ -198,7 +198,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 
 	// Service backends updated
 	if backendUpdate {
-		log.Infof("hc-debug start health check %v", svcAddr)
+		log.Debugf("hc-debug start health check %v", svcAddr)
 		hc.svcEvents <- svcEvent{
 			evType:            SvcEventUpsert,
 			addr:              svcAddr,
@@ -218,7 +218,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 				config: svcHealthCheckConfig,
 			}
 		case HealthCheckDisabled:
-			log.Infof("hc-debug service health checks disabled %v", svcAddr)
+			log.Debugf("hc-debug service health checks disabled %v", svcAddr)
 			delete(hc.configMap, svcAddr)
 			// Send updates to all the service backends health check probers.
 			hc.svcEvents <- svcEvent{
@@ -231,7 +231,7 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 }
 
 func (hc *HealthChecker) DeleteService(svcAddr lb.L3n4Addr, name lb.ServiceName) {
-	log.Infof("hc-debug stop health checks for deleted service %s", name)
+	log.Debugf("hc-debug stop health checks for deleted service %s", name)
 	hc.svcEvents <- svcEvent{
 		evType: SvcEventDelete,
 		addr:   svcAddr,
@@ -259,7 +259,7 @@ func (hc *HealthChecker) run() {
 			log.
 				WithField("type", event.evType).
 				WithField("addr", event.addr).
-				Info("Handling Service Event")
+				Debug("Handling Service Event")
 			switch event.evType {
 			case SvcEventUpsert:
 				hc.startHealthCheck(event.addr, event.config, event.unhealthyBackends)
@@ -355,7 +355,7 @@ func (hc *HealthChecker) removeServiceBackend(svcAddr lb.L3n4Addr, beAddr lb.L3n
 		WithField("svc", svcAddr).
 		WithField("be", beAddr).
 		WithField("reactivate", reActivate).
-		Info("Remove Service Backend")
+		Debug("Remove Service Backend")
 
 	hc.beMapLock.Lock()
 	defer hc.beMapLock.Unlock()
@@ -394,7 +394,7 @@ func (hc *HealthChecker) updateHealthChecks(svcAddr lb.L3n4Addr, config HealthCh
 				healthy := beHD.probe.healthy
 				if !beHD.ticker.config.DeepEqual(&config) {
 					beHD.ticker.config = config
-					log.Infof("hc-debug health config update %v -> %v", beHD.ticker.config, config)
+					log.Debugf("hc-debug health config update %v -> %v", beHD.ticker.config, config)
 					beHD.stop()
 					<-beHD.ticker.stopped
 					// Trigger health probes with the updated configs, but preserve the
@@ -435,12 +435,12 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	for {
 		select {
 		case <-ht.stop:
-			log.Infof("health probes stopped %v - %v", svcAddr, beAddr)
+			log.Debugf("health probes stopped %v - %v", svcAddr, beAddr)
 			close(ht.stopped)
 			return
 		case <-ht.ticker.C:
 			if !waitingOnProbe {
-				log.Infof("hc-debug sending health probe for svc %v and be %v", svcAddr, beAddr)
+				log.Debugf("hc-debug sending health probe for svc %v and be %v", svcAddr, beAddr)
 				if config.L7 {
 					waitingOnProbe = true
 					go hc.prober.sendL7Probe(config, svcAddr, beAddr, probeOut)
@@ -469,7 +469,7 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 						"svc":     svcAddr,
 						"be":      beAddr,
 						"message": newProbe.message,
-					}).Info("Marking service backend as active")
+					}).Debug("Marking service backend as active")
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -486,7 +486,7 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 						"svc":     svcAddr,
 						"be":      beAddr,
 						"message": newProbe.message,
-					}).Info("Marking service backend as quarantined")
+					}).Debug("Marking service backend as quarantined")
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -542,7 +542,7 @@ func (pr *probeImpl) dialerConnSetup(ctx context.Context, network string, addres
 		WithField("network", network).
 		WithField("address", address).
 		WithField("backend", backend).
-		Info("dialerConnSetup")
+		Debug("dialerConnSetup")
 
 	switch network {
 	case "tcp4", "tcp6":
@@ -632,7 +632,7 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	defer conn.Close()
 
 	probe := getProbeData(nil)
-	log.Infof("hc-debug health check success %v probe %v", beAddr, probe)
+	log.Debugf("hc-debug health check success %v probe %v", beAddr, probe)
 
 	probeOut <- probe
 }
@@ -685,7 +685,7 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	}
 
 	probe := getProbeData(nil)
-	log.Infof("hc-debug health check success %v probe %v", beAddr, probe)
+	log.Debugf("hc-debug health check success %v probe %v", beAddr, probe)
 
 	probeOut <- probe
 }
