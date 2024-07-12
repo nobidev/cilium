@@ -8,10 +8,9 @@ spec:
     matchLabels:
       lb.cilium.io/tier: t1
   defaults:
-    bpf-lb-acceleration: native
     datapath-mode: lb-only
+    bpf-lb-acceleration: native
     bpf-lb-mode: dsr
     bpf-lb-dsr-dispatch: ipip
     enable-ipip-termination: "false"
-    enable-bgp-control-plane: "true"
     enable-envoy-config: "false"
