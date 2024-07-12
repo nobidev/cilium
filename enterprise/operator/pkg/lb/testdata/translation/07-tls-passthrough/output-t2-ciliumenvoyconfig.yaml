@@ -37,12 +37,15 @@ spec:
                         backend_cluster_1:
                           value: 20
                       headers:
-                        - exactMatch: /health
-                          name: :path
-                        - exactMatch: GET
-                          name: :method
-                        - prefixMatch: cilium-probe/
-                          name: user-agent
+                        - name: :path
+                          stringMatch:
+                            exact: /health
+                        - name: :method
+                          stringMatch:
+                            exact: GET
+                        - name: user-agent
+                          stringMatch:
+                            prefix: cilium-probe/
                       passThroughMode: false
                   - name: envoy.filters.http.router
                     typedConfig:

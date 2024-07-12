@@ -26,7 +26,8 @@ spec:
                         header:
                           invertMatch: true
                           name: user-agent
-                          prefixMatch: cilium-probe/
+                          stringMatch:
+                            prefix: cilium-probe/
                     name: stdout
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
@@ -41,12 +42,15 @@ spec:
                         backend_cluster_0:
                           value: 20
                       headers:
-                        - exactMatch: /health
-                          name: :path
-                        - exactMatch: GET
-                          name: :method
-                        - prefixMatch: cilium-probe/
-                          name: user-agent
+                        - name: :path
+                          stringMatch:
+                            exact: /health
+                        - name: :method
+                          stringMatch:
+                            exact: GET
+                        - name: user-agent
+                          stringMatch:
+                            prefix: cilium-probe/
                       passThroughMode: false
                   - name: envoy.filters.http.router
                     typedConfig:

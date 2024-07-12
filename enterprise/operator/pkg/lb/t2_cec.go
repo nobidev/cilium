@@ -28,6 +28,7 @@ import (
 	envoy_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_typev3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -349,8 +350,12 @@ func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslo
 					Header: &envoy_config_route_v3.HeaderMatcher{
 						InvertMatch: true,
 						Name:        "user-agent",
-						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_PrefixMatch{
-							PrefixMatch: "cilium-probe/", // Sent by T1 HC
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_matcher_v3.StringMatcher_Prefix{
+									Prefix: "cilium-probe/", // Sent by T1 HC
+								},
+							},
 						},
 					},
 				},
@@ -546,16 +551,34 @@ func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCh
 		ClusterMinHealthyPercentages: healthCheckFilterClusters,
 		Headers: []*envoy_config_route_v3.HeaderMatcher{
 			{
-				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: healthCheckHttpPath},
-				Name:                 ":path",
+				Name: ":path",
+				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+							Exact: healthCheckHttpPath,
+						},
+					},
+				},
 			},
 			{
-				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_ExactMatch{ExactMatch: healthCheckHttpMethod},
-				Name:                 ":method",
+				Name: ":method",
+				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+							Exact: healthCheckHttpMethod,
+						},
+					},
+				},
 			},
 			{
-				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_PrefixMatch{PrefixMatch: healthCheckHttpUserAgentPrefix},
-				Name:                 "user-agent",
+				Name: "user-agent",
+				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_matcher_v3.StringMatcher_Prefix{
+							Prefix: healthCheckHttpUserAgentPrefix,
+						},
+					},
+				},
 			},
 		},
 	}
