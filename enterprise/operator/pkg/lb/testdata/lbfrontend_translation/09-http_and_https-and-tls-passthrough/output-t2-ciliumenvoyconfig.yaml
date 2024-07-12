@@ -140,10 +140,10 @@ spec:
           httpHealthCheck:
             host: envoy
             path: /health
-          interval: 1000s
+          interval: 30s
           timeout: 5s
           unhealthyEdgeInterval: 30s
-          unhealthyInterval: 1000s
+          unhealthyInterval: 30s
           unhealthyThreshold: 2
       loadAssignment:
         clusterName: backend_cluster_http_0
@@ -170,10 +170,10 @@ spec:
           httpHealthCheck:
             host: envoy
             path: /health
-          interval: 1000s
+          interval: 30s
           timeout: 5s
           unhealthyEdgeInterval: 30s
-          unhealthyInterval: 1000s
+          unhealthyInterval: 30s
           unhealthyThreshold: 2
       loadAssignment:
         clusterName: backend_cluster_https_0
@@ -200,12 +200,12 @@ spec:
           httpHealthCheck:
             host: envoy
             path: /health
-          interval: 1000s
+          interval: 30s
           timeout: 5s
           transportSocketMatchCriteria:
             type: tls
           unhealthyEdgeInterval: 30s
-          unhealthyInterval: 1000s
+          unhealthyInterval: 30s
           unhealthyThreshold: 2
       loadAssignment:
         clusterName: backend_cluster_tlspt_0

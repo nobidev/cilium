@@ -10,4 +10,4 @@ spec:
     - ip: 172.18.0.6
       port: 8080
   healthcheck:
-    interval: 1000s
+    interval: 30s

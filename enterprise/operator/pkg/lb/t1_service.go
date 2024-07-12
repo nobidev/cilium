@@ -48,11 +48,11 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 	// T1 -> T2 health checking
 	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
 	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
-	annotations[annotation.ServiceHealthProbeInterval] = "5s" // TODO: evaluate interval based on all backend healtcheck intervals?
+	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", getHealthCheckIntervalSeconds(model))
 	annotations[annotation.ServiceHealthProbeTimeout] = "5s"
-	annotations[annotation.ServiceHealthThresholdHealthy] = "2" // TODO: set threshold to 1 (healthy & unhealthy) as we want to directly use it once T2 flips over. Or is it enough to keep the probe interval low?
-	annotations[annotation.ServiceHealthThresholdUnhealthy] = "2"
-	annotations[annotation.ServiceHealthQuarantineTimeout] = "30s"
+	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
+	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
+	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -72,6 +72,36 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 			},
 		},
 	}
+}
+
+func getHealthCheckIntervalSeconds(model *lbFrontend) int {
+	shortestInterval := 0
+
+	for _, r := range model.applications.getHTTPProxyRoutes() {
+		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
+			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
+		}
+	}
+
+	for _, r := range model.applications.getHTTPSProxyRoutes() {
+		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
+			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
+		}
+	}
+
+	for _, r := range model.applications.getTLSPassthroughRoutes() {
+		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
+			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
+		}
+	}
+
+	hcInterval := shortestInterval
+	if shortestInterval > 1 {
+		// Use half of shortest interval as health check interval
+		hcInterval = shortestInterval / 2
+	}
+
+	return hcInterval
 }
 
 func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {

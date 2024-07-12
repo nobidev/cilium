@@ -38,21 +38,6 @@ func getOwningResourceName(parentName string) string {
 	return shortener.ShortenK8sResourceName(name)
 }
 
-func (r lbFrontend) hasHTTP() bool {
-	// return   r.applications.httpProxy != nil
-
-	// Always return true as we need HTTP for T1->T2 HC
-	return true
-}
-
-func (r lbFrontend) hasHTTPS() bool {
-	return r.applications.httpsProxy != nil
-}
-
-func (r lbFrontend) hasTLSPassthrough() bool {
-	return r.applications.tlsPassthrough != nil
-}
-
 type lbFrontendTLSConfig struct {
 	certificateSecrets []string
 }
@@ -61,6 +46,45 @@ type lbApplications struct {
 	httpProxy      *lbApplicationHTTPProxy
 	httpsProxy     *lbApplicationHTTPSProxy
 	tlsPassthrough *lbApplicationTLSPassthrough
+}
+
+func (r lbApplications) isHTTPProxyConfigured() bool {
+	// return   r.applications.httpProxy != nil
+
+	// Always return true as we need HTTP for T1->T2 HC
+	return true
+}
+
+func (r lbApplications) isHTTPSProxyConfigured() bool {
+	return r.httpsProxy != nil
+}
+
+func (r lbApplications) isTLSPassthroughConfigured() bool {
+	return r.tlsPassthrough != nil
+}
+
+func (r lbApplications) getHTTPProxyRoutes() []lbRouteHTTP {
+	if r.httpProxy == nil {
+		return nil
+	}
+
+	return r.httpProxy.routes
+}
+
+func (r lbApplications) getHTTPSProxyRoutes() []lbRouteHTTPS {
+	if r.httpsProxy == nil {
+		return nil
+	}
+
+	return r.httpsProxy.routes
+}
+
+func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
+	if r.tlsPassthrough == nil {
+		return nil
+	}
+
+	return r.tlsPassthrough.routes
 }
 
 type lbApplicationHTTPProxy struct {

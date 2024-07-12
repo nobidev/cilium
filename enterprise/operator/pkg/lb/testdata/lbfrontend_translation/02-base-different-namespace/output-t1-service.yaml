@@ -8,11 +8,11 @@ metadata:
     service.cilium.io/health-check-bgp-advertise-threshold: "1"
     service.cilium.io/health-check-http-method: GET
     service.cilium.io/health-check-http-path: /health
-    service.cilium.io/health-check-probe-interval: 5s
+    service.cilium.io/health-check-probe-interval: 15s
     service.cilium.io/health-check-probe-timeout: 5s
-    service.cilium.io/health-check-quarantine-timeout: 30s
-    service.cilium.io/health-check-threshold-healthy: "2"
-    service.cilium.io/health-check-threshold-unhealthy: "2"
+    service.cilium.io/health-check-quarantine-timeout: 0s
+    service.cilium.io/health-check-threshold-healthy: "1"
+    service.cilium.io/health-check-threshold-unhealthy: "1"
   labels:
     lb.cilium.io/tier: t1
   namespace: special-namespace

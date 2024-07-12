@@ -139,17 +139,17 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 func (r *lbFrontendReconciler) desiredEnvoyListenerFilterChains(model *lbFrontend) []*envoy_config_listener_v3.FilterChain {
 	filterChains := []*envoy_config_listener_v3.FilterChain{}
 
-	if model.hasHTTP() {
+	if model.applications.isHTTPProxyConfigured() {
 		httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
 		filterChains = append(filterChains, httpFilterChain)
 	}
 
-	if model.hasHTTPS() {
+	if model.applications.isHTTPSProxyConfigured() {
 		httpsFilterChain := r.desiredEnvoyListenerHttpsFilterChain(model)
 		filterChains = append(filterChains, httpsFilterChain)
 	}
 
-	if model.hasTLSPassthrough() {
+	if model.applications.isTLSPassthroughConfigured() {
 		tlsPassthroughFilterChains := r.desiredEnvoyListenerTLSPassthroughFilterChains(model)
 		filterChains = append(filterChains, tlsPassthroughFilterChains...)
 	}
@@ -410,12 +410,12 @@ func (r *lbFrontendReconciler) desiredEnvoyTLSAccessLoggers() []*envoy_accesslog
 func (r *lbFrontendReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*envoy_config_route_v3.RouteConfiguration {
 	routeConfigs := []*envoy_config_route_v3.RouteConfiguration{}
 
-	if model.hasHTTP() {
+	if model.applications.isHTTPProxyConfigured() {
 		httpRouteConfig := r.desiredEnvoyHttpRouteConfig(model)
 		routeConfigs = append(routeConfigs, httpRouteConfig)
 	}
 
-	if model.hasHTTPS() {
+	if model.applications.isHTTPSProxyConfigured() {
 		httpsRouteConfig := r.desiredEnvoyHttpsRouteConfig(model)
 		routeConfigs = append(routeConfigs, httpsRouteConfig)
 

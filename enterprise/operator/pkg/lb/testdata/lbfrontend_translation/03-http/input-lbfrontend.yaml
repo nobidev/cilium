@@ -16,4 +16,4 @@ spec:
         - hostNames:
             - "bar.acme.io"
           backendRef:
-            name: lb-1
+            name: lb-2
