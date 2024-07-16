@@ -30,7 +30,7 @@ var Cell = cell.Module(
 
 	//exhaustruct:ignore
 	cell.Config(Config{}),
-	cell.Invoke(registerReconciler),
+	cell.Invoke(registerReconcilers),
 	cell.Provide(registerSecretSync),
 	cell.ProvidePrivate(newNodeSource),
 )
@@ -65,7 +65,7 @@ type reconcilerParams struct {
 	NodeSource *ciliumNodeSource
 }
 
-func registerReconciler(params reconcilerParams) error {
+func registerReconcilers(params reconcilerParams) error {
 	if !params.Config.LoadBalancerCPEnabled {
 		return nil
 	}
@@ -82,11 +82,22 @@ func registerReconciler(params reconcilerParams) error {
 			AccessLogExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
 		})
 
+	lbVIPReconciler := newLBVIPReconciler(
+		lbVIPReconcilerParams{
+			logger: params.Logger,
+			client: params.CtrlRuntimeManager.GetClient(),
+			scheme: params.Scheme,
+		})
+
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			// register reconciler to manager in lifecycle to ensure that CRDs are installed on the cluster
+			// Register reconcilers to manager in lifecycle to ensure that CRDs are installed on the cluster
 			if err := lbFrontendReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
 				return fmt.Errorf("failed to setup LBFrontend reconciler: %w", err)
+			}
+
+			if err := lbVIPReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+				return fmt.Errorf("failed to setup LBVIP reconciler: %w", err)
 			}
 
 			return nil
