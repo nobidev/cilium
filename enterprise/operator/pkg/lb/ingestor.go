@@ -271,6 +271,10 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBacke
 }
 
 func (r *ingestor) toHostNames(crdHostnames []isovalentv1alpha1.LBFrontendHostName) []string {
+	if len(crdHostnames) == 0 {
+		return []string{"*"}
+	}
+
 	hostNames := []string{}
 	for _, h := range crdHostnames {
 		hostNames = append(hostNames, string(h))

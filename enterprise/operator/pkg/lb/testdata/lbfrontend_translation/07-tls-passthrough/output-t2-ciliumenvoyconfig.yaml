@@ -71,8 +71,6 @@ spec:
                 cluster: backend_cluster_tlspt_0
                 statPrefix: frontend_listener_tls_passthrough_0
         - filterChainMatch:
-            serverNames:
-              - bar.acme.io
             transportProtocol: tls
           filters:
             - name: envoy.filters.network.tcp_proxy
@@ -160,12 +158,12 @@ spec:
               - endpoint:
                   address:
                     socketAddress:
-                      address: 172.18.0.5
+                      address: 172.18.0.7
                       portValue: 8080
               - endpoint:
                   address:
                     socketAddress:
-                      address: 172.18.0.6
+                      address: 172.18.0.8
                       portValue: 8080
       name: backend_cluster_tlspt_1
       transportSocketMatches:

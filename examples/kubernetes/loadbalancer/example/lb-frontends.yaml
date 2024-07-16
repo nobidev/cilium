@@ -45,9 +45,7 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "*"
-          backendRef:
+        - backendRef:
             name: lb-3
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -98,9 +96,7 @@ spec:
             - "passthrough.acme.io"
           backendRef:
             name: lb-6
-        - hostNames:
-            - "passthrough-2.acme.io"
-          backendRef:
+        - backendRef:
             name: lb-7
 ---
 

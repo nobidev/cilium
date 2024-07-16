@@ -76,7 +76,6 @@ spec:
                               items:
                                 minLength: 1
                                 type: string
-                              minItems: 1
                               type: array
                             path:
                               properties:
@@ -89,7 +88,6 @@ spec:
                               type: object
                           required:
                           - backendRef
-                          - hostNames
                           type: object
                         type: array
                     required:
@@ -112,7 +110,6 @@ spec:
                               items:
                                 minLength: 1
                                 type: string
-                              minItems: 1
                               type: array
                             path:
                               properties:
@@ -125,7 +122,6 @@ spec:
                               type: object
                           required:
                           - backendRef
-                          - hostNames
                           type: object
                         type: array
                       tlsConfig:
@@ -164,11 +160,9 @@ spec:
                               items:
                                 minLength: 1
                                 type: string
-                              minItems: 1
                               type: array
                           required:
                           - backendRef
-                          - hostNames
                           type: object
                         type: array
                     required:

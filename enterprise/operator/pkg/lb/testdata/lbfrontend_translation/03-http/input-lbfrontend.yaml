@@ -9,9 +9,7 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "*"
-          backendRef:
+        - backendRef:
             name: lb-1
         - hostNames:
             - "bar.acme.io"

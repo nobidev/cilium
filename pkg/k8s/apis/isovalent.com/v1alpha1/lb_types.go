@@ -91,8 +91,7 @@ type LBFrontendTLSCertificate struct {
 }
 
 type LBFrontendHTTPRoute struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Optional
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
 	// +kubebuilder:validation:Optional
@@ -113,8 +112,7 @@ type LBFrontendHTTPPath struct {
 }
 
 type LBFrontendTLSPassthroughRoute struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Optional
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
 	// +kubebuilder:validation:Required
