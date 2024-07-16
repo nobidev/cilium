@@ -11,6 +11,7 @@
 package healthchecker
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -22,6 +23,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/inctimer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestL7Probe(t *testing.T) {
@@ -227,7 +229,7 @@ func TestL7Probe(t *testing.T) {
 	defer dummyTCPListener.Close()
 	dummyAddr := getTestServerL3n4Addr(t, dummyTCPListener.Addr())
 
-	probe := probeImpl{}
+	probe := probeImpl{logger: slog.New(logging.SlogNopHandler)}
 	probeChan := make(chan ProbeData, 1)
 
 	for _, tt := range table {
