@@ -82,6 +82,8 @@ type LBFrontendTLSConfig struct {
 }
 
 // +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 type LBFrontendHostName string
 
 type LBFrontendTLSCertificate struct {

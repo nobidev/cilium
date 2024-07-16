@@ -22,9 +22,7 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "*"
-          backendRef:
+        - backendRef:
             name: lb-1
     httpsProxy:
       tlsConfig:
@@ -61,9 +59,7 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "*"
-          backendRef:
+        - backendRef:
             name: lb-2
 ---
 apiVersion: isovalent.com/v1alpha1
@@ -91,7 +87,5 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "*"
-          backendRef:
+        - backendRef:
             name: lb-3
