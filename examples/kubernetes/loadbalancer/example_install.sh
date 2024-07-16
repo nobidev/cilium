@@ -66,7 +66,8 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-s
 kubectl -n default create secret tls test-secure80 --key="${script_dir}/tls-secure80.key" --cert="${script_dir}/tls-secure80.crt"
 docker cp ${script_dir}/tls-secure80.crt frr:/tmp/tls-secure80.crt
 
-# LB frontends, backends & ippools
+# LB vips, frontends, backends & ippools
+kubectl apply -f "${script_dir}/example/lb-vips.yaml"
 kubectl apply -f "${script_dir}/example/lb-frontends.yaml"
 kubectl apply -f "${script_dir}/example/lb-backends.yaml"
 kubectl apply -f "${script_dir}/example/lb-ippools.yaml"
