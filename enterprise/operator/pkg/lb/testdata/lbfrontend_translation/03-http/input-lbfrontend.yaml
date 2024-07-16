@@ -15,5 +15,7 @@ spec:
             name: lb-1
         - hostNames:
             - "bar.acme.io"
+          path:
+            exact: "/api"
           backendRef:
             name: lb-2

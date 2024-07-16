@@ -448,16 +448,7 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFronte
 			},
 		}
 
-		if route.pathType != pathTypePrefix {
-			// TODO: currently only pathtype prefix supported
-			continue
-		}
-
-		httpRoute.Match = &envoy_config_route_v3.RouteMatch{
-			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-				Prefix: route.path,
-			},
-		}
+		httpRoute.Match = toRouteMatch(route.pathType, route.path)
 
 		// TODO: wildcard handling?
 
@@ -498,16 +489,7 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 			},
 		}
 
-		if route.pathType != pathTypePrefix {
-			// TODO: currently only pathtype prefix supported
-			continue
-		}
-
-		httpRoute.Match = &envoy_config_route_v3.RouteMatch{
-			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-				Prefix: route.path,
-			},
-		}
+		httpRoute.Match = toRouteMatch(route.pathType, route.path)
 
 		// TODO: wildcard handling?
 
@@ -521,6 +503,30 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 	}
 
 	return virtualHosts
+}
+
+func toRouteMatch(pathType pathTypeType, path string) *envoy_config_route_v3.RouteMatch {
+	switch pathType {
+	case pathTypePrefix:
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: path,
+			},
+		}
+	case pathTypeExact:
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+				Path: path,
+			},
+		}
+
+	default:
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: "/",
+			},
+		}
+	}
 }
 
 // toHostNamesWithPort appends the port to the hostname because Envoy' domain matching on the virtualhost

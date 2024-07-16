@@ -109,7 +109,7 @@ spec:
           name: frontend_virtualhost_https_1
           routes:
             - match:
-                prefix: /
+                path: /api/test
               route:
                 cluster: backend_cluster_https_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
@@ -163,12 +163,12 @@ spec:
               - endpoint:
                   address:
                     socketAddress:
-                      address: 172.18.0.5
+                      address: 172.18.0.7
                       portValue: 8080
               - endpoint:
                   address:
                     socketAddress:
-                      address: 172.18.0.6
+                      address: 172.18.0.8
                       portValue: 8080
       name: backend_cluster_https_1
       type: STATIC

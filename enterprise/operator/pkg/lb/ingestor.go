@@ -100,10 +100,12 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
 		}
 
+		pathType, path := toPath(lr)
+
 		routes = append(routes, lbRouteHTTP{
 			hostNames: r.toHostNames(lr.HostNames),
-			path:      "/",
-			pathType:  pathTypePrefix,
+			pathType:  pathType,
+			path:      path,
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
 				hostnames:   []lbBackend{},
@@ -154,10 +156,12 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
 		}
 
+		pathType, path := toPath(lr)
+
 		routes = append(routes, lbRouteHTTPS{
 			hostNames: r.toHostNames(lr.HostNames),
-			path:      "/",
-			pathType:  pathTypePrefix,
+			pathType:  pathType,
+			path:      path,
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
 				hostnames:   []lbBackend{},
@@ -183,6 +187,23 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 		tlsConfig: r.toTLS(frontend),
 		routes:    routes,
 	}, nil
+}
+
+func toPath(lr isovalentv1alpha1.LBFrontendHTTPRoute) (pathTypeType, string) {
+	pathType := pathTypePrefix
+	path := "/"
+
+	if lr.Path != nil {
+		if lr.Path.Prefix != nil {
+			pathType = pathTypePrefix
+			path = *lr.Path.Prefix
+		} else if lr.Path.Exact != nil {
+			pathType = pathTypeExact
+			path = *lr.Path.Exact
+		}
+	}
+
+	return pathType, path
 }
 
 func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationTLSPassthrough, error) {

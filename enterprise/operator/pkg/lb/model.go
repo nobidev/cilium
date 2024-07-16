@@ -118,6 +118,7 @@ type pathTypeType int
 
 const (
 	pathTypePrefix pathTypeType = iota
+	pathTypeExact
 )
 
 type lbRouteTLSPassthrough struct {

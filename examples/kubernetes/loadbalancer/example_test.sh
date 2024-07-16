@@ -27,7 +27,7 @@ echo ""
 echo "Calling VIPs (might take some time until everything is up & running)"
 
 docker exec frr bash -c "echo -n 'HTTPS    frontend1: ' && curl -s --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:${VIP_LB1} https://secure.acme.io:443/"
-docker exec frr bash -c "echo -n 'HTTP     frontend2: ' && curl -s --resolve insecure.acme.io:80:${VIP_LB2} http://insecure.acme.io:80/"
+docker exec frr bash -c "echo -n 'HTTP     frontend2: ' && curl -s --resolve insecure.acme.io:80:${VIP_LB2} http://insecure.acme.io:80/api/foo-insecure"
 docker exec frr bash -c "echo -n 'HTTP     frontend3: ' && curl -s http://${VIP_LB3}:81/"
 docker exec frr bash -c "echo -n 'HTTP     frontend4: ' && curl -s --resolve mixed.acme.io:80:${VIP_LB4} http://mixed.acme.io:80/"
 docker exec frr bash -c "echo -n 'HTTPS    frontend5: ' && curl -s --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:${VIP_LB5} https://secure-80.acme.io:80/"

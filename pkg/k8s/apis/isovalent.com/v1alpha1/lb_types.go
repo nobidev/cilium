@@ -67,7 +67,7 @@ type LBFrontendApplicationHTTPSProxy struct {
 	TLSConfig *LBFrontendTLSConfig `json:"tlsConfig,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Routes []LBFrontendHTTPSRoute `json:"routes"`
+	Routes []LBFrontendHTTPRoute `json:"routes"`
 }
 
 type LBFrontendApplicationTLSPassthrough struct {
@@ -95,17 +95,21 @@ type LBFrontendHTTPRoute struct {
 	// +kubebuilder:validation:MinItems=1
 	HostNames []LBFrontendHostName `json:"hostNames"`
 
+	// +kubebuilder:validation:Optional
+	Path *LBFrontendHTTPPath `json:"path,omitempty"`
+
 	// +kubebuilder:validation:Required
 	BackendRef LBFrontendBackendRef `json:"backendRef"`
 }
 
-type LBFrontendHTTPSRoute struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	HostNames []LBFrontendHostName `json:"hostNames"`
+type LBFrontendHTTPPath struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Exact *string `json:"exact,omitempty"`
 
-	// +kubebuilder:validation:Required
-	BackendRef LBFrontendBackendRef `json:"backendRef"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Prefix *string `json:"prefix,omitempty"`
 }
 
 type LBFrontendTLSPassthroughRoute struct {

@@ -77,7 +77,7 @@ spec:
           name: frontend_virtualhost_http_1
           routes:
             - match:
-                prefix: /
+                path: /api
               route:
                 cluster: backend_cluster_http_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster

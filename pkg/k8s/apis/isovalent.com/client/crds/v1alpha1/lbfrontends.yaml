@@ -78,6 +78,15 @@ spec:
                                 type: string
                               minItems: 1
                               type: array
+                            path:
+                              properties:
+                                exact:
+                                  minLength: 1
+                                  type: string
+                                prefix:
+                                  minLength: 1
+                                  type: string
+                              type: object
                           required:
                           - backendRef
                           - hostNames
@@ -105,6 +114,15 @@ spec:
                                 type: string
                               minItems: 1
                               type: array
+                            path:
+                              properties:
+                                exact:
+                                  minLength: 1
+                                  type: string
+                                prefix:
+                                  minLength: 1
+                                  type: string
+                              type: object
                           required:
                           - backendRef
                           - hostNames

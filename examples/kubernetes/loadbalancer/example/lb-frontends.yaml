@@ -29,6 +29,8 @@ spec:
       routes:
         - hostNames:
             - "insecure.acme.io"
+          path:
+            exact: "/api/foo-insecure"
           backendRef:
             name: lb-2
 ---
