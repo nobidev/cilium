@@ -201,8 +201,8 @@ func TestHealthChecker_DeleteService(t *testing.T) {
 	c1 := make(chan struct{})
 	c2 := make(chan struct{})
 	hc.beHealthMap[sAddr] = map[beAddr]*healthData{
-		beAddr1: {ticker: healthTicker{ticker: t1, stop: c1}},
-		beAddr2: {ticker: healthTicker{ticker: t2, stop: c2}},
+		beAddr1: {ticker: &healthTicker{ticker: t1, stop: c1}},
+		beAddr2: {ticker: &healthTicker{ticker: t2, stop: c2}},
 	}
 
 	hc.DeleteService(sAddr, sName)

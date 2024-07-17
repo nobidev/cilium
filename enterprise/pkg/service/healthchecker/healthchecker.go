@@ -85,7 +85,7 @@ type svcAddr = lb.L3n4Addr
 type beAddr = lb.L3n4Addr
 
 type healthData struct {
-	ticker healthTicker
+	ticker *healthTicker
 	probe  ProbeData
 }
 
@@ -415,8 +415,7 @@ type probeImpl struct {
 }
 
 func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, healthy bool) {
-	ht := healthTicker{
-		ticker:  time.NewTicker(config.ProbeInterval),
+	ht := &healthTicker{
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 		config:  config,
@@ -435,6 +434,16 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	probeUnhealthyCount := 0
 
 	hc.updateBackendHealthData(svcAddr, beAddr, health)
+
+	if config.ProbeInterval <= 0 {
+		// A probe interval of 0 disables probing completely.
+		// This prevents the agent from panicking if the probe-ticker is created with a non-positive duration.
+		hc.logger.Debug("health probes disabled due to non-positive probe interval", "svc-addr", svcAddr, "backend-addr", beAddr, "probe-interval", config.ProbeInterval)
+		return
+	}
+
+	ht.ticker = time.NewTicker(config.ProbeInterval)
+
 	for {
 		select {
 		case <-ht.stop:
@@ -716,7 +725,9 @@ func getAddrStr(addr lb.L3n4Addr) string {
 }
 
 func (hd *healthData) stop() {
-	hd.ticker.ticker.Stop()
+	if hd.ticker.ticker != nil {
+		hd.ticker.ticker.Stop()
+	}
 	close(hd.ticker.stop)
 }
 
