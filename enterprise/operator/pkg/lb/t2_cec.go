@@ -701,6 +701,8 @@ func (r *lbFrontendReconciler) toClusterHealthChecks(healthCheckConfig lbBackend
 	switch {
 	case healthCheckConfig.http != nil:
 		healthCheck.HealthChecker = r.toClusterHealthCheckerHTTP(healthCheckConfig)
+	case healthCheckConfig.tcp != nil:
+		healthCheck.HealthChecker = r.toClusterHealthCheckerTCP(healthCheckConfig)
 	default:
 		return nil
 	}
@@ -715,6 +717,12 @@ func (r *lbFrontendReconciler) toClusterHealthCheckerHTTP(healthCheckConfig lbBa
 			Host: healthCheckConfig.http.host,
 			Path: healthCheckConfig.http.path,
 		},
+	}
+}
+
+func (r *lbFrontendReconciler) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_corev3.HealthCheck_TcpHealthCheck_ {
+	return &envoy_corev3.HealthCheck_TcpHealthCheck_{
+		TcpHealthCheck: &envoy_corev3.HealthCheck_TcpHealthCheck{},
 	}
 }
 

@@ -91,7 +91,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          nil,
+					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
 					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
 					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
@@ -139,7 +139,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          nil,
+					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
 					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
 					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
@@ -201,7 +201,7 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          nil,
+					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
 					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
 					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
@@ -227,6 +227,14 @@ func (r *ingestor) toHTTPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacke
 		host: *hc.HTTP.Host,
 		path: *hc.HTTP.Path,
 	}
+}
+
+func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBackendHealthCheckTCPConfig {
+	if hc.TCP == nil {
+		return nil
+	}
+
+	return &lbBackendHealthCheckTCPConfig{}
 }
 
 func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBackend {

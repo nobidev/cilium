@@ -81,6 +81,8 @@ spec:
                     default: 30
                     format: int32
                     type: integer
+                  tcp:
+                    type: object
                   timeoutSeconds:
                     default: 5
                     format: int32

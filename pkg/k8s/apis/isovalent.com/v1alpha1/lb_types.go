@@ -246,6 +246,9 @@ type HealthCheck struct {
 
 	// +kubebuilder:validation:Optional
 	HTTP *HealthCheckHTTP `json:"http,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	TCP *HealthCheckTCP `json:"tcp,omitempty"`
 }
 
 type HealthCheckHTTP struct {
@@ -257,6 +260,8 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:default=/healthz
 	Path *string `json:"path,omitempty"`
 }
+
+type HealthCheckTCP struct{}
 
 type LBBackendStatus struct{}
 
