@@ -227,21 +227,26 @@ type Address struct {
 	Port int32 `json:"port"`
 }
 
+// +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))"
 type HealthCheck struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=30
+	// +kubebuilder:validation:Minimum=1
 	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
 	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=2
+	// +kubebuilder:validation:Minimum=1
 	HealthyThreshold *int32 `json:"healthyThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=2
+	// +kubebuilder:validation:Minimum=1
 	UnhealthyThreshold *int32 `json:"unhealthyThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -254,10 +259,12 @@ type HealthCheck struct {
 type HealthCheckHTTP struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=lb
+	// +kubebuilder:validation:MinLength=1
 	Host *string `json:"host,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=/healthz
+	// +kubebuilder:validation:MinLength=1
 	Path *string `json:"path,omitempty"`
 }
 
