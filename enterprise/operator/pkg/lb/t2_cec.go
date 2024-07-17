@@ -649,7 +649,7 @@ func (r *lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_
 	return clusters
 }
 
-func (*lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
+func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
 	lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(b.ips))
 
 	for _, ipBackends := range b.ips {
@@ -674,27 +674,8 @@ func (*lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transpo
 		},
 		ConnectTimeout:         &durationpb.Duration{Seconds: 5}, // default
 		TransportSocketMatches: transportSocketMatches,
-		HealthChecks: []*envoy_corev3.HealthCheck{
-			{
-				// TODO: create HC depending on health check type
-				HealthChecker: &envoy_corev3.HealthCheck_HttpHealthCheck_{HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
-					Host: b.healthCheckConfig.http.host,
-					Path: b.healthCheckConfig.http.path,
-				}},
-				Interval: &durationpb.Duration{Seconds: int64(b.healthCheckConfig.intervalSeconds)},
-				// TODO: NoTrafficInterval
-				// TODO: Jitter
-				Timeout:            &durationpb.Duration{Seconds: int64(b.healthCheckConfig.timeoutSeconds)},
-				HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(b.healthCheckConfig.healthyThreshold)},
-				UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(b.healthCheckConfig.unhealthyThreshold)},
-				// T1's quarantine timeout
-				UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(b.healthCheckConfig.unhealthyEdgeIntervalSeconds)},
-				// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
-				UnhealthyInterval:            &durationpb.Duration{Seconds: int64(b.healthCheckConfig.unhealthyIntervalSeconds)},
-				TransportSocketMatchCriteria: hcTransportSocketMatchCriteria,
-			},
-		},
-		LbPolicy: mapLbPolicy(b.lbAlgorithm),
+		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
+		LbPolicy:               mapLbPolicy(b.lbAlgorithm),
 		LoadAssignment: &envoy_endpointv3.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints: []*envoy_endpointv3.LocalityLbEndpoints{
@@ -702,6 +683,41 @@ func (*lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transpo
 					LbEndpoints: lbEndpoints,
 				},
 			},
+		},
+	}
+}
+
+func (r *lbFrontendReconciler) toClusterHealthChecks(healthCheckConfig lbBackendHealthCheckConfig, hcTransportSocketMatchCriteria *structpb.Struct) []*envoy_corev3.HealthCheck {
+	healthCheck := &envoy_corev3.HealthCheck{
+		Interval: &durationpb.Duration{Seconds: int64(healthCheckConfig.intervalSeconds)},
+		// TODO: NoTrafficInterval
+		// TODO: Jitter
+		Timeout:            &durationpb.Duration{Seconds: int64(healthCheckConfig.timeoutSeconds)},
+		HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.healthyThreshold)},
+		UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.unhealthyThreshold)},
+		// T1's quarantine timeout
+		UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
+		// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
+		UnhealthyInterval:            &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyIntervalSeconds)},
+		TransportSocketMatchCriteria: hcTransportSocketMatchCriteria,
+	}
+
+	switch {
+	case healthCheckConfig.http != nil:
+		healthCheck.HealthChecker = r.toClusterHealthCheckerHTTP(healthCheckConfig)
+	default:
+		return nil
+	}
+	return []*envoy_corev3.HealthCheck{
+		healthCheck,
+	}
+}
+
+func (r *lbFrontendReconciler) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_corev3.HealthCheck_HttpHealthCheck_ {
+	return &envoy_corev3.HealthCheck_HttpHealthCheck_{
+		HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
+			Host: healthCheckConfig.http.host,
+			Path: healthCheckConfig.http.path,
 		},
 	}
 }
