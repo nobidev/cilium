@@ -28,22 +28,24 @@ var lbvipsKind = v1alpha1.SchemeGroupVersion.WithKind("LBVIP")
 
 // Get takes name of the lBVIP, and returns the corresponding lBVIP object, and an error if there is any.
 func (c *FakeLBVIPs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LBVIP, err error) {
+	emptyResult := &v1alpha1.LBVIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(lbvipsResource, c.ns, name), &v1alpha1.LBVIP{})
+		Invokes(testing.NewGetActionWithOptions(lbvipsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LBVIP), err
 }
 
 // List takes label and field selectors, and returns the list of LBVIPs that match those selectors.
 func (c *FakeLBVIPs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LBVIPList, err error) {
+	emptyResult := &v1alpha1.LBVIPList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(lbvipsResource, lbvipsKind, c.ns, opts), &v1alpha1.LBVIPList{})
+		Invokes(testing.NewListActionWithOptions(lbvipsResource, lbvipsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -62,40 +64,43 @@ func (c *FakeLBVIPs) List(ctx context.Context, opts v1.ListOptions) (result *v1a
 // Watch returns a watch.Interface that watches the requested lBVIPs.
 func (c *FakeLBVIPs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(lbvipsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(lbvipsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a lBVIP and creates it.  Returns the server's representation of the lBVIP, and an error, if there is any.
 func (c *FakeLBVIPs) Create(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.CreateOptions) (result *v1alpha1.LBVIP, err error) {
+	emptyResult := &v1alpha1.LBVIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(lbvipsResource, c.ns, lBVIP), &v1alpha1.LBVIP{})
+		Invokes(testing.NewCreateActionWithOptions(lbvipsResource, c.ns, lBVIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LBVIP), err
 }
 
 // Update takes the representation of a lBVIP and updates it. Returns the server's representation of the lBVIP, and an error, if there is any.
 func (c *FakeLBVIPs) Update(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.UpdateOptions) (result *v1alpha1.LBVIP, err error) {
+	emptyResult := &v1alpha1.LBVIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(lbvipsResource, c.ns, lBVIP), &v1alpha1.LBVIP{})
+		Invokes(testing.NewUpdateActionWithOptions(lbvipsResource, c.ns, lBVIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LBVIP), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeLBVIPs) UpdateStatus(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.UpdateOptions) (*v1alpha1.LBVIP, error) {
+func (c *FakeLBVIPs) UpdateStatus(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.UpdateOptions) (result *v1alpha1.LBVIP, err error) {
+	emptyResult := &v1alpha1.LBVIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(lbvipsResource, "status", c.ns, lBVIP), &v1alpha1.LBVIP{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(lbvipsResource, "status", c.ns, lBVIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LBVIP), err
 }
@@ -110,7 +115,7 @@ func (c *FakeLBVIPs) Delete(ctx context.Context, name string, opts v1.DeleteOpti
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeLBVIPs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(lbvipsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(lbvipsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.LBVIPList{})
 	return err
@@ -118,11 +123,12 @@ func (c *FakeLBVIPs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 
 // Patch applies the patch and returns the patched lBVIP.
 func (c *FakeLBVIPs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LBVIP, err error) {
+	emptyResult := &v1alpha1.LBVIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(lbvipsResource, c.ns, name, pt, data, subresources...), &v1alpha1.LBVIP{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(lbvipsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LBVIP), err
 }

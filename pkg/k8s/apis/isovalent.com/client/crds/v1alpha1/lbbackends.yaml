@@ -62,17 +62,37 @@ spec:
                   - port
                   type: object
                 type: array
-              healthcheck:
+              healthCheck:
                 properties:
-                  interval:
-                    format: duration
-                    type: string
-                required:
-                - interval
+                  healthyThreshold:
+                    default: 2
+                    format: int32
+                    type: integer
+                  http:
+                    properties:
+                      host:
+                        default: lb
+                        type: string
+                      path:
+                        default: /healthz
+                        type: string
+                    type: object
+                  intervalSeconds:
+                    default: 30
+                    format: int32
+                    type: integer
+                  timeoutSeconds:
+                    default: 5
+                    format: int32
+                    type: integer
+                  unhealthyThreshold:
+                    default: 2
+                    format: int32
+                    type: integer
                 type: object
             required:
             - addresses
-            - healthcheck
+            - healthCheck
             type: object
           status:
             description: Status is a status .

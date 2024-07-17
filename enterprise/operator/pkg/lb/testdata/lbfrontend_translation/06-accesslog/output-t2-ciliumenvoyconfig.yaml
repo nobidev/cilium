@@ -82,15 +82,15 @@ spec:
         healthyPanicThreshold: {}
       connectTimeout: 5s
       healthChecks:
-        - healthyThreshold: 2
+        - healthyThreshold: 1
           httpHealthCheck:
-            host: envoy
-            path: /health
+            host: lb
+            path: /healthz
           interval: 30s
           timeout: 5s
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
-          unhealthyThreshold: 2
+          unhealthyThreshold: 1
       loadAssignment:
         clusterName: backend_cluster_http_0
         endpoints:

@@ -689,16 +689,12 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 
 func (r *lbFrontendReconciler) toClusterHealthChecks(healthCheckConfig lbBackendHealthCheckConfig, hcTransportSocketMatchCriteria *structpb.Struct) []*envoy_corev3.HealthCheck {
 	healthCheck := &envoy_corev3.HealthCheck{
-		Interval: &durationpb.Duration{Seconds: int64(healthCheckConfig.intervalSeconds)},
-		// TODO: NoTrafficInterval
-		// TODO: Jitter
-		Timeout:            &durationpb.Duration{Seconds: int64(healthCheckConfig.timeoutSeconds)},
-		HealthyThreshold:   &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.healthyThreshold)},
-		UnhealthyThreshold: &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.unhealthyThreshold)},
-		// T1's quarantine timeout
-		UnhealthyEdgeInterval: &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
-		// explicitly set unhealthy interval to the same value as interval (T1 doesn't support unhealthy interval)
+		Interval:                     &durationpb.Duration{Seconds: int64(healthCheckConfig.intervalSeconds)},
 		UnhealthyInterval:            &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyIntervalSeconds)},
+		UnhealthyEdgeInterval:        &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
+		Timeout:                      &durationpb.Duration{Seconds: int64(healthCheckConfig.timeoutSeconds)},
+		HealthyThreshold:             &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.healthyThreshold)},
+		UnhealthyThreshold:           &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.unhealthyThreshold)},
 		TransportSocketMatchCriteria: hcTransportSocketMatchCriteria,
 	}
 

@@ -9,5 +9,11 @@ spec:
       port: 8080
     - ip: 172.18.0.6
       port: 8080
-  healthcheck:
-    interval: 30s
+  healthCheck:
+    intervalSeconds: 30
+    timeoutSeconds: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 1
+    http:
+      host: lb
+      path: /healthz

@@ -216,7 +216,7 @@ type LBBackendSpec struct {
 	Addresses []Address `json:"addresses"`
 
 	// +kubebuilder:validation:Required
-	Healthcheck Healthcheck `json:"healthcheck"`
+	HealthCheck HealthCheck `json:"healthCheck"`
 }
 
 type Address struct {
@@ -227,10 +227,35 @@ type Address struct {
 	Port int32 `json:"port"`
 }
 
-type Healthcheck struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=duration
-	Interval string `json:"interval"`
+type HealthCheck struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=30
+	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=5
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=2
+	HealthyThreshold *int32 `json:"healthyThreshold,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=2
+	UnhealthyThreshold *int32 `json:"unhealthyThreshold,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	HTTP *HealthCheckHTTP `json:"http,omitempty"`
+}
+
+type HealthCheckHTTP struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=lb
+	Host *string `json:"host,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=/healthz
+	Path *string `json:"path,omitempty"`
 }
 
 type LBBackendStatus struct{}

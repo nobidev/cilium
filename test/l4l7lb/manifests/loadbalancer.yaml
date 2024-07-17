@@ -4,8 +4,10 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: BACKEND1_IP
       port: 8080
@@ -40,8 +42,10 @@ metadata:
   namespace: default
   name: lb-2
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: BACKEND1_IP
       port: 8080
@@ -68,8 +72,10 @@ metadata:
   namespace: default
   name: lb-3
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: BACKEND2_IP
       port: 8080

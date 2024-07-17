@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type ingestor struct{}
@@ -54,31 +53,16 @@ func (*ingestor) toTLS(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLSCon
 }
 
 func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (lbApplications, error) {
-	http, err := r.toApplicationHTTP(frontend, backends)
-	if err != nil {
-		return lbApplications{}, err
-	}
-
-	https, err := r.toApplicationHTTPS(frontend, backends)
-	if err != nil {
-		return lbApplications{}, err
-	}
-
-	tlsPassthrough, err := r.toApplicationTLSPassthrough(frontend, backends)
-	if err != nil {
-		return lbApplications{}, err
-	}
-
 	return lbApplications{
-		httpProxy:      http,
-		httpsProxy:     https,
-		tlsPassthrough: tlsPassthrough,
+		httpProxy:      r.toApplicationHTTP(frontend, backends),
+		httpsProxy:     r.toApplicationHTTPS(frontend, backends),
+		tlsPassthrough: r.toApplicationTLSPassthrough(frontend, backends),
 	}, nil
 }
 
-func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationHTTPProxy, error) {
+func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationHTTPProxy {
 	if frontend.Spec.Applications.HTTPProxy == nil {
-		return nil, nil
+		return nil
 	}
 
 	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
@@ -95,11 +79,6 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 			continue
 		}
 
-		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-		}
-
 		pathType, path := toPath(lr)
 
 		routes = append(routes, lbRouteHTTP{
@@ -111,17 +90,14 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
-					http: &lbBackendHealthCheckHTTPConfig{
-						host: "envoy",
-						path: "/health",
-					},
+					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          nil,
-					intervalSeconds:              int(intervalDuration.Seconds()),
-					timeoutSeconds:               5,
-					healthyThreshold:             2,
-					unhealthyThreshold:           2,
-					unhealthyEdgeIntervalSeconds: 30,
-					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
+					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
+					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
+					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
 			},
 		})
@@ -129,12 +105,12 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 
 	return &lbApplicationHTTPProxy{
 		routes: routes,
-	}, nil
+	}
 }
 
-func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationHTTPSProxy, error) {
+func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationHTTPSProxy {
 	if frontend.Spec.Applications.HTTPSProxy == nil {
-		return nil, nil
+		return nil
 	}
 
 	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
@@ -151,11 +127,6 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 			continue
 		}
 
-		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-		}
-
 		pathType, path := toPath(lr)
 
 		routes = append(routes, lbRouteHTTPS{
@@ -167,17 +138,14 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
-					http: &lbBackendHealthCheckHTTPConfig{
-						host: "envoy",
-						path: "/health",
-					},
+					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          nil,
-					intervalSeconds:              int(intervalDuration.Seconds()),
-					timeoutSeconds:               5,
-					healthyThreshold:             2,
-					unhealthyThreshold:           2,
-					unhealthyEdgeIntervalSeconds: 30,
-					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
+					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
+					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
+					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
 			},
 		})
@@ -186,7 +154,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 	return &lbApplicationHTTPSProxy{
 		tlsConfig: r.toTLS(frontend),
 		routes:    routes,
-	}, nil
+	}
 }
 
 func toPath(lr isovalentv1alpha1.LBFrontendHTTPRoute) (pathTypeType, string) {
@@ -206,9 +174,9 @@ func toPath(lr isovalentv1alpha1.LBFrontendHTTPRoute) (pathTypeType, string) {
 	return pathType, path
 }
 
-func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbApplicationTLSPassthrough, error) {
+func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationTLSPassthrough {
 	if frontend.Spec.Applications.TLSPassthrough == nil {
-		return nil, nil
+		return nil
 	}
 
 	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
@@ -225,11 +193,6 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 			continue
 		}
 
-		intervalDuration, err := time.ParseDuration(routeBackend.Spec.Healthcheck.Interval)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse HC interval: %w", err)
-		}
-
 		routes = append(routes, lbRouteTLSPassthrough{
 			hostNames: r.toHostNames(lr.HostNames),
 			backend: backend{
@@ -237,17 +200,14 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
-					http: &lbBackendHealthCheckHTTPConfig{
-						host: "envoy",
-						path: "/health",
-					},
+					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          nil,
-					intervalSeconds:              int(intervalDuration.Seconds()),
-					timeoutSeconds:               5,
-					healthyThreshold:             2,
-					unhealthyThreshold:           2,
-					unhealthyEdgeIntervalSeconds: 30,
-					unhealthyIntervalSeconds:     int(intervalDuration.Seconds()),
+					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
+					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
+					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
+					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
 			},
 		})
@@ -255,7 +215,18 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 
 	return &lbApplicationTLSPassthrough{
 		routes: routes,
-	}, nil
+	}
+}
+
+func (r *ingestor) toHTTPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBackendHealthCheckHTTPConfig {
+	if hc.HTTP == nil {
+		return nil
+	}
+
+	return &lbBackendHealthCheckHTTPConfig{
+		host: *hc.HTTP.Host,
+		path: *hc.HTTP.Path,
+	}
 }
 
 func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBackend {

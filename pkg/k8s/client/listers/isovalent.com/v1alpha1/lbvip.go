@@ -7,8 +7,8 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -25,25 +25,17 @@ type LBVIPLister interface {
 
 // lBVIPLister implements the LBVIPLister interface.
 type lBVIPLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.LBVIP]
 }
 
 // NewLBVIPLister returns a new LBVIPLister.
 func NewLBVIPLister(indexer cache.Indexer) LBVIPLister {
-	return &lBVIPLister{indexer: indexer}
-}
-
-// List lists all LBVIPs in the indexer.
-func (s *lBVIPLister) List(selector labels.Selector) (ret []*v1alpha1.LBVIP, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.LBVIP))
-	})
-	return ret, err
+	return &lBVIPLister{listers.New[*v1alpha1.LBVIP](indexer, v1alpha1.Resource("lbvip"))}
 }
 
 // LBVIPs returns an object that can list and get LBVIPs.
 func (s *lBVIPLister) LBVIPs(namespace string) LBVIPNamespaceLister {
-	return lBVIPNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return lBVIPNamespaceLister{listers.NewNamespaced[*v1alpha1.LBVIP](s.ResourceIndexer, namespace)}
 }
 
 // LBVIPNamespaceLister helps list and get LBVIPs.
@@ -61,26 +53,5 @@ type LBVIPNamespaceLister interface {
 // lBVIPNamespaceLister implements the LBVIPNamespaceLister
 // interface.
 type lBVIPNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all LBVIPs in the indexer for a given namespace.
-func (s lBVIPNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.LBVIP, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.LBVIP))
-	})
-	return ret, err
-}
-
-// Get retrieves the LBVIP from the indexer for a given namespace and name.
-func (s lBVIPNamespaceLister) Get(name string) (*v1alpha1.LBVIP, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("lbvip"), name)
-	}
-	return obj.(*v1alpha1.LBVIP), nil
+	listers.ResourceIndexer[*v1alpha1.LBVIP]
 }

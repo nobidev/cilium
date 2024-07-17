@@ -10,10 +10,10 @@ spec:
     - ip: 172.18.0.6
       port: 8080
   healthCheck:
-    intervalSeconds: 30
-    timeoutSeconds: 5
-    healthyThreshold: 1
-    unhealthyThreshold: 1
+    intervalSeconds: 15
+    timeoutSeconds: 2
+    healthyThreshold: 2
+    unhealthyThreshold: 2
     http:
-      host: lb
-      path: /healthz
+      host: my-hostname
+      path: /health-endpoint

@@ -34,8 +34,6 @@ spec:
                       clusterMinHealthyPercentages:
                         backend_cluster_http_0:
                           value: 20
-                        backend_cluster_http_1:
-                          value: 20
                       headers:
                         - name: :path
                           stringMatch:
@@ -65,35 +63,27 @@ spec:
       name: frontend_routeconfig_http
       virtualHosts:
         - domains:
-            - "*"
+            - "bla.acme.io"
           name: frontend_virtualhost_http_0
           routes:
             - match:
                 prefix: /
               route:
                 cluster: backend_cluster_http_0
-        - domains:
-            - "bar.acme.io"
-          name: frontend_virtualhost_http_1
-          routes:
-            - match:
-                path: /api
-              route:
-                cluster: backend_cluster_http_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
       connectTimeout: 5s
       healthChecks:
-        - healthyThreshold: 1
+        - healthyThreshold: 2
           httpHealthCheck:
-            host: lb
-            path: /healthz
-          interval: 30s
-          timeout: 5s
-          unhealthyEdgeInterval: 30s
-          unhealthyInterval: 30s
-          unhealthyThreshold: 1
+            host: my-hostname
+            path: /health-endpoint
+          interval: 15s
+          timeout: 2s
+          unhealthyEdgeInterval: 15s
+          unhealthyInterval: 15s
+          unhealthyThreshold: 2
       loadAssignment:
         clusterName: backend_cluster_http_0
         endpoints:
@@ -109,34 +99,4 @@ spec:
                       address: 172.18.0.6
                       portValue: 8080
       name: backend_cluster_http_0
-      type: STATIC
-    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      commonLbConfig:
-        healthyPanicThreshold: {}
-      connectTimeout: 5s
-      healthChecks:
-        - healthyThreshold: 1
-          httpHealthCheck:
-            host: lb
-            path: /healthz
-          interval: 20s
-          timeout: 5s
-          unhealthyEdgeInterval: 20s
-          unhealthyInterval: 20s
-          unhealthyThreshold: 1
-      loadAssignment:
-        clusterName: backend_cluster_http_1
-        endpoints:
-          - lbEndpoints:
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.7
-                      portValue: 8080
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.8
-                      portValue: 8080
-      name: backend_cluster_http_1
       type: STATIC

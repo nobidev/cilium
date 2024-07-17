@@ -4,8 +4,10 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -18,8 +20,10 @@ metadata:
   namespace: default
   name: lb-2
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -32,8 +36,10 @@ metadata:
   namespace: default
   name: lb-3
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -46,8 +52,10 @@ metadata:
   namespace: default
   name: lb-4
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -60,8 +68,10 @@ metadata:
   namespace: default
   name: lb-5
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -74,8 +84,10 @@ metadata:
   namespace: default
   name: lb-6
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
@@ -86,8 +98,10 @@ metadata:
   namespace: default
   name: lb-7
 spec:
-  healthcheck:
-    interval: "10s"
+  healthCheck:
+    intervalSeconds: 10
+    http:
+      path: "/health"
   addresses:
     - ip: 9.9.9.9
       port: 8080
