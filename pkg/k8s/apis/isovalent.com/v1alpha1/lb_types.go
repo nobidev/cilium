@@ -103,6 +103,7 @@ type LBFrontendHTTPRoute struct {
 	BackendRef LBFrontendBackendRef `json:"backendRef"`
 }
 
+// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
 type LBFrontendHTTPPath struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1

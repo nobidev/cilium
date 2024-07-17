@@ -88,6 +88,11 @@ spec:
                                   minLength: 1
                                   type: string
                               type: object
+                              x-kubernetes-validations:
+                              - message: Exactly one path type (exact or prefix) must
+                                  be specified
+                                rule: (has(self.exact) || has(self.prefix)) && !(has(self.exact)
+                                  && has(self.prefix))
                           required:
                           - backendRef
                           type: object
@@ -124,6 +129,11 @@ spec:
                                   minLength: 1
                                   type: string
                               type: object
+                              x-kubernetes-validations:
+                              - message: Exactly one path type (exact or prefix) must
+                                  be specified
+                                rule: (has(self.exact) || has(self.prefix)) && !(has(self.exact)
+                                  && has(self.prefix))
                           required:
                           - backendRef
                           type: object
