@@ -140,12 +140,19 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	}
 
 	// IPv4 VIP is not yet assigned. Skip this reconciliation round.
-	if !v4VIP.IsValid() {
-		return nil
+	if v4VIP.IsValid() {
+		// Update the LBVIP status with the assigned VIP
+		lbvip.Status.Addresses.IPv4 = v4VIP.String()
+	} else {
+		// Otherwise, clear the VIP (possible when users change the requested IP)
+		lbvip.Status.Addresses.IPv4 = ""
 	}
 
-	// Update the LBVIP status with the assigned VIP
-	lbvip.Status.Addresses.IPv4 = v4VIP.String()
+	// Extract the conditions from the placeholder Service
+	v4Allocated := r.extractConditionsFromService(lbvip, currentSvc)
+
+	// Update the LBVIP status with the conditions
+	r.upsertCondition(lbvip, v4Allocated.Type, v4Allocated)
 
 	// Commit the LBVIP status
 	if err := r.client.Status().Update(ctx, lbvip); err != nil {
@@ -210,6 +217,27 @@ func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredServ
 	return nil
 }
 
+func (r *lbVIPReconciler) upsertCondition(lbvip *isovalentv1alpha1.LBVIP, conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range lbvip.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				lbvip.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		lbvip.Status.Conditions = append(lbvip.Status.Conditions, condition)
+	}
+}
+
 func (r *lbVIPReconciler) extractVIPsFromService(svc *corev1.Service) (netip.Addr, error) {
 	// The VIP is not yet assigned. Skip the reconciliation.
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
@@ -233,4 +261,48 @@ func (r *lbVIPReconciler) extractVIPsFromService(svc *corev1.Service) (netip.Add
 	}
 
 	return v4Addr, nil
+}
+
+// Extract relevant conditions from the placeholder Service and convert them into LBVIP conditions
+func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.LBVIP, svc *corev1.Service) metav1.Condition {
+	v4Allocated := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeIPv4AddressAllocated,
+		Status:             metav1.ConditionUnknown,
+		ObservedGeneration: lbvip.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "Unknown",
+		Message:            "Unknown",
+	}
+
+	for _, cond := range svc.Status.Conditions {
+		// Map LBIPAM conditions to LBVIP conditions
+		if cond.Type == "cilium.io/IPAMRequestSatisfied" {
+			switch cond.Status {
+			case metav1.ConditionUnknown:
+				// Still unknown. Do nothing.
+			case metav1.ConditionTrue:
+				v4Allocated.Status = metav1.ConditionTrue
+				v4Allocated.Reason = "Allocated"
+				v4Allocated.Message = "IPv4 address has been allocated"
+			case metav1.ConditionFalse:
+				v4Allocated.Status = metav1.ConditionFalse
+				switch cond.Reason {
+				case "out_of_ips":
+					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress
+					v4Allocated.Message = "No available IPv4 address"
+				case "already_allocated", "already_allocated_different_sharing_key":
+					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressAlreadyInUse
+					v4Allocated.Message = "Requested IPv4 address is already in use"
+				default:
+					// Pass through the reason and message.
+					// Assuming users will file an issue if
+					// they see this message.
+					v4Allocated.Reason = "Unexpected (" + cond.Reason + ")"
+					v4Allocated.Message = "Unexpected condition: " + cond.Message
+				}
+			}
+		}
+	}
+
+	return v4Allocated
 }
