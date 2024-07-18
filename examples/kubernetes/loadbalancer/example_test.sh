@@ -9,12 +9,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -n "Waiting until VIPs have been assigned "
 while :; do
-  VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
-  VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
-  VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
-  VIP_LB4=$(kubectl -n default get lbfe lb-4 -ojson | jq -r '.status.vip')
-  VIP_LB5=$(kubectl -n default get lbfe lb-5 -ojson | jq -r '.status.vip')
-  VIP_LB6=$(kubectl -n default get lbfe lb-6 -ojson | jq -r '.status.vip')
+  VIP_LB1=$(kubectl -n default get lbvip lb-1   -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB2=$(kubectl -n default get lbvip lb-2-3 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB3=$(kubectl -n default get lbvip lb-2-3 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB4=$(kubectl -n default get lbvip lb-4   -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB5=$(kubectl -n default get lbvip lb-5   -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB6=$(kubectl -n default get lbvip lb-6   -ojson | jq -r '.status.addresses.ipv4')
 
   if [ "${VIP_LB1}" != "" ] && [ "${VIP_LB2}" != "" ] && [ "${VIP_LB3}" != "" ] && [ "${VIP_LB4}" != "" ] && [ "${VIP_LB5}" != "" ] && [ "${VIP_LB6}" != "" ]; then
     break

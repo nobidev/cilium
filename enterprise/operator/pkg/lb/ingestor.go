@@ -13,24 +13,25 @@ package lb
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend, t1Service *corev1.Service) (*lbFrontend, error) {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbFrontend, error) {
 	applications, err := r.toApplications(frontend, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
 	}
 
 	return &lbFrontend{
-		namespace:    frontend.Namespace,
-		name:         frontend.Name,
-		staticIP:     frontend.Spec.VIP,
-		assignedIP:   getAssignedIP(t1Service),
+		namespace: frontend.Namespace,
+		name:      frontend.Name,
+		vip: lbVIP{
+			name:          frontend.Spec.VIPRef.Name,
+			requestedIPv4: getRequestedIP(vip),
+			assignedIPv4:  getAssignedIP(vip),
+		},
 		port:         frontend.Spec.Port,
 		applications: applications,
 	}, nil
@@ -262,11 +263,18 @@ func (r *ingestor) toHostNames(crdHostnames []isovalentv1alpha1.LBFrontendHostNa
 	return hostNames
 }
 
-// getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the T1 Service.
+func getRequestedIP(vip *isovalentv1alpha1.LBVIP) *string {
+	if vip == nil {
+		return nil
+	}
+	return vip.Spec.IPv4Request
+}
+
+// getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the LBVIP resource.
 // If there's no assigned loadbalancer IP assigned yet, nil is returned instead.
-func getAssignedIP(t1Service *corev1.Service) *string {
-	if t1Service != nil && len(t1Service.Status.LoadBalancer.Ingress) > 0 && t1Service.Status.LoadBalancer.Ingress[0].IP != "" {
-		return &t1Service.Status.LoadBalancer.Ingress[0].IP
+func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
+	if vip != nil && vip.Status.Addresses.IPv4 != "" {
+		return &vip.Status.Addresses.IPv4
 	}
 
 	return nil

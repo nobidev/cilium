@@ -36,8 +36,8 @@ type LBFrontend struct {
 }
 
 type LBFrontendSpec struct {
-	// +kubebuilder:validation:Optional
-	VIP *string `json:"vip,omitempty"`
+	// +kubebuilder:validation:Required
+	VIPRef LBFrontendVIPRef `json:"vipRef"`
 
 	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
@@ -120,6 +120,12 @@ type LBFrontendTLSPassthroughRoute struct {
 
 	// +kubebuilder:validation:Required
 	BackendRef LBFrontendBackendRef `json:"backendRef"`
+}
+
+type LBFrontendVIPRef struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 type LBFrontendBackendRef struct {

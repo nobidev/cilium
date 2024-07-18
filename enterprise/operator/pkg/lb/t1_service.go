@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
@@ -30,14 +31,11 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 
 	annotations := map[string]string{}
 
-	// LB IPAM
-	if model.staticIP != nil {
-		annotations[ossannotation.LBIPAMIPsKey] = *model.staticIP
-
-		// Support different LB frontends having the same VIP but a different port
-		// For the sake of simplicity, the VIP itself is used as sharing key
-		annotations[ossannotation.LBIPAMSharingKey] = *model.staticIP
-		annotations[ossannotation.LBIPAMSharingAcrossNamespace] = "*"
+	// Set the sharing key (LBVIP name)
+	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
+	if model.vip.requestedIPv4 != nil {
+		// If there's requested IP address, we need to set ips annotation
+		annotations[ossannotation.LBIPAMIPsKey] = *model.vip.requestedIPv4
 	}
 
 	// TODO: should the following config be part of the lbFrontend model? (infra?)
@@ -130,6 +128,22 @@ func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []s
 	}, nil
 }
 
+func (r *lbFrontendReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbFrontend) error {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, ep); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// Endpoints does not exist, which is fine
+	}
+	return nil
+}
+
 func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
@@ -159,4 +173,20 @@ func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string
 	}
 
 	return t2NodeIPs, nil
+}
+
+func (r *lbFrontendReconciler) ensureServiceDeleted(ctx context.Context, model *lbFrontend) error {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, svc); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// Service does not exist, which is fine
+	}
+	return nil
 }

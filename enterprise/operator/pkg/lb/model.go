@@ -21,10 +21,15 @@ import (
 type lbFrontend struct {
 	namespace    string
 	name         string
-	staticIP     *string
-	assignedIP   *string
+	vip          lbVIP
 	port         int32
 	applications lbApplications
+}
+
+type lbVIP struct {
+	name          string
+	requestedIPv4 *string
+	assignedIPv4  *string
 }
 
 func (r lbFrontend) getOwningResourceName() string {

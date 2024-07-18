@@ -11,6 +11,7 @@
 package lb
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -35,6 +36,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -43,7 +45,7 @@ import (
 )
 
 func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
-	if model.assignedIP == nil {
+	if model.vip.assignedIPv4 == nil {
 		return nil, nil
 	}
 
@@ -106,7 +108,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 		Address: &envoy_corev3.Address{
 			Address: &envoy_corev3.Address_SocketAddress{
 				SocketAddress: &envoy_corev3.SocketAddress{
-					Address: *model.assignedIP,
+					Address: *model.vip.assignedIPv4,
 					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{
 						PortValue: uint32(model.port),
 					},
@@ -724,6 +726,22 @@ func (r *lbFrontendReconciler) toClusterHealthCheckerTCP(_ lbBackendHealthCheckC
 	return &envoy_corev3.HealthCheck_TcpHealthCheck_{
 		TcpHealthCheck: &envoy_corev3.HealthCheck_TcpHealthCheck{},
 	}
+}
+
+func (r *lbFrontendReconciler) ensureCECDeleted(ctx context.Context, model *lbFrontend) error {
+	cec := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, cec); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// CEC does not exist, which is fine
+	}
+	return nil
 }
 
 func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

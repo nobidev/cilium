@@ -188,11 +188,18 @@ spec:
               port:
                 format: int32
                 type: integer
-              vip:
-                type: string
+              vipRef:
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - applications
             - port
+            - vipRef
             type: object
           status:
             description: Status is a status .

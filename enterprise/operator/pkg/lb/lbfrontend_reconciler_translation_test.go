@@ -61,6 +61,12 @@ func TestTranslation(t *testing.T) {
 func testTranslationSingle(tc testcase) func(t *testing.T) {
 	return func(t *testing.T) {
 		// read input files
+		var inputLBVIP *isovalentv1alpha1.LBVIP
+		if _, err := os.Stat(fmt.Sprintf("%s/%s/input-lbvip.yaml", translationDir, tc.name)); err == nil {
+			inputLBVIP = &isovalentv1alpha1.LBVIP{}
+			readInput(t, fmt.Sprintf("%s/%s/input-lbvip.yaml", translationDir, tc.name), inputLBVIP)
+		}
+
 		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
 		readInput(t, fmt.Sprintf("%s/%s/input-lbfrontend.yaml", translationDir, tc.name), inputLBFrontend)
 
@@ -79,12 +85,6 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			inputLBBackends = append(inputLBBackends, inputLBBackend)
 		}
 
-		var inputService *corev1.Service
-		if _, err := os.Stat(fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name)); err == nil {
-			inputService = &corev1.Service{}
-			readInput(t, fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name), inputService)
-		}
-
 		// read output files
 		expectedServiceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-service.yaml", translationDir, tc.name), &corev1.Service{})
 		expectedEndpointsYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpoints.yaml", translationDir, tc.name), &corev1.Endpoints{})
@@ -93,7 +93,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBFrontend, inputLBBackends, inputService)
+		model, err := ing.ingest(inputLBVIP, inputLBFrontend, inputLBBackends)
 		require.NoError(t, err)
 
 		// Input Config

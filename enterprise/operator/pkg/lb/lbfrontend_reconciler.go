@@ -38,6 +38,7 @@ import (
 )
 
 const (
+	lbFrontendVIPIndexName       = ".spec.vipRef.name"
 	lbFrontendBackendIndexName   = ".spec.routes.http.backend"
 	lbFrontendTlsSecretIndexName = ".spec.tls.certificates.secretname"
 )
@@ -75,6 +76,7 @@ func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, sc
 // the different watches. All the watcher trigger a reconciliation.
 func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		lbFrontendVIPIndexName:       vipIndexerFunc,
 		lbFrontendBackendIndexName:   backendIndexerFunc,
 		lbFrontendTlsSecretIndexName: tlsSecretIndexerFunc,
 	} {
@@ -86,6 +88,8 @@ func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch for changed LBFrontend resources (main resource)
 		For(&isovalentv1alpha1.LBFrontend{}).
+		// Watch for changed LBVIP resources and trigger LBFrontends that reference the changed lbvip
+		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendVIPIndexName)).
 		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
 		Watches(&isovalentv1alpha1.LBBackend{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
 		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret. Only K8s Secrets of type TLS are relevant.
@@ -127,7 +131,7 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return controllerruntime.Success()
 	}
 
-	if err := r.createOrUpdateResources(ctx, scopedLog, lb); err != nil {
+	if err := r.reconcileResources(ctx, scopedLog, lb); err != nil {
 		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
 			// The creation of one of the resources failed because the
 			// namespace is terminating. The LBFrontend resource itself is also expected
@@ -148,19 +152,15 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	return controllerruntime.Success()
 }
 
-func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
+func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBFrontend) error {
 	//
 	// Load dependent resources that have relevant input for the model
 	//
 
-	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
-	existingT1Service := &corev1.Service{}
-	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: getOwningResourceName(frontend.Name)}, existingT1Service); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get T1 Service: %w", err)
-		}
-
-		// Continue if not found
+	// Try loading referenced LBVIP
+	vip, err := r.loadVIP(ctx, frontend)
+	if err != nil {
+		return fmt.Errorf("failed to load referenced LBVIP: %w", err)
 	}
 
 	// Try loading referenced LBBackends (in same namespace)
@@ -195,12 +195,29 @@ func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scop
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(frontend, backends, existingT1Service)
+	model, err := r.ingestor.ingest(vip, frontend, backends)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
 	}
 
 	r.updateAssignedIpInStatus(model, frontend)
+
+	// Stop reconciliation if assigned IP is not available yet. Also, we
+	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
+	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
+	// handling the traffic towards the stable VIP, etc.
+	if model.vip.assignedIPv4 == nil {
+		if err = r.ensureServiceDeleted(ctx, model); err != nil {
+			return fmt.Errorf("failed to ensure service is deleted: %w", err)
+		}
+		if err = r.ensureEndpointsDeleted(ctx, model); err != nil {
+			return fmt.Errorf("failed to ensure endpoints is deleted: %w", err)
+		}
+		if err = r.ensureCECDeleted(ctx, model); err != nil {
+			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
+		}
+		return nil
+	}
 
 	//
 	// T1
@@ -242,13 +259,6 @@ func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scop
 	// T2
 	//
 
-	if model.assignedIP == nil {
-		// Stop reconciliation as assigned IP is not available yet
-		// Any changes on the T1 Service (e.g. LB IPAM setting the loadbalancer ip in the status)
-		// will trigger an additional reconciliation.
-		return nil
-	}
-
 	// Build desired resources
 	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(model)
 	if err != nil {
@@ -266,6 +276,20 @@ func (r *lbFrontendReconciler) createOrUpdateResources(ctx context.Context, scop
 	}
 
 	return nil
+}
+
+func (r *lbFrontendReconciler) loadVIP(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) (*isovalentv1alpha1.LBVIP, error) {
+	vip := &isovalentv1alpha1.LBVIP{}
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: frontend.Spec.VIPRef.Name}, vip); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil, err
+		}
+
+		// Continue if not found
+		return nil, nil
+	}
+
+	return vip, nil
 }
 
 func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
@@ -390,6 +414,17 @@ func (r *lbFrontendReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Conte
 	return nil
 }
 
+func vipIndexerFunc(rawObj client.Object) []string {
+	// Extract the VIP reference
+	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
+
+	if lbFrontend.Spec.VIPRef.Name == "" {
+		return nil
+	}
+
+	return []string{lbFrontend.Spec.VIPRef.Name}
+}
+
 func backendIndexerFunc(rawObj client.Object) []string {
 	// Extract the backend references
 	lbFrontend := rawObj.(*isovalentv1alpha1.LBFrontend)
@@ -502,12 +537,12 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 		LastTransitionTime: metav1.Now(),
 	}
 
-	if model.assignedIP != nil {
+	if model.vip.assignedIPv4 != nil {
 		ipAssignedCondition.Status = metav1.ConditionTrue
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
 		ipAssignedCondition.Message = "VIP assigned"
 
-		frontend.Status.VIP = *model.assignedIP
+		frontend.Status.VIP = *model.vip.assignedIPv4
 	}
 
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)

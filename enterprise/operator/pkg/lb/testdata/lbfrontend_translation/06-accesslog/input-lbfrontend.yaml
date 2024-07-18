@@ -4,7 +4,8 @@ metadata:
   namespace: default
   name: lb-1
 spec:
-  vip: 100.64.0.100
+  vipRef:
+    name: lb-1
   port: 80
   applications:
     httpProxy:

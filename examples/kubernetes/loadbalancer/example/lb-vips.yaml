@@ -2,19 +2,35 @@ apiVersion: isovalent.com/v1alpha1
 kind: LBVIP
 metadata:
   namespace: default
-  name: vip-1
+  name: lb-1
+spec: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-2-3
 spec:
-  ipv4Request: "100.64.0.100"
-#
-# Disable this case for now because this dynamic allocation
-# may conflict with the current LBFrontend implementation.
-# The T1 Services may request an IP allocated by this LBVIP,
-# but with a different sharing-key.
-#
-# ---
-# apiVersion: isovalent.com/v1alpha1
-# kind: LBVIP
-# metadata:
-#   namespace: default
-#   name: vip-2
-# spec: {}
+  ipv4Request: "100.64.0.101"
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-4
+spec:
+  ipv4Request: "100.64.0.102"
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-5
+spec: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-6
+spec: {}

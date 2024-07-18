@@ -4,6 +4,8 @@ metadata:
   namespace: default
   name: lb-1
 spec:
+  vipRef:
+    name: lb-1
   port: 443
   applications:
     httpsProxy:
@@ -22,7 +24,8 @@ metadata:
   namespace: default
   name: lb-2
 spec:
-  vip: "100.64.0.101"
+  vipRef:
+    name: lb-2-3
   port: 80
   applications:
     httpProxy:
@@ -40,7 +43,8 @@ metadata:
   namespace: default
   name: lb-3
 spec:
-  vip: "100.64.0.101"
+  vipRef:
+    name: lb-2-3
   port: 81
   applications:
     httpProxy:
@@ -54,7 +58,8 @@ metadata:
   namespace: default
   name: lb-4
 spec:
-  vip: "100.64.0.102"
+  vipRef:
+    name: lb-4
   port: 80
   applications:
     httpProxy:
@@ -70,6 +75,8 @@ metadata:
   namespace: default
   name: lb-5
 spec:
+  vipRef:
+    name: lb-5
   port: 80
   applications:
     httpsProxy:
@@ -88,6 +95,8 @@ metadata:
   namespace: default
   name: lb-6
 spec:
+  vipRef:
+    name: lb-6
   port: 80
   applications:
     tlsPassthrough:
