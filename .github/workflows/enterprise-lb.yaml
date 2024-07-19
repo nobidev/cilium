@@ -194,84 +194,23 @@ jobs:
           done
           echo ""
 
-          kubectl apply -f test/l4l7lb/manifests/t1-nodeconfig.yaml
+          kubectl apply -f examples/kubernetes/loadbalancer/lb/t1-nodeconfig.yaml
           kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
           cilium status --wait
 
-      - name: Start LB backend applications
+      - name: Install applications and setup LB
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          for i in $(seq 1 3); do
-            docker rm -f app${i} 2>/dev/null
-            docker run -d --name app${i} --rm \
-              --env SERVICE_NAME=service${i} --env INSTANCE_NAME=${i} \
-              --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.1
-          done
-
-      - name: Deploy client (FRR)
-        shell: bash
-        run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
-
-          LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
-          echo "LB_T1_IP=${LB_T1_IP}"
-          docker run --name frr -d --privileged --network kind-cilium -e NEIGHBOR=${LB_T1_IP} quay.io/isovalent-dev/lb-frr-client:v0.0.1
-
-      - name: Setup BGP
-        shell: bash
-        run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
-
-          kubectl apply -f ./test/l4l7lb/manifests/lb-pool.yaml
-          BGP_FRR_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
-          echo "BGP_FRR_IP=$BGP_FRR_IP"
-          sed "s:PEER_ADDR:${BGP_FRR_IP}/32:" ./test/l4l7lb/manifests/bgp-policy.yaml | kubectl apply -f -
-
-      - name: Configure LB
-        shell: bash
-        run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
-
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls.key -out /tmp/tls.crt -subj "/CN=foo.acme.io"
-          kubectl -n default create secret tls test --key="/tmp/tls.key" --cert="/tmp/tls.crt"
-
-          docker cp /tmp/tls.crt frr:/tmp/tls.crt
-
-          BACKEND1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app1)
-          BACKEND2_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app2)
-          BACKEND3_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app3)
-
-          sed "s:BACKEND1_IP:${BACKEND1_IP}:g" ./test/l4l7lb/manifests/loadbalancer.yaml | \
-            sed "s:BACKEND2_IP:${BACKEND2_IP}:g" | \
-            sed "s:BACKEND3_IP:${BACKEND3_IP}:g" | kubectl apply -f -
+          ./examples/kubernetes/loadbalancer/example_install.sh
 
       - name: Run tests
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          echo -n "Waiting until VIPs have been assigned "
-          while [ "${VIP_LB1}" = "" ] || [ "${VIP_LB2}" = "" ] || [ "${VIP_LB3}" = "" ]; do
-            VIP_LB1=$(kubectl -n default get lbfe lb-1 -ojson | jq -r '.status.vip')
-            VIP_LB2=$(kubectl -n default get lbfe lb-2 -ojson | jq -r '.status.vip')
-            VIP_LB3=$(kubectl -n default get lbfe lb-3 -ojson | jq -r '.status.vip')
-
-            echo -n "."
-            sleep 1
-          done
-          echo ""
-
-          echo "VIP_LB1=$VIP_LB1"
-          echo "VIP_LB2=$VIP_LB2"
-          echo "VIP_LB3=$VIP_LB3"
-
-          docker exec frr bash -c "echo -n 'HTTP  T1: ' && curl -s http://${VIP_LB1}:80/"
-          docker exec frr bash -c "echo -n 'HTTP  T2: ' && curl -s http://${VIP_LB2}:80/"
-          docker exec frr bash -c "echo -n 'HTTP  T3: ' && curl -s http://${VIP_LB3}:81/"
-
-          docker exec frr bash -c "echo -n 'HTTPS T1: ' && curl -s --cacert /tmp/tls.crt --resolve foo.acme.io:80:${VIP_LB1} https://foo.acme.io:80/"
+          ./examples/kubernetes/loadbalancer/example_test.sh
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
