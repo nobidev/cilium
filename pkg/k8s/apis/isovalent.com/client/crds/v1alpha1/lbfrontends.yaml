@@ -21,11 +21,11 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.vip
-      name: Requested VIP
+    - jsonPath: .spec.vipRef.name
+      name: VIP Reference
       type: string
-    - jsonPath: .status.vip
-      name: Assigned VIP
+    - jsonPath: .status.addresses.ipv4
+      name: VIP IPv4
       type: string
     - jsonPath: .spec.port
       name: Port
@@ -204,6 +204,16 @@ spec:
           status:
             description: Status is a status .
             properties:
+              addresses:
+                description: Allocated addresses copied from the LBVIP status. This
+                  is just for displaying the allocated addresses in the kubectl get
+                  output.
+                properties:
+                  ipv4:
+                    type: string
+                required:
+                - ipv4
+                type: object
               conditions:
                 description: Conditions describe the current conditions of the LBFrontend.
                 items:
@@ -264,11 +274,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              vip:
-                description: VIP is the VIP that is assigned to the loadbalancer frontend.
-                type: string
             required:
-            - vip
+            - addresses
             type: object
         required:
         - spec

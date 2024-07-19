@@ -10,8 +10,8 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbfrontend",path="lbfrontends",scope="Namespaced",shortName={lbfe}
-// +kubebuilder:printcolumn:JSONPath=".spec.vip",name="Requested VIP",type=string
-// +kubebuilder:printcolumn:JSONPath=".status.vip",name="Assigned VIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.vipRef.name",name="VIP Reference",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="VIP IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
@@ -134,11 +134,17 @@ type LBFrontendBackendRef struct {
 	Name string `json:"name"`
 }
 
+type LBFrontendVIPAddresses struct {
+	// +kubebuilder:validation:Required
+	IPv4 string `json:"ipv4"`
+}
+
 type LBFrontendStatus struct {
-	// VIP is the VIP that is assigned to the loadbalancer frontend.
+	// Allocated addresses copied from the LBVIP status. This is just for
+	// displaying the allocated addresses in the kubectl get output.
 	//
 	// +kubebuilder:validation:Required
-	VIP string `json:"vip"`
+	Addresses LBFrontendVIPAddresses `json:"addresses"`
 
 	// Conditions describe the current conditions of the LBFrontend.
 	//
@@ -338,11 +344,12 @@ type LBVIPStatus struct {
 
 	// Allocated addresses
 	//
-	// +kubebuilder:validation:Optional
-	Addresses LBVIPAddresses `json:"addresses,omitempty"`
+	// +kubebuilder:validation:Required
+	Addresses LBVIPAddresses `json:"addresses"`
 }
 
 type LBVIPAddresses struct {
+	// +kubebuilder:validation:Required
 	IPv4 string `json:"ipv4"`
 }
 

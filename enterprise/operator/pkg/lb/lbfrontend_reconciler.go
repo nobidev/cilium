@@ -542,7 +542,7 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
 		ipAssignedCondition.Message = "VIP assigned"
 
-		frontend.Status.VIP = *model.vip.assignedIPv4
+		frontend.Status.Addresses.IPv4 = *model.vip.assignedIPv4
 	}
 
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
