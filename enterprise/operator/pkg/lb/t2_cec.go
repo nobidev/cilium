@@ -418,6 +418,7 @@ func (r *lbFrontendReconciler) desiredEnvoyRouteConfigs(model *lbFrontend) []*en
 		routeConfigs = append(routeConfigs, httpsRouteConfig)
 
 	}
+
 	return routeConfigs
 }
 
@@ -436,23 +437,22 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFronte
 	}
 
 	for i, route := range model.applications.httpProxy.routes {
-		httpRoute := &envoy_config_route_v3.Route{
-			Action: &envoy_config_route_v3.Route_Route{
-				Route: &envoy_config_route_v3.RouteAction{
-					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-						Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
-					},
-				},
-			},
-		}
-
-		httpRoute.Match = toRouteMatch(route.match)
-
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
 				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(80), model.port),
-				Routes:  []*envoy_config_route_v3.Route{httpRoute},
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match: toRouteMatch(route.match),
+						Action: &envoy_config_route_v3.Route_Route{
+							Route: &envoy_config_route_v3.RouteAction{
+								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
+								},
+							},
+						},
+					},
+				},
 			},
 		)
 	}
@@ -475,23 +475,22 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 	}
 
 	for i, route := range model.applications.httpsProxy.routes {
-		httpRoute := &envoy_config_route_v3.Route{
-			Action: &envoy_config_route_v3.Route_Route{
-				Route: &envoy_config_route_v3.RouteAction{
-					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-						Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
-					},
-				},
-			},
-		}
-
-		httpRoute.Match = toRouteMatch(route.match)
-
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
 				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(443), model.port),
-				Routes:  []*envoy_config_route_v3.Route{httpRoute},
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match: toRouteMatch(route.match),
+						Action: &envoy_config_route_v3.Route_Route{
+							Route: &envoy_config_route_v3.RouteAction{
+								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
+								},
+							},
+						},
+					},
+				},
 			},
 		)
 	}
