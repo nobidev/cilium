@@ -86,6 +86,10 @@ spec:
           unhealthyThreshold: 2
       name: backend_cluster_http_0
       type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          useDownstreamProtocolConfig: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_http_0
       endpoints:

@@ -29,6 +29,7 @@ import (
 	envoy_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_typev3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
@@ -703,6 +704,13 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 		TransportSocketMatches: transportSocketMatches,
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
 		LbPolicy:               mapLbPolicy(b.lbAlgorithm),
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+				UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
+					UseDownstreamProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{},
+				},
+			}),
+		},
 	}
 }
 
