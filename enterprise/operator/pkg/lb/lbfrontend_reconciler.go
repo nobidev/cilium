@@ -163,6 +163,8 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 		return fmt.Errorf("failed to load referenced LBVIP: %w", err)
 	}
 
+	r.updateVIPInStatus(frontend, vip)
+
 	// Try loading referenced LBBackends (in same namespace)
 	backends, missingBackends, err := r.loadBackends(ctx, frontend)
 	if err != nil {
@@ -546,6 +548,25 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 	}
 
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+}
+
+func (*lbFrontendReconciler) updateVIPInStatus(frontend *isovalentv1alpha1.LBFrontend, vip *isovalentv1alpha1.LBVIP) {
+	vipExistsCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeVIPExist,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.VIPExistConditionReasonVIPExists,
+		Message:            "Referenced VIP exist",
+		ObservedGeneration: frontend.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if vip == nil {
+		vipExistsCondition.Status = metav1.ConditionFalse
+		vipExistsCondition.Reason = isovalentv1alpha1.VIPExistConditionReasonVIPMissing
+		vipExistsCondition.Message = fmt.Sprintf("Referenced VIP %v is missing", frontend.Spec.VIPRef.Name)
+	}
+
+	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
 }
 
 func (*lbFrontendReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.LBFrontend, missingBackends []string) {

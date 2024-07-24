@@ -157,6 +157,7 @@ type LBFrontendStatus struct {
 
 const (
 	ConditionTypeIPAssigned    = "lb.cilium.io/IPAssigned"
+	ConditionTypeVIPExist      = "lb.cilium.io/VIPExist"
 	ConditionTypeBackendsExist = "lb.cilium.io/BackendsExist"
 	ConditionTypeSecretsExist  = "lb.cilium.io/SecretsExist"
 )
@@ -164,6 +165,11 @@ const (
 const (
 	IPAssignedConditionReasonIPPending  = "IPPending"
 	IPAssignedConditionReasonIPAssigned = "IPAssigned"
+)
+
+const (
+	VIPExistConditionReasonVIPExists  = "VIPExists"
+	VIPExistConditionReasonVIPMissing = "VIPMissing"
 )
 
 const (
