@@ -30,7 +30,6 @@ TLS_CERT_BASE64_4=$(cat ${script_dir}/tls-secure-backend.crt | base64)
 TLS_KEY_BASE64_4=$(cat ${script_dir}/tls-secure-backend.key | base64)
 docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_4" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_4" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.3
 
-
 TLS_CERT_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.crt | base64)
 TLS_KEY_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.key | base64)
 docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_5" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_5" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.3
@@ -65,6 +64,7 @@ kubectl patch bgpp frr --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spe
 # LB TLS secret for LB frontend
 kubectl -n default delete secret test-secure 2>/dev/null || true
 kubectl -n default delete secret test-secure80 2>/dev/null || true
+kubectl -n default delete secret test-secure-http2 2>/dev/null || true
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure.key" -out "${script_dir}/tls-secure.crt" -subj "/CN=secure.acme.io"
 kubectl -n default create secret tls test-secure --key="${script_dir}/tls-secure.key" --cert="${script_dir}/tls-secure.crt"
@@ -73,6 +73,10 @@ docker cp ${script_dir}/tls-secure.crt frr:/tmp/tls-secure.crt
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure80.key" -out "${script_dir}/tls-secure80.crt" -subj "/CN=secure-80.acme.io"
 kubectl -n default create secret tls test-secure80 --key="${script_dir}/tls-secure80.key" --cert="${script_dir}/tls-secure80.crt"
 docker cp ${script_dir}/tls-secure80.crt frr:/tmp/tls-secure80.crt
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure-http2.key" -out "${script_dir}/tls-secure-http2.crt" -subj "/CN=secure-http2.acme.io"
+kubectl -n default create secret tls test-secure-http2 --key="${script_dir}/tls-secure-http2.key" --cert="${script_dir}/tls-secure-http2.crt"
+docker cp ${script_dir}/tls-secure-http2.crt frr:/tmp/tls-secure-http2.crt
 
 # LB vips, frontends, backends & ippools
 kubectl apply -f "${script_dir}/example/lb-vips.yaml"

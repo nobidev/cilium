@@ -1,0 +1,24 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  applications:
+    httpProxy:
+      httpConfig:
+        enableHTTP11: false
+        enableHTTP2: true
+      routes:
+        - backendRef:
+            name: lb-1
+        - match:
+            hostNames:
+              - "bar.acme.io"
+            path:
+              exact: "/api"
+          backendRef:
+            name: lb-2

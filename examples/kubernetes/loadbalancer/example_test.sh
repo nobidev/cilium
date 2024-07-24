@@ -9,14 +9,15 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -n "Waiting until VIPs have been assigned "
 while :; do
-  VIP_LB1=$(kubectl -n default get lbvip lb-1   -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB1=$(kubectl -n default get lbvip lb-1 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB2=$(kubectl -n default get lbvip lb-2-3 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB3=$(kubectl -n default get lbvip lb-2-3 -ojson | jq -r '.status.addresses.ipv4')
-  VIP_LB4=$(kubectl -n default get lbvip lb-4   -ojson | jq -r '.status.addresses.ipv4')
-  VIP_LB5=$(kubectl -n default get lbvip lb-5   -ojson | jq -r '.status.addresses.ipv4')
-  VIP_LB6=$(kubectl -n default get lbvip lb-6   -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB4=$(kubectl -n default get lbvip lb-4 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB5=$(kubectl -n default get lbvip lb-5 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB6=$(kubectl -n default get lbvip lb-6 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB7=$(kubectl -n default get lbvip lb-7 -ojson | jq -r '.status.addresses.ipv4')
 
-  if [ "${VIP_LB1}" != "" ] && [ "${VIP_LB2}" != "" ] && [ "${VIP_LB3}" != "" ] && [ "${VIP_LB4}" != "" ] && [ "${VIP_LB5}" != "" ] && [ "${VIP_LB6}" != "" ]; then
+  if [ "${VIP_LB1}" != "" ] && [ "${VIP_LB2}" != "" ] && [ "${VIP_LB3}" != "" ] && [ "${VIP_LB4}" != "" ] && [ "${VIP_LB5}" != "" ] && [ "${VIP_LB6}" != "" ] && [ "${VIP_LB7}" != "" ]; then
     break
   fi
 
@@ -34,3 +35,5 @@ docker exec frr bash -c "echo -n 'HTTP     frontend4: ' && curl -s --resolve mix
 docker exec frr bash -c "echo -n 'HTTPS    frontend5: ' && curl -s --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:${VIP_LB5} https://secure-80.acme.io:80/"
 docker exec frr bash -c "echo -n 'TLS PT 1 frontend6: ' && curl -s --cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:${VIP_LB6} https://passthrough.acme.io:80/"
 docker exec frr bash -c "echo -n 'TLS PT 2 frontend6: ' && curl -s --cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:${VIP_LB6} https://passthrough-2.acme.io:80/"
+docker exec frr bash -c "echo -n 'HTTP H2  frontend4: ' && httpVersion=\$(curl -s --http2-prior-knowledge -o/dev/null -w '%{http_version}' --resolve mixed.acme.io:80:${VIP_LB4} http://mixed.acme.io:80/) && echo Version \$httpVersion && if [ \$httpVersion != '2' ]; then exit 1; fi"
+docker exec frr bash -c "echo -n 'HTTPS H2 frontend7: ' && httpVersion=\$(curl -s -o/dev/null -w '%{http_version}' --cacert /tmp/tls-secure-http2.crt --resolve secure-http2.acme.io:443:${VIP_LB7} https://secure-http2.acme.io:443/) && echo Version \$httpVersion && if [ \$httpVersion != '2' ]; then exit 1; fi"

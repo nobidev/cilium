@@ -171,7 +171,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
 						AccessLog:  r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix: "frontend_listener_http",
-						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
+						CodecType:  r.toCodecType(model.applications.getHTTPHTTPConfig()),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
 							{
@@ -199,7 +199,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 	}
 }
 
-func toHTTPSServerNames(model *lbFrontend) []string {
+func (r *lbFrontendReconciler) toHTTPSServerNames(model *lbFrontend) []string {
 	// get all HTTPS hostnames
 	httpsDomainNames := []string{}
 
@@ -223,7 +223,42 @@ func toHTTPSServerNames(model *lbFrontend) []string {
 	return slices.Compact(serverNames)
 }
 
-func toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
+func (r *lbFrontendReconciler) toCodecType(httpConfig *lbFrontendHTTPConfig) envoy_hcm_v3.HttpConnectionManager_CodecType {
+	if httpConfig == nil {
+		return envoy_hcm_v3.HttpConnectionManager_AUTO
+	}
+
+	if httpConfig.enableHTTP11 && !httpConfig.enableHTTP2 {
+		return envoy_hcm_v3.HttpConnectionManager_HTTP1
+	}
+
+	if httpConfig.enableHTTP2 && !httpConfig.enableHTTP11 {
+		return envoy_hcm_v3.HttpConnectionManager_HTTP2
+	}
+
+	return envoy_hcm_v3.HttpConnectionManager_AUTO
+}
+
+func (r *lbFrontendReconciler) toAlpnProtocols(model *lbFrontend) []string {
+	if model.applications.httpsProxy == nil || model.applications.httpsProxy.httpConfig == nil {
+		return nil
+	}
+
+	alpnProtocols := []string{}
+
+	// Note: be aware that the order of ALPN protocols matters
+	if model.applications.httpsProxy.httpConfig.enableHTTP2 {
+		alpnProtocols = append(alpnProtocols, "h2")
+	}
+
+	if model.applications.httpsProxy.httpConfig.enableHTTP11 {
+		alpnProtocols = append(alpnProtocols, "http/1.1")
+	}
+
+	return alpnProtocols
+}
+
+func (r *lbFrontendReconciler) toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
 	// remove duplicates and raw '*' that is not allowed by Envoy
 	serverNames := []string{}
 	for _, dn := range tlsPassthroughHostNames {
@@ -258,7 +293,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "tls",
-			ServerNames:       toHTTPSServerNames(model),
+			ServerNames:       r.toHTTPSServerNames(model),
 		},
 		TransportSocket: &envoy_corev3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -266,6 +301,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 				TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
 					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: r.toSdsConfigs(model),
+						AlpnProtocols:                  r.toAlpnProtocols(model),
 					},
 				}),
 			},
@@ -277,7 +313,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
 						AccessLog:  r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix: "frontend_listener_https",
-						CodecType:  envoy_hcm_v3.HttpConnectionManager_AUTO,
+						CodecType:  r.toCodecType(model.applications.getHTTPSHTTPConfig()),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							{
 								Name: "envoy.filters.http.router",
@@ -308,7 +344,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mo
 		f := &envoy_config_listener_v3.FilterChain{
 			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 				TransportProtocol: "tls",
-				ServerNames:       toTLSPassthroughServerNames(tr.match.hostNames),
+				ServerNames:       r.toTLSPassthroughServerNames(tr.match.hostNames),
 			},
 			Filters: []*envoy_config_listener_v3.Filter{
 				{

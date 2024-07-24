@@ -61,6 +61,17 @@ spec:
                 properties:
                   httpProxy:
                     properties:
+                      httpConfig:
+                        properties:
+                          enableHTTP2:
+                            type: boolean
+                          enableHTTP11:
+                            type: boolean
+                        type: object
+                        x-kubernetes-validations:
+                        - message: At least one http version must be enabled
+                          rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
+                            && self.enableHTTP2)
                       routes:
                         items:
                           properties:
@@ -105,6 +116,17 @@ spec:
                     type: object
                   httpsProxy:
                     properties:
+                      httpConfig:
+                        properties:
+                          enableHTTP2:
+                            type: boolean
+                          enableHTTP11:
+                            type: boolean
+                        type: object
+                        x-kubernetes-validations:
+                        - message: At least one http version must be enabled
+                          rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
+                            && self.enableHTTP2)
                       routes:
                         items:
                           properties:

@@ -43,6 +43,11 @@ func getOwningResourceName(parentName string) string {
 	return shortener.ShortenK8sResourceName(name)
 }
 
+type lbFrontendHTTPConfig struct {
+	enableHTTP11 bool
+	enableHTTP2  bool
+}
+
 type lbFrontendTLSConfig struct {
 	certificateSecrets []string
 }
@@ -92,13 +97,31 @@ func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
 	return r.tlsPassthrough.routes
 }
 
+func (r lbApplications) getHTTPHTTPConfig() *lbFrontendHTTPConfig {
+	if r.httpProxy == nil {
+		return nil
+	}
+
+	return r.httpProxy.httpConfig
+}
+
+func (r lbApplications) getHTTPSHTTPConfig() *lbFrontendHTTPConfig {
+	if r.httpsProxy == nil {
+		return nil
+	}
+
+	return r.httpsProxy.httpConfig
+}
+
 type lbApplicationHTTPProxy struct {
-	routes []lbRouteHTTP
+	httpConfig *lbFrontendHTTPConfig
+	routes     []lbRouteHTTP
 }
 
 type lbApplicationHTTPSProxy struct {
-	tlsConfig *lbFrontendTLSConfig
-	routes    []lbRouteHTTPS
+	httpConfig *lbFrontendHTTPConfig
+	tlsConfig  *lbFrontendTLSConfig
+	routes     []lbRouteHTTPS
 }
 
 type lbApplicationTLSPassthrough struct {

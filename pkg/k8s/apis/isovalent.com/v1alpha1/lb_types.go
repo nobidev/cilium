@@ -58,16 +58,31 @@ type LBFrontendApplications struct {
 }
 
 type LBFrontendApplicationHTTPProxy struct {
+	// +kubebuilder:validation:Optional
+	HTTPConfig *LBFrontendHTTPConfig `json:"httpConfig,omitempty"`
+
 	// +kubebuilder:validation:Required
 	Routes []LBFrontendHTTPRoute `json:"routes"`
 }
 
 type LBFrontendApplicationHTTPSProxy struct {
 	// +kubebuilder:validation:Optional
+	HTTPConfig *LBFrontendHTTPConfig `json:"httpConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	TLSConfig *LBFrontendTLSConfig `json:"tlsConfig,omitempty"`
 
 	// +kubebuilder:validation:Required
 	Routes []LBFrontendHTTPRoute `json:"routes"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one http version must be enabled",rule="(has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2) && self.enableHTTP2)"
+type LBFrontendHTTPConfig struct {
+	// +kubebuilder:validation:Optional
+	EnableHTTP11 *bool `json:"enableHTTP11,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
 type LBFrontendApplicationTLSPassthrough struct {

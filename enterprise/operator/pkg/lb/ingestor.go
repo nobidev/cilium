@@ -37,7 +37,18 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alp
 	}, nil
 }
 
-func (*ingestor) toTLS(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLSConfig {
+func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBFrontendHTTPConfig) *lbFrontendHTTPConfig {
+	if httpConfig == nil {
+		return nil
+	}
+
+	return &lbFrontendHTTPConfig{
+		enableHTTP11: httpConfig.EnableHTTP11 != nil && *httpConfig.EnableHTTP11,
+		enableHTTP2:  httpConfig.EnableHTTP2 != nil && *httpConfig.EnableHTTP2,
+	}
+}
+
+func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLSConfig {
 	if frontend.Spec.Applications.HTTPSProxy == nil || frontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return nil
 	}
@@ -107,7 +118,8 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 	}
 
 	return &lbApplicationHTTPProxy{
-		routes: routes,
+		httpConfig: r.toHTTPConfig(frontend.Spec.Applications.HTTPProxy.HTTPConfig),
+		routes:     routes,
 	}
 }
 
@@ -157,8 +169,9 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 	}
 
 	return &lbApplicationHTTPSProxy{
-		tlsConfig: r.toTLS(frontend),
-		routes:    routes,
+		httpConfig: r.toHTTPConfig(frontend.Spec.Applications.HTTPSProxy.HTTPConfig),
+		tlsConfig:  r.toTLSConfig(frontend),
+		routes:     routes,
 	}
 }
 
