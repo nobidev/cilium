@@ -13,13 +13,15 @@ spec:
         certificates:
           - secretName: "test"
       routes:
-        - hostNames:
-            - "bar.acme.io"
+        - match:
+            hostNames:
+              - "bar.acme.io"
           backendRef:
             name: lb-1
     tlsPassthrough:
       routes:
-        - hostNames:
-            - "foo.acme.io"
+        - match:
+            hostNames:
+              - "foo.acme.io"
           backendRef:
             name: lb-1

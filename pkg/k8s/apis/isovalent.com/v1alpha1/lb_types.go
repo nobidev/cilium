@@ -94,13 +94,18 @@ type LBFrontendTLSCertificate struct {
 
 type LBFrontendHTTPRoute struct {
 	// +kubebuilder:validation:Optional
-	HostNames []LBFrontendHostName `json:"hostNames"`
-
-	// +kubebuilder:validation:Optional
-	Path *LBFrontendHTTPPath `json:"path,omitempty"`
+	Match *LBFrontendHTTPRouteMatch `json:"match,omitempty"`
 
 	// +kubebuilder:validation:Required
 	BackendRef LBFrontendBackendRef `json:"backendRef"`
+}
+
+type LBFrontendHTTPRouteMatch struct {
+	// +kubebuilder:validation:Optional
+	HostNames []LBFrontendHostName `json:"hostNames,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Path *LBFrontendHTTPPath `json:"path,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
@@ -116,10 +121,15 @@ type LBFrontendHTTPPath struct {
 
 type LBFrontendTLSPassthroughRoute struct {
 	// +kubebuilder:validation:Optional
-	HostNames []LBFrontendHostName `json:"hostNames"`
+	Match *LBFrontendTLSPassthroughRouteMatch `json:"match"`
 
 	// +kubebuilder:validation:Required
 	BackendRef LBFrontendBackendRef `json:"backendRef"`
+}
+
+type LBFrontendTLSPassthroughRouteMatch struct {
+	// +kubebuilder:validation:Optional
+	HostNames []LBFrontendHostName `json:"hostNames,omitempty"`
 }
 
 type LBFrontendVIPRef struct {

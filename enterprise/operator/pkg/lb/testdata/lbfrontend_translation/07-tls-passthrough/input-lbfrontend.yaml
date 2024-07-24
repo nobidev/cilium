@@ -10,8 +10,9 @@ spec:
   applications:
     tlsPassthrough:
       routes:
-        - hostNames:
-            - "foo.acme.io"
+        - match:
+            hostNames:
+              - "foo.acme.io"
           backendRef:
             name: lb-1
         - backendRef:

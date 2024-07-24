@@ -13,8 +13,9 @@ spec:
         certificates:
           - secretName: "test-secure"
       routes:
-        - hostNames:
-            - "secure.acme.io"
+        - match:
+            hostNames:
+              - "secure.acme.io"
           backendRef:
             name: lb-1
 ---
@@ -30,10 +31,11 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "insecure.acme.io"
-          path:
-            exact: "/api/foo-insecure"
+        - match:
+            hostNames:
+              - "insecure.acme.io"
+            path:
+              exact: "/api/foo-insecure"
           backendRef:
             name: lb-2
 ---
@@ -64,8 +66,9 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "mixed.acme.io"
+        - match:
+            hostNames:
+              - "mixed.acme.io"
           backendRef:
             name: lb-4
 ---
@@ -84,8 +87,9 @@ spec:
         certificates:
           - secretName: "test-secure80"
       routes:
-        - hostNames:
-            - "secure-80.acme.io"
+        - match:
+            hostNames:
+              - "secure-80.acme.io"
           backendRef:
             name: lb-5
 ---
@@ -101,8 +105,9 @@ spec:
   applications:
     tlsPassthrough:
       routes:
-        - hostNames:
-            - "passthrough.acme.io"
+        - match:
+            hostNames:
+              - "passthrough.acme.io"
           backendRef:
             name: lb-6
         - backendRef:

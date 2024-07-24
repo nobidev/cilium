@@ -80,12 +80,14 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 			continue
 		}
 
-		pathType, path := toPath(lr)
+		pathType, path := toPath(lr.Match)
 
 		routes = append(routes, lbRouteHTTP{
-			hostNames: r.toHostNames(lr.HostNames),
-			pathType:  pathType,
-			path:      path,
+			match: lbRouteHTTPMatch{
+				hostNames: r.toHTTPHostNames(lr.Match),
+				pathType:  pathType,
+				path:      path,
+			},
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
 				hostnames:   []lbBackend{},
@@ -128,12 +130,14 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 			continue
 		}
 
-		pathType, path := toPath(lr)
+		pathType, path := toPath(lr.Match)
 
 		routes = append(routes, lbRouteHTTPS{
-			hostNames: r.toHostNames(lr.HostNames),
-			pathType:  pathType,
-			path:      path,
+			match: lbRouteHTTPMatch{
+				hostNames: r.toHTTPHostNames(lr.Match),
+				pathType:  pathType,
+				path:      path,
+			},
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
 				hostnames:   []lbBackend{},
@@ -158,17 +162,17 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 	}
 }
 
-func toPath(lr isovalentv1alpha1.LBFrontendHTTPRoute) (pathTypeType, string) {
+func toPath(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) (pathTypeType, string) {
 	pathType := pathTypePrefix
 	path := "/"
 
-	if lr.Path != nil {
-		if lr.Path.Prefix != nil {
+	if match != nil && match.Path != nil {
+		if match.Path.Prefix != nil {
 			pathType = pathTypePrefix
-			path = *lr.Path.Prefix
-		} else if lr.Path.Exact != nil {
+			path = *match.Path.Prefix
+		} else if match.Path.Exact != nil {
 			pathType = pathTypeExact
-			path = *lr.Path.Exact
+			path = *match.Path.Exact
 		}
 	}
 
@@ -195,7 +199,9 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 		}
 
 		routes = append(routes, lbRouteTLSPassthrough{
-			hostNames: r.toHostNames(lr.HostNames),
+			match: lbRouteTLSPassthroughMatch{
+				hostNames: r.toTLSPassthroughHostNames(lr.Match),
+			},
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
 				hostnames:   []lbBackend{},
@@ -250,13 +256,26 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBacke
 	return ipBackends
 }
 
-func (r *ingestor) toHostNames(crdHostnames []isovalentv1alpha1.LBFrontendHostName) []string {
-	if len(crdHostnames) == 0 {
+func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) []string {
+	if match == nil || len(match.HostNames) == 0 {
 		return []string{"*"}
 	}
 
 	hostNames := []string{}
-	for _, h := range crdHostnames {
+	for _, h := range match.HostNames {
+		hostNames = append(hostNames, string(h))
+	}
+
+	return hostNames
+}
+
+func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBFrontendTLSPassthroughRouteMatch) []string {
+	if match == nil || len(match.HostNames) == 0 {
+		return []string{"*"}
+	}
+
+	hostNames := []string{}
+	for _, h := range match.HostNames {
 		hostNames = append(hostNames, string(h))
 	}
 

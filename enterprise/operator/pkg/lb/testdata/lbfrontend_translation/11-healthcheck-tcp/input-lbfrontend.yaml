@@ -10,7 +10,8 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "bla.acme.io"
+        - match:
+            hostNames:
+              - "bla.acme.io"
           backendRef:
             name: lb-1

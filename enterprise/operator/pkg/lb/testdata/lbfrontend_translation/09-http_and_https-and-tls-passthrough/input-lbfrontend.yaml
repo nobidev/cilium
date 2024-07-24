@@ -10,8 +10,9 @@ spec:
   applications:
     httpProxy:
       routes:
-        - hostNames:
-            - "bla.acme.io"
+        - match:
+            hostNames:
+              - "bla.acme.io"
           backendRef:
             name: lb-1
     httpsProxy:
@@ -19,13 +20,15 @@ spec:
         certificates:
           - secretName: "test"
       routes:
-        - hostNames:
-            - "foo.acme.io"
+        - match:
+            hostNames:
+              - "foo.acme.io"
           backendRef:
             name: lb-1
     tlsPassthrough:
       routes:
-        - hostNames:
-            - "passthrough.acme.io"
+        - match:
+            hostNames:
+              - "passthrough.acme.io"
           backendRef:
             name: lb-1

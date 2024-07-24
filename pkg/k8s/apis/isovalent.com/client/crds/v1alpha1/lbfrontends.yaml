@@ -72,27 +72,30 @@ spec:
                               required:
                               - name
                               type: object
-                            hostNames:
-                              items:
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              type: array
-                            path:
+                            match:
                               properties:
-                                exact:
-                                  minLength: 1
-                                  type: string
-                                prefix:
-                                  minLength: 1
-                                  type: string
+                                hostNames:
+                                  items:
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                  type: array
+                                path:
+                                  properties:
+                                    exact:
+                                      minLength: 1
+                                      type: string
+                                    prefix:
+                                      minLength: 1
+                                      type: string
+                                  type: object
+                                  x-kubernetes-validations:
+                                  - message: Exactly one path type (exact or prefix)
+                                      must be specified
+                                    rule: (has(self.exact) || has(self.prefix)) &&
+                                      !(has(self.exact) && has(self.prefix))
                               type: object
-                              x-kubernetes-validations:
-                              - message: Exactly one path type (exact or prefix) must
-                                  be specified
-                                rule: (has(self.exact) || has(self.prefix)) && !(has(self.exact)
-                                  && has(self.prefix))
                           required:
                           - backendRef
                           type: object
@@ -113,27 +116,30 @@ spec:
                               required:
                               - name
                               type: object
-                            hostNames:
-                              items:
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              type: array
-                            path:
+                            match:
                               properties:
-                                exact:
-                                  minLength: 1
-                                  type: string
-                                prefix:
-                                  minLength: 1
-                                  type: string
+                                hostNames:
+                                  items:
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                  type: array
+                                path:
+                                  properties:
+                                    exact:
+                                      minLength: 1
+                                      type: string
+                                    prefix:
+                                      minLength: 1
+                                      type: string
+                                  type: object
+                                  x-kubernetes-validations:
+                                  - message: Exactly one path type (exact or prefix)
+                                      must be specified
+                                    rule: (has(self.exact) || has(self.prefix)) &&
+                                      !(has(self.exact) && has(self.prefix))
                               type: object
-                              x-kubernetes-validations:
-                              - message: Exactly one path type (exact or prefix) must
-                                  be specified
-                                rule: (has(self.exact) || has(self.prefix)) && !(has(self.exact)
-                                  && has(self.prefix))
                           required:
                           - backendRef
                           type: object
@@ -170,13 +176,16 @@ spec:
                               required:
                               - name
                               type: object
-                            hostNames:
-                              items:
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              type: array
+                            match:
+                              properties:
+                                hostNames:
+                                  items:
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                  type: array
+                              type: object
                           required:
                           - backendRef
                           type: object

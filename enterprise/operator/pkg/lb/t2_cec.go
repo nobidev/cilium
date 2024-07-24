@@ -205,7 +205,7 @@ func toHTTPSServerNames(model *lbFrontend) []string {
 
 	if model.applications.httpsProxy != nil {
 		for _, lr := range model.applications.httpsProxy.routes {
-			httpsDomainNames = append(httpsDomainNames, lr.hostNames...)
+			httpsDomainNames = append(httpsDomainNames, lr.match.hostNames...)
 		}
 	}
 
@@ -215,8 +215,6 @@ func toHTTPSServerNames(model *lbFrontend) []string {
 		if dn == "*" {
 			continue
 		}
-
-		// TODO: validate for * only as starting prefix with *.
 
 		serverNames = append(serverNames, dn)
 	}
@@ -232,8 +230,6 @@ func toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
 		if dn == "*" {
 			continue
 		}
-
-		// TODO: validate for * only as starting prefix with *.
 
 		serverNames = append(serverNames, dn)
 	}
@@ -312,7 +308,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mo
 		f := &envoy_config_listener_v3.FilterChain{
 			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 				TransportProtocol: "tls",
-				ServerNames:       toTLSPassthroughServerNames(tr.hostNames),
+				ServerNames:       toTLSPassthroughServerNames(tr.match.hostNames),
 			},
 			Filters: []*envoy_config_listener_v3.Filter{
 				{
@@ -450,14 +446,12 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFronte
 			},
 		}
 
-		httpRoute.Match = toRouteMatch(route.pathType, route.path)
-
-		// TODO: wildcard handling?
+		httpRoute.Match = toRouteMatch(route.match)
 
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: r.toHostNamesWithPort(route.hostNames, int32(80), model.port),
+				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(80), model.port),
 				Routes:  []*envoy_config_route_v3.Route{httpRoute},
 			},
 		)
@@ -491,14 +485,12 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 			},
 		}
 
-		httpRoute.Match = toRouteMatch(route.pathType, route.path)
-
-		// TODO: wildcard handling?
+		httpRoute.Match = toRouteMatch(route.match)
 
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: r.toHostNamesWithPort(route.hostNames, int32(443), model.port),
+				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(443), model.port),
 				Routes:  []*envoy_config_route_v3.Route{httpRoute},
 			},
 		)
@@ -507,18 +499,18 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 	return virtualHosts
 }
 
-func toRouteMatch(pathType pathTypeType, path string) *envoy_config_route_v3.RouteMatch {
-	switch pathType {
+func toRouteMatch(match lbRouteHTTPMatch) *envoy_config_route_v3.RouteMatch {
+	switch match.pathType {
 	case pathTypePrefix:
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-				Prefix: path,
+				Prefix: match.path,
 			},
 		}
 	case pathTypeExact:
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
-				Path: path,
+				Path: match.path,
 			},
 		}
 

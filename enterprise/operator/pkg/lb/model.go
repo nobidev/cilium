@@ -106,17 +106,19 @@ type lbApplicationTLSPassthrough struct {
 }
 
 type lbRouteHTTP struct {
-	hostNames []string
-	path      string
-	pathType  pathTypeType
-	backend   backend
+	match   lbRouteHTTPMatch
+	backend backend
 }
 
 type lbRouteHTTPS struct {
+	match   lbRouteHTTPMatch
+	backend backend
+}
+
+type lbRouteHTTPMatch struct {
 	hostNames []string
 	path      string
 	pathType  pathTypeType
-	backend   backend
 }
 
 type pathTypeType int
@@ -127,8 +129,12 @@ const (
 )
 
 type lbRouteTLSPassthrough struct {
+	match   lbRouteTLSPassthroughMatch
+	backend backend
+}
+
+type lbRouteTLSPassthroughMatch struct {
 	hostNames []string
-	backend   backend
 }
 
 type backend struct {
