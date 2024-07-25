@@ -1,0 +1,138 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 443
+  applications:
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure"
+      routes:
+        - match:
+            hostNames:
+              - "secure.acme.io"
+          backendRef:
+            name: lb-1
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-2
+spec:
+  vipRef:
+    name: lb-2-3
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - match:
+            hostNames:
+              - "insecure.acme.io"
+            path:
+              exact: "/api/foo-insecure"
+          backendRef:
+            name: lb-2
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-3
+spec:
+  vipRef:
+    name: lb-2-3
+  port: 81
+  applications:
+    httpProxy:
+      routes:
+        - backendRef:
+            name: lb-3
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-4
+spec:
+  vipRef:
+    name: lb-4
+  port: 80
+  applications:
+    httpProxy:
+      routes:
+        - match:
+            hostNames:
+              - "mixed.acme.io"
+          backendRef:
+            name: lb-4
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-5
+spec:
+  vipRef:
+    name: lb-5
+  port: 80
+  applications:
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure80"
+      routes:
+        - match:
+            hostNames:
+              - "secure-80.acme.io"
+          backendRef:
+            name: lb-5
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-6
+spec:
+  vipRef:
+    name: lb-6
+  port: 80
+  applications:
+    tlsPassthrough:
+      routes:
+        - match:
+            hostNames:
+              - "passthrough.acme.io"
+          backendRef:
+            name: lb-6
+        - backendRef:
+            name: lb-7
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-7
+spec:
+  vipRef:
+    name: lb-7
+  port: 443
+  applications:
+    httpsProxy:
+      httpConfig:
+        enableHTTP11: true
+        enableHTTP2: true
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure-http2"
+      routes:
+        - match:
+            hostNames:
+              - "secure-http2.acme.io"
+          backendRef:
+            name: lb-5

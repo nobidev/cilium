@@ -198,19 +198,19 @@ jobs:
           kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
           cilium status --wait
 
-      - name: Install applications and setup LB
+      - name: Install client and LB applications
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          ./examples/kubernetes/loadbalancer/example_install.sh
+          ./test/l4l7lb/loadbalancer/install_client_n_apps.sh
 
       - name: Run tests
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          ./examples/kubernetes/loadbalancer/example_test.sh
+          DOCKER_API_VERSION=1.45 go test -test.v ./test/l4l7lb
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
