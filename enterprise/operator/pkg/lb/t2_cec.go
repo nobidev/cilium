@@ -19,7 +19,7 @@ import (
 	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_corev3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_endpointv3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	envoy_config_endpoint_v3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener_v3 "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
@@ -73,7 +73,7 @@ func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*cil
 		envoyResources = append(envoyResources, routeConfigXdsResource)
 	}
 
-	// Backend(s)-> Envoy Cluster(s)
+	// Backend(s)-> Envoy Cluster(s) & Envoy Endpoints (ClusterLoadAssignments)
 
 	clusters := r.desiredEnvoyClusters(model)
 
@@ -84,6 +84,17 @@ func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*cil
 		}
 
 		envoyResources = append(envoyResources, clusterXdsResource)
+	}
+
+	endpoints := r.desiredEnvoyEndpoints(model)
+
+	for _, e := range endpoints {
+		endpointXdsResource, err := toXdsResource(e, envoy.EndpointTypeURL)
+		if err != nil {
+			return nil, err
+		}
+
+		envoyResources = append(envoyResources, endpointXdsResource)
 	}
 
 	return &ciliumv2.CiliumEnvoyConfig{
@@ -679,23 +690,10 @@ func (r *lbFrontendReconciler) desiredEnvoyClusters(model *lbFrontend) []*envoy_
 }
 
 func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
-	lbEndpoints := make([]*envoy_endpointv3.LbEndpoint, 0, len(b.ips))
-
-	for _, ipBackends := range b.ips {
-		lbEndpoints = append(lbEndpoints, &envoy_endpointv3.LbEndpoint{
-			HostIdentifier: &envoy_endpointv3.LbEndpoint_Endpoint{Endpoint: &envoy_endpointv3.Endpoint{
-				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
-					Address:       ipBackends.address,
-					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
-				}}},
-			}},
-		})
-	}
-
 	return &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-			Type: envoy_config_cluster_v3.Cluster_STATIC,
+			Type: envoy_config_cluster_v3.Cluster_EDS,
 		},
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
@@ -705,14 +703,6 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 		TransportSocketMatches: transportSocketMatches,
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
 		LbPolicy:               mapLbPolicy(b.lbAlgorithm),
-		LoadAssignment: &envoy_endpointv3.ClusterLoadAssignment{
-			ClusterName: name,
-			Endpoints: []*envoy_endpointv3.LocalityLbEndpoints{
-				{
-					LbEndpoints: lbEndpoints,
-				},
-			},
-		},
 	}
 }
 
@@ -752,6 +742,52 @@ func (r *lbFrontendReconciler) toClusterHealthCheckerHTTP(healthCheckConfig lbBa
 func (r *lbFrontendReconciler) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_corev3.HealthCheck_TcpHealthCheck_ {
 	return &envoy_corev3.HealthCheck_TcpHealthCheck_{
 		TcpHealthCheck: &envoy_corev3.HealthCheck_TcpHealthCheck{},
+	}
+}
+
+func (r *lbFrontendReconciler) desiredEnvoyEndpoints(model *lbFrontend) []*envoy_config_endpoint_v3.ClusterLoadAssignment {
+	endpoints := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
+
+	if model.applications.httpProxy != nil {
+		for i, lrh := range model.applications.httpProxy.routes {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_http_%d", i), lrh.backend))
+		}
+	}
+	if model.applications.httpsProxy != nil {
+		for i, lrh := range model.applications.httpsProxy.routes {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_https_%d", i), lrh.backend))
+		}
+	}
+	if model.applications.tlsPassthrough != nil {
+		for i, lrh := range model.applications.tlsPassthrough.routes {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tlspt_%d", i), lrh.backend))
+		}
+	}
+
+	return endpoints
+}
+
+func (r *lbFrontendReconciler) desiredEnvoyEndpoint(name string, b backend) *envoy_config_endpoint_v3.ClusterLoadAssignment {
+	lbEndpoints := make([]*envoy_config_endpoint_v3.LbEndpoint, 0, len(b.ips))
+
+	for _, ipBackends := range b.ips {
+		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
+			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
+				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
+					Address:       ipBackends.address,
+					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
+				}}},
+			}},
+		})
+	}
+
+	return &envoy_config_endpoint_v3.ClusterLoadAssignment{
+		ClusterName: name,
+		Endpoints: []*envoy_config_endpoint_v3.LocalityLbEndpoints{
+			{
+				LbEndpoints: lbEndpoints,
+			},
+		},
 	}
 }
 

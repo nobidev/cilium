@@ -84,19 +84,19 @@ spec:
           unhealthyEdgeInterval: 15s
           unhealthyInterval: 15s
           unhealthyThreshold: 2
-      loadAssignment:
-        clusterName: backend_cluster_http_0
-        endpoints:
-          - lbEndpoints:
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.5
-                      portValue: 8080
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.6
-                      portValue: 8080
       name: backend_cluster_http_0
-      type: STATIC
+      type: EDS
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_0
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.5
+                    portValue: 8080
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.6
+                    portValue: 8080

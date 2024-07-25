@@ -95,22 +95,8 @@ spec:
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
-      loadAssignment:
-        clusterName: backend_cluster_http_0
-        endpoints:
-          - lbEndpoints:
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.5
-                      portValue: 8080
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.6
-                      portValue: 8080
       name: backend_cluster_http_0
-      type: STATIC
+      type: EDS
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -125,19 +111,33 @@ spec:
           unhealthyEdgeInterval: 20s
           unhealthyInterval: 20s
           unhealthyThreshold: 1
-      loadAssignment:
-        clusterName: backend_cluster_http_1
-        endpoints:
-          - lbEndpoints:
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.7
-                      portValue: 8080
-              - endpoint:
-                  address:
-                    socketAddress:
-                      address: 172.18.0.8
-                      portValue: 8080
       name: backend_cluster_http_1
-      type: STATIC
+      type: EDS
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_0
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.5
+                    portValue: 8080
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.6
+                    portValue: 8080
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_1
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.7
+                    portValue: 8080
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.8
+                    portValue: 8080
