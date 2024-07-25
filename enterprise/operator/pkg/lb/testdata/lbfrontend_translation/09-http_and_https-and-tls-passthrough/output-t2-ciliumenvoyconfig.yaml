@@ -82,6 +82,9 @@ spec:
             typedConfig:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
+                alpnProtocols:
+                  - h2
+                  - http/1.1
                 tlsCertificateSdsSecretConfigs:
                   - name: /default-test
         - filterChainMatch:

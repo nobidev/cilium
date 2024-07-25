@@ -38,13 +38,20 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alp
 }
 
 func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBFrontendHTTPConfig) *lbFrontendHTTPConfig {
-	if httpConfig == nil {
-		return nil
+	http11Enabled := true
+	http2Enabled := true
+
+	if httpConfig != nil && httpConfig.EnableHTTP11 != nil {
+		http11Enabled = *httpConfig.EnableHTTP11
+	}
+
+	if httpConfig != nil && httpConfig.EnableHTTP2 != nil {
+		http2Enabled = *httpConfig.EnableHTTP2
 	}
 
 	return &lbFrontendHTTPConfig{
-		enableHTTP11: httpConfig.EnableHTTP11 != nil && *httpConfig.EnableHTTP11,
-		enableHTTP2:  httpConfig.EnableHTTP2 != nil && *httpConfig.EnableHTTP2,
+		enableHTTP11: http11Enabled,
+		enableHTTP2:  http2Enabled,
 	}
 }
 
