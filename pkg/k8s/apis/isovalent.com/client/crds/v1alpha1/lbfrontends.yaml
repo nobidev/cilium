@@ -110,6 +110,7 @@ spec:
                           required:
                           - backendRef
                           type: object
+                        minItems: 1
                         type: array
                     required:
                     - routes
@@ -165,6 +166,7 @@ spec:
                           required:
                           - backendRef
                           type: object
+                        minItems: 1
                         type: array
                       tlsConfig:
                         properties:
@@ -211,6 +213,7 @@ spec:
                           required:
                           - backendRef
                           type: object
+                        minItems: 1
                         type: array
                     required:
                     - routes

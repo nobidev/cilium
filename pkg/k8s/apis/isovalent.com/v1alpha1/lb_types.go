@@ -62,6 +62,7 @@ type LBFrontendApplicationHTTPProxy struct {
 	HTTPConfig *LBFrontendHTTPConfig `json:"httpConfig,omitempty"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
 	Routes []LBFrontendHTTPRoute `json:"routes"`
 }
 
@@ -73,6 +74,7 @@ type LBFrontendApplicationHTTPSProxy struct {
 	TLSConfig *LBFrontendTLSConfig `json:"tlsConfig,omitempty"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
 	Routes []LBFrontendHTTPRoute `json:"routes"`
 }
 
@@ -87,6 +89,7 @@ type LBFrontendHTTPConfig struct {
 
 type LBFrontendApplicationTLSPassthrough struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
 	Routes []LBFrontendTLSPassthroughRoute `json:"routes"`
 }
 
