@@ -203,14 +203,14 @@ jobs:
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          ./test/l4l7lb/loadbalancer/install_client_n_apps.sh
+          ./enterprise/test/l4l7lb/install_client_n_apps.sh
 
       - name: Run tests
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          DOCKER_API_VERSION=1.45 go test -test.v ./test/l4l7lb
+          DOCKER_API_VERSION=1.45 go test -test.v ./enterprise/test/l4l7lb
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
