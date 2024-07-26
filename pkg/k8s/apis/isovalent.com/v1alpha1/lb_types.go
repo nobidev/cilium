@@ -46,6 +46,7 @@ type LBFrontendSpec struct {
 	Applications LBFrontendApplications `json:"applications"`
 }
 
+// +kubebuilder:validation:XValidation:message="Exactly one application (httpProxy, httpsProxy or tlsPassthrough) must be specified",rule="(has(self.httpProxy) || has(self.httpsProxy) || has(self.tlsPassthrough)) && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy) && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))"
 type LBFrontendApplications struct {
 	// +kubebuilder:validation:Optional
 	HTTPProxy *LBFrontendApplicationHTTPProxy `json:"httpProxy,omitempty"`
