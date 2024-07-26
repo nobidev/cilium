@@ -53,6 +53,7 @@ spec:
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
+                serverName: ilb
                 statPrefix: frontend_listener_http
         - filterChainMatch:
             serverNames:
@@ -77,6 +78,7 @@ spec:
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_https
+                serverName: ilb
                 statPrefix: frontend_listener_https
           transportSocket:
             name: envoy.transport_sockets.tls

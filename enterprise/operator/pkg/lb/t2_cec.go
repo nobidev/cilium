@@ -181,6 +181,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						ServerName:    r.config.ServerName,
 						AccessLog:     r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix:    "frontend_listener_http",
 						CodecType:     r.toCodecType(model.applications.getHTTPHTTPConfig()),
@@ -324,6 +325,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+						ServerName:    r.config.ServerName,
 						AccessLog:     r.desiredEnvoyHTTPAccessLoggers(),
 						StatPrefix:    "frontend_listener_https",
 						CodecType:     r.toCodecType(model.applications.getHTTPSHTTPConfig()),

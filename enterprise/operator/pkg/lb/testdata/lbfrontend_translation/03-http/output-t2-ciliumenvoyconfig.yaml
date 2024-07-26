@@ -53,6 +53,7 @@ spec:
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
+                serverName: ilb
                 statPrefix: frontend_listener_http
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
