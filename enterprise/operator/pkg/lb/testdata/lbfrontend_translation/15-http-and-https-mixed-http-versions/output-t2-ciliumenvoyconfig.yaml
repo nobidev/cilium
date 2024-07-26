@@ -51,6 +51,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http
@@ -74,6 +75,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_https
                 statPrefix: frontend_listener_https
