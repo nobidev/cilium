@@ -14,6 +14,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"os"
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,10 @@ const (
 )
 
 func TestLB(t *testing.T) {
+	if os.Getenv("INTEGRATION_TESTS") == "true" {
+		t.Skip("Skipping due to INTEGRATION_TESTS=true")
+	}
+
 	ctx := context.Background()
 
 	clients, err := newClients()
