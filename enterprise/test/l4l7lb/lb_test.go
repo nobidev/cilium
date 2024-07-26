@@ -167,13 +167,13 @@ func TestLB(t *testing.T) {
 	// TODO(brb) wait for FRR route propagation
 
 	testCmds := []string{
-		fmt.Sprintf("curl -s --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vips[1]),
-		fmt.Sprintf("curl -s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", vips[2]),
-		fmt.Sprintf("curl -s http://%s:81/", vips[3]),
-		fmt.Sprintf("curl -s --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vips[4]),
-		fmt.Sprintf("curl -s --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", vips[5]),
-		fmt.Sprintf("curl -s --cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", vips[6]),
-		fmt.Sprintf("curl -s --cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", vips[6]),
+		fmt.Sprintf("curl -s --fail --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vips[1]),
+		fmt.Sprintf("curl -s --fail --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", vips[2]),
+		fmt.Sprintf("curl -s --fail http://%s:81/", vips[3]),
+		fmt.Sprintf("curl -s --fail --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vips[4]),
+		fmt.Sprintf("curl -s --fail --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", vips[5]),
+		fmt.Sprintf("curl -s --fail --cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", vips[6]),
+		fmt.Sprintf("curl -s --fail --cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", vips[6]),
 	}
 
 	for _, cmd := range testCmds {
