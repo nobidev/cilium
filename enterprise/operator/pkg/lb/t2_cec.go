@@ -387,7 +387,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mo
 func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
 	var hcFilter *envoy_accesslog_v3.AccessLogFilter
 
-	if r.config.AccessLogExcludeHC {
+	if r.config.AccessLog.ExcludeHC {
 		// Exclude T1->T2 HC requests by the user-agent
 		hcFilter = &envoy_accesslog_v3.AccessLogFilter{
 			FilterSpecifier: &envoy_accesslog_v3.AccessLogFilter_HeaderFilter{
@@ -419,7 +419,7 @@ func (r *lbFrontendReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslo
 							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
 								TextFormatSource: &envoy_corev3.DataSource{
 									Specifier: &envoy_corev3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", r.config.AccessLogFormatHTTP),
+										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatHTTP),
 									},
 								},
 							},
@@ -445,7 +445,7 @@ func (r *lbFrontendReconciler) desiredEnvoyTLSAccessLoggers() []*envoy_accesslog
 							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
 								TextFormatSource: &envoy_corev3.DataSource{
 									Specifier: &envoy_corev3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", r.config.AccessLogFormatTLS),
+										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTLS),
 									},
 								},
 							},

@@ -1,3 +1,4 @@
 SecretsNamespace: ""
-AccessLogFormatHTTP: "ACCESSLOG_FORMAT_STRING"
-AccessLogExcludeHC: true
+AccessLog:
+  FormatHTTP: "ACCESSLOG_FORMAT_STRING"
+  ExcludeHC: true

@@ -78,11 +78,13 @@ func registerReconcilers(params reconcilerParams) error {
 
 	lbFrontendReconciler := newLbFrontendReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
 		reconcilerConfig{
-			SecretsNamespace:    params.Config.LoadBalancerCPSecretsNamespace,
-			AccessLogFormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
-			AccessLogFormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
-			AccessLogExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
-			ServerName:          params.Config.LoadBalancerCPHTTPServerName,
+			SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
+			ServerName:       params.Config.LoadBalancerCPHTTPServerName,
+			AccessLog: reconcilerAccesslogConfig{
+				FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
+				FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
+				ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
+			},
 		})
 
 	lbVIPReconciler := newLBVIPReconciler(

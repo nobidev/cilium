@@ -54,11 +54,15 @@ type lbFrontendReconciler struct {
 }
 
 type reconcilerConfig struct {
-	SecretsNamespace    string
-	AccessLogFormatHTTP string
-	AccessLogFormatTLS  string
-	AccessLogExcludeHC  bool
-	ServerName          string
+	SecretsNamespace string
+	ServerName       string
+	AccessLog        reconcilerAccesslogConfig
+}
+
+type reconcilerAccesslogConfig struct {
+	FormatHTTP string
+	FormatTLS  string
+	ExcludeHC  bool
 }
 
 func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbFrontendReconciler {
