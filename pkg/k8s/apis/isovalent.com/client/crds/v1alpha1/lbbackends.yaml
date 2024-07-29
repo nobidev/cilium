@@ -101,6 +101,13 @@ spec:
                 x-kubernetes-validations:
                 - message: Exactly one health check (HTTP or TCP) must be specified
                   rule: (has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))
+              httpConfig:
+                properties:
+                  enableHTTP2:
+                    type: boolean
+                  enableHTTP11:
+                    type: boolean
+                type: object
             required:
             - addresses
             - healthCheck

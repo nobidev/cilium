@@ -125,7 +125,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          useDownstreamProtocolConfig: {}
+          explicitHttpConfig:
+            httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -155,7 +156,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          useDownstreamProtocolConfig: {}
+          explicitHttpConfig:
+            httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_tlspt_0
       endpoints:

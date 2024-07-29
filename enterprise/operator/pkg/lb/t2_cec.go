@@ -717,12 +717,40 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
 		LbPolicy:               mapLbPolicy(b.lbAlgorithm),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
-				UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
-					UseDownstreamProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{},
-				},
-			}),
+			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
+	}
+}
+
+func (r *lbFrontendReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackendHTTPConfig) *anypb.Any {
+	switch {
+	case httpConfig.enableHTTP11 && !httpConfig.enableHTTP2:
+		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			},
+		})
+	case httpConfig.enableHTTP2 && !httpConfig.enableHTTP11:
+		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
+				},
+			},
+		})
+	default:
+		// use HTTP1.1 if both protocol versions are enabled.
+		// The reason is to prevent HTTP/2 issues due to backends that don't support H2C (HTTP2 without TLS).
+		// Note: Once we support TLS re-encryption to the backend we can enable AutoConfig to make use of ALPN protocol negotiation.
+		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			},
+		})
 	}
 }
 

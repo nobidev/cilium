@@ -17,3 +17,6 @@ spec:
     http:
       host: lb
       path: /healthz
+  httpConfig:
+    enableHTTP11: false
+    enableHTTP2: true

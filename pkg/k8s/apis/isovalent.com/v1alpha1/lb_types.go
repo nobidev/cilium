@@ -264,6 +264,17 @@ type LBBackendSpec struct {
 
 	// +kubebuilder:validation:Required
 	HealthCheck HealthCheck `json:"healthCheck"`
+
+	// +kubebuilder:validation:Optional
+	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
+}
+
+type LBBackendHTTPConfig struct {
+	// +kubebuilder:validation:Optional
+	EnableHTTP11 *bool `json:"enableHTTP11,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
 type Address struct {

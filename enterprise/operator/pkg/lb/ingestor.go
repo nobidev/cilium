@@ -120,6 +120,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
 	}
@@ -171,6 +172,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
 	}
@@ -236,6 +238,7 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
 	}
@@ -317,4 +320,22 @@ func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
 	}
 
 	return nil
+}
+
+func (*ingestor) toBackendHTTPConfig(httpConfig *isovalentv1alpha1.LBBackendHTTPConfig) lbBackendHTTPConfig {
+	http11Enabled := true
+	http2Enabled := true
+
+	if httpConfig != nil && httpConfig.EnableHTTP11 != nil {
+		http11Enabled = *httpConfig.EnableHTTP11
+	}
+
+	if httpConfig != nil && httpConfig.EnableHTTP2 != nil {
+		http2Enabled = *httpConfig.EnableHTTP2
+	}
+
+	return lbBackendHTTPConfig{
+		enableHTTP11: http11Enabled,
+		enableHTTP2:  http2Enabled,
+	}
 }
