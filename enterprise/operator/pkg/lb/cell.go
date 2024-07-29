@@ -41,6 +41,9 @@ type Config struct {
 	LoadBalancerCPAccessLogFormatHTTP string
 	LoadBalancerCPAccessLogFormatTLS  string
 	LoadBalancerCPAccessLogExcludeHC  bool
+	LoadBalancerCPRequestIDGenerate   bool
+	LoadBalancerCPRequestIDPreserve   bool
+	LoadBalancerCPRequestIDResponse   bool
 	LoadBalancerCPHTTPServerName      string
 }
 
@@ -50,6 +53,9 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tls", "[%START_TIME%][access][tls] %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.Bool("loadbalancer-cp-accesslog-exclude-hc", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to exclude health check requests from the access log")
+	flags.Bool("loadbalancer-cp-requestid-generate", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header")
+	flags.Bool("loadbalancer-cp-requestid-preserve", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header")
+	flags.Bool("loadbalancer-cp-requestid-response", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response")
 	flags.String("loadbalancer-cp-http-server-name", "ilb", "Server name that is used when writing the server header in T2 HTTP responses")
 }
 
@@ -84,6 +90,11 @@ func registerReconcilers(params reconcilerParams) error {
 				FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
 				FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
 				ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
+			},
+			RequestID: reconcilerRequestIDConfig{
+				Generate: params.Config.LoadBalancerCPRequestIDGenerate,
+				Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
+				Response: params.Config.LoadBalancerCPRequestIDResponse,
 			},
 		})
 

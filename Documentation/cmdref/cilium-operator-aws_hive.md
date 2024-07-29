@@ -84,6 +84,9 @@ cilium-operator-aws hive [flags]
       --loadbalancer-cp-accesslog-format-tls string                  Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline) (default "[%START_TIME%][access][tls] %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"")
       --loadbalancer-cp-enabled                                      Whether or not the LoadBalancer control plane is enabled.
       --loadbalancer-cp-http-server-name string                      Server name that is used when writing the server header in T2 HTTP responses (default "ilb")
+      --loadbalancer-cp-requestid-generate                           Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header (default true)
+      --loadbalancer-cp-requestid-preserve                           Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header
+      --loadbalancer-cp-requestid-response                           Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response
       --loadbalancer-cp-secrets-namespace string                     Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane. (default "cilium-secrets")
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.

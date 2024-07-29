@@ -2,3 +2,5 @@ SecretsNamespace: ""
 AccessLog:
   FormatHTTP: "ACCESSLOG_FORMAT_STRING"
   ExcludeHC: true
+RequestID:
+  Generate: true

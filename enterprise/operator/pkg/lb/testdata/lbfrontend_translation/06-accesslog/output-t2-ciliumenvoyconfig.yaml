@@ -34,6 +34,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "ACCESSLOG_FORMAT_STRING\n"
+                generateRequestId: true
                 httpFilters:
                   - name: envoy.filters.http.health_check
                     typedConfig:

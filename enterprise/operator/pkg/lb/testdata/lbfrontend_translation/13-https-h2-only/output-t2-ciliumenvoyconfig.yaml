@@ -27,6 +27,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
+                generateRequestId: false
                 httpFilters:
                   - name: envoy.filters.http.health_check
                     typedConfig:
@@ -68,6 +69,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 codecType: HTTP2
+                generateRequestId: false
                 httpFilters:
                   - name: envoy.filters.http.router
                     typedConfig:

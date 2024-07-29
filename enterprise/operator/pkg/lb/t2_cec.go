@@ -181,11 +181,14 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
-						ServerName:    r.config.ServerName,
-						AccessLog:     r.desiredEnvoyHTTPAccessLoggers(),
-						StatPrefix:    "frontend_listener_http",
-						CodecType:     r.toCodecType(model.applications.getHTTPHTTPConfig()),
-						NormalizePath: wrapperspb.Bool(true),
+						ServerName:                   r.config.ServerName,
+						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
+						PreserveExternalRequestId:    r.config.RequestID.Preserve,
+						AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
+						StatPrefix:                   "frontend_listener_http",
+						CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
+						NormalizePath:                wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
 							{
@@ -325,11 +328,14 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
-						ServerName:    r.config.ServerName,
-						AccessLog:     r.desiredEnvoyHTTPAccessLoggers(),
-						StatPrefix:    "frontend_listener_https",
-						CodecType:     r.toCodecType(model.applications.getHTTPSHTTPConfig()),
-						NormalizePath: wrapperspb.Bool(true),
+						ServerName:                   r.config.ServerName,
+						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
+						PreserveExternalRequestId:    r.config.RequestID.Preserve,
+						AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
+						StatPrefix:                   "frontend_listener_https",
+						CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
+						NormalizePath:                wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							{
 								Name: "envoy.filters.http.router",
