@@ -9,6 +9,8 @@ set -x
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+APP_IMG="quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4"
+
 #
 # Backends
 #
@@ -19,17 +21,17 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-s
 
 # Deploy Test health check backends
 
-docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
-docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
-docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3 --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.2
+docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --env H2C_ENABLED=true --network kind-cilium "${APP_IMG}"
+docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --env H2C_ENABLED=true --network kind-cilium "${APP_IMG}"
+docker run -d --name app3 --rm --env SERVICE_NAME=service3 --env INSTANCE_NAME=3 --env H2C_ENABLED=true --network kind-cilium "${APP_IMG}"
 
 TLS_CERT_BASE64_4=$(cat ${script_dir}/tls-secure-backend.crt | base64)
 TLS_KEY_BASE64_4=$(cat ${script_dir}/tls-secure-backend.key | base64)
-docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_4" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_4" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.3
+docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_4" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_4" --network kind-cilium "${APP_IMG}"
 
 TLS_CERT_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.crt | base64)
 TLS_KEY_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.key | base64)
-docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_5" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_5" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.3
+docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_5" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_5" --network kind-cilium "${APP_IMG}"
 
 #
 # Client
