@@ -101,6 +101,9 @@ spec:
         - domains:
             - "foo.acme.io:80"
           name: frontend_virtualhost_https_0
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
           routes:
             - match:
                 prefix: /

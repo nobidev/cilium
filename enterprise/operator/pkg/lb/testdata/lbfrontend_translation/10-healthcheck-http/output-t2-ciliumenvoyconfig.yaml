@@ -66,6 +66,9 @@ spec:
         - domains:
             - "bla.acme.io"
           name: frontend_virtualhost_http_0
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
           routes:
             - match:
                 prefix: /

@@ -505,6 +505,10 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFronte
 						},
 					},
 				},
+				ResponseHeadersToRemove: []string{
+					"x-envoy-upstream-service-time",
+					"x-envoy-overloaded",
+				},
 			},
 		)
 	}
@@ -542,6 +546,10 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 							},
 						},
 					},
+				},
+				ResponseHeadersToRemove: []string{
+					"x-envoy-upstream-service-time",
+					"x-envoy-overloaded",
 				},
 			},
 		)
