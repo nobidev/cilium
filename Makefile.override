@@ -63,7 +63,7 @@ kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterpri
 			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
 			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
+			docker exec -ti $${node_name} rm -rf "${dst}/cilium-dbg"; \
 			docker cp "./enterprise/cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
 			\
