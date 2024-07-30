@@ -111,7 +111,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 
 	manager, err := newEgressGatewayManager(Params{
 		Lifecycle:          lc,
-		Config:             Config{2 * time.Second, 1 * time.Millisecond},
+		Config:             Config{1 * time.Millisecond},
 		DaemonConfig:       &option.DaemonConfig{},
 		IdentityAllocator:  identityAllocator,
 		PolicyMap:          policyMap,

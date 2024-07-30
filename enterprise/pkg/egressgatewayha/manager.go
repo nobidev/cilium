@@ -97,25 +97,16 @@ const (
 const policyInitializerName = "isovalentegressgatewaypolicy-synced"
 
 type Config struct {
-	// Healthcheck timeout after which an egress gateway is marked not healthy.
-	// This also configures the frequency of probes to a value of healthcheckTimeout / 2
-	// Deprecated, has no effect, and will removed in v1.16"
-	EgressGatewayHAHealthcheckTimeout time.Duration
-
 	// Default amount of time between triggers of egress gateway state
 	// reconciliations are invoked
 	EgressGatewayHAReconciliationTriggerInterval time.Duration
 }
 
 var defaultConfig = Config{
-	EgressGatewayHAHealthcheckTimeout:            1 * time.Second,
 	EgressGatewayHAReconciliationTriggerInterval: 1 * time.Second,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Duration("egress-gateway-ha-healthcheck-timeout", def.EgressGatewayHAHealthcheckTimeout, "Healthcheck timeout after which an egress gateway is marked not healthy. This also configures the frequency of probes to a value of healthcheckTimeout / 2")
-	flags.MarkDeprecated("egress-gateway-ha-healthcheck-timeout", "This option is deprecated, has no effect, and will be removed in v1.16")
-
 	flags.Duration("egress-gateway-ha-reconciliation-trigger-interval", def.EgressGatewayHAReconciliationTriggerInterval, "Time between triggers of egress gateway state reconciliations")
 }
 
