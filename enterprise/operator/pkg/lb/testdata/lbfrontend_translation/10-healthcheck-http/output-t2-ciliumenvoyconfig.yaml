@@ -85,6 +85,7 @@ spec:
             host: my-hostname
             path: /health-endpoint
           interval: 15s
+          noTrafficInterval: 15s
           timeout: 2s
           unhealthyEdgeInterval: 15s
           unhealthyInterval: 15s

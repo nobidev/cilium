@@ -137,6 +137,7 @@ spec:
             host: lb
             path: /healthz
           interval: 30s
+          noTrafficInterval: 30s
           timeout: 5s
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
@@ -158,6 +159,7 @@ spec:
             host: lb
             path: /healthz
           interval: 30s
+          noTrafficInterval: 30s
           timeout: 5s
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s

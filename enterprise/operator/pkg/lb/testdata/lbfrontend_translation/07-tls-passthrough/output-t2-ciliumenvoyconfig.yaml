@@ -107,6 +107,7 @@ spec:
             host: lb
             path: /healthz
           interval: 30s
+          noTrafficInterval: 30s
           timeout: 5s
           transportSocketMatchCriteria:
             type: tls
@@ -138,6 +139,7 @@ spec:
             host: lb
             path: /healthz
           interval: 30s
+          noTrafficInterval: 30s
           timeout: 5s
           transportSocketMatchCriteria:
             type: tls

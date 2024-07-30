@@ -765,6 +765,7 @@ func (r *lbFrontendReconciler) toClusterHealthChecks(healthCheckConfig lbBackend
 		Interval:                     &durationpb.Duration{Seconds: int64(healthCheckConfig.intervalSeconds)},
 		UnhealthyInterval:            &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyIntervalSeconds)},
 		UnhealthyEdgeInterval:        &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
+		NoTrafficInterval:            &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
 		Timeout:                      &durationpb.Duration{Seconds: int64(healthCheckConfig.timeoutSeconds)},
 		HealthyThreshold:             &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.healthyThreshold)},
 		UnhealthyThreshold:           &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.unhealthyThreshold)},
