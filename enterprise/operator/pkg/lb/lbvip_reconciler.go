@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -142,10 +143,10 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	// IPv4 VIP is not yet assigned. Skip this reconciliation round.
 	if v4VIP.IsValid() {
 		// Update the LBVIP status with the assigned VIP
-		lbvip.Status.Addresses.IPv4 = v4VIP.String()
+		lbvip.Status.Addresses.IPv4 = ptr.To(v4VIP.String())
 	} else {
 		// Otherwise, clear the VIP (possible when users change the requested IP)
-		lbvip.Status.Addresses.IPv4 = ""
+		lbvip.Status.Addresses.IPv4 = nil
 	}
 
 	// Extract the conditions from the placeholder Service

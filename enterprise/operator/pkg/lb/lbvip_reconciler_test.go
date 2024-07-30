@@ -149,7 +149,7 @@ func TestLBVIPReconciler(t *testing.T) {
 			))
 
 			// Ensure the LBVIP status is updated with the expected VIP
-			require.Equal(t, ipv4VIP, lbvip.Status.Addresses.IPv4)
+			require.Equal(t, ipv4VIP, *lbvip.Status.Addresses.IPv4)
 		})
 	}
 }

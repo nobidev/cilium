@@ -2285,7 +2285,7 @@ func (in *LBFrontendStatus) DeepEqual(other *LBFrontendStatus) bool {
 		return false
 	}
 
-	if in.Addresses != other.Addresses {
+	if !in.Addresses.DeepEqual(&other.Addresses) {
 		return false
 	}
 
@@ -2389,8 +2389,12 @@ func (in *LBFrontendVIPAddresses) DeepEqual(other *LBFrontendVIPAddresses) bool 
 		return false
 	}
 
-	if in.IPv4 != other.IPv4 {
+	if (in.IPv4 == nil) != (other.IPv4 == nil) {
 		return false
+	} else if in.IPv4 != nil {
+		if *in.IPv4 != *other.IPv4 {
+			return false
+		}
 	}
 
 	return true
@@ -2435,8 +2439,12 @@ func (in *LBVIPAddresses) DeepEqual(other *LBVIPAddresses) bool {
 		return false
 	}
 
-	if in.IPv4 != other.IPv4 {
+	if (in.IPv4 == nil) != (other.IPv4 == nil) {
 		return false
+	} else if in.IPv4 != nil {
+		if *in.IPv4 != *other.IPv4 {
+			return false
+		}
 	}
 
 	return true
@@ -2467,7 +2475,7 @@ func (in *LBVIPStatus) DeepEqual(other *LBVIPStatus) bool {
 		return false
 	}
 
-	if in.Addresses != other.Addresses {
+	if !in.Addresses.DeepEqual(&other.Addresses) {
 		return false
 	}
 

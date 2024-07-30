@@ -251,8 +251,6 @@ spec:
                 properties:
                   ipv4:
                     type: string
-                required:
-                - ipv4
                 type: object
               conditions:
                 description: Conditions describe the current conditions of the LBFrontend.

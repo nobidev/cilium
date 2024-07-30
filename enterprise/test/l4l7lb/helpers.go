@@ -136,8 +136,8 @@ func (c *clients) WaitForLBVIP(ctx context.Context, namespace, name string) (str
 			return "", err
 		}
 
-		if ip := obj.Status.Addresses.IPv4; ip != "" {
-			return ip, nil
+		if ip := obj.Status.Addresses.IPv4; ip != nil {
+			return *ip, nil
 		}
 
 		select {

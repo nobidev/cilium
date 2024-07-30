@@ -164,8 +164,8 @@ type LBFrontendBackendRef struct {
 }
 
 type LBFrontendVIPAddresses struct {
-	// +kubebuilder:validation:Required
-	IPv4 string `json:"ipv4"`
+	// +kubebuilder:validation:Optional
+	IPv4 *string `json:"ipv4,omitempty"`
 }
 
 type LBFrontendStatus struct {
@@ -395,8 +395,8 @@ type LBVIPStatus struct {
 }
 
 type LBVIPAddresses struct {
-	// +kubebuilder:validation:Required
-	IPv4 string `json:"ipv4"`
+	// +kubebuilder:validation:Optional
+	IPv4 *string `json:"ipv4,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

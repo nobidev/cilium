@@ -315,8 +315,8 @@ func getRequestedIP(vip *isovalentv1alpha1.LBVIP) *string {
 // getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the LBVIP resource.
 // If there's no assigned loadbalancer IP assigned yet, nil is returned instead.
 func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
-	if vip != nil && vip.Status.Addresses.IPv4 != "" {
-		return &vip.Status.Addresses.IPv4
+	if vip != nil {
+		return vip.Status.Addresses.IPv4
 	}
 
 	return nil
