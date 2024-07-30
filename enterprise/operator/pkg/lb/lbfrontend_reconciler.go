@@ -551,13 +551,17 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 		LastTransitionTime: metav1.Now(),
 	}
 
+	assignedIPv4 := ""
+
 	if model.vip.assignedIPv4 != nil {
 		ipAssignedCondition.Status = metav1.ConditionTrue
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
 		ipAssignedCondition.Message = "VIP assigned"
 
-		frontend.Status.Addresses.IPv4 = *model.vip.assignedIPv4
+		assignedIPv4 = *model.vip.assignedIPv4
 	}
+
+	frontend.Status.Addresses.IPv4 = assignedIPv4
 
 	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
