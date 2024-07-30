@@ -36,15 +36,16 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	LoadBalancerCPEnabled             bool
-	LoadBalancerCPSecretsNamespace    string
-	LoadBalancerCPAccessLogFormatHTTP string
-	LoadBalancerCPAccessLogFormatTLS  string
-	LoadBalancerCPAccessLogExcludeHC  bool
-	LoadBalancerCPRequestIDGenerate   bool
-	LoadBalancerCPRequestIDPreserve   bool
-	LoadBalancerCPRequestIDResponse   bool
-	LoadBalancerCPHTTPServerName      string
+	LoadBalancerCPEnabled                 bool
+	LoadBalancerCPSecretsNamespace        string
+	LoadBalancerCPAccessLogFormatHTTP     string
+	LoadBalancerCPAccessLogFormatTLS      string
+	LoadBalancerCPAccessLogExcludeHC      bool
+	LoadBalancerCPRequestIDGenerate       bool
+	LoadBalancerCPRequestIDPreserve       bool
+	LoadBalancerCPRequestIDResponse       bool
+	LoadBalancerCPHTTPServerName          string
+	LoadBalancerCPT1HCProbeTimeoutSeconds uint
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -57,6 +58,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("loadbalancer-cp-requestid-preserve", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header")
 	flags.Bool("loadbalancer-cp-requestid-response", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response")
 	flags.String("loadbalancer-cp-http-server-name", "ilb", "Server name that is used when writing the server header in T2 HTTP responses")
+	flags.Uint("loadbalancer-cp-t1-hc-probe-timeout-seconds", 5, "Probe timeout in seconds for T1 -> T2 health checks")
 }
 
 type reconcilerParams struct {
@@ -95,6 +97,9 @@ func registerReconcilers(params reconcilerParams) error {
 				Generate: params.Config.LoadBalancerCPRequestIDGenerate,
 				Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
 				Response: params.Config.LoadBalancerCPRequestIDResponse,
+			},
+			T1HealthCheck: reconcilerT1HealthCheckConfig{
+				ProbeTimeoutSeconds: params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
 			},
 		})
 

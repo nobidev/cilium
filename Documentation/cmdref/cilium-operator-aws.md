@@ -125,6 +125,7 @@ cilium-operator-aws [flags]
       --loadbalancer-cp-requestid-preserve                           Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header
       --loadbalancer-cp-requestid-response                           Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response
       --loadbalancer-cp-secrets-namespace string                     Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane. (default "cilium-secrets")
+      --loadbalancer-cp-t1-hc-probe-timeout-seconds uint             Probe timeout in seconds for T1 -> T2 health checks (default 5)
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.
       --log-driver strings                                           Logging endpoints to use for example syslog

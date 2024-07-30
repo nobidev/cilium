@@ -4,3 +4,5 @@ AccessLog:
   ExcludeHC: true
 RequestID:
   Generate: true
+T1HealthCheck:
+  ProbeTimeoutSeconds: 5

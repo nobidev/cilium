@@ -1,0 +1,2 @@
+T1HealthCheck:
+  ProbeTimeoutSeconds: 5

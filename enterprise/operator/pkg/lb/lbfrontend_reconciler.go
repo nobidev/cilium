@@ -58,6 +58,7 @@ type reconcilerConfig struct {
 	ServerName       string
 	AccessLog        reconcilerAccesslogConfig
 	RequestID        reconcilerRequestIDConfig
+	T1HealthCheck    reconcilerT1HealthCheckConfig
 }
 
 type reconcilerAccesslogConfig struct {
@@ -70,6 +71,10 @@ type reconcilerRequestIDConfig struct {
 	Generate bool
 	Preserve bool
 	Response bool
+}
+
+type reconcilerT1HealthCheckConfig struct {
+	ProbeTimeoutSeconds uint
 }
 
 func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbFrontendReconciler {
