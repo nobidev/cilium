@@ -56,6 +56,8 @@ spec:
                       type: string
                     port:
                       format: int32
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                   required:
                   - ip

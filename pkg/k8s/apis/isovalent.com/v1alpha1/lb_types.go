@@ -40,6 +40,8 @@ type LBFrontendSpec struct {
 	VIPRef LBFrontendVIPRef `json:"vipRef"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 
 	// +kubebuilder:validation:Required
@@ -282,6 +284,8 @@ type Address struct {
 	// +kubebuilder:validation:Format=ip
 	IP string `json:"ip"`
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 }
 

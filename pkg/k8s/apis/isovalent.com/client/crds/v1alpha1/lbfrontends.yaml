@@ -227,6 +227,8 @@ spec:
                     && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))
               port:
                 format: int32
+                maximum: 65535
+                minimum: 1
                 type: integer
               vipRef:
                 properties:
