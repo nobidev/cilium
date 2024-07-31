@@ -91,8 +91,8 @@ func (c *FakeIsovalentV1alpha1) IsovalentVRFs() v1alpha1.IsovalentVRFInterface {
 	return &FakeIsovalentVRFs{c}
 }
 
-func (c *FakeIsovalentV1alpha1) LBBackends(namespace string) v1alpha1.LBBackendInterface {
-	return &FakeLBBackends{c, namespace}
+func (c *FakeIsovalentV1alpha1) LBBackendPools(namespace string) v1alpha1.LBBackendPoolInterface {
+	return &FakeLBBackendPools{c, namespace}
 }
 
 func (c *FakeIsovalentV1alpha1) LBFrontends(namespace string) v1alpha1.LBFrontendInterface {

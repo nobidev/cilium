@@ -18,7 +18,7 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (*lbFrontend, error) {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) (*lbFrontend, error) {
 	applications, err := r.toApplications(frontend, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
@@ -71,7 +71,7 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontend
 	}
 }
 
-func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) (lbApplications, error) {
+func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
 	return lbApplications{
 		httpProxy:      r.toApplicationHTTP(frontend, backends),
 		httpsProxy:     r.toApplicationHTTPS(frontend, backends),
@@ -79,12 +79,12 @@ func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backen
 	}, nil
 }
 
-func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationHTTPProxy {
+func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
 	if frontend.Spec.Applications.HTTPProxy == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
 	for _, b := range backends {
 		backendIndex[b.Name] = b
 	}
@@ -131,12 +131,12 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 	}
 }
 
-func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationHTTPSProxy {
+func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
 	if frontend.Spec.Applications.HTTPSProxy == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
 	for _, b := range backends {
 		backendIndex[b.Name] = b
 	}
@@ -201,12 +201,12 @@ func toPath(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) (pathTypeType, st
 	return pathType, path
 }
 
-func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackend) *lbApplicationTLSPassthrough {
+func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
 	if frontend.Spec.Applications.TLSPassthrough == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackend{}
+	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
 	for _, b := range backends {
 		backendIndex[b.Name] = b
 	}

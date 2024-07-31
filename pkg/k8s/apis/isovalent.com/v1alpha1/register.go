@@ -109,10 +109,10 @@ const (
 	LBFrontendKindDefinition = "LBFrontend"
 	LBFrontendName           = LBFrontendPluralName + "." + CustomResourceDefinitionGroup
 
-	// LBBackend
-	LBBackendPluralName     = "lbbackends"
-	LBBackendKindDefinition = "LBBackend"
-	LBBackendName           = LBBackendPluralName + "." + CustomResourceDefinitionGroup
+	// LBBackendPool
+	LBBackendPoolPluralName     = "lbbackendpools"
+	LBBackendPoolKindDefinition = "LBBackendPool"
+	LBBackendPoolName           = LBBackendPoolPluralName + "." + CustomResourceDefinitionGroup
 
 	// LBVIP
 	LBVIPPluralName     = "lbvips"
@@ -200,8 +200,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentClusterwideEncryptionPolicy{},
 		&LBFrontend{},
 		&LBFrontendList{},
-		&LBBackend{},
-		&LBBackendList{},
+		&LBBackendPool{},
+		&LBBackendPoolList{},
 		&LBVIP{},
 		&LBVIPList{},
 	)

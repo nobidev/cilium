@@ -235,12 +235,12 @@ type LBFrontendList struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbbackend",path="lbbackends",scope="Namespaced",shortName={lbbe}
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbbackendpool",path="lbbackendpools",scope="Namespaced",shortName={lbbep}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-type LBBackend struct {
+type LBBackendPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 
@@ -250,15 +250,15 @@ type LBBackend struct {
 	// Spec is a spec .
 	//
 	// +kubebuilder:validation:Required
-	Spec LBBackendSpec `json:"spec"`
+	Spec LBBackendPoolSpec `json:"spec"`
 
 	// Status is a status .
 	//
 	// +kubebuilder:validation:Optional
-	Status LBBackendStatus `json:"status,omitempty"`
+	Status LBBackendPoolStatus `json:"status,omitempty"`
 }
 
-type LBBackendSpec struct {
+type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Required
 	Addresses []Address `json:"addresses"`
 
@@ -328,19 +328,19 @@ type HealthCheckHTTP struct {
 
 type HealthCheckTCP struct{}
 
-type LBBackendStatus struct{}
+type LBBackendPoolStatus struct{}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
 
-type LBBackendList struct {
+type LBBackendPoolList struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []LBBackend `json:"items"`
+	Items []LBBackendPool `json:"items"`
 }
 
 // +genclient

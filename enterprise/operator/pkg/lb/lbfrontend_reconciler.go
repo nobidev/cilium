@@ -108,7 +108,7 @@ func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changed LBVIP resources and trigger LBFrontends that reference the changed lbvip
 		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendVIPIndexName)).
 		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
-		Watches(&isovalentv1alpha1.LBBackend{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
+		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
 		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret. Only K8s Secrets of type TLS are relevant.
 		// This is mainly to update the status. The actual certificates of the Secret are getting transferred via sDS.
 		Watches(&corev1.Secret{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendTlsSecretIndexName), r.isTLSSecret()).
@@ -311,14 +311,14 @@ func (r *lbFrontendReconciler) loadVIP(ctx context.Context, frontend *isovalentv
 	return vip, nil
 }
 
-func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackend, []string, error) {
-	backends := []*isovalentv1alpha1.LBBackend{}
+func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBFrontend) ([]*isovalentv1alpha1.LBBackendPool, []string, error) {
+	backends := []*isovalentv1alpha1.LBBackendPool{}
 	missingBackends := []string{}
 
 	backendNames := allBackendNames(frontend)
 
 	for _, bName := range backendNames {
-		b := &isovalentv1alpha1.LBBackend{}
+		b := &isovalentv1alpha1.LBBackendPool{}
 		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: bName}, b); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("failed to get referenced LBBackend: %w", err)

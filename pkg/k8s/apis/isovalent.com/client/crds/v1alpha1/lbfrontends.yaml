@@ -245,9 +245,9 @@ spec:
             description: Status is a status .
             properties:
               addresses:
-                description: Allocated addresses copied from the LBVIP status. This
-                  is just for displaying the allocated addresses in the kubectl get
-                  output.
+                description: |-
+                  Allocated addresses copied from the LBVIP status. This is just for
+                  displaying the allocated addresses in the kubectl get output.
                 properties:
                   ipv4:
                     type: string

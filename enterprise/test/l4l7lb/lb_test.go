@@ -88,7 +88,7 @@ func TestLB(t *testing.T) {
 
 	// 3. Install LB Backends
 
-	backends, err := yamlToObjects[*v1alpha1.LBBackend](yamlLBBackends, scheme.Scheme)
+	backends, err := yamlToObjects[*v1alpha1.LBBackendPool](yamlLBBackends, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB Backend: %s", err)
 	}

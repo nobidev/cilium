@@ -1,5 +1,5 @@
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-1
@@ -15,7 +15,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-2
@@ -31,7 +31,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-3
@@ -47,7 +47,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-4
@@ -63,7 +63,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-5
@@ -79,7 +79,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-6
@@ -93,7 +93,7 @@ spec:
       port: 8080
 ---
 apiVersion: isovalent.com/v1alpha1
-kind: LBBackend
+kind: LBBackendPool
 metadata:
   namespace: default
   name: lb-7

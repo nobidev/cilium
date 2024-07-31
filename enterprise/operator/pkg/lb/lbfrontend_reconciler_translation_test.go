@@ -73,14 +73,14 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
 		require.NoError(t, err)
 
-		inputLBBackends := []*isovalentv1alpha1.LBBackend{}
+		inputLBBackends := []*isovalentv1alpha1.LBBackendPool{}
 
 		for _, d := range entries {
 			if d.IsDir() || !strings.HasPrefix(d.Name(), "input-lbbackend-") {
 				continue
 			}
 
-			inputLBBackend := &isovalentv1alpha1.LBBackend{}
+			inputLBBackend := &isovalentv1alpha1.LBBackendPool{}
 			readInput(t, fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name()), inputLBBackend)
 			inputLBBackends = append(inputLBBackends, inputLBBackend)
 		}

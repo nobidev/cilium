@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: lbbackends.isovalent.com
+  name: lbbackendpools.isovalent.com
 spec:
   group: isovalent.com
   names:
@@ -12,12 +12,12 @@ spec:
     - cilium
     - isovalent
     - loadbalancer
-    kind: LBBackend
-    listKind: LBBackendList
-    plural: lbbackends
+    kind: LBBackendPool
+    listKind: LBBackendPoolList
+    plural: lbbackendpools
     shortNames:
-    - lbbe
-    singular: lbbackend
+    - lbbep
+    singular: lbbackendpool
   scope: Namespaced
   versions:
   - additionalPrinterColumns:

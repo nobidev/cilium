@@ -40,7 +40,7 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          isovalentbgpvrfconfigs \
                          isovalentclusterwideencryptionpolicies \
                          lbfrontends \
-                         lbbackends \
+                         lbbackendpools \
                          lbvips"
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)

@@ -27,7 +27,7 @@ crds=(
   "ciliumbgppeeringpolicies.cilium.io"
   "isovalentbfdprofiles.isovalent.com"
   "lbfrontends.isovalent.com"
-  "lbbackends.isovalent.com"
+  "lbbackendpools.isovalent.com"
   "lbvips.isovalent.com"
 )
 for crd in "${crds[@]}"; do

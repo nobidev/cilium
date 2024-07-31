@@ -90,21 +90,21 @@ BACKEND3_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPA
 BACKEND4_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app4)
 BACKEND5_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app5)
 
-kubectl patch lbbackend lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
-kubectl patch lbbackend lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND2_IP}\"}]"
+kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
+kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND2_IP}\"}]"
 
-kubectl patch lbbackend lb-2 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
-kubectl patch lbbackend lb-2 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
+kubectl patch lbbackendpool lb-2 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
+kubectl patch lbbackendpool lb-2 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
 
-kubectl patch lbbackend lb-3 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
-kubectl patch lbbackend lb-3 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
+kubectl patch lbbackendpool lb-3 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
+kubectl patch lbbackendpool lb-3 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
 
-kubectl patch lbbackend lb-4 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
-kubectl patch lbbackend lb-4 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
+kubectl patch lbbackendpool lb-4 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
+kubectl patch lbbackendpool lb-4 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
 
-kubectl patch lbbackend lb-5 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
-kubectl patch lbbackend lb-5 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
+kubectl patch lbbackendpool lb-5 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND2_IP}\"}]"
+kubectl patch lbbackendpool lb-5 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/1/ip\", \"value\":\"${BACKEND3_IP}\"}]"
 
-kubectl patch lbbackend lb-6 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND4_IP}\"}]"
+kubectl patch lbbackendpool lb-6 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND4_IP}\"}]"
 
-kubectl patch lbbackend lb-7 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND5_IP}\"}]"
+kubectl patch lbbackendpool lb-7 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/addresses/0/ip\", \"value\":\"${BACKEND5_IP}\"}]"

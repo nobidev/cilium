@@ -95,13 +95,13 @@ func (c *clients) GetLBFrontend(ctx context.Context, namespace, name string, opt
 	return c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
 }
 
-func (c *clients) CreateLBBackend(ctx context.Context, namespace string, obj *v1alpha1.LBBackend, opts v1.CreateOptions) error {
-	_, err := c.ciliumClientset.IsovalentV1alpha1().LBBackends(namespace).Create(ctx, obj, opts)
+func (c *clients) CreateLBBackend(ctx context.Context, namespace string, obj *v1alpha1.LBBackendPool, opts v1.CreateOptions) error {
+	_, err := c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
 	return err
 }
 
 func (c *clients) DeleteLBBackend(ctx context.Context, namespace, name string, opts v1.DeleteOptions) error {
-	return c.ciliumClientset.IsovalentV1alpha1().LBBackends(namespace).Delete(ctx, name, opts)
+	return c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
 }
 
 func (c *clients) CreateLBIPPool(ctx context.Context, obj *v2alpha1.CiliumLoadBalancerIPPool, opts v1.CreateOptions) error {
