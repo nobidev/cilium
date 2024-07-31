@@ -105,24 +105,24 @@ func TestLB(t *testing.T) {
 		appIPAddrs[i] = ip
 	}
 
-	backends[0].Spec.Addresses[0].IP = appIPAddrs[1]
-	backends[0].Spec.Addresses[1].IP = appIPAddrs[2]
+	backends[0].Spec.Backends[0].IP = appIPAddrs[1]
+	backends[0].Spec.Backends[1].IP = appIPAddrs[2]
 
-	backends[1].Spec.Addresses[0].IP = appIPAddrs[1]
-	backends[1].Spec.Addresses[1].IP = appIPAddrs[3]
+	backends[1].Spec.Backends[0].IP = appIPAddrs[1]
+	backends[1].Spec.Backends[1].IP = appIPAddrs[3]
 
-	backends[2].Spec.Addresses[0].IP = appIPAddrs[2]
-	backends[2].Spec.Addresses[1].IP = appIPAddrs[3]
+	backends[2].Spec.Backends[0].IP = appIPAddrs[2]
+	backends[2].Spec.Backends[1].IP = appIPAddrs[3]
 
-	backends[3].Spec.Addresses[0].IP = appIPAddrs[2]
-	backends[3].Spec.Addresses[1].IP = appIPAddrs[3]
+	backends[3].Spec.Backends[0].IP = appIPAddrs[2]
+	backends[3].Spec.Backends[1].IP = appIPAddrs[3]
 
-	backends[4].Spec.Addresses[0].IP = appIPAddrs[2]
-	backends[4].Spec.Addresses[1].IP = appIPAddrs[3]
+	backends[4].Spec.Backends[0].IP = appIPAddrs[2]
+	backends[4].Spec.Backends[1].IP = appIPAddrs[3]
 
-	backends[5].Spec.Addresses[0].IP = appIPAddrs[4]
+	backends[5].Spec.Backends[0].IP = appIPAddrs[4]
 
-	backends[6].Spec.Addresses[0].IP = appIPAddrs[5]
+	backends[6].Spec.Backends[0].IP = appIPAddrs[5]
 
 	for _, obj := range backends {
 		clients.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})

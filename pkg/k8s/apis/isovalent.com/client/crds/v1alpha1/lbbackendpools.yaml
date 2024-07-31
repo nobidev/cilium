@@ -47,7 +47,7 @@ spec:
             type: object
           spec:
             properties:
-              addresses:
+              backends:
                 description: The list of backends included in the pool.
                 items:
                   properties:
@@ -137,7 +137,7 @@ spec:
                     type: boolean
                 type: object
             required:
-            - addresses
+            - backends
             - healthCheck
             type: object
           status:

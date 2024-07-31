@@ -107,7 +107,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 				path:      path,
 			},
 			backend: backend{
-				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
@@ -159,7 +159,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 				path:      path,
 			},
 			backend: backend{
-				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
@@ -225,7 +225,7 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 				hostNames: r.toTLSPassthroughHostNames(lr.Match),
 			},
 			backend: backend{
-				ips:         r.toIPBackends(routeBackend.Spec.Addresses),
+				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: lbAlgorithmRoundRobin,
 				healthCheckConfig: lbBackendHealthCheckConfig{
@@ -267,7 +267,7 @@ func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacken
 	return &lbBackendHealthCheckTCPConfig{}
 }
 
-func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Address) []lbBackend {
+func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBackend {
 	ipBackends := []lbBackend{}
 	for _, ipAddress := range addresses {
 		ipBackends = append(ipBackends, lbBackend{

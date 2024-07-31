@@ -359,7 +359,7 @@ type LBBackendPoolSpec struct {
 	// The list of backends included in the pool.
 	//
 	// +kubebuilder:validation:Required
-	Addresses []Address `json:"addresses"`
+	Backends []Backend `json:"backends"`
 
 	// The pool-wide health check configuration.
 	//
@@ -384,7 +384,7 @@ type LBBackendHTTPConfig struct {
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
-type Address struct {
+type Backend struct {
 	// The IP address of the backend.
 	//
 	// +kubebuilder:validation:Required
