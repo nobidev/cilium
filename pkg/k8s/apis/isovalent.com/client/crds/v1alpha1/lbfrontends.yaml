@@ -55,17 +55,26 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is a spec .
             properties:
               applications:
+                description: |-
+                  The configuration for the applications that running on the port.
+                  While the name is plural, only one application can be specified
+                  currently.
                 properties:
                   httpProxy:
+                    description: |-
+                      Defining this stanza enables HTTPProxy application that proxies the
+                      HTTP traffic to the backends over TCP connection.
                     properties:
                       httpConfig:
+                        description: The application-wide HTTP configuration.
                         properties:
                           enableHTTP2:
+                            description: Setting this to true enables HTTP2.
                             type: boolean
                           enableHTTP11:
+                            description: Setting this to true enables HTTP/1.1.
                             type: boolean
                         type: object
                         x-kubernetes-validations:
@@ -73,19 +82,43 @@ spec:
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
                       routes:
+                        description: The HTTP routing configuration.
                         items:
                           properties:
                             backendRef:
+                              description: |-
+                                The reference to the LBBackendPool resource that this route should
+                                forward the traffic to when the route is matched. The referred
+                                LBBackendPool must exist in the same namespace as the LBFrontend.
                               properties:
                                 name:
+                                  description: The name of the LBBackendPool resource.
                                   minLength: 1
                                   type: string
                               required:
                               - name
                               type: object
                             match:
+                              description: |-
+                                The HTTP route matching criteria. All conditions must be satisfied
+                                for the route to be matched.
                               properties:
                                 hostNames:
+                                  description: |-
+                                    The list of host names that the route should match. The host name is
+                                    the value of the Host header in the HTTP request for plain-text
+                                    HTTP. When TLS is enabled, the host name must match both the SNI and
+                                    the Host header. The following formats are supported:
+
+                                    - Exact domain names: www.example.com
+
+                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
+
+                                    - Prefix domain wildcards: foo.* or foo-*.
+
+                                    - Special wildcard: * matching any domain
+
+                                    Omitting this field is identical to specifying a wildcard "*".
                                   items:
                                     maxLength: 253
                                     minLength: 1
@@ -93,11 +126,18 @@ spec:
                                     type: string
                                   type: array
                                 path:
+                                  description: |-
+                                    The path matching criteria. When omitted, the route matches all
+                                    paths.
                                   properties:
                                     exact:
+                                      description: Exact matching. The path must be
+                                        exactly the same as the value.
                                       minLength: 1
                                       type: string
                                     prefix:
+                                      description: Prefix matching. The path must
+                                        start with the value.
                                       minLength: 1
                                       type: string
                                   type: object
@@ -116,12 +156,18 @@ spec:
                     - routes
                     type: object
                   httpsProxy:
+                    description: |-
+                      Defining this stanza enables HTTPSProxy application that proxies the
+                      HTTPS traffic to the backends over TLS and TCP connections.
                     properties:
                       httpConfig:
+                        description: The application-wide HTTP configuration.
                         properties:
                           enableHTTP2:
+                            description: Setting this to true enables HTTP2.
                             type: boolean
                           enableHTTP11:
+                            description: Setting this to true enables HTTP/1.1.
                             type: boolean
                         type: object
                         x-kubernetes-validations:
@@ -129,19 +175,43 @@ spec:
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
                       routes:
+                        description: The HTTP routing configuration.
                         items:
                           properties:
                             backendRef:
+                              description: |-
+                                The reference to the LBBackendPool resource that this route should
+                                forward the traffic to when the route is matched. The referred
+                                LBBackendPool must exist in the same namespace as the LBFrontend.
                               properties:
                                 name:
+                                  description: The name of the LBBackendPool resource.
                                   minLength: 1
                                   type: string
                               required:
                               - name
                               type: object
                             match:
+                              description: |-
+                                The HTTP route matching criteria. All conditions must be satisfied
+                                for the route to be matched.
                               properties:
                                 hostNames:
+                                  description: |-
+                                    The list of host names that the route should match. The host name is
+                                    the value of the Host header in the HTTP request for plain-text
+                                    HTTP. When TLS is enabled, the host name must match both the SNI and
+                                    the Host header. The following formats are supported:
+
+                                    - Exact domain names: www.example.com
+
+                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
+
+                                    - Prefix domain wildcards: foo.* or foo-*.
+
+                                    - Special wildcard: * matching any domain
+
+                                    Omitting this field is identical to specifying a wildcard "*".
                                   items:
                                     maxLength: 253
                                     minLength: 1
@@ -149,11 +219,18 @@ spec:
                                     type: string
                                   type: array
                                 path:
+                                  description: |-
+                                    The path matching criteria. When omitted, the route matches all
+                                    paths.
                                   properties:
                                     exact:
+                                      description: Exact matching. The path must be
+                                        exactly the same as the value.
                                       minLength: 1
                                       type: string
                                     prefix:
+                                      description: Prefix matching. The path must
+                                        start with the value.
                                       minLength: 1
                                       type: string
                                   type: object
@@ -169,11 +246,20 @@ spec:
                         minItems: 1
                         type: array
                       tlsConfig:
+                        description: The application-wide TLS configuration.
                         properties:
                           certificates:
+                            description: The list of certificates that the frontend
+                              uses.
                             items:
                               properties:
                                 secretName:
+                                  description: |-
+                                    The name of the k8s secret that contains the certificate and the
+                                    private key. The secret type must be kubernetes.io/tls and the
+                                    format must follow the spec.
+
+                                    https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets
                                   minLength: 1
                                   type: string
                               required:
@@ -188,21 +274,48 @@ spec:
                     - routes
                     type: object
                   tlsPassthrough:
+                    description: |-
+                      Defining this stanza enables TLSPassthrough application that proxies
+                      the TLS traffic without terminating the TLS connection.
                     properties:
                       routes:
+                        description: The TLS passthrough routing configuration.
                         items:
                           properties:
                             backendRef:
+                              description: |-
+                                The reference to the LBBackendPool resource that this route should
+                                forward the traffic to when the route is matched. The referred
+                                LBBackendPool must exist in the same namespace as the LBFrontend.
                               properties:
                                 name:
+                                  description: The name of the LBBackendPool resource.
                                   minLength: 1
                                   type: string
                               required:
                               - name
                               type: object
                             match:
+                              description: |-
+                                The TLS route matching criteria. All conditions must be satisfied
+                                for the route to be matched.
                               properties:
                                 hostNames:
+                                  description: |-
+                                    The list of host names that the route should match. The host name is
+                                    the value of the Host header in the HTTP request for plain-text
+                                    HTTP. When TLS is enabled, the host name must match both the SNI and
+                                    the Host header. The following formats are supported:
+
+                                    - Exact domain names: www.example.com
+
+                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
+
+                                    - Prefix domain wildcards: foo.* or foo-*.
+
+                                    - Special wildcard: * matching any domain
+
+                                    Omitting this field is identical to specifying a wildcard "*".
                                   items:
                                     maxLength: 253
                                     minLength: 1
@@ -226,13 +339,20 @@ spec:
                     && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy)
                     && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))
               port:
+                description: The port that this frontend should listen on.
                 format: int32
                 maximum: 65535
                 minimum: 1
                 type: integer
               vipRef:
+                description: |-
+                  The reference to the LBVIP resource that the LBFrontend should be
+                  associated with. The referred LBVIP must exist in the same namespace
+                  as the frontend. Multiple LBFrontends can refer to the same LBVIP to
+                  share the same VIP, but the port must be different.
                 properties:
                   name:
+                    description: The name of the LBVIP resource.
                     minLength: 1
                     type: string
                 required:
@@ -244,18 +364,20 @@ spec:
             - vipRef
             type: object
           status:
-            description: Status is a status .
             properties:
               addresses:
                 description: |-
-                  Allocated addresses copied from the LBVIP status. This is just for
-                  displaying the allocated addresses in the kubectl get output.
+                  Allocated addresses for the LBFrontend. The value is copied from the
+                  LBVIP's status that the frontend refers to. This field exists for
+                  the cosmetic purpose of showing the VIP in the kubectl output. You
+                  should use LBVIP's status field as the source of truth.
                 properties:
                   ipv4:
+                    description: IPv4 VIP assigned to the LBFrontend.
                     type: string
                 type: object
               conditions:
-                description: Conditions describe the current conditions of the LBFrontend.
+                description: The current conditions of the LBFrontend.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

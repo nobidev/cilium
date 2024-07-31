@@ -46,15 +46,17 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is a spec .
             properties:
               addresses:
+                description: The list of backends included in the pool.
                 items:
                   properties:
                     ip:
+                      description: The IP address of the backend.
                       format: ip
                       type: string
                     port:
+                      description: The port that the backend listens on.
                       format: int32
                       maximum: 65535
                       minimum: 1
@@ -65,37 +67,58 @@ spec:
                   type: object
                 type: array
               healthCheck:
+                description: The pool-wide health check configuration.
                 properties:
                   healthyThreshold:
                     default: 2
+                    description: |-
+                      The number of consecutive successful health check probes required
+                      before considering the backend healthy.
                     format: int32
                     minimum: 1
                     type: integer
                   http:
+                    description: |-
+                      The HTTP health check configuration. Exactly one of http or tcp must
+                      be specified.
                     properties:
                       host:
                         default: lb
+                        description: |-
+                          The host name to use in the HTTP health checking probe. When
+                          omitted, the probe uses "lb".
                         minLength: 1
                         type: string
                       path:
                         default: /healthz
+                        description: |-
+                          The path to use in the HTTP health checking probe. When omitted, the
+                          probe uses "/healthz".
                         minLength: 1
                         type: string
                     type: object
                   intervalSeconds:
                     default: 30
+                    description: The interval between health check probes.
                     format: int32
                     minimum: 1
                     type: integer
                   tcp:
+                    description: |-
+                      The TCP health check configuration. Exactly one of http or tcp must
+                      be specified.
                     type: object
                   timeoutSeconds:
                     default: 5
+                    description: The timeout for each health check probe.
                     format: int32
                     minimum: 1
                     type: integer
                   unhealthyThreshold:
                     default: 2
+                    description: |-
+                      The number of consecutive failed health check probes required before
+                      considering the backend unhealthy.
                     format: int32
                     minimum: 1
                     type: integer
@@ -104,10 +127,13 @@ spec:
                 - message: Exactly one health check (HTTP or TCP) must be specified
                   rule: (has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))
               httpConfig:
+                description: The pool-wide HTTP configuration.
                 properties:
                   enableHTTP2:
+                    description: Setting this to true enables HTTP2.
                     type: boolean
                   enableHTTP11:
+                    description: Setting this to true enables HTTP/1.1.
                     type: boolean
                 type: object
             required:
@@ -115,7 +141,6 @@ spec:
             - healthCheck
             type: object
           status:
-            description: Status is a status .
             type: object
         required:
         - spec

@@ -49,7 +49,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is a spec .
             properties:
               ipv4Request:
                 description: |-
@@ -60,16 +59,16 @@ spec:
                 type: string
             type: object
           status:
-            description: Status is a status .
             properties:
               addresses:
                 description: Allocated addresses
                 properties:
                   ipv4:
+                    description: The allocated IPv4 VIP.
                     type: string
                 type: object
               conditions:
-                description: Conditions describe the current conditions of the LBVIP.
+                description: The current conditions of the LBVIP.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
