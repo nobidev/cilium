@@ -26,7 +26,7 @@ import (
 
 func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service {
 	labels := map[string]string{
-		"lb.cilium.io/tier": "t1",
+		"service.cilium.io/node": "t1",
 	}
 
 	annotations := map[string]string{}
@@ -154,7 +154,7 @@ func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string
 
 	allNodes := nodeStore.List()
 	for _, cn := range allNodes {
-		if v := cn.Labels["lb.cilium.io/tier"]; v == "t2" {
+		if v := cn.Labels["service.cilium.io/node"]; v == "t2" {
 			var nodeIP string
 			for _, addr := range cn.Spec.Addresses {
 				if addr.Type == addressing.NodeInternalIP {

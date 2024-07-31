@@ -106,7 +106,7 @@ func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*cil
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-					"lb.cilium.io/tier": "t2",
+					"service.cilium.io/node": "t2",
 				},
 			},
 			Resources: envoyResources,

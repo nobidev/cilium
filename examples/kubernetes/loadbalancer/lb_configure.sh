@@ -8,9 +8,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define T1 and T2 nodes
 
-kubectl label node kind-control-plane lb.cilium.io/tier=t1
-kubectl label node kind-worker lb.cilium.io/tier=t2
-kubectl label node kind-worker2 lb.cilium.io/tier=t2
+kubectl label node kind-control-plane service.cilium.io/node=t1
+kubectl label node kind-worker service.cilium.io/node=t2
+kubectl label node kind-worker2 service.cilium.io/node=t2
 
 # Allow privileged ports (Envoy)
 
@@ -22,19 +22,19 @@ kubectl -n kube-system delete ds kube-proxy 2>/dev/null || true
 
 echo -n "Waiting for CRDs "
 crds=(
-	"ciliumnodeconfigs.cilium.io"
-	"ciliumloadbalancerippools.cilium.io"
-	"ciliumbgppeeringpolicies.cilium.io"
-	"isovalentbfdprofiles.isovalent.com"
-	"lbfrontends.isovalent.com"
-	"lbbackends.isovalent.com"
-	"lbvips.isovalent.com"
+  "ciliumnodeconfigs.cilium.io"
+  "ciliumloadbalancerippools.cilium.io"
+  "ciliumbgppeeringpolicies.cilium.io"
+  "isovalentbfdprofiles.isovalent.com"
+  "lbfrontends.isovalent.com"
+  "lbbackends.isovalent.com"
+  "lbvips.isovalent.com"
 )
 for crd in "${crds[@]}"; do
-	while ! kubectl get crd "${crd}" &>/dev/null; do
-		echo -n "."
-		sleep 2
-	done
+  while ! kubectl get crd "${crd}" &>/dev/null; do
+    echo -n "."
+    sleep 2
+  done
 done
 echo ""
 
