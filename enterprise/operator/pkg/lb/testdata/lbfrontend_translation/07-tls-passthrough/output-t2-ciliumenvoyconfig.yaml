@@ -6,7 +6,7 @@ metadata:
 spec:
   nodeSelector:
     matchLabels:
-      lb.cilium.io/tier: t2
+      service.cilium.io/node: t2
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       address:

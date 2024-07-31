@@ -13,7 +13,7 @@ metadata:
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
   labels:
-    lb.cilium.io/tier: t1
+    service.cilium.io/node: t1
   namespace: default
   name: lbfe-lb-1
 spec:

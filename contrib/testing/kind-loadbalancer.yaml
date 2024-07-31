@@ -12,7 +12,7 @@ bgpControlPlane:
   enabled: true
 envoy:
   nodeSelector:
-    lb.cilium.io/tier: "t2"
+    service.cilium.io/node: "t2"
   debug:
     admin:
       enabled: true

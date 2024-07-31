@@ -6,7 +6,7 @@ metadata:
 spec:
   nodeSelector:
     matchLabels:
-      lb.cilium.io/tier: t1
+      service.cilium.io/node: t1
   virtualRouters:
     - localASN: 64512
       serviceSelector:
