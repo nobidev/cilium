@@ -291,7 +291,7 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 				case "out_of_ips":
 					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress
 					v4Allocated.Message = "No available IPv4 address"
-				case "already_allocated", "already_allocated_different_sharing_key":
+				case "already_allocated", "already_allocated_incompatible_service":
 					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressAlreadyInUse
 					v4Allocated.Message = "Requested IPv4 address is already in use"
 				default:
