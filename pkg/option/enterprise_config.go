@@ -20,6 +20,9 @@ const (
 	// EnableCiliumMesh enables Cilium mesh mode
 	EnableCiliumMesh = "enable-cilium-mesh"
 
+	// LoadbalancerControlplaneEnabled enables Loadbalancer control plane
+	LoadbalancerControlplaneEnabled = "loadbalancer-cp-enabled"
+
 	// EnableEnterpriseBGPControlPlane enables the Enterprise BGP control plane
 	EnableEnterpriseBGPControlPlane = "enable-enterprise-bgp-control-plane"
 )
@@ -31,6 +34,9 @@ type EnterpriseDaemonConfig struct {
 	// EnableCiliumMesh enable CiliumMesh
 	EnableCiliumMesh bool
 
+	// LoadbalancerControlplaneEnabled enables Loadbalancer controlplane
+	LoadbalancerControlplaneEnabled bool
+
 	// Enable Enterprise BGP control plane
 	EnableEnterpriseBGPControlPlane bool
 }
@@ -38,5 +44,6 @@ type EnterpriseDaemonConfig struct {
 func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
 	ec.EnableIPv4EgressGatewayHA = vp.GetBool(EnableIPv4EgressGatewayHA)
 	ec.EnableCiliumMesh = vp.GetBool(EnableCiliumMesh)
+	ec.LoadbalancerControlplaneEnabled = vp.GetBool(LoadbalancerControlplaneEnabled)
 	ec.EnableEnterpriseBGPControlPlane = vp.GetBool(EnableEnterpriseBGPControlPlane)
 }

@@ -34,10 +34,6 @@ func AllIsovalentCRDResourceNames() []string {
 		CRDResourceName(v1alpha1.ICEPName),
 	}
 
-	result = append(result, CRDResourceName(v1alpha1.LBFrontendName))
-	result = append(result, CRDResourceName(v1alpha1.LBBackendPoolName))
-	result = append(result, CRDResourceName(v1alpha1.LBVIPName))
-
 	if option.Config.EnableEnterpriseBGPControlPlane {
 		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPClusterConfigName))
 		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPPeerConfigName))
@@ -49,6 +45,12 @@ func AllIsovalentCRDResourceNames() []string {
 
 	if option.Config.EnableIPv4EgressGatewayHA {
 		result = append(result, CRDResourceName(isovalent_api_v1.IEGPName))
+	}
+
+	if option.Config.LoadbalancerControlplaneEnabled {
+		result = append(result, CRDResourceName(v1alpha1.LBVIPName))
+		result = append(result, CRDResourceName(v1alpha1.LBFrontendName))
+		result = append(result, CRDResourceName(v1alpha1.LBBackendPoolName))
 	}
 
 	if option.Config.EnableCiliumMesh {
