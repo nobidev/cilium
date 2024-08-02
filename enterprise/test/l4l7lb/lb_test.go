@@ -17,10 +17,10 @@ import (
 	"os"
 	"testing"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 )
 
@@ -56,39 +56,39 @@ func TestLB(t *testing.T) {
 
 	// 1. Install LB VIPS
 
-	lbVIPs, err := yamlToObjects[*v1alpha1.LBVIP](yamlLBVIPs, scheme.Scheme)
+	lbVIPs, err := yamlToObjects[*isovalentv1alpha1.LBVIP](yamlLBVIPs, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB VIP: %s", err)
 	}
 
 	for _, obj := range lbVIPs {
-		clients.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), v1.DeleteOptions{})
+		clients.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB VIP %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBVIP(ctx, defaultNamespace, obj, v1.CreateOptions{}); err != nil {
-			t.Fatalf("Failed to creeate LB VIP: %s", err)
+		if err := clients.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
 
 	// 2. Install LB Frontends
 
-	frontends, err := yamlToObjects[*v1alpha1.LBFrontend](yamlLBFrontends, scheme.Scheme)
+	frontends, err := yamlToObjects[*isovalentv1alpha1.LBFrontend](yamlLBFrontends, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB Frontend: %s", err)
 	}
 
 	for _, obj := range frontends {
-		clients.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), v1.DeleteOptions{})
+		clients.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Frontend %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBFrontend(ctx, "default", obj, v1.CreateOptions{}); err != nil {
+		if err := clients.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
 
 	// 3. Install LB Backends
 
-	backends, err := yamlToObjects[*v1alpha1.LBBackendPool](yamlLBBackends, scheme.Scheme)
+	backends, err := yamlToObjects[*isovalentv1alpha1.LBBackendPool](yamlLBBackends, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB Backend: %s", err)
 	}
@@ -125,26 +125,26 @@ func TestLB(t *testing.T) {
 	backends[6].Spec.Addresses[0].IP = appIPAddrs[5]
 
 	for _, obj := range backends {
-		clients.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), v1.DeleteOptions{})
+		clients.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Backend %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBBackend(ctx, "default", obj, v1.CreateOptions{}); err != nil {
+		if err := clients.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB Backend: %s", err)
 		}
 	}
 
 	// 4. Install LB IPPOOLS
 
-	lbIPPools, err := yamlToObjects[*v2alpha1.CiliumLoadBalancerIPPool](yamlLBIPPools, scheme.Scheme)
+	lbIPPools, err := yamlToObjects[*ciliumv2alpha1.CiliumLoadBalancerIPPool](yamlLBIPPools, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB IP Pool: %s", err)
 	}
 
 	for _, obj := range lbIPPools {
-		clients.DeleteLBIPPool(ctx, obj.GetObjectMeta().GetName(), v1.DeleteOptions{})
+		clients.DeleteLBIPPool(ctx, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB IP Pool %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBIPPool(ctx, obj, v1.CreateOptions{}); err != nil {
+		if err := clients.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB IP Pool: %s", err)
 		}
 	}

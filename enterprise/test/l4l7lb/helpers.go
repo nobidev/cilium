@@ -22,7 +22,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker_client "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 )
 
@@ -73,43 +73,43 @@ func newClients() (*clients, error) {
 	return &clients, err
 }
 
-func (c *clients) CreateLBVIP(ctx context.Context, namespace string, obj *v1alpha1.LBVIP, opts v1.CreateOptions) error {
+func (c *clients) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
 	_, err := c.ciliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBVIP(ctx context.Context, namespace, name string, opts v1.DeleteOptions) error {
+func (c *clients) DeleteLBVIP(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.ciliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) CreateLBFrontend(ctx context.Context, namespace string, obj *v1alpha1.LBFrontend, opts v1.CreateOptions) error {
+func (c *clients) CreateLBFrontend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBFrontend, opts metav1.CreateOptions) error {
 	_, err := c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBFrontend(ctx context.Context, namespace, name string, opts v1.DeleteOptions) error {
+func (c *clients) DeleteLBFrontend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) GetLBFrontend(ctx context.Context, namespace, name string, opts v1.GetOptions) (*v1alpha1.LBFrontend, error) {
+func (c *clients) GetLBFrontend(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBFrontend, error) {
 	return c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
 }
 
-func (c *clients) CreateLBBackend(ctx context.Context, namespace string, obj *v1alpha1.LBBackendPool, opts v1.CreateOptions) error {
+func (c *clients) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
 	_, err := c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBBackend(ctx context.Context, namespace, name string, opts v1.DeleteOptions) error {
+func (c *clients) DeleteLBBackend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) CreateLBIPPool(ctx context.Context, obj *v2alpha1.CiliumLoadBalancerIPPool, opts v1.CreateOptions) error {
+func (c *clients) CreateLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
 	_, err := c.ciliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBIPPool(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *clients) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.ciliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
 }
 
@@ -131,7 +131,7 @@ func (c *clients) WaitForLBVIP(ctx context.Context, namespace, name string) (str
 	defer cancel()
 
 	for {
-		obj, err := c.GetLBFrontend(ctx, namespace, name, v1.GetOptions{})
+		obj, err := c.GetLBFrontend(ctx, namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
