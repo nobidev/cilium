@@ -43,8 +43,8 @@ const (
 )
 
 func TestLB(t *testing.T) {
-	if os.Getenv("INTEGRATION_TESTS") == "true" {
-		t.Skip("Skipping due to INTEGRATION_TESTS=true")
+	if os.Getenv("LOADBALANCER_TESTS") != "true" {
+		t.Skip("Skipping due to LOADBALANCER_TESTS!=true")
 	}
 
 	ctx := context.Background()
