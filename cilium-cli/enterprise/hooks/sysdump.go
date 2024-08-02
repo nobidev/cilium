@@ -537,6 +537,66 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 			},
 		},
 		{
+			Description: "Collecting LBVIPs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				fqdnGroups := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: "lbvips",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, fqdnGroups, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect LBVIPs: %w", err)
+				}
+				if err := collector.WriteYAML("cilium-enterprise-lbvips-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to collect LBVIPs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting LBFrontends",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				fqdnGroups := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: "lbfrontends",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, fqdnGroups, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect LBFrontends: %w", err)
+				}
+				if err := collector.WriteYAML("cilium-enterprise-lbfrontends-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to collect LBFrontends: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting LBBackendPools",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				fqdnGroups := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: "lbbackendpools",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, fqdnGroups, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect LBBackendPools: %w", err)
+				}
+				if err := collector.WriteYAML("cilium-enterprise-lbbackendpools-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to collect LBBackendPools: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Tetragon SandboxPolicies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
