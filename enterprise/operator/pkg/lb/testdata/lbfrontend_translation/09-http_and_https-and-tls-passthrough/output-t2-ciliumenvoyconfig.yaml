@@ -54,6 +54,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
+                useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http
@@ -78,6 +79,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
+                useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_https
                 statPrefix: frontend_listener_https
@@ -125,6 +127,9 @@ spec:
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
           routes:
             - match:
                 prefix: /
@@ -139,6 +144,9 @@ spec:
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
           routes:
             - match:
                 prefix: /

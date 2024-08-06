@@ -189,6 +189,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 						StatPrefix:                   "frontend_listener_http",
 						CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
 						NormalizePath:                wrapperspb.Bool(true),
+						UseRemoteAddress:             wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
 							{
@@ -336,6 +337,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 						StatPrefix:                   "frontend_listener_https",
 						CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
 						NormalizePath:                wrapperspb.Bool(true),
+						UseRemoteAddress:             wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							{
 								Name: "envoy.filters.http.router",
@@ -511,6 +513,10 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbFronte
 						},
 					},
 				},
+				RequestHeadersToRemove: []string{
+					"x-envoy-internal",
+					"x-envoy-external-address",
+				},
 				ResponseHeadersToRemove: []string{
 					"x-envoy-upstream-service-time",
 					"x-envoy-overloaded",
@@ -552,6 +558,10 @@ func (r *lbFrontendReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbFront
 							},
 						},
 					},
+				},
+				RequestHeadersToRemove: []string{
+					"x-envoy-internal",
+					"x-envoy-external-address",
 				},
 				ResponseHeadersToRemove: []string{
 					"x-envoy-upstream-service-time",
