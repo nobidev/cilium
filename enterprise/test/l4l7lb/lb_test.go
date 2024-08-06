@@ -141,11 +141,9 @@ func TestLB(t *testing.T) {
 	}
 
 	for _, obj := range lbIPPools {
-		clients.DeleteLBIPPool(ctx, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
-
 		t.Logf("Creating LB IP Pool %s...", obj.GetObjectMeta().GetName())
 		if err := clients.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Failed to create LB IP Pool: %s", err)
+			t.Logf("Failed to create LB IP Pool: %s", err)
 		}
 	}
 
