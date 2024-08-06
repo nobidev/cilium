@@ -42,23 +42,14 @@ const (
 	clientContainerName = "frr"
 )
 
-func TestLB(t *testing.T) {
-	if os.Getenv("LOADBALANCER_TESTS") != "true" {
-		t.Skip("Skipping due to LOADBALANCER_TESTS!=true")
-	}
+type lbTests struct {
+	ciliumCli *ciliumCli
+	dockerCli *dockerCli
 
-	ctx := context.Background()
+	vips map[int]string
+}
 
-	ciliumCli, err := newCiliumCli()
-	if err != nil {
-		t.Fatalf("Failed to create Cilium client: %s", err)
-	}
-
-	dockerCli, err := newDockerCli()
-	if err != nil {
-		t.Fatalf("Failed to create Docker client: %s", err)
-	}
-
+func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 	// 1. Install LB VIPS
 
 	lbVIPs, err := yamlToObjects[*isovalentv1alpha1.LBVIP](yamlLBVIPs, scheme.Scheme)
@@ -67,10 +58,10 @@ func TestLB(t *testing.T) {
 	}
 
 	for _, obj := range lbVIPs {
-		ciliumCli.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		lbt.ciliumCli.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB VIP %s...", obj.GetObjectMeta().GetName())
-		if err := ciliumCli.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
+		if err := lbt.ciliumCli.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
@@ -83,10 +74,10 @@ func TestLB(t *testing.T) {
 	}
 
 	for _, obj := range frontends {
-		ciliumCli.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		lbt.ciliumCli.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Frontend %s...", obj.GetObjectMeta().GetName())
-		if err := ciliumCli.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
+		if err := lbt.ciliumCli.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
@@ -100,7 +91,7 @@ func TestLB(t *testing.T) {
 
 	appIPAddrs := map[int]string{}
 	for i := 1; i <= 5; i++ {
-		ip, err := dockerCli.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
+		ip, err := lbt.dockerCli.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
 		if err != nil {
 			t.Fatalf("Failed to retrieve container app%d IP: %s", i, err)
 		}
@@ -130,10 +121,10 @@ func TestLB(t *testing.T) {
 	backends[6].Spec.Backends[0].IP = appIPAddrs[5]
 
 	for _, obj := range backends {
-		ciliumCli.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		lbt.ciliumCli.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Backend %s...", obj.GetObjectMeta().GetName())
-		if err := ciliumCli.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
+		if err := lbt.ciliumCli.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB Backend: %s", err)
 		}
 	}
@@ -147,36 +138,63 @@ func TestLB(t *testing.T) {
 
 	for _, obj := range lbIPPools {
 		t.Logf("Creating LB IP Pool %s...", obj.GetObjectMeta().GetName())
-		if err := ciliumCli.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if err := lbt.ciliumCli.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
 			t.Logf("Failed to create LB IP Pool: %s", err)
 		}
 	}
 
 	// 5. Wait for LB VIPs
 
-	vips := map[int]string{}
 	for i := 1; i <= 6; i++ {
 		name := fmt.Sprintf("lb-%d", i)
 		t.Logf("Waiting for LB VIP %s...", name)
-		vip, err := ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
+		vip, err := lbt.ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
 		if err != nil {
 			t.Fatalf("Failed to wait for LB VIP %s: %s", name, err)
 		}
-		vips[i] = vip
+		lbt.vips[i] = vip
 	}
 
-	// 6. Run connectivity tests
+}
+
+func TestLB(t *testing.T) {
+	if os.Getenv("LOADBALANCER_TESTS") != "true" {
+		t.Skip("Skipping due to LOADBALANCER_TESTS!=true")
+	}
+
+	ctx := context.Background()
+
+	ciliumCli, err := newCiliumCli()
+	if err != nil {
+		t.Fatalf("Failed to create Cilium client: %s", err)
+	}
+
+	dockerCli, err := newDockerCli()
+	if err != nil {
+		t.Fatalf("Failed to create Docker client: %s", err)
+	}
+
+	lbt := &lbTests{
+		ciliumCli: ciliumCli,
+		dockerCli: dockerCli,
+		vips:      map[int]string{},
+	}
+
+	lbt.installLBObjs(ctx, t)
+	// TODO(brb) defer lbt.cleanup()
+
+	// Run connectivity tests
 
 	// TODO(brb) wait for FRR route propagation
 
 	testCmds := []string{
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vips[1])),
-		curlCmd(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", vips[2])),
-		curlCmd(fmt.Sprintf("http://%s:81/", vips[3])),
-		curlCmd(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vips[4])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", vips[5])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", vips[6])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", vips[6])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1])),
+		curlCmd(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
+		curlCmd(fmt.Sprintf("http://%s:81/", lbt.vips[3])),
+		curlCmd(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
 	}
 
 	for _, cmd := range testCmds {
