@@ -40,14 +40,11 @@ const (
 	pollInterval = 1 * time.Second
 )
 
-type clients struct {
-	ciliumClientset *cilium_clientset.Clientset
-	dockerClient    *docker_client.Client
+type ciliumCli struct {
+	*cilium_clientset.Clientset
 }
 
-func newClients() (*clients, error) {
-	var clients clients
-
+func newCiliumCli() (*ciliumCli, error) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
@@ -60,73 +57,55 @@ func newClients() (*clients, error) {
 		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
 
-	clients.ciliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
-	clients.dockerClient, err = docker_client.NewClientWithOpts(docker_client.FromEnv)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open Docker client: %w", err)
-	}
-
-	return &clients, err
+	return &ciliumCli{cli}, nil
 }
 
-func (c *clients) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
-	_, err := c.ciliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Create(ctx, obj, opts)
+func (c *ciliumCli) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBVIPs(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBVIP(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.ciliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
+func (c *ciliumCli) DeleteLBVIP(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) CreateLBFrontend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBFrontend, opts metav1.CreateOptions) error {
-	_, err := c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Create(ctx, obj, opts)
+func (c *ciliumCli) CreateLBFrontend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBFrontend, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBFrontends(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBFrontend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Delete(ctx, name, opts)
+func (c *ciliumCli) DeleteLBFrontend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBFrontends(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) GetLBFrontend(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBFrontend, error) {
-	return c.ciliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
+func (c *ciliumCli) GetLBFrontend(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBFrontend, error) {
+	return c.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
 }
 
-func (c *clients) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
-	_, err := c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
+func (c *ciliumCli) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBBackend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.ciliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
+func (c *ciliumCli) DeleteLBBackend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
 }
 
-func (c *clients) CreateLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
-	_, err := c.ciliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
+func (c *ciliumCli) CreateLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
+	_, err := c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
 	return err
 }
 
-func (c *clients) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.ciliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
+func (c *ciliumCli) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
 }
 
-func (c *clients) GetContainerIP(ctx context.Context, containerName string) (string, error) {
-	obj, err := c.dockerClient.ContainerInspect(ctx, containerName)
-	if err != nil {
-		return "", err
-	}
-
-	for _, network := range obj.NetworkSettings.Networks {
-		return network.IPAddress, nil
-	}
-
-	return "", fmt.Errorf("no network found")
-}
-
-func (c *clients) WaitForLBVIP(ctx context.Context, namespace, name string) (string, error) {
+func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
 	defer cancel()
 
@@ -150,7 +129,33 @@ func (c *clients) WaitForLBVIP(ctx context.Context, namespace, name string) (str
 	}
 }
 
-func (c *clients) ContainerExec(ctx context.Context, name string, cmds []string) (string, string, error) {
+type dockerCli struct {
+	*docker_client.Client
+}
+
+func newDockerCli() (*dockerCli, error) {
+	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open Docker client: %w", err)
+	}
+
+	return &dockerCli{cli}, nil
+}
+
+func (c *dockerCli) GetContainerIP(ctx context.Context, containerName string) (string, error) {
+	obj, err := c.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	for _, network := range obj.NetworkSettings.Networks {
+		return network.IPAddress, nil
+	}
+
+	return "", fmt.Errorf("no network found")
+}
+
+func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 
 	execConfig := container.ExecOptions{
@@ -159,12 +164,12 @@ func (c *clients) ContainerExec(ctx context.Context, name string, cmds []string)
 		Cmd:          cmds,
 	}
 
-	execID, err := c.dockerClient.ContainerExecCreate(ctx, name, execConfig)
+	execID, err := c.ContainerExecCreate(ctx, name, execConfig)
 	if err != nil {
 		return "", "", nil
 	}
 
-	resp, err := c.dockerClient.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
 	if err != nil {
 		return "", "", err
 	}
@@ -175,7 +180,7 @@ func (c *clients) ContainerExec(ctx context.Context, name string, cmds []string)
 		return stdout.String(), stderr.String(), err
 	}
 
-	inspect, err := c.dockerClient.ContainerExecInspect(ctx, execID.ID)
+	inspect, err := c.ContainerExecInspect(ctx, execID.ID)
 	if err != nil {
 		return stdout.String(), stderr.String(), err
 	}

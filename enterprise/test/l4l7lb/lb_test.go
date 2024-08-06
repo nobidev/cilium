@@ -49,9 +49,14 @@ func TestLB(t *testing.T) {
 
 	ctx := context.Background()
 
-	clients, err := newClients()
+	ciliumCli, err := newCiliumCli()
 	if err != nil {
-		t.Fatalf("Failed to create k8s client(s): %s", err)
+		t.Fatalf("Failed to create Cilium client: %s", err)
+	}
+
+	dockerCli, err := newDockerCli()
+	if err != nil {
+		t.Fatalf("Failed to create Docker client: %s", err)
 	}
 
 	// 1. Install LB VIPS
@@ -62,10 +67,10 @@ func TestLB(t *testing.T) {
 	}
 
 	for _, obj := range lbVIPs {
-		clients.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		ciliumCli.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB VIP %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
+		if err := ciliumCli.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
@@ -78,10 +83,10 @@ func TestLB(t *testing.T) {
 	}
 
 	for _, obj := range frontends {
-		clients.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		ciliumCli.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Frontend %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
+		if err := ciliumCli.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
@@ -95,7 +100,7 @@ func TestLB(t *testing.T) {
 
 	appIPAddrs := map[int]string{}
 	for i := 1; i <= 5; i++ {
-		ip, err := clients.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
+		ip, err := dockerCli.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
 		if err != nil {
 			t.Fatalf("Failed to retrieve container app%d IP: %s", i, err)
 		}
@@ -125,10 +130,10 @@ func TestLB(t *testing.T) {
 	backends[6].Spec.Backends[0].IP = appIPAddrs[5]
 
 	for _, obj := range backends {
-		clients.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+		ciliumCli.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
 		t.Logf("Creating LB Backend %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
+		if err := ciliumCli.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB Backend: %s", err)
 		}
 	}
@@ -142,7 +147,7 @@ func TestLB(t *testing.T) {
 
 	for _, obj := range lbIPPools {
 		t.Logf("Creating LB IP Pool %s...", obj.GetObjectMeta().GetName())
-		if err := clients.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if err := ciliumCli.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
 			t.Logf("Failed to create LB IP Pool: %s", err)
 		}
 	}
@@ -153,7 +158,7 @@ func TestLB(t *testing.T) {
 	for i := 1; i <= 6; i++ {
 		name := fmt.Sprintf("lb-%d", i)
 		t.Logf("Waiting for LB VIP %s...", name)
-		vip, err := clients.WaitForLBVIP(ctx, defaultNamespace, name)
+		vip, err := ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
 		if err != nil {
 			t.Fatalf("Failed to wait for LB VIP %s: %s", name, err)
 		}
@@ -176,7 +181,7 @@ func TestLB(t *testing.T) {
 
 	for _, cmd := range testCmds {
 		t.Logf("Running cmd %q...", cmd)
-		stdout, stderr, err := clients.ContainerExec(ctx, clientContainerName,
+		stdout, stderr, err := dockerCli.ContainerExec(ctx, clientContainerName,
 			[]string{"bash", "-c", cmd},
 		)
 		fmt.Println(stdout, stderr)
