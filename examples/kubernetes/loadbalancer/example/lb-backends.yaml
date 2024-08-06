@@ -8,7 +8,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
     - ip: 8.9.9.9
@@ -24,7 +24,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
     - ip: 8.9.9.9
@@ -40,7 +40,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
     - ip: 8.9.9.9
@@ -56,7 +56,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
     - ip: 8.9.9.9
@@ -72,7 +72,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
     - ip: 8.9.9.9
@@ -91,7 +91,7 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
 ---
@@ -105,6 +105,6 @@ spec:
     intervalSeconds: 10
     http:
       path: "/health"
-  addresses:
+  backends:
     - ip: 9.9.9.9
       port: 8080
