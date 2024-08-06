@@ -157,6 +157,29 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 }
 
+func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
+	testCmds := []string{
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1])),
+		curlCmd(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
+		curlCmd(fmt.Sprintf("http://%s:81/", lbt.vips[3])),
+		curlCmd(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
+		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
+	}
+
+	for _, cmd := range testCmds {
+		t.Logf("Running cmd %q...", cmd)
+		stdout, stderr, err := lbt.dockerCli.ContainerExec(ctx, clientContainerName,
+			[]string{"bash", "-c", cmd},
+		)
+		fmt.Println(stdout, stderr)
+		if err != nil {
+			t.Fatalf("Failed cmd %q: %s (stdout: %s, stderr: %s)", cmd, err, stdout, stderr)
+		}
+	}
+}
+
 func TestLB(t *testing.T) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
 		t.Skip("Skipping due to LOADBALANCER_TESTS!=true")
@@ -183,28 +206,5 @@ func TestLB(t *testing.T) {
 	lbt.installLBObjs(ctx, t)
 	// TODO(brb) defer lbt.cleanup()
 
-	// Run connectivity tests
-
-	// TODO(brb) wait for FRR route propagation
-
-	testCmds := []string{
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1])),
-		curlCmd(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
-		curlCmd(fmt.Sprintf("http://%s:81/", lbt.vips[3])),
-		curlCmd(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
-	}
-
-	for _, cmd := range testCmds {
-		t.Logf("Running cmd %q...", cmd)
-		stdout, stderr, err := dockerCli.ContainerExec(ctx, clientContainerName,
-			[]string{"bash", "-c", cmd},
-		)
-		fmt.Println(stdout, stderr)
-		if err != nil {
-			t.Fatalf("Failed cmd %q: %s (stdout: %s, stderr: %s)", cmd, err, stdout, stderr)
-		}
-	}
+	lbt.testBasicLBConnectivity(ctx, t)
 }
