@@ -169,15 +169,22 @@ func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
 	}
 
 	for _, cmd := range testCmds {
-		t.Logf("Running cmd %q...", cmd)
-		stdout, stderr, err := lbt.dockerCli.ContainerExec(ctx, clientContainerName,
-			[]string{"bash", "-c", cmd},
-		)
+		stdout, stderr, err := lbt.clientExec(ctx, cmd, t)
 		fmt.Println(stdout, stderr)
 		if err != nil {
 			t.Fatalf("Failed cmd %q: %s (stdout: %s, stderr: %s)", cmd, err, stdout, stderr)
 		}
 	}
+}
+
+func (lbt *lbTests) clientExec(ctx context.Context, cmd string, t *testing.T) (string, string, error) {
+	t.Logf("Running client cmd %q...", cmd)
+
+	stdout, stderr, err := lbt.dockerCli.ContainerExec(ctx, clientContainerName,
+		[]string{"bash", "-c", cmd},
+	)
+
+	return stdout, stderr, err
 }
 
 func TestLB(t *testing.T) {
