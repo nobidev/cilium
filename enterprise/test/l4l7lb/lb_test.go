@@ -145,7 +145,7 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 	// 5. Wait for LB VIPs
 
-	for i := 1; i <= 6; i++ {
+	for i := 1; i <= len(frontends); i++ {
 		name := fmt.Sprintf("lb-%d", i)
 		t.Logf("Waiting for LB VIP %s...", name)
 		vip, err := lbt.ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
@@ -157,26 +157,6 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 }
 
-func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
-	testCmds := []string{
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1])),
-		curlCmd(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
-		curlCmd(fmt.Sprintf("http://%s:81/", lbt.vips[3])),
-		curlCmd(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
-		curlCmd(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
-	}
-
-	for _, cmd := range testCmds {
-		stdout, stderr, err := lbt.clientExec(ctx, cmd, t)
-		fmt.Println(stdout, stderr)
-		if err != nil {
-			t.Fatalf("Failed cmd %q: %s (stdout: %s, stderr: %s)", cmd, err, stdout, stderr)
-		}
-	}
-}
-
 func (lbt *lbTests) clientExec(ctx context.Context, cmd string, t *testing.T) (string, string, error) {
 	t.Logf("Running client cmd %q...", cmd)
 
@@ -185,6 +165,44 @@ func (lbt *lbTests) clientExec(ctx context.Context, cmd string, t *testing.T) (s
 	)
 
 	return stdout, stderr, err
+}
+
+func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
+	// Basic connectivity to apps through LB
+	testCmds := []string{
+		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1])),
+		curlCmdVerbose(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
+		curlCmdVerbose(fmt.Sprintf("http://%s:81/", lbt.vips[3])),
+		curlCmdVerbose(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
+		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
+		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
+		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
+	}
+
+	for _, cmd := range testCmds {
+		stdout, stderr, err := lbt.clientExec(ctx, cmd, t)
+		fmt.Println(stdout, stderr)
+		if err != nil {
+			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
+		}
+	}
+
+	// Check that HTTP 2 is used to connect to apps through LB
+	testHTTP2Cmds := []string{
+		curlCmd(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
+		curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/tls-secure-http2.crt --resolve secure-http2.acme.io:443:%s https://secure-http2.acme.io:443/", lbt.vips[7])),
+	}
+
+	for _, cmd := range testHTTP2Cmds {
+		stdout, stderr, err := lbt.clientExec(ctx, cmd, t)
+		if err != nil {
+			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
+		}
+		// Check HTTP H2
+		if stdout != "2" {
+			t.Fatalf("Expected HTTP 2, got: %s", stdout)
+		}
+	}
 }
 
 func TestLB(t *testing.T) {

@@ -220,6 +220,10 @@ func yamlToObjects[T runtime.Object](input string, scheme *runtime.Scheme) (outp
 	return output, nil
 }
 
-func curlCmd(extra string) string {
+func curlCmdVerbose(extra string) string {
 	return "curl -w '%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}' --silent --fail --show-error " + extra
+}
+
+func curlCmd(extra string) string {
+	return "curl --silent --fail --show-error " + extra
 }
