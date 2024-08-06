@@ -27,9 +27,9 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                generateRequestId: false
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -39,9 +39,9 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_http_0:
-                          value: 20
                         backend_cluster_https_0:
+                          value: 20
+                        backend_cluster_https_1:
                           value: 20
                       headers:
                         - name: :path
@@ -57,14 +57,16 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-                normalizePath: true
                 mergeSlashes: true
-                useRemoteAddress: true
+                normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
+                serverName: ilb
                 statPrefix: frontend_listener_http
+                useRemoteAddress: true
         - filterChainMatch:
             serverNames:
+              - bar.acme.io
               - foo.acme.io
             transportProtocol: tls
           filters:
@@ -78,9 +80,9 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                generateRequestId: false
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -89,12 +91,13 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-                normalizePath: true
                 mergeSlashes: true
-                useRemoteAddress: true
+                normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_https
+                serverName: ilb
                 statPrefix: frontend_listener_https
+                useRemoteAddress: true
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -105,7 +108,27 @@ spec:
                   - http/1.1
                 tlsCertificateSdsSecretConfigs:
                   - name: /default-test
-                tlsParams: {}
+                tlsParams:
+                  cipherSuites:
+                    - "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]"
+                    - "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]"
+                    - ECDHE-ECDSA-AES256-GCM-SHA384
+                    - ECDHE-RSA-AES256-GCM-SHA384
+                  ecdhCurves:
+                    - X25519
+                    - P-256
+                  signatureAlgorithms:
+                    - ecdsa_secp256r1_sha256
+                    - rsa_pss_rsae_sha256
+                    - rsa_pkcs1_sha256
+                    - ecdsa_secp384r1_sha384
+                    - rsa_pss_rsae_sha384
+                    - rsa_pkcs1_sha384
+                    - rsa_pss_rsae_sha512
+                    - rsa_pkcs1_sha512
+                    - rsa_pkcs1_sha1
+                  tlsMaximumProtocolVersion: TLSv1_2
+                  tlsMinimumProtocolVersion: TLSv1_2
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -113,65 +136,41 @@ spec:
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
-      perConnectionBufferLimitBytes: 32768
       name: frontend_listener
+      perConnectionBufferLimitBytes: 32768
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http
-      virtualHosts:
-        - domains:
-            - "bla.acme.io"
-          name: frontend_virtualhost_http_0
-          responseHeadersToRemove:
-            - x-envoy-upstream-service-time
-            - x-envoy-overloaded
-          requestHeadersToRemove:
-            - x-envoy-internal
-            - x-envoy-external-address
-          routes:
-            - match:
-                prefix: /
-              route:
-                cluster: backend_cluster_http_0
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
             - "foo.acme.io:80"
           name: frontend_virtualhost_https_0
-          responseHeadersToRemove:
-            - x-envoy-upstream-service-time
-            - x-envoy-overloaded
           requestHeadersToRemove:
             - x-envoy-internal
             - x-envoy-external-address
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
           routes:
             - match:
                 prefix: /
               route:
                 cluster: backend_cluster_https_0
-    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      commonLbConfig:
-        healthyPanicThreshold: {}
-      connectTimeout: 5s
-      healthChecks:
-        - healthyThreshold: 1
-          httpHealthCheck:
-            host: lb
-            path: /healthz
-          interval: 30s
-          noTrafficInterval: 30s
-          timeout: 5s
-          unhealthyEdgeInterval: 30s
-          unhealthyInterval: 30s
-          unhealthyThreshold: 1
-      name: backend_cluster_http_0
-      type: EDS
-      typedExtensionProtocolOptions:
-        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          explicitHttpConfig:
-            httpProtocolOptions: {}
-      perConnectionBufferLimitBytes: 32768
+        - domains:
+            - "bar.acme.io:80"
+          name: frontend_virtualhost_https_1
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          routes:
+            - match:
+                path: /api/test
+              route:
+                cluster: backend_cluster_https_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -188,27 +187,36 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       name: backend_cluster_https_0
+      perConnectionBufferLimitBytes: 32768
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
           explicitHttpConfig:
             httpProtocolOptions: {}
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 30s
+          noTrafficInterval: 30s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      name: backend_cluster_https_1
       perConnectionBufferLimitBytes: 32768
-    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_http_0
-      endpoints:
-        - lbEndpoints:
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.5
-                    portValue: 8080
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.6
-                    portValue: 8080
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicitHttpConfig:
+            httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_https_0
       endpoints:
@@ -222,4 +230,18 @@ spec:
                 address:
                   socketAddress:
                     address: 172.18.0.6
+                    portValue: 8080
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_https_1
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.7
+                    portValue: 8080
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.8
                     portValue: 8080

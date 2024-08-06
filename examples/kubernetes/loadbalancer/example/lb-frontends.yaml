@@ -86,6 +86,8 @@ spec:
       tlsConfig:
         certificates:
           - secretName: "test-secure80"
+        minTLSVersion: TLSv1_2
+        maxTLSVersion: TLSv1_2
       routes:
         - match:
             hostNames:

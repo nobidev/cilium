@@ -106,6 +106,7 @@ spec:
                   - h2
                 tlsCertificateSdsSecretConfigs:
                   - name: /default-test
+                tlsParams: {}
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

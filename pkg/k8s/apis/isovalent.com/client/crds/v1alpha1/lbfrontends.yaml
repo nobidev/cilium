@@ -248,6 +248,28 @@ spec:
                       tlsConfig:
                         description: The application-wide TLS configuration.
                         properties:
+                          allowedCipherSuites:
+                            description: "Allowed TLS cipher suites. \n If not defined,
+                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            items:
+                              minLength: 1
+                              type: string
+                            type: array
+                          allowedECDHCurves:
+                            description: "Allowed ECDH Curves. \n If not defined,
+                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            items:
+                              minLength: 1
+                              type: string
+                            type: array
+                          allowedSignatureAlgorithms:
+                            description: "Allowed signature algorithms. The list is
+                              ordered by preference. \n If not defined, the defaults
+                              of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            items:
+                              minLength: 1
+                              type: string
+                            type: array
                           certificates:
                             description: The list of certificates that the frontend
                               uses.
@@ -267,6 +289,24 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                          maxTLSVersion:
+                            description: "Maximum TLS version. \n If not defined,
+                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            enum:
+                            - TLSv1_0
+                            - TLSv1_1
+                            - TLSv1_2
+                            - TLSv1_3
+                            type: string
+                          minTLSVersion:
+                            description: "Minimum TLS version. \n If not defined,
+                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            enum:
+                            - TLSv1_0
+                            - TLSv1_1
+                            - TLSv1_2
+                            - TLSv1_3
+                            type: string
                         required:
                         - certificates
                         type: object

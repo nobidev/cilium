@@ -1,0 +1,3 @@
+ServerName: ilb
+T1HealthCheck:
+  ProbeTimeoutSeconds: 5

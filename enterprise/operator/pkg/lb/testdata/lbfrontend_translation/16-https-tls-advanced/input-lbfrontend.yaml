@@ -1,0 +1,47 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  applications:
+    httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretName: "test"
+        minTLSVersion: TLSv1_2
+        maxTLSVersion: TLSv1_2
+        allowedCipherSuites:
+          - "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]"
+          - "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]"
+          - ECDHE-ECDSA-AES256-GCM-SHA384
+          - ECDHE-RSA-AES256-GCM-SHA384
+        allowedECDHCurves:
+          - X25519
+          - P-256
+        allowedSignatureAlgorithms:
+          - ecdsa_secp256r1_sha256
+          - rsa_pss_rsae_sha256
+          - rsa_pkcs1_sha256
+          - ecdsa_secp384r1_sha384
+          - rsa_pss_rsae_sha384
+          - rsa_pkcs1_sha384
+          - rsa_pss_rsae_sha512
+          - rsa_pkcs1_sha512
+          - rsa_pkcs1_sha1
+      routes:
+        - match:
+            hostNames:
+              - "foo.acme.io"
+          backendRef:
+            name: lb-1
+        - match:
+            hostNames:
+              - "bar.acme.io"
+            path:
+              exact: "/api/test"
+          backendRef:
+            name: lb-2

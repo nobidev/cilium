@@ -2984,6 +2984,31 @@ func (in *LBFrontendTLSConfig) DeepCopyInto(out *LBFrontendTLSConfig) {
 		*out = make([]LBFrontendTLSCertificate, len(*in))
 		copy(*out, *in)
 	}
+	if in.MinTLSVersion != nil {
+		in, out := &in.MinTLSVersion, &out.MinTLSVersion
+		*out = new(LBFrontendTLSProtocolVersion)
+		**out = **in
+	}
+	if in.MaxTLSVersion != nil {
+		in, out := &in.MaxTLSVersion, &out.MaxTLSVersion
+		*out = new(LBFrontendTLSProtocolVersion)
+		**out = **in
+	}
+	if in.AllowedCipherSuites != nil {
+		in, out := &in.AllowedCipherSuites, &out.AllowedCipherSuites
+		*out = make([]LBFrontendTLSCipherSuite, len(*in))
+		copy(*out, *in)
+	}
+	if in.AllowedECDHCurves != nil {
+		in, out := &in.AllowedECDHCurves, &out.AllowedECDHCurves
+		*out = make([]LBFrontendTLSECDHCurve, len(*in))
+		copy(*out, *in)
+	}
+	if in.AllowedSignatureAlgorithms != nil {
+		in, out := &in.AllowedSignatureAlgorithms, &out.AllowedSignatureAlgorithms
+		*out = make([]LBFrontendTLSSignatureAlgorithm, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

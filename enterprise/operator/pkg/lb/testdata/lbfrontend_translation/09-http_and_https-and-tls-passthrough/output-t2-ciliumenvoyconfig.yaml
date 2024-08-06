@@ -107,6 +107,7 @@ spec:
                   - http/1.1
                 tlsCertificateSdsSecretConfigs:
                   - name: /default-test
+                tlsParams: {}
         - filterChainMatch:
             serverNames:
               - passthrough.acme.io

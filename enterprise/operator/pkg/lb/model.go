@@ -48,7 +48,12 @@ type lbFrontendHTTPConfig struct {
 }
 
 type lbFrontendTLSConfig struct {
-	certificateSecrets []string
+	certificateSecrets         []string
+	MinTLSVersion              string
+	MaxTLSVersion              string
+	AllowedCipherSuites        []string
+	AllowedECDHCurves          []string
+	AllowedSignatureAlgorithms []string
 }
 
 type lbApplications struct {

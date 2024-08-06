@@ -310,6 +310,24 @@ func (r *lbFrontendReconciler) toAlpnProtocols(model *lbFrontend) []string {
 	return alpnProtocols
 }
 
+func (r *lbFrontendReconciler) toTLSParams(model *lbFrontend) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
+	if model.applications.httpsProxy == nil || model.applications.httpsProxy.tlsConfig == nil {
+		return nil
+	}
+
+	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
+		TlsMinimumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.MinTLSVersion),
+		TlsMaximumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.MaxTLSVersion),
+		CipherSuites:              model.applications.httpsProxy.tlsConfig.AllowedCipherSuites,
+		EcdhCurves:                model.applications.httpsProxy.tlsConfig.AllowedECDHCurves,
+		SignatureAlgorithms:       model.applications.httpsProxy.tlsConfig.AllowedSignatureAlgorithms,
+	}
+}
+
+func (r *lbFrontendReconciler) toTLSVersion(version string) envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol {
+	return envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol(envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol_value[version])
+}
+
 func (r *lbFrontendReconciler) toTLSPassthroughServerNames(tlsPassthroughHostNames []string) []string {
 	// remove duplicates and raw '*' that is not allowed by Envoy
 	serverNames := []string{}
@@ -354,6 +372,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: r.toSdsConfigs(model),
 						AlpnProtocols:                  r.toAlpnProtocols(model),
+						TlsParams:                      r.toTLSParams(model),
 					},
 				}),
 			},

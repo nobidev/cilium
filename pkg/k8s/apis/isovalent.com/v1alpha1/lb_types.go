@@ -134,7 +134,59 @@ type LBFrontendTLSConfig struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Certificates []LBFrontendTLSCertificate `json:"certificates"`
+
+	// Minimum TLS version.
+	//
+	// If not defined, the defaults of the Envoy proxy are used.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
+	//
+	// +kubebuilder:validation:Optional
+	MinTLSVersion *LBFrontendTLSProtocolVersion `json:"minTLSVersion,omitempty"`
+
+	// Maximum TLS version.
+	//
+	// If not defined, the defaults of the Envoy proxy are used.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
+	//
+	// +kubebuilder:validation:Optional
+	MaxTLSVersion *LBFrontendTLSProtocolVersion `json:"maxTLSVersion,omitempty"`
+
+	// Allowed TLS cipher suites.
+	//
+	// If not defined, the defaults of the Envoy proxy are used.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
+	//
+	// +kubebuilder:validation:Optional
+	AllowedCipherSuites []LBFrontendTLSCipherSuite `json:"allowedCipherSuites,omitempty"`
+
+	// Allowed ECDH Curves.
+	//
+	// If not defined, the defaults of the Envoy proxy are used.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
+	//
+	// +kubebuilder:validation:Optional
+	AllowedECDHCurves []LBFrontendTLSECDHCurve `json:"allowedECDHCurves,omitempty"`
+
+	// Allowed signature algorithms. The list is ordered by preference.
+	//
+	// If not defined, the defaults of the Envoy proxy are used.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
+	//
+	// +kubebuilder:validation:Optional
+	AllowedSignatureAlgorithms []LBFrontendTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
+type LBFrontendTLSProtocolVersion string
+
+// +kubebuilder:validation:MinLength=1
+type LBFrontendTLSCipherSuite string
+
+// +kubebuilder:validation:MinLength=1
+type LBFrontendTLSECDHCurve string
+
+// +kubebuilder:validation:MinLength=1
+type LBFrontendTLSSignatureAlgorithm string
 
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
