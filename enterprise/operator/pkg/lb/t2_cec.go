@@ -115,6 +115,29 @@ func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*cil
 }
 
 func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_config_listener_v3.Listener {
+	accessLoggers := []*envoy_accesslog_v3.AccessLog{}
+
+	if len(r.config.AccessLog.FormatTCP) > 0 {
+		accessLoggers = append(accessLoggers, &envoy_accesslog_v3.AccessLog{
+			Name: "stdout",
+			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
+					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
+						LogFormat: &envoy_corev3.SubstitutionFormatString{
+							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_corev3.DataSource{
+									Specifier: &envoy_corev3.DataSource_InlineString{
+										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTCP),
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+		})
+	}
+
 	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
 		Address: &envoy_corev3.Address{
@@ -147,6 +170,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 			},
 		},
 		FilterChains: r.desiredEnvoyListenerFilterChains(model),
+		AccessLog:    accessLoggers,
 	}
 }
 

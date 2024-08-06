@@ -38,6 +38,7 @@ var Cell = cell.Module(
 type Config struct {
 	LoadBalancerCPEnabled                 bool
 	LoadBalancerCPSecretsNamespace        string
+	LoadBalancerCPAccessLogFormatTCP      string
 	LoadBalancerCPAccessLogFormatHTTP     string
 	LoadBalancerCPAccessLogFormatTLS      string
 	LoadBalancerCPAccessLogExcludeHC      bool
@@ -51,6 +52,7 @@ type Config struct {
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("loadbalancer-cp-enabled", false, "Whether or not the LoadBalancer control plane is enabled.")
 	flags.String("loadbalancer-cp-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane.")
+	flags.String("loadbalancer-cp-accesslog-format-tcp", "[%START_TIME%][access][tcp] \"%PROTOCOL%\" %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\" \"%DOWNSTREAM_TRANSPORT_FAILURE_REASON%\"", "Envoy Access Log format for the TCP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tls", "[%START_TIME%][access][tls] %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\"", "Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.Bool("loadbalancer-cp-accesslog-exclude-hc", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to exclude health check requests from the access log")
@@ -89,6 +91,7 @@ func registerReconcilers(params reconcilerParams) error {
 			SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
 			ServerName:       params.Config.LoadBalancerCPHTTPServerName,
 			AccessLog: reconcilerAccesslogConfig{
+				FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
 				FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
 				FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
 				ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
