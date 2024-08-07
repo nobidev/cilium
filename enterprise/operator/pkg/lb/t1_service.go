@@ -25,6 +25,10 @@ import (
 )
 
 func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service {
+	if model.vip.assignedIPv4 == nil {
+		return nil
+	}
+
 	labels := map[string]string{
 		"service.cilium.io/node": "t1",
 	}
@@ -33,6 +37,7 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
+
 	if model.vip.requestedIPv4 != nil {
 		// If there's requested IP address, we need to set ips annotation
 		annotations[ossannotation.LBIPAMIPsKey] = *model.vip.requestedIPv4
@@ -103,6 +108,10 @@ func getHealthCheckIntervalSeconds(model *lbFrontend) int {
 }
 
 func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
+	if model.vip.assignedIPv4 == nil {
+		return nil, nil
+	}
+
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})

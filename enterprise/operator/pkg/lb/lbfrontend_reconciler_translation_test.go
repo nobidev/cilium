@@ -108,29 +108,32 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 
 		// T1 Service
 		service := reconciler.desiredService(model)
-		service.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Service"} // fix missing typemeta
 
-		actualServiceYaml := toYaml(t, service)
+		actualServiceYaml := ""
+		if service != nil {
+			service.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Service"} // fix missing typemeta
+			actualServiceYaml = toYaml(t, service)
+		}
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml)
 
 		// T1 Endpoints
 		endpoints, err := reconciler.desiredEndpoints(model, tc.t2NodeIPs)
 		require.NoError(t, err)
-		endpoints.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Endpoints"} // fix missing typemeta
 
-		actualEndpointsYaml := toYaml(t, endpoints)
+		actualEndpointsYaml := ""
+		if endpoints != nil {
+			endpoints.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Endpoints"} // fix missing typemeta
+			actualEndpointsYaml = toYaml(t, endpoints)
+		}
 		assert.Equal(t, expectedEndpointsYaml, actualEndpointsYaml)
 
 		// T2 CiliumEnvoyConfig
 		cec, err := reconciler.desiredCiliumEnvoyConfig(model)
 		require.NoError(t, err)
 
-		if cec != nil {
-			cec.TypeMeta = metav1.TypeMeta{APIVersion: "cilium.io/v2", Kind: "CiliumEnvoyConfig"} // fix missing typemeta
-		}
-
 		actualCiliumEnvoyConfigYaml := ""
 		if cec != nil {
+			cec.TypeMeta = metav1.TypeMeta{APIVersion: "cilium.io/v2", Kind: "CiliumEnvoyConfig"} // fix missing typemeta
 			actualCiliumEnvoyConfigYaml = toYaml(t, cec)
 		}
 
