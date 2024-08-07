@@ -117,7 +117,7 @@ func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*cil
 func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_config_listener_v3.Listener {
 	accessLoggers := []*envoy_accesslog_v3.AccessLog{}
 
-	if len(r.config.AccessLog.FormatTCP) > 0 {
+	if r.config.AccessLog.EnableTCP {
 		accessLoggers = append(accessLoggers, &envoy_accesslog_v3.AccessLog{
 			Name: "stdout",
 			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{

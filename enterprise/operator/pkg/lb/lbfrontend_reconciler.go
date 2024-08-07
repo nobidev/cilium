@@ -62,6 +62,7 @@ type reconcilerConfig struct {
 }
 
 type reconcilerAccesslogConfig struct {
+	EnableTCP  bool
 	FormatTCP  string
 	FormatHTTP string
 	FormatTLS  string
