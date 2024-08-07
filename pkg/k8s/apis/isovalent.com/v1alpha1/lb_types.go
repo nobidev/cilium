@@ -141,7 +141,7 @@ type LBFrontendTLSConfig struct {
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
 	//
 	// +kubebuilder:validation:Optional
-	MinTLSVersion *LBFrontendTLSProtocolVersion `json:"minTLSVersion,omitempty"`
+	MinTLSVersion *LBTLSProtocolVersion `json:"minTLSVersion,omitempty"`
 
 	// Maximum TLS version.
 	//
@@ -149,7 +149,7 @@ type LBFrontendTLSConfig struct {
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
 	//
 	// +kubebuilder:validation:Optional
-	MaxTLSVersion *LBFrontendTLSProtocolVersion `json:"maxTLSVersion,omitempty"`
+	MaxTLSVersion *LBTLSProtocolVersion `json:"maxTLSVersion,omitempty"`
 
 	// Allowed TLS cipher suites.
 	//
@@ -157,7 +157,7 @@ type LBFrontendTLSConfig struct {
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
 	//
 	// +kubebuilder:validation:Optional
-	AllowedCipherSuites []LBFrontendTLSCipherSuite `json:"allowedCipherSuites,omitempty"`
+	AllowedCipherSuites []LBTLSCipherSuite `json:"allowedCipherSuites,omitempty"`
 
 	// Allowed ECDH Curves.
 	//
@@ -165,7 +165,7 @@ type LBFrontendTLSConfig struct {
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
 	//
 	// +kubebuilder:validation:Optional
-	AllowedECDHCurves []LBFrontendTLSECDHCurve `json:"allowedECDHCurves,omitempty"`
+	AllowedECDHCurves []LBTLSECDHCurve `json:"allowedECDHCurves,omitempty"`
 
 	// Allowed signature algorithms. The list is ordered by preference.
 	//
@@ -173,20 +173,20 @@ type LBFrontendTLSConfig struct {
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
 	//
 	// +kubebuilder:validation:Optional
-	AllowedSignatureAlgorithms []LBFrontendTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
+	AllowedSignatureAlgorithms []LBTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
-type LBFrontendTLSProtocolVersion string
+type LBTLSProtocolVersion string
 
 // +kubebuilder:validation:MinLength=1
-type LBFrontendTLSCipherSuite string
+type LBTLSCipherSuite string
 
 // +kubebuilder:validation:MinLength=1
-type LBFrontendTLSECDHCurve string
+type LBTLSECDHCurve string
 
 // +kubebuilder:validation:MinLength=1
-type LBFrontendTLSSignatureAlgorithm string
+type LBTLSSignatureAlgorithm string
 
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
@@ -418,11 +418,18 @@ type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Required
 	HealthCheck HealthCheck `json:"healthCheck"`
 
+	// The pool-wide TLS configuration.
+	//
+	// +kubebuilder:validation:Optional
+	TLSConfig *LBBackendTLSConfig `json:"tlsConfig,omitempty"`
+
 	// The pool-wide HTTP configuration.
 	//
 	// +kubebuilder:validation:Optional
 	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
 }
+
+type LBBackendTLSConfig struct{}
 
 type LBBackendHTTPConfig struct {
 	// Setting this to true enables HTTP/1.1.

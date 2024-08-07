@@ -149,6 +149,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
@@ -201,6 +202,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
@@ -267,6 +269,7 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFro
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 		})
@@ -342,6 +345,14 @@ func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
 	}
 
 	return nil
+}
+
+func (*ingestor) toBackendTLSConfig(tlsConfig *isovalentv1alpha1.LBBackendTLSConfig) *lbBackendTLSConfig {
+	if tlsConfig == nil {
+		return nil
+	}
+
+	return &lbBackendTLSConfig{}
 }
 
 func (*ingestor) toBackendHTTPConfig(httpConfig *isovalentv1alpha1.LBBackendHTTPConfig) lbBackendHTTPConfig {

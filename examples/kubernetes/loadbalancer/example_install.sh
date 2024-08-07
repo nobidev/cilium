@@ -14,6 +14,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Backend TLS Secret (for testing TLS passthrough - is mounted and used by test health check backend)
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure-backend.key" -out "${script_dir}/tls-secure-backend.crt" -subj "/CN=passthrough.acme.io"
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure-backend2.key" -out "${script_dir}/tls-secure-backend2.crt" -subj "/CN=passthrough-2.acme.io"
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure-backend3.key" -out "${script_dir}/tls-secure-backend3.crt" -subj "/CN=secure-backend.acme.io"
 
 # Deploy Test health check backends
 docker rm -f app1 2>/dev/null
@@ -21,6 +22,7 @@ docker rm -f app2 2>/dev/null
 docker rm -f app3 2>/dev/null
 docker rm -f app4 2>/dev/null
 docker rm -f app5 2>/dev/null
+docker rm -f app6 2>/dev/null
 
 docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
 docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
@@ -33,6 +35,10 @@ docker run -d --name app4 --rm --env SERVICE_NAME=service4 --env INSTANCE_NAME=4
 TLS_CERT_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.crt | base64)
 TLS_KEY_BASE64_5=$(cat ${script_dir}/tls-secure-backend2.key | base64)
 docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_5" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_5" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
+
+TLS_CERT_BASE64_6=$(cat ${script_dir}/tls-secure-backend3.crt | base64)
+TLS_KEY_BASE64_6=$(cat ${script_dir}/tls-secure-backend3.key | base64)
+docker run -d --name app6 --rm --env SERVICE_NAME=service6 --env INSTANCE_NAME=6 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_6" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_6" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
 
 #
 # Client
@@ -48,6 +54,7 @@ docker run -d --restart=always --name frr --privileged -e "NEIGHBOR=${LB_T1_IP}"
 # Copy Backend TLS secrets to FRR client
 docker cp ${script_dir}/tls-secure-backend.crt frr:/tmp/tls-secure-backend.crt
 docker cp ${script_dir}/tls-secure-backend2.crt frr:/tmp/tls-secure-backend2.crt
+docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
 
 #
 # LB configuration
@@ -65,6 +72,7 @@ kubectl patch bgpp frr --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spe
 kubectl -n default delete secret test-secure 2>/dev/null || true
 kubectl -n default delete secret test-secure80 2>/dev/null || true
 kubectl -n default delete secret test-secure-http2 2>/dev/null || true
+kubectl -n default delete secret test-secure-backend 2>/dev/null || true
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure.key" -out "${script_dir}/tls-secure.crt" -subj "/CN=secure.acme.io"
 kubectl -n default create secret tls test-secure --key="${script_dir}/tls-secure.key" --cert="${script_dir}/tls-secure.crt"
@@ -78,6 +86,9 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-s
 kubectl -n default create secret tls test-secure-http2 --key="${script_dir}/tls-secure-http2.key" --cert="${script_dir}/tls-secure-http2.crt"
 docker cp ${script_dir}/tls-secure-http2.crt frr:/tmp/tls-secure-http2.crt
 
+kubectl -n default create secret tls test-secure-backend --key="${script_dir}/tls-secure-backend3.key" --cert="${script_dir}/tls-secure-backend3.crt"
+docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
+
 # LB vips, frontends, backends & ippools
 kubectl apply -f "${script_dir}/example/lb-vips.yaml"
 kubectl apply -f "${script_dir}/example/lb-frontends.yaml"
@@ -89,6 +100,7 @@ BACKEND2_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPA
 BACKEND3_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app3)
 BACKEND4_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app4)
 BACKEND5_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app5)
+BACKEND6_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app6)
 
 kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
 kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/1/ip\", \"value\":\"${BACKEND2_IP}\"}]"
@@ -108,3 +120,5 @@ kubectl patch lbbackendpool lb-5 --type='json' -p="[{\"op\": \"replace\", \"path
 kubectl patch lbbackendpool lb-6 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND4_IP}\"}]"
 
 kubectl patch lbbackendpool lb-7 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND5_IP}\"}]"
+
+kubectl patch lbbackendpool lb-8 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND6_IP}\"}]"

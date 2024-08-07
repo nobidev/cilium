@@ -136,6 +136,9 @@ spec:
                     description: Setting this to true enables HTTP/1.1.
                     type: boolean
                 type: object
+              tlsConfig:
+                description: The pool-wide TLS configuration.
+                type: object
             required:
             - backends
             - healthCheck

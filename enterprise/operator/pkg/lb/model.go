@@ -169,6 +169,7 @@ type backend struct {
 	hostnames         []lbBackend
 	lbAlgorithm       lbAlgorithmType
 	healthCheckConfig lbBackendHealthCheckConfig
+	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
 }
 
@@ -200,6 +201,8 @@ type lbBackendHealthCheckHTTPConfig struct {
 }
 
 type lbBackendHealthCheckTCPConfig struct{}
+
+type lbBackendTLSConfig struct{}
 
 type lbBackendHTTPConfig struct {
 	enableHTTP11 bool

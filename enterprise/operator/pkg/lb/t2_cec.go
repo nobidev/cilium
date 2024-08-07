@@ -310,7 +310,7 @@ func (r *lbFrontendReconciler) toAlpnProtocols(model *lbFrontend) []string {
 	return alpnProtocols
 }
 
-func (r *lbFrontendReconciler) toTLSParams(model *lbFrontend) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
+func (r *lbFrontendReconciler) toListenerTLSParams(model *lbFrontend) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
 	if model.applications.httpsProxy == nil || model.applications.httpsProxy.tlsConfig == nil {
 		return nil
 	}
@@ -322,6 +322,10 @@ func (r *lbFrontendReconciler) toTLSParams(model *lbFrontend) *envoy_extensions_
 		EcdhCurves:                model.applications.httpsProxy.tlsConfig.AllowedECDHCurves,
 		SignatureAlgorithms:       model.applications.httpsProxy.tlsConfig.AllowedSignatureAlgorithms,
 	}
+}
+
+func (r *lbFrontendReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
+	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{}
 }
 
 func (r *lbFrontendReconciler) toTLSVersion(version string) envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol {
@@ -372,7 +376,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: r.toSdsConfigs(model),
 						AlpnProtocols:                  r.toAlpnProtocols(model),
-						TlsParams:                      r.toTLSParams(model),
+						TlsParams:                      r.toListenerTLSParams(model),
 					},
 				}),
 			},
@@ -798,6 +802,24 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
+		TransportSocket:               r.toTLSTransportSocket(b.tlsConfig),
+	}
+}
+
+func (r *lbFrontendReconciler) toTLSTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_corev3.TransportSocket {
+	if tlsConfig == nil {
+		return nil
+	}
+
+	return &envoy_corev3.TransportSocket{
+		Name: "envoy.transport_sockets.tls",
+		ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
+				CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+					TlsParams: r.toClusterTLSParams(tlsConfig),
+				},
+			}),
+		},
 	}
 }
 

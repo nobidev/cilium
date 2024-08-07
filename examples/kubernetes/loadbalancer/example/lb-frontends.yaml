@@ -138,3 +138,27 @@ spec:
               - "secure-http2.acme.io"
           backendRef:
             name: lb-5
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBFrontend
+metadata:
+  namespace: default
+  name: lb-8
+spec:
+  vipRef:
+    name: lb-8
+  port: 443
+  applications:
+    httpsProxy:
+      httpConfig:
+        enableHTTP11: false
+        enableHTTP2: true
+      tlsConfig:
+        certificates:
+          - secretName: "test-secure-backend"
+      routes:
+        - match:
+            hostNames:
+              - "secure-backend.acme.io"
+          backendRef:
+            name: lb-8
