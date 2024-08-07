@@ -429,7 +429,32 @@ type LBBackendPoolSpec struct {
 	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
 }
 
-type LBBackendTLSConfig struct{}
+type LBBackendTLSConfig struct {
+	// Minimum TLS version.
+	//
+	// +kubebuilder:validation:Optional
+	MinTLSVersion *LBTLSProtocolVersion `json:"minTLSVersion,omitempty"`
+
+	// Maximum TLS version.
+	//
+	// +kubebuilder:validation:Optional
+	MaxTLSVersion *LBTLSProtocolVersion `json:"maxTLSVersion,omitempty"`
+
+	// Allowed TLS cipher suites.
+	//
+	// +kubebuilder:validation:Optional
+	AllowedCipherSuites []LBTLSCipherSuite `json:"allowedCipherSuites,omitempty"`
+
+	// Allowed ECDH Curves.
+	//
+	// +kubebuilder:validation:Optional
+	AllowedECDHCurves []LBTLSECDHCurve `json:"allowedECDHCurves,omitempty"`
+
+	// Allowed signature algorithms. The list is ordered by preference.
+	//
+	// +kubebuilder:validation:Optional
+	AllowedSignatureAlgorithms []LBTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
+}
 
 type LBBackendHTTPConfig struct {
 	// Setting this to true enables HTTP/1.1.

@@ -325,7 +325,13 @@ func (r *lbFrontendReconciler) toListenerTLSParams(model *lbFrontend) *envoy_ext
 }
 
 func (r *lbFrontendReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
-	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{}
+	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
+		TlsMinimumProtocolVersion: r.toTLSVersion(tlsConfig.MinTLSVersion),
+		TlsMaximumProtocolVersion: r.toTLSVersion(tlsConfig.MaxTLSVersion),
+		CipherSuites:              tlsConfig.AllowedCipherSuites,
+		EcdhCurves:                tlsConfig.AllowedECDHCurves,
+		SignatureAlgorithms:       tlsConfig.AllowedSignatureAlgorithms,
+	}
 }
 
 func (r *lbFrontendReconciler) toTLSVersion(version string) envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol {

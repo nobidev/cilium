@@ -138,6 +138,42 @@ spec:
                 type: object
               tlsConfig:
                 description: The pool-wide TLS configuration.
+                properties:
+                  allowedCipherSuites:
+                    description: Allowed TLS cipher suites.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                  allowedECDHCurves:
+                    description: Allowed ECDH Curves.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                  allowedSignatureAlgorithms:
+                    description: Allowed signature algorithms. The list is ordered
+                      by preference.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                  maxTLSVersion:
+                    description: Maximum TLS version.
+                    enum:
+                    - TLSv1_0
+                    - TLSv1_1
+                    - TLSv1_2
+                    - TLSv1_3
+                    type: string
+                  minTLSVersion:
+                    description: Minimum TLS version.
+                    enum:
+                    - TLSv1_0
+                    - TLSv1_1
+                    - TLSv1_2
+                    - TLSv1_3
+                    type: string
                 type: object
             required:
             - backends

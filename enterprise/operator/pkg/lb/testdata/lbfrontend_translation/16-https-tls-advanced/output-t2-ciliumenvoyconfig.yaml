@@ -193,7 +193,27 @@ spec:
         typedConfig:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
           commonTlsContext:
-            tlsParams: {}
+            tlsParams:
+              cipherSuites:
+                - "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]"
+                - "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]"
+                - ECDHE-ECDSA-AES256-GCM-SHA384
+                - ECDHE-RSA-AES256-GCM-SHA384
+              ecdhCurves:
+                - X25519
+                - P-256
+              signatureAlgorithms:
+                - ecdsa_secp256r1_sha256
+                - rsa_pss_rsae_sha256
+                - rsa_pkcs1_sha256
+                - ecdsa_secp384r1_sha384
+                - rsa_pss_rsae_sha384
+                - rsa_pkcs1_sha384
+                - rsa_pss_rsae_sha512
+                - rsa_pkcs1_sha512
+                - rsa_pkcs1_sha1
+              tlsMaximumProtocolVersion: TLSv1_3
+              tlsMinimumProtocolVersion: TLSv1_3
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:

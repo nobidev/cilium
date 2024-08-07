@@ -202,7 +202,13 @@ type lbBackendHealthCheckHTTPConfig struct {
 
 type lbBackendHealthCheckTCPConfig struct{}
 
-type lbBackendTLSConfig struct{}
+type lbBackendTLSConfig struct {
+	MinTLSVersion              string
+	MaxTLSVersion              string
+	AllowedCipherSuites        []string
+	AllowedECDHCurves          []string
+	AllowedSignatureAlgorithms []string
+}
 
 type lbBackendHTTPConfig struct {
 	enableHTTP11 bool

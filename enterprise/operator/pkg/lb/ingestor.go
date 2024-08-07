@@ -352,7 +352,38 @@ func (*ingestor) toBackendTLSConfig(tlsConfig *isovalentv1alpha1.LBBackendTLSCon
 		return nil
 	}
 
-	return &lbBackendTLSConfig{}
+	minTLSVersion := ""
+	if tlsConfig.MinTLSVersion != nil {
+		minTLSVersion = string(*tlsConfig.MinTLSVersion)
+	}
+
+	maxTLSVersion := ""
+	if tlsConfig.MaxTLSVersion != nil {
+		maxTLSVersion = string(*tlsConfig.MaxTLSVersion)
+	}
+
+	allowedCipherSuites := []string{}
+	for _, cs := range tlsConfig.AllowedCipherSuites {
+		allowedCipherSuites = append(allowedCipherSuites, string(cs))
+	}
+
+	allowedECDHCurves := []string{}
+	for _, ec := range tlsConfig.AllowedECDHCurves {
+		allowedECDHCurves = append(allowedECDHCurves, string(ec))
+	}
+
+	allowedSignatureAlgorithms := []string{}
+	for _, sa := range tlsConfig.AllowedSignatureAlgorithms {
+		allowedSignatureAlgorithms = append(allowedSignatureAlgorithms, string(sa))
+	}
+
+	return &lbBackendTLSConfig{
+		MinTLSVersion:              minTLSVersion,
+		MaxTLSVersion:              maxTLSVersion,
+		AllowedCipherSuites:        allowedCipherSuites,
+		AllowedECDHCurves:          allowedECDHCurves,
+		AllowedSignatureAlgorithms: allowedSignatureAlgorithms,
+	}
 }
 
 func (*ingestor) toBackendHTTPConfig(httpConfig *isovalentv1alpha1.LBBackendHTTPConfig) lbBackendHTTPConfig {

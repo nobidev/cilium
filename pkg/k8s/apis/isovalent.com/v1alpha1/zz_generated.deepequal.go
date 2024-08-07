@@ -1992,6 +1992,73 @@ func (in *LBBackendTLSConfig) DeepEqual(other *LBBackendTLSConfig) bool {
 		return false
 	}
 
+	if (in.MinTLSVersion == nil) != (other.MinTLSVersion == nil) {
+		return false
+	} else if in.MinTLSVersion != nil {
+		if *in.MinTLSVersion != *other.MinTLSVersion {
+			return false
+		}
+	}
+
+	if (in.MaxTLSVersion == nil) != (other.MaxTLSVersion == nil) {
+		return false
+	} else if in.MaxTLSVersion != nil {
+		if *in.MaxTLSVersion != *other.MaxTLSVersion {
+			return false
+		}
+	}
+
+	if ((in.AllowedCipherSuites != nil) && (other.AllowedCipherSuites != nil)) || ((in.AllowedCipherSuites == nil) != (other.AllowedCipherSuites == nil)) {
+		in, other := &in.AllowedCipherSuites, &other.AllowedCipherSuites
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.AllowedECDHCurves != nil) && (other.AllowedECDHCurves != nil)) || ((in.AllowedECDHCurves == nil) != (other.AllowedECDHCurves == nil)) {
+		in, other := &in.AllowedECDHCurves, &other.AllowedECDHCurves
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.AllowedSignatureAlgorithms != nil) && (other.AllowedSignatureAlgorithms != nil)) || ((in.AllowedSignatureAlgorithms == nil) != (other.AllowedSignatureAlgorithms == nil)) {
+		in, other := &in.AllowedSignatureAlgorithms, &other.AllowedSignatureAlgorithms
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 
