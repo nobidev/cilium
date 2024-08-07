@@ -38,10 +38,11 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
 
-	if model.vip.requestedIPv4 != nil {
-		// If there's requested IP address, we need to set ips annotation
-		annotations[ossannotation.LBIPAMIPsKey] = *model.vip.requestedIPv4
-	}
+	// Set the assigned IP address of the LBVIP as LB IPAM annotation.
+	// This way we treat the Service of the LBVIP as the main leader from an
+	// LB IPAM perspective. This way, when switching the LBVIP, the IP gets changed
+	// correctly
+	annotations[ossannotation.LBIPAMIPsKey] = *model.vip.assignedIPv4
 
 	// TODO: should the following config be part of the lbFrontend model? (infra?)
 
