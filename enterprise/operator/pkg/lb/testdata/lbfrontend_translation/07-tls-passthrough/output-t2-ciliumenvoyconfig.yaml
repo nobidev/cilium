@@ -95,6 +95,7 @@ spec:
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
+      perConnectionBufferLimitBytes: 32768
       name: frontend_listener
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http
@@ -130,6 +131,7 @@ spec:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
           explicitHttpConfig:
             httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -162,6 +164,7 @@ spec:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
           explicitHttpConfig:
             httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_tlspt_0
       endpoints:

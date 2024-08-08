@@ -169,8 +169,9 @@ func (r *lbFrontendReconciler) desiredEnvoyListener(model *lbFrontend) *envoy_co
 				},
 			},
 		},
-		FilterChains: r.desiredEnvoyListenerFilterChains(model),
-		AccessLog:    accessLoggers,
+		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
+		AccessLog:                     accessLoggers,
+		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 	}
 }
 
@@ -759,6 +760,7 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
+		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 	}
 }
 
