@@ -27,9 +27,8 @@ type lbFrontend struct {
 }
 
 type lbVIP struct {
-	name          string
-	requestedIPv4 *string
-	assignedIPv4  *string
+	name         string
+	assignedIPv4 *string
 }
 
 func (r lbFrontend) getOwningResourceName() string {

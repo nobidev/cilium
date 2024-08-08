@@ -28,9 +28,8 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alp
 		namespace: frontend.Namespace,
 		name:      frontend.Name,
 		vip: lbVIP{
-			name:          frontend.Spec.VIPRef.Name,
-			requestedIPv4: getRequestedIP(vip),
-			assignedIPv4:  getAssignedIP(vip),
+			name:         frontend.Spec.VIPRef.Name,
+			assignedIPv4: getAssignedIP(vip),
 		},
 		port:         frontend.Spec.Port,
 		applications: applications,
@@ -303,13 +302,6 @@ func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBFrontend
 	}
 
 	return hostNames
-}
-
-func getRequestedIP(vip *isovalentv1alpha1.LBVIP) *string {
-	if vip == nil {
-		return nil
-	}
-	return vip.Spec.IPv4Request
 }
 
 // getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the LBVIP resource.
