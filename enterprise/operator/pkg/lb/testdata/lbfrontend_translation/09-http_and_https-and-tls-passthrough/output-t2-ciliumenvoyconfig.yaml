@@ -58,6 +58,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
+                mergeSlashes: true
                 useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
@@ -87,6 +88,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
+                mergeSlashes: true
                 useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_https

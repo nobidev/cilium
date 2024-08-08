@@ -214,6 +214,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 						StatPrefix:                   "frontend_listener_http",
 						CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
 						NormalizePath:                wrapperspb.Bool(true),
+						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
@@ -367,6 +368,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 						StatPrefix:                   "frontend_listener_https",
 						CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
 						NormalizePath:                wrapperspb.Bool(true),
+						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
 						HttpFilters: []*envoy_hcm_v3.HttpFilter{
 							{
