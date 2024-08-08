@@ -28,6 +28,10 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 generateRequestId: false
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
                 httpFilters:
                   - name: envoy.filters.http.health_check
                     typedConfig:
@@ -70,6 +74,10 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 generateRequestId: false
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
                 httpFilters:
                   - name: envoy.filters.http.router
                     typedConfig:

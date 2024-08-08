@@ -235,6 +235,11 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 								RouteConfigName: "frontend_routeconfig_http",
 							},
 						},
+						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
+							MaxConcurrentStreams:        wrapperspb.UInt32(100),
+							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
+							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
+						},
 					}),
 				},
 			},
@@ -375,6 +380,11 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 							Rds: &envoy_hcm_v3.Rds{
 								RouteConfigName: "frontend_routeconfig_https",
 							},
+						},
+						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
+							MaxConcurrentStreams:        wrapperspb.UInt32(100),
+							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
+							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
 						},
 					}),
 				},
