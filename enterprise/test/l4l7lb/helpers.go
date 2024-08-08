@@ -36,8 +36,10 @@ import (
 )
 
 const (
-	shortTimeout = 30 * time.Second
-	pollInterval = 1 * time.Second
+	shortTimeout     = 30 * time.Second
+	longTimeout      = 60 * time.Second
+	pollInterval     = 1 * time.Second
+	longPollInterval = 5 * time.Second
 )
 
 type ciliumCli struct {

@@ -15,10 +15,12 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -46,7 +48,8 @@ type lbTests struct {
 	ciliumCli *ciliumCli
 	dockerCli *dockerCli
 
-	vips map[int]string
+	vips       map[int]string
+	backendIPs map[int]string
 }
 
 func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
@@ -89,7 +92,6 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 		t.Fatalf("Failed to deserialize LB Backend: %s", err)
 	}
 
-	appIPAddrs := map[int]string{}
 	for i := 1; i <= 5; i++ {
 		ip, err := lbt.dockerCli.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
 		if err != nil {
@@ -98,27 +100,27 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 		if ip == "" {
 			t.Fatalf("app%d does not have any IP addr", i)
 		}
-		appIPAddrs[i] = ip
+		lbt.backendIPs[i] = ip
 	}
 
-	backends[0].Spec.Backends[0].IP = appIPAddrs[1]
-	backends[0].Spec.Backends[1].IP = appIPAddrs[2]
+	backends[0].Spec.Backends[0].IP = lbt.backendIPs[1]
+	backends[0].Spec.Backends[1].IP = lbt.backendIPs[2]
 
-	backends[1].Spec.Backends[0].IP = appIPAddrs[1]
-	backends[1].Spec.Backends[1].IP = appIPAddrs[3]
+	backends[1].Spec.Backends[0].IP = lbt.backendIPs[1]
+	backends[1].Spec.Backends[1].IP = lbt.backendIPs[3]
 
-	backends[2].Spec.Backends[0].IP = appIPAddrs[2]
-	backends[2].Spec.Backends[1].IP = appIPAddrs[3]
+	backends[2].Spec.Backends[0].IP = lbt.backendIPs[2]
+	backends[2].Spec.Backends[1].IP = lbt.backendIPs[3]
 
-	backends[3].Spec.Backends[0].IP = appIPAddrs[2]
-	backends[3].Spec.Backends[1].IP = appIPAddrs[3]
+	backends[3].Spec.Backends[0].IP = lbt.backendIPs[2]
+	backends[3].Spec.Backends[1].IP = lbt.backendIPs[3]
 
-	backends[4].Spec.Backends[0].IP = appIPAddrs[2]
-	backends[4].Spec.Backends[1].IP = appIPAddrs[3]
+	backends[4].Spec.Backends[0].IP = lbt.backendIPs[2]
+	backends[4].Spec.Backends[1].IP = lbt.backendIPs[3]
 
-	backends[5].Spec.Backends[0].IP = appIPAddrs[4]
+	backends[5].Spec.Backends[0].IP = lbt.backendIPs[4]
 
-	backends[6].Spec.Backends[0].IP = appIPAddrs[5]
+	backends[6].Spec.Backends[0].IP = lbt.backendIPs[5]
 
 	for _, obj := range backends {
 		lbt.ciliumCli.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
@@ -205,6 +207,79 @@ func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
 	}
 }
 
+// HC from LB T2 to backend app
+func (lbt *lbTests) testBackendHealthChecking(ctx context.Context, t *testing.T) {
+	// 1. Make lb-1 both backends' HC to fail (app1 and app2)
+
+	// TODO(brb) add method to change HC status
+
+	for _, ip := range []string{lbt.backendIPs[1], lbt.backendIPs[2]} {
+		stdout, stderr, err := lbt.clientExec(ctx,
+			fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/fail", ip),
+			t)
+		if err != nil {
+			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
+		}
+		if strings.TrimSpace(stdout) != "healthcheck OK: false" {
+			t.Fatalf("Expected different output, got %q", stdout)
+		}
+	}
+
+	// 2. Wait until curl fails due to failing HCs
+
+	ctx, cancel := context.WithTimeout(ctx, longTimeout)
+	defer cancel()
+
+	for {
+		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
+		_, _, err := lbt.clientExec(ctx, cmd, t)
+		if err != nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(longPollInterval):
+		case <-ctx.Done():
+			t.Fatalf("Timeout reached waiting for curl to fail")
+		}
+	}
+
+	// 3. Bring back both backends
+
+	for _, ip := range []string{lbt.backendIPs[1], lbt.backendIPs[2]} {
+		stdout, stderr, err := lbt.clientExec(ctx,
+			fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/ok", ip),
+			t)
+		if err != nil {
+			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
+		}
+		if strings.TrimSpace(stdout) != "healthcheck OK: true" {
+			t.Fatalf("Expected different output, got %q", stdout)
+		}
+	}
+
+	// 4. Expect to pass
+
+	ctx, cancel = context.WithTimeout(ctx, longTimeout)
+	defer cancel()
+
+	for {
+		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
+		_, _, err := lbt.clientExec(ctx, cmd, t)
+		if err == nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(longPollInterval):
+		case <-ctx.Done():
+			t.Fatalf("Timeout reached waiting for curl to pass")
+		}
+	}
+
+	// TODO(brb) bring back only one backend
+}
+
 func TestLB(t *testing.T) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
 		t.Skip("Skipping due to LOADBALANCER_TESTS!=true")
@@ -223,13 +298,15 @@ func TestLB(t *testing.T) {
 	}
 
 	lbt := &lbTests{
-		ciliumCli: ciliumCli,
-		dockerCli: dockerCli,
-		vips:      map[int]string{},
+		ciliumCli:  ciliumCli,
+		dockerCli:  dockerCli,
+		vips:       map[int]string{}, // lb-${int} => ip
+		backendIPs: map[int]string{}, // app${int} => ip
 	}
 
 	lbt.installLBObjs(ctx, t)
 	// TODO(brb) defer lbt.cleanup()
 
 	lbt.testBasicLBConnectivity(ctx, t)
+	lbt.testBackendHealthChecking(ctx, t)
 }
