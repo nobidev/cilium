@@ -28,6 +28,8 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 generateRequestId: false
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -76,6 +78,8 @@ spec:
                           inlineString: "\n"
                 codecType: HTTP2
                 generateRequestId: false
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
