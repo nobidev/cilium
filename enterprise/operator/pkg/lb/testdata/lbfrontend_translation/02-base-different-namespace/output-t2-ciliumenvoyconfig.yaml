@@ -29,7 +29,13 @@ spec:
                         textFormatSource:
                           inlineString: |2+
 
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
                 generateRequestId: false
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
                 httpFilters:
                   - name: envoy.filters.http.health_check
                     typedConfig:
@@ -51,6 +57,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                mergeSlashes: true
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
@@ -64,6 +71,7 @@ spec:
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
+      perConnectionBufferLimitBytes: 32768
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http
       virtualHosts:
@@ -97,6 +105,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       name: backend_cluster_http_0
+      perConnectionBufferLimitBytes: 32768
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
