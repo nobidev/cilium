@@ -40,7 +40,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
                         backend_cluster_http_0:
-                          value: 20
+                          value: 30
                       headers:
                         - name: :path
                           stringMatch:

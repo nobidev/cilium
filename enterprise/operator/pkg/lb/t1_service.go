@@ -53,7 +53,7 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
 	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
 	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", getHealthCheckIntervalSeconds(model))
-	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1HealthCheck.ProbeTimeoutSeconds)
+	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)

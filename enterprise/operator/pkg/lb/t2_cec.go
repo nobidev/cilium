@@ -221,7 +221,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 							{
 								Name: "envoy.filters.http.health_check",
 								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
-									TypedConfig: toAny(desiredHealthCheckFilter(model)),
+									TypedConfig: toAny(r.desiredHealthCheckFilter(model)),
 								},
 							},
 							{
@@ -685,22 +685,27 @@ func (r *lbFrontendReconciler) toHostNamesWithPort(hostnames []string, defaultPo
 	return hostNamesWithPort
 }
 
-func desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCheck {
+func (r *lbFrontendReconciler) desiredHealthCheckFilter(model *lbFrontend) *envoy_health_check_v3.HealthCheck {
 	healthCheckFilterClusters := map[string]*envoy_typev3.Percent{}
+
+	minHealthyBackendPercentage := r.config.T1T2HealthCheck.T2ProbeMinHealthyBackendPercentage
+	if minHealthyBackendPercentage > 100 {
+		minHealthyBackendPercentage = 100
+	}
 
 	if model.applications.httpProxy != nil {
 		for i := range model.applications.httpProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_typev3.Percent{Value: 20}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.httpsProxy != nil {
 		for i := range model.applications.httpsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_typev3.Percent{Value: 20}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.tlsPassthrough != nil {
 		for i := range model.applications.tlsPassthrough.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_typev3.Percent{Value: 20}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 

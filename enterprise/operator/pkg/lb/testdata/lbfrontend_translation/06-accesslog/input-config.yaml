@@ -4,5 +4,6 @@ AccessLog:
   ExcludeHC: true
 RequestID:
   Generate: true
-T1HealthCheck:
-  ProbeTimeoutSeconds: 5
+T1T2HealthCheck:
+  T1ProbeTimeoutSeconds: 5
+  T2ProbeMinHealthyBackendPercentage: 20

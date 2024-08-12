@@ -36,18 +36,19 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	LoadBalancerCPEnabled                 bool
-	LoadBalancerCPSecretsNamespace        string
-	LoadBalancerCPAccessLogEnableTCP      bool
-	LoadBalancerCPAccessLogFormatTCP      string
-	LoadBalancerCPAccessLogFormatHTTP     string
-	LoadBalancerCPAccessLogFormatTLS      string
-	LoadBalancerCPAccessLogExcludeHC      bool
-	LoadBalancerCPRequestIDGenerate       bool
-	LoadBalancerCPRequestIDPreserve       bool
-	LoadBalancerCPRequestIDResponse       bool
-	LoadBalancerCPHTTPServerName          string
-	LoadBalancerCPT1HCProbeTimeoutSeconds uint
+	LoadBalancerCPEnabled                     bool
+	LoadBalancerCPSecretsNamespace            string
+	LoadBalancerCPAccessLogEnableTCP          bool
+	LoadBalancerCPAccessLogFormatTCP          string
+	LoadBalancerCPAccessLogFormatHTTP         string
+	LoadBalancerCPAccessLogFormatTLS          string
+	LoadBalancerCPAccessLogExcludeHC          bool
+	LoadBalancerCPRequestIDGenerate           bool
+	LoadBalancerCPRequestIDPreserve           bool
+	LoadBalancerCPRequestIDResponse           bool
+	LoadBalancerCPHTTPServerName              string
+	LoadBalancerCPT1HCProbeTimeoutSeconds     uint
+	LoadBalancerCPT2HCProbeMinHealthyBackends uint
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -63,6 +64,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("loadbalancer-cp-requestid-response", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response")
 	flags.String("loadbalancer-cp-http-server-name", "ilb", "Server name that is used when writing the server header in T2 HTTP responses")
 	flags.Uint("loadbalancer-cp-t1-hc-probe-timeout-seconds", 5, "Probe timeout in seconds for T1 -> T2 health checks")
+	flags.Uint("loadbalancer-cp-t2-hc-probe-min-healthy-backends", 20, "The minimum percentage of backend that must be healthy from T2 point of view in order to send traffic from T1 to it")
 }
 
 type reconcilerParams struct {
@@ -104,8 +106,9 @@ func registerReconcilers(params reconcilerParams) error {
 				Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
 				Response: params.Config.LoadBalancerCPRequestIDResponse,
 			},
-			T1HealthCheck: reconcilerT1HealthCheckConfig{
-				ProbeTimeoutSeconds: params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+			T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
+				T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+				T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
 			},
 		})
 
