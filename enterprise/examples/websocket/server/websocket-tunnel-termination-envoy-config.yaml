@@ -1,0 +1,93 @@
+# This configuration takes incoming TCP/TLS connections on port 443 and terminates
+# websocket connection, forwarding them to the original destination of the tunneled TCP
+# connection.
+
+admin:
+  address:
+    pipe:
+      path: /etc/envoy/admin.sock
+static_resources:
+  listeners:
+  - name: envoy-prometheus-metrics-listener
+    address:
+      socket_address:
+        protocol: TCP
+        address: "::"
+        ipv4_compat: true
+        port_value: 9090
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: envoy-admin-listener
+          route_config:
+            name: admin_route
+            virtual_hosts:
+            - name: "prometheus_metrics_route"
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/metrics"
+                route:
+                  cluster: "envoy-admin"
+                  prefix_rewrite: "/stats/prometheus"
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  - name: websocket-tunnel-listener
+    address:
+      socket_address:
+        protocol: TCP
+        address: "::"
+        ipv4_compat: true
+        port_value: 443
+    filter_chains:
+    - filters:
+      - name: cilium.network.websocket.server
+        typed_config:
+          "@type": type.googleapis.com/cilium.WebSocketServer
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          stat_prefix: tcp_stats
+          cluster: original_dst
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            alpn_protocols:
+            - http/1.1
+            tls_certificate_sds_secret_configs:
+            - name: server_certs
+            validation_context_sds_secret_config:
+              name: validation_context
+  clusters:
+  - name: original_dst
+    connect_timeout: 5s
+    type: ORIGINAL_DST
+    lb_policy: CLUSTER_PROVIDED
+  - name: envoy-admin
+    connect_timeout: 5s
+    type: STATIC
+    load_assignment:
+      cluster_name: envoy-admin
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              pipe:
+                path: /etc/envoy/admin.sock
+  secrets:
+  - name: server_certs
+    tls_certificate:
+      certificate_chain:
+        filename: /etc/envoy/server-certs/tls.crt
+      private_key:
+        filename: /etc/envoy/server-certs/tls.key
+  - name: validation_context
+    validation_context:
+      trusted_ca:
+        filename: /etc/ssl/certs/ca-certificates.crt

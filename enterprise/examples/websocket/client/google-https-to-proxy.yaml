@@ -1,0 +1,29 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: default
+  name: google-https-to-proxy
+spec:
+  endpointSelector:
+    matchExpressions:
+    - {key: app, operator: NotIn, values: [http-proxy]}
+  egress:
+  - toFQDNs:
+    - matchPattern: "*.google.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      listener:
+        envoyConfig:
+          kind: CiliumClusterwideEnvoyConfig
+          name: proxy-encap
+        name: http-proxy-encap
+        priority: 1
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"

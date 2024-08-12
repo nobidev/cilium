@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-proxy
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: http-proxy
+  ports:
+    - protocol: TCP
+      port: 1080
+      targetPort: 3128
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-proxy
+  labels:
+    app: http-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-proxy
+  template:
+    metadata:
+      labels:
+        app: http-proxy
+    spec:
+      containers:
+      - name: http-proxy
+        image: docker.io/jrajahalme/squid-proxy:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: USERNAME
+          value: cilium
+        - name: PASSWORD
+          value: secret
+        ports:
+        - containerPort: 3128

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-proxy-ingress # legacy name, please change
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: cilium-websocket-termination
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cilium-websocket-termination
+  labels:
+    app: cilium-websocket-termination
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cilium-websocket-termination
+  template:
+    metadata:
+      labels:
+        app: cilium-websocket-termination
+    spec:
+      containers:
+      - name: cilium-websocket-termination
+        image: quay.io/cilium/cilium-envoy:v1.29.7-a71160fa9bbc005737725f7d8595e873a0535d3e@sha256:2c3688cb965ea8c00c76125fd1443a130eddb1054e317511aa8cc3f640118c30
+        imagePullPolicy: IfNotPresent
+        command:
+        - /usr/bin/cilium-envoy
+        args:
+        - '-c /etc/envoy/config/envoy.yaml'
+        - '--log-level trace' # Use "info" level for production, "trace" for more detail
+        ports:
+        - containerPort: 443
+        volumeMounts:
+        - name: server-certs
+          mountPath: "/etc/envoy/server-certs"
+          readOnly: true
+        - name: envoy-config
+          mountPath: "/etc/envoy/config"
+      volumes:
+      - name: server-certs
+        secret:
+          secretName: websocket-termination-server-certs
+      - name: envoy-config
+        configMap:
+          name: websocket-termination-envoy-config

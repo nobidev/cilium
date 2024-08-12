@@ -1,0 +1,28 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: default
+  name: external-https-to-websocket-proxy
+spec:
+  endpointSelector:
+    matchExpressions:
+    - {key: app, operator: NotIn, values: [http-proxy]}
+  egress:
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      listener:
+        envoyConfig:
+          kind: CiliumClusterwideEnvoyConfig
+          name: websocket-proxy-encap
+        name: cilium-websocket-encap
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"

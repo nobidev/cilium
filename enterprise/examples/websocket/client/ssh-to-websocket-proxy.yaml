@@ -1,0 +1,26 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: default
+  name: ssh-to-websocket-proxy
+spec:
+  endpointSelector:
+    matchExpressions:
+    - {key: app, operator: NotIn, values: [http-proxy]}
+  egress:
+  - toPorts:
+    - ports:
+      - port: "22"
+        protocol: ANY
+      listener:
+        envoyConfig:
+          name: websocket-proxy-encap
+          kind: CiliumClusterwideEnvoyConfig
+        name: cilium-websocket-encap
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
