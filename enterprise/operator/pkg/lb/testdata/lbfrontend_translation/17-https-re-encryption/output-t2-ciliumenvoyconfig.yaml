@@ -29,6 +29,7 @@ spec:
                           inlineString: "\n"
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
                 generateRequestId: false
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
@@ -82,6 +83,7 @@ spec:
                           inlineString: "\n"
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
                 generateRequestId: false
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
@@ -178,6 +180,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
           explicitHttpConfig:
             httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
@@ -201,6 +205,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
           explicitHttpConfig:
             httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment

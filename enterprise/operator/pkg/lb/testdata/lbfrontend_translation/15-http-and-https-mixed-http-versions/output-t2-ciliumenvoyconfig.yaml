@@ -31,6 +31,7 @@ spec:
                 generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -83,6 +84,7 @@ spec:
                 generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -170,6 +172,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
           explicitHttpConfig:
             http2ProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
@@ -193,6 +197,8 @@ spec:
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
           explicitHttpConfig:
             http2ProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768

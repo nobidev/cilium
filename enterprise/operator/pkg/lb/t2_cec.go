@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	cilium_proxy "github.com/cilium/proxy/go/cilium/api"
 	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
@@ -238,6 +239,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpFilterChain(model *lbFron
 						},
 						CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
 							HeadersWithUnderscoresAction: envoy_corev3.HttpProtocolOptions_REJECT_REQUEST,
+							MaxConnectionDuration:        durationpb.New(time.Hour),
 						},
 						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
 							MaxConcurrentStreams:        wrapperspb.UInt32(100),
@@ -417,6 +419,7 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 						},
 						CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
 							HeadersWithUnderscoresAction: envoy_corev3.HttpProtocolOptions_REJECT_REQUEST,
+							MaxConnectionDuration:        durationpb.New(time.Hour),
 						},
 						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
 							MaxConcurrentStreams:        wrapperspb.UInt32(100),
@@ -838,6 +841,9 @@ func (r *lbFrontendReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackend
 	switch {
 	case httpConfig.enableHTTP11 && !httpConfig.enableHTTP2:
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+				MaxConnectionDuration: durationpb.New(time.Hour),
+			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
 					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
@@ -846,6 +852,9 @@ func (r *lbFrontendReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackend
 		})
 	case httpConfig.enableHTTP2 && !httpConfig.enableHTTP11:
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+				MaxConnectionDuration: durationpb.New(time.Hour),
+			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
 					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
@@ -857,6 +866,9 @@ func (r *lbFrontendReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackend
 		// The reason is to prevent HTTP/2 issues due to backends that don't support H2C (HTTP2 without TLS).
 		// Note: Once we support TLS re-encryption to the backend we can enable AutoConfig to make use of ALPN protocol negotiation.
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+				MaxConnectionDuration: durationpb.New(time.Hour),
+			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
 					ProtocolConfig: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
