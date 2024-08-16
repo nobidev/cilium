@@ -86,6 +86,11 @@ spec:
       tlsConfig:
         certificates:
           - secretName: "test-secure80"
+        validation:
+          secretRef:
+            name: test-secure-client
+          subjectAlternativeNames:
+            - exact: client.acme.io
         minTLSVersion: TLSv1_2
         maxTLSVersion: TLSv1_2
       routes:

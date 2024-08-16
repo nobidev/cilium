@@ -49,11 +49,17 @@ type lbFrontendHTTPConfig struct {
 
 type lbFrontendTLSConfig struct {
 	certificateSecrets         []string
-	MinTLSVersion              string
-	MaxTLSVersion              string
-	AllowedCipherSuites        []string
-	AllowedECDHCurves          []string
-	AllowedSignatureAlgorithms []string
+	validationContext          lbFrontendTLSConfigValidationContext
+	minTLSVersion              string
+	maxTLSVersion              string
+	allowedCipherSuites        []string
+	allowedECDHCurves          []string
+	allowedSignatureAlgorithms []string
+}
+
+type lbFrontendTLSConfigValidationContext struct {
+	trustedCASecretName     string
+	subjectAlternativeNames []string
 }
 
 type lbApplications struct {

@@ -33,7 +33,7 @@ docker exec frr bash -c "echo -n 'HTTPS                 frontend1: ' && curl -s 
 docker exec frr bash -c "echo -n 'HTTP                  frontend2: ' && curl -s --fail --resolve insecure.acme.io:80:${VIP_LB2} http://insecure.acme.io:80/api/foo-insecure"
 docker exec frr bash -c "echo -n 'HTTP                  frontend3: ' && curl -s --fail http://${VIP_LB3}:81/"
 docker exec frr bash -c "echo -n 'HTTP                  frontend4: ' && curl -s --fail --resolve mixed.acme.io:80:${VIP_LB4} http://mixed.acme.io:80/"
-docker exec frr bash -c "echo -n 'HTTPS                 frontend5: ' && curl -s --fail -tlsv1.2 --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:${VIP_LB5} https://secure-80.acme.io:80/"
+docker exec frr bash -c "echo -n 'HTTPS                 frontend5: ' && curl -s --fail -tlsv1.2 --cert /tmp/client.crt --key /tmp/client.key --cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:${VIP_LB5} https://secure-80.acme.io:80/"
 docker exec frr bash -c "echo -n 'TLS PT 1              frontend6: ' && curl -s --fail --cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:${VIP_LB6} https://passthrough.acme.io:80/"
 docker exec frr bash -c "echo -n 'TLS PT 2              frontend6: ' && curl -s --fail --cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:${VIP_LB6} https://passthrough-2.acme.io:80/"
 docker exec frr bash -c "echo -n 'HTTP H2               frontend4: ' && httpVersion=\$(curl -s --fail --http2-prior-knowledge -o/dev/null -w '%{http_version}' --resolve mixed.acme.io:80:${VIP_LB4} http://mixed.acme.io:80/) && echo Version \$httpVersion && if [ \$httpVersion != '2' ]; then exit 1; fi"

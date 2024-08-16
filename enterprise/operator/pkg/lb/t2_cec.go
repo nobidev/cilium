@@ -318,11 +318,11 @@ func (r *lbFrontendReconciler) toListenerTLSParams(model *lbFrontend) *envoy_ext
 	}
 
 	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
-		TlsMinimumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.MinTLSVersion),
-		TlsMaximumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.MaxTLSVersion),
-		CipherSuites:              model.applications.httpsProxy.tlsConfig.AllowedCipherSuites,
-		EcdhCurves:                model.applications.httpsProxy.tlsConfig.AllowedECDHCurves,
-		SignatureAlgorithms:       model.applications.httpsProxy.tlsConfig.AllowedSignatureAlgorithms,
+		TlsMinimumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.minTLSVersion),
+		TlsMaximumProtocolVersion: r.toTLSVersion(model.applications.httpsProxy.tlsConfig.maxTLSVersion),
+		CipherSuites:              model.applications.httpsProxy.tlsConfig.allowedCipherSuites,
+		EcdhCurves:                model.applications.httpsProxy.tlsConfig.allowedECDHCurves,
+		SignatureAlgorithms:       model.applications.httpsProxy.tlsConfig.allowedSignatureAlgorithms,
 	}
 }
 
@@ -355,7 +355,7 @@ func (r *lbFrontendReconciler) toTLSPassthroughServerNames(tlsPassthroughHostNam
 	return slices.Compact(serverNames)
 }
 
-func (r *lbFrontendReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
+func (r *lbFrontendReconciler) toTLSCertificateSdsConfigs(model *lbFrontend) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
 	secrets := []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{}
 
 	if model.applications.httpsProxy == nil || model.applications.httpsProxy.tlsConfig == nil {
@@ -371,7 +371,49 @@ func (r *lbFrontendReconciler) toSdsConfigs(model *lbFrontend) []*envoy_extensio
 	return secrets
 }
 
+func (r *lbFrontendReconciler) toTLSValidationContext(model *lbFrontend) *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext {
+	if model.applications.httpsProxy == nil || model.applications.httpsProxy.tlsConfig == nil || len(model.applications.httpsProxy.tlsConfig.validationContext.trustedCASecretName) == 0 {
+		return nil
+	}
+
+	defaultValidationContext := &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{}
+
+	if len(model.applications.httpsProxy.tlsConfig.validationContext.subjectAlternativeNames) > 0 {
+		sanMatchers := []*envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher{}
+		for _, san := range model.applications.httpsProxy.tlsConfig.validationContext.subjectAlternativeNames {
+			sanMatchers = append(sanMatchers, &envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher{
+				SanType: envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher_DNS,
+				Matcher: &envoy_matcher_v3.StringMatcher{
+					MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+						Exact: san,
+					},
+				},
+			})
+		}
+		defaultValidationContext.MatchTypedSubjectAltNames = sanMatchers
+	}
+
+	return &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+			ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, model.applications.httpsProxy.tlsConfig.validationContext.trustedCASecretName),
+			},
+			DefaultValidationContext: defaultValidationContext,
+		},
+	}
+}
+
+func (r *lbFrontendReconciler) requiresClientCertificate(validationContext *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext) *wrapperspb.BoolValue {
+	if validationContext == nil {
+		return nil
+	}
+
+	return wrapperspb.Bool(true)
+}
+
 func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFrontend) *envoy_config_listener_v3.FilterChain {
+	validationContext := r.toTLSValidationContext(model)
+
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "tls",
@@ -381,8 +423,15 @@ func (r *lbFrontendReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbFro
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+					// Upstream Envoy Secret Sync only supports setting the trusted CA without further verification data.
+					// Therefore it's necessary to explicitly enable `require_client_certificate if the validation context isn't nil.
+					//
+					// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-certificatevalidationcontext
+					// By default, a client certificate is optional, unless one of the additional options (require_client_certificate, verify_certificate_spki, verify_certificate_hash, or match_typed_subject_alt_names) is also specified.
+					RequireClientCertificate: r.requiresClientCertificate(validationContext),
 					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
-						TlsCertificateSdsSecretConfigs: r.toSdsConfigs(model),
+						TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model),
+						ValidationContextType:          validationContext,
 						AlpnProtocols:                  r.toAlpnProtocols(model),
 						TlsParams:                      r.toListenerTLSParams(model),
 					},

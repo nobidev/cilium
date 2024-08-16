@@ -73,6 +73,7 @@ kubectl -n default delete secret test-secure 2>/dev/null || true
 kubectl -n default delete secret test-secure80 2>/dev/null || true
 kubectl -n default delete secret test-secure-http2 2>/dev/null || true
 kubectl -n default delete secret test-secure-backend 2>/dev/null || true
+kubectl -n default delete secret test-secure-client 2>/dev/null || true
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure.key" -out "${script_dir}/tls-secure.crt" -subj "/CN=secure.acme.io"
 kubectl -n default create secret tls test-secure --key="${script_dir}/tls-secure.key" --cert="${script_dir}/tls-secure.crt"
@@ -88,6 +89,15 @@ docker cp ${script_dir}/tls-secure-http2.crt frr:/tmp/tls-secure-http2.crt
 
 kubectl -n default create secret tls test-secure-backend --key="${script_dir}/tls-secure-backend3.key" --cert="${script_dir}/tls-secure-backend3.crt"
 docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
+
+# Client certificate (including CA)
+openssl genrsa -out "${script_dir}/ca.key" 2048
+openssl req -new -x509 -key "${script_dir}/ca.key" -out "${script_dir}/ca.crt" -subj "/CN=ca.acme.io"
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/client.key" -out "${script_dir}/client.crt" -subj "/CN=client.acme.io" -addext "subjectAltName = DNS:client.acme.io" -CA "${script_dir}/ca.crt" -CAkey "${script_dir}/ca.key"
+docker cp ${script_dir}/client.crt frr:/tmp/client.crt
+docker cp ${script_dir}/client.key frr:/tmp/client.key
+kubectl -n default create secret generic test-secure-client --from-file="${script_dir}/ca.crt"
 
 # LB vips, frontends, backends & ippools
 kubectl apply -f "${script_dir}/example/lb-vips.yaml"

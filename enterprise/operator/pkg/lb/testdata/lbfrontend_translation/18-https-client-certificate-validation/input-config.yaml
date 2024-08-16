@@ -1,0 +1,4 @@
+ServerName: ilb
+T1T2HealthCheck:
+  T1ProbeTimeoutSeconds: 5
+  T2ProbeMinHealthyBackendPercentage: 20

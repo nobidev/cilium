@@ -135,6 +135,11 @@ type LBFrontendTLSConfig struct {
 	// +kubebuilder:validation:MinItems=1
 	Certificates []LBFrontendTLSCertificate `json:"certificates"`
 
+	// Optional certificate verification.
+	//
+	// +kubebuilder:validation:Optional
+	Validation *LBTLSValidationConfig `json:"validation,omitempty"`
+
 	// Minimum TLS version.
 	//
 	// If not defined, the defaults of the Envoy proxy are used.
@@ -174,6 +179,34 @@ type LBFrontendTLSConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	AllowedSignatureAlgorithms []LBTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
+}
+
+type LBTLSValidationConfig struct {
+	// The k8s secret that contains the trusted CA in the secret data field `ca.crt`.
+	//
+	// +kubebuilder:validation:Required
+	SecretRef LBFrontendSecretRef `json:"secretRef"`
+
+	// Allowed subject alternative names
+	//
+	// +kubebuilder:validation:Optional
+	SubjectAlternativeNames []LBTLSValidationConfigSAN `json:"subjectAlternativeNames,omitempty"`
+}
+
+type LBTLSValidationConfigSAN struct {
+	// Exact matching. The SAN must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Exact string `json:"exact"`
+}
+
+type LBFrontendSecretRef struct {
+	// The name of the K8s Secret resource.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3

@@ -60,9 +60,19 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontend
 	}
 
 	certificateSecretNames := []string{}
-
 	for _, c := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 		certificateSecretNames = append(certificateSecretNames, c.SecretName)
+	}
+
+	validationContextSecret := ""
+	validationContextSubjectAlternativeNames := []string{}
+
+	if frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+		validationContextSecret = frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name
+
+		for _, san := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SubjectAlternativeNames {
+			validationContextSubjectAlternativeNames = append(validationContextSubjectAlternativeNames, san.Exact)
+		}
 	}
 
 	minTLSVersion := ""
@@ -91,12 +101,16 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontend
 	}
 
 	return &lbFrontendTLSConfig{
-		certificateSecrets:         certificateSecretNames,
-		MinTLSVersion:              minTLSVersion,
-		MaxTLSVersion:              maxTLSVersion,
-		AllowedCipherSuites:        allowedCipherSuites,
-		AllowedECDHCurves:          allowedECDHCurves,
-		AllowedSignatureAlgorithms: allowedSignatureAlgorithms,
+		certificateSecrets: certificateSecretNames,
+		validationContext: lbFrontendTLSConfigValidationContext{
+			trustedCASecretName:     validationContextSecret,
+			subjectAlternativeNames: validationContextSubjectAlternativeNames,
+		},
+		minTLSVersion:              minTLSVersion,
+		maxTLSVersion:              maxTLSVersion,
+		allowedCipherSuites:        allowedCipherSuites,
+		allowedECDHCurves:          allowedECDHCurves,
+		allowedSignatureAlgorithms: allowedSignatureAlgorithms,
 	}
 }
 

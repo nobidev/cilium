@@ -307,6 +307,36 @@ spec:
                             - TLSv1_2
                             - TLSv1_3
                             type: string
+                          validation:
+                            description: Optional certificate verification.
+                            properties:
+                              secretRef:
+                                description: The k8s secret that contains the trusted
+                                  CA in the secret data field `ca.crt`.
+                                properties:
+                                  name:
+                                    description: The name of the K8s Secret resource.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              subjectAlternativeNames:
+                                description: Allowed subject alternative names
+                                items:
+                                  properties:
+                                    exact:
+                                      description: Exact matching. The SAN must be
+                                        exactly the same as the value.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - exact
+                                  type: object
+                                type: array
+                            required:
+                            - secretRef
+                            type: object
                         required:
                         - certificates
                         type: object

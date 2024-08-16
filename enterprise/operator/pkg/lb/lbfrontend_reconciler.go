@@ -23,12 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -38,9 +35,9 @@ import (
 )
 
 const (
-	lbFrontendVIPIndexName       = ".spec.vipRef.name"
-	lbFrontendBackendIndexName   = ".spec.routes.http.backend"
-	lbFrontendTlsSecretIndexName = ".spec.tls.certificates.secretname"
+	lbFrontendVIPIndexName        = ".spec.vipRef.name"
+	lbFrontendBackendIndexName    = ".spec.routes.http.backend"
+	lbFrontendTlsSecretsIndexName = ".spec.tls.secrets" // TLS Certificates & Validation secrets
 )
 
 type lbFrontendReconciler struct {
@@ -96,9 +93,9 @@ func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, sc
 // the different watches. All the watcher trigger a reconciliation.
 func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		lbFrontendVIPIndexName:       vipIndexerFunc,
-		lbFrontendBackendIndexName:   backendIndexerFunc,
-		lbFrontendTlsSecretIndexName: tlsSecretIndexerFunc,
+		lbFrontendVIPIndexName:        vipIndexerFunc,
+		lbFrontendBackendIndexName:    backendIndexerFunc,
+		lbFrontendTlsSecretsIndexName: tlsSecretIndexerFunc,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBFrontend{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -112,9 +109,9 @@ func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendVIPIndexName)).
 		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
 		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
-		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret. Only K8s Secrets of type TLS are relevant.
-		// This is mainly to update the status. The actual certificates of the Secret are getting transferred via sDS.
-		Watches(&corev1.Secret{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendTlsSecretIndexName), r.isTLSSecret()).
+		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret.
+		// This is mainly to update the status. The actual content of the Secrets are getting transferred via sDS.
+		Watches(&corev1.Secret{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendTlsSecretsIndexName)).
 		// T1 Service resource with OwnerReference to the LBFrontend
 		Owns(&corev1.Service{}).
 		// T1 Endpoints resource with OwnerReference to the LBFrontend
@@ -493,6 +490,10 @@ func allSecretNames(lbFrontend *isovalentv1alpha1.LBFrontend) []string {
 		secrets = append(secrets, c.SecretName)
 	}
 
+	if lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+		secrets = append(secrets, lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+	}
+
 	slices.Sort(secrets)
 	return slices.Compact(secrets)
 }
@@ -650,32 +651,4 @@ func upsertCondition(frontend *isovalentv1alpha1.LBFrontend, conditionType strin
 	if !conditionExists {
 		frontend.Status.Conditions = append(frontend.Status.Conditions, condition)
 	}
-}
-
-func (r *lbFrontendReconciler) isTLSSecret() builder.WatchesOption {
-	return builder.WithPredicates(&isTLSSecretPredicate{})
-}
-
-var _ predicate.Predicate = &isTLSSecretPredicate{}
-
-type isTLSSecretPredicate struct{}
-
-func (r *isTLSSecretPredicate) Create(event event.CreateEvent) bool {
-	return r.isTLSSecret(event.Object.(*corev1.Secret))
-}
-
-func (r *isTLSSecretPredicate) Update(event event.UpdateEvent) bool {
-	return r.isTLSSecret(event.ObjectNew.(*corev1.Secret))
-}
-
-func (r *isTLSSecretPredicate) Delete(event event.DeleteEvent) bool {
-	return r.isTLSSecret(event.Object.(*corev1.Secret))
-}
-
-func (r *isTLSSecretPredicate) Generic(event event.GenericEvent) bool {
-	return r.isTLSSecret(event.Object.(*corev1.Secret))
-}
-
-func (r *isTLSSecretPredicate) isTLSSecret(secret *corev1.Secret) bool {
-	return secret.Type == corev1.SecretTypeTLS
 }
