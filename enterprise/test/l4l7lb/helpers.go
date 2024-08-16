@@ -13,15 +13,18 @@ package l4l7lb
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	docker_client "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -40,6 +43,8 @@ const (
 	longTimeout      = 60 * time.Second
 	pollInterval     = 1 * time.Second
 	longPollInterval = 5 * time.Second
+
+	bgpPolicyName = "ilb-test"
 )
 
 type ciliumCli struct {
@@ -131,6 +136,100 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	}
 }
 
+func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
+	pol := bgpPeeringPolicy(bgpPolicyName, clientIP)
+
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Create(ctx, pol, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BGP peering policy (%s): %w", bgpPolicyName, err)
+		} else {
+			// Cilium's BGP does not allow us to create multiple peering policies targeting the same node.
+			// Hence, append the client to the neighbor list of the existing policy.
+			//
+			// Also, no need to create BFD profile, as it should exist from previous tests.
+			return c.appendBGPPeer(ctx, clientIP)
+		}
+	}
+
+	bfd := bfdProfile(bgpPolicyName)
+
+	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpPolicyName, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) appendBGPPeer(ctx context.Context, clientIP string) error {
+	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	name := bgpPolicyName
+	pol.Spec.VirtualRouters[0].Neighbors = append(pol.Spec.VirtualRouters[0].Neighbors,
+		ciliumv2alpha1.CiliumBGPNeighbor{
+			PeerAddress:   clientIP + "/32",
+			PeerASN:       64512,
+			BFDProfileRef: &name,
+		})
+
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
+	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	neighbors := pol.Spec.VirtualRouters[0].Neighbors
+
+	// Only one neighbor, which is to-be deleted, exists, so we can entirely remove the policy.
+	if len(neighbors) == 1 {
+		if err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete BGP peering policy (%s): %w", bgpPolicyName, err)
+		}
+
+		if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpPolicyName, err)
+		}
+
+		return nil
+	}
+
+	updatedNeighbors := []ciliumv2alpha1.CiliumBGPNeighbor{}
+	for _, neigh := range neighbors {
+		if neigh.PeerAddress != clientIP+"/32" {
+			updatedNeighbors = append(updatedNeighbors, neigh)
+		}
+	}
+
+	pol.Spec.VirtualRouters[0].Neighbors = updatedNeighbors
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) ensureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
+	if err := c.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 type dockerCli struct {
 	*docker_client.Client
 }
@@ -192,6 +291,84 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 	}
 
 	return stdout.String(), stderr.String(), err
+}
+
+func (c *dockerCli) clientExec(ctx context.Context, clientContainerName, cmd string) (string, string, error) {
+	stdout, stderr, err := c.ContainerExec(ctx, clientContainerName,
+		[]string{"bash", "-c", cmd},
+	)
+
+	return stdout, stderr, err
+}
+
+func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
+	reader, err := c.ImagePull(ctx, img, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	// wait until pulled
+	if _, err := io.ReadAll(reader); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) error {
+	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+
+	resp, err := c.ContainerCreate(ctx,
+		&container.Config{
+			Image: img,
+			Env:   env,
+		},
+		&container.HostConfig{
+			Privileged: privileged,
+		},
+		&network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				networkName: {},
+			},
+		},
+		nil,
+		name,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {
+	return c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+}
+
+func (c *dockerCli) waitForIPRoute(ctx context.Context, clientName, lbIP string) error {
+	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
+	defer cancel()
+
+	for {
+		cmd := "ip route list | grep -qF " + lbIP
+		stdout, stderr, err := c.clientExec(ctx, clientName, cmd)
+		if err == nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(pollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for IP route to LB VIP (stdout: %q, stderr: %q, err: %w",
+				stdout, stderr, err)
+		}
+	}
+
+	return nil
 }
 
 func yamlToObjects[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {

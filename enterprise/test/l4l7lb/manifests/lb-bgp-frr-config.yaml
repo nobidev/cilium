@@ -2,7 +2,7 @@
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPPeeringPolicy
 metadata:
-  name: frr
+  name: ilb-test
 spec:
   nodeSelector:
     matchLabels:
@@ -16,13 +16,13 @@ spec:
       neighbors:
         - peerAddress: '172.19.0.3/32' # will be replaced by the script
           peerASN: 64512
-          bfdProfileRef: frr
+          bfdProfileRef: ilb-test
 
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: IsovalentBFDProfile
 metadata:
-  name: frr
+  name: ilb-test
 spec:
   detectMultiplier: 3
   receiveIntervalMilliseconds: 300
