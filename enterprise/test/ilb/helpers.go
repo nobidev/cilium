@@ -371,6 +371,31 @@ func (c *dockerCli) waitForIPRoute(ctx context.Context, clientName, lbIP string)
 	return nil
 }
 
+type hcState string
+
+const (
+	hcFail hcState = "fail"
+	hcOK   hcState = "ok"
+)
+
+func (c *dockerCli) controlBackendHC(ctx context.Context, clientName, ip string, hc hcState) error {
+	stdout, stderr, err := c.clientExec(ctx, clientName,
+		fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/"+string(hc), ip))
+	if err != nil {
+		return fmt.Errorf("failed cmd (stdout: %q, stderr: %q): %w", stdout, stderr, err)
+	}
+
+	state := "false"
+	if hc == hcOK {
+		state = "true"
+	}
+	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
+		return fmt.Errorf("expected different output, got %q", stdout)
+	}
+
+	return nil
+}
+
 func yamlToObjects[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {
 	if input == "" {
 		return nil, nil

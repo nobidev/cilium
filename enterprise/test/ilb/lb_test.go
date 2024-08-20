@@ -16,7 +16,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -189,77 +188,6 @@ func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
 	}
 }
 
-// HC from LB T2 to backend app
-func (lbt *lbTests) testBackendHealthChecking(ctx context.Context, t *testing.T) {
-	// 1. Make lb-1 both backends' HC to fail (app1 and app2)
-
-	// TODO(brb) add method to change HC status
-
-	for _, ip := range []string{lbt.backendIPs[1], lbt.backendIPs[2]} {
-		stdout, stderr, err := lbt.dockerCli.clientExec(ctx, clientContainerName,
-			fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/fail", ip))
-		if err != nil {
-			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
-		}
-		if strings.TrimSpace(stdout) != "healthcheck OK: false" {
-			t.Fatalf("Expected different output, got %q", stdout)
-		}
-	}
-
-	// 2. Wait until curl fails due to failing HCs
-
-	ctx, cancel := context.WithTimeout(ctx, longTimeout)
-	defer cancel()
-
-	for {
-		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
-		_, _, err := lbt.dockerCli.clientExec(ctx, clientContainerName, cmd)
-		if err != nil {
-			break
-		}
-
-		select {
-		case <-inctimer.After(longPollInterval):
-		case <-ctx.Done():
-			t.Fatalf("Timeout reached waiting for curl to fail")
-		}
-	}
-
-	// 3. Bring back both backends
-
-	for _, ip := range []string{lbt.backendIPs[1], lbt.backendIPs[2]} {
-		stdout, stderr, err := lbt.dockerCli.clientExec(ctx, clientContainerName,
-			fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/ok", ip))
-		if err != nil {
-			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
-		}
-		if strings.TrimSpace(stdout) != "healthcheck OK: true" {
-			t.Fatalf("Expected different output, got %q", stdout)
-		}
-	}
-
-	// 4. Expect to pass
-
-	ctx, cancel = context.WithTimeout(ctx, longTimeout)
-	defer cancel()
-
-	for {
-		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} -m 2 --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
-		_, _, err := lbt.dockerCli.clientExec(ctx, clientContainerName, cmd)
-		if err == nil {
-			break
-		}
-
-		select {
-		case <-inctimer.After(longPollInterval):
-		case <-ctx.Done():
-			t.Fatalf("Timeout reached waiting for curl to pass")
-		}
-	}
-
-	// TODO(brb) bring back only one backend
-}
-
 func TestLB(t *testing.T) {
 	ctx := context.Background()
 
@@ -272,10 +200,8 @@ func TestLB(t *testing.T) {
 	}
 
 	lbt.installLBObjs(ctx, t)
-	// TODO(brb) defer lbt.cleanup()
 
 	lbt.testBasicLBConnectivity(ctx, t)
-	lbt.testBackendHealthChecking(ctx, t)
 }
 
 type testSuite struct {
@@ -441,7 +367,7 @@ func TestHTTPConnectivity(t *testing.T) {
 	}
 	maybeCleanupT(func() error { return suite.ciliumCli.DeleteLBService(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
-	// 5. Send HTTP request
+	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
@@ -455,10 +381,73 @@ func TestHTTPConnectivity(t *testing.T) {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("http://%s:81/", ip))
+	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", ip))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
+
+	// 6. Healthcheck (T2) testing
+
+	// 6.1. Force both app's HC to fail
+
+	t.Logf("Setting T2 HC to fail...")
+
+	for _, ip := range []string{app1IP, app2IP} {
+		if err := suite.dockerCli.controlBackendHC(ctx, clientName, ip, hcFail); err != nil {
+			t.Fatalf("failed to set HC to fail (%s): %s", ip, err)
+		}
+	}
+
+	// 6.2. Wait until curl fails due to failing HCs
+
+	t.Logf("Waiting for curl to fails...")
+
+	ctx, cancel := context.WithTimeout(ctx, longTimeout)
+	defer cancel()
+
+	for {
+		_, _, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+		if err != nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(longPollInterval):
+		case <-ctx.Done():
+			t.Fatalf("Timeout reached waiting for curl to fail")
+		}
+	}
+
+	t.Logf("Setting T2 HC to pass...")
+	// 3. Bring back both backends
+
+	for _, ip := range []string{app1IP, app2IP} {
+		if err := suite.dockerCli.controlBackendHC(ctx, clientName, ip, hcOK); err != nil {
+			t.Fatalf("failed to set HC to pass (%s): %s", ip, err)
+		}
+	}
+
+	t.Logf("Waiting for curl to pass...")
+
+	// 4. Expect to pass
+
+	ctx, cancel = context.WithTimeout(ctx, longTimeout)
+	defer cancel()
+
+	for {
+		_, _, err := suite.dockerCli.clientExec(ctx, clientContainerName, testCmd)
+		if err == nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(longPollInterval):
+		case <-ctx.Done():
+			t.Fatalf("Timeout reached waiting for curl to pass")
+		}
+	}
+
+	// TODO(brb) bring back only one backend
 }
