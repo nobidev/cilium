@@ -11,7 +11,8 @@ spec:
     httpsProxy:
       tlsConfig:
         certificates:
-          - secretName: "test-secure"
+          - secretRef:
+              name: "test-secure"
       routes:
         - match:
             hostNames:
@@ -85,7 +86,8 @@ spec:
     httpsProxy:
       tlsConfig:
         certificates:
-          - secretName: "test-secure80"
+          - secretRef:
+              name: "test-secure80"
       routes:
         - match:
             hostNames:
@@ -129,7 +131,8 @@ spec:
         enableHTTP2: true
       tlsConfig:
         certificates:
-          - secretName: "test-secure-http2"
+          - secretRef:
+              name: "test-secure-http2"
       routes:
         - match:
             hostNames:

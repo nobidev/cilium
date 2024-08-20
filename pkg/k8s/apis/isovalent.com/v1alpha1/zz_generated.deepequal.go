@@ -2398,7 +2398,7 @@ func (in *LBFrontendTLSCertificate) DeepEqual(other *LBFrontendTLSCertificate) b
 		return false
 	}
 
-	if in.SecretName != other.SecretName {
+	if in.SecretRef != other.SecretRef {
 		return false
 	}
 

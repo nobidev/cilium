@@ -47,7 +47,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 		for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			s := types.NamespacedName{
 				Namespace: lbFrontend.Namespace,
-				Name:      c.SecretName,
+				Name:      c.SecretRef.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
 			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBFrontend")

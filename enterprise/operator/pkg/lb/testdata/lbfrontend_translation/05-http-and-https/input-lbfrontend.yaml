@@ -18,7 +18,8 @@ spec:
     httpsProxy:
       tlsConfig:
         certificates:
-          - secretName: "test"
+          - secretRef:
+              name: "test"
       routes:
         - match:
             hostNames:

@@ -227,15 +227,15 @@ type LBTLSSignatureAlgorithm string
 type LBFrontendHostName string
 
 type LBFrontendTLSCertificate struct {
-	// The name of the k8s secret that contains the certificate and the
-	// private key. The secret type must be kubernetes.io/tls and the
+	// Reference to K8s secret in the same namespace that contains
+	// the certificate and the private key that the frontend uses.
+	//
+	// The secret type must be kubernetes.io/tls and the
 	// format must follow the spec.
 	//
 	// https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets
-	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	SecretName string `json:"secretName"`
+	SecretRef LBFrontendSecretRef `json:"secretRef"`
 }
 
 type LBFrontendHTTPRoute struct {

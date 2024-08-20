@@ -249,23 +249,31 @@ spec:
                         description: The application-wide TLS configuration.
                         properties:
                           allowedCipherSuites:
-                            description: "Allowed TLS cipher suites. \n If not defined,
-                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            description: |-
+                              Allowed TLS cipher suites.
+
+                              If not defined, the defaults of the Envoy proxy are used.
+                              https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
                             items:
                               minLength: 1
                               type: string
                             type: array
                           allowedECDHCurves:
-                            description: "Allowed ECDH Curves. \n If not defined,
-                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            description: |-
+                              Allowed ECDH Curves.
+
+                              If not defined, the defaults of the Envoy proxy are used.
+                              https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
                             items:
                               minLength: 1
                               type: string
                             type: array
                           allowedSignatureAlgorithms:
-                            description: "Allowed signature algorithms. The list is
-                              ordered by preference. \n If not defined, the defaults
-                              of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            description: |-
+                              Allowed signature algorithms. The list is ordered by preference.
+
+                              If not defined, the defaults of the Envoy proxy are used.
+                              https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
                             items:
                               minLength: 1
                               type: string
@@ -275,23 +283,34 @@ spec:
                               uses.
                             items:
                               properties:
-                                secretName:
+                                secretRef:
                                   description: |-
-                                    The name of the k8s secret that contains the certificate and the
-                                    private key. The secret type must be kubernetes.io/tls and the
+                                    Reference to K8s secret in the same namespace that contains
+                                    the certificate and the private key that the frontend uses.
+
+                                    The secret type must be kubernetes.io/tls and the
                                     format must follow the spec.
 
                                     https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets
-                                  minLength: 1
-                                  type: string
+                                  properties:
+                                    name:
+                                      description: The name of the K8s Secret resource.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
                               required:
-                              - secretName
+                              - secretRef
                               type: object
                             minItems: 1
                             type: array
                           maxTLSVersion:
-                            description: "Maximum TLS version. \n If not defined,
-                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            description: |-
+                              Maximum TLS version.
+
+                              If not defined, the defaults of the Envoy proxy are used.
+                              https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
                             enum:
                             - TLSv1_0
                             - TLSv1_1
@@ -299,8 +318,11 @@ spec:
                             - TLSv1_3
                             type: string
                           minTLSVersion:
-                            description: "Minimum TLS version. \n If not defined,
-                              the defaults of the Envoy proxy are used. https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters"
+                            description: |-
+                              Minimum TLS version.
+
+                              If not defined, the defaults of the Envoy proxy are used.
+                              https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters
                             enum:
                             - TLSv1_0
                             - TLSv1_1

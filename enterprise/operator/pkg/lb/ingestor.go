@@ -61,7 +61,7 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontend
 
 	certificateSecretNames := []string{}
 	for _, c := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
-		certificateSecretNames = append(certificateSecretNames, c.SecretName)
+		certificateSecretNames = append(certificateSecretNames, c.SecretRef.Name)
 	}
 
 	validationContextSecret := ""

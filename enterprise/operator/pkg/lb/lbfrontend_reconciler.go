@@ -481,21 +481,21 @@ func tlsSecretIndexerFunc(rawObj client.Object) []string {
 }
 
 func allSecretNames(lbFrontend *isovalentv1alpha1.LBFrontend) []string {
-	secrets := []string{}
+	secretNames := []string{}
 	if lbFrontend.Spec.Applications.HTTPSProxy == nil || lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
-		return secrets
+		return secretNames
 	}
 
 	for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
-		secrets = append(secrets, c.SecretName)
+		secretNames = append(secretNames, c.SecretRef.Name)
 	}
 
 	if lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-		secrets = append(secrets, lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+		secretNames = append(secretNames, lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
 	}
 
-	slices.Sort(secrets)
-	return slices.Compact(secrets)
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
 }
 
 func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {
