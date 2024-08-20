@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/inctimer"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 )
@@ -37,9 +36,6 @@ var yamlLBService string
 //go:embed manifests/lb-backends.yaml
 var yamlLBBackends string
 
-//go:embed manifests/lb-ippools.yaml
-var yamlLBIPPools string
-
 const (
 	defaultNamespace = "default"
 
@@ -49,6 +45,8 @@ const (
 
 	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4"
 	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.1"
+
+	lbIPPoolName = "lb-pool"
 )
 
 type lbTests struct {
@@ -140,21 +138,7 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 		}
 	}
 
-	// 4. Install LB IPPOOLS
-
-	lbIPPools, err := yamlToObjects[*ciliumv2alpha1.CiliumLoadBalancerIPPool](yamlLBIPPools, scheme.Scheme)
-	if err != nil {
-		t.Fatalf("Failed to deserialize LB IP Pool: %s", err)
-	}
-
-	for _, obj := range lbIPPools {
-		t.Logf("Creating LB IP Pool %s...", obj.GetObjectMeta().GetName())
-		if err := lbt.ciliumCli.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
-			t.Logf("Failed to create LB IP Pool: %s", err)
-		}
-	}
-
-	// 5. Wait for LB VIPs
+	// 4. Wait for LB VIPs
 
 	for i := 1; i <= len(services); i++ {
 		name := fmt.Sprintf("lb-%d", i)
@@ -329,16 +313,36 @@ func TestMain(m *testing.M) {
 		}
 	}
 
+	// Create LBIPPool (it is shared among all test cases)
+
+	lbIPPool := lbIPPool(lbIPPoolName, "100.64.0.0/24")
+	if err := suite.ciliumCli.ensureLBIPPool(context.TODO(), lbIPPool); err != nil {
+		panic(fmt.Sprintf("Failed to ensure LBIPPool (%s): %s", lbIPPoolName, err))
+	}
+	defer maybeCleanup(func() error {
+		return suite.ciliumCli.DeleteLBIPPool(context.TODO(), lbIPPoolName, metav1.DeleteOptions{})
+	})
+
+	// Run tests
+
 	m.Run()
 }
 
-func maybeCleanup(f func() error, t *testing.T) {
+func maybeCleanupT(f func() error, t *testing.T) {
 	if *cleanup {
 		t.Cleanup(func() {
 			if err := f(); err != nil {
 				fmt.Printf("cleanup failed: %s\n", err)
 			}
 		})
+	}
+}
+
+func maybeCleanup(f func() error) {
+	if *cleanup {
+		if err := f(); err != nil {
+			fmt.Printf("cleanup failed: %s\n", err)
+		}
 	}
 }
 
@@ -362,7 +366,7 @@ func TestHTTPConnectivity(t *testing.T) {
 		if err := suite.dockerCli.createContainer(ctx, app, appImage, env, containerNetwork, false); err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app, err)
 		}
-		maybeCleanup(func() error { return suite.dockerCli.deleteContainer(ctx, app) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, app) }, t)
 	}
 
 	// 1. Create FRR client
@@ -378,7 +382,7 @@ func TestHTTPConnectivity(t *testing.T) {
 	if err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true); err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
-	maybeCleanup(func() error { return suite.dockerCli.deleteContainer(ctx, clientName) }, t)
+	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, clientName) }, t)
 
 	clientIP, err := suite.dockerCli.GetContainerIP(ctx, clientName)
 	if err != nil {
@@ -388,19 +392,11 @@ func TestHTTPConnectivity(t *testing.T) {
 	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
 	}
-	maybeCleanup(func() error { return suite.ciliumCli.undoBGPPeeringForClient(ctx, clientIP) }, t)
+	maybeCleanupT(func() error { return suite.ciliumCli.undoBGPPeeringForClient(ctx, clientIP) }, t)
 
 	t.Logf("Creating LB service objects...")
 
-	// 2. Create LBIPPool
-
-	lbIPPool := lbIPPool(name, "100.64.0.0/24")
-	if err := suite.ciliumCli.ensureLBIPPool(ctx, lbIPPool); err != nil {
-		t.Fatalf("cannot ensure LBIPPool (%s): %s", name, err)
-	}
-	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBIPPool(ctx, name, metav1.DeleteOptions{}) }, t)
-
-	// 3. Create LBVIP
+	// 2. Create LBVIP
 
 	vip := lbVIP(name, "")
 	if err := suite.ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
@@ -408,7 +404,7 @@ func TestHTTPConnectivity(t *testing.T) {
 			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
 		}
 	}
-	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBVIP(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanupT(func() error { return suite.ciliumCli.DeleteLBVIP(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
 	app1IP, err := suite.dockerCli.GetContainerIP(ctx, app1)
 	if err != nil {
@@ -419,7 +415,7 @@ func TestHTTPConnectivity(t *testing.T) {
 		t.Fatalf("failed to retrieve container IP (%s): %s", app2, err)
 	}
 
-	// 4. Create LBBackendPool
+	// 3. Create LBBackendPool
 
 	backends := []isovalentv1alpha1.Backend{
 		{IP: app1IP, Port: 8080},
@@ -432,9 +428,9 @@ func TestHTTPConnectivity(t *testing.T) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
-	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBBackend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanupT(func() error { return suite.ciliumCli.DeleteLBBackend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
-	// 5. Create LBService
+	// 4. Create LBService
 
 	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name))
 
@@ -443,9 +439,9 @@ func TestHTTPConnectivity(t *testing.T) {
 			t.Fatalf("cannot create LB Service (%s): %s", name, err)
 		}
 	}
-	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBService(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanupT(func() error { return suite.ciliumCli.DeleteLBService(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
-	// 6. Send HTTP request
+	// 5. Send HTTP request
 
 	t.Logf("Waiting for VIP of %q...", name)
 
