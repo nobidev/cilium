@@ -8,30 +8,13 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package policy
+package cmd
 
 import (
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
-
-	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
+	"github.com/cilium/cilium/cilium-dbg/cmd"
+	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 )
 
-var Cell = cell.Module(
-	"encryption-policy",
-	"Encryption Policy Control-Plane",
-
-	// Registers command-line flag
-	cell.Config(defaultConfig),
-
-	// Register StateDB table
-	cell.Provide(
-		NewEncryptionPolicyTable,
-		statedb.RWTable[*EncryptionPolicyEntry].ToTable,
-	),
-	cell.Invoke(statedb.RegisterTable[*EncryptionPolicyEntry]),
-)
-
-var defaultConfig = types.Config{
-	EnableEncryptionPolicy: false,
+func init() {
+	cmd.StatedbCmd.AddCommand(cmd.StatedbTableCommand[*encryptionPolicy.EncryptionPolicyEntry](encryptionPolicy.EncryptionPolicyTableName))
 }
