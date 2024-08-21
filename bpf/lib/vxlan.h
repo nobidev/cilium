@@ -9,6 +9,8 @@
 #include <linux/if_ether.h>
 #include "lib/csum.h"
 
+#include "lib/enterprise_vxlan.h"
+
 /*
  * Returns the VNI in the native host's endian format of a xvlan encap'd packet.
  *
@@ -91,3 +93,4 @@ vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
 
 	return true;
 }
+
