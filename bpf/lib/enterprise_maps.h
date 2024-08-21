@@ -44,3 +44,14 @@ struct {
 } CILIUM_MESH_POLICY_MAP __section_maps_btf;
 #endif
 #endif
+
+#ifdef ENCRYPTION_POLICY_MAP
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct encryption_policy_key);
+	__type(value, struct encryption_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, ENCRYPTION_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} ENCRYPTION_POLICY_MAP __section_maps_btf;
+#endif /* ENCRYPTION_POLICY_MAP */

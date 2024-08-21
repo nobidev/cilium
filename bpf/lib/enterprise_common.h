@@ -27,3 +27,19 @@ struct egress_gw_ha_policy_entry {
 struct egress_gw_ha_ct_entry {
 	__be32 gateway_ip;
 };
+
+#define ENCRYPTION_POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct encryption_policy_key) - sizeof(struct bpf_lpm_trie_key)))
+
+struct encryption_policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32		src_sec_identity;
+	__u32		dst_sec_identity;
+	__be16		protocol; /* 16 bits are wasteful, but ran into prefix lookup issues due to struct packing, byte padding */
+	__be16		port;
+};
+
+struct encryption_policy_entry {
+	__u8	encrypt:1,
+			pad:7;
+};

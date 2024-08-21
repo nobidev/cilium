@@ -10,3 +10,6 @@
 
 #define CILIUM_MESH_POLICY_MAP test_cilium_cilium_mesh_ep_to_policy
 #define CILIUM_MESH_POLICY_MAP_SIZE 65536
+
+#define ENCRYPTION_POLICY_MAP test_cilium_encryption_policy_map
+#define ENCRYPTION_POLICY_MAP_SIZE 65536
