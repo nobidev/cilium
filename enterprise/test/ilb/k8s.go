@@ -11,6 +11,7 @@
 package ilb
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -26,6 +27,28 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 		Spec: ciliumv2alpha1.CiliumLoadBalancerIPPoolSpec{
 			Blocks: []ciliumv2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 				{Cidr: ciliumv2alpha1.IPv4orIPv6CIDR(ipBlock)},
+			},
+		},
+	}
+}
+
+func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string) isovalentv1alpha1.LBServiceApplications {
+	return isovalentv1alpha1.LBServiceApplications{
+		HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+					{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
+				},
+			},
+			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
+				{
+					BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+					Match: &isovalentv1alpha1.LBServiceHTTPRouteMatch{
+						HostNames: []isovalentv1alpha1.LBServiceHostName{
+							isovalentv1alpha1.LBServiceHostName(hostName),
+						},
+					},
+				},
 			},
 		},
 	}
@@ -142,6 +165,19 @@ func bfdProfile(name string) *isovalentv1alpha1.IsovalentBFDProfile {
 			DetectMultiplier:             &detectMultiplier,
 			ReceiveIntervalMilliseconds:  &receiveIntervalMilliseconds,
 			TransmitIntervalMilliseconds: &transmitIntervalMilliseconds,
+		},
+	}
+}
+
+func secret(name string, key, cert []byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Type: v1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.key": key,
+			"tls.crt": cert,
 		},
 	}
 }

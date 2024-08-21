@@ -11,9 +11,20 @@
 package ilb
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"io"
+	"math/big"
+	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,7 +34,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	docker_client "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -35,6 +46,7 @@ import (
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -51,7 +63,7 @@ type ciliumCli struct {
 	*cilium_clientset.Clientset
 }
 
-func newCiliumCli() (*ciliumCli, error) {
+func newCiliumAndK8sCli() (*ciliumCli, *k8s.Clientset, error) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
@@ -61,15 +73,17 @@ func newCiliumCli() (*ciliumCli, error) {
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
 
 	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
+		return nil, nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
-	return &ciliumCli{cli}, nil
+	k8s := k8s.NewForConfigOrDie(restConfig)
+
+	return &ciliumCli{cli}, k8s, nil
 }
 
 func (c *ciliumCli) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
@@ -140,7 +154,7 @@ func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) 
 	pol := bgpPeeringPolicy(bgpPolicyName, clientIP)
 
 	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Create(ctx, pol, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8s_errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create BGP peering policy (%s): %w", bgpPolicyName, err)
 		} else {
 			// Cilium's BGP does not allow us to create multiple peering policies targeting the same node.
@@ -154,7 +168,7 @@ func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) 
 	bfd := bfdProfile(bgpPolicyName)
 
 	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8s_errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpPolicyName, err)
 		}
 	}
@@ -223,7 +237,7 @@ func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string
 
 func (c *ciliumCli) ensureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
 	if err := c.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8s_errors.IsAlreadyExists(err) {
 			return err
 		}
 	}
@@ -315,7 +329,7 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	return nil
 }
 
-func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) error {
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
 	resp, err := c.ContainerCreate(ctx,
@@ -335,14 +349,14 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		name,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return resp.ID, nil
 }
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {
@@ -369,6 +383,16 @@ func (c *dockerCli) waitForIPRoute(ctx context.Context, clientName, lbIP string)
 	}
 
 	return nil
+}
+
+func (c *dockerCli) copyToContainer(ctx context.Context, containerID string, content []byte, dstFile, dstDir string) error {
+	reader, err := createTAR(content, dstFile)
+	if err != nil {
+		return fmt.Errorf("failed to create tar for %s: %w", dstFile, err)
+	}
+
+	opts := container.CopyToContainerOptions{AllowOverwriteDirWithFile: true}
+	return c.CopyToContainer(ctx, containerID, dstDir, reader, opts)
 }
 
 type hcState string
@@ -430,4 +454,97 @@ func curlCmdVerbose(extra string) string {
 
 func curlCmd(extra string) string {
 	return "curl --silent --fail --show-error " + extra
+}
+
+func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
+	var key, cert bytes.Buffer
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate priv key: %w", err)
+	}
+
+	keyUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+
+	notBefore := time.Now()
+	validFor := 365 * 24 * time.Hour
+	notAfter := notBefore.Add(validFor)
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate SN: %w", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	hosts := strings.Split(host, ",")
+	for _, h := range hosts {
+		if ip := net.ParseIP(h); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, h)
+		}
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create cert: %w", err)
+	}
+
+	if err := pem.Encode(&cert, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return nil, nil, fmt.Errorf("failed to PEM encode cert: %w", err)
+	}
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal pri key: %w", err)
+	}
+
+	if err := pem.Encode(&key, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
+		return nil, nil, fmt.Errorf("failed to PEM encode key: %w", err)
+	}
+
+	return &key, &cert, nil
+}
+
+func deleteFiles(paths ...string) error {
+	var err error
+
+	for _, path := range paths {
+		if err0 := os.Remove(path); err != nil {
+			err = errors.Join(err, err0)
+		}
+	}
+
+	return err
+}
+
+func createTAR(content []byte, path string) (io.Reader, error) {
+	var buf bytes.Buffer
+
+	tw := tar.NewWriter(&buf)
+	hdr := &tar.Header{
+		Name: filepath.Base(path),
+		Mode: 0600,
+		Size: int64(len(content)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, fmt.Errorf("failed to write TAR hdr: %w", err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		return nil, fmt.Errorf("failed to write TAR: %w", err)
+	}
+
+	return bytes.NewReader(buf.Bytes()), nil
 }
