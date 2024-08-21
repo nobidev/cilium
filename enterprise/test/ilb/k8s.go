@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package l4l7lb
+package ilb
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
