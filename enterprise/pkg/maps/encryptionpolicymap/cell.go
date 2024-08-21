@@ -8,26 +8,15 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package maps
+package encryptionpolicymap
 
 import (
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
-	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
-	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
 )
 
 var Cell = cell.Module(
-	"enterprise-maps",
-	"Isovalent Enterprise for Cilium BPF Maps",
-
-	// CT and NAT per-cluster maps.
-	cectnat.Cell,
-
-	// Cilium Mesh map
-	ciliummeshpolicymap.Cell,
-
-	// Encryption policy map
-	encryptionpolicymap.Cell,
+	"encryptionpolicymap",
+	"Isovalent encryption policy map",
+	cell.Config(defaultEncryptionPolicyMapConfig),
+	cell.Provide(createPolicyMapFromConfig),
 )
