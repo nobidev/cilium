@@ -2,14 +2,13 @@ enterprise:
   loadbalancer:
     enabled: true
   bgpControlPlane:
+    enabled: true
     enableServiceHealthChecking: true
   bfd:
     enabled: true
 debug:
   enabled: true
   verbose: "envoy datapath"
-bgpControlPlane:
-  enabled: true
 envoy:
   nodeSelector:
     service.cilium.io/node: "t2"
