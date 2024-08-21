@@ -1845,6 +1845,19 @@
           },
           "type": "object"
         },
+        "encryption": {
+          "properties": {
+            "policy": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "featureGates": {
           "items": {},
           "type": "array"

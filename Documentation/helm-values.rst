@@ -1244,6 +1244,14 @@
      - Time between triggers of egress gateway state reconciliations
      - string
      - ``"1s"``
+   * - :spelling:ignore:`enterprise.encryption`
+     - Transparent encryption
+     - object
+     - ``{"policy":{"enabled":false}}``
+   * - :spelling:ignore:`enterprise.encryption.policy.enabled`
+     - Enables support for encryption policies
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.featureGates`
      - 
      - list

@@ -75,4 +75,14 @@ rules:
   - watch
   - list
   - patch
+{{- if .Values.enterprise.encryption.policy.enabled }}
+- apiGroups:
+    - isovalent.com
+  resources:
+    - isovalentclusterwideencryptionpolicies
+  verbs:
+    - list
+    - watch
+    - get
+{{- end }}
 {{- end }}

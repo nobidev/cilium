@@ -25,6 +25,7 @@ rules:
   - isovalentbfdprofiles.isovalent.com
   - isovalentbfdnodeconfigs.isovalent.com
   - isovalentbfdnodeconfigoverrides.isovalent.com
+  - isovalentclusterwideencryptionpolicies.isovalent.com
 {{- if .Values.enterprise.bgpControlPlane.enabled }}
   - isovalentbgpclusterconfigs.isovalent.com
   - isovalentbgppeerconfigs.isovalent.com

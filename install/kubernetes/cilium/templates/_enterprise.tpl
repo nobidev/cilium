@@ -74,4 +74,8 @@ export-file-path: {{ $defaultExportFilePath | quote }}
 
 enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabled | quote}}
 
+{{- if .Values.enterprise.encryption.policy.enabled }}
+enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quote }}
+{{- end }}
+
 {{- end }}

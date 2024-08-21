@@ -361,6 +361,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.clustermesh.phantomServices.enabled | bool | `true` | Enable Phantom Services support |
 | enterprise.egressGatewayHA | object | `{"enabled":false,"reconciliationTriggerInterval":"1s"}` | Enables egress gateway HA |
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
+| enterprise.encryption | object | `{"policy":{"enabled":false}}` | Transparent encryption |
+| enterprise.encryption.policy.enabled | bool | `false` | Enables support for encryption policies |
 | enterprise.featureGates | list | `[]` |  |
 | enterprise.multiNetwork | object | `{"autoCreateDefaultPodNetwork":true,"autoDirectNodeRoutes":true,"enabled":false}` | Multi-network support (preview feature) |
 | enterprise.multiNetwork.autoCreateDefaultPodNetwork | bool | `true` | Automatically creates a "default" IsovalentPodNetwork on operator startup |

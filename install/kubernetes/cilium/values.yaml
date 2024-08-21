@@ -3809,3 +3809,8 @@ enterprise:
   ciliummesh:
     # -- Enables Cilium Mesh
     enabled: false
+  # -- Transparent encryption
+  encryption:
+    policy:
+      # -- Enables support for encryption policies
+      enabled: false
