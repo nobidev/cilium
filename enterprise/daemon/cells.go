@@ -23,6 +23,7 @@ import (
 	cecm "github.com/cilium/cilium/enterprise/pkg/clustermesh"
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
+	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 	"github.com/cilium/cilium/enterprise/pkg/features"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
@@ -77,6 +78,7 @@ var (
 		ciliummesh.CiliumMeshCell,
 
 		mixedrouting.Cell,
+		encryptionPolicy.Cell,
 
 		multinetwork.Cell,
 

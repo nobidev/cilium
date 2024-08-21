@@ -45,6 +45,7 @@ cilium-agent hive [flags]
       --enable-cluster-aware-addressing                              Enable cluster-aware addressing, to support overlapping PodCIDRs
       --enable-drift-checker                                         Enables support for config drift checker
       --enable-dynamic-config                                        Enables support for dynamic agent config
+      --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
       --enable-gateway-api                                           Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-ingress-controller                                    Enables Envoy secret sync for Ingress controller related TLS secrets

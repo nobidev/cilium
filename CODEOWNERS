@@ -797,6 +797,7 @@ Makefile* @cilium/build
 /enterprise/pkg/ciliummesh @isovalent/cilium-mesh
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
+/enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/features/ @isovalent/foundations
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh

@@ -121,6 +121,7 @@ cilium-agent [flags]
       --enable-custom-calls                                          Enable tail call hooks for custom eBPF programs
       --enable-drift-checker                                         Enables support for config drift checker
       --enable-dynamic-config                                        Enables support for dynamic agent config
+      --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-encryption-strict-mode                                Enable encryption strict mode
       --enable-endpoint-health-checking                              Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                       Use per endpoint routes instead of routing via cilium_host
