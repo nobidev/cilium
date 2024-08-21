@@ -23,6 +23,8 @@ type IsovalentBGPPeerConfigExpansion interface{}
 
 type IsovalentBGPVRFConfigExpansion interface{}
 
+type IsovalentClusterwideEncryptionPolicyExpansion interface{}
+
 type IsovalentFQDNGroupExpansion interface{}
 
 type IsovalentMeshEndpointExpansion interface{}

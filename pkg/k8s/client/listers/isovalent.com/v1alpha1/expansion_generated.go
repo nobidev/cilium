@@ -41,6 +41,10 @@ type IsovalentBGPPeerConfigListerExpansion interface{}
 // IsovalentBGPVRFConfigLister.
 type IsovalentBGPVRFConfigListerExpansion interface{}
 
+// IsovalentClusterwideEncryptionPolicyListerExpansion allows custom methods to be added to
+// IsovalentClusterwideEncryptionPolicyLister.
+type IsovalentClusterwideEncryptionPolicyListerExpansion interface{}
+
 // IsovalentFQDNGroupListerExpansion allows custom methods to be added to
 // IsovalentFQDNGroupLister.
 type IsovalentFQDNGroupListerExpansion interface{}

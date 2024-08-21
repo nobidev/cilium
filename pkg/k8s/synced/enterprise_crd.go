@@ -31,6 +31,7 @@ func AllIsovalentCRDResourceNames() []string {
 		CRDResourceName(v1alpha1.IsovalentBFDProfileName),
 		CRDResourceName(v1alpha1.IsovalentBFDNodeConfigName),
 		CRDResourceName(v1alpha1.IsovalentBFDNodeConfigOverrideName),
+		CRDResourceName(v1alpha1.ICEPName),
 	}
 
 	if option.Config.EnableEnterpriseBGPControlPlane {

@@ -51,6 +51,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentBGPVRFConfigs() v1alpha1.IsovalentBGPVR
 	return &FakeIsovalentBGPVRFConfigs{c}
 }
 
+func (c *FakeIsovalentV1alpha1) IsovalentClusterwideEncryptionPolicies() v1alpha1.IsovalentClusterwideEncryptionPolicyInterface {
+	return &FakeIsovalentClusterwideEncryptionPolicies{c}
+}
+
 func (c *FakeIsovalentV1alpha1) IsovalentFQDNGroups() v1alpha1.IsovalentFQDNGroupInterface {
 	return &FakeIsovalentFQDNGroups{c}
 }

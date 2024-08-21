@@ -85,6 +85,9 @@ const (
 
 	// IsovalentBGPVRFConfigCRDName is the full name of the IsovalentBGPVRFConfig CRD.
 	IsovalentBGPVRFConfigCRDName = k8sconstv1alpha1.IsovalentBGPVRFConfigKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// IsovalentClusterwideEncryptionPolicyCRDName is the full name of the IsovalentClusterwideEncryptionPolicyCRDName CRD.
+	IsovalentClusterwideEncryptionPolicyCRDName = k8sconstv1alpha1.ICEPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -117,6 +120,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigName):         createBGPNodeConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName): createBGPNodeConfigOverrideCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -188,6 +192,9 @@ var (
 
 	//go:embed crds/v1alpha1/isovalentbgpvrfconfigs.yaml
 	crdsv1Alpha1IsovalentBGPVRFConfigs []byte
+
+	//go:embed crds/v1alpha1/isovalentclusterwideencryptionpolicies.yaml
+	crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -241,6 +248,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1IsovalentBGPNodeConfigOverrides
 	case IsovalentBGPVRFConfigCRDName:
 		crdBytes = crdsv1Alpha1IsovalentBGPVRFConfigs
+	case IsovalentClusterwideEncryptionPolicyCRDName:
+		crdBytes = crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -495,6 +504,19 @@ func createBGPVRFConfigCRD(clientset apiextensionsclient.Interface) error {
 	return crdhelpers.CreateUpdateCRD(
 		clientset,
 		constructV1CRD(k8sconstv1alpha1.IsovalentBGPVRFConfigName, ciliumCRD),
+		crdhelpers.NewDefaultPoller(),
+		k8sconst.CustomResourceDefinitionSchemaVersionKey,
+		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+	)
+}
+
+// createICEPCRD creates and updates the IsovalentBGPNodeConfigOverride CRD.
+func createICEPCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(IsovalentClusterwideEncryptionPolicyCRDName)
+
+	return crdhelpers.CreateUpdateCRD(
+		clientset,
+		constructV1CRD(k8sconstv1alpha1.ICEPName, ciliumCRD),
 		crdhelpers.NewDefaultPoller(),
 		k8sconst.CustomResourceDefinitionSchemaVersionKey,
 		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),

@@ -29,6 +29,8 @@ type Interface interface {
 	IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer
 	// IsovalentBGPVRFConfigs returns a IsovalentBGPVRFConfigInformer.
 	IsovalentBGPVRFConfigs() IsovalentBGPVRFConfigInformer
+	// IsovalentClusterwideEncryptionPolicies returns a IsovalentClusterwideEncryptionPolicyInformer.
+	IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInformer
 	// IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 	IsovalentFQDNGroups() IsovalentFQDNGroupInformer
 	// IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.
@@ -103,6 +105,11 @@ func (v *version) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer {
 // IsovalentBGPVRFConfigs returns a IsovalentBGPVRFConfigInformer.
 func (v *version) IsovalentBGPVRFConfigs() IsovalentBGPVRFConfigInformer {
 	return &isovalentBGPVRFConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentClusterwideEncryptionPolicies returns a IsovalentClusterwideEncryptionPolicyInformer.
+func (v *version) IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInformer {
+	return &isovalentClusterwideEncryptionPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.

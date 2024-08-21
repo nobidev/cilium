@@ -1,0 +1,334 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.3
+  name: isovalentclusterwideencryptionpolicies.isovalent.com
+spec:
+  group: isovalent.com
+  names:
+    categories:
+    - cilium
+    - isovalent
+    kind: IsovalentClusterwideEncryptionPolicy
+    listKind: IsovalentClusterwideEncryptionPolicyList
+    plural: isovalentclusterwideencryptionpolicies
+    shortNames:
+    - icep
+    singular: isovalentclusterwideencryptionpolicy
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          IsovalentClusterwideEncryptionPolicy defines the encryption policies for
+          pods and their communication peers
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterwideEncryptionPolicySpec defines a pod selector and a list of
+              communication peer selectors for which traffic will be encrypted.
+            properties:
+              namespaceSelector:
+                description: |-
+                  NamespaceSelector selects Namespaces using cluster-scoped labels.
+                  This field follows standard label selector semantics. It is always
+                  required. An empty but present (i.e. non-nil) selector acts as a
+                  wildcard selector and selects all namespaces.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          enum:
+                          - In
+                          - NotIn
+                          - Exists
+                          - DoesNotExist
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  matchLabels:
+                    additionalProperties:
+                      description: MatchLabelsValue represents the value from the
+                        MatchLabels {key,value} pair.
+                      maxLength: 63
+                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              peers:
+                description: |-
+                  Peers selects a list of communication peers for which traffic will be
+                  encrypted.
+                items:
+                  description: |-
+                    ClusterwideEncryptionPeerSelector defines a set of communication peers for
+                    which traffic will be encrypted
+                  properties:
+                    namespaceSelector:
+                      description: |-
+                        NamespaceSelector selects Namespaces using cluster-scoped labels.
+                        This field follows standard label selector semantics. It is always
+                        required. An empty but present (i.e. non-nil) selector acts as a
+                        wildcard selector and selects all namespaces.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    podSelector:
+                      description: |-
+                        PodSelector is a label selector which selects Pods within the selected namespace.
+                        This field follows standard label selector semantics. If absent or empty
+                        it selects all pods within the namespace.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    ports:
+                      description: Ports is a list of ports on the peer for which
+                        traffic will be encrypted
+                      items:
+                        description: PortProtocol defines a L4 port and protocol
+                        properties:
+                          port:
+                            description: Port can be an L4 port number.
+                            maximum: 65535
+                            minimum: 0
+                            type: integer
+                          protocol:
+                            description: |-
+                              Protocol is the L4 protocol. If omitted or empty, any protocol
+                              matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                            enum:
+                            - TCP
+                            - UDP
+                            - SCTP
+                            - ANY
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      minItems: 1
+                      type: array
+                  required:
+                  - namespaceSelector
+                  - ports
+                  type: object
+                minItems: 1
+                type: array
+              podSelector:
+                description: |-
+                  PodSelector is a label selector which selects Pods within the selected namespace.
+                  This field follows standard label selector semantics. If absent or empty
+                  it selects all pods within the namespace.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          enum:
+                          - In
+                          - NotIn
+                          - Exists
+                          - DoesNotExist
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  matchLabels:
+                    additionalProperties:
+                      description: MatchLabelsValue represents the value from the
+                        MatchLabels {key,value} pair.
+                      maxLength: 63
+                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - namespaceSelector
+            - peers
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

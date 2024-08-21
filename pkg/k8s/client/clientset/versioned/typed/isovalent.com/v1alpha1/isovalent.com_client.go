@@ -24,6 +24,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentBGPNodeConfigOverridesGetter
 	IsovalentBGPPeerConfigsGetter
 	IsovalentBGPVRFConfigsGetter
+	IsovalentClusterwideEncryptionPoliciesGetter
 	IsovalentFQDNGroupsGetter
 	IsovalentMeshEndpointsGetter
 	IsovalentMulticastGroupsGetter
@@ -74,6 +75,10 @@ func (c *IsovalentV1alpha1Client) IsovalentBGPPeerConfigs() IsovalentBGPPeerConf
 
 func (c *IsovalentV1alpha1Client) IsovalentBGPVRFConfigs() IsovalentBGPVRFConfigInterface {
 	return newIsovalentBGPVRFConfigs(c)
+}
+
+func (c *IsovalentV1alpha1Client) IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInterface {
+	return newIsovalentClusterwideEncryptionPolicies(c)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentFQDNGroups() IsovalentFQDNGroupInterface {
