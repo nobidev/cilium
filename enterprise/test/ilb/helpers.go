@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,6 +35,7 @@ import (
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 const (
@@ -308,7 +308,7 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	}
 	defer reader.Close()
 	// wait until pulled
-	if _, err := io.ReadAll(reader); err != nil {
+	if _, err := safeio.ReadAllLimit(reader, safeio.TB); err != nil {
 		return err
 	}
 
