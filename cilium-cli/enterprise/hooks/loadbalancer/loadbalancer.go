@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package loadbalancer
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
+)
+
+// Parameters contains options for CLI
+type Parameters struct {
+	WaitDuration time.Duration
+	Output       string
+
+	FrontendNamespace string
+	FrontendName      string
+	FrontendVIP       string
+	FrontendPort      uint
+	FrontendStatus    string
+}
+
+type LoadbalancerClient struct {
+	params      Parameters
+	client      *enterpriseK8s.EnterpriseClient
+	t1AgentPods []*corev1.Pod
+	t2AgentPods []*corev1.Pod
+}
+
+func NewLoadbalancerClient(client *enterpriseK8s.EnterpriseClient, params Parameters) *LoadbalancerClient {
+	return &LoadbalancerClient{
+		params: params,
+		client: client,
+	}
+}
+
+func (s *LoadbalancerClient) initNodeAgentPods(ctx context.Context) error {
+	t1Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
+	if err != nil {
+		return err
+	}
+
+	t1NodeNames := []string{}
+	for _, t1 := range t1Nodes.Items {
+		t1NodeNames = append(t1NodeNames, t1.Name)
+	}
+
+	t2Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t2"})
+	if err != nil {
+		return err
+	}
+
+	t2NodeNames := []string{}
+	for _, t2 := range t2Nodes.Items {
+		t2NodeNames = append(t2NodeNames, t2.Name)
+	}
+
+	agentPods, err := s.client.ListPods(ctx, "kube-system", metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	if err != nil {
+		return fmt.Errorf("failed to list agent pods: %w", err)
+	}
+
+	t1AgentPods := []*corev1.Pod{}
+	t2AgentPods := []*corev1.Pod{}
+
+	for _, ap := range agentPods.Items {
+		if slices.Contains(t1NodeNames, ap.Spec.NodeName) {
+			t1AgentPods = append(t1AgentPods, &ap)
+		} else if slices.Contains(t2NodeNames, ap.Spec.NodeName) {
+			t2AgentPods = append(t2AgentPods, &ap)
+		}
+	}
+
+	s.t1AgentPods = t1AgentPods
+	s.t2AgentPods = t2AgentPods
+
+	return nil
+}
+
+func (s *LoadbalancerClient) GetT1NodeAgentPods() []*corev1.Pod {
+	return s.t1AgentPods
+}
+
+func (s *LoadbalancerClient) GetT2NodeAgentPods() []*corev1.Pod {
+	return s.t2AgentPods
+}

@@ -91,3 +91,63 @@ func (c *EnterpriseClient) UpdateIsovalentMulticastGroup(ctx context.Context, cm
 func (c *EnterpriseClient) DeleteIsovalentMulticastGroup(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().IsovalentMulticastGroups().Delete(ctx, name, opts)
 }
+
+func (c *EnterpriseClient) ListLBVIPs(ctx context.Context, namespace string, opts metav1.ListOptions) (*isovalentv1alpha1.LBVIPList, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBVIPs(namespace).List(ctx, opts)
+}
+
+func (c *EnterpriseClient) GetLBVIP(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBVIP, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Get(ctx, name, opts)
+}
+
+func (c *EnterpriseClient) CreateLBVIP(ctx context.Context, namespace string, lbvip *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) (*isovalentv1alpha1.LBVIP, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Create(ctx, lbvip, opts)
+}
+
+func (c *EnterpriseClient) UpdateLBVIP(ctx context.Context, namespace string, lbvip *isovalentv1alpha1.LBVIP, opts metav1.UpdateOptions) (*isovalentv1alpha1.LBVIP, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Update(ctx, lbvip, opts)
+}
+
+func (c *EnterpriseClient) DeleteLBVIP(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
+}
+
+func (c *EnterpriseClient) ListLBFrontends(ctx context.Context, namespace string, opts metav1.ListOptions) (*isovalentv1alpha1.LBFrontendList, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBFrontends(namespace).List(ctx, opts)
+}
+
+func (c *EnterpriseClient) GetLBFrontend(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBFrontend, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
+}
+
+func (c *EnterpriseClient) CreateLBFrontend(ctx context.Context, namespace string, lbfrontend *isovalentv1alpha1.LBFrontend, opts metav1.CreateOptions) (*isovalentv1alpha1.LBFrontend, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Create(ctx, lbfrontend, opts)
+}
+
+func (c *EnterpriseClient) UpdateLBFrontend(ctx context.Context, namespace string, lbfrontend *isovalentv1alpha1.LBFrontend, opts metav1.UpdateOptions) (*isovalentv1alpha1.LBFrontend, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Update(ctx, lbfrontend, opts)
+}
+
+func (c *EnterpriseClient) DeleteLBFrontend(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBFrontends(namespace).Delete(ctx, name, opts)
+}
+
+func (c *EnterpriseClient) ListLBBackendPools(ctx context.Context, namespace string, opts metav1.ListOptions) (*isovalentv1alpha1.LBBackendPoolList, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).List(ctx, opts)
+}
+
+func (c *EnterpriseClient) GetLBBackendPool(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBBackendPool, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Get(ctx, name, opts)
+}
+
+func (c *EnterpriseClient) CreateLBBackendPool(ctx context.Context, namespace string, lbbackendpool *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) (*isovalentv1alpha1.LBBackendPool, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, lbbackendpool, opts)
+}
+
+func (c *EnterpriseClient) UpdateLBBackendPool(ctx context.Context, namespace string, lbbackendpool *isovalentv1alpha1.LBBackendPool, opts metav1.UpdateOptions) (*isovalentv1alpha1.LBBackendPool, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Update(ctx, lbbackendpool, opts)
+}
+
+func (c *EnterpriseClient) DeleteLBBackendPool(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
+}
