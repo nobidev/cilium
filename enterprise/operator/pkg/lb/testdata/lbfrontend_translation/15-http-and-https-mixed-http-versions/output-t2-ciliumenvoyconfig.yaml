@@ -177,6 +177,7 @@ spec:
           explicitHttpConfig:
             http2ProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
+      ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -202,6 +203,7 @@ spec:
           explicitHttpConfig:
             http2ProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
+      ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_http_0
       endpoints:

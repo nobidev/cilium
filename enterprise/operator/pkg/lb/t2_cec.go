@@ -866,6 +866,7 @@ func (r *lbFrontendReconciler) desiredEnvoyCluster(name string, b backend, trans
 		},
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		TransportSocket:               r.toTLSTransportSocket(b.tlsConfig),
+		IgnoreHealthOnHostRemoval:     true,
 	}
 }
 

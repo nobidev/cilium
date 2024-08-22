@@ -168,6 +168,7 @@ spec:
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
       name: backend_cluster_https_0
       type: EDS
       typedExtensionProtocolOptions:
@@ -193,6 +194,7 @@ spec:
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
       name: backend_cluster_https_1
       type: EDS
       typedExtensionProtocolOptions:

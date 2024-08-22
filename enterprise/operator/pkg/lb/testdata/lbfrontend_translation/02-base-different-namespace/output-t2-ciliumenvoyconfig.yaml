@@ -115,6 +115,7 @@ spec:
             maxConnectionDuration: 3600s
           explicitHttpConfig:
             httpProtocolOptions: {}
+      ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_http_0
       endpoints:
