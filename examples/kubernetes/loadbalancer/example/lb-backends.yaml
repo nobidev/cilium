@@ -123,3 +123,17 @@ spec:
     - ip: 9.9.9.9
       port: 8080
   tlsConfig: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBBackendPool
+metadata:
+  namespace: default
+  name: lb-9
+spec:
+  healthCheck:
+    intervalSeconds: 1
+    http:
+      path: "/health"
+  backends:
+    - ip: 9.9.9.9
+      port: 8080

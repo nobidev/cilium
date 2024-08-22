@@ -23,6 +23,7 @@ docker rm -f app3 2>/dev/null
 docker rm -f app4 2>/dev/null
 docker rm -f app5 2>/dev/null
 docker rm -f app6 2>/dev/null
+docker rm -f app7 2>/dev/null
 
 docker run -d --name app1 --rm --env SERVICE_NAME=service1 --env INSTANCE_NAME=1 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
 docker run -d --name app2 --rm --env SERVICE_NAME=service2 --env INSTANCE_NAME=2 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
@@ -39,6 +40,8 @@ docker run -d --name app5 --rm --env SERVICE_NAME=service5 --env INSTANCE_NAME=5
 TLS_CERT_BASE64_6=$(cat ${script_dir}/tls-secure-backend3.crt | base64)
 TLS_KEY_BASE64_6=$(cat ${script_dir}/tls-secure-backend3.key | base64)
 docker run -d --name app6 --rm --env SERVICE_NAME=service6 --env INSTANCE_NAME=6 --env TLS_ENABLED=true --env TLS_CERT_BASE64="$TLS_CERT_BASE64_6" --env TLS_KEY_BASE64="$TLS_KEY_BASE64_6" --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
+
+docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
 
 #
 # Client
@@ -111,6 +114,7 @@ BACKEND3_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPA
 BACKEND4_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app4)
 BACKEND5_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app5)
 BACKEND6_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app6)
+BACKEND7_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app7)
 
 kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND1_IP}\"}]"
 kubectl patch lbbackendpool lb-1 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/1/ip\", \"value\":\"${BACKEND2_IP}\"}]"
@@ -132,3 +136,5 @@ kubectl patch lbbackendpool lb-6 --type='json' -p="[{\"op\": \"replace\", \"path
 kubectl patch lbbackendpool lb-7 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND5_IP}\"}]"
 
 kubectl patch lbbackendpool lb-8 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND6_IP}\"}]"
+
+kubectl patch lbbackendpool lb-9 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND7_IP}\"}]"
