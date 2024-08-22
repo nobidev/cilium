@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	ceeannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -169,6 +170,10 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 		// that refer to this LBVIP will generate the T1 Service with
 		// the same sharing key.
 		ossannotation.LBIPAMSharingKey: lbvip.Name,
+
+		// Don't advertise this Service with BGP. The actual
+		// advertisement will be done with the T1 Services.
+		ceeannotation.ServiceNoAdvertisement: "true",
 	}
 	if lbvip.Spec.IPv4Request != nil {
 		// In case of static allocation, we set the ips annotation

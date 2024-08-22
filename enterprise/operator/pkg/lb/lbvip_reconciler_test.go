@@ -25,6 +25,7 @@ import (
 	ctrlFakeClient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	ceeannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -49,7 +50,8 @@ func TestLBVIPReconciler(t *testing.T) {
 			name:      "IPv4 dynamic allocation",
 			lbvipSpec: isovalentv1alpha1.LBVIPSpec{},
 			svcAnnotations: map[string]string{
-				ossannotation.LBIPAMSharingKey: lbvipName,
+				ossannotation.LBIPAMSharingKey:       lbvipName,
+				ceeannotation.ServiceNoAdvertisement: "true",
 			},
 		},
 		{
@@ -58,8 +60,9 @@ func TestLBVIPReconciler(t *testing.T) {
 				IPv4Request: ptr.To(ipv4VIP),
 			},
 			svcAnnotations: map[string]string{
-				ossannotation.LBIPAMSharingKey: lbvipName,
-				ossannotation.LBIPAMIPsKey:     ipv4VIP,
+				ossannotation.LBIPAMSharingKey:       lbvipName,
+				ossannotation.LBIPAMIPsKey:           ipv4VIP,
+				ceeannotation.ServiceNoAdvertisement: "true",
 			},
 		},
 	}
