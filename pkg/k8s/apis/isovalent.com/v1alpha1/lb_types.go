@@ -378,6 +378,7 @@ const (
 )
 
 const (
+	IPAssignedConditionReasonIPFailure  = "IPFailure"
 	IPAssignedConditionReasonIPPending  = "IPPending"
 	IPAssignedConditionReasonIPAssigned = "IPAssigned"
 )

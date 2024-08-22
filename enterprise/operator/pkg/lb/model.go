@@ -29,6 +29,13 @@ type lbFrontend struct {
 type lbVIP struct {
 	name         string
 	assignedIPv4 *string
+	bindStatus   lbVIPBindStatus
+}
+
+type lbVIPBindStatus struct {
+	serviceExists  bool
+	bindSuccessful bool
+	bindIssue      string
 }
 
 func (r lbFrontend) getOwningResourceName() string {

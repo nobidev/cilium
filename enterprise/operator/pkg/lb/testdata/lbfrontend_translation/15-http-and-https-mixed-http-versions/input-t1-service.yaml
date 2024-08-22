@@ -20,4 +20,3 @@ status:
     ingress:
       - ip: 100.64.0.2
         ipMode: VIP
-

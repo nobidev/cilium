@@ -85,6 +85,12 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			inputLBBackends = append(inputLBBackends, inputLBBackend)
 		}
 
+		var inputService *corev1.Service
+		if _, err := os.Stat(fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name)); err == nil {
+			inputService = &corev1.Service{}
+			readInput(t, fmt.Sprintf("%s/%s/input-t1-service.yaml", translationDir, tc.name), inputService)
+		}
+
 		// read output files
 		expectedServiceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-service.yaml", translationDir, tc.name), &corev1.Service{})
 		expectedEndpointsYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpoints.yaml", translationDir, tc.name), &corev1.Endpoints{})
@@ -93,7 +99,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBVIP, inputLBFrontend, inputLBBackends)
+		model, err := ing.ingest(inputLBVIP, inputLBFrontend, inputLBBackends, inputService)
 		require.NoError(t, err)
 
 		// Input Config

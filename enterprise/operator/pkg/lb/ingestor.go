@@ -13,12 +13,15 @@ package lb
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) (*lbFrontend, error) {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbFrontend, error) {
 	applications, err := r.toApplications(frontend, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
@@ -30,6 +33,7 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alp
 		vip: lbVIP{
 			name:         frontend.Spec.VIPRef.Name,
 			assignedIPv4: getAssignedIP(vip),
+			bindStatus:   getVIPBindStatus(t1Service),
 		},
 		port:         frontend.Spec.Port,
 		applications: applications,
@@ -359,6 +363,61 @@ func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
 	}
 
 	return nil
+}
+
+func getVIPBindStatus(t1Service *corev1.Service) lbVIPBindStatus {
+	if t1Service == nil {
+		return lbVIPBindStatus{
+			serviceExists:  false,
+			bindSuccessful: false,
+		}
+	}
+
+	for _, cond := range t1Service.Status.Conditions {
+		// Map LBIPAM conditions to LBVIP conditions
+		if cond.Type == "cilium.io/IPAMRequestSatisfied" {
+			switch cond.Status {
+			case metav1.ConditionUnknown:
+				return lbVIPBindStatus{
+					serviceExists:  true,
+					bindSuccessful: false,
+					bindIssue:      "No LB IPAM condition present yet",
+				}
+			case metav1.ConditionTrue:
+				return lbVIPBindStatus{
+					serviceExists:  true,
+					bindSuccessful: true,
+				}
+			case metav1.ConditionFalse:
+				switch cond.Reason {
+				case "already_allocated_incompatible_service":
+					// Special handling for the case where an IP & port combination might
+					// already be used by another frontend.
+					return lbVIPBindStatus{
+						serviceExists:  true,
+						bindSuccessful: false,
+						bindIssue:      cond.Message,
+					}
+				default:
+					// Pass through the message of LB IPAM.
+					// Assuming users will file an issue if
+					// they see this message. Most of these
+					// cases should already be covered by LB IP
+					// assignment to LBVIP service.
+					return lbVIPBindStatus{
+						serviceExists:  true,
+						bindSuccessful: false,
+						bindIssue:      "Unexpected condition: " + cond.Message,
+					}
+				}
+			}
+		}
+	}
+
+	return lbVIPBindStatus{
+		bindSuccessful: false,
+		bindIssue:      "No LB IPAM condition present yet",
+	}
 }
 
 func (*ingestor) toBackendTLSConfig(tlsConfig *isovalentv1alpha1.LBBackendTLSConfig) *lbBackendTLSConfig {

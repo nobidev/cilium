@@ -182,6 +182,16 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 
 	r.updateVIPInStatus(frontend, vip)
 
+	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
+	existingT1Service := &corev1.Service{}
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: getOwningResourceName(frontend.Name)}, existingT1Service); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get T1 Service: %w", err)
+		}
+
+		// Continue if not found
+	}
+
 	// Try loading referenced LBBackends (in same namespace)
 	backends, missingBackends, err := r.loadBackends(ctx, frontend)
 	if err != nil {
@@ -214,13 +224,12 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(vip, frontend, backends)
+	model, err := r.ingestor.ingest(vip, frontend, backends, existingT1Service)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
 	}
 
 	r.updateAssignedIpInStatus(model, frontend)
-
 	// Stop reconciliation if assigned IP is not available yet. Also, we
 	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
@@ -277,6 +286,19 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	//
 	// T2
 	//
+
+	// Stop reconciliation if T1 service is not available yet or is not able to bind
+	// to the VIP (e.g. due to port clash with another frontend on the same VIP).
+	// In this case any existing CEC gets deleted too. We don't delete Services & Endpoints
+	// as this would result in a loop when the same  services is created in the next
+	// reconciliation.
+	// Creating/Updating the T1 Service will trigger an additional reconciliation.
+	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful {
+		if err = r.ensureCECDeleted(ctx, model); err != nil {
+			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
+		}
+		return nil
+	}
 
 	// Build desired resources
 	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(model)
@@ -562,7 +584,10 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 
 	var assignedIPv4 *string = nil
 
-	if model.vip.assignedIPv4 != nil {
+	if model.vip.bindStatus.serviceExists && !model.vip.bindStatus.bindSuccessful {
+		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPFailure
+		ipAssignedCondition.Message = "Failed to bind to VIP: " + model.vip.bindStatus.bindIssue
+	} else if model.vip.assignedIPv4 != nil {
 		ipAssignedCondition.Status = metav1.ConditionTrue
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
 		ipAssignedCondition.Message = "VIP assigned"

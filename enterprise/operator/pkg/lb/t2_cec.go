@@ -47,7 +47,7 @@ import (
 )
 
 func (r *lbFrontendReconciler) desiredCiliumEnvoyConfig(model *lbFrontend) (*ciliumv2.CiliumEnvoyConfig, error) {
-	if model.vip.assignedIPv4 == nil {
+	if model.vip.assignedIPv4 == nil || !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful {
 		return nil, nil
 	}
 

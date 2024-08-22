@@ -14,7 +14,7 @@ status:
     - lastTransitionTime: "2024-08-22T07:33:23Z"
       message: ""
       reason: satisfied
-      status: "True"
+      status: "False"
       type: cilium.io/IPAMRequestSatisfied
   loadBalancer:
     ingress:
