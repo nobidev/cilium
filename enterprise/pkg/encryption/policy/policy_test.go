@@ -33,6 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+type mockReconciler struct{}
+
+func (m *mockReconciler) Prune() {}
+
 func newTestEngine(t testing.TB) (
 	m *Engine,
 	tbl statedb.RWTable[*EncryptionPolicyEntry],
@@ -57,12 +61,15 @@ func newTestEngine(t testing.TB) (
 	).Populate(hivetest.Logger(t))
 
 	m = &Engine{
-		log:             hivetest.Logger(t),
-		selectorCache:   networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
-		db:              db,
-		policyTable:     tbl,
-		rulesRevision:   0,
-		rulesByResource: map[resource.Key][]*encryptionRule{},
+		log:                 hivetest.Logger(t),
+		selectorCache:       networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
+		db:                  db,
+		policyTable:         tbl,
+		reconciler:          &mockReconciler{},
+		policyInitializer:   func(txn statedb.WriteTxn) {},
+		identityInitializer: func(txn statedb.WriteTxn) {},
+		rulesRevision:       0,
+		rulesByResource:     map[resource.Key][]*encryptionRule{},
 	}
 
 	return m, tbl, db

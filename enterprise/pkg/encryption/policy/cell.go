@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
@@ -45,17 +46,21 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(isovalentClusterwideEncryptionPolicyResource),
 
 	// Register StateDB table
-	cell.Provide(
-		NewEncryptionPolicyTable,
-		statedb.RWTable[*EncryptionPolicyEntry].ToTable,
-	),
+	cell.Provide(NewEncryptionPolicyTable),
 	cell.Invoke(statedb.RegisterTable[*EncryptionPolicyEntry]),
+
+	// Provide BPF datapath configuration, BPF map pressure metrics and BPF map reconciler
+	cell.Provide(newNodeConfig),
+	cell.ProvidePrivate(startEncryptionPolicyReconciler),
 
 	// Start the encryption policy subsystem
 	cell.Invoke(newSelectiveEncryptionEngine),
 )
 
 const (
+	policyInitializerName   = "isovalentclusterwideencryptionpolicy-synced"
+	identityInitializerName = "identities-synced"
+
 	identityBatchTimeout = 100 * time.Millisecond
 	identityBatchSize    = 1000
 )
@@ -88,6 +93,7 @@ type engineParams struct {
 
 	StateDB     *statedb.DB
 	PolicyTable statedb.RWTable[*EncryptionPolicyEntry]
+	Reconciler  reconciler.Reconciler[*EncryptionPolicyEntry]
 }
 
 // newSelectiveEncryptionEngine creates a new instance of encryption policy engine
@@ -102,12 +108,24 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		return nil
 	}
 
+	// Initializers prevent the reconciler from pruning old entries from the BPF map
+	// until we have had a chance to recompute the new BPF map state after we observed
+	// all encryption policies and all indentities both.
+	txn := params.StateDB.WriteTxn(params.PolicyTable)
+	policyInitializer := params.PolicyTable.RegisterInitializer(txn, policyInitializerName)
+	identityInitializer := params.PolicyTable.RegisterInitializer(txn, identityInitializerName)
+	txn.Commit()
+
 	engine := &Engine{
 		log:           params.Log,
 		selectorCache: networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
 
 		db:          params.StateDB,
 		policyTable: params.PolicyTable,
+		reconciler:  params.Reconciler,
+
+		policyInitializer:   policyInitializer,
+		identityInitializer: identityInitializer,
 
 		rulesByResource: map[resource.Key][]*encryptionRule{},
 	}
@@ -159,12 +177,22 @@ type Engine struct {
 	policyTable       statedb.RWTable[*EncryptionPolicyEntry]
 	identityChangeTxn atomic.Pointer[statedb.WriteTxn]
 
+	reconciler          reconciler.Reconciler[*EncryptionPolicyEntry]
+	policyInitializer   func(txn statedb.WriteTxn)
+	identityInitializer func(txn statedb.WriteTxn)
+
 	// rulesMutex protects access to rulesRevision and rulesByResource, but not
 	// to the stored encryptionRule themselves (they are immutable and might
 	// be read without the mutex held)
 	rulesMutex      lock.Mutex
 	rulesRevision   uint64
 	rulesByResource map[resource.Key][]*encryptionRule
+}
+
+func (e *Engine) finishInitializer(initializer func(txn statedb.WriteTxn)) {
+	txn := e.db.WriteTxn(e.policyTable)
+	initializer(txn)
+	txn.Commit()
 }
 
 // handlePolicyChange reacts to changes in IsovalentClusterwideEncryptionPolicy resources (invoked by an observer job)
@@ -178,6 +206,7 @@ func (e *Engine) handlePolicyChange(ctx context.Context, event resource.Event[*i
 		err = e.deleteEncryptionPolicy(event.Key)
 	case resource.Sync:
 		e.log.Debug("Encryption policies synced")
+		e.finishInitializer(e.policyInitializer)
 	}
 	if err != nil {
 		e.log.Warn("Unable to handle policy event",
@@ -207,10 +236,16 @@ func (e *Engine) handleIdentityChange(ctx context.Context, events []cache.Identi
 	// blocking operations (only StateDB updates), but we still want to make
 	// sure that all updates are processed before we commit the transaction
 	// and handle the next batch
+	var identitiesSynced bool
 	defer func() {
 		wg.Wait()
 		e.identityChangeTxn.Store(nil)
 		txn.Commit()
+		// Finish initializer after the identity transaction is committed
+		// to avoid a deadlock
+		if identitiesSynced {
+			e.finishInitializer(e.identityInitializer)
+		}
 	}()
 
 	// Split the identity change batch into two disjunct "added" and "deleted"
@@ -237,6 +272,7 @@ func (e *Engine) handleIdentityChange(ctx context.Context, events []cache.Identi
 			}
 		case cache.IdentityChangeSync:
 			e.log.Debug("Identities synced")
+			identitiesSynced = true // read in defer statement
 		}
 	}
 	e.selectorCache.UpdateIdentities(added, deleted, &wg)
