@@ -14,6 +14,9 @@ __enterprise_source_file_name_to_id(const char *const header_name)
 	/* enterprise source files from bpf/ */
 	_strcase_(201, "enterprise_nodeport.h");
 
+	/* enterprise source files from bpf/lib/ */
+	_strcase_(301, "enterprise_encrypt.h");
+
 	/* @@ source files list end */
 
 	return 0;

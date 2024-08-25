@@ -59,6 +59,7 @@
  #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
 
 #include "enterprise_bpf_host.h"
+#include "lib/enterprise_encrypt.h"
 
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
