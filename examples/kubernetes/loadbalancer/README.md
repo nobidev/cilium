@@ -4,7 +4,8 @@
 
 ```sh
 make kind-loadbalancer && \
-ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-debug && \
+make kind-image && \
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-install-cilium && \
 ./examples/kubernetes/loadbalancer/lb_configure.sh
 ```
 
