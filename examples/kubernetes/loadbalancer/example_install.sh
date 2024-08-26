@@ -50,9 +50,17 @@ docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7
 # BGP client (FRR)
 docker rm -f frr 2>/dev/null
 
-LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+neighbors=""
+t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq '.items[].metadata.name')
+for i in $(echo $t1NodeNames); do
+  LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${i}")
+  if [[ "${neighbors}" != "" ]]; then
+    neighbors="${neighbors};"
+  fi
+  neighbors="${neighbors}${LB_T1_IP}"
+done
 
-docker run -d --restart=always --name frr --privileged -e "NEIGHBOR=${LB_T1_IP}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.1
+docker run -d --restart=always --name frr --privileged -e "NEIGHBORS=${neighbors}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.2
 
 # Copy Backend TLS secrets to FRR client
 docker cp ${script_dir}/tls-secure-backend.crt frr:/tmp/tls-secure-backend.crt

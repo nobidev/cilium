@@ -8,9 +8,20 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define T1 and T2 nodes
 
-kubectl label node kind-control-plane service.cilium.io/node=t1
-kubectl label node kind-worker service.cilium.io/node=t2
-kubectl label node kind-worker2 service.cilium.io/node=t2
+t1Nodes=(
+  kind-control-plane
+)
+t2Nodes=(
+  kind-worker
+  kind-worker2
+)
+
+for i in "${t1Nodes[@]}"; do
+  kubectl label node ${i} service.cilium.io/node=t1
+done
+for i in "${t2Nodes[@]}"; do
+  kubectl label node ${i} service.cilium.io/node=t2
+done
 
 # Allow privileged ports (Envoy)
 
@@ -41,8 +52,11 @@ echo ""
 # T1 nodeconfig
 kubectl apply -f "${script_dir}/lb/t1-nodeconfig.yaml"
 
-CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName=kind-control-plane -o name)
-kubectl delete -n kube-system "${CILIUM_T1_POD}"
+t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq '.items[].metadata.name')
+for i in $(echo $t1NodeNames); do
+  CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName="${i}" -o name)
+  kubectl delete -n kube-system "${CILIUM_T1_POD}"
+done
 
 # Wait until LB nodes are ready
 echo -n "Waiting until LB nodes are ready ..."

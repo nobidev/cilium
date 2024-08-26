@@ -20,14 +20,14 @@ while :; do
   VIP_LB9=$(kubectl -n default get lbvip lb-9 -ojson | jq -r '.status.addresses.ipv4')
 
   if [ "${VIP_LB1}" != "" ] &&
-     [ "${VIP_LB2}" != "" ] &&
-     [ "${VIP_LB3}" != "" ] &&
-     [ "${VIP_LB4}" != "" ] &&
-     [ "${VIP_LB5}" != "" ] &&
-     [ "${VIP_LB6}" != "" ] &&
-     [ "${VIP_LB7}" != "" ] &&
-     [ "${VIP_LB8}" != "" ] &&
-     [ "${VIP_LB9}" != "" ]; then
+    [ "${VIP_LB2}" != "" ] &&
+    [ "${VIP_LB3}" != "" ] &&
+    [ "${VIP_LB4}" != "" ] &&
+    [ "${VIP_LB5}" != "" ] &&
+    [ "${VIP_LB6}" != "" ] &&
+    [ "${VIP_LB7}" != "" ] &&
+    [ "${VIP_LB8}" != "" ] &&
+    [ "${VIP_LB9}" != "" ]; then
     break
   fi
 
@@ -37,34 +37,34 @@ done
 echo ""
 
 echo -n "Waiting until BFD sessions are established "
-until [ $(docker exec -it frr vtysh -c "show bfd peers json" | jq -r '.[].status=="up" // false') == "true" ]; do
+until [ $(docker exec -it frr vtysh -c "show bfd peers json" | jq -r '.[].status=="up" // false') != *"false"* ]; do
   echo -n "."
   sleep 1
 done
 echo ""
 
 echo -n "Waiting until BGP sessions are established "
-until [ $(docker exec -it frr vtysh -c "show bgp summary json" | jq -r '.ipv4Unicast.peers[].state == "Established" // false') == "true" ]; do
+until [ $(docker exec -it frr vtysh -c "show bgp summary json" | jq -r '.ipv4Unicast.peers[].state == "Established" // false') != *"false"* ]; do
   echo -n "."
   sleep 1
 done
 echo ""
 
 function route_exists() {
-  docker exec -it frr vtysh -c "show ip route json" | \
-	  jq --arg PREFIX "$1/32" -r '.[$PREFIX] // [] | any(.protocol=="bgp" and .installed==true)'
+  docker exec -it frr vtysh -c "show ip route json" |
+    jq --arg PREFIX "$1/32" -r '.[$PREFIX] // [] | any(.protocol=="bgp" and .installed==true)'
 }
 
 echo -n "Waiting until the routes are installed "
 until [ $(route_exists $VIP_LB1) == "true" ] &&
-      [ $(route_exists $VIP_LB2) == "true" ] &&
-      [ $(route_exists $VIP_LB3) == "true" ] &&
-      [ $(route_exists $VIP_LB4) == "true" ] &&
-      [ $(route_exists $VIP_LB5) == "true" ] &&
-      [ $(route_exists $VIP_LB6) == "true" ] &&
-      [ $(route_exists $VIP_LB7) == "true" ] &&
-      [ $(route_exists $VIP_LB8) == "true" ] &&
-      [ $(route_exists $VIP_LB9) == "true" ]; do
+  [ $(route_exists $VIP_LB2) == "true" ] &&
+  [ $(route_exists $VIP_LB3) == "true" ] &&
+  [ $(route_exists $VIP_LB4) == "true" ] &&
+  [ $(route_exists $VIP_LB5) == "true" ] &&
+  [ $(route_exists $VIP_LB6) == "true" ] &&
+  [ $(route_exists $VIP_LB7) == "true" ] &&
+  [ $(route_exists $VIP_LB8) == "true" ] &&
+  [ $(route_exists $VIP_LB9) == "true" ]; do
   echo -n "."
   sleep 1
 done
