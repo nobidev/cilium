@@ -14,7 +14,7 @@ kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
 
 .PHONY: kind-loadbalancer
 kind-loadbalancer: ## Create a kind cluster for LoadBalancer development.
-	$(QUIET)SED=$(SED) WORKERS=2 ./contrib/scripts/kind.sh --xdp
+	$(QUIET)SED=$(SED) WORKERS=4 ./contrib/scripts/kind.sh --xdp
 
 .PHONY: kind-down
 kind-down: ## Destroy a kind cluster for Cilium development.

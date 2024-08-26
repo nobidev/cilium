@@ -10,10 +10,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 t1Nodes=(
   kind-control-plane
+  kind-worker
 )
 t2Nodes=(
-  kind-worker
   kind-worker2
+  kind-worker3
+  kind-worker4
 )
 
 for i in "${t1Nodes[@]}"; do
