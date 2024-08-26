@@ -433,6 +433,8 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	probeHealthyCount := 0
 	probeUnhealthyCount := 0
 
+	defer close(ht.stopped)
+
 	hc.updateBackendHealthData(svcAddr, beAddr, health)
 
 	if config.ProbeInterval <= 0 {
@@ -448,7 +450,6 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 		select {
 		case <-ht.stop:
 			hc.logger.Debug("health probes stopped", "svc-addr", svcAddr, "backend-addr", beAddr)
-			close(ht.stopped)
 			return
 		case <-ht.ticker.C:
 			if !waitingOnProbe {
