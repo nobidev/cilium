@@ -5,7 +5,8 @@ metadata:
   name: lb-1
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -21,7 +22,8 @@ metadata:
   name: lb-2
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -37,7 +39,8 @@ metadata:
   name: lb-3
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -53,7 +56,8 @@ metadata:
   name: lb-4
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -69,7 +73,8 @@ metadata:
   name: lb-5
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -88,7 +93,8 @@ metadata:
   name: lb-6
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -102,7 +108,8 @@ metadata:
   name: lb-7
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -116,7 +123,8 @@ metadata:
   name: lb-8
 spec:
   healthCheck:
-    intervalSeconds: 10
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
@@ -131,7 +139,8 @@ metadata:
   name: lb-9
 spec:
   healthCheck:
-    intervalSeconds: 1
+    intervalSeconds: 2
+    timeoutSeconds: 2
     http:
       path: "/health"
   backends:
