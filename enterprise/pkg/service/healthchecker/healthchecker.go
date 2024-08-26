@@ -738,7 +738,11 @@ func getAnnotationHealthCheckConfig(svcAnnotations map[string]string) HealthChec
 	if value, ok := svcAnnotations[annotation.ServiceHealthProbeInterval]; ok {
 		if duration, err := time.ParseDuration(value); err == nil {
 			hc.ProbeInterval = duration
-			hc.State = HealthCheckEnabledNative
+			if duration > 0 {
+				hc.State = HealthCheckEnabledNative
+			} else {
+				hc.State = HealthCheckDisabled
+			}
 		}
 	}
 	if value, ok := svcAnnotations[annotation.ServiceHealthProbeTimeout]; ok {
