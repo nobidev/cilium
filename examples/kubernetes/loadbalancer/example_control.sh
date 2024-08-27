@@ -2,7 +2,7 @@
 
 # Usage
 #
-# ./control.sh [t2-lb|backend] [<cilium-node-name>|<backend-container-name>] [healthcheck|response] [ok|fail]
+# ./control.sh [t1-lb|t2-lb|backend] [<cilium-node-name>|<backend-container-name>] [healthcheck|response] [ok|fail]
 #
 # Change healthcheck state for a backend container
 # ./control.sh backend app1 healthcheck fail
@@ -12,6 +12,9 @@
 #
 # Change healthcheck state for a T2 loadbalancer instance
 # ./control.sh t2-lb cilium-worker2 healthcheck fail
+#
+# Change healthcheck state for a T1 loadbalancer instance
+# ./control.sh t1-lb cilium-control-plane healthcheck fail
 
 set -e
 
@@ -48,4 +51,18 @@ elif [ "$1" = "t2-lb" ]; then
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- apt-get update -qq
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- apt-get install -y -qq curl
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- curl -X POST -s --unix-socket /var/run/cilium/envoy/sockets/admin.sock http:/admin/"$3"/"$4"
+elif [ "$1" = "t1-lb" ]; then
+  if [ "$3" = "response" ]; then
+    echo "controlling response type currently not possible for t1-lb"
+    exit 1
+  fi
+
+  agentIP=$(kubectl get nodes "${2}" -ojson | jq -r '.status.addresses[0].address')
+  action="A"
+  if [ "$4" = "ok" ]; then
+    action="D"
+  fi
+  docker exec kind-worker2 iptables -${action} INPUT -s ${agentIP} -j DROP
+  docker exec kind-worker3 iptables -${action} INPUT -s ${agentIP} -j DROP
+  docker exec kind-worker4 iptables -${action} INPUT -s ${agentIP} -j DROP
 fi
