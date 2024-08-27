@@ -260,7 +260,7 @@ func (lbt *lbTests) testBackendHealthChecking(ctx context.Context, t *testing.T)
 	defer cancel()
 
 	for {
-		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
+		cmd := curlCmd(fmt.Sprintf("-w %%{http_code} -m 2 --cacert /tmp/tls-secure.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", lbt.vips[1]))
 		_, _, err := lbt.dockerCli.clientExec(ctx, clientContainerName, cmd)
 		if err == nil {
 			break
