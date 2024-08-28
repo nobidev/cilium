@@ -48,7 +48,10 @@ docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7
 #
 
 # BGP client (FRR)
-docker rm -f frr 2>/dev/null
+frrClients=("frr" "frr2")
+for i in "${frrClients[@]}"; do
+  docker rm -f ${i} 2>/dev/null
+done
 
 neighbors=""
 t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq '.items[].metadata.name')
@@ -60,12 +63,16 @@ for i in $(echo $t1NodeNames); do
   neighbors="${neighbors}${LB_T1_IP}"
 done
 
-docker run -d --restart=always --name frr --privileged -e "NEIGHBORS=${neighbors}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.2
+for i in "${frrClients[@]}"; do
+  docker run -d --restart=always --name ${i} --privileged -e "NEIGHBORS=${neighbors}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.2
+done
 
 # Copy Backend TLS secrets to FRR client
-docker cp ${script_dir}/tls-secure-backend.crt frr:/tmp/tls-secure-backend.crt
-docker cp ${script_dir}/tls-secure-backend2.crt frr:/tmp/tls-secure-backend2.crt
-docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
+for i in "${frrClients[@]}"; do
+  docker cp ${script_dir}/tls-secure-backend.crt ${i}:/tmp/tls-secure-backend.crt
+  docker cp ${script_dir}/tls-secure-backend2.crt ${i}:/tmp/tls-secure-backend2.crt
+  docker cp ${script_dir}/tls-secure-backend3.crt ${i}:/tmp/tls-secure-backend3.crt
+done
 
 #
 # LB configuration
@@ -73,11 +80,21 @@ docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
 
 # BGP config for FRR BGP peer
 
-kubectl apply -f "${script_dir}/example/lb-bgp-frr-config.yaml"
+kubectl apply -f "${script_dir}/example/lb-bfd-frr-config.yaml"
 
-BGP_FRR_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frr)
+BGP_FRR_IPS=()
+for i in "${frrClients[@]}"; do
+  BGP_FRR_IPS+=($(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${i}))
+done
 
-kubectl patch bgpp frr --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/virtualRouters/0/neighbors/0/peerAddress\", \"value\":\"${BGP_FRR_IP}/32\"}]"
+cp "${script_dir}/example/lb-bgp-frr-config.yaml" "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
+
+for i in "${BGP_FRR_IPS[@]}"; do
+  ip=$i yq -i '.spec.virtualRouters[0].neighbors += {"peerAddress": strenv(ip) + "/32", "peerASN": 64512, "bfdProfileRef": "frr"}' "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
+done
+
+kubectl apply -f "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
+rm "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
 
 # LB TLS secret for LB frontend
 kubectl -n default delete secret test-secure 2>/dev/null || true
@@ -88,27 +105,30 @@ kubectl -n default delete secret test-secure-client 2>/dev/null || true
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure.key" -out "${script_dir}/tls-secure.crt" -subj "/CN=secure.acme.io"
 kubectl -n default create secret tls test-secure --key="${script_dir}/tls-secure.key" --cert="${script_dir}/tls-secure.crt"
-docker cp ${script_dir}/tls-secure.crt frr:/tmp/tls-secure.crt
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure80.key" -out "${script_dir}/tls-secure80.crt" -subj "/CN=secure-80.acme.io"
 kubectl -n default create secret tls test-secure80 --key="${script_dir}/tls-secure80.key" --cert="${script_dir}/tls-secure80.crt"
-docker cp ${script_dir}/tls-secure80.crt frr:/tmp/tls-secure80.crt
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/tls-secure-http2.key" -out "${script_dir}/tls-secure-http2.crt" -subj "/CN=secure-http2.acme.io"
 kubectl -n default create secret tls test-secure-http2 --key="${script_dir}/tls-secure-http2.key" --cert="${script_dir}/tls-secure-http2.crt"
-docker cp ${script_dir}/tls-secure-http2.crt frr:/tmp/tls-secure-http2.crt
 
 kubectl -n default create secret tls test-secure-backend --key="${script_dir}/tls-secure-backend3.key" --cert="${script_dir}/tls-secure-backend3.crt"
-docker cp ${script_dir}/tls-secure-backend3.crt frr:/tmp/tls-secure-backend3.crt
 
 # Client certificate (including CA)
 openssl genrsa -out "${script_dir}/ca.key" 2048
 openssl req -new -x509 -key "${script_dir}/ca.key" -out "${script_dir}/ca.crt" -subj "/CN=ca.acme.io"
 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout "${script_dir}/client.key" -out "${script_dir}/client.crt" -subj "/CN=client.acme.io" -addext "subjectAltName = DNS:client.acme.io" -CA "${script_dir}/ca.crt" -CAkey "${script_dir}/ca.key"
-docker cp ${script_dir}/client.crt frr:/tmp/client.crt
-docker cp ${script_dir}/client.key frr:/tmp/client.key
 kubectl -n default create secret generic test-secure-client --from-file="${script_dir}/ca.crt"
+
+for i in "${frrClients[@]}"; do
+  docker cp ${script_dir}/tls-secure.crt ${i}:/tmp/tls-secure.crt
+  docker cp ${script_dir}/tls-secure80.crt ${i}:/tmp/tls-secure80.crt
+  docker cp ${script_dir}/tls-secure-http2.crt ${i}:/tmp/tls-secure-http2.crt
+  docker cp ${script_dir}/tls-secure-backend3.crt ${i}:/tmp/tls-secure-backend3.crt
+  docker cp ${script_dir}/client.crt ${i}:/tmp/client.crt
+  docker cp ${script_dir}/client.key ${i}:/tmp/client.key
+done
 
 # LB vips, frontends, backends & ippools
 kubectl apply -f "${script_dir}/example/lb-vips.yaml"

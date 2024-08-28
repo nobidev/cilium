@@ -1,4 +1,3 @@
----
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPPeeringPolicy
 metadata:
@@ -12,18 +11,5 @@ spec:
       serviceSelector:
         matchExpressions:
           # match any LB service
-          - {key: somekey, operator: NotIn, values: ['never-used-value']}
-      neighbors:
-        - peerAddress: '172.19.0.3/32' # will be replaced by the script
-          peerASN: 64512
-          bfdProfileRef: frr
-
----
-apiVersion: isovalent.com/v1alpha1
-kind: IsovalentBFDProfile
-metadata:
-  name: frr
-spec:
-  detectMultiplier: 3
-  receiveIntervalMilliseconds: 300
-  transmitIntervalMilliseconds: 300
+          - { key: somekey, operator: NotIn, values: ["never-used-value"] }
+      neighbors: [] # will be replaced by the script
