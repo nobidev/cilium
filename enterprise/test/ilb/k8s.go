@@ -31,11 +31,11 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
-func lbFrontendApplicationsHTTP(backendRef string) isovalentv1alpha1.LBFrontendApplications {
-	return isovalentv1alpha1.LBFrontendApplications{
-		HTTPProxy: &isovalentv1alpha1.LBFrontendApplicationHTTPProxy{
-			Routes: []isovalentv1alpha1.LBFrontendHTTPRoute{
-				{BackendRef: isovalentv1alpha1.LBFrontendBackendRef{
+func lbFrontendApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceApplications {
+	return isovalentv1alpha1.LBServiceApplications{
+		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
+				{BackendRef: isovalentv1alpha1.LBServiceBackendRef{
 					Name: backendRef,
 				},
 				},
@@ -44,13 +44,13 @@ func lbFrontendApplicationsHTTP(backendRef string) isovalentv1alpha1.LBFrontendA
 	}
 }
 
-func lbFrontend(name, vipRefName string, port int32, app isovalentv1alpha1.LBFrontendApplications) *isovalentv1alpha1.LBFrontend {
-	return &isovalentv1alpha1.LBFrontend{
+func lbFrontend(name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
+	return &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: isovalentv1alpha1.LBFrontendSpec{
-			VIPRef: isovalentv1alpha1.LBFrontendVIPRef{
+		Spec: isovalentv1alpha1.LBServiceSpec{
+			VIPRef: isovalentv1alpha1.LBServiceVIPRef{
 				Name: vipRefName,
 			},
 			Port:         port,

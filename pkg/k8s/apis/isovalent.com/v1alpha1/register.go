@@ -104,10 +104,10 @@ const (
 	ICEPKindDefinition = "IsovalentClusterwideEncryptionPolicy"
 	ICEPName           = ICEPPluralName + "." + CustomResourceDefinitionGroup
 
-	// LBFrontend
-	LBFrontendPluralName     = "lbfrontends"
-	LBFrontendKindDefinition = "LBFrontend"
-	LBFrontendName           = LBFrontendPluralName + "." + CustomResourceDefinitionGroup
+	// LBServices
+	LBServicePluralName     = "lbservices"
+	LBServiceKindDefinition = "LBService"
+	LBServiceName           = LBServicePluralName + "." + CustomResourceDefinitionGroup
 
 	// LBBackendPool
 	LBBackendPoolPluralName     = "lbbackendpools"
@@ -198,8 +198,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentBGPVRFConfig{},
 		&IsovalentBGPVRFConfigList{},
 		&IsovalentClusterwideEncryptionPolicy{},
-		&LBFrontend{},
-		&LBFrontendList{},
+		&LBService{},
+		&LBServiceList{},
 		&LBBackendPool{},
 		&LBBackendPoolList{},
 		&LBVIP{},

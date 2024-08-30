@@ -89,8 +89,8 @@ const (
 	// IsovalentClusterwideEncryptionPolicyCRDName is the full name of the IsovalentClusterwideEncryptionPolicyCRDName CRD.
 	IsovalentClusterwideEncryptionPolicyCRDName = k8sconstv1alpha1.ICEPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
-	// LBFrontendCRDName is the full name of the LBFrontend CRD.
-	LBFrontendCRDName = k8sconstv1alpha1.LBFrontendKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	// LBServiceCRDName is the full name of the LBService CRD.
+	LBServiceCRDName = k8sconstv1alpha1.LBServiceKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
 	// LBBackendPoolCRDName is the full name of the LBBackendPool CRD.
 	LBBackendPoolCRDName = k8sconstv1alpha1.LBBackendPoolKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
@@ -130,7 +130,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName): createBGPNodeConfigOverrideCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.LBFrontendName):                     createLBFrontendCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                      createLBServiceCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBBackendPoolName):                  createLBBackendPoolCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                          createLBVIPCRD,
 	}
@@ -208,8 +208,8 @@ var (
 	//go:embed crds/v1alpha1/isovalentclusterwideencryptionpolicies.yaml
 	crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides []byte
 
-	//go:embed crds/v1alpha1/lbfrontends.yaml
-	crdsv1Alpha1LBFrontends []byte
+	//go:embed crds/v1alpha1/lbservices.yaml
+	crdsv1Alpha1LBServices []byte
 
 	//go:embed crds/v1alpha1/lbbackendpools.yaml
 	crdsv1Alpha1LBBackendPools []byte
@@ -271,8 +271,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1IsovalentBGPVRFConfigs
 	case IsovalentClusterwideEncryptionPolicyCRDName:
 		crdBytes = crdsv1Alpha1IsovalentClusterwideEncryptionPolicyOverrides
-	case LBFrontendCRDName:
-		crdBytes = crdsv1Alpha1LBFrontends
+	case LBServiceCRDName:
+		crdBytes = crdsv1Alpha1LBServices
 	case LBBackendPoolCRDName:
 		crdBytes = crdsv1Alpha1LBBackendPools
 	case LBVIPCRDName:
@@ -550,13 +550,13 @@ func createICEPCRD(clientset apiextensionsclient.Interface) error {
 	)
 }
 
-// createLBFrontendCRD creates and updates the LBFrontend CRD.
-func createLBFrontendCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(LBFrontendCRDName)
+// createLBServiceCRD creates and updates the LBService CRD.
+func createLBServiceCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(LBServiceCRDName)
 
 	return crdhelpers.CreateUpdateCRD(
 		clientset,
-		constructV1CRD(k8sconstv1alpha1.LBFrontendName, ciliumCRD),
+		constructV1CRD(k8sconstv1alpha1.LBServiceName, ciliumCRD),
 		crdhelpers.NewDefaultPoller(),
 		k8sconst.CustomResourceDefinitionSchemaVersionKey,
 		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),

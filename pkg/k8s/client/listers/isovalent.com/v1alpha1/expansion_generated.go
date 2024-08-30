@@ -93,13 +93,13 @@ type LBBackendPoolListerExpansion interface{}
 // LBBackendPoolNamespaceLister.
 type LBBackendPoolNamespaceListerExpansion interface{}
 
-// LBFrontendListerExpansion allows custom methods to be added to
-// LBFrontendLister.
-type LBFrontendListerExpansion interface{}
+// LBServiceListerExpansion allows custom methods to be added to
+// LBServiceLister.
+type LBServiceListerExpansion interface{}
 
-// LBFrontendNamespaceListerExpansion allows custom methods to be added to
-// LBFrontendNamespaceLister.
-type LBFrontendNamespaceListerExpansion interface{}
+// LBServiceNamespaceListerExpansion allows custom methods to be added to
+// LBServiceNamespaceLister.
+type LBServiceNamespaceListerExpansion interface{}
 
 // LBVIPListerExpansion allows custom methods to be added to
 // LBVIPLister.

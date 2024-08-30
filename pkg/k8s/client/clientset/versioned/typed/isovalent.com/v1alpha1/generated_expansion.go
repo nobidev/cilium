@@ -45,6 +45,6 @@ type IsovalentVRFExpansion interface{}
 
 type LBBackendPoolExpansion interface{}
 
-type LBFrontendExpansion interface{}
+type LBServiceExpansion interface{}
 
 type LBVIPExpansion interface{}

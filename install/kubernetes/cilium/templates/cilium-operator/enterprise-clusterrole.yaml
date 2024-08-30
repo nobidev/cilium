@@ -38,7 +38,7 @@ rules:
   - isovalentmeshendpoints.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.loadbalancer.enabled }}
-  - lbfrontends.isovalent.com
+  - lbservices.isovalent.com
   - lbbackendpools.isovalent.com
   - lbvips.isovalent.com
 {{- end }}
@@ -55,7 +55,7 @@ rules:
 - apiGroups:
   - isovalent.com
   resources:
-  - lbfrontends/status
+  - lbservices/status
   - lbbackendpools/status
   - lbvips/status
   verbs:
@@ -69,7 +69,7 @@ rules:
   resources:
   - isovalentsrv6sidmanagers
 {{- if .Values.enterprise.loadbalancer.enabled }}
-  - lbfrontends
+  - lbservices
   - lbbackendpools
   - lbvips
 {{- end }}

@@ -95,8 +95,8 @@ func (c *FakeIsovalentV1alpha1) LBBackendPools(namespace string) v1alpha1.LBBack
 	return &FakeLBBackendPools{c, namespace}
 }
 
-func (c *FakeIsovalentV1alpha1) LBFrontends(namespace string) v1alpha1.LBFrontendInterface {
-	return &FakeLBFrontends{c, namespace}
+func (c *FakeIsovalentV1alpha1) LBServices(namespace string) v1alpha1.LBServiceInterface {
+	return &FakeLBServices{c, namespace}
 }
 
 func (c *FakeIsovalentV1alpha1) LBVIPs(namespace string) v1alpha1.LBVIPInterface {

@@ -146,7 +146,7 @@ func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrati
 
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
-			RefObject:            &isovalentv1alpha1.LBFrontend{},
+			RefObject:            &isovalentv1alpha1.LBService{},
 			RefObjectEnqueueFunc: enqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
 			RefObjectCheckFunc:   isReferencedByLBFrontend,
 			SecretsNamespace:     params.Config.LoadBalancerCPSecretsNamespace,

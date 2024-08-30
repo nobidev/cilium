@@ -19,59 +19,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// LBFrontendInformer provides access to a shared informer and lister for
-// LBFrontends.
-type LBFrontendInformer interface {
+// LBServiceInformer provides access to a shared informer and lister for
+// LBServices.
+type LBServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.LBFrontendLister
+	Lister() v1alpha1.LBServiceLister
 }
 
-type lBFrontendInformer struct {
+type lBServiceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewLBFrontendInformer constructs a new informer for LBFrontend type.
+// NewLBServiceInformer constructs a new informer for LBService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewLBFrontendInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredLBFrontendInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewLBServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredLBServiceInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredLBFrontendInformer constructs a new informer for LBFrontend type.
+// NewFilteredLBServiceInformer constructs a new informer for LBService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredLBFrontendInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredLBServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().LBFrontends(namespace).List(context.TODO(), options)
+				return client.IsovalentV1alpha1().LBServices(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().LBFrontends(namespace).Watch(context.TODO(), options)
+				return client.IsovalentV1alpha1().LBServices(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.LBFrontend{},
+		&isovalentcomv1alpha1.LBService{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *lBFrontendInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredLBFrontendInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *lBServiceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredLBServiceInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *lBFrontendInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.LBFrontend{}, f.defaultInformer)
+func (f *lBServiceInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&isovalentcomv1alpha1.LBService{}, f.defaultInformer)
 }
 
-func (f *lBFrontendInformer) Lister() v1alpha1.LBFrontendLister {
-	return v1alpha1.NewLBFrontendLister(f.Informer().GetIndexer())
+func (f *lBServiceInformer) Lister() v1alpha1.LBServiceLister {
+	return v1alpha1.NewLBServiceLister(f.Informer().GetIndexer())
 }

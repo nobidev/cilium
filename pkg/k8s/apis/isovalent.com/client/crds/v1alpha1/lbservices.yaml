@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: lbfrontends.isovalent.com
+  name: lbservices.isovalent.com
 spec:
   group: isovalent.com
   names:
@@ -12,12 +12,12 @@ spec:
     - cilium
     - isovalent
     - loadbalancer
-    kind: LBFrontend
-    listKind: LBFrontendList
-    plural: lbfrontends
+    kind: LBService
+    listKind: LBServiceList
+    plural: lbservices
     shortNames:
-    - lbfe
-    singular: lbfrontend
+    - lbsvc
+    singular: lbservice
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -89,7 +89,7 @@ spec:
                               description: |-
                                 The reference to the LBBackendPool resource that this route should
                                 forward the traffic to when the route is matched. The referred
-                                LBBackendPool must exist in the same namespace as the LBFrontend.
+                                LBBackendPool must exist in the same namespace as the LBService.
                               properties:
                                 name:
                                   description: The name of the LBBackendPool resource.
@@ -182,7 +182,7 @@ spec:
                               description: |-
                                 The reference to the LBBackendPool resource that this route should
                                 forward the traffic to when the route is matched. The referred
-                                LBBackendPool must exist in the same namespace as the LBFrontend.
+                                LBBackendPool must exist in the same namespace as the LBService.
                               properties:
                                 name:
                                   description: The name of the LBBackendPool resource.
@@ -279,14 +279,14 @@ spec:
                               type: string
                             type: array
                           certificates:
-                            description: The list of certificates that the frontend
+                            description: The list of certificates that the service
                               uses.
                             items:
                               properties:
                                 secretRef:
                                   description: |-
                                     Reference to K8s secret in the same namespace that contains
-                                    the certificate and the private key that the frontend uses.
+                                    the certificate and the private key that the service uses.
 
                                     The secret type must be kubernetes.io/tls and the
                                     format must follow the spec.
@@ -378,7 +378,7 @@ spec:
                               description: |-
                                 The reference to the LBBackendPool resource that this route should
                                 forward the traffic to when the route is matched. The referred
-                                LBBackendPool must exist in the same namespace as the LBFrontend.
+                                LBBackendPool must exist in the same namespace as the LBService.
                               properties:
                                 name:
                                   description: The name of the LBBackendPool resource.
@@ -431,16 +431,16 @@ spec:
                     && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy)
                     && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))
               port:
-                description: The port that this frontend should listen on.
+                description: The port that this service should listen on.
                 format: int32
                 maximum: 65535
                 minimum: 1
                 type: integer
               vipRef:
                 description: |-
-                  The reference to the LBVIP resource that the LBFrontend should be
+                  The reference to the LBVIP resource that the LBService should be
                   associated with. The referred LBVIP must exist in the same namespace
-                  as the frontend. Multiple LBFrontends can refer to the same LBVIP to
+                  as the service. Multiple LBServices can refer to the same LBVIP to
                   share the same VIP, but the port must be different.
                 properties:
                   name:
@@ -459,17 +459,17 @@ spec:
             properties:
               addresses:
                 description: |-
-                  Allocated addresses for the LBFrontend. The value is copied from the
-                  LBVIP's status that the frontend refers to. This field exists for
+                  Allocated addresses for the LBService. The value is copied from the
+                  LBVIP's status that the service refers to. This field exists for
                   the cosmetic purpose of showing the VIP in the kubectl output. You
                   should use LBVIP's status field as the source of truth.
                 properties:
                   ipv4:
-                    description: IPv4 VIP assigned to the LBFrontend.
+                    description: IPv4 VIP assigned to the LBService.
                     type: string
                 type: object
               conditions:
-                description: The current conditions of the LBFrontend.
+                description: The current conditions of the LBService.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

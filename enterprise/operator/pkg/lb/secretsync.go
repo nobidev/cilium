@@ -33,7 +33,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 			logfields.Resource:   obj.GetName(),
 		})
 
-		lbFrontend, ok := obj.(*isovalentv1alpha1.LBFrontend)
+		lbFrontend, ok := obj.(*isovalentv1alpha1.LBService)
 		if !ok {
 			return nil
 		}
@@ -71,8 +71,8 @@ func isReferencedByLBFrontend(ctx context.Context, c client.Client, logger *slog
 	return len(getLBFrontendsForSecret(ctx, c, logger, secret)) > 0
 }
 
-func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) []*isovalentv1alpha1.LBFrontend {
-	lbList := isovalentv1alpha1.LBFrontendList{}
+func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) []*isovalentv1alpha1.LBService {
+	lbList := isovalentv1alpha1.LBServiceList{}
 
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(lbFrontendTlsSecretsIndexName, secret.GetName()),
@@ -84,7 +84,7 @@ func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.
 		return nil
 	}
 
-	result := []*isovalentv1alpha1.LBFrontend{}
+	result := []*isovalentv1alpha1.LBService{}
 
 	for _, i := range lbList.Items {
 		lbfe := i

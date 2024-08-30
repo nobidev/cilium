@@ -49,7 +49,7 @@ func AllIsovalentCRDResourceNames() []string {
 
 	if option.Config.LoadbalancerControlplaneEnabled {
 		result = append(result, CRDResourceName(v1alpha1.LBVIPName))
-		result = append(result, CRDResourceName(v1alpha1.LBFrontendName))
+		result = append(result, CRDResourceName(v1alpha1.LBServiceName))
 		result = append(result, CRDResourceName(v1alpha1.LBBackendPoolName))
 	}
 

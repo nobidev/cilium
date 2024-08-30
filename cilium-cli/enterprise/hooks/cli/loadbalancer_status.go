@@ -121,7 +121,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 	return cmd
 }
 
-func getType(frontend isovalentv1alpha1.LBFrontend) string {
+func getType(frontend isovalentv1alpha1.LBService) string {
 	switch {
 	case frontend.Spec.Applications.HTTPProxy != nil:
 		return "HTTP Proxy"
@@ -134,7 +134,7 @@ func getType(frontend isovalentv1alpha1.LBFrontend) string {
 	return "N/A"
 }
 
-func getVIP(frontend isovalentv1alpha1.LBFrontend) string {
+func getVIP(frontend isovalentv1alpha1.LBService) string {
 	if frontend.Status.Addresses.IPv4 != nil {
 		return *frontend.Status.Addresses.IPv4
 	}

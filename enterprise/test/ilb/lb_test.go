@@ -80,7 +80,7 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 	// 2. Install LB Frontends
 
-	frontends, err := yamlToObjects[*isovalentv1alpha1.LBFrontend](yamlLBFrontends, scheme.Scheme)
+	frontends, err := yamlToObjects[*isovalentv1alpha1.LBService](yamlLBFrontends, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Failed to deserialize LB Frontend: %s", err)
 	}

@@ -9,7 +9,7 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbfrontend",path="lbfrontends",scope="Namespaced",shortName={lbfe}
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbservice",path="lbservices",scope="Namespaced",shortName={lbsvc}
 // +kubebuilder:printcolumn:JSONPath=".spec.vipRef.name",name="VIP Reference",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="VIP IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
@@ -17,7 +17,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-type LBFrontend struct {
+type LBService struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 
@@ -25,22 +25,22 @@ type LBFrontend struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Spec LBFrontendSpec `json:"spec"`
+	Spec LBServiceSpec `json:"spec"`
 
 	// +kubebuilder:validation:Optional
-	Status LBFrontendStatus `json:"status,omitempty"`
+	Status LBServiceStatus `json:"status,omitempty"`
 }
 
-type LBFrontendSpec struct {
-	// The reference to the LBVIP resource that the LBFrontend should be
+type LBServiceSpec struct {
+	// The reference to the LBVIP resource that the LBService should be
 	// associated with. The referred LBVIP must exist in the same namespace
-	// as the frontend. Multiple LBFrontends can refer to the same LBVIP to
+	// as the service. Multiple LBServices can refer to the same LBVIP to
 	// share the same VIP, but the port must be different.
 	//
 	// +kubebuilder:validation:Required
-	VIPRef LBFrontendVIPRef `json:"vipRef"`
+	VIPRef LBServiceVIPRef `json:"vipRef"`
 
-	// The port that this frontend should listen on.
+	// The port that this service should listen on.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
@@ -52,63 +52,63 @@ type LBFrontendSpec struct {
 	// currently.
 	//
 	// +kubebuilder:validation:Required
-	Applications LBFrontendApplications `json:"applications"`
+	Applications LBServiceApplications `json:"applications"`
 }
 
 // +kubebuilder:validation:XValidation:message="Exactly one application (httpProxy, httpsProxy or tlsPassthrough) must be specified",rule="(has(self.httpProxy) || has(self.httpsProxy) || has(self.tlsPassthrough)) && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy) && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))"
-type LBFrontendApplications struct {
+type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
 	//
 	// +kubebuilder:validation:Optional
-	HTTPProxy *LBFrontendApplicationHTTPProxy `json:"httpProxy,omitempty"`
+	HTTPProxy *LBServiceApplicationHTTPProxy `json:"httpProxy,omitempty"`
 
 	// Defining this stanza enables HTTPSProxy application that proxies the
 	// HTTPS traffic to the backends over TLS and TCP connections.
 	//
 	// +kubebuilder:validation:Optional
-	HTTPSProxy *LBFrontendApplicationHTTPSProxy `json:"httpsProxy,omitempty"`
+	HTTPSProxy *LBServiceApplicationHTTPSProxy `json:"httpsProxy,omitempty"`
 
 	// Defining this stanza enables TLSPassthrough application that proxies
 	// the TLS traffic without terminating the TLS connection.
 	//
 	// +kubebuilder:validation:Optional
-	TLSPassthrough *LBFrontendApplicationTLSPassthrough `json:"tlsPassthrough,omitempty"`
+	TLSPassthrough *LBServiceApplicationTLSPassthrough `json:"tlsPassthrough,omitempty"`
 }
 
-type LBFrontendApplicationHTTPProxy struct {
+type LBServiceApplicationHTTPProxy struct {
 	// The application-wide HTTP configuration.
 	//
 	// +kubebuilder:validation:Optional
-	HTTPConfig *LBFrontendHTTPConfig `json:"httpConfig,omitempty"`
+	HTTPConfig *LBServiceHTTPConfig `json:"httpConfig,omitempty"`
 
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Routes []LBFrontendHTTPRoute `json:"routes"`
+	Routes []LBServiceHTTPRoute `json:"routes"`
 }
 
-type LBFrontendApplicationHTTPSProxy struct {
+type LBServiceApplicationHTTPSProxy struct {
 	// The application-wide HTTP configuration.
 	//
 	// +kubebuilder:validation:Optional
-	HTTPConfig *LBFrontendHTTPConfig `json:"httpConfig,omitempty"`
+	HTTPConfig *LBServiceHTTPConfig `json:"httpConfig,omitempty"`
 
 	// The application-wide TLS configuration.
 	//
 	// +kubebuilder:validation:Optional
-	TLSConfig *LBFrontendTLSConfig `json:"tlsConfig,omitempty"`
+	TLSConfig *LBServiceTLSConfig `json:"tlsConfig,omitempty"`
 
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Routes []LBFrontendHTTPRoute `json:"routes"`
+	Routes []LBServiceHTTPRoute `json:"routes"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one http version must be enabled",rule="(has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2) && self.enableHTTP2)"
-type LBFrontendHTTPConfig struct {
+type LBServiceHTTPConfig struct {
 	// Setting this to true enables HTTP/1.1.
 	//
 	// +kubebuilder:validation:Optional
@@ -120,20 +120,20 @@ type LBFrontendHTTPConfig struct {
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
-type LBFrontendApplicationTLSPassthrough struct {
+type LBServiceApplicationTLSPassthrough struct {
 	// The TLS passthrough routing configuration.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Routes []LBFrontendTLSPassthroughRoute `json:"routes"`
+	Routes []LBServiceTLSPassthroughRoute `json:"routes"`
 }
 
-type LBFrontendTLSConfig struct {
-	// The list of certificates that the frontend uses.
+type LBServiceTLSConfig struct {
+	// The list of certificates that the service uses.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Certificates []LBFrontendTLSCertificate `json:"certificates"`
+	Certificates []LBServiceTLSCertificate `json:"certificates"`
 
 	// Optional certificate verification.
 	//
@@ -185,7 +185,7 @@ type LBTLSValidationConfig struct {
 	// The k8s secret that contains the trusted CA in the secret data field `ca.crt`.
 	//
 	// +kubebuilder:validation:Required
-	SecretRef LBFrontendSecretRef `json:"secretRef"`
+	SecretRef LBServiceSecretRef `json:"secretRef"`
 
 	// Allowed subject alternative names
 	//
@@ -201,7 +201,7 @@ type LBTLSValidationConfigSAN struct {
 	Exact string `json:"exact"`
 }
 
-type LBFrontendSecretRef struct {
+type LBServiceSecretRef struct {
 	// The name of the K8s Secret resource.
 	//
 	// +kubebuilder:validation:Required
@@ -224,36 +224,36 @@ type LBTLSSignatureAlgorithm string
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-type LBFrontendHostName string
+type LBServiceHostName string
 
-type LBFrontendTLSCertificate struct {
+type LBServiceTLSCertificate struct {
 	// Reference to K8s secret in the same namespace that contains
-	// the certificate and the private key that the frontend uses.
+	// the certificate and the private key that the service uses.
 	//
 	// The secret type must be kubernetes.io/tls and the
 	// format must follow the spec.
 	//
 	// https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets
 	// +kubebuilder:validation:Required
-	SecretRef LBFrontendSecretRef `json:"secretRef"`
+	SecretRef LBServiceSecretRef `json:"secretRef"`
 }
 
-type LBFrontendHTTPRoute struct {
+type LBServiceHTTPRoute struct {
 	// The HTTP route matching criteria. All conditions must be satisfied
 	// for the route to be matched.
 	//
 	// +kubebuilder:validation:Optional
-	Match *LBFrontendHTTPRouteMatch `json:"match,omitempty"`
+	Match *LBServiceHTTPRouteMatch `json:"match,omitempty"`
 
 	// The reference to the LBBackendPool resource that this route should
 	// forward the traffic to when the route is matched. The referred
-	// LBBackendPool must exist in the same namespace as the LBFrontend.
+	// LBBackendPool must exist in the same namespace as the LBService.
 	//
 	// +kubebuilder:validation:Required
-	BackendRef LBFrontendBackendRef `json:"backendRef"`
+	BackendRef LBServiceBackendRef `json:"backendRef"`
 }
 
-type LBFrontendHTTPRouteMatch struct {
+type LBServiceHTTPRouteMatch struct {
 	// The list of host names that the route should match. The host name is
 	// the value of the Host header in the HTTP request for plain-text
 	// HTTP. When TLS is enabled, the host name must match both the SNI and
@@ -270,17 +270,17 @@ type LBFrontendHTTPRouteMatch struct {
 	// Omitting this field is identical to specifying a wildcard "*".
 	//
 	// +kubebuilder:validation:Optional
-	HostNames []LBFrontendHostName `json:"hostNames,omitempty"`
+	HostNames []LBServiceHostName `json:"hostNames,omitempty"`
 
 	// The path matching criteria. When omitted, the route matches all
 	// paths.
 	//
 	// +kubebuilder:validation:Optional
-	Path *LBFrontendHTTPPath `json:"path,omitempty"`
+	Path *LBServiceHTTPPath `json:"path,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
-type LBFrontendHTTPPath struct {
+type LBServiceHTTPPath struct {
 	// Exact matching. The path must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
@@ -294,22 +294,22 @@ type LBFrontendHTTPPath struct {
 	Prefix *string `json:"prefix,omitempty"`
 }
 
-type LBFrontendTLSPassthroughRoute struct {
+type LBServiceTLSPassthroughRoute struct {
 	// The TLS route matching criteria. All conditions must be satisfied
 	// for the route to be matched.
 	//
 	// +kubebuilder:validation:Optional
-	Match *LBFrontendTLSPassthroughRouteMatch `json:"match"`
+	Match *LBServiceTLSPassthroughRouteMatch `json:"match"`
 
 	// The reference to the LBBackendPool resource that this route should
 	// forward the traffic to when the route is matched. The referred
-	// LBBackendPool must exist in the same namespace as the LBFrontend.
+	// LBBackendPool must exist in the same namespace as the LBService.
 	//
 	// +kubebuilder:validation:Required
-	BackendRef LBFrontendBackendRef `json:"backendRef"`
+	BackendRef LBServiceBackendRef `json:"backendRef"`
 }
 
-type LBFrontendTLSPassthroughRouteMatch struct {
+type LBServiceTLSPassthroughRouteMatch struct {
 	// The list of host names that the route should match. The host name is
 	// the value of the Host header in the HTTP request for plain-text
 	// HTTP. When TLS is enabled, the host name must match both the SNI and
@@ -326,10 +326,10 @@ type LBFrontendTLSPassthroughRouteMatch struct {
 	// Omitting this field is identical to specifying a wildcard "*".
 	//
 	// +kubebuilder:validation:Optional
-	HostNames []LBFrontendHostName `json:"hostNames,omitempty"`
+	HostNames []LBServiceHostName `json:"hostNames,omitempty"`
 }
 
-type LBFrontendVIPRef struct {
+type LBServiceVIPRef struct {
 	// The name of the LBVIP resource.
 	//
 	// +kubebuilder:validation:Required
@@ -337,7 +337,7 @@ type LBFrontendVIPRef struct {
 	Name string `json:"name"`
 }
 
-type LBFrontendBackendRef struct {
+type LBServiceBackendRef struct {
 	// The name of the LBBackendPool resource.
 	//
 	// +kubebuilder:validation:Required
@@ -345,23 +345,23 @@ type LBFrontendBackendRef struct {
 	Name string `json:"name"`
 }
 
-type LBFrontendVIPAddresses struct {
-	// IPv4 VIP assigned to the LBFrontend.
+type LBServiceVIPAddresses struct {
+	// IPv4 VIP assigned to the LBService.
 	//
 	// +kubebuilder:validation:Optional
 	IPv4 *string `json:"ipv4,omitempty"`
 }
 
-type LBFrontendStatus struct {
-	// Allocated addresses for the LBFrontend. The value is copied from the
-	// LBVIP's status that the frontend refers to. This field exists for
+type LBServiceStatus struct {
+	// Allocated addresses for the LBService. The value is copied from the
+	// LBVIP's status that the service refers to. This field exists for
 	// the cosmetic purpose of showing the VIP in the kubectl output. You
 	// should use LBVIP's status field as the source of truth.
 	//
 	// +kubebuilder:validation:Required
-	Addresses LBFrontendVIPAddresses `json:"addresses"`
+	Addresses LBServiceVIPAddresses `json:"addresses"`
 
-	// The current conditions of the LBFrontend.
+	// The current conditions of the LBService.
 	//
 	// +optional
 	// +listType=map
@@ -411,13 +411,13 @@ const (
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
 
-type LBFrontendList struct {
+type LBServiceList struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []LBFrontend `json:"items"`
+	Items []LBService `json:"items"`
 }
 
 // +genclient

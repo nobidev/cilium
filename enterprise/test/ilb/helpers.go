@@ -81,17 +81,17 @@ func (c *ciliumCli) DeleteLBVIP(ctx context.Context, namespace, name string, opt
 	return c.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
 }
 
-func (c *ciliumCli) CreateLBFrontend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBFrontend, opts metav1.CreateOptions) error {
-	_, err := c.IsovalentV1alpha1().LBFrontends(namespace).Create(ctx, obj, opts)
+func (c *ciliumCli) CreateLBFrontend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBService, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBServices(namespace).Create(ctx, obj, opts)
 	return err
 }
 
 func (c *ciliumCli) DeleteLBFrontend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.IsovalentV1alpha1().LBFrontends(namespace).Delete(ctx, name, opts)
+	return c.IsovalentV1alpha1().LBServices(namespace).Delete(ctx, name, opts)
 }
 
-func (c *ciliumCli) GetLBFrontend(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBFrontend, error) {
-	return c.IsovalentV1alpha1().LBFrontends(namespace).Get(ctx, name, opts)
+func (c *ciliumCli) GetLBFrontend(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBService, error) {
+	return c.IsovalentV1alpha1().LBServices(namespace).Get(ctx, name, opts)
 }
 
 func (c *ciliumCli) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {

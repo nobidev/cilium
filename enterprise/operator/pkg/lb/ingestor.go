@@ -21,7 +21,7 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbFrontend, error) {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbFrontend, error) {
 	applications, err := r.toApplications(frontend, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
@@ -40,7 +40,7 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alp
 	}, nil
 }
 
-func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBFrontendHTTPConfig) *lbFrontendHTTPConfig {
+func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbFrontendHTTPConfig {
 	http11Enabled := true
 	http2Enabled := true
 
@@ -58,7 +58,7 @@ func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBFrontendHTTPConfig
 	}
 }
 
-func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontendTLSConfig {
+func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBService) *lbFrontendTLSConfig {
 	if frontend.Spec.Applications.HTTPSProxy == nil || frontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return nil
 	}
@@ -118,7 +118,7 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBFrontend) *lbFrontend
 	}
 }
 
-func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
+func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
 	return lbApplications{
 		httpProxy:      r.toApplicationHTTP(frontend, backends),
 		httpsProxy:     r.toApplicationHTTPS(frontend, backends),
@@ -126,7 +126,7 @@ func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBFrontend, backen
 	}, nil
 }
 
-func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
+func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
 	if frontend.Spec.Applications.HTTPProxy == nil {
 		return nil
 	}
@@ -179,7 +179,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBFrontend, bac
 	}
 }
 
-func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
+func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
 	if frontend.Spec.Applications.HTTPSProxy == nil {
 		return nil
 	}
@@ -233,7 +233,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBFrontend, ba
 	}
 }
 
-func toPath(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) (pathTypeType, string) {
+func toPath(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) (pathTypeType, string) {
 	pathType := pathTypePrefix
 	path := "/"
 
@@ -250,7 +250,7 @@ func toPath(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) (pathTypeType, st
 	return pathType, path
 }
 
-func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBFrontend, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
+func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
 	if frontend.Spec.Applications.TLSPassthrough == nil {
 		return nil
 	}
@@ -329,7 +329,7 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBacke
 	return ipBackends
 }
 
-func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBFrontendHTTPRouteMatch) []string {
+func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) []string {
 	if match == nil || len(match.HostNames) == 0 {
 		return []string{"*"}
 	}
@@ -342,7 +342,7 @@ func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBFrontendHTTPRouteM
 	return hostNames
 }
 
-func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBFrontendTLSPassthroughRouteMatch) []string {
+func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBServiceTLSPassthroughRouteMatch) []string {
 	if match == nil || len(match.HostNames) == 0 {
 		return []string{"*"}
 	}

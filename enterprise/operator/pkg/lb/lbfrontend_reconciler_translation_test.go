@@ -67,7 +67,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			readInput(t, fmt.Sprintf("%s/%s/input-lbvip.yaml", translationDir, tc.name), inputLBVIP)
 		}
 
-		inputLBFrontend := &isovalentv1alpha1.LBFrontend{}
+		inputLBFrontend := &isovalentv1alpha1.LBService{}
 		readInput(t, fmt.Sprintf("%s/%s/input-lbfrontend.yaml", translationDir, tc.name), inputLBFrontend)
 
 		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
