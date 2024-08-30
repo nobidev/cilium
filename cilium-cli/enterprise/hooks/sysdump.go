@@ -557,21 +557,21 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 			},
 		},
 		{
-			Description: "Collecting LBFrontends",
+			Description: "Collecting LBServices",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				fqdnGroups := schema.GroupVersionResource{
+				lbServices := schema.GroupVersionResource{
 					Group:    "isovalent.com",
-					Resource: "lbfrontends",
+					Resource: "lbservices",
 					Version:  "v1alpha1",
 				}
 				n := corev1.NamespaceAll
-				v, err := collector.Client.ListUnstructured(ctx, fqdnGroups, &n, metav1.ListOptions{})
+				v, err := collector.Client.ListUnstructured(ctx, lbServices, &n, metav1.ListOptions{})
 				if err != nil {
-					return fmt.Errorf("failed to collect LBFrontends: %w", err)
+					return fmt.Errorf("failed to collect LBServices: %w", err)
 				}
-				if err := collector.WriteYAML("cilium-enterprise-lbfrontends-<ts>.yaml", v); err != nil {
-					return fmt.Errorf("failed to collect LBFrontends: %w", err)
+				if err := collector.WriteYAML("cilium-enterprise-lbservices-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to collect LBServices: %w", err)
 				}
 				return nil
 			},
