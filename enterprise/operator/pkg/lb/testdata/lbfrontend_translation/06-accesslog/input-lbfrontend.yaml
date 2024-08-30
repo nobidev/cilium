@@ -1,5 +1,5 @@
 apiVersion: isovalent.com/v1alpha1
-kind: LBFrontend
+kind: LBService
 metadata:
   namespace: default
   name: lb-1

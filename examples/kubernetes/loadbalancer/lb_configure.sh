@@ -37,7 +37,7 @@ crds=(
   "ciliumloadbalancerippools.cilium.io"
   "ciliumbgppeeringpolicies.cilium.io"
   "isovalentbfdprofiles.isovalent.com"
-  "lbfrontends.isovalent.com"
+  "lbservices.isovalent.com"
   "lbbackendpools.isovalent.com"
   "lbvips.isovalent.com"
 )
