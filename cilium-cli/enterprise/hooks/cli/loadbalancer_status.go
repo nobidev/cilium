@@ -84,14 +84,14 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 
 			fmt.Fprintf(summaryTabWriter, "T1 Nodes:\t%d\n", lsm.Summary.NrOfT1Nodes)
 			fmt.Fprintf(summaryTabWriter, "T2 Nodes:\t%d\n", lsm.Summary.NrOfT2Nodes)
-			fmt.Fprintf(summaryTabWriter, "Frontends:\t%d\n", lsm.Summary.NrOfFrontends)
+			fmt.Fprintf(summaryTabWriter, "Services:\t%d\n", lsm.Summary.NrOfFrontends)
 			fmt.Fprintf(summaryTabWriter, "VIPs:\t%d\n", lsm.Summary.NrOfVIPs)
 
 			summaryTabWriter.Flush()
 
 			fmt.Fprintln(c.OutOrStdout(), "")
 			fmt.Fprintln(c.OutOrStdout(), "=========")
-			fmt.Fprintln(c.OutOrStdout(), "Frontends")
+			fmt.Fprintln(c.OutOrStdout(), "Services")
 			fmt.Fprintln(c.OutOrStdout(), "=========")
 			fmt.Fprintln(c.OutOrStdout(), "")
 
@@ -108,11 +108,11 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&params.FrontendNamespace, "namespace", "m", "", "Filter for frontend namespace")
-	cmd.Flags().StringVarP(&params.FrontendName, "name", "n", "", "Filter for frontend name")
-	cmd.Flags().StringVarP(&params.FrontendVIP, "vip", "v", "", "Filter for frontend VIP")
-	cmd.Flags().UintVarP(&params.FrontendPort, "port", "p", 0, "Filter for frontend port")
-	cmd.Flags().StringVarP(&params.FrontendStatus, "status", "s", "", "Filter for frontend health status")
+	cmd.Flags().StringVarP(&params.FrontendNamespace, "namespace", "m", "", "Filter for service namespace")
+	cmd.Flags().StringVarP(&params.FrontendName, "name", "n", "", "Filter for service name")
+	cmd.Flags().StringVarP(&params.FrontendVIP, "vip", "v", "", "Filter for service VIP")
+	cmd.Flags().UintVarP(&params.FrontendPort, "port", "p", 0, "Filter for service port")
+	cmd.Flags().StringVarP(&params.FrontendStatus, "status", "s", "", "Filter for service health status")
 
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")

@@ -126,15 +126,15 @@ func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile implements the main reconciliation loop that gets triggered whenever a LBFrontend resource or a related resource changes.
 func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "LBFrontend",
+		logfields.Controller: "LBService",
 		logfields.Resource:   req.NamespacedName,
 	})
 
-	scopedLog.Info("Reconciling LBFrontend")
+	scopedLog.Info("Reconciling LBService")
 	lb := &isovalentv1alpha1.LBService{}
 	if err := r.client.Get(ctx, req.NamespacedName, lb); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return controllerruntime.Fail(fmt.Errorf("failed to get LBFrontend: %w", err))
+			return controllerruntime.Fail(fmt.Errorf("failed to get LBService: %w", err))
 		}
 
 		// LBFrontend has been deleted in the meantime
@@ -144,7 +144,7 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	// LBFrontend gets deleted via foreground deletion (DeletionTimestamp set)
 	// -> abort and wait for the actual deletion to trigger a reconcile
 	if lb.GetDeletionTimestamp() != nil {
-		scopedLog.Debug("LBFrontend is marked for deletion - waiting for actual deletion")
+		scopedLog.Debug("LBService is marked for deletion - waiting for actual deletion")
 		return controllerruntime.Success()
 	}
 
@@ -158,12 +158,12 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 			return controllerruntime.Success()
 		}
 
-		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBFrontend: %w", err))
+		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBService: %w", err))
 	}
 
 	// Update the status of LBFrontend
 	if err := r.client.Status().Update(ctx, lb); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update LBFrontend status: %w", err))
+		return controllerruntime.Fail(fmt.Errorf("failed to update LBService status: %w", err))
 	}
 
 	return controllerruntime.Success()
@@ -226,7 +226,7 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 
 	model, err := r.ingestor.ingest(vip, frontend, backends, existingT1Service)
 	if err != nil {
-		return fmt.Errorf("failed to ingest LBFrontend into model: %w", err)
+		return fmt.Errorf("failed to ingest LBService into model: %w", err)
 	}
 
 	r.updateAssignedIpInStatus(model, frontend)
@@ -530,7 +530,7 @@ func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName st
 		}
 
 		if err := r.client.List(ctx, &lbList, listOps); err != nil {
-			r.logger.WithError(err).Warn("Failed to list LBFrontends")
+			r.logger.WithError(err).Warn("Failed to list LBServices")
 			return nil
 		}
 
@@ -553,7 +553,7 @@ func (r *lbFrontendReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
 		if err := r.client.List(ctx, &lbList); err != nil {
-			r.logger.WithError(err).Warn("Failed to list LBFrontends")
+			r.logger.WithError(err).Warn("Failed to list LBServices")
 			return nil
 		}
 

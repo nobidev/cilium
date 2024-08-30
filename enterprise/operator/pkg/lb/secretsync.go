@@ -50,7 +50,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 				Name:      c.SecretRef.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBFrontend")
+			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")
 		}
 
 		// TLS validation secret
@@ -60,7 +60,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 				Name:      lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBFrontend")
+			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")
 		}
 
 		return reqs
@@ -80,7 +80,7 @@ func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.
 	}
 
 	if err := c.List(ctx, &lbList, listOps); err != nil {
-		logger.Warn("Failed to list LBFrontends", logfields.Error, err)
+		logger.Warn("Failed to list LBServices", logfields.Error, err)
 		return nil
 	}
 

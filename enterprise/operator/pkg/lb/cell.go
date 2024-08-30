@@ -123,7 +123,7 @@ func registerReconcilers(params reconcilerParams) error {
 		OnStart: func(hookContext cell.HookContext) error {
 			// Register reconcilers to manager in lifecycle to ensure that CRDs are installed on the cluster
 			if err := lbFrontendReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-				return fmt.Errorf("failed to setup LBFrontend reconciler: %w", err)
+				return fmt.Errorf("failed to setup LBService reconciler: %w", err)
 			}
 
 			if err := lbVIPReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
