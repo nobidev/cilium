@@ -32,7 +32,7 @@ type testcase struct {
 }
 
 const (
-	translationDir = "./testdata/lbfrontend_translation"
+	translationDir = "./testdata/lbservice_translation"
 )
 
 func TestTranslation(t *testing.T) {
@@ -67,8 +67,8 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			readInput(t, fmt.Sprintf("%s/%s/input-lbvip.yaml", translationDir, tc.name), inputLBVIP)
 		}
 
-		inputLBFrontend := &isovalentv1alpha1.LBService{}
-		readInput(t, fmt.Sprintf("%s/%s/input-lbfrontend.yaml", translationDir, tc.name), inputLBFrontend)
+		inputLBService := &isovalentv1alpha1.LBService{}
+		readInput(t, fmt.Sprintf("%s/%s/input-lbservice.yaml", translationDir, tc.name), inputLBService)
 
 		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
 		require.NoError(t, err)
@@ -99,7 +99,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBVIP, inputLBFrontend, inputLBBackends, inputService)
+		model, err := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService)
 		require.NoError(t, err)
 
 		// Input Config
@@ -108,7 +108,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		readInput(t, fmt.Sprintf("%s/%s/input-config.yaml", translationDir, tc.name), &config)
 
 		// translation
-		reconciler := &lbFrontendReconciler{
+		reconciler := &lbServiceReconciler{
 			config: config,
 		}
 

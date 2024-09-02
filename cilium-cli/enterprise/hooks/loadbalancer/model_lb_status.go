@@ -4,18 +4,18 @@
 package loadbalancer
 
 type LoadbalancerStatusModel struct {
-	Summary   LoadbalancerStatusModelSummary    `json:"summary,omitempty"`
-	Frontends []LoadbalancerStatusModelFrontend `json:"frontends,omitempty"`
+	Summary  LoadbalancerStatusModelSummary   `json:"summary,omitempty"`
+	Services []LoadbalancerStatusModelService `json:"services,omitempty"`
 }
 
 type LoadbalancerStatusModelSummary struct {
-	NrOfT1Nodes   int `json:"nrOfT1Nodes"`
-	NrOfT2Nodes   int `json:"nrOfT2Nodes"`
-	NrOfFrontends int `json:"nrOfFrontends"`
-	NrOfVIPs      int `json:"nrOfVips"`
+	NrOfT1Nodes  int `json:"nrOfT1Nodes"`
+	NrOfT2Nodes  int `json:"nrOfT2Nodes"`
+	NrOfServices int `json:"nrOfServices"`
+	NrOfVIPs     int `json:"nrOfVips"`
 }
 
-type LoadbalancerStatusModelFrontend struct {
+type LoadbalancerStatusModelService struct {
 	Namespace         string                               `json:"namespace"`
 	Name              string                               `json:"name"`
 	VIP               string                               `json:"vip"`

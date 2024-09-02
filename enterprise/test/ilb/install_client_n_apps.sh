@@ -58,7 +58,7 @@ BGP_FRR_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAd
 
 kubectl patch bgpp ilb-test --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/virtualRouters/0/neighbors/0/peerAddress\", \"value\":\"${BGP_FRR_IP}/32\"}]"
 
-# LB TLS secret for LB frontend
+# LB TLS secret for LB service
 kubectl -n default delete secret test-secure 2>/dev/null || true
 kubectl -n default delete secret test-secure80 2>/dev/null || true
 kubectl -n default delete secret test-secure-http2 2>/dev/null || true

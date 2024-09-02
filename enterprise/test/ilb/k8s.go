@@ -31,7 +31,7 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
-func lbFrontendApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceApplications {
+func lbServiceApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceApplications {
 	return isovalentv1alpha1.LBServiceApplications{
 		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
@@ -44,7 +44,7 @@ func lbFrontendApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceAp
 	}
 }
 
-func lbFrontend(name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
+func lbService(name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
 	return &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

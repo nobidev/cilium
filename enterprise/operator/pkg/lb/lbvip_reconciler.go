@@ -166,7 +166,7 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 
 func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip *isovalentv1alpha1.LBVIP) *corev1.Service {
 	annotations := map[string]string{
-		// Set the sharing key to the name of the LBVIP. LBFrontends
+		// Set the sharing key to the name of the LBVIP. LBServices
 		// that refer to this LBVIP will generate the T1 Service with
 		// the same sharing key.
 		ossannotation.LBIPAMSharingKey: lbvip.Name,
@@ -202,7 +202,7 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 	}
 }
 
-// TODO: Deduplicate this function with the one in lbFrontendReconciler
+// TODO: Deduplicate this function with the one in lbServiceReconciler
 func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
 	svc := desiredService.DeepCopy()
 

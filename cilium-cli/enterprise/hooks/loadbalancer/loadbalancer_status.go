@@ -45,7 +45,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 		return nil, err
 	}
 
-	frontends, err := s.client.ListLBServices(ctx, "", metav1.ListOptions{})
+	services, err := s.client.ListLBServices(ctx, "", metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -54,14 +54,14 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 
 	// Summary
 	lsm.Summary = LoadbalancerStatusModelSummary{
-		NrOfT1Nodes:   len(s.t1AgentPods),
-		NrOfT2Nodes:   len(s.t2AgentPods),
-		NrOfFrontends: len(frontends.Items),
-		NrOfVIPs:      len(vips.Items),
+		NrOfT1Nodes:  len(s.t1AgentPods),
+		NrOfT2Nodes:  len(s.t2AgentPods),
+		NrOfServices: len(services.Items),
+		NrOfVIPs:     len(vips.Items),
 	}
 
-	for _, f := range frontends.Items {
-		frontendModel := LoadbalancerStatusModelFrontend{
+	for _, f := range services.Items {
+		serviceModel := LoadbalancerStatusModelService{
 			Namespace:         f.Namespace,
 			Name:              f.Name,
 			VIP:               s.getVIP(f),
@@ -77,8 +77,8 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Status:            s.getOverallStatus(f, bgpRoutes),
 		}
 
-		if s.includedInFilter(frontendModel) {
-			lsm.Frontends = append(lsm.Frontends, frontendModel)
+		if s.includedInFilter(serviceModel) {
+			lsm.Services = append(lsm.Services, serviceModel)
 		}
 
 	}
@@ -86,53 +86,53 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 	return lsm, nil
 }
 
-func (s *LoadbalancerClient) includedInFilter(frontendModel LoadbalancerStatusModelFrontend) bool {
-	if s.params.FrontendNamespace != "" && frontendModel.Namespace != s.params.FrontendNamespace {
+func (s *LoadbalancerClient) includedInFilter(serviceModel LoadbalancerStatusModelService) bool {
+	if s.params.ServiceNamespace != "" && serviceModel.Namespace != s.params.ServiceNamespace {
 		return false
 	}
 
-	if s.params.FrontendName != "" && frontendModel.Name != s.params.FrontendName {
+	if s.params.ServiceName != "" && serviceModel.Name != s.params.ServiceName {
 		return false
 	}
 
-	if s.params.FrontendVIP != "" && frontendModel.VIP != s.params.FrontendVIP {
+	if s.params.ServiceVIP != "" && serviceModel.VIP != s.params.ServiceVIP {
 		return false
 	}
 
-	if s.params.FrontendPort != 0 && frontendModel.Port != s.params.FrontendPort {
+	if s.params.ServicePort != 0 && serviceModel.Port != s.params.ServicePort {
 		return false
 	}
 
-	if s.params.FrontendStatus != "" && frontendModel.Status != s.params.FrontendStatus {
+	if s.params.ServiceStatus != "" && serviceModel.Status != s.params.ServiceStatus {
 		return false
 	}
 
 	return true
 }
 
-func (s *LoadbalancerClient) getType(frontend isovalentv1alpha1.LBService) string {
+func (s *LoadbalancerClient) getType(service isovalentv1alpha1.LBService) string {
 	switch {
-	case frontend.Spec.Applications.HTTPProxy != nil:
+	case service.Spec.Applications.HTTPProxy != nil:
 		return "HTTP Proxy"
-	case frontend.Spec.Applications.HTTPSProxy != nil:
+	case service.Spec.Applications.HTTPSProxy != nil:
 		return "HTTPS Proxy"
-	case frontend.Spec.Applications.TLSPassthrough != nil:
+	case service.Spec.Applications.TLSPassthrough != nil:
 		return "TLS Passthrough"
 	}
 
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getVIP(frontend isovalentv1alpha1.LBService) string {
-	if frontend.Status.Addresses.IPv4 != nil {
-		return *frontend.Status.Addresses.IPv4
+func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
+	if lbsvc.Status.Addresses.IPv4 != nil {
+		return *lbsvc.Status.Addresses.IPv4
 	}
 
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getBGPPeerStatus(frontend isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -156,7 +156,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(frontend isovalentv1alpha1.LBServi
 
 	for _, r := range nodeBGPRoutes {
 		for _, br := range r {
-			if br.Prefix == *frontend.Status.Addresses.IPv4+"/32" {
+			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
 				if _, ok := activePeers[fmt.Sprintf("%s-%d", br.Neighbor, br.RouterAsn)]; ok {
 					nrOk++
 				}
@@ -171,8 +171,8 @@ func (s *LoadbalancerClient) getBGPPeerStatus(frontend isovalentv1alpha1.LBServi
 	}
 }
 
-func (s *LoadbalancerClient) getBGPNodeStatus(frontend isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getBGPNodeStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -184,7 +184,7 @@ func (s *LoadbalancerClient) getBGPNodeStatus(frontend isovalentv1alpha1.LBServi
 
 	for _, r := range nodeBGPRoutes {
 		for _, br := range r {
-			if br.Prefix == *frontend.Status.Addresses.IPv4+"/32" {
+			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
 				nrOk++
 				// break and don't take other announcements to other peers into account
 				break
@@ -199,8 +199,8 @@ func (s *LoadbalancerClient) getBGPNodeStatus(frontend isovalentv1alpha1.LBServi
 	}
 }
 
-func (s *LoadbalancerClient) getT1Status(frontend isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getT1Status(lbsvc isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -214,9 +214,9 @@ func (s *LoadbalancerClient) getT1Status(frontend isovalentv1alpha1.LBService, n
 		for _, s := range sn {
 			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
 				s.Status.Realized.Flags.Type == "LoadBalancer" &&
-				s.Status.Realized.Flags.Name == "lbfe-"+frontend.Name &&
-				s.Status.Realized.FrontendAddress.IP == *frontend.Status.Addresses.IPv4 &&
-				s.Status.Realized.FrontendAddress.Port == uint16(frontend.Spec.Port) {
+				s.Status.Realized.Flags.Name == "lbfe-"+lbsvc.Name &&
+				s.Status.Realized.FrontendAddress.IP == *lbsvc.Status.Addresses.IPv4 &&
+				s.Status.Realized.FrontendAddress.Port == uint16(lbsvc.Spec.Port) {
 
 				for _, b := range s.Status.Realized.BackendAddresses {
 					if b.State == "active" {
@@ -235,8 +235,8 @@ func (s *LoadbalancerClient) getT1Status(frontend isovalentv1alpha1.LBService, n
 	}
 }
 
-func (s *LoadbalancerClient) getHCT1T2(frontend isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -251,9 +251,9 @@ func (s *LoadbalancerClient) getHCT1T2(frontend isovalentv1alpha1.LBService, nod
 		for _, s := range sn {
 			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
 				s.Status.Realized.Flags.Type == "LoadBalancer" &&
-				s.Status.Realized.Flags.Name == "lbfe-"+frontend.Name &&
-				s.Status.Realized.FrontendAddress.IP == *frontend.Status.Addresses.IPv4 &&
-				s.Status.Realized.FrontendAddress.Port == uint16(frontend.Spec.Port) {
+				s.Status.Realized.Flags.Name == "lbfe-"+lbsvc.Name &&
+				s.Status.Realized.FrontendAddress.IP == *lbsvc.Status.Addresses.IPv4 &&
+				s.Status.Realized.FrontendAddress.Port == uint16(lbsvc.Spec.Port) {
 
 				for _, b := range s.Status.Realized.BackendAddresses {
 					nrTotal++
@@ -272,8 +272,8 @@ func (s *LoadbalancerClient) getHCT1T2(frontend isovalentv1alpha1.LBService, nod
 	}
 }
 
-func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -291,9 +291,9 @@ func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, n
 				listenerFound := false
 
 				for _, l := range c.DynamicListeners {
-					if l.Name == fmt.Sprintf("%s/lbfe-%s/frontend_listener", frontend.Namespace, frontend.Name) &&
-						l.ActiveState.Listener.Address.SocketAddress.Address == *frontend.Status.Addresses.IPv4 &&
-						l.ActiveState.Listener.Address.SocketAddress.PortValue == int(frontend.Spec.Port) {
+					if l.Name == fmt.Sprintf("%s/lbfe-%s/frontend_listener", lbsvc.Namespace, lbsvc.Name) &&
+						l.ActiveState.Listener.Address.SocketAddress.Address == *lbsvc.Status.Addresses.IPv4 &&
+						l.ActiveState.Listener.Address.SocketAddress.PortValue == int(lbsvc.Spec.Port) {
 						listenerFound = true
 						break
 					}
@@ -306,7 +306,7 @@ func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, n
 				// default/lbfe-lb-1/frontend_routeconfig_https
 				routeFound := false
 				for _, r := range c.DynamicRouteConfigs {
-					if strings.HasPrefix(r.RouteConfig.Name, fmt.Sprintf("%s/lbfe-%s/", frontend.Namespace, frontend.Name)) {
+					if strings.HasPrefix(r.RouteConfig.Name, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
 						routeFound = true
 						break
 					}
@@ -319,7 +319,7 @@ func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, n
 				// default/lbfe-lb-8/backend_cluster_https_0
 				clusterFound := false
 				for _, c := range c.DynamicActiveClusters {
-					if strings.HasPrefix(c.Cluster.Name, fmt.Sprintf("%s/lbfe-%s/", frontend.Namespace, frontend.Name)) {
+					if strings.HasPrefix(c.Cluster.Name, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
 						clusterFound = true
 						break
 					}
@@ -331,7 +331,7 @@ func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, n
 			case "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump":
 				// default/lbfe-lb-1/backend_cluster_https_0
 				for _, e := range c.DynamicEndpointConfigs {
-					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", frontend.Namespace, frontend.Name)) {
+					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								if epc.HealthStatus == "HEALTHY" {
@@ -352,8 +352,8 @@ func (s *LoadbalancerClient) getT2Status(frontend isovalentv1alpha1.LBService, n
 	}
 }
 
-func (s *LoadbalancerClient) getHCT2Backends(frontend isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -369,7 +369,7 @@ func (s *LoadbalancerClient) getHCT2Backends(frontend isovalentv1alpha1.LBServic
 			if c.Type == "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
 				// default/lbfe-lb-1/backend_cluster_https_0
 				for _, e := range c.DynamicEndpointConfigs {
-					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", frontend.Namespace, frontend.Name)) {
+					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								nrTotal++
@@ -391,8 +391,8 @@ func (s *LoadbalancerClient) getHCT2Backends(frontend isovalentv1alpha1.LBServic
 	}
 }
 
-func (s *LoadbalancerClient) getBackends(frontend isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelGroupedStatus {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelGroupedStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelGroupedStatus{
 			Status: "N/A",
 		}
@@ -406,7 +406,7 @@ func (s *LoadbalancerClient) getBackends(frontend isovalentv1alpha1.LBService, n
 			case "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump":
 				// default/lbfe-lb-1/backend_cluster_https_0
 				for _, e := range c.DynamicEndpointConfigs {
-					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", frontend.Namespace, frontend.Name)) {
+					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								if _, ok := status[e.EndpointConfig.ClusterName]; !ok {
@@ -457,8 +457,8 @@ func (s *LoadbalancerClient) getBackends(frontend isovalentv1alpha1.LBService, n
 	}
 }
 
-func (s *LoadbalancerClient) getOverallStatus(frontend isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) string {
-	if frontend.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getOverallStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) string {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return "OFFLINE"
 	}
 
@@ -466,7 +466,7 @@ func (s *LoadbalancerClient) getOverallStatus(frontend isovalentv1alpha1.LBServi
 
 	for _, r := range nodeBGPRoutes {
 		for _, br := range r {
-			if br.Prefix == *frontend.Status.Addresses.IPv4+"/32" {
+			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
 				nrOk++
 			}
 		}

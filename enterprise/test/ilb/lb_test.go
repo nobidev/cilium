@@ -31,8 +31,8 @@ import (
 //go:embed manifests/lb-vips.yaml
 var yamlLBVIPs string
 
-//go:embed manifests/lb-frontends.yaml
-var yamlLBFrontends string
+//go:embed manifests/lb-services.yaml
+var yamlLBService string
 
 //go:embed manifests/lb-backends.yaml
 var yamlLBBackends string
@@ -78,18 +78,18 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 		}
 	}
 
-	// 2. Install LB Frontends
+	// 2. Install LB Services
 
-	frontends, err := yamlToObjects[*isovalentv1alpha1.LBService](yamlLBFrontends, scheme.Scheme)
+	services, err := yamlToObjects[*isovalentv1alpha1.LBService](yamlLBService, scheme.Scheme)
 	if err != nil {
-		t.Fatalf("Failed to deserialize LB Frontend: %s", err)
+		t.Fatalf("Failed to deserialize LB Service: %s", err)
 	}
 
-	for _, obj := range frontends {
-		lbt.ciliumCli.DeleteLBFrontend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+	for _, obj := range services {
+		lbt.ciliumCli.DeleteLBService(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 
-		t.Logf("Creating LB Frontend %s...", obj.GetObjectMeta().GetName())
-		if err := lbt.ciliumCli.CreateLBFrontend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
+		t.Logf("Creating LB Service %s...", obj.GetObjectMeta().GetName())
+		if err := lbt.ciliumCli.CreateLBService(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Failed to create LB VIP: %s", err)
 		}
 	}
@@ -156,7 +156,7 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 	// 5. Wait for LB VIPs
 
-	for i := 1; i <= len(frontends); i++ {
+	for i := 1; i <= len(services); i++ {
 		name := fmt.Sprintf("lb-%d", i)
 		t.Logf("Waiting for LB VIP %s...", name)
 		vip, err := lbt.ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
@@ -434,16 +434,16 @@ func TestHTTPConnectivity(t *testing.T) {
 	}
 	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBBackend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
-	// 5. Create LBFrontend
+	// 5. Create LBService
 
-	frontend := lbFrontend(name, name, 81, lbFrontendApplicationsHTTP(name))
+	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name))
 
-	if err := suite.ciliumCli.CreateLBFrontend(ctx, ns, frontend, metav1.CreateOptions{}); err != nil {
+	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB Frontend (%s): %s", name, err)
+			t.Fatalf("cannot create LB Service (%s): %s", name, err)
 		}
 	}
-	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBFrontend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanup(func() error { return suite.ciliumCli.DeleteLBService(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
 	// 6. Send HTTP request
 

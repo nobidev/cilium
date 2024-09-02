@@ -21,26 +21,26 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbFrontend, error) {
-	applications, err := r.toApplications(frontend, backends)
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbService, error) {
+	applications, err := r.toApplications(lbsvc, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
 	}
 
-	return &lbFrontend{
-		namespace: frontend.Namespace,
-		name:      frontend.Name,
+	return &lbService{
+		namespace: lbsvc.Namespace,
+		name:      lbsvc.Name,
 		vip: lbVIP{
-			name:         frontend.Spec.VIPRef.Name,
+			name:         lbsvc.Spec.VIPRef.Name,
 			assignedIPv4: getAssignedIP(vip),
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
-		port:         frontend.Spec.Port,
+		port:         lbsvc.Spec.Port,
 		applications: applications,
 	}, nil
 }
 
-func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbFrontendHTTPConfig {
+func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbServiceHTTPConfig {
 	http11Enabled := true
 	http2Enabled := true
 
@@ -52,61 +52,61 @@ func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig)
 		http2Enabled = *httpConfig.EnableHTTP2
 	}
 
-	return &lbFrontendHTTPConfig{
+	return &lbServiceHTTPConfig{
 		enableHTTP11: http11Enabled,
 		enableHTTP2:  http2Enabled,
 	}
 }
 
-func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBService) *lbFrontendTLSConfig {
-	if frontend.Spec.Applications.HTTPSProxy == nil || frontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
+func (*ingestor) toTLSConfig(lbsvc *isovalentv1alpha1.LBService) *lbServiceTLSConfig {
+	if lbsvc.Spec.Applications.HTTPSProxy == nil || lbsvc.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return nil
 	}
 
 	certificateSecretNames := []string{}
-	for _, c := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+	for _, c := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 		certificateSecretNames = append(certificateSecretNames, c.SecretRef.Name)
 	}
 
 	validationContextSecret := ""
 	validationContextSubjectAlternativeNames := []string{}
 
-	if frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-		validationContextSecret = frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name
+	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+		validationContextSecret = lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name
 
-		for _, san := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SubjectAlternativeNames {
+		for _, san := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SubjectAlternativeNames {
 			validationContextSubjectAlternativeNames = append(validationContextSubjectAlternativeNames, san.Exact)
 		}
 	}
 
 	minTLSVersion := ""
-	if frontend.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion != nil {
-		minTLSVersion = string(*frontend.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion)
+	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion != nil {
+		minTLSVersion = string(*lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion)
 	}
 
 	maxTLSVersion := ""
-	if frontend.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion != nil {
-		maxTLSVersion = string(*frontend.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion)
+	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion != nil {
+		maxTLSVersion = string(*lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion)
 	}
 
 	allowedCipherSuites := []string{}
-	for _, cs := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.AllowedCipherSuites {
+	for _, cs := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedCipherSuites {
 		allowedCipherSuites = append(allowedCipherSuites, string(cs))
 	}
 
 	allowedECDHCurves := []string{}
-	for _, ec := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.AllowedECDHCurves {
+	for _, ec := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedECDHCurves {
 		allowedECDHCurves = append(allowedECDHCurves, string(ec))
 	}
 
 	allowedSignatureAlgorithms := []string{}
-	for _, sa := range frontend.Spec.Applications.HTTPSProxy.TLSConfig.AllowedSignatureAlgorithms {
+	for _, sa := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedSignatureAlgorithms {
 		allowedSignatureAlgorithms = append(allowedSignatureAlgorithms, string(sa))
 	}
 
-	return &lbFrontendTLSConfig{
+	return &lbServiceTLSConfig{
 		certificateSecrets: certificateSecretNames,
-		validationContext: lbFrontendTLSConfigValidationContext{
+		validationContext: lbServiceTLSConfigValidationContext{
 			trustedCASecretName:     validationContextSecret,
 			subjectAlternativeNames: validationContextSubjectAlternativeNames,
 		},
@@ -118,16 +118,16 @@ func (*ingestor) toTLSConfig(frontend *isovalentv1alpha1.LBService) *lbFrontendT
 	}
 }
 
-func (r *ingestor) toApplications(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
+func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
 	return lbApplications{
-		httpProxy:      r.toApplicationHTTP(frontend, backends),
-		httpsProxy:     r.toApplicationHTTPS(frontend, backends),
-		tlsPassthrough: r.toApplicationTLSPassthrough(frontend, backends),
+		httpProxy:      r.toApplicationHTTP(lbsvc, backends),
+		httpsProxy:     r.toApplicationHTTPS(lbsvc, backends),
+		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, backends),
 	}, nil
 }
 
-func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
-	if frontend.Spec.Applications.HTTPProxy == nil {
+func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
+	if lbsvc.Spec.Applications.HTTPProxy == nil {
 		return nil
 	}
 
@@ -138,7 +138,7 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBService, back
 
 	routes := []lbRouteHTTP{}
 
-	for _, lr := range frontend.Spec.Applications.HTTPProxy.Routes {
+	for _, lr := range lbsvc.Spec.Applications.HTTPProxy.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -174,13 +174,13 @@ func (r *ingestor) toApplicationHTTP(frontend *isovalentv1alpha1.LBService, back
 	}
 
 	return &lbApplicationHTTPProxy{
-		httpConfig: r.toHTTPConfig(frontend.Spec.Applications.HTTPProxy.HTTPConfig),
+		httpConfig: r.toHTTPConfig(lbsvc.Spec.Applications.HTTPProxy.HTTPConfig),
 		routes:     routes,
 	}
 }
 
-func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
-	if frontend.Spec.Applications.HTTPSProxy == nil {
+func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
+	if lbsvc.Spec.Applications.HTTPSProxy == nil {
 		return nil
 	}
 
@@ -191,7 +191,7 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBService, bac
 
 	routes := []lbRouteHTTPS{}
 
-	for _, lr := range frontend.Spec.Applications.HTTPSProxy.Routes {
+	for _, lr := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -227,8 +227,8 @@ func (r *ingestor) toApplicationHTTPS(frontend *isovalentv1alpha1.LBService, bac
 	}
 
 	return &lbApplicationHTTPSProxy{
-		httpConfig: r.toHTTPConfig(frontend.Spec.Applications.HTTPSProxy.HTTPConfig),
-		tlsConfig:  r.toTLSConfig(frontend),
+		httpConfig: r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
+		tlsConfig:  r.toTLSConfig(lbsvc),
 		routes:     routes,
 	}
 }
@@ -250,8 +250,8 @@ func toPath(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) (pathTypeType, str
 	return pathType, path
 }
 
-func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
-	if frontend.Spec.Applications.TLSPassthrough == nil {
+func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
+	if lbsvc.Spec.Applications.TLSPassthrough == nil {
 		return nil
 	}
 
@@ -262,7 +262,7 @@ func (r *ingestor) toApplicationTLSPassthrough(frontend *isovalentv1alpha1.LBSer
 
 	routes := []lbRouteTLSPassthrough{}
 
-	for _, lr := range frontend.Spec.Applications.TLSPassthrough.Routes {
+	for _, lr := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -392,7 +392,7 @@ func getVIPBindStatus(t1Service *corev1.Service) lbVIPBindStatus {
 				switch cond.Reason {
 				case "already_allocated_incompatible_service":
 					// Special handling for the case where an IP & port combination might
-					// already be used by another frontend.
+					// already be used by another service.
 					return lbVIPBindStatus{
 						serviceExists:  true,
 						bindSuccessful: false,

@@ -35,12 +35,12 @@ import (
 )
 
 const (
-	lbFrontendVIPIndexName        = ".spec.vipRef.name"
-	lbFrontendBackendIndexName    = ".spec.routes.http.backend"
-	lbFrontendTlsSecretsIndexName = ".spec.tls.secrets" // TLS Certificates & Validation secrets
+	lbServiceVIPIndexName        = ".spec.vipRef.name"
+	lbServiceBackendIndexName    = ".spec.routes.http.backend"
+	lbServiceTlsSecretsIndexName = ".spec.tls.secrets" // TLS Certificates & Validation secrets
 )
 
-type lbFrontendReconciler struct {
+type lbServiceReconciler struct {
 	logger     logrus.FieldLogger
 	client     client.Client
 	scheme     *runtime.Scheme
@@ -77,8 +77,8 @@ type reconcilerT1T2HealthCheckConfig struct {
 	T2ProbeMinHealthyBackendPercentage uint
 }
 
-func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbFrontendReconciler {
-	return &lbFrontendReconciler{
+func newLbServiceReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbServiceReconciler {
+	return &lbServiceReconciler{
 		logger:     logger,
 		client:     client,
 		scheme:     scheme,
@@ -91,11 +91,11 @@ func newLbFrontendReconciler(logger logrus.FieldLogger, client client.Client, sc
 
 // SetupWithManager sets up the controller with the Manager and configures
 // the different watches. All the watcher trigger a reconciliation.
-func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		lbFrontendVIPIndexName:        vipIndexerFunc,
-		lbFrontendBackendIndexName:    backendIndexerFunc,
-		lbFrontendTlsSecretsIndexName: tlsSecretIndexerFunc,
+		lbServiceVIPIndexName:        vipIndexerFunc,
+		lbServiceBackendIndexName:    backendIndexerFunc,
+		lbServiceTlsSecretsIndexName: tlsSecretIndexerFunc,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBService{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -103,28 +103,28 @@ func (r *lbFrontendReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		// Watch for changed LBFrontend resources (main resource)
+		// Watch for changed LBService resources (main resource)
 		For(&isovalentv1alpha1.LBService{}).
-		// Watch for changed LBVIP resources and trigger LBFrontends that reference the changed lbvip
-		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendVIPIndexName)).
-		// Watch for changed LBBackend resources and trigger LBFrontends that reference the changed backend
-		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendBackendIndexName)).
-		// Watch for changed Secrets resources and trigger LBFrontends that reference the changed Secret.
+		// Watch for changed LBVIP resources and trigger LBServices that reference the changed lbvip
+		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBServicesByIndex(lbServiceVIPIndexName)).
+		// Watch for changed LBBackend resources and trigger LBServices that reference the changed backend
+		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBServicesByIndex(lbServiceBackendIndexName)).
+		// Watch for changed Secrets resources and trigger LBServices that reference the changed Secret.
 		// This is mainly to update the status. The actual content of the Secrets are getting transferred via sDS.
-		Watches(&corev1.Secret{}, r.enqueueReferencingLBFrontendsByIndex(lbFrontendTlsSecretsIndexName)).
-		// T1 Service resource with OwnerReference to the LBFrontend
+		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName)).
+		// T1 Service resource with OwnerReference to the LBService
 		Owns(&corev1.Service{}).
-		// T1 Endpoints resource with OwnerReference to the LBFrontend
+		// T1 Endpoints resource with OwnerReference to the LBService
 		Owns(&corev1.Endpoints{}).
-		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBFrontend
+		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBService
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		// CiliumNode changes should trigger a reconciliation of all LBFrontends T1 Endpoints addresses (T2 nodes))
-		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBFrontends())).
+		// CiliumNode changes should trigger a reconciliation of all LBServices T1 Endpoints addresses (T2 nodes))
+		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices())).
 		Complete(r)
 }
 
-// Reconcile implements the main reconciliation loop that gets triggered whenever a LBFrontend resource or a related resource changes.
-func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+// Reconcile implements the main reconciliation loop that gets triggered whenever a LBService resource or a related resource changes.
+func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
 		logfields.Controller: "LBService",
 		logfields.Resource:   req.NamespacedName,
@@ -137,11 +137,11 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 			return controllerruntime.Fail(fmt.Errorf("failed to get LBService: %w", err))
 		}
 
-		// LBFrontend has been deleted in the meantime
+		// LBService has been deleted in the meantime
 		return controllerruntime.Success()
 	}
 
-	// LBFrontend gets deleted via foreground deletion (DeletionTimestamp set)
+	// LBService gets deleted via foreground deletion (DeletionTimestamp set)
 	// -> abort and wait for the actual deletion to trigger a reconcile
 	if lb.GetDeletionTimestamp() != nil {
 		scopedLog.Debug("LBService is marked for deletion - waiting for actual deletion")
@@ -151,7 +151,7 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	if err := r.reconcileResources(ctx, scopedLog, lb); err != nil {
 		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
 			// The creation of one of the resources failed because the
-			// namespace is terminating. The LBFrontend resource itself is also expected
+			// namespace is terminating. The LBService resource itself is also expected
 			// to be marked for deletion, but we haven't yet received the
 			// corresponding event, so let's not print an error message.
 			scopedLog.Info("Aborting reconciliation because namespace is being terminated")
@@ -161,7 +161,7 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBService: %w", err))
 	}
 
-	// Update the status of LBFrontend
+	// Update the status of LBService
 	if err := r.client.Status().Update(ctx, lb); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update LBService status: %w", err))
 	}
@@ -169,22 +169,22 @@ func (r *lbFrontendReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	return controllerruntime.Success()
 }
 
-func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLogger logrus.FieldLogger, frontend *isovalentv1alpha1.LBService) error {
+func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogger logrus.FieldLogger, lbsvc *isovalentv1alpha1.LBService) error {
 	//
 	// Load dependent resources that have relevant input for the model
 	//
 
 	// Try loading referenced LBVIP
-	vip, err := r.loadVIP(ctx, frontend)
+	vip, err := r.loadVIP(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced LBVIP: %w", err)
 	}
 
-	r.updateVIPInStatus(frontend, vip)
+	r.updateVIPInStatus(lbsvc, vip)
 
 	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
 	existingT1Service := &corev1.Service{}
-	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: getOwningResourceName(frontend.Name)}, existingT1Service); err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: getOwningResourceName(lbsvc.Name)}, existingT1Service); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get T1 Service: %w", err)
 		}
@@ -193,7 +193,7 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	}
 
 	// Try loading referenced LBBackends (in same namespace)
-	backends, missingBackends, err := r.loadBackends(ctx, frontend)
+	backends, missingBackends, err := r.loadBackends(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced backends: %w", err)
 	}
@@ -204,10 +204,10 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 			Debug("Some referenced LBBackends don't exist")
 	}
 
-	r.updateBackendsInStatus(frontend, missingBackends)
+	r.updateBackendsInStatus(lbsvc, missingBackends)
 
 	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
-	missingSecrets, err := r.getMissingTLSSecrets(ctx, frontend)
+	missingSecrets, err := r.getMissingTLSSecrets(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced TLS secrets: %w", err)
 	}
@@ -218,18 +218,18 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 			Debug("Some referenced TLS Secrets don't exist")
 	}
 
-	r.updateSecretsInStatus(frontend, missingSecrets)
+	r.updateSecretsInStatus(lbsvc, missingSecrets)
 
 	//
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(vip, frontend, backends, existingT1Service)
+	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1Service)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBService into model: %w", err)
 	}
 
-	r.updateAssignedIpInStatus(model, frontend)
+	r.updateAssignedIpInStatus(model, lbsvc)
 	// Stop reconciliation if assigned IP is not available yet. Also, we
 	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
@@ -266,11 +266,11 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	}
 
 	// Set controlling ownerreferences
-	if err := controllerutil.SetControllerReference(frontend, desiredT1Service, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Service, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Service: %w", err)
 	}
 
-	if err := controllerutil.SetControllerReference(frontend, desiredT1Endpoints, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Endpoints, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Endpoints: %w", err)
 	}
 
@@ -288,7 +288,7 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	//
 
 	// Stop reconciliation if T1 service is not available yet or is not able to bind
-	// to the VIP (e.g. due to port clash with another frontend on the same VIP).
+	// to the VIP (e.g. due to port clash with another service on the same VIP).
 	// In this case any existing CEC gets deleted too. We don't delete Services & Endpoints
 	// as this would result in a loop when the same  services is created in the next
 	// reconciliation.
@@ -307,7 +307,7 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	}
 
 	// Set controlling ownerreferences
-	if err := controllerutil.SetControllerReference(frontend, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(lbsvc, desiredT2CiliumEnvoyConfig, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T2 CiliumEnvoyConfig: %w", err)
 	}
 
@@ -319,9 +319,9 @@ func (r *lbFrontendReconciler) reconcileResources(ctx context.Context, scopedLog
 	return nil
 }
 
-func (r *lbFrontendReconciler) loadVIP(ctx context.Context, frontend *isovalentv1alpha1.LBService) (*isovalentv1alpha1.LBVIP, error) {
+func (r *lbServiceReconciler) loadVIP(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*isovalentv1alpha1.LBVIP, error) {
 	vip := &isovalentv1alpha1.LBVIP{}
-	if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: frontend.Spec.VIPRef.Name}, vip); err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: lbsvc.Spec.VIPRef.Name}, vip); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return nil, err
 		}
@@ -333,15 +333,15 @@ func (r *lbFrontendReconciler) loadVIP(ctx context.Context, frontend *isovalentv
 	return vip, nil
 }
 
-func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isovalentv1alpha1.LBService) ([]*isovalentv1alpha1.LBBackendPool, []string, error) {
+func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]*isovalentv1alpha1.LBBackendPool, []string, error) {
 	backends := []*isovalentv1alpha1.LBBackendPool{}
 	missingBackends := []string{}
 
-	backendNames := allBackendNames(frontend)
+	backendNames := allBackendNames(lbsvc)
 
 	for _, bName := range backendNames {
 		b := &isovalentv1alpha1.LBBackendPool{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: bName}, b); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: bName}, b); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("failed to get referenced LBBackend: %w", err)
 			}
@@ -359,14 +359,14 @@ func (r *lbFrontendReconciler) loadBackends(ctx context.Context, frontend *isova
 	return backends, missingBackends, nil
 }
 
-func (r *lbFrontendReconciler) getMissingTLSSecrets(ctx context.Context, frontend *isovalentv1alpha1.LBService) ([]string, error) {
-	allSecretNames := allSecretNames(frontend)
+func (r *lbServiceReconciler) getMissingTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]string, error) {
+	allSecretNames := allSecretNames(lbsvc)
 
 	missingSecrets := []string{}
 
 	for _, secretName := range allSecretNames {
 		s := &corev1.Secret{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: frontend.Namespace, Name: secretName}, s); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: secretName}, s); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("failed to get referenced TLS Secret: %w", err)
 			}
@@ -381,7 +381,7 @@ func (r *lbFrontendReconciler) getMissingTLSSecrets(ctx context.Context, fronten
 	return missingSecrets, nil
 }
 
-func (r *lbFrontendReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
+func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
 	svc := desiredService.DeepCopy()
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, svc, func() error {
@@ -401,7 +401,7 @@ func (r *lbFrontendReconciler) createOrUpdateService(ctx context.Context, desire
 	return nil
 }
 
-func (r *lbFrontendReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
+func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
 	if len(desiredEndpoints.Subsets[0].Addresses) != 0 {
 		ep := desiredEndpoints.DeepCopy()
 		result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
@@ -435,7 +435,7 @@ func (r *lbFrontendReconciler) createOrUpdateEndpoints(ctx context.Context, desi
 	return nil
 }
 
-func (r *lbFrontendReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
+func (r *lbServiceReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
 	cec := desiredCEC.DeepCopy()
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, cec, func() error {
@@ -457,37 +457,37 @@ func (r *lbFrontendReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Conte
 
 func vipIndexerFunc(rawObj client.Object) []string {
 	// Extract the VIP reference
-	lbFrontend := rawObj.(*isovalentv1alpha1.LBService)
+	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
-	if lbFrontend.Spec.VIPRef.Name == "" {
+	if lbService.Spec.VIPRef.Name == "" {
 		return nil
 	}
 
-	return []string{lbFrontend.Spec.VIPRef.Name}
+	return []string{lbService.Spec.VIPRef.Name}
 }
 
 func backendIndexerFunc(rawObj client.Object) []string {
 	// Extract the backend references
-	lbFrontend := rawObj.(*isovalentv1alpha1.LBService)
+	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
-	return allBackendNames(lbFrontend)
+	return allBackendNames(lbService)
 }
 
-func allBackendNames(lbFrontend *isovalentv1alpha1.LBService) []string {
+func allBackendNames(lbService *isovalentv1alpha1.LBService) []string {
 	backends := []string{}
 
-	if lbFrontend.Spec.Applications.HTTPProxy != nil {
-		for _, lr := range lbFrontend.Spec.Applications.HTTPProxy.Routes {
+	if lbService.Spec.Applications.HTTPProxy != nil {
+		for _, lr := range lbService.Spec.Applications.HTTPProxy.Routes {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
-	if lbFrontend.Spec.Applications.HTTPSProxy != nil {
-		for _, lr := range lbFrontend.Spec.Applications.HTTPSProxy.Routes {
+	if lbService.Spec.Applications.HTTPSProxy != nil {
+		for _, lr := range lbService.Spec.Applications.HTTPSProxy.Routes {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
-	if lbFrontend.Spec.Applications.TLSPassthrough != nil {
-		for _, lr := range lbFrontend.Spec.Applications.TLSPassthrough.Routes {
+	if lbService.Spec.Applications.TLSPassthrough != nil {
+		for _, lr := range lbService.Spec.Applications.TLSPassthrough.Routes {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
@@ -497,30 +497,30 @@ func allBackendNames(lbFrontend *isovalentv1alpha1.LBService) []string {
 
 func tlsSecretIndexerFunc(rawObj client.Object) []string {
 	// Extract the TLS secret references
-	lbFrontend := rawObj.(*isovalentv1alpha1.LBService)
+	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
-	return allSecretNames(lbFrontend)
+	return allSecretNames(lbService)
 }
 
-func allSecretNames(lbFrontend *isovalentv1alpha1.LBService) []string {
+func allSecretNames(lbService *isovalentv1alpha1.LBService) []string {
 	secretNames := []string{}
-	if lbFrontend.Spec.Applications.HTTPSProxy == nil || lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
+	if lbService.Spec.Applications.HTTPSProxy == nil || lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return secretNames
 	}
 
-	for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+	for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 		secretNames = append(secretNames, c.SecretRef.Name)
 	}
 
-	if lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-		secretNames = append(secretNames, lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+	if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+		secretNames = append(secretNames, lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
 	}
 
 	slices.Sort(secretNames)
 	return slices.Compact(secretNames)
 }
 
-func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName string) handler.EventHandler {
+func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
 
@@ -549,7 +549,7 @@ func (r *lbFrontendReconciler) enqueueReferencingLBFrontendsByIndex(indexName st
 	})
 }
 
-func (r *lbFrontendReconciler) enqueueAllLBFrontends() handler.EventHandler {
+func (r *lbServiceReconciler) enqueueAllLBServices() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
 		if err := r.client.List(ctx, &lbList); err != nil {
@@ -572,13 +572,13 @@ func (r *lbFrontendReconciler) enqueueAllLBFrontends() handler.EventHandler {
 	})
 }
 
-func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, frontend *isovalentv1alpha1.LBService) {
+func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
 	ipAssignedCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeIPAssigned,
 		Status:             metav1.ConditionFalse,
 		Reason:             isovalentv1alpha1.IPAssignedConditionReasonIPPending,
 		Message:            "VIP pending",
-		ObservedGeneration: frontend.GetGeneration(),
+		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
@@ -595,37 +595,37 @@ func (*lbFrontendReconciler) updateAssignedIpInStatus(model *lbFrontend, fronten
 		assignedIPv4 = model.vip.assignedIPv4
 	}
 
-	frontend.Status.Addresses.IPv4 = assignedIPv4
+	lbsvc.Status.Addresses.IPv4 = assignedIPv4
 
-	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
-func (*lbFrontendReconciler) updateVIPInStatus(frontend *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {
+func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {
 	vipExistsCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeVIPExist,
 		Status:             metav1.ConditionTrue,
 		Reason:             isovalentv1alpha1.VIPExistConditionReasonVIPExists,
 		Message:            "Referenced VIP exist",
-		ObservedGeneration: frontend.GetGeneration(),
+		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
 	if vip == nil {
 		vipExistsCondition.Status = metav1.ConditionFalse
 		vipExistsCondition.Reason = isovalentv1alpha1.VIPExistConditionReasonVIPMissing
-		vipExistsCondition.Message = fmt.Sprintf("Referenced VIP %v is missing", frontend.Spec.VIPRef.Name)
+		vipExistsCondition.Message = fmt.Sprintf("Referenced VIP %v is missing", lbsvc.Spec.VIPRef.Name)
 	}
 
-	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
+	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
 }
 
-func (*lbFrontendReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.LBService, missingBackends []string) {
+func (*lbServiceReconciler) updateBackendsInStatus(lbsvc *isovalentv1alpha1.LBService, missingBackends []string) {
 	backendsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeBackendsExist,
 		Status:             metav1.ConditionTrue,
 		Reason:             isovalentv1alpha1.BackendsExistConditionReasonAllBackendsExist,
 		Message:            "All referenced backends exist",
-		ObservedGeneration: frontend.GetGeneration(),
+		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
@@ -635,16 +635,16 @@ func (*lbFrontendReconciler) updateBackendsInStatus(frontend *isovalentv1alpha1.
 		backendsExistCondition.Message = fmt.Sprintf("There are referenced backends that do not exist: %v", missingBackends)
 	}
 
-	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
 }
 
-func (*lbFrontendReconciler) updateSecretsInStatus(frontend *isovalentv1alpha1.LBService, missingSecrets []string) {
+func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {
 	secretsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeSecretsExist,
 		Status:             metav1.ConditionTrue,
 		Reason:             isovalentv1alpha1.SecretsExistConditionReasonAllSecretsExist,
 		Message:            "All referenced TLS secrets exist",
-		ObservedGeneration: frontend.GetGeneration(),
+		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
@@ -654,19 +654,19 @@ func (*lbFrontendReconciler) updateSecretsInStatus(frontend *isovalentv1alpha1.L
 		secretsExistCondition.Message = fmt.Sprintf("There are referenced TLS secrets that do not exist: %v", missingSecrets)
 	}
 
-	upsertCondition(frontend, isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
+	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
 }
 
-func upsertCondition(frontend *isovalentv1alpha1.LBService, conditionType string, condition metav1.Condition) {
+func upsertCondition(lbsvc *isovalentv1alpha1.LBService, conditionType string, condition metav1.Condition) {
 	conditionExists := false
-	for i, c := range frontend.Status.Conditions {
+	for i, c := range lbsvc.Status.Conditions {
 		if c.Type == conditionType {
 			if c.Status != condition.Status ||
 				c.Reason != condition.Reason ||
 				c.Message != condition.Message ||
 				c.ObservedGeneration != condition.ObservedGeneration {
 				// transition -> update condition
-				frontend.Status.Conditions[i] = condition
+				lbsvc.Status.Conditions[i] = condition
 			}
 			conditionExists = true
 			break
@@ -674,6 +674,6 @@ func upsertCondition(frontend *isovalentv1alpha1.LBService, conditionType string
 	}
 
 	if !conditionExists {
-		frontend.Status.Conditions = append(frontend.Status.Conditions, condition)
+		lbsvc.Status.Conditions = append(lbsvc.Status.Conditions, condition)
 	}
 }

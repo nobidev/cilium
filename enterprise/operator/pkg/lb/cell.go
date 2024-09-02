@@ -90,7 +90,7 @@ func registerReconcilers(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	lbFrontendReconciler := newLbFrontendReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
+	lbServiceReconciler := newLbServiceReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
 		reconcilerConfig{
 			SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
 			ServerName:       params.Config.LoadBalancerCPHTTPServerName,
@@ -122,7 +122,7 @@ func registerReconcilers(params reconcilerParams) error {
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
 			// Register reconcilers to manager in lifecycle to ensure that CRDs are installed on the cluster
-			if err := lbFrontendReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+			if err := lbServiceReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
 				return fmt.Errorf("failed to setup LBService reconciler: %w", err)
 			}
 
@@ -138,7 +138,7 @@ func registerReconcilers(params reconcilerParams) error {
 }
 
 // registerSecretSync registers the LoadBalancer controlplane for secret synchronization based on TLS secrets referenced
-// by the LBFrontends.
+// by the LBServices.
 func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrationOut {
 	if !params.Config.LoadBalancerCPEnabled {
 		return secretsync.SecretSyncRegistrationOut{}
@@ -148,7 +148,7 @@ func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrati
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
 			RefObject:            &isovalentv1alpha1.LBService{},
 			RefObjectEnqueueFunc: enqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
-			RefObjectCheckFunc:   isReferencedByLBFrontend,
+			RefObjectCheckFunc:   isReferencedByLBService,
 			SecretsNamespace:     params.Config.LoadBalancerCPSecretsNamespace,
 		},
 	}

@@ -33,20 +33,20 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 			logfields.Resource:   obj.GetName(),
 		})
 
-		lbFrontend, ok := obj.(*isovalentv1alpha1.LBService)
+		lbService, ok := obj.(*isovalentv1alpha1.LBService)
 		if !ok {
 			return nil
 		}
 
 		var reqs []reconcile.Request
-		if lbFrontend.Spec.Applications.HTTPSProxy == nil || lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig == nil {
+		if lbService.Spec.Applications.HTTPSProxy == nil || lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 			return reqs
 		}
 
 		// TLS certificates secrets
-		for _, c := range lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+		for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			s := types.NamespacedName{
-				Namespace: lbFrontend.Namespace,
+				Namespace: lbService.Namespace,
 				Name:      c.SecretRef.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
@@ -54,10 +54,10 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 		}
 
 		// TLS validation secret
-		if lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+		if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
 			s := types.NamespacedName{
-				Namespace: lbFrontend.Namespace,
-				Name:      lbFrontend.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name,
+				Namespace: lbService.Namespace,
+				Name:      lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
 			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")
@@ -67,15 +67,15 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 	})
 }
 
-func isReferencedByLBFrontend(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) bool {
-	return len(getLBFrontendsForSecret(ctx, c, logger, secret)) > 0
+func isReferencedByLBService(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) bool {
+	return len(getLBServicesForSecret(ctx, c, logger, secret)) > 0
 }
 
-func getLBFrontendsForSecret(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) []*isovalentv1alpha1.LBService {
+func getLBServicesForSecret(ctx context.Context, c client.Client, logger *slog.Logger, secret *corev1.Secret) []*isovalentv1alpha1.LBService {
 	lbList := isovalentv1alpha1.LBServiceList{}
 
 	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(lbFrontendTlsSecretsIndexName, secret.GetName()),
+		FieldSelector: fields.OneTermEqualSelector(lbServiceTlsSecretsIndexName, secret.GetName()),
 		Namespace:     secret.GetNamespace(),
 	}
 

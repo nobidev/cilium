@@ -120,12 +120,12 @@ func (c *EnterpriseClient) GetLBService(ctx context.Context, namespace string, n
 	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBServices(namespace).Get(ctx, name, opts)
 }
 
-func (c *EnterpriseClient) CreateLBService(ctx context.Context, namespace string, lbfrontend *isovalentv1alpha1.LBService, opts metav1.CreateOptions) (*isovalentv1alpha1.LBService, error) {
-	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBServices(namespace).Create(ctx, lbfrontend, opts)
+func (c *EnterpriseClient) CreateLBService(ctx context.Context, namespace string, lbsvc *isovalentv1alpha1.LBService, opts metav1.CreateOptions) (*isovalentv1alpha1.LBService, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBServices(namespace).Create(ctx, lbsvc, opts)
 }
 
-func (c *EnterpriseClient) UpdateLBService(ctx context.Context, namespace string, lbfrontend *isovalentv1alpha1.LBService, opts metav1.UpdateOptions) (*isovalentv1alpha1.LBService, error) {
-	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBServices(namespace).Update(ctx, lbfrontend, opts)
+func (c *EnterpriseClient) UpdateLBService(ctx context.Context, namespace string, lbsvc *isovalentv1alpha1.LBService, opts metav1.UpdateOptions) (*isovalentv1alpha1.LBService, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1alpha1().LBServices(namespace).Update(ctx, lbsvc, opts)
 }
 
 func (c *EnterpriseClient) DeleteLBService(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {

@@ -20,11 +20,11 @@ type Parameters struct {
 	WaitDuration time.Duration
 	Output       string
 
-	FrontendNamespace string
-	FrontendName      string
-	FrontendVIP       string
-	FrontendPort      uint
-	FrontendStatus    string
+	ServiceNamespace string
+	ServiceName      string
+	ServiceVIP       string
+	ServicePort      uint
+	ServiceStatus    string
 }
 
 type LoadbalancerClient struct {

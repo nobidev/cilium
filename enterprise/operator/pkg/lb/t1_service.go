@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service {
+func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 	if model.vip.assignedIPv4 == nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 	// correctly
 	annotations[ossannotation.LBIPAMIPsKey] = *model.vip.assignedIPv4
 
-	// TODO: should the following config be part of the lbFrontend model? (infra?)
+	// TODO: should the following config be part of the lbService model? (infra?)
 
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
@@ -78,7 +78,7 @@ func (r *lbFrontendReconciler) desiredService(model *lbFrontend) *corev1.Service
 	}
 }
 
-func getHealthCheckIntervalSeconds(model *lbFrontend) int {
+func getHealthCheckIntervalSeconds(model *lbService) int {
 	shortestInterval := 0
 
 	for _, r := range model.applications.getHTTPProxyRoutes() {
@@ -108,7 +108,7 @@ func getHealthCheckIntervalSeconds(model *lbFrontend) int {
 	return hcInterval
 }
 
-func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []string) (*corev1.Endpoints, error) {
+func (r *lbServiceReconciler) desiredEndpoints(model *lbService, t2NodeIPs []string) (*corev1.Endpoints, error) {
 	if model.vip.assignedIPv4 == nil {
 		return nil, nil
 	}
@@ -138,7 +138,7 @@ func (r *lbFrontendReconciler) desiredEndpoints(model *lbFrontend, t2NodeIPs []s
 	}, nil
 }
 
-func (r *lbFrontendReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbFrontend) error {
+func (r *lbServiceReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbService) error {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
@@ -154,7 +154,7 @@ func (r *lbFrontendReconciler) ensureEndpointsDeleted(ctx context.Context, model
 	return nil
 }
 
-func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
+func (r *lbServiceReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node store: %w", err)
@@ -185,7 +185,7 @@ func (r *lbFrontendReconciler) getT2NodeAddresses(ctx context.Context) ([]string
 	return t2NodeIPs, nil
 }
 
-func (r *lbFrontendReconciler) ensureServiceDeleted(ctx context.Context, model *lbFrontend) error {
+func (r *lbServiceReconciler) ensureServiceDeleted(ctx context.Context, model *lbService) error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,

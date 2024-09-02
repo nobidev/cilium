@@ -18,7 +18,7 @@ import (
 // - tcp route -> only one route allowed
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
-type lbFrontend struct {
+type lbService struct {
 	namespace    string
 	name         string
 	vip          lbVIP
@@ -38,7 +38,7 @@ type lbVIPBindStatus struct {
 	bindIssue      string
 }
 
-func (r lbFrontend) getOwningResourceName() string {
+func (r lbService) getOwningResourceName() string {
 	return getOwningResourceName(r.name)
 }
 
@@ -49,14 +49,14 @@ func getOwningResourceName(parentName string) string {
 	return shortener.ShortenK8sResourceName(name)
 }
 
-type lbFrontendHTTPConfig struct {
+type lbServiceHTTPConfig struct {
 	enableHTTP11 bool
 	enableHTTP2  bool
 }
 
-type lbFrontendTLSConfig struct {
+type lbServiceTLSConfig struct {
 	certificateSecrets         []string
-	validationContext          lbFrontendTLSConfigValidationContext
+	validationContext          lbServiceTLSConfigValidationContext
 	minTLSVersion              string
 	maxTLSVersion              string
 	allowedCipherSuites        []string
@@ -64,7 +64,7 @@ type lbFrontendTLSConfig struct {
 	allowedSignatureAlgorithms []string
 }
 
-type lbFrontendTLSConfigValidationContext struct {
+type lbServiceTLSConfigValidationContext struct {
 	trustedCASecretName     string
 	subjectAlternativeNames []string
 }
@@ -114,7 +114,7 @@ func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
 	return r.tlsPassthrough.routes
 }
 
-func (r lbApplications) getHTTPHTTPConfig() *lbFrontendHTTPConfig {
+func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (r lbApplications) getHTTPHTTPConfig() *lbFrontendHTTPConfig {
 	return r.httpProxy.httpConfig
 }
 
-func (r lbApplications) getHTTPSHTTPConfig() *lbFrontendHTTPConfig {
+func (r lbApplications) getHTTPSHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpsProxy == nil {
 		return nil
 	}
@@ -131,13 +131,13 @@ func (r lbApplications) getHTTPSHTTPConfig() *lbFrontendHTTPConfig {
 }
 
 type lbApplicationHTTPProxy struct {
-	httpConfig *lbFrontendHTTPConfig
+	httpConfig *lbServiceHTTPConfig
 	routes     []lbRouteHTTP
 }
 
 type lbApplicationHTTPSProxy struct {
-	httpConfig *lbFrontendHTTPConfig
-	tlsConfig  *lbFrontendTLSConfig
+	httpConfig *lbServiceHTTPConfig
+	tlsConfig  *lbServiceTLSConfig
 	routes     []lbRouteHTTPS
 }
 
