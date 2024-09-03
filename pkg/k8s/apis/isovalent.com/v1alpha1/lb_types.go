@@ -55,7 +55,7 @@ type LBServiceSpec struct {
 	Applications LBServiceApplications `json:"applications"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application (httpProxy, httpsProxy or tlsPassthrough) must be specified",rule="(has(self.httpProxy) || has(self.httpsProxy) || has(self.tlsPassthrough)) && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy) && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsPassthrough))"
+// +kubebuilder:validation:XValidation:message="Exactly one application (httpProxy, httpsProxy or tlsPassthrough) must be specified", rule="(has(self.httpProxy) || has(self.httpsProxy) || has(self.tlsPassthrough) || has(self.tlsProxy)) && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy) && has(self.tlsPassthrough)) && !(has(self.httpProxy) && has(self.tlsProxy)) && !(has(self.httpsProxy) && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsProxy)) && !(has(self.tlsPassthrough) && has(self.tlsProxy))"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
@@ -74,6 +74,12 @@ type LBServiceApplications struct {
 	//
 	// +kubebuilder:validation:Optional
 	TLSPassthrough *LBServiceApplicationTLSPassthrough `json:"tlsPassthrough,omitempty"`
+
+	// Defining this stanza enables TLSProxy application that proxies the
+	// TLS traffic to the backends by terminating the TLS.
+	//
+	// +kubebuilder:validation:Optional
+	TLSProxy *LBServiceApplicationTLSProxy `json:"tlsProxy,omitempty"`
 }
 
 type LBServiceApplicationHTTPProxy struct {
@@ -126,6 +132,19 @@ type LBServiceApplicationTLSPassthrough struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Routes []LBServiceTLSPassthroughRoute `json:"routes"`
+}
+
+type LBServiceApplicationTLSProxy struct {
+	// The application-wide TLS configuration.
+	//
+	// +kubebuilder:validation:Optional
+	TLSConfig *LBServiceTLSConfig `json:"tlsConfig,omitempty"`
+
+	// The TLS proxy routing configuration.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Routes []LBServiceTLSRoute `json:"routes"`
 }
 
 type LBServiceTLSConfig struct {
@@ -364,11 +383,42 @@ type LBServiceTLSPassthroughRoute struct {
 	PersistentBackend *LBServiceTLSPassthroughRoutePersistentBackend `json:"persistentBackend,omitempty"`
 }
 
+type LBServiceTLSRoute struct {
+	// The TLS route matching criteria. All conditions must be satisfied
+	// for the route to be matched.
+	//
+	// +kubebuilder:validation:Optional
+	Match *LBServiceTLSRouteMatch `json:"match"`
+
+	// The reference to the LBBackendPool resource that this route should
+	// forward the traffic to when the route is matched. The referred
+	// LBBackendPool must exist in the same namespace as the LBService.
+	//
+	// +kubebuilder:validation:Required
+	BackendRef LBServiceBackendRef `json:"backendRef"`
+}
+
 type LBServiceTLSPassthroughRouteMatch struct {
-	// The list of host names that the route should match. The host name is
-	// the value of the Host header in the HTTP request for plain-text
-	// HTTP. When TLS is enabled, the host name must match both the SNI and
-	// the Host header. The following formats are supported:
+	// The list of host names that the route should match. The host name
+	// must match the SNI. The following formats are supported:
+	//
+	// - Exact domain names: www.example.com
+	//
+	// - Suffix domain wildcards: *.example.com or *-bar.example.com
+	//
+	// - Prefix domain wildcards: foo.* or foo-*.
+	//
+	// - Special wildcard: * matching any domain
+	//
+	// Omitting this field is identical to specifying a wildcard "*".
+	//
+	// +kubebuilder:validation:Optional
+	HostNames []LBServiceHostName `json:"hostNames,omitempty"`
+}
+
+type LBServiceTLSRouteMatch struct {
+	// The list of host names that the route should match. The host name
+	// must match the SNI. The following formats are supported:
 	//
 	// - Exact domain names: www.example.com
 	//

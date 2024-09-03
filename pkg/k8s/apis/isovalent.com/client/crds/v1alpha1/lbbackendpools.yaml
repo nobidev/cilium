@@ -62,10 +62,12 @@ spec:
                       minimum: 1
                       type: integer
                     weight:
-                      description: "The weight of that backend. Used by loadbalancing
-                        algorithms. \n The weight for a backend is divided by the
-                        sum of the weights of all backends in the backendpool to produce
-                        a percentage of traffic for the backend."
+                      description: |-
+                        The weight of that backend. Used by loadbalancing algorithms.
+
+                        The weight for a backend is divided by the sum
+                        of the weights of all backends in the backendpool
+                        to produce a percentage of traffic for the backend.
                       format: int32
                       maximum: 4294967295
                       minimum: 1
@@ -163,15 +165,11 @@ spec:
                                 description: The maglev configuration.
                                 properties:
                                   tableSize:
-                                    description: The table size for Maglev hashing.
-                                      Maglev aims for "minimal disruption" rather
-                                      than an absolute guarantee. Minimal disruption
-                                      means that when the set of upstream hosts change,
-                                      a connection will likely be sent to the same
-                                      upstream as it was before. Increasing the table
-                                      size reduces the amount of disruption. The table
-                                      size must be prime number limited to 5000011.
-                                      If it is not specified, the default is 65537.
+                                    description: |-
+                                      The table size for Maglev hashing. Maglev aims for "minimal disruption" rather than an absolute guarantee.
+                                      Minimal disruption means that when the set of upstream hosts change, a connection will likely be sent to the same
+                                      upstream as it was before. Increasing the table size reduces the amount of disruption.
+                                      The table size must be prime number limited to 5000011. If it is not specified, the default is 65537.
                                     format: int32
                                     maximum: 5000011
                                     minimum: 1
