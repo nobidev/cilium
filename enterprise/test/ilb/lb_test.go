@@ -156,7 +156,6 @@ func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
 	// Basic connectivity to apps through LB
 	testCmds := []string{
 		curlCmdVerbose(fmt.Sprintf("--resolve insecure.acme.io:80:%s http://insecure.acme.io:80/api/foo-insecure", lbt.vips[2])),
-		curlCmdVerbose(fmt.Sprintf("--resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
 		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure80.crt --resolve secure-80.acme.io:80:%s https://secure-80.acme.io:80/", lbt.vips[5])),
 		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
 		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
@@ -172,7 +171,6 @@ func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
 
 	// Check that HTTP 2 is used to connect to apps through LB
 	testHTTP2Cmds := []string{
-		curlCmd(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", lbt.vips[4])),
 		curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/tls-secure-http2.crt --resolve secure-http2.acme.io:443:%s https://secure-http2.acme.io:443/", lbt.vips[7])),
 	}
 
@@ -511,7 +509,7 @@ func TestHTTPConnectivity(t *testing.T) {
 
 	// 4. Create LBService
 
-	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name))
+	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name, ""))
 
 	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
@@ -606,4 +604,129 @@ func TestHTTPConnectivity(t *testing.T) {
 	}
 
 	// TODO(brb) bring back only one backend
+}
+
+func TestHTTP2Connectivity(t *testing.T) {
+	ctx := context.Background()
+	name := "http2-1"
+	ns := "default"
+	hostName := "mixed.acme.io"
+
+	t.Log("Creating client and apps...")
+
+	// 0. Create LB backend apps
+
+	app1 := name + "-app-1"
+	app2 := name + "-app-2"
+	for _, app := range []string{app1, app2} {
+		env := []string{
+			"SERVICE_NAME=" + app,
+			"INSTANCE_NAME=" + app,
+			"H2C_ENABLED=true",
+		}
+		if _, err := suite.dockerCli.createContainer(ctx, app, appImage, env, containerNetwork, false); err != nil {
+			t.Fatalf("cannot create app container (%s): %s", app, err)
+		}
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), app) }, t)
+	}
+
+	// 1. Create FRR client
+
+	clientName := name + "-client"
+	env := []string{
+		"NEIGHBOR=" + suite.lbT1IP,
+	}
+	if _, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true); err != nil {
+		t.Fatalf("cannot create client container (%s): %s", clientName, err)
+	}
+	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
+
+	clientIP, err := suite.dockerCli.GetContainerIP(ctx, clientName)
+	if err != nil {
+		t.Fatalf("failed to retrieve container IP (%s): %s", clientName, err)
+	}
+
+	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
+		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
+	}
+	maybeCleanupT(func() error { return suite.ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
+
+	t.Logf("Creating LB service objects...")
+
+	// 2. Create LBVIP
+
+	vip := lbVIP(name, "")
+	if err := suite.ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
+	}, t)
+
+	app1IP, err := suite.dockerCli.GetContainerIP(ctx, app1)
+	if err != nil {
+		t.Fatalf("failed to retrieve container IP (%s): %s", app1, err)
+	}
+	app2IP, err := suite.dockerCli.GetContainerIP(ctx, app2)
+	if err != nil {
+		t.Fatalf("failed to retrieve container IP (%s): %s", app2, err)
+	}
+
+	// 3. Create LBBackendPool
+
+	backends := []isovalentv1alpha1.Backend{
+		{IP: app1IP, Port: 8080},
+		{IP: app2IP, Port: 8080},
+	}
+	backendPool := lbBackendPool(name, "/health", 10, backends)
+
+	if err := suite.ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return suite.ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
+	}, t)
+
+	// 4. Create LBService
+
+	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName))
+
+	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			t.Fatalf("cannot create LB Service (%s): %s", name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return suite.ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
+	}, t)
+
+	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+
+	t.Logf("Waiting for VIP of %q...", name)
+
+	ip, err := suite.ciliumCli.WaitForLBVIP(ctx, ns, name)
+	if err != nil {
+		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
+	}
+
+	err = suite.dockerCli.waitForIPRoute(ctx, clientName, ip)
+	if err != nil {
+		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
+	}
+
+	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", ip))
+	t.Logf("Testing %q...", testCmd)
+	stdout, stderr, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+	if err != nil {
+		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+
+	// Check HTTP H2
+	if stdout != "2" {
+		t.Fatalf("Expected HTTP 2, got: %s", stdout)
+	}
 }

@@ -54,8 +54,8 @@ func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string) is
 	}
 }
 
-func lbServiceApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceApplications {
-	return isovalentv1alpha1.LBServiceApplications{
+func lbServiceApplicationsHTTP(backendRef, hostName string) isovalentv1alpha1.LBServiceApplications {
+	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
 				{BackendRef: isovalentv1alpha1.LBServiceBackendRef{
@@ -65,6 +65,15 @@ func lbServiceApplicationsHTTP(backendRef string) isovalentv1alpha1.LBServiceApp
 			},
 		},
 	}
+
+	if hostName != "" {
+		obj.HTTPProxy.Routes[0].Match = &isovalentv1alpha1.LBServiceHTTPRouteMatch{
+			HostNames: []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostName)},
+		}
+
+	}
+
+	return obj
 }
 
 func lbService(name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
