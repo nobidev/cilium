@@ -32,8 +32,8 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
-func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string) isovalentv1alpha1.LBServiceApplications {
-	return isovalentv1alpha1.LBServiceApplications{
+func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, cfg *isovalentv1alpha1.LBServiceHTTPConfig) isovalentv1alpha1.LBServiceApplications {
+	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
 			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
 				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
@@ -52,6 +52,12 @@ func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string) is
 			},
 		},
 	}
+
+	if cfg != nil {
+		obj.HTTPSProxy.HTTPConfig = cfg
+	}
+
+	return obj
 }
 
 func lbServiceApplicationsHTTP(backendRef, hostName string) isovalentv1alpha1.LBServiceApplications {
