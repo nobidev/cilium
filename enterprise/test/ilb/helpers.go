@@ -320,7 +320,7 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	return nil
 }
 
-func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, error) {
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
 	resp, err := c.ContainerCreate(ctx,
@@ -340,14 +340,19 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		name,
 	)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return resp.ID, nil
+	clientIP, err := c.GetContainerIP(ctx, resp.ID)
+	if err != nil {
+		return "", "", err
+	}
+
+	return resp.ID, clientIP, nil
 }
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {

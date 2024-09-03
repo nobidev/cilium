@@ -324,16 +324,28 @@ func TestHTTPSConnectivity(t *testing.T) {
 
 	app1 := "https-1-app-1"
 	app2 := "https-1-app-2"
-	for _, app := range []string{app1, app2} {
+	app1IP := ""
+	app2IP := ""
+	iter := []struct {
+		name string
+		ip   *string
+	}{
+		{name: app1, ip: &app1IP},
+		{name: app2, ip: &app2IP},
+	}
+
+	for i, app := range iter {
 		env := []string{
-			"SERVICE_NAME=" + app,
-			"INSTANCE_NAME=" + app,
+			"SERVICE_NAME=" + app.name,
+			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		if _, err := suite.dockerCli.createContainer(ctx, app, appImage, env, containerNetwork, false); err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app, err)
+		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		if err != nil {
+			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, app) }, t)
+		*app.ip = ip
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, iter[i].name) }, t)
 	}
 
 	// 2. Create FRR client
@@ -342,7 +354,7 @@ func TestHTTPSConnectivity(t *testing.T) {
 	env := []string{
 		"NEIGHBOR=" + suite.lbT1IP,
 	}
-	clientID, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	clientID, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
@@ -350,11 +362,6 @@ func TestHTTPSConnectivity(t *testing.T) {
 
 	if err := suite.dockerCli.copyToContainer(ctx, clientID, cert.Bytes(), certFile, "/tmp"); err != nil {
 		t.Fatalf("failed to copy cert to client container: %s", err)
-	}
-
-	clientIP, err := suite.dockerCli.GetContainerIP(ctx, clientName)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", clientName, err)
 	}
 
 	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
@@ -373,15 +380,6 @@ func TestHTTPSConnectivity(t *testing.T) {
 		}
 	}
 	maybeCleanupT(func() error { return suite.ciliumCli.DeleteLBVIP(ctx, ns, name, metav1.DeleteOptions{}) }, t)
-
-	app1IP, err := suite.dockerCli.GetContainerIP(ctx, app1)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app1, err)
-	}
-	app2IP, err := suite.dockerCli.GetContainerIP(ctx, app2)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app2, err)
-	}
 
 	// 4. Create LBBackendPool
 
@@ -442,16 +440,27 @@ func TestHTTPConnectivity(t *testing.T) {
 
 	app1 := "http-1-app-1"
 	app2 := "http-1-app-2"
-	for _, app := range []string{app1, app2} {
+	app1IP := ""
+	app2IP := ""
+	iter := []struct {
+		name string
+		ip   *string
+	}{
+		{name: app1, ip: &app1IP},
+		{name: app2, ip: &app2IP},
+	}
+	for i, app := range iter {
 		env := []string{
-			"SERVICE_NAME=" + app,
-			"INSTANCE_NAME=" + app,
+			"SERVICE_NAME=" + app.name,
+			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		if _, err := suite.dockerCli.createContainer(ctx, app, appImage, env, containerNetwork, false); err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app, err)
+		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		if err != nil {
+			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), app) }, t)
+		*app.ip = ip
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), iter[i].name) }, t)
 	}
 
 	// 1. Create FRR client
@@ -460,15 +469,11 @@ func TestHTTPConnectivity(t *testing.T) {
 	env := []string{
 		"NEIGHBOR=" + suite.lbT1IP,
 	}
-	if _, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true); err != nil {
+	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
 	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
-
-	clientIP, err := suite.dockerCli.GetContainerIP(ctx, clientName)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", clientName, err)
-	}
 
 	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
@@ -488,15 +493,6 @@ func TestHTTPConnectivity(t *testing.T) {
 	maybeCleanupT(func() error {
 		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
-
-	app1IP, err := suite.dockerCli.GetContainerIP(ctx, app1)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app1, err)
-	}
-	app2IP, err := suite.dockerCli.GetContainerIP(ctx, app2)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app2, err)
-	}
 
 	// 3. Create LBBackendPool
 
@@ -626,16 +622,27 @@ func TestHTTP2Connectivity(t *testing.T) {
 
 	app1 := name + "-app-1"
 	app2 := name + "-app-2"
-	for _, app := range []string{app1, app2} {
+	app1IP := ""
+	app2IP := ""
+	iter := []struct {
+		name string
+		ip   *string
+	}{
+		{name: app1, ip: &app1IP},
+		{name: app2, ip: &app2IP},
+	}
+	for i, app := range iter {
 		env := []string{
-			"SERVICE_NAME=" + app,
-			"INSTANCE_NAME=" + app,
+			"SERVICE_NAME=" + app.name,
+			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		if _, err := suite.dockerCli.createContainer(ctx, app, appImage, env, containerNetwork, false); err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app, err)
+		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		if err != nil {
+			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), app) }, t)
+		*app.ip = ip
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), iter[i].name) }, t)
 	}
 
 	// 1. Create FRR client
@@ -644,15 +651,11 @@ func TestHTTP2Connectivity(t *testing.T) {
 	env := []string{
 		"NEIGHBOR=" + suite.lbT1IP,
 	}
-	if _, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true); err != nil {
+	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
 	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
-
-	clientIP, err := suite.dockerCli.GetContainerIP(ctx, clientName)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", clientName, err)
-	}
 
 	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
@@ -672,15 +675,6 @@ func TestHTTP2Connectivity(t *testing.T) {
 	maybeCleanupT(func() error {
 		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
-
-	app1IP, err := suite.dockerCli.GetContainerIP(ctx, app1)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app1, err)
-	}
-	app2IP, err := suite.dockerCli.GetContainerIP(ctx, app2)
-	if err != nil {
-		t.Fatalf("failed to retrieve container IP (%s): %s", app2, err)
-	}
 
 	// 3. Create LBBackendPool
 
