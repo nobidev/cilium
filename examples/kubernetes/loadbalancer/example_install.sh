@@ -132,7 +132,7 @@ done
 
 # LB vips, frontends, backends & ippools
 kubectl apply -f "${script_dir}/example/lb-vips.yaml"
-kubectl apply -f "${script_dir}/example/lb-frontends.yaml"
+kubectl apply -f "${script_dir}/example/lb-services.yaml"
 kubectl apply -f "${script_dir}/example/lb-backends.yaml"
 kubectl apply -f "${script_dir}/example/lb-ippools.yaml"
 
