@@ -153,7 +153,7 @@ func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
 
 }
 
-func (lbt *lbTests) testBasicLBConnectivity(ctx context.Context, t *testing.T) {
+func (lbt *lbTests) testBasicLB(ctx context.Context, t *testing.T) {
 	// Basic connectivity to apps through LB
 	testCmds := []string{
 		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
@@ -182,7 +182,7 @@ func TestLB(t *testing.T) {
 
 	lbt.installLBObjs(ctx, t)
 
-	lbt.testBasicLBConnectivity(ctx, t)
+	lbt.testBasicLB(ctx, t)
 }
 
 type testSuite struct {
@@ -273,7 +273,7 @@ func maybeCleanup(f func() error) {
 	}
 }
 
-func TestHTTPSConnectivity(t *testing.T) {
+func TestHTTPS(t *testing.T) {
 	ctx := context.Background()
 	name := "https-1"
 	ns := "default"
@@ -410,7 +410,7 @@ func TestHTTPSConnectivity(t *testing.T) {
 	}
 }
 
-func TestHTTPConnectivityAndT2HealthChecks(t *testing.T) {
+func TestHTTPAndT2HealthChecks(t *testing.T) {
 	ctx := context.Background()
 	name := "http-1"
 	ns := "default"
@@ -591,7 +591,7 @@ func TestHTTPConnectivityAndT2HealthChecks(t *testing.T) {
 	// TODO(brb) bring back only one backend
 }
 
-func TestHTTP2Connectivity(t *testing.T) {
+func TestHTTP2(t *testing.T) {
 	ctx := context.Background()
 	name := "http2-1"
 	ns := "default"
@@ -714,7 +714,7 @@ func TestHTTP2Connectivity(t *testing.T) {
 	}
 }
 
-func TestHTTP2SConnectivity(t *testing.T) {
+func TestHTTP2S(t *testing.T) {
 	ctx := context.Background()
 	name := "http2s-1"
 	ns := "default"
@@ -860,7 +860,7 @@ func TestHTTP2SConnectivity(t *testing.T) {
 	}
 }
 
-func TestHTTPPathConnectivity(t *testing.T) {
+func TestHTTPPath(t *testing.T) {
 	ctx := context.Background()
 	name := "http-path-1"
 	ns := "default"
