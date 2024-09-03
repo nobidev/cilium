@@ -19,12 +19,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,8 +34,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -416,34 +412,6 @@ func (c *dockerCli) controlBackendHC(ctx context.Context, clientName, ip string,
 	return nil
 }
 
-func yamlToObjects[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {
-	if input == "" {
-		return nil, nil
-	}
-
-	yamls := strings.Split(input, "\n---")
-
-	for _, yaml := range yamls {
-		if strings.TrimSpace(yaml) == "" {
-			continue
-		}
-
-		obj, kind, err := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("decoding yaml file: %s\nerror: %w", yaml, err)
-		}
-
-		switch policy := obj.(type) {
-		case T:
-			output = append(output, policy)
-		default:
-			return nil, fmt.Errorf("unknown type '%s' in: %s", kind.Kind, yaml)
-		}
-	}
-
-	return output, nil
-}
-
 func curlCmdVerbose(extra string) string {
 	return "curl -w '%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}' --silent --fail --show-error " + extra
 }
@@ -512,18 +480,6 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 	}
 
 	return &key, &cert, nil
-}
-
-func deleteFiles(paths ...string) error {
-	var err error
-
-	for _, path := range paths {
-		if err0 := os.Remove(path); err != nil {
-			err = errors.Join(err, err0)
-		}
-	}
-
-	return err
 }
 
 func createTAR(content []byte, path string) (io.Reader, error) {

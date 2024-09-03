@@ -12,7 +12,6 @@ package ilb
 
 import (
 	"context"
-	_ "embed"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -24,22 +23,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-//go:embed manifests/lb-vips.yaml
-var yamlLBVIPs string
-
-//go:embed manifests/lb-services.yaml
-var yamlLBService string
-
-//go:embed manifests/lb-backends.yaml
-var yamlLBBackends string
-
 const (
-	defaultNamespace = "default"
-
 	clientContainerName = "frr"
 
 	containerNetwork = "kind-cilium"
@@ -49,141 +36,6 @@ const (
 
 	lbIPPoolName = "lb-pool"
 )
-
-type lbTests struct {
-	ciliumCli *ciliumCli
-	dockerCli *dockerCli
-
-	vips       map[int]string
-	backendIPs map[int]string
-
-	t *testing.T
-}
-
-func (lbt *lbTests) installLBObjs(ctx context.Context, t *testing.T) {
-	// 1. Install LB VIPS
-
-	lbVIPs, err := yamlToObjects[*isovalentv1alpha1.LBVIP](yamlLBVIPs, scheme.Scheme)
-	if err != nil {
-		t.Fatalf("Failed to deserialize LB VIP: %s", err)
-	}
-
-	for _, obj := range lbVIPs {
-		lbt.ciliumCli.DeleteLBVIP(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
-
-		t.Logf("Creating LB VIP %s...", obj.GetObjectMeta().GetName())
-		if err := lbt.ciliumCli.CreateLBVIP(ctx, defaultNamespace, obj, metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Failed to create LB VIP: %s", err)
-		}
-	}
-
-	// 2. Install LB Services
-
-	services, err := yamlToObjects[*isovalentv1alpha1.LBService](yamlLBService, scheme.Scheme)
-	if err != nil {
-		t.Fatalf("Failed to deserialize LB Service: %s", err)
-	}
-
-	for _, obj := range services {
-		lbt.ciliumCli.DeleteLBService(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
-
-		t.Logf("Creating LB Service %s...", obj.GetObjectMeta().GetName())
-		if err := lbt.ciliumCli.CreateLBService(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Failed to create LB VIP: %s", err)
-		}
-	}
-
-	// 3. Install LB Backends
-
-	backends, err := yamlToObjects[*isovalentv1alpha1.LBBackendPool](yamlLBBackends, scheme.Scheme)
-	if err != nil {
-		t.Fatalf("Failed to deserialize LB Backend: %s", err)
-	}
-
-	for i := 1; i <= 5; i++ {
-		ip, err := lbt.dockerCli.GetContainerIP(ctx, fmt.Sprintf("app%d", i))
-		if err != nil {
-			t.Fatalf("Failed to retrieve container app%d IP: %s", i, err)
-		}
-		if ip == "" {
-			t.Fatalf("app%d does not have any IP addr", i)
-		}
-		lbt.backendIPs[i] = ip
-	}
-
-	backends[0].Spec.Backends[0].IP = lbt.backendIPs[1]
-	backends[0].Spec.Backends[1].IP = lbt.backendIPs[2]
-
-	backends[1].Spec.Backends[0].IP = lbt.backendIPs[1]
-	backends[1].Spec.Backends[1].IP = lbt.backendIPs[3]
-
-	backends[2].Spec.Backends[0].IP = lbt.backendIPs[2]
-	backends[2].Spec.Backends[1].IP = lbt.backendIPs[3]
-
-	backends[3].Spec.Backends[0].IP = lbt.backendIPs[2]
-	backends[3].Spec.Backends[1].IP = lbt.backendIPs[3]
-
-	backends[4].Spec.Backends[0].IP = lbt.backendIPs[2]
-	backends[4].Spec.Backends[1].IP = lbt.backendIPs[3]
-
-	backends[5].Spec.Backends[0].IP = lbt.backendIPs[4]
-
-	backends[6].Spec.Backends[0].IP = lbt.backendIPs[5]
-
-	for _, obj := range backends {
-		lbt.ciliumCli.DeleteLBBackend(ctx, defaultNamespace, obj.GetObjectMeta().GetName(), metav1.DeleteOptions{})
-
-		t.Logf("Creating LB Backend %s...", obj.GetObjectMeta().GetName())
-		if err := lbt.ciliumCli.CreateLBBackend(ctx, "default", obj, metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Failed to create LB Backend: %s", err)
-		}
-	}
-
-	// 4. Wait for LB VIPs
-
-	for i := 1; i <= len(services); i++ {
-		name := fmt.Sprintf("lb-%d", i)
-		t.Logf("Waiting for LB VIP %s...", name)
-		vip, err := lbt.ciliumCli.WaitForLBVIP(ctx, defaultNamespace, name)
-		if err != nil {
-			t.Fatalf("Failed to wait for LB VIP %s: %s", name, err)
-		}
-		lbt.vips[i] = vip
-	}
-
-}
-
-func (lbt *lbTests) testBasicLB(ctx context.Context, t *testing.T) {
-	// Basic connectivity to apps through LB
-	testCmds := []string{
-		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend.crt --resolve passthrough.acme.io:80:%s https://passthrough.acme.io:80/", lbt.vips[6])),
-		curlCmdVerbose(fmt.Sprintf("--cacert /tmp/tls-secure-backend2.crt --resolve passthrough-2.acme.io:80:%s https://passthrough-2.acme.io:80/", lbt.vips[6])),
-	}
-
-	for _, cmd := range testCmds {
-		stdout, stderr, err := lbt.dockerCli.clientExec(ctx, clientContainerName, cmd)
-		fmt.Println(stdout, stderr)
-		if err != nil {
-			t.Fatalf("Failed cmd: %s (stdout: %s, stderr: %s)", err, stdout, stderr)
-		}
-	}
-}
-
-func TestLB(t *testing.T) {
-	ctx := context.Background()
-
-	lbt := &lbTests{
-		ciliumCli:  suite.ciliumCli,
-		dockerCli:  suite.dockerCli,
-		vips:       map[int]string{}, // lb-${int} => ip
-		backendIPs: map[int]string{}, // app${int} => ip
-		t:          t,
-	}
-
-	lbt.installLBObjs(ctx, t)
-
-	lbt.testBasicLB(ctx, t)
-}
 
 type testSuite struct {
 	ciliumCli *ciliumCli

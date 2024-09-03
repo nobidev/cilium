@@ -198,13 +198,6 @@ jobs:
           kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
           cilium status --wait
 
-      - name: Install client and LB applications
-        shell: bash
-        run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
-
-          ./enterprise/test/ilb/install_client_n_apps.sh
-
       - name: Run tests
         shell: bash
         run: |
