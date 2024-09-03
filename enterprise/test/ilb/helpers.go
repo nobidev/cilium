@@ -150,23 +150,15 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	}
 }
 
-func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	pol := bgpPeeringPolicy(bgpPolicyName, clientIP)
-
+func (c *ciliumCli) ensureBGPPeeringPolicyAndBFD(ctx context.Context) error {
+	pol := bgpPeeringPolicy(bgpPolicyName)
 	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Create(ctx, pol, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create BGP peering policy (%s): %w", bgpPolicyName, err)
-		} else {
-			// Cilium's BGP does not allow us to create multiple peering policies targeting the same node.
-			// Hence, append the client to the neighbor list of the existing policy.
-			//
-			// Also, no need to create BFD profile, as it should exist from previous tests.
-			return c.appendBGPPeer(ctx, clientIP)
 		}
 	}
 
 	bfd := bfdProfile(bgpPolicyName)
-
 	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpPolicyName, err)
@@ -176,7 +168,19 @@ func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) 
 	return nil
 }
 
-func (c *ciliumCli) appendBGPPeer(ctx context.Context, clientIP string) error {
+func (c *ciliumCli) deleteBGPPeeringPolicyAndBFD(ctx context.Context) error {
+	if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpPolicyName, err)
+	}
+
+	if err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
 	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
@@ -205,19 +209,6 @@ func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string
 	}
 
 	neighbors := pol.Spec.VirtualRouters[0].Neighbors
-
-	// Only one neighbor, which is to-be deleted, exists, so we can entirely remove the policy.
-	if len(neighbors) == 1 {
-		if err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("failed to delete BGP peering policy (%s): %w", bgpPolicyName, err)
-		}
-
-		if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpPolicyName, err)
-		}
-
-		return nil
-	}
 
 	updatedNeighbors := []ciliumv2alpha1.CiliumBGPNeighbor{}
 	for _, neigh := range neighbors {

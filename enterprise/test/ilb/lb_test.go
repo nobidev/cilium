@@ -259,6 +259,14 @@ func TestMain(m *testing.M) {
 		return suite.ciliumCli.DeleteLBIPPool(context.Background(), lbIPPoolName, metav1.DeleteOptions{})
 	})
 
+	// Create CiliumBGPPeeringPolicy and BFD (each test case will append its peer to it)
+	if err := suite.ciliumCli.ensureBGPPeeringPolicyAndBFD(context.Background()); err != nil {
+		panic(fmt.Sprintf("Failed to install BGP peering: %s", err))
+	}
+	defer maybeCleanup(func() error {
+		return suite.ciliumCli.deleteBGPPeeringPolicyAndBFD(context.Background())
+	})
+
 	// Run tests
 
 	m.Run()

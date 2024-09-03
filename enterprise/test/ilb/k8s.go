@@ -123,7 +123,7 @@ func lbVIP(name, ipv4Requested string) *isovalentv1alpha1.LBVIP {
 	return obj
 }
 
-func bgpPeeringPolicy(name string, peerIPAddr string) *ciliumv2alpha1.CiliumBGPPeeringPolicy {
+func bgpPeeringPolicy(name string) *ciliumv2alpha1.CiliumBGPPeeringPolicy {
 	obj := &ciliumv2alpha1.CiliumBGPPeeringPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -147,11 +147,8 @@ func bgpPeeringPolicy(name string, peerIPAddr string) *ciliumv2alpha1.CiliumBGPP
 						},
 					},
 					Neighbors: []ciliumv2alpha1.CiliumBGPNeighbor{
-						{
-							PeerAddress:   peerIPAddr + "/32",
-							PeerASN:       64512,
-							BFDProfileRef: &name,
-						},
+						// Create a dummy neighbor until we switch to BGPv2
+						{PeerAddress: "0.0.0.0/0"},
 					},
 				},
 			},
