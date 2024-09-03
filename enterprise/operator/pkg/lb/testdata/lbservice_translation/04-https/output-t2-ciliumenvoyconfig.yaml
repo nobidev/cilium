@@ -216,11 +216,13 @@ spec:
                   socketAddress:
                     address: 172.18.0.5
                     portValue: 8080
+              loadBalancingWeight: 1
             - endpoint:
                 address:
                   socketAddress:
                     address: 172.18.0.6
                     portValue: 8080
+              loadBalancingWeight: 1
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_https_1
       endpoints:
@@ -230,8 +232,10 @@ spec:
                   socketAddress:
                     address: 172.18.0.7
                     portValue: 8080
+              loadBalancingWeight: 1
             - endpoint:
                 address:
                   socketAddress:
                     address: 172.18.0.8
                     portValue: 8080
+              loadBalancingWeight: 1

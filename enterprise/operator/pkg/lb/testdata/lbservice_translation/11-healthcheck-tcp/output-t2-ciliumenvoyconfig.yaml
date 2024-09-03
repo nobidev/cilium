@@ -122,8 +122,10 @@ spec:
                   socketAddress:
                     address: 172.18.0.5
                     portValue: 8080
+              loadBalancingWeight: 1
             - endpoint:
                 address:
                   socketAddress:
                     address: 172.18.0.6
                     portValue: 8080
+              loadBalancingWeight: 1

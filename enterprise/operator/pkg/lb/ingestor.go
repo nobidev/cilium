@@ -326,9 +326,15 @@ func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacken
 func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBackend {
 	ipBackends := []lbBackend{}
 	for _, ipAddress := range addresses {
+		weight := uint32(1)
+		if ipAddress.Weight != nil {
+			weight = *ipAddress.Weight
+		}
+
 		ipBackends = append(ipBackends, lbBackend{
 			address: ipAddress.IP,
 			port:    uint32(ipAddress.Port),
+			weight:  weight,
 		})
 	}
 

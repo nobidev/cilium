@@ -386,6 +386,13 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 	if in.Port != other.Port {
 		return false
 	}
+	if (in.Weight == nil) != (other.Weight == nil) {
+		return false
+	} else if in.Weight != nil {
+		if *in.Weight != *other.Weight {
+			return false
+		}
+	}
 
 	return true
 }

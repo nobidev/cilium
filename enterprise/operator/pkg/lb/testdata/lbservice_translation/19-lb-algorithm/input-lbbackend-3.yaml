@@ -9,6 +9,7 @@ spec:
       port: 8080
     - ip: 172.18.0.8
       port: 8080
+      weight: 4
   healthCheck:
     intervalSeconds: 20
     timeoutSeconds: 5

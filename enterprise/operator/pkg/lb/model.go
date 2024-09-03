@@ -189,6 +189,7 @@ type backend struct {
 type lbBackend struct {
 	address string
 	port    uint32
+	weight  uint32
 }
 
 type lbBackendLBAlgorithm struct {

@@ -514,12 +514,24 @@ type Backend struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=ip
 	IP string `json:"ip"`
+
 	// The port that the backend listens on.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
+
+	// The weight of that backend. Used by loadbalancing algorithms.
+	//
+	// The weight for a backend is divided by the sum
+	// of the weights of all backends in the backendpool
+	// to produce a percentage of traffic for the backend.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4294967295
+	Weight *uint32 `json:"weight,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))"

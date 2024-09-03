@@ -1026,6 +1026,7 @@ func (r *lbServiceReconciler) desiredEnvoyEndpoint(name string, b backend) *envo
 
 	for _, ipBackends := range b.ips {
 		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
+			LoadBalancingWeight: wrapperspb.UInt32(ipBackends.weight),
 			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
 				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
 					Address:       ipBackends.address,

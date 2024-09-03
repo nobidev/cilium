@@ -61,6 +61,15 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    weight:
+                      description: "The weight of that backend. Used by loadbalancing
+                        algorithms. \n The weight for a backend is divided by the
+                        sum of the weights of all backends in the backendpool to produce
+                        a percentage of traffic for the backend."
+                      format: int32
+                      maximum: 4294967295
+                      minimum: 1
+                      type: integer
                   required:
                   - ip
                   - port
