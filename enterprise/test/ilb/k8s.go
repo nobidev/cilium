@@ -60,7 +60,7 @@ func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, cf
 	return obj
 }
 
-func lbServiceApplicationsHTTP(backendRef, hostName string) isovalentv1alpha1.LBServiceApplications {
+func lbServiceApplicationsHTTP(backendRef, hostName, path string) isovalentv1alpha1.LBServiceApplications {
 	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
@@ -77,6 +77,11 @@ func lbServiceApplicationsHTTP(backendRef, hostName string) isovalentv1alpha1.LB
 			HostNames: []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostName)},
 		}
 
+		if path != "" {
+			obj.HTTPProxy.Routes[0].Match.Path = &isovalentv1alpha1.LBServiceHTTPPath{
+				Exact: &path,
+			}
+		}
 	}
 
 	return obj
