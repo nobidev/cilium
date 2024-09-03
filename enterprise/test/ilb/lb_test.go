@@ -429,7 +429,7 @@ func TestHTTPSConnectivity(t *testing.T) {
 	}
 }
 
-func TestHTTPConnectivity(t *testing.T) {
+func TestHTTPConnectivityAndT2HealthChecks(t *testing.T) {
 	ctx := context.Background()
 	name := "http-1"
 	ns := "default"
