@@ -32,6 +32,14 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
+func lbServiceApplicationsTLSPassthrough(routes []isovalentv1alpha1.LBServiceTLSPassthroughRoute) isovalentv1alpha1.LBServiceApplications {
+	return isovalentv1alpha1.LBServiceApplications{
+		TLSPassthrough: &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{
+			Routes: routes,
+		},
+	}
+}
+
 func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, cfg *isovalentv1alpha1.LBServiceHTTPConfig) isovalentv1alpha1.LBServiceApplications {
 	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
