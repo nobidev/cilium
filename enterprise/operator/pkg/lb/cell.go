@@ -90,7 +90,7 @@ func registerReconcilers(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	lbServiceReconciler := newLbServiceReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{},
+	lbServiceReconciler := newLbServiceReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{logger: params.Logger},
 		reconcilerConfig{
 			SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
 			ServerName:       params.Config.LoadBalancerCPHTTPServerName,

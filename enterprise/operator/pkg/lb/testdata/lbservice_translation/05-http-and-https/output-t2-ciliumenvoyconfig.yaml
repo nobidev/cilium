@@ -177,6 +177,7 @@ spec:
           explicitHttpConfig:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -203,6 +204,7 @@ spec:
           explicitHttpConfig:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_http_0
       endpoints:

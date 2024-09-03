@@ -848,7 +848,7 @@ func (r *lbServiceReconciler) desiredEnvoyClusters(model *lbService) []*envoy_co
 }
 
 func (r *lbServiceReconciler) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
-	return &envoy_config_cluster_v3.Cluster{
+	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
 			Type: envoy_config_cluster_v3.Cluster_EDS,
@@ -860,13 +860,44 @@ func (r *lbServiceReconciler) desiredEnvoyCluster(name string, b backend, transp
 		ConnectTimeout:         &durationpb.Duration{Seconds: 5}, // default
 		TransportSocketMatches: transportSocketMatches,
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
-		LbPolicy:               mapLbPolicy(b.lbAlgorithm),
+		LbPolicy:               mapLbPolicy(b.lbAlgorithm.algorithm),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		TransportSocket:               r.toTLSTransportSocket(b.tlsConfig),
 		IgnoreHealthOnHostRemoval:     true,
+	}
+
+	switch cluster.LbPolicy {
+	case envoy_config_cluster_v3.Cluster_ROUND_ROBIN:
+		cluster.LbConfig = r.toLbConfigRoundRobin()
+	case envoy_config_cluster_v3.Cluster_LEAST_REQUEST:
+		cluster.LbConfig = r.toLbConfigLeastRequest()
+	case envoy_config_cluster_v3.Cluster_MAGLEV:
+		cluster.LbConfig = r.toLbConfigMaglev(b.lbAlgorithm)
+	}
+
+	return cluster
+}
+
+func (r *lbServiceReconciler) toLbConfigRoundRobin() *envoy_config_cluster_v3.Cluster_RoundRobinLbConfig_ {
+	return &envoy_config_cluster_v3.Cluster_RoundRobinLbConfig_{
+		RoundRobinLbConfig: &envoy_config_cluster_v3.Cluster_RoundRobinLbConfig{},
+	}
+}
+
+func (r *lbServiceReconciler) toLbConfigLeastRequest() *envoy_config_cluster_v3.Cluster_LeastRequestLbConfig_ {
+	return &envoy_config_cluster_v3.Cluster_LeastRequestLbConfig_{
+		LeastRequestLbConfig: &envoy_config_cluster_v3.Cluster_LeastRequestLbConfig{},
+	}
+}
+
+func (r *lbServiceReconciler) toLbConfigMaglev(algorithmConfig lbBackendLBAlgorithm) *envoy_config_cluster_v3.Cluster_MaglevLbConfig_ {
+	return &envoy_config_cluster_v3.Cluster_MaglevLbConfig_{
+		MaglevLbConfig: &envoy_config_cluster_v3.Cluster_MaglevLbConfig{
+			TableSize: wrapperspb.UInt64(uint64(algorithmConfig.consistentHashing.maglevTableSize)),
+		},
 	}
 }
 
@@ -1034,6 +1065,10 @@ func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_Lb
 	switch lbAlgorithm {
 	case lbAlgorithmRoundRobin:
 		return envoy_config_cluster_v3.Cluster_ROUND_ROBIN
+	case lbAlgorithmLeastRequest:
+		return envoy_config_cluster_v3.Cluster_LEAST_REQUEST
+	case lbAlgorithmConsistentHashing:
+		return envoy_config_cluster_v3.Cluster_MAGLEV
 	default:
 		return envoy_config_cluster_v3.Cluster_ROUND_ROBIN
 	}

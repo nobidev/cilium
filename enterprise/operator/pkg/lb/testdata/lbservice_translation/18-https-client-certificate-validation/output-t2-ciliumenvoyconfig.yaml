@@ -163,6 +163,7 @@ spec:
       ignoreHealthOnHostRemoval: true
       name: backend_cluster_https_0
       perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
       transportSocket:
         name: envoy.transport_sockets.tls
         typedConfig:

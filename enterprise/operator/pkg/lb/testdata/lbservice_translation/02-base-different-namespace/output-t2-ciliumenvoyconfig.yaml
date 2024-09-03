@@ -107,6 +107,7 @@ spec:
           unhealthyThreshold: 1
       name: backend_cluster_http_0
       perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:

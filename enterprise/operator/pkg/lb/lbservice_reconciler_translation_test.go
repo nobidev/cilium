@@ -12,10 +12,12 @@ package lb
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -97,7 +99,9 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
-		ing := &ingestor{}
+		logger := logrus.New()
+		logger.SetOutput(io.Discard)
+		ing := &ingestor{logger: logger}
 
 		model, err := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService)
 		require.NoError(t, err)

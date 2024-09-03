@@ -180,7 +180,7 @@ type lbRouteTLSPassthroughMatch struct {
 type backend struct {
 	ips               []lbBackend
 	hostnames         []lbBackend
-	lbAlgorithm       lbAlgorithmType
+	lbAlgorithm       lbBackendLBAlgorithm
 	healthCheckConfig lbBackendHealthCheckConfig
 	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
@@ -191,10 +191,21 @@ type lbBackend struct {
 	port    uint32
 }
 
+type lbBackendLBAlgorithm struct {
+	algorithm         lbAlgorithmType
+	consistentHashing *lbBackendLBAlgorithmConsistentHashing
+}
+
+type lbBackendLBAlgorithmConsistentHashing struct {
+	maglevTableSize uint32
+}
+
 type lbAlgorithmType int
 
 const (
 	lbAlgorithmRoundRobin lbAlgorithmType = iota
+	lbAlgorithmLeastRequest
+	lbAlgorithmConsistentHashing
 )
 
 type lbBackendHealthCheckConfig struct {

@@ -136,6 +136,63 @@ spec:
                     description: Setting this to true enables HTTP/1.1.
                     type: boolean
                 type: object
+              loadbalancing:
+                description: The pool-wide loadbalancing configuration.
+                properties:
+                  algorithm:
+                    description: LB algorithm configuration.
+                    properties:
+                      consistentHashing:
+                        description: The consistent hashing algorithm configuration.
+                          Exactly one of roundRobin, leastRequest or consistentHashing
+                          must be specified.
+                        properties:
+                          algorithm:
+                            description: Consistent hashing algorithm configuration.
+                            properties:
+                              maglev:
+                                description: The maglev configuration.
+                                properties:
+                                  tableSize:
+                                    description: The table size for Maglev hashing.
+                                      Maglev aims for "minimal disruption" rather
+                                      than an absolute guarantee. Minimal disruption
+                                      means that when the set of upstream hosts change,
+                                      a connection will likely be sent to the same
+                                      upstream as it was before. Increasing the table
+                                      size reduces the amount of disruption. The table
+                                      size must be prime number limited to 5000011.
+                                      If it is not specified, the default is 65537.
+                                    format: int32
+                                    maximum: 5000011
+                                    minimum: 1
+                                    type: integer
+                                type: object
+                            required:
+                            - maglev
+                            type: object
+                        type: object
+                      leastRequest:
+                        description: The least request algorithm configuration. Exactly
+                          one of roundRobin, leastRequest or consistentHashing must
+                          be specified.
+                        type: object
+                      roundRobin:
+                        description: The round robin algorithm configuration. Exactly
+                          one of roundRobin, leastRequest or consistentHashing must
+                          be specified.
+                        type: object
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Exactly one algorithm (RoundRobin, LeastRequest or
+                        ConsistentHashing) must be specified
+                      rule: (has(self.roundRobin) || has(self.leastRequest) || has(self.consistentHashing))
+                        && !(has(self.roundRobin) && has(self.leastRequest)) && !(has(self.roundRobin)
+                        && has(self.consistentHashing)) && !(has(self.leastRequest)
+                        && has(self.consistentHashing))
+                required:
+                - algorithm
+                type: object
               tlsConfig:
                 description: The pool-wide TLS configuration.
                 properties:

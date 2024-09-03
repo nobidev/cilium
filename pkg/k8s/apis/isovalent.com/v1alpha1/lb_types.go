@@ -453,6 +453,11 @@ type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Required
 	HealthCheck HealthCheck `json:"healthCheck"`
 
+	// The pool-wide loadbalancing configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Loadbalancing *Loadbalancing `json:"loadbalancing,omitempty"`
+
 	// The pool-wide TLS configuration.
 	//
 	// +kubebuilder:validation:Optional
@@ -581,6 +586,61 @@ type HealthCheckHTTP struct {
 }
 
 type HealthCheckTCP struct{}
+
+type Loadbalancing struct {
+	// LB algorithm configuration.
+	//
+	// +kubebuilder:validation:Required
+	Algorithm LoadbalancingAlgorithm `json:"algorithm"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one algorithm (RoundRobin, LeastRequest or ConsistentHashing) must be specified",rule="(has(self.roundRobin) || has(self.leastRequest) || has(self.consistentHashing)) && !(has(self.roundRobin) && has(self.leastRequest)) && !(has(self.roundRobin) && has(self.consistentHashing)) && !(has(self.leastRequest) && has(self.consistentHashing))"
+type LoadbalancingAlgorithm struct {
+	// The round robin algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
+	//
+	// +kubebuilder:validation:Optional
+	RoundRobin *LoadbalancingAlgorithmRoundRobin `json:"roundRobin,omitempty"`
+
+	// The least request algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
+	//
+	// +kubebuilder:validation:Optional
+	LeastRequest *LoadbalancingAlgorithmLeastRequest `json:"leastRequest,omitempty"`
+
+	// The consistent hashing algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
+	//
+	// +kubebuilder:validation:Optional
+	ConsistentHashing *LoadbalancingAlgorithmConsistentHashing `json:"consistentHashing,omitempty"`
+}
+
+type LoadbalancingAlgorithmRoundRobin struct{}
+
+type LoadbalancingAlgorithmLeastRequest struct{}
+
+type LoadbalancingAlgorithmConsistentHashing struct {
+	// Consistent hashing algorithm configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Algorithm *LoadbalancingConsistentHashingAlgorithm `json:"algorithm,omitempty"`
+}
+
+type LoadbalancingConsistentHashingAlgorithm struct {
+	// The maglev configuration.
+	//
+	// +kubebuilder:validation:Required
+	Maglev LoadbalancingConsistentHashingAlgorithmMaglev `json:"maglev"`
+}
+
+type LoadbalancingConsistentHashingAlgorithmMaglev struct {
+	// The table size for Maglev hashing. Maglev aims for "minimal disruption" rather than an absolute guarantee.
+	// Minimal disruption means that when the set of upstream hosts change, a connection will likely be sent to the same
+	// upstream as it was before. Increasing the table size reduces the amount of disruption.
+	// The table size must be prime number limited to 5000011. If it is not specified, the default is 65537.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=5000011
+	TableSize *uint32 `json:"tableSize"`
+}
 
 type LBBackendPoolStatus struct{}
 
