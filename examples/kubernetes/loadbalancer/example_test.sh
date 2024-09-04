@@ -18,6 +18,7 @@ while :; do
   VIP_LB7=$(kubectl -n default get lbvip lb-7 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB8=$(kubectl -n default get lbvip lb-8 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB9=$(kubectl -n default get lbvip lb-9 -ojson | jq -r '.status.addresses.ipv4')
+  VIP_LB10=$(kubectl -n default get lbvip lb-10 -ojson | jq -r '.status.addresses.ipv4')
 
   if [ "${VIP_LB1}" != "" ] &&
     [ "${VIP_LB2}" != "" ] &&
@@ -27,7 +28,8 @@ while :; do
     [ "${VIP_LB6}" != "" ] &&
     [ "${VIP_LB7}" != "" ] &&
     [ "${VIP_LB8}" != "" ] &&
-    [ "${VIP_LB9}" != "" ]; then
+    [ "${VIP_LB9}" != "" ] &&
+    [ "${VIP_LB10}" != "" ]; then
     break
   fi
 
@@ -64,7 +66,8 @@ until [ $(route_exists $VIP_LB1) == "true" ] &&
   [ $(route_exists $VIP_LB6) == "true" ] &&
   [ $(route_exists $VIP_LB7) == "true" ] &&
   [ $(route_exists $VIP_LB8) == "true" ] &&
-  [ $(route_exists $VIP_LB9) == "true" ]; do
+  [ $(route_exists $VIP_LB9) == "true" ] &&
+  [ $(route_exists $VIP_LB10) == "true" ]; do
   echo -n "."
   sleep 1
 done
@@ -85,6 +88,8 @@ docker exec frr bash -c "echo -n 'HTTPS H2 UNDERSCORE   service1: ' && errMsg=\$
 docker exec frr bash -c "echo -n 'HTTP  UNDERSCORE      service2: ' && httpCode=\$(curl -s --fail --resolve insecure.acme.io:80:${VIP_LB2} -H \"X_INVALID: foo\" -w '%{http_code}' http://insecure.acme.io:80/api/foo-insecure) || echo Code \$httpCode && if [ \$httpCode != '400' ]; then exit 1; fi"
 docker exec frr bash -c "echo -n 'HTTPS H2              service7: ' && httpVersion=\$(curl -s --fail -o/dev/null -w '%{http_version}' --cacert /tmp/tls-secure-http2.crt --resolve secure-http2.acme.io:443:${VIP_LB7} https://secure-http2.acme.io:443/) && echo Version \$httpVersion && if [ \$httpVersion != '2' ]; then exit 1; fi"
 docker exec frr bash -c "echo -n 'HTTPS RE              service8: ' && curl -s --fail --cacert /tmp/tls-secure-backend3.crt --resolve secure-backend.acme.io:443:${VIP_LB8} https://secure-backend.acme.io:443/"
+docker exec frr bash -c "echo -n 'TLS Proxy (TLS BE)    service10: ' && curl -s --fail --cacert /tmp/tls-secure-backend3.crt --resolve secure-backend.acme.io:10443:${VIP_LB10} https://secure-backend.acme.io:10443/api/foo"
+docker exec frr bash -c "echo -n 'TLS Proxy (TCP BE)    service11: ' && curl -s --fail --cacert /tmp/tls-secure.crt --resolve secure.acme.io:10080:${VIP_LB10} https://secure.acme.io:10080/api/foo"
 
 echo "Making lb-9 unhealthy"
 

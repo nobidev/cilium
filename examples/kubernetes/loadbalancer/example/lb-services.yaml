@@ -192,3 +192,47 @@ spec:
               - "insecure.acme.io"
           backendRef:
             name: lb-9
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-10
+spec:
+  vipRef:
+    name: lb-10
+  port: 10443
+  applications:
+    tlsProxy:
+      tlsConfig:
+        certificates:
+          - secretRef:
+              name: "test-secure-backend"
+      routes:
+        - match:
+            hostNames:
+              - "secure-backend.acme.io"
+          backendRef:
+            name: lb-8
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-11
+spec:
+  vipRef:
+    name: lb-10
+  port: 10080
+  applications:
+    tlsProxy:
+      tlsConfig:
+        certificates:
+          - secretRef:
+              name: "test-secure"
+      routes:
+        - match:
+            hostNames:
+              - "secure.acme.io"
+          backendRef:
+            name: lb-9

@@ -55,3 +55,10 @@ metadata:
   namespace: default
   name: lb-9
 spec: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-10
+spec: {}
