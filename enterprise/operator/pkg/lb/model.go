@@ -73,6 +73,7 @@ type lbApplications struct {
 	httpProxy      *lbApplicationHTTPProxy
 	httpsProxy     *lbApplicationHTTPSProxy
 	tlsPassthrough *lbApplicationTLSPassthrough
+	tlsProxy       *lbApplicationTLSProxy
 }
 
 func (r lbApplications) isHTTPProxyConfigured() bool {
@@ -88,6 +89,10 @@ func (r lbApplications) isHTTPSProxyConfigured() bool {
 
 func (r lbApplications) isTLSPassthroughConfigured() bool {
 	return r.tlsPassthrough != nil
+}
+
+func (r lbApplications) isTLSProxyConfigured() bool {
+	return r.tlsProxy != nil
 }
 
 func (r lbApplications) getHTTPProxyRoutes() []lbRouteHTTP {
@@ -112,6 +117,14 @@ func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
 	}
 
 	return r.tlsPassthrough.routes
+}
+
+func (r lbApplications) getTLSProxyRoutes() []lbRouteTLSProxy {
+	if r.tlsProxy == nil {
+		return nil
+	}
+
+	return r.tlsProxy.routes
 }
 
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
@@ -143,6 +156,11 @@ type lbApplicationHTTPSProxy struct {
 
 type lbApplicationTLSPassthrough struct {
 	routes []lbRouteTLSPassthrough
+}
+
+type lbApplicationTLSProxy struct {
+	tlsConfig *lbServiceTLSConfig
+	routes    []lbRouteTLSProxy
 }
 
 type lbRouteHTTP struct {
@@ -188,6 +206,15 @@ type lbRouteTLSPassthroughMatch struct {
 
 type lbRouteTLSPassthroughPersistentBackend struct {
 	SourceIP bool
+}
+
+type lbRouteTLSProxy struct {
+	match   lbRouteTLSProxyMatch
+	backend backend
+}
+
+type lbRouteTLSProxyMatch struct {
+	hostNames []string
 }
 
 type backend struct {

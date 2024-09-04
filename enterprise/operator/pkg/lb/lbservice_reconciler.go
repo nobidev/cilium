@@ -493,6 +493,11 @@ func allBackendNames(lbService *isovalentv1alpha1.LBService) []string {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
+	if lbService.Spec.Applications.TLSProxy != nil {
+		for _, lr := range lbService.Spec.Applications.TLSProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
 	slices.Sort(backends)
 	return slices.Compact(backends)
 }
@@ -506,16 +511,29 @@ func tlsSecretIndexerFunc(rawObj client.Object) []string {
 
 func allReferencedSecretNames(lbService *isovalentv1alpha1.LBService) []string {
 	secretNames := []string{}
-	if lbService.Spec.Applications.HTTPSProxy == nil || lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
-		return secretNames
+
+	if lbService.Spec.Applications.HTTPSProxy != nil {
+		if lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
+			return secretNames
+		}
+		for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+			secretNames = append(secretNames, c.SecretRef.Name)
+		}
+		if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+			secretNames = append(secretNames, lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+		}
 	}
 
-	for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
-		secretNames = append(secretNames, c.SecretRef.Name)
-	}
-
-	if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-		secretNames = append(secretNames, lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+	if lbService.Spec.Applications.TLSProxy != nil {
+		if lbService.Spec.Applications.TLSProxy.TLSConfig == nil {
+			return secretNames
+		}
+		for _, c := range lbService.Spec.Applications.TLSProxy.TLSConfig.Certificates {
+			secretNames = append(secretNames, c.SecretRef.Name)
+		}
+		if lbService.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
+			secretNames = append(secretNames, lbService.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
+		}
 	}
 
 	slices.Sort(secretNames)

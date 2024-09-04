@@ -101,6 +101,12 @@ func getHealthCheckIntervalSeconds(model *lbService) int {
 		}
 	}
 
+	for _, r := range model.applications.getTLSProxyRoutes() {
+		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
+			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
+		}
+	}
+
 	hcInterval := shortestInterval
 	if shortestInterval > 1 {
 		// Use half of shortest interval as health check interval

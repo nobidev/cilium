@@ -64,49 +64,45 @@ func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig)
 	}
 }
 
-func (*ingestor) toTLSConfig(lbsvc *isovalentv1alpha1.LBService) *lbServiceTLSConfig {
-	if lbsvc.Spec.Applications.HTTPSProxy == nil || lbsvc.Spec.Applications.HTTPSProxy.TLSConfig == nil {
-		return nil
-	}
-
+func (*ingestor) toTLSConfig(tlsConfig *isovalentv1alpha1.LBServiceTLSConfig) *lbServiceTLSConfig {
 	certificateSecretNames := []string{}
-	for _, c := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+	for _, c := range tlsConfig.Certificates {
 		certificateSecretNames = append(certificateSecretNames, c.SecretRef.Name)
 	}
 
 	validationContextSecret := ""
 	validationContextSubjectAlternativeNames := []string{}
 
-	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-		validationContextSecret = lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name
+	if tlsConfig.Validation != nil {
+		validationContextSecret = tlsConfig.Validation.SecretRef.Name
 
-		for _, san := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SubjectAlternativeNames {
+		for _, san := range tlsConfig.Validation.SubjectAlternativeNames {
 			validationContextSubjectAlternativeNames = append(validationContextSubjectAlternativeNames, san.Exact)
 		}
 	}
 
 	minTLSVersion := ""
-	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion != nil {
-		minTLSVersion = string(*lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MinTLSVersion)
+	if tlsConfig.MinTLSVersion != nil {
+		minTLSVersion = string(*tlsConfig.MinTLSVersion)
 	}
 
 	maxTLSVersion := ""
-	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion != nil {
-		maxTLSVersion = string(*lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.MaxTLSVersion)
+	if tlsConfig.MaxTLSVersion != nil {
+		maxTLSVersion = string(*tlsConfig.MaxTLSVersion)
 	}
 
 	allowedCipherSuites := []string{}
-	for _, cs := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedCipherSuites {
+	for _, cs := range tlsConfig.AllowedCipherSuites {
 		allowedCipherSuites = append(allowedCipherSuites, string(cs))
 	}
 
 	allowedECDHCurves := []string{}
-	for _, ec := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedECDHCurves {
+	for _, ec := range tlsConfig.AllowedECDHCurves {
 		allowedECDHCurves = append(allowedECDHCurves, string(ec))
 	}
 
 	allowedSignatureAlgorithms := []string{}
-	for _, sa := range lbsvc.Spec.Applications.HTTPSProxy.TLSConfig.AllowedSignatureAlgorithms {
+	for _, sa := range tlsConfig.AllowedSignatureAlgorithms {
 		allowedSignatureAlgorithms = append(allowedSignatureAlgorithms, string(sa))
 	}
 
@@ -129,6 +125,7 @@ func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, backends [
 		httpProxy:      r.toApplicationHTTP(lbsvc, backends),
 		httpsProxy:     r.toApplicationHTTPS(lbsvc, backends),
 		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, backends),
+		tlsProxy:       r.toApplicationTLSProxy(lbsvc, backends),
 	}, nil
 }
 
@@ -234,9 +231,14 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 		})
 	}
 
+	var tlsConfig *lbServiceTLSConfig
+	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig != nil {
+		tlsConfig = r.toTLSConfig(lbsvc.Spec.Applications.HTTPSProxy.TLSConfig)
+	}
+
 	return &lbApplicationHTTPSProxy{
 		httpConfig: r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
-		tlsConfig:  r.toTLSConfig(lbsvc),
+		tlsConfig:  tlsConfig,
 		routes:     routes,
 	}
 }
@@ -304,6 +306,60 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 
 	return &lbApplicationTLSPassthrough{
 		routes: routes,
+	}
+}
+
+func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSProxy {
+	app := lbsvc.Spec.Applications.TLSProxy
+	if app == nil {
+		return nil
+	}
+
+	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
+	for _, b := range backends {
+		backendIndex[b.Name] = b
+	}
+
+	routes := []lbRouteTLSProxy{}
+	for _, lr := range app.Routes {
+		routeBackend, ok := backendIndex[lr.BackendRef.Name]
+		if !ok {
+			// backend not present yet
+			continue
+		}
+
+		routes = append(routes, lbRouteTLSProxy{
+			match: lbRouteTLSProxyMatch{
+				hostNames: r.toTLSProxyHostNames(lr.Match),
+			},
+			backend: backend{
+				ips:         r.toIPBackends(routeBackend.Spec.Backends),
+				hostnames:   []lbBackend{},
+				lbAlgorithm: r.toLBBackendAlgorithm(client.ObjectKeyFromObject(lbsvc), client.ObjectKeyFromObject(routeBackend), routeBackend.Spec.Loadbalancing),
+				healthCheckConfig: lbBackendHealthCheckConfig{
+					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
+					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
+					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
+					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
+					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
+					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
+				},
+				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
+				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
+			},
+		})
+	}
+
+	var tlsConfig *lbServiceTLSConfig
+	if app.TLSConfig != nil {
+		tlsConfig = r.toTLSConfig(app.TLSConfig)
+	}
+
+	return &lbApplicationTLSProxy{
+		tlsConfig: tlsConfig,
+		routes:    routes,
 	}
 }
 
@@ -393,6 +449,19 @@ func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBServiceHTTPRouteMa
 }
 
 func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBServiceTLSPassthroughRouteMatch) []string {
+	if match == nil || len(match.HostNames) == 0 {
+		return []string{"*"}
+	}
+
+	hostNames := []string{}
+	for _, h := range match.HostNames {
+		hostNames = append(hostNames, string(h))
+	}
+
+	return hostNames
+}
+
+func (r *ingestor) toTLSProxyHostNames(match *isovalentv1alpha1.LBServiceTLSRouteMatch) []string {
 	if match == nil || len(match.HostNames) == 0 {
 		return []string{"*"}
 	}
