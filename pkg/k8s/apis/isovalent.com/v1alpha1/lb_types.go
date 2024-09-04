@@ -676,7 +676,23 @@ type Backend struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4294967295
 	Weight *uint32 `json:"weight,omitempty"`
+
+	// The status of that backend.
+	//
+	// If not defined, active health checking is used to determione the
+	// status of the backend.
+	//
+	// +kubebuilder:validation:Optional
+	Status *BackendStatus `json:"status,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=Draining
+type BackendStatus string
+
+const (
+	// Connection draining in progress. Existing connections remain open until terminated
+	BackendStatusDraining BackendStatus = "Draining"
+)
 
 // +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))"
 type HealthCheck struct {

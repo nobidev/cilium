@@ -1117,6 +1117,7 @@ func (r *lbServiceReconciler) desiredEnvoyEndpoint(name string, b backend) *envo
 	for _, ipBackends := range b.ips {
 		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
 			LoadBalancingWeight: wrapperspb.UInt32(ipBackends.weight),
+			HealthStatus:        r.toHealthStatus(ipBackends.status),
 			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
 				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
 					Address:       ipBackends.address,
@@ -1133,6 +1134,15 @@ func (r *lbServiceReconciler) desiredEnvoyEndpoint(name string, b backend) *envo
 				LbEndpoints: lbEndpoints,
 			},
 		},
+	}
+}
+
+func (r *lbServiceReconciler) toHealthStatus(status lbBackendStatus) envoy_corev3.HealthStatus {
+	switch status {
+	case lbBackendStatusDraining:
+		return envoy_corev3.HealthStatus_DRAINING
+	default:
+		return envoy_corev3.HealthStatus_UNKNOWN
 	}
 }
 

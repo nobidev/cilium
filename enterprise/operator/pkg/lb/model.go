@@ -232,7 +232,15 @@ type lbBackend struct {
 	address string
 	port    uint32
 	weight  uint32
+	status  lbBackendStatus
 }
+
+type lbBackendStatus int
+
+const (
+	lbBackendStatusHealthChecking lbBackendStatus = iota
+	lbBackendStatusDraining
+)
 
 type lbBackendLBAlgorithm struct {
 	algorithm         lbAlgorithmType

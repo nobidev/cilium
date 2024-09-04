@@ -395,10 +395,16 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBacke
 			weight = *ipAddress.Weight
 		}
 
+		status := lbBackendStatusHealthChecking
+		if ipAddress.Status != nil && *ipAddress.Status == isovalentv1alpha1.BackendStatusDraining {
+			status = lbBackendStatusDraining
+		}
+
 		ipBackends = append(ipBackends, lbBackend{
 			address: ipAddress.IP,
 			port:    uint32(ipAddress.Port),
 			weight:  weight,
+			status:  status,
 		})
 	}
 

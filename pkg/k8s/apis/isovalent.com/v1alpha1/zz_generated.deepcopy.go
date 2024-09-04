@@ -327,6 +327,11 @@ func (in *Backend) DeepCopyInto(out *Backend) {
 		*out = new(uint32)
 		**out = **in
 	}
+	if in.Status != nil {
+		in, out := &in.Status, &out.Status
+		*out = new(BackendStatus)
+		**out = **in
+	}
 	return
 }
 

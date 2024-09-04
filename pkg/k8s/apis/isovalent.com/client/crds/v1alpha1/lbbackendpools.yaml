@@ -61,6 +61,13 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    status:
+                      description: "The status of that backend. \n If not defined,
+                        active health checking is used to determione the status of
+                        the backend."
+                      enum:
+                      - Draining
+                      type: string
                     weight:
                       description: |-
                         The weight of that backend. Used by loadbalancing algorithms.

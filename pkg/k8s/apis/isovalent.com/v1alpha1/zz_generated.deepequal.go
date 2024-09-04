@@ -394,6 +394,14 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 		}
 	}
 
+	if (in.Status == nil) != (other.Status == nil) {
+		return false
+	} else if in.Status != nil {
+		if *in.Status != *other.Status {
+			return false
+		}
+	}
+
 	return true
 }
 
