@@ -39,25 +39,12 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 		}
 
 		var reqs []reconcile.Request
-		if lbService.Spec.Applications.HTTPSProxy == nil || lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
-			return reqs
-		}
 
-		// TLS certificates secrets
-		for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+		allReferencedSecretNames := allReferencedSecretNames(lbService)
+		for _, secretName := range allReferencedSecretNames {
 			s := types.NamespacedName{
 				Namespace: lbService.Namespace,
-				Name:      c.SecretRef.Name,
-			}
-			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")
-		}
-
-		// TLS validation secret
-		if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-			s := types.NamespacedName{
-				Namespace: lbService.Namespace,
-				Name:      lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name,
+				Name:      secretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
 			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")

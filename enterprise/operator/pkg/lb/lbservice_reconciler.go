@@ -360,11 +360,11 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 }
 
 func (r *lbServiceReconciler) getMissingTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]string, error) {
-	allSecretNames := allSecretNames(lbsvc)
+	allReferencedSecretNames := allReferencedSecretNames(lbsvc)
 
 	missingSecrets := []string{}
 
-	for _, secretName := range allSecretNames {
+	for _, secretName := range allReferencedSecretNames {
 		s := &corev1.Secret{}
 		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: secretName}, s); err != nil {
 			if !k8serrors.IsNotFound(err) {
@@ -496,13 +496,13 @@ func allBackendNames(lbService *isovalentv1alpha1.LBService) []string {
 }
 
 func tlsSecretIndexerFunc(rawObj client.Object) []string {
-	// Extract the TLS secret references
 	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
-	return allSecretNames(lbService)
+	// Extract the TLS secret references
+	return allReferencedSecretNames(lbService)
 }
 
-func allSecretNames(lbService *isovalentv1alpha1.LBService) []string {
+func allReferencedSecretNames(lbService *isovalentv1alpha1.LBService) []string {
 	secretNames := []string{}
 	if lbService.Spec.Applications.HTTPSProxy == nil || lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
 		return secretNames
