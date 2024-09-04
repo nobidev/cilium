@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	clientContainerName = "frr"
-
 	containerNetwork = "kind-cilium"
 
 	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4"
@@ -428,7 +426,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	defer cancel()
 
 	for {
-		_, _, err := suite.dockerCli.clientExec(ctx, clientContainerName, testCmd)
+		_, _, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
 		if err == nil {
 			break
 		}
