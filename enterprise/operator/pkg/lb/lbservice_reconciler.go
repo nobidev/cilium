@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -204,7 +205,8 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 			Debug("Some referenced LBBackends don't exist")
 	}
 
-	r.updateBackendsInStatus(lbsvc, missingBackends)
+	r.updateBackendExistenceInStatus(lbsvc, missingBackends)
+	r.updateBackendCompatibilityInStatus(lbsvc, backends)
 
 	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
 	missingSecrets, err := r.getMissingTLSSecrets(ctx, lbsvc)
@@ -619,7 +621,7 @@ func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService
 	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
 }
 
-func (*lbServiceReconciler) updateBackendsInStatus(lbsvc *isovalentv1alpha1.LBService, missingBackends []string) {
+func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingBackends []string) {
 	backendsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeBackendsExist,
 		Status:             metav1.ConditionTrue,
@@ -636,6 +638,60 @@ func (*lbServiceReconciler) updateBackendsInStatus(lbsvc *isovalentv1alpha1.LBSe
 	}
 
 	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+}
+
+func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
+	backendsCompatibleCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeBackendsCompatible,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.BackendsCompatibleConditionReasonAllBackendsCompatible,
+		Message:            "All referenced backends are compatible",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	backendsUsedForPersistentBackend := map[string]struct{}{}
+
+	switch {
+	case lbsvc.Spec.Applications.HTTPProxy != nil:
+		for _, r := range lbsvc.Spec.Applications.HTTPProxy.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
+	case lbsvc.Spec.Applications.HTTPSProxy != nil:
+		for _, r := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
+	case lbsvc.Spec.Applications.TLSPassthrough != nil:
+		for _, r := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
+	}
+
+	hasIncompatibleBackends := false
+	incompatibleBackends := []string{}
+
+	for b := range backendsUsedForPersistentBackend {
+		for _, configuredBackend := range backends {
+			if b == configuredBackend.Name && (configuredBackend.Spec.Loadbalancing == nil || configuredBackend.Spec.Loadbalancing.Algorithm.ConsistentHashing == nil) {
+				hasIncompatibleBackends = true
+				incompatibleBackends = append(incompatibleBackends, fmt.Sprintf("Backend %q is incompatible: Configured \"persistentBackend\" without LB algorithm \"consistentHashing\"", b))
+			}
+		}
+	}
+
+	if hasIncompatibleBackends {
+		backendsCompatibleCondition.Status = metav1.ConditionFalse
+		backendsCompatibleCondition.Reason = isovalentv1alpha1.BackendsCompatibleConditionReasonIncompatibleBackends
+		backendsCompatibleCondition.Message = strings.Join(incompatibleBackends, "\n")
+	}
+
+	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
 }
 
 func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {

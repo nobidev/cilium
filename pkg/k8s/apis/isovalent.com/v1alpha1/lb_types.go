@@ -435,10 +435,11 @@ type LBServiceStatus struct {
 }
 
 const (
-	ConditionTypeIPAssigned    = "lb.cilium.io/IPAssigned"
-	ConditionTypeVIPExist      = "lb.cilium.io/VIPExist"
-	ConditionTypeBackendsExist = "lb.cilium.io/BackendsExist"
-	ConditionTypeSecretsExist  = "lb.cilium.io/SecretsExist"
+	ConditionTypeIPAssigned         = "lb.cilium.io/IPAssigned"
+	ConditionTypeVIPExist           = "lb.cilium.io/VIPExist"
+	ConditionTypeBackendsExist      = "lb.cilium.io/BackendsExist"
+	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
+	ConditionTypeSecretsExist       = "lb.cilium.io/SecretsExist"
 )
 
 const (
@@ -455,6 +456,11 @@ const (
 const (
 	BackendsExistConditionReasonAllBackendsExist = "AllBackendsExist"
 	BackendsExistConditionReasonMissingBackends  = "MissingBackends"
+)
+
+const (
+	BackendsCompatibleConditionReasonAllBackendsCompatible = "AllBackendsCompatible"
+	BackendsCompatibleConditionReasonIncompatibleBackends  = "IncompatibleBackends"
 )
 
 const (
