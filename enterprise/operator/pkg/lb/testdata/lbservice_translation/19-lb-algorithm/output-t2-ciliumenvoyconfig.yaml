@@ -193,7 +193,7 @@ spec:
           unhealthyThreshold: 1
       lbPolicy: MAGLEV
       maglevLbConfig:
-        tableSize: 10
+        tableSize: 3
       name: backend_cluster_http_2
       type: EDS
       typedExtensionProtocolOptions:

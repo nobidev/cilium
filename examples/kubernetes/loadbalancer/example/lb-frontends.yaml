@@ -19,6 +19,9 @@ spec:
               - "secure.acme.io"
           backendRef:
             name: lb-1
+          persistentBackend:
+            cookies:
+              - name: session
 ---
 apiVersion: isovalent.com/v1alpha1
 kind: LBService

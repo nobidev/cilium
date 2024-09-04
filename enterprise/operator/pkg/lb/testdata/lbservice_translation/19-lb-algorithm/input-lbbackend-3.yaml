@@ -24,4 +24,4 @@ spec:
       consistentHashing:
         algorithm:
           maglev:
-            tableSize: 10
+            tableSize: 3
