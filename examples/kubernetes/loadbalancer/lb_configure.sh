@@ -20,6 +20,7 @@ t2Nodes=(
 
 for i in "${t1Nodes[@]}"; do
   kubectl label node ${i} service.cilium.io/node=t1
+  kubectl taint node ${i} service.cilium.io/node=t1:NoSchedule
 done
 for i in "${t2Nodes[@]}"; do
   kubectl label node ${i} service.cilium.io/node=t2

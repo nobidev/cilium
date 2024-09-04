@@ -15,6 +15,10 @@ envoy:
   debug:
     admin:
       enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
 envoyConfig:
   enabled: true
 bpf:
@@ -24,3 +28,14 @@ extraConfig:
   enable-ipip-termination: "true"
   loadbalancer-cp-requestid-response: "true"
   loadbalancer-cp-accesslog-enable-tcp: "true"
+operator:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+  controllerGroupMetrics:
+    - all

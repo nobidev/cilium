@@ -1,0 +1,6 @@
+grafanaDashboards:
+  enabled: true
+highlevelDashboards:
+  enabled: true
+prometheusAlerts:
+  enabled: true
