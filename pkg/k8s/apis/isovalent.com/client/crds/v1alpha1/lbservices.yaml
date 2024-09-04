@@ -147,6 +147,50 @@ spec:
                                     rule: (has(self.exact) || has(self.prefix)) &&
                                       !(has(self.exact) && has(self.prefix))
                               type: object
+                            persistentBackend:
+                              description: "The optional persistent backend configuration
+                                for this HTTP route. It defines the request attributes
+                                that should be obtained to decide whether requests
+                                should be sent to persistently the same backend. The
+                                attributes are logically ANDed. \n Note: Persistent
+                                backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`."
+                              properties:
+                                cookies:
+                                  description: List of cookies for which requests
+                                    are sent to the same backend if they match.
+                                  items:
+                                    properties:
+                                      name:
+                                        description: The name of the cookie that will
+                                          be used to obtain the hash key.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  type: array
+                                headers:
+                                  description: List of headers for which requests
+                                    are sent to the same backend if they match.
+                                  items:
+                                    properties:
+                                      name:
+                                        description: The name of the header that will
+                                          be used to obtain the hash key.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  type: array
+                                sourceIP:
+                                  description: Whether requests from the same source
+                                    IP should be sent to the same backend.
+                                  type: boolean
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceIP) || size(self.cookies) >
+                                  0 || size(self.headers) > 0)
                           required:
                           - backendRef
                           type: object
@@ -240,6 +284,50 @@ spec:
                                     rule: (has(self.exact) || has(self.prefix)) &&
                                       !(has(self.exact) && has(self.prefix))
                               type: object
+                            persistentBackend:
+                              description: "The optional persistent backend configuration
+                                for this HTTP route. It defines the request attributes
+                                that should be obtained to decide whether requests
+                                should be sent to persistently the same backend. The
+                                attributes are logically ANDed. \n Note: Persistent
+                                backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`."
+                              properties:
+                                cookies:
+                                  description: List of cookies for which requests
+                                    are sent to the same backend if they match.
+                                  items:
+                                    properties:
+                                      name:
+                                        description: The name of the cookie that will
+                                          be used to obtain the hash key.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  type: array
+                                headers:
+                                  description: List of headers for which requests
+                                    are sent to the same backend if they match.
+                                  items:
+                                    properties:
+                                      name:
+                                        description: The name of the header that will
+                                          be used to obtain the hash key.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  type: array
+                                sourceIP:
+                                  description: Whether requests from the same source
+                                    IP should be sent to the same backend.
+                                  type: boolean
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceIP) || size(self.cookies) >
+                                  0 || size(self.headers) > 0)
                           required:
                           - backendRef
                           type: object
@@ -415,6 +503,23 @@ spec:
                                     type: string
                                   type: array
                               type: object
+                            persistentBackend:
+                              description: "The optional persistent backend configuration
+                                for this TLS passthrough route. It defines the request
+                                attributes that should be obtained to decide whether
+                                requests should be sent to persistently the same backend.
+                                The attributes are logically ANDed. \n Note: Persistent
+                                backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`."
+                              properties:
+                                sourceIP:
+                                  description: Whether requests from the same source
+                                    IP should be sent to the same backend.
+                                  type: boolean
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceIP))
                           required:
                           - backendRef
                           type: object

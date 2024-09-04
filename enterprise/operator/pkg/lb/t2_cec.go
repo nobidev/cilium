@@ -501,6 +501,7 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mod
 						TypedConfig: toAny(&envoy_tcpproxy_v3.TcpProxy{
 							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
 							StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
+							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
 								Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
 							},
@@ -630,6 +631,7 @@ func (r *lbServiceReconciler) desiredEnvoyHttpRouteVirtualHosts(model *lbService
 						Match: toRouteMatch(route.match),
 						Action: &envoy_config_route_v3.Route_Route{
 							Route: &envoy_config_route_v3.RouteAction{
+								HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
 								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
 								},
@@ -676,6 +678,7 @@ func (r *lbServiceReconciler) desiredEnvoyHttpsRouteVirtualHosts(model *lbServic
 						Match: toRouteMatch(route.match),
 						Action: &envoy_config_route_v3.Route_Route{
 							Route: &envoy_config_route_v3.RouteAction{
+								HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
 								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
 								},
@@ -1060,6 +1063,70 @@ func (r *lbServiceReconciler) ensureCECDeleted(ctx context.Context, model *lbSer
 		// CEC does not exist, which is fine
 	}
 	return nil
+}
+
+func (r *lbServiceReconciler) toHTTPRouteHashpolicy(persistentBackendConfig *lbRouteHTTPPersistentBackend) []*envoy_config_route_v3.RouteAction_HashPolicy {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	hashPolicy := []*envoy_config_route_v3.RouteAction_HashPolicy{}
+
+	if persistentBackendConfig.SourceIP {
+		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
+			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_ConnectionProperties_{
+				ConnectionProperties: &envoy_config_route_v3.RouteAction_HashPolicy_ConnectionProperties{
+					SourceIp: persistentBackendConfig.SourceIP,
+				},
+			},
+		})
+	}
+
+	for _, c := range persistentBackendConfig.CookieNames {
+		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
+			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoy_config_route_v3.RouteAction_HashPolicy_Cookie{
+					Name: c,
+				},
+			},
+		})
+	}
+
+	for _, h := range persistentBackendConfig.HeaderNames {
+		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
+			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_Header_{
+				Header: &envoy_config_route_v3.RouteAction_HashPolicy_Header{
+					HeaderName: h,
+				},
+			},
+		})
+	}
+
+	if len(hashPolicy) == 0 {
+		return nil
+	}
+
+	return hashPolicy
+}
+
+func (r *lbServiceReconciler) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPassthroughPersistentBackend) []*envoy_typev3.HashPolicy {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	hashPolicy := []*envoy_typev3.HashPolicy{}
+
+	if persistentBackendConfig.SourceIP {
+		hashPolicy = append(hashPolicy, &envoy_typev3.HashPolicy{
+			PolicySpecifier: &envoy_typev3.HashPolicy_SourceIp_{SourceIp: &envoy_typev3.HashPolicy_SourceIp{}},
+		})
+	}
+
+	if len(hashPolicy) == 0 {
+		return nil
+	}
+
+	return hashPolicy
 }
 
 func mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

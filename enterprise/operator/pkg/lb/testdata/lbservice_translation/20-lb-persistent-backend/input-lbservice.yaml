@@ -1,0 +1,48 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  applications:
+    httpProxy:
+      httpConfig:
+        enableHTTP11: false
+        enableHTTP2: true
+      routes:
+        - backendRef:
+            name: lb-1
+        - match:
+            hostNames:
+              - "bar.acme.io"
+            path:
+              exact: "/api"
+          backendRef:
+            name: lb-2
+          persistentBackend:
+            sourceIP: true
+            headers:
+              - name: session2
+        - match:
+            hostNames:
+              - "foo.acme.io"
+            path:
+              exact: "/api"
+          backendRef:
+            name: lb-3
+          persistentBackend:
+            sourceIP: true
+            cookies:
+              - name: session
+    tlsPassthrough:
+      routes:
+        - match:
+            hostNames:
+              - "third.acme.io"
+          backendRef:
+            name: lb-1
+          persistentBackend:
+            sourceIP: true

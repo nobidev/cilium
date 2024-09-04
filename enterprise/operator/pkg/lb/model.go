@@ -146,13 +146,15 @@ type lbApplicationTLSPassthrough struct {
 }
 
 type lbRouteHTTP struct {
-	match   lbRouteHTTPMatch
-	backend backend
+	match             lbRouteHTTPMatch
+	backend           backend
+	persistentBackend *lbRouteHTTPPersistentBackend
 }
 
 type lbRouteHTTPS struct {
-	match   lbRouteHTTPMatch
-	backend backend
+	match             lbRouteHTTPMatch
+	backend           backend
+	persistentBackend *lbRouteHTTPPersistentBackend
 }
 
 type lbRouteHTTPMatch struct {
@@ -168,13 +170,24 @@ const (
 	pathTypeExact
 )
 
+type lbRouteHTTPPersistentBackend struct {
+	SourceIP    bool
+	CookieNames []string
+	HeaderNames []string
+}
+
 type lbRouteTLSPassthrough struct {
-	match   lbRouteTLSPassthroughMatch
-	backend backend
+	match             lbRouteTLSPassthroughMatch
+	backend           backend
+	persistentBackend *lbRouteTLSPassthroughPersistentBackend
 }
 
 type lbRouteTLSPassthroughMatch struct {
 	hostNames []string
+}
+
+type lbRouteTLSPassthroughPersistentBackend struct {
+	SourceIP bool
 }
 
 type backend struct {

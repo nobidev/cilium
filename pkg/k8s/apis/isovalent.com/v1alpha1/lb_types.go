@@ -251,6 +251,50 @@ type LBServiceHTTPRoute struct {
 	//
 	// +kubebuilder:validation:Required
 	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional persistent backend configuration for this HTTP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceHTTPRoutePersistentBackend `json:"persistentBackend,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP) || size(self.cookies) > 0 || size(self.headers) > 0)"
+type LBServiceHTTPRoutePersistentBackend struct {
+	// Whether requests from the same source IP should be sent to
+	// the same backend.
+	//
+	// +kubebuilder:validation:Optional
+	SourceIP *bool `json:"sourceIP,omitempty"`
+
+	// List of cookies for which requests are sent to the same backend if they match.
+	//
+	// +kubebuilder:validation:Optional
+	Cookies []LBServiceHTTPRoutePersistentBackendCookie `json:"cookies,omitempty"`
+
+	// List of headers for which requests are sent to the same backend if they match.
+	//
+	// +kubebuilder:validation:Optional
+	Headers []LBServiceHTTPRoutePersistentBackendHeader `json:"headers,omitempty"`
+}
+
+type LBServiceHTTPRoutePersistentBackendCookie struct {
+	// The name of the cookie that will be used to obtain the hash key.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+type LBServiceHTTPRoutePersistentBackendHeader struct {
+	// The name of the header that will be used to obtain the hash key.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
 }
 
 type LBServiceHTTPRouteMatch struct {
@@ -307,6 +351,17 @@ type LBServiceTLSPassthroughRoute struct {
 	//
 	// +kubebuilder:validation:Required
 	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional persistent backend configuration for this TLS passthrough route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceTLSPassthroughRoutePersistentBackend `json:"persistentBackend,omitempty"`
 }
 
 type LBServiceTLSPassthroughRouteMatch struct {
@@ -327,6 +382,15 @@ type LBServiceTLSPassthroughRouteMatch struct {
 	//
 	// +kubebuilder:validation:Optional
 	HostNames []LBServiceHostName `json:"hostNames,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
+type LBServiceTLSPassthroughRoutePersistentBackend struct {
+	// Whether requests from the same source IP should be sent to
+	// the same backend.
+	//
+	// +kubebuilder:validation:Optional
+	SourceIP *bool `json:"sourceIP,omitempty"`
 }
 
 type LBServiceVIPRef struct {

@@ -176,6 +176,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
+			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 		})
 	}
 
@@ -229,6 +230,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
+			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 		})
 	}
 
@@ -296,6 +298,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
+			persistentBackend: r.toTLSPassthroughPersistentBackendConfig(lr.PersistentBackend),
 		})
 	}
 
@@ -521,5 +524,47 @@ func (*ingestor) toBackendHTTPConfig(httpConfig *isovalentv1alpha1.LBBackendHTTP
 	return lbBackendHTTPConfig{
 		enableHTTP11: http11Enabled,
 		enableHTTP2:  http2Enabled,
+	}
+}
+
+func (*ingestor) toHTTPPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend) *lbRouteHTTPPersistentBackend {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	sourceIP := false
+	if persistentBackendConfig.SourceIP != nil {
+		sourceIP = *persistentBackendConfig.SourceIP
+	}
+
+	cookieNames := []string{}
+	for _, c := range persistentBackendConfig.Cookies {
+		cookieNames = append(cookieNames, c.Name)
+	}
+
+	headerNames := []string{}
+	for _, h := range persistentBackendConfig.Headers {
+		headerNames = append(headerNames, h.Name)
+	}
+
+	return &lbRouteHTTPPersistentBackend{
+		SourceIP:    sourceIP,
+		CookieNames: cookieNames,
+		HeaderNames: headerNames,
+	}
+}
+
+func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTLSPassthroughRoutePersistentBackend) *lbRouteTLSPassthroughPersistentBackend {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	sourceIP := false
+	if persistentBackendConfig.SourceIP != nil {
+		sourceIP = *persistentBackendConfig.SourceIP
+	}
+
+	return &lbRouteTLSPassthroughPersistentBackend{
+		SourceIP: sourceIP,
 	}
 }
