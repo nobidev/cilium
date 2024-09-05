@@ -293,6 +293,9 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 			case metav1.ConditionFalse:
 				v4Allocated.Status = metav1.ConditionFalse
 				switch cond.Reason {
+				case "no_pool":
+					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoPool
+					v4Allocated.Message = "No IP pool matches this VIP"
 				case "out_of_ips":
 					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress
 					v4Allocated.Message = "No available IPv4 address"

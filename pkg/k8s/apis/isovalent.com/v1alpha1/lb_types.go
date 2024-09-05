@@ -405,6 +405,7 @@ const (
 const (
 	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
 	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
+	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
