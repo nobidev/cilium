@@ -15,9 +15,6 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cilium/cilium/pkg/inctimer"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -30,27 +27,22 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	ciliumCli, _ := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
+	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
 
-	// 0. Create LB backend apps
 	t.Log("Creating backend apps...")
-
 	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
-	// 1. Create FRR client
 	t.Log("Creating clients and add BGP peering ...")
-
-	clientName := name + "-client-0"
 	scenario.addFrrClients(ctx, 1, []string{})
 
-	// 2. Create LBVIP
-	t.Logf("Creating LB service objects...")
+	clientName := name + "-client-0"
 
+	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(name, "")
 	scenario.createLBVIP(ctx, vip)
 
-	// 3. Create LBBackendPool
-
+	t.Logf("Creating LB BackendPool resources...")
 	backends := []isovalentv1alpha1.Backend{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, isovalentv1alpha1.Backend{
@@ -61,12 +53,11 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	// 4. Create LBService
-
+	t.Logf("Creating LB Service resources...")
 	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
 	scenario.createLBService(ctx, service)
 
-	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
@@ -87,9 +78,9 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
 
-	// 6. Healthcheck (T2) testing
+	// 2. Healthcheck (T2) testing
 
-	// 6.1. Force both app's HC to fail
+	// 2.1. Force both app's HC to fail
 
 	t.Logf("Setting T2 HC to fail...")
 
@@ -99,7 +90,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 		}
 	}
 
-	// 6.2. Wait until curl fails due to failing HCs
+	// 2.2. Wait until curl fails due to failing HCs
 
 	t.Logf("Waiting for curl to fails...")
 
@@ -121,7 +112,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	t.Logf("Setting T2 HC to pass...")
 
-	// 3. Bring back both backends
+	// 2.3. Bring back both backends
 
 	for _, b := range scenario.backendApps {
 		if err := dockerCli.controlBackendHC(ctx, clientName, b.ip, hcOK); err != nil {
@@ -131,7 +122,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	t.Logf("Waiting for curl to pass...")
 
-	// 4. Expect to pass
+	// 2.4. Expect to pass
 
 	ctx, cancel = context.WithTimeout(ctx, longTimeout)
 	defer cancel()
@@ -161,94 +152,37 @@ func TestHTTP2(t *testing.T) {
 	ciliumCli, _ := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
-	t.Log("Creating client and apps...")
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
 
-	// 0. Create LB backend apps
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
-	app1IP := ""
-	app2IP := ""
-	for _, app := range []struct {
-		name string
-		ip   *string
-	}{
-		{name: name + "-app-1", ip: &app1IP},
-		{name: name + "-app-2", ip: &app2IP},
-	} {
-		env := []string{
-			"SERVICE_NAME=" + app.name,
-			"INSTANCE_NAME=" + app.name,
-			"H2C_ENABLED=true",
-		}
-		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
-		if err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app.name, err)
-		}
-		*app.ip = ip
-		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
-	}
+	t.Log("Creating clients and add BGP peering ...")
+	scenario.addFrrClients(ctx, 1, []string{})
 
-	// 1. Create FRR client
+	clientName := name + "-client-0"
 
-	clientName := name + "-client"
-	env := []string{
-		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
-	}
-	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
-	if err != nil {
-		t.Fatalf("cannot create client container (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
-
-	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
-		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
-
-	t.Logf("Creating LB service objects...")
-
-	// 2. Create LBVIP
-
+	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(name, "")
-	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
+	scenario.createLBVIP(ctx, vip)
 
-	// 3. Create LBBackendPool
-
-	backends := []isovalentv1alpha1.Backend{
-		{IP: app1IP, Port: 8080},
-		{IP: app2IP, Port: 8080},
+	t.Logf("Creating LB BackendPool resources...")
+	backends := []isovalentv1alpha1.Backend{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, isovalentv1alpha1.Backend{
+			IP:   b.ip,
+			Port: 8080,
+		})
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
+	scenario.createLBBackendPool(ctx, backendPool)
 
-	if err := ciliumCli.CreateLBBackendPool(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBBackendPool(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
-
-	// 4. Create LBService
-
+	t.Logf("Creating LB Service resources...")
 	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	scenario.createLBService(ctx, service)
 
-	if err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB Service (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
-
-	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
@@ -285,94 +219,37 @@ func TestHTTPPath(t *testing.T) {
 	ciliumCli, _ := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
-	t.Log("Creating client and apps...")
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
 
-	// 0. Create LB backend apps
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
-	app1IP := ""
-	app2IP := ""
-	for _, app := range []struct {
-		name string
-		ip   *string
-	}{
-		{name: name + "-app-1", ip: &app1IP},
-		{name: name + "-app-2", ip: &app2IP},
-	} {
-		env := []string{
-			"SERVICE_NAME=" + app.name,
-			"INSTANCE_NAME=" + app.name,
-			"H2C_ENABLED=true",
-		}
-		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
-		if err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app.name, err)
-		}
-		*app.ip = ip
-		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
-	}
+	t.Log("Creating clients and add BGP peering ...")
+	scenario.addFrrClients(ctx, 1, []string{})
 
-	// 1. Create FRR client
+	clientName := name + "-client-0"
 
-	clientName := name + "-client"
-	env := []string{
-		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
-	}
-	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
-	if err != nil {
-		t.Fatalf("cannot create client container (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
-
-	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
-		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
-
-	t.Logf("Creating LB service objects...")
-
-	// 2. Create LBVIP
-
+	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(name, "")
-	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
+	scenario.createLBVIP(ctx, vip)
 
-	// 3. Create LBBackendPool
-
-	backends := []isovalentv1alpha1.Backend{
-		{IP: app1IP, Port: 8080},
-		{IP: app2IP, Port: 8080},
+	t.Logf("Creating LB BackendPool resources...")
+	backends := []isovalentv1alpha1.Backend{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, isovalentv1alpha1.Backend{
+			IP:   b.ip,
+			Port: 8080,
+		})
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
+	scenario.createLBBackendPool(ctx, backendPool)
 
-	if err := ciliumCli.CreateLBBackendPool(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBBackendPool(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
+	t.Logf("Creating LB Service resources...")
+	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	scenario.createLBService(ctx, service)
 
-	// 4. Create LBService
-
-	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, path))
-
-	if err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			t.Fatalf("cannot create LB Service (%s): %s", name, err)
-		}
-	}
-	maybeCleanupT(func() error {
-		return ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
-	}, t)
-
-	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
