@@ -20,6 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Execute Isovalent Loadbalancer E2E Tests
+//
+// Usage:
+//
+// DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -count=1 -v ./enterprise/test/ilb/... [flags]
+//
+// Flags:
+//
+// -cleanup     Cleanup created resources after each test case run (default: true)
 func TestMain(m *testing.M) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
 		fmt.Println("Skipping due to LOADBALANCER_TESTS!=true")
