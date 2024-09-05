@@ -20,17 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	containerNetwork = "kind-cilium"
-
-	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4"
-	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.2"
-
-	lbIPPoolName = "lb-pool"
-)
-
-var cleanup = flag.Bool("cleanup", true, "Cleanup created resources after each test case run")
-
 func TestMain(m *testing.M) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
 		fmt.Println("Skipping due to LOADBALANCER_TESTS!=true")
@@ -77,30 +66,4 @@ func TestMain(m *testing.M) {
 	// Run tests
 
 	m.Run()
-}
-
-func maybeCleanupT(f func() error, t *testing.T) {
-	if *cleanup {
-		t.Cleanup(func() {
-			if err := f(); err != nil {
-				fmt.Printf("cleanup failed %s\n", err)
-			}
-		})
-	}
-}
-
-func maybeCleanup(f func() error) {
-	if *cleanup {
-		if err := f(); err != nil {
-			fmt.Printf("cleanup failed: %s\n", err)
-		}
-	}
-}
-
-var _ fataler = &panicFataler{}
-
-type panicFataler struct{}
-
-func (p *panicFataler) Fatalf(format string, args ...any) {
-	panic(fmt.Sprintf(format, args...))
 }

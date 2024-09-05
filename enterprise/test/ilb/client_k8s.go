@@ -1,0 +1,205 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package ilb
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
+
+	"github.com/cilium/cilium/pkg/inctimer"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+)
+
+type ciliumCli struct {
+	*cilium_clientset.Clientset
+}
+
+func newCiliumAndK8sCli(f fataler) (*ciliumCli, *k8s.Clientset) {
+	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	if err != nil {
+		f.Fatalf("failed to read kube config: %s", err)
+	}
+
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	if err != nil {
+		f.Fatalf("unable to create k8s REST client: %s", err)
+	}
+
+	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		f.Fatalf("unable to create cilium k8s client: %s", err)
+	}
+
+	k8s := k8s.NewForConfigOrDie(restConfig)
+
+	return &ciliumCli{cli}, k8s
+}
+
+func (c *ciliumCli) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBVIPs(namespace).Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBVIP(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) CreateLBService(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBService, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBServices(namespace).Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBServices(namespace).Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) GetLBService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBService, error) {
+	return c.IsovalentV1alpha1().LBServices(namespace).Get(ctx, name, opts)
+}
+
+func (c *ciliumCli) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBBackend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) CreateLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
+	_, err := c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
+	defer cancel()
+
+	for {
+		obj, err := c.GetLBService(ctx, namespace, name, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+
+		if ip := obj.Status.Addresses.IPv4; ip != nil {
+			return *ip, nil
+		}
+
+		select {
+		case <-inctimer.After(pollInterval):
+		case <-ctx.Done():
+			return "",
+				fmt.Errorf("timeout reached waiting for LB Service %s to get VIP assigned (last error: %w)",
+					name, err)
+		}
+	}
+}
+
+func (c *ciliumCli) ensureBGPPeeringPolicyAndBFD(ctx context.Context) error {
+	pol := bgpPeeringPolicy(bgpPolicyName)
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Create(ctx, pol, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BGP peering policy (%s): %w", bgpPolicyName, err)
+		}
+	}
+
+	bfd := bfdProfile(bgpPolicyName)
+	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpPolicyName, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) deleteBGPPeeringPolicyAndBFD(ctx context.Context) error {
+	if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpPolicyName, err)
+	}
+
+	if err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
+	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	name := bgpPolicyName
+	pol.Spec.VirtualRouters[0].Neighbors = append(pol.Spec.VirtualRouters[0].Neighbors,
+		ciliumv2alpha1.CiliumBGPNeighbor{
+			PeerAddress:   clientIP + "/32",
+			PeerASN:       64512,
+			BFDProfileRef: &name,
+		})
+
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
+	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	neighbors := pol.Spec.VirtualRouters[0].Neighbors
+
+	updatedNeighbors := []ciliumv2alpha1.CiliumBGPNeighbor{}
+	for _, neigh := range neighbors {
+		if neigh.PeerAddress != clientIP+"/32" {
+			updatedNeighbors = append(updatedNeighbors, neigh)
+		}
+	}
+
+	pol.Spec.VirtualRouters[0].Neighbors = updatedNeighbors
+	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+	}
+
+	return nil
+}
+
+func (c *ciliumCli) ensureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
+	if err := c.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
+}

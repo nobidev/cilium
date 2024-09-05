@@ -1,0 +1,231 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package ilb
+
+import (
+	"archive/tar"
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
+	docker_client "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
+
+	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/safeio"
+)
+
+type dockerCli struct {
+	*docker_client.Client
+}
+
+func newDockerCli(f fataler) *dockerCli {
+	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
+	if err != nil {
+		f.Fatalf("failed to open Docker client: %s", err)
+	}
+
+	return &dockerCli{cli}
+}
+
+func (c *dockerCli) GetContainerIP(ctx context.Context, containerName string) (string, error) {
+	obj, err := c.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	for _, network := range obj.NetworkSettings.Networks {
+		return network.IPAddress, nil
+	}
+
+	return "", fmt.Errorf("no network found")
+}
+
+func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []string) (string, string, error) {
+	var stdout, stderr bytes.Buffer
+
+	execConfig := container.ExecOptions{
+		AttachStderr: true,
+		AttachStdout: true,
+		Cmd:          cmds,
+	}
+
+	execID, err := c.ContainerExecCreate(ctx, name, execConfig)
+	if err != nil {
+		return "", "", nil
+	}
+
+	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Close()
+
+	_, err = stdcopy.StdCopy(&stdout, &stderr, resp.Reader)
+	if err != nil {
+		return stdout.String(), stderr.String(), err
+	}
+
+	inspect, err := c.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		return stdout.String(), stderr.String(), err
+	}
+
+	if inspect.ExitCode != 0 {
+		return stdout.String(), stderr.String(), fmt.Errorf("cmd failed: %d", inspect.ExitCode)
+	}
+
+	return stdout.String(), stderr.String(), err
+}
+
+func (c *dockerCli) clientExec(ctx context.Context, clientContainerName, cmd string) (string, string, error) {
+	stdout, stderr, err := c.ContainerExec(ctx, clientContainerName,
+		[]string{"bash", "-c", cmd},
+	)
+
+	return stdout, stderr, err
+}
+
+func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
+	reader, err := c.ImagePull(ctx, img, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	// wait until pulled
+	if _, err := safeio.ReadAllLimit(reader, safeio.TB); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, string, error) {
+	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+
+	resp, err := c.ContainerCreate(ctx,
+		//exhaustruct:ignore
+		&container.Config{
+			Image: img,
+			Env:   env,
+		},
+		&container.HostConfig{
+			Privileged: privileged,
+		},
+		&network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				networkName: {},
+			},
+		},
+		nil,
+		name,
+	)
+	if err != nil {
+		return "", "", err
+	}
+
+	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return "", "", err
+	}
+
+	clientIP, err := c.GetContainerIP(ctx, resp.ID)
+	if err != nil {
+		return "", "", err
+	}
+
+	return resp.ID, clientIP, nil
+}
+
+func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {
+	return c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+}
+
+func (c *dockerCli) waitForIPRoute(ctx context.Context, clientName, lbIP string) error {
+	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
+	defer cancel()
+
+	for {
+		cmd := "ip route list | grep -qF " + lbIP
+		stdout, stderr, err := c.clientExec(ctx, clientName, cmd)
+		if err == nil {
+			break
+		}
+
+		select {
+		case <-inctimer.After(pollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for IP route to LB VIP (stdout: %q, stderr: %q, err: %w",
+				stdout, stderr, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *dockerCli) copyToContainer(ctx context.Context, containerID string, content []byte, dstFile, dstDir string) error {
+	reader, err := createTAR(content, dstFile)
+	if err != nil {
+		return fmt.Errorf("failed to create tar for %s: %w", dstFile, err)
+	}
+
+	opts := container.CopyToContainerOptions{AllowOverwriteDirWithFile: true}
+	return c.CopyToContainer(ctx, containerID, dstDir, reader, opts)
+}
+
+type hcState string
+
+const (
+	hcFail hcState = "fail"
+	hcOK   hcState = "ok"
+)
+
+func (c *dockerCli) controlBackendHC(ctx context.Context, clientName, ip string, hc hcState) error {
+	stdout, stderr, err := c.clientExec(ctx, clientName,
+		fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/"+string(hc), ip))
+	if err != nil {
+		return fmt.Errorf("failed cmd (stdout: %q, stderr: %q): %w", stdout, stderr, err)
+	}
+
+	state := "false"
+	if hc == hcOK {
+		state = "true"
+	}
+	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
+		return fmt.Errorf("expected different output, got %q", stdout)
+	}
+
+	return nil
+}
+
+func createTAR(content []byte, path string) (io.Reader, error) {
+	var buf bytes.Buffer
+
+	tw := tar.NewWriter(&buf)
+	hdr := &tar.Header{
+		Name: filepath.Base(path),
+		Mode: 0600,
+		Size: int64(len(content)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, fmt.Errorf("failed to write TAR hdr: %w", err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		return nil, fmt.Errorf("failed to write TAR: %w", err)
+	}
+
+	return bytes.NewReader(buf.Bytes()), nil
+}
