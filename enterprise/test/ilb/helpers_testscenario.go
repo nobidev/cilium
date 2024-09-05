@@ -1,0 +1,72 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package ilb
+
+import (
+	"context"
+	"fmt"
+	"testing"
+)
+
+type lbTestScenario struct {
+	t *testing.T
+
+	testName     string
+	k8sNamespace string
+
+	ciliumCli *ciliumCli
+	dockerCli *dockerCli
+
+	backendApps map[string]*backendApp
+}
+
+type backendApp struct {
+	id string
+	ip string
+}
+
+func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliumCli *ciliumCli, dockerCli *dockerCli) *lbTestScenario {
+	return &lbTestScenario{
+		t:            t,
+		testName:     testName,
+		k8sNamespace: k8sNamespace,
+		ciliumCli:    ciliumCli,
+		dockerCli:    dockerCli,
+		backendApps:  map[string]*backendApp{},
+	}
+}
+
+func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, additionalEnvVars []string) {
+	startIndex := len(r.backendApps)
+
+	for i := startIndex; i < numberOfBackends; i++ {
+		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
+
+		env := []string{
+			"SERVICE_NAME=" + appName,
+			"INSTANCE_NAME=" + appName,
+		}
+
+		env = append(env, additionalEnvVars...)
+
+		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, env, containerNetwork, false)
+		if err != nil {
+			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
+		}
+
+		r.backendApps[appName] = &backendApp{
+			id: id,
+			ip: ip,
+		}
+
+		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+	}
+}

@@ -30,33 +30,15 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	ciliumCli, _ := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
-	t.Log("Creating client and apps...")
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
 
 	// 0. Create LB backend apps
+	t.Log("Creating backend apps...")
 
-	app1IP := ""
-	app2IP := ""
-	for _, app := range []struct {
-		name string
-		ip   *string
-	}{
-		{name: "http-1-app-1", ip: &app1IP},
-		{name: "http-1-app-2", ip: &app2IP},
-	} {
-		env := []string{
-			"SERVICE_NAME=" + app.name,
-			"INSTANCE_NAME=" + app.name,
-			"H2C_ENABLED=true",
-		}
-		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
-		if err != nil {
-			t.Fatalf("cannot create app container (%s): %s", app.name, err)
-		}
-		*app.ip = ip
-		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
-	}
+	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
 	// 1. Create FRR client
+	t.Log("Creating clients...")
 
 	clientName := name + "-client"
 	env := []string{
@@ -89,9 +71,12 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	// 3. Create LBBackendPool
 
-	backends := []isovalentv1alpha1.Backend{
-		{IP: app1IP, Port: 8080},
-		{IP: app2IP, Port: 8080},
+	backends := []isovalentv1alpha1.Backend{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, isovalentv1alpha1.Backend{
+			IP:   b.ip,
+			Port: 8080,
+		})
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
@@ -121,17 +106,17 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	t.Logf("Waiting for VIP of %q...", name)
 
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
+	vipIP, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
 	if err != nil {
 		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
 	}
 
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
+	err = dockerCli.waitForIPRoute(ctx, clientName, vipIP)
 	if err != nil {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", ip))
+	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
@@ -144,9 +129,9 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	t.Logf("Setting T2 HC to fail...")
 
-	for _, ip := range []string{app1IP, app2IP} {
-		if err := dockerCli.controlBackendHC(ctx, clientName, ip, hcFail); err != nil {
-			t.Fatalf("failed to set HC to fail (%s): %s", ip, err)
+	for _, b := range scenario.backendApps {
+		if err := dockerCli.controlBackendHC(ctx, clientName, b.ip, hcFail); err != nil {
+			t.Fatalf("failed to set HC to fail (%s): %s", b.ip, err)
 		}
 	}
 
@@ -174,9 +159,9 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	// 3. Bring back both backends
 
-	for _, ip := range []string{app1IP, app2IP} {
-		if err := dockerCli.controlBackendHC(ctx, clientName, ip, hcOK); err != nil {
-			t.Fatalf("failed to set HC to pass (%s): %s", ip, err)
+	for _, b := range scenario.backendApps {
+		if err := dockerCli.controlBackendHC(ctx, clientName, b.ip, hcOK); err != nil {
+			t.Fatalf("failed to set HC to pass (%s): %s", b.ip, err)
 		}
 	}
 
