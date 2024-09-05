@@ -306,7 +306,7 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 					// Pass through the reason and message.
 					// Assuming users will file an issue if
 					// they see this message.
-					v4Allocated.Reason = "Unexpected (" + cond.Reason + ")"
+					v4Allocated.Reason = "unexpected:" + cond.Reason
 					v4Allocated.Message = "Unexpected condition: " + cond.Message
 				}
 			}
