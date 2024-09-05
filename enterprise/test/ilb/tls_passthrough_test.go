@@ -52,21 +52,18 @@ func TestTLSPassthrough(t *testing.T) {
 
 	t.Log("Creating client and apps...")
 
-	app1 := name + "-app-1"
-	app2 := name + "-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+
+	for _, app := range []struct {
 		name string
 		ip   *string
 		key  string
 		cert string
 	}{
-		{name: app1, ip: &app1IP, key: key1_64, cert: cert1_64},
-		{name: app2, ip: &app2IP, key: key2_64, cert: cert2_64},
-	}
-
-	for i, app := range iter {
+		{name: name + "-app-1", ip: &app1IP, key: key1_64, cert: cert1_64},
+		{name: name + "-app-2", ip: &app2IP, key: key2_64, cert: cert2_64},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
@@ -74,12 +71,12 @@ func TestTLSPassthrough(t *testing.T) {
 			"TLS_CERT_BASE64=" + app.cert,
 			"TLS_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, id) }, t)
 	}
 
 	// 2. Create FRR client

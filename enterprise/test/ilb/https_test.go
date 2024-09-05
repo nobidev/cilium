@@ -51,30 +51,27 @@ func TestHTTPS(t *testing.T) {
 
 	t.Log("Creating client and apps...")
 
-	app1 := "https-1-app-1"
-	app2 := "https-1-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+
+	for _, app := range []struct {
 		name string
 		ip   *string
 	}{
-		{name: app1, ip: &app1IP},
-		{name: app2, ip: &app2IP},
-	}
-
-	for i, app := range iter {
+		{name: "https-1-app-1", ip: &app1IP},
+		{name: "https-1-app-2", ip: &app2IP},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, id) }, t)
 	}
 
 	// 2. Create FRR client
@@ -188,30 +185,27 @@ func TestHTTP2S(t *testing.T) {
 
 	t.Log("Creating client and apps...")
 
-	app1 := "https-1-app-1"
-	app2 := "https-1-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+
+	for _, app := range []struct {
 		name string
 		ip   *string
 	}{
-		{name: app1, ip: &app1IP},
-		{name: app2, ip: &app2IP},
-	}
-
-	for i, app := range iter {
+		{name: "https-1-app-1", ip: &app1IP},
+		{name: "https-1-app-2", ip: &app2IP},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(ctx, id) }, t)
 	}
 
 	// 2. Create FRR client

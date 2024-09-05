@@ -31,29 +31,26 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	// 0. Create LB backend apps
 
-	app1 := "http-1-app-1"
-	app2 := "http-1-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+	for _, app := range []struct {
 		name string
 		ip   *string
 	}{
-		{name: app1, ip: &app1IP},
-		{name: app2, ip: &app2IP},
-	}
-	for i, app := range iter {
+		{name: "http-1-app-1", ip: &app1IP},
+		{name: "http-1-app-2", ip: &app2IP},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
@@ -213,29 +210,26 @@ func TestHTTP2(t *testing.T) {
 
 	// 0. Create LB backend apps
 
-	app1 := name + "-app-1"
-	app2 := name + "-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+	for _, app := range []struct {
 		name string
 		ip   *string
 	}{
-		{name: app1, ip: &app1IP},
-		{name: app2, ip: &app2IP},
-	}
-	for i, app := range iter {
+		{name: name + "-app-1", ip: &app1IP},
+		{name: name + "-app-2", ip: &app2IP},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
@@ -337,29 +331,26 @@ func TestHTTPPath(t *testing.T) {
 
 	// 0. Create LB backend apps
 
-	app1 := name + "-app-1"
-	app2 := name + "-app-2"
 	app1IP := ""
 	app2IP := ""
-	iter := []struct {
+	for _, app := range []struct {
 		name string
 		ip   *string
 	}{
-		{name: app1, ip: &app1IP},
-		{name: app2, ip: &app2IP},
-	}
-	for i, app := range iter {
+		{name: name + "-app-1", ip: &app1IP},
+		{name: name + "-app-2", ip: &app2IP},
+	} {
 		env := []string{
 			"SERVICE_NAME=" + app.name,
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		_, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), iter[i].name) }, t)
+		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
