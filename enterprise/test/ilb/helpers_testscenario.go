@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
 type lbTestScenario struct {
@@ -28,10 +29,12 @@ type lbTestScenario struct {
 	k8sNamespace string
 
 	ciliumCli *ciliumCli
+	k8sCli    *k8s.Clientset
 	dockerCli *dockerCli
 
-	backendApps map[string]*backendApp
-	frrClients  map[string]*backendApp
+	backendApps        map[string]*backendApp
+	frrClients         map[string]*backendApp
+	serverCertificates map[string]*serverCertificate
 }
 
 type backendApp struct {
@@ -39,15 +42,22 @@ type backendApp struct {
 	ip string
 }
 
-func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliumCli *ciliumCli, dockerCli *dockerCli) *lbTestScenario {
+type serverCertificate struct {
+	cert []byte
+	key  []byte
+}
+
+func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
 	return &lbTestScenario{
-		t:            t,
-		testName:     testName,
-		k8sNamespace: k8sNamespace,
-		ciliumCli:    ciliumCli,
-		dockerCli:    dockerCli,
-		backendApps:  map[string]*backendApp{},
-		frrClients:   map[string]*backendApp{},
+		t:                  t,
+		testName:           testName,
+		k8sNamespace:       k8sNamespace,
+		ciliumCli:          ciliumCli,
+		k8sCli:             k8sCli,
+		dockerCli:          dockerCli,
+		backendApps:        map[string]*backendApp{},
+		frrClients:         map[string]*backendApp{},
+		serverCertificates: map[string]*serverCertificate{},
 	}
 }
 
@@ -78,7 +88,7 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 	}
 }
 
-func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int, additionalEnvVars []string) {
+func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int, additionalEnvVars []string, serverCertificateHostnames []string) {
 	startIndex := len(r.frrClients)
 
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
@@ -106,6 +116,18 @@ func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int,
 			r.t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
 		}
 		maybeCleanupT(func() error { return r.ciliumCli.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
+
+		for _, h := range serverCertificateHostnames {
+			c, ok := r.serverCertificates[h]
+			if !ok {
+				r.t.Fatalf("server certificate for hostname %q doesn't exist", h)
+			}
+
+			if err := r.dockerCli.copyToContainer(ctx, id, c.cert, r.testName+".crt", "/tmp"); err != nil {
+				r.t.Fatalf("failed to copy cert to client container: %s", err)
+			}
+		}
+
 	}
 }
 
@@ -139,5 +161,28 @@ func (r *lbTestScenario) createLBService(ctx context.Context, svc *isovalentv1al
 	}
 	maybeCleanupT(func() error {
 		return r.ciliumCli.DeleteLBService(ctx, svc.Namespace, svc.Name, metav1.DeleteOptions{})
+	}, r.t)
+}
+
+func (r *lbTestScenario) createServerCertificate(ctx context.Context, hostName string) {
+	key, cert, err := genSelfSignedX509(hostName)
+	if err != nil {
+		r.t.Fatalf("failed to gen x509: %s", err)
+	}
+
+	sec := secret(r.testName, key.Bytes(), cert.Bytes())
+	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+		}
+	}
+
+	r.serverCertificates[hostName] = &serverCertificate{
+		cert: cert.Bytes(),
+		key:  key.Bytes(),
+	}
+
+	maybeCleanupT(func() error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName, metav1.DeleteOptions{})
 	}, r.t)
 }

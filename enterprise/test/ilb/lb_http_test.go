@@ -24,17 +24,17 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	name := "http-1"
 	ns := "default"
 
-	ciliumCli, _ := newCiliumAndK8sCli(t)
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{})
+	scenario.addFrrClients(ctx, 1, []string{}, []string{})
 
 	clientName := name + "-client-0"
 
@@ -149,17 +149,17 @@ func TestHTTP2(t *testing.T) {
 	ns := "default"
 	hostName := "mixed.acme.io"
 
-	ciliumCli, _ := newCiliumAndK8sCli(t)
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{})
+	scenario.addFrrClients(ctx, 1, []string{}, []string{})
 
 	clientName := name + "-client-0"
 
@@ -216,17 +216,17 @@ func TestHTTPPath(t *testing.T) {
 	hostName := "insecure.acme.io"
 	path := "/api/foo-insecure"
 
-	ciliumCli, _ := newCiliumAndK8sCli(t)
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, dockerCli)
+	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{})
+	scenario.addFrrClients(ctx, 1, []string{}, []string{})
 
 	clientName := name + "-client-0"
 
