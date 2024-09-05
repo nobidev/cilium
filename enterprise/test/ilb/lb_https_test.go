@@ -118,12 +118,12 @@ func TestHTTPS(t *testing.T) {
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
-	if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBBackendPool(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
-	maybeCleanupT(func() error { return ciliumCli.DeleteLBBackend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanupT(func() error { return ciliumCli.DeleteLBBackendPool(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
 	// 5. Create LBService
 
@@ -255,12 +255,12 @@ func TestHTTP2S(t *testing.T) {
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
-	if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBBackendPool(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
-	maybeCleanupT(func() error { return ciliumCli.DeleteLBBackend(ctx, ns, name, metav1.DeleteOptions{}) }, t)
+	maybeCleanupT(func() error { return ciliumCli.DeleteLBBackendPool(ctx, ns, name, metav1.DeleteOptions{}) }, t)
 
 	// 5. Create LBService
 

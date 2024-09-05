@@ -77,12 +77,12 @@ func (c *ciliumCli) GetLBService(ctx context.Context, namespace, name string, op
 	return c.IsovalentV1alpha1().LBServices(namespace).Get(ctx, name, opts)
 }
 
-func (c *ciliumCli) CreateLBBackend(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
+func (c *ciliumCli) CreateLBBackendPool(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBBackendPool, opts metav1.CreateOptions) error {
 	_, err := c.IsovalentV1alpha1().LBBackendPools(namespace).Create(ctx, obj, opts)
 	return err
 }
 
-func (c *ciliumCli) DeleteLBBackend(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+func (c *ciliumCli) DeleteLBBackendPool(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
 }
 

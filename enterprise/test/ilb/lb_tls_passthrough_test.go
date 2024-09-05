@@ -125,12 +125,12 @@ func TestTLSPassthrough(t *testing.T) {
 		poolName := fmt.Sprintf("%s-%d", name, i+1)
 		backendPool := lbBackendPool(poolName, "/health", 10, backends)
 
-		if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+		if err := ciliumCli.CreateLBBackendPool(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 			if !errors.IsAlreadyExists(err) {
 				t.Fatalf("cannot create LB Backend Pool (%s): %s", poolName, err)
 			}
 		}
-		maybeCleanupT(func() error { return ciliumCli.DeleteLBBackend(ctx, ns, poolName, metav1.DeleteOptions{}) }, t)
+		maybeCleanupT(func() error { return ciliumCli.DeleteLBBackendPool(ctx, ns, poolName, metav1.DeleteOptions{}) }, t)
 	}
 
 	// 5. Create LBService
