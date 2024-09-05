@@ -84,7 +84,8 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 	return ip
 }
 
-func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) {
+func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) []*dockerContainer {
+	containers := []*dockerContainer{}
 	startIndex := len(r.backendApps)
 
 	for i := startIndex; i < startIndex+numberOfBackends; i++ {
@@ -96,13 +97,19 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
 
-		r.backendApps[appName] = &dockerContainer{
+		container := &dockerContainer{
 			id: id,
 			ip: ip,
 		}
 
+		r.backendApps[appName] = container
+
+		containers = append(containers, container)
+
 		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
 	}
+
+	return containers
 }
 
 func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config backendApplicationConfig) []string {

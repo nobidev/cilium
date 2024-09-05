@@ -70,6 +70,11 @@ func (c *ciliumCli) CreateLBService(ctx context.Context, namespace string, obj *
 	return err
 }
 
+func (c *ciliumCli) UpdateLBService(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBService, opts metav1.UpdateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBServices(namespace).Update(ctx, obj, opts)
+	return err
+}
+
 func (c *ciliumCli) DeleteLBService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.IsovalentV1alpha1().LBServices(namespace).Delete(ctx, name, opts)
 }

@@ -50,7 +50,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
@@ -165,7 +165,7 @@ func TestHTTP2(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
@@ -222,7 +222,7 @@ func TestHTTPPath(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")

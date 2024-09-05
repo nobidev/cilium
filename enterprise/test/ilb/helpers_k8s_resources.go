@@ -33,6 +33,28 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
+func lbServiceApplicationsTLSProxy(backendRef, secretName, hostName string) isovalentv1alpha1.LBServiceApplications {
+	return isovalentv1alpha1.LBServiceApplications{
+		TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+					{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
+				},
+			},
+			Routes: []isovalentv1alpha1.LBServiceTLSRoute{
+				{
+					BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+					Match: &isovalentv1alpha1.LBServiceTLSRouteMatch{
+						HostNames: []isovalentv1alpha1.LBServiceHostName{
+							isovalentv1alpha1.LBServiceHostName(hostName),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func lbServiceApplicationsTLSPassthrough(routes []isovalentv1alpha1.LBServiceTLSPassthroughRoute) isovalentv1alpha1.LBServiceApplications {
 	return isovalentv1alpha1.LBServiceApplications{
 		TLSPassthrough: &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{
@@ -113,7 +135,7 @@ func lbService(namespace, name, vipRefName string, port int32, app isovalentv1al
 	}
 }
 
-func lbBackendPool(namespace, name string, hcHTTPPath string, hcInterval int32, backends []isovalentv1alpha1.Backend) *isovalentv1alpha1.LBBackendPool {
+func lbBackendPool(namespace, name string, hcHTTPPath string, hcInterval int32, backends []isovalentv1alpha1.Backend, tlsConfig *isovalentv1alpha1.LBBackendTLSConfig) *isovalentv1alpha1.LBBackendPool {
 	return &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -126,7 +148,8 @@ func lbBackendPool(namespace, name string, hcHTTPPath string, hcInterval int32, 
 					Path: &hcHTTPPath,
 				},
 			},
-			Backends: backends,
+			Backends:  backends,
+			TLSConfig: tlsConfig,
 		},
 	}
 }
