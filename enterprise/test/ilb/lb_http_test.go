@@ -38,26 +38,13 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
 
 	// 1. Create FRR client
-	t.Log("Creating clients...")
+	t.Log("Creating clients and add BGP peering ...")
 
-	clientName := name + "-client"
-	env := []string{
-		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
-	}
-	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
-	if err != nil {
-		t.Fatalf("cannot create client container (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
-
-	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
-		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
-	}
-	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
-
-	t.Logf("Creating LB service objects...")
+	clientName := name + "-client-0"
+	scenario.addFrrClients(ctx, 1, []string{})
 
 	// 2. Create LBVIP
+	t.Logf("Creating LB service objects...")
 
 	vip := lbVIP(name, "")
 	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {

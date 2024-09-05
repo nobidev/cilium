@@ -26,6 +26,7 @@ type lbTestScenario struct {
 	dockerCli *dockerCli
 
 	backendApps map[string]*backendApp
+	frrClients  map[string]*backendApp
 }
 
 type backendApp struct {
@@ -41,13 +42,14 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		ciliumCli:    ciliumCli,
 		dockerCli:    dockerCli,
 		backendApps:  map[string]*backendApp{},
+		frrClients:   map[string]*backendApp{},
 	}
 }
 
 func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, additionalEnvVars []string) {
 	startIndex := len(r.backendApps)
 
-	for i := startIndex; i < numberOfBackends; i++ {
+	for i := startIndex; i < startIndex+numberOfBackends; i++ {
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 
 		env := []string{
@@ -68,5 +70,36 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		}
 
 		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+	}
+}
+
+func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int, additionalEnvVars []string) {
+	startIndex := len(r.frrClients)
+
+	for i := startIndex; i < startIndex+numberOfClients; i++ {
+		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
+
+		env := []string{
+			"NEIGHBORS=" + getBGPNeighborString(r.t, r.dockerCli),
+		}
+
+		env = append(env, additionalEnvVars...)
+
+		id, ip, err := r.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+		if err != nil {
+			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
+		}
+
+		r.frrClients[clientName] = &backendApp{
+			id: id,
+			ip: ip,
+		}
+
+		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+
+		if err := r.ciliumCli.doBGPPeeringForClient(ctx, ip); err != nil {
+			r.t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
+		}
+		maybeCleanupT(func() error { return r.ciliumCli.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
 	}
 }
