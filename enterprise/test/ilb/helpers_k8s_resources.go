@@ -72,9 +72,10 @@ func lbServiceApplicationsHTTP(backendRef, hostName, path string) isovalentv1alp
 	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
-				{BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-					Name: backendRef,
-				},
+				{
+					BackendRef: isovalentv1alpha1.LBServiceBackendRef{
+						Name: backendRef,
+					},
 				},
 			},
 		},
@@ -95,10 +96,11 @@ func lbServiceApplicationsHTTP(backendRef, hostName, path string) isovalentv1alp
 	return obj
 }
 
-func lbService(name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
+func lbService(namespace, name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
 	return &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Namespace: namespace,
+			Name:      name,
 		},
 		Spec: isovalentv1alpha1.LBServiceSpec{
 			VIPRef: isovalentv1alpha1.LBServiceVIPRef{
@@ -110,10 +112,11 @@ func lbService(name, vipRefName string, port int32, app isovalentv1alpha1.LBServ
 	}
 }
 
-func lbBackendPool(name string, hcHTTPPath string, hcInterval int32, backends []isovalentv1alpha1.Backend) *isovalentv1alpha1.LBBackendPool {
+func lbBackendPool(namespace, name string, hcHTTPPath string, hcInterval int32, backends []isovalentv1alpha1.Backend) *isovalentv1alpha1.LBBackendPool {
 	return &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Namespace: namespace,
+			Name:      name,
 		},
 		Spec: isovalentv1alpha1.LBBackendPoolSpec{
 			HealthCheck: isovalentv1alpha1.HealthCheck{
@@ -125,13 +128,13 @@ func lbBackendPool(name string, hcHTTPPath string, hcInterval int32, backends []
 			Backends: backends,
 		},
 	}
-
 }
 
-func lbVIP(name, ipv4Requested string) *isovalentv1alpha1.LBVIP {
+func lbVIP(namespace, name, ipv4Requested string) *isovalentv1alpha1.LBVIP {
 	obj := &isovalentv1alpha1.LBVIP{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Namespace: namespace,
+			Name:      name,
 		},
 		Spec: isovalentv1alpha1.LBVIPSpec{},
 	}
@@ -194,10 +197,11 @@ func bfdProfile(name string) *isovalentv1alpha1.IsovalentBFDProfile {
 	}
 }
 
-func secret(name string, key, cert []byte) *v1.Secret {
+func secret(namespace, name string, key, cert []byte) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Namespace: namespace,
+			Name:      name,
 		},
 		Type: v1.SecretTypeTLS,
 		Data: map[string][]byte{

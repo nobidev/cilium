@@ -43,7 +43,7 @@ func TestHTTPS(t *testing.T) {
 	clientName := name + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(name, "")
+	vip := lbVIP(ns, name, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -54,11 +54,11 @@ func TestHTTPS(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(name, "/health", 10, backends)
+	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, nil))
+	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, nil))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTPs request
@@ -75,7 +75,7 @@ func TestHTTPS(t *testing.T) {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/https-1.crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", ip))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", ip))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
@@ -88,7 +88,6 @@ func TestHTTP2S(t *testing.T) {
 	name := "http2s-1"
 	ns := "default"
 	hostName := "secure-http2.acme.io"
-	certFile := name + ".crt"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
@@ -108,7 +107,7 @@ func TestHTTP2S(t *testing.T) {
 	clientName := name + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(name, "")
+	vip := lbVIP(ns, name, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -119,7 +118,7 @@ func TestHTTP2S(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(name, "/health", 10, backends)
+	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
@@ -127,7 +126,7 @@ func TestHTTP2S(t *testing.T) {
 		EnableHTTP11: model.AddressOf(true),
 		EnableHTTP2:  model.AddressOf(true),
 	}
-	service := lbService(name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, cfg))
+	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, cfg))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTPs request
@@ -143,7 +142,7 @@ func TestHTTP2S(t *testing.T) {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
-	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", certFile, hostName, ip, hostName))
+	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, ip, hostName))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {

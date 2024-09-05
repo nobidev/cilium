@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -32,9 +33,10 @@ type lbTestScenario struct {
 	k8sCli    *k8s.Clientset
 	dockerCli *dockerCli
 
-	backendApps        map[string]*backendApp
-	frrClients         map[string]*backendApp
-	serverCertificates map[string]*serverCertificate
+	backendApps         map[string]*backendApp
+	frrClients          map[string]*backendApp
+	serverCertificates  map[string]*tlsCertificate
+	backendCertificates map[string]*tlsCertificate
 }
 
 type backendApp struct {
@@ -42,22 +44,25 @@ type backendApp struct {
 	ip string
 }
 
-type serverCertificate struct {
-	cert []byte
-	key  []byte
+type tlsCertificate struct {
+	cert       []byte
+	key        []byte
+	certBase64 string
+	keyBase64  string
 }
 
 func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
 	return &lbTestScenario{
-		t:                  t,
-		testName:           testName,
-		k8sNamespace:       k8sNamespace,
-		ciliumCli:          ciliumCli,
-		k8sCli:             k8sCli,
-		dockerCli:          dockerCli,
-		backendApps:        map[string]*backendApp{},
-		frrClients:         map[string]*backendApp{},
-		serverCertificates: map[string]*serverCertificate{},
+		t:                   t,
+		testName:            testName,
+		k8sNamespace:        k8sNamespace,
+		ciliumCli:           ciliumCli,
+		k8sCli:              k8sCli,
+		dockerCli:           dockerCli,
+		backendApps:         map[string]*backendApp{},
+		frrClients:          map[string]*backendApp{},
+		serverCertificates:  map[string]*tlsCertificate{},
+		backendCertificates: map[string]*tlsCertificate{},
 	}
 }
 
@@ -118,12 +123,16 @@ func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int,
 		maybeCleanupT(func() error { return r.ciliumCli.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
 
 		for _, h := range serverCertificateHostnames {
-			c, ok := r.serverCertificates[h]
-			if !ok {
-				r.t.Fatalf("server certificate for hostname %q doesn't exist", h)
+			sc, serverCertFound := r.serverCertificates[h]
+			if !serverCertFound {
+				bc, backendCertFound := r.backendCertificates[h]
+				if !backendCertFound {
+					r.t.Fatalf("certificate for hostname %q doesn't exist", h)
+				}
+				sc = bc
 			}
 
-			if err := r.dockerCli.copyToContainer(ctx, id, c.cert, r.testName+".crt", "/tmp"); err != nil {
+			if err := r.dockerCli.copyToContainer(ctx, id, sc.cert, h+".crt", "/tmp"); err != nil {
 				r.t.Fatalf("failed to copy cert to client container: %s", err)
 			}
 		}
@@ -170,19 +179,39 @@ func (r *lbTestScenario) createServerCertificate(ctx context.Context, hostName s
 		r.t.Fatalf("failed to gen x509: %s", err)
 	}
 
-	sec := secret(r.testName, key.Bytes(), cert.Bytes())
+	sec := secret(r.k8sNamespace, r.testName, key.Bytes(), cert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
 		}
 	}
 
-	r.serverCertificates[hostName] = &serverCertificate{
-		cert: cert.Bytes(),
-		key:  key.Bytes(),
+	certBytes := cert.Bytes()
+	keyBytes := key.Bytes()
+	r.serverCertificates[hostName] = &tlsCertificate{
+		cert:       certBytes,
+		key:        keyBytes,
+		certBase64: base64.StdEncoding.EncodeToString(certBytes),
+		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
 	}
 
 	maybeCleanupT(func() error {
 		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName, metav1.DeleteOptions{})
 	}, r.t)
+}
+
+func (r *lbTestScenario) createBackendCertificate(_ context.Context, hostName string) {
+	key, cert, err := genSelfSignedX509(hostName)
+	if err != nil {
+		r.t.Fatalf("failed to gen x509: %s", err)
+	}
+
+	certBytes := cert.Bytes()
+	keyBytes := key.Bytes()
+	r.backendCertificates[hostName] = &tlsCertificate{
+		cert:       certBytes,
+		key:        keyBytes,
+		certBase64: base64.StdEncoding.EncodeToString(certBytes),
+		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
+	}
 }

@@ -39,7 +39,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	clientName := name + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(name, "")
+	vip := lbVIP(ns, name, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -50,11 +50,11 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(name, "/health", 10, backends)
+	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
+	service := lbService(ns, name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -164,7 +164,7 @@ func TestHTTP2(t *testing.T) {
 	clientName := name + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(name, "")
+	vip := lbVIP(ns, name, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -175,11 +175,11 @@ func TestHTTP2(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(name, "/health", 10, backends)
+	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -231,7 +231,7 @@ func TestHTTPPath(t *testing.T) {
 	clientName := name + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(name, "")
+	vip := lbVIP(ns, name, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -242,11 +242,11 @@ func TestHTTPPath(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(name, "/health", 10, backends)
+	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
