@@ -18,8 +18,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
 const (
@@ -31,16 +29,6 @@ const (
 	lbIPPoolName = "lb-pool"
 )
 
-type testSuite struct {
-	ciliumCli *ciliumCli
-	dockerCli *dockerCli
-	k8sCli    *k8s.Clientset
-
-	lbT1IP string
-}
-
-var suite testSuite
-
 var cleanup = flag.Bool("cleanup", true, "Cleanup created resources after each test case run")
 
 func TestMain(m *testing.M) {
@@ -51,18 +39,10 @@ func TestMain(m *testing.M) {
 
 	flag.Parse()
 
-	ciliumCli, k8sCli, err := newCiliumAndK8sCli()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create Cilium client: %s", err))
-	}
-	suite.ciliumCli = ciliumCli
-	suite.k8sCli = k8sCli
+	pf := &panicFataler{}
 
-	dockerCli, err := newDockerCli()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create Docker client: %s", err))
-	}
-	suite.dockerCli = dockerCli
+	ciliumCli, _ := newCiliumAndK8sCli(pf)
+	dockerCli := newDockerCli(pf)
 
 	for _, img := range []string{appImage, clientImage} {
 		if err := dockerCli.ensureImage(context.Background(), img); err != nil {
@@ -70,30 +50,28 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	// Derive T1 LB IP addr
+	// Test retrieving T1 LB IP addr
 
-	// TODO maybe use "kubectl get nodes"
-	suite.lbT1IP, err = suite.dockerCli.GetContainerIP(context.Background(), "kind-control-plane")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to retrieve T1 LB IP: %s", err))
+	if _, err := getT1NodeIPs(dockerCli); err != nil {
+		panic(fmt.Sprintf("Failed to retrieve T1 LB IPs: %s", err))
 	}
 
 	// Create LBIPPool (it is shared among all test cases)
 
 	lbIPPool := lbIPPool(lbIPPoolName, "100.64.0.0/24")
-	if err := suite.ciliumCli.ensureLBIPPool(context.Background(), lbIPPool); err != nil {
+	if err := ciliumCli.ensureLBIPPool(context.Background(), lbIPPool); err != nil {
 		panic(fmt.Sprintf("Failed to ensure LBIPPool (%s): %s", lbIPPoolName, err))
 	}
 	defer maybeCleanup(func() error {
-		return suite.ciliumCli.DeleteLBIPPool(context.Background(), lbIPPoolName, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBIPPool(context.Background(), lbIPPoolName, metav1.DeleteOptions{})
 	})
 
 	// Create CiliumBGPPeeringPolicy and BFD (each test case will append its peer to it)
-	if err := suite.ciliumCli.ensureBGPPeeringPolicyAndBFD(context.Background()); err != nil {
+	if err := ciliumCli.ensureBGPPeeringPolicyAndBFD(context.Background()); err != nil {
 		panic(fmt.Sprintf("Failed to install BGP peering: %s", err))
 	}
 	defer maybeCleanup(func() error {
-		return suite.ciliumCli.deleteBGPPeeringPolicyAndBFD(context.Background())
+		return ciliumCli.deleteBGPPeeringPolicyAndBFD(context.Background())
 	})
 
 	// Run tests
@@ -117,4 +95,12 @@ func maybeCleanup(f func() error) {
 			fmt.Printf("cleanup failed: %s\n", err)
 		}
 	}
+}
+
+var _ fataler = &panicFataler{}
+
+type panicFataler struct{}
+
+func (p *panicFataler) Fatalf(format string, args ...any) {
+	panic(fmt.Sprintf(format, args...))
 }

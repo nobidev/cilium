@@ -59,27 +59,31 @@ type ciliumCli struct {
 	*cilium_clientset.Clientset
 }
 
-func newCiliumAndK8sCli() (*ciliumCli, *k8s.Clientset, error) {
+type fataler interface {
+	Fatalf(format string, args ...any)
+}
+
+func newCiliumAndK8sCli(f fataler) (*ciliumCli, *k8s.Clientset) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
-		panic(err)
+		f.Fatalf("failed to read kube config: %s", err)
 	}
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create k8s REST client: %w", err)
+		f.Fatalf("unable to create k8s REST client: %s", err)
 	}
 
 	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
+		f.Fatalf("unable to create cilium k8s client: %s", err)
 	}
 
 	k8s := k8s.NewForConfigOrDie(restConfig)
 
-	return &ciliumCli{cli}, k8s, nil
+	return &ciliumCli{cli}, k8s
 }
 
 func (c *ciliumCli) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
@@ -235,13 +239,13 @@ type dockerCli struct {
 	*docker_client.Client
 }
 
-func newDockerCli() (*dockerCli, error) {
+func newDockerCli(f fataler) *dockerCli {
 	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open Docker client: %w", err)
+		f.Fatalf("failed to open Docker client: %s", err)
 	}
 
-	return &dockerCli{cli}, nil
+	return &dockerCli{cli}
 }
 
 func (c *dockerCli) GetContainerIP(ctx context.Context, containerName string) (string, error) {
@@ -499,4 +503,25 @@ func createTAR(content []byte, path string) (io.Reader, error) {
 	}
 
 	return bytes.NewReader(buf.Bytes()), nil
+}
+
+func getT1NodeIPs(dockerCli *dockerCli) ([]string, error) {
+	// TODO maybe use "kubectl get nodes"
+	ip, err := dockerCli.GetContainerIP(context.Background(), "kind-control-plane")
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve T1 LB IP: %w", err)
+	}
+
+	return []string{
+		ip,
+	}, nil
+}
+
+func getBGPNeighborString(f fataler, dockerCli *dockerCli) string {
+	t1NodeIPs, err := getT1NodeIPs(dockerCli)
+	if err != nil {
+		f.Fatalf("failed to get T1 node ips: %s", err)
+	}
+
+	return strings.Join(t1NodeIPs, ";")
 }

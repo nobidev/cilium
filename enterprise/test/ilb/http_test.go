@@ -27,6 +27,9 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	name := "http-1"
 	ns := "default"
 
+	ciliumCli, _ := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
 	t.Log("Creating client and apps...")
 
 	// 0. Create LB backend apps
@@ -45,43 +48,43 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
+		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBORS=" + suite.lbT1IP,
+		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
 	}
-	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
+	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
 
-	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
+	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
+	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
 
 	t.Logf("Creating LB service objects...")
 
 	// 2. Create LBVIP
 
 	vip := lbVIP(name, "")
-	if err := suite.ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 3. Create LBBackendPool
@@ -92,45 +95,45 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
-	if err := suite.ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 4. Create LBService
 
 	service := lbService(name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
 
-	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Service (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
-	ip, err := suite.ciliumCli.WaitForLBVIP(ctx, ns, name)
+	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
 	if err != nil {
 		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
 	}
 
-	err = suite.dockerCli.waitForIPRoute(ctx, clientName, ip)
+	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
 	if err != nil {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", ip))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
@@ -142,7 +145,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Logf("Setting T2 HC to fail...")
 
 	for _, ip := range []string{app1IP, app2IP} {
-		if err := suite.dockerCli.controlBackendHC(ctx, clientName, ip, hcFail); err != nil {
+		if err := dockerCli.controlBackendHC(ctx, clientName, ip, hcFail); err != nil {
 			t.Fatalf("failed to set HC to fail (%s): %s", ip, err)
 		}
 	}
@@ -155,7 +158,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	defer cancel()
 
 	for {
-		_, _, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
 		if err != nil {
 			break
 		}
@@ -172,7 +175,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	// 3. Bring back both backends
 
 	for _, ip := range []string{app1IP, app2IP} {
-		if err := suite.dockerCli.controlBackendHC(ctx, clientName, ip, hcOK); err != nil {
+		if err := dockerCli.controlBackendHC(ctx, clientName, ip, hcOK); err != nil {
 			t.Fatalf("failed to set HC to pass (%s): %s", ip, err)
 		}
 	}
@@ -185,7 +188,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	defer cancel()
 
 	for {
-		_, _, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
 		if err == nil {
 			break
 		}
@@ -206,6 +209,9 @@ func TestHTTP2(t *testing.T) {
 	ns := "default"
 	hostName := "mixed.acme.io"
 
+	ciliumCli, _ := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
 	t.Log("Creating client and apps...")
 
 	// 0. Create LB backend apps
@@ -224,43 +230,43 @@ func TestHTTP2(t *testing.T) {
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
+		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBORS=" + suite.lbT1IP,
+		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
 	}
-	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
+	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
 
-	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
+	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
+	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
 
 	t.Logf("Creating LB service objects...")
 
 	// 2. Create LBVIP
 
 	vip := lbVIP(name, "")
-	if err := suite.ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 3. Create LBBackendPool
@@ -271,45 +277,45 @@ func TestHTTP2(t *testing.T) {
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
-	if err := suite.ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 4. Create LBService
 
 	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
 
-	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Service (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
-	ip, err := suite.ciliumCli.WaitForLBVIP(ctx, ns, name)
+	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
 	if err != nil {
 		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
 	}
 
-	err = suite.dockerCli.waitForIPRoute(ctx, clientName, ip)
+	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
 	if err != nil {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", ip))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
@@ -327,6 +333,9 @@ func TestHTTPPath(t *testing.T) {
 	hostName := "insecure.acme.io"
 	path := "/api/foo-insecure"
 
+	ciliumCli, _ := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
 	t.Log("Creating client and apps...")
 
 	// 0. Create LB backend apps
@@ -345,43 +354,43 @@ func TestHTTPPath(t *testing.T) {
 			"INSTANCE_NAME=" + app.name,
 			"H2C_ENABLED=true",
 		}
-		id, ip, err := suite.dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
+		id, ip, err := dockerCli.createContainer(ctx, app.name, appImage, env, containerNetwork, false)
 		if err != nil {
 			t.Fatalf("cannot create app container (%s): %s", app.name, err)
 		}
 		*app.ip = ip
-		maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), id) }, t)
+		maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), id) }, t)
 	}
 
 	// 1. Create FRR client
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBORS=" + suite.lbT1IP,
+		"NEIGHBORS=" + getBGPNeighborString(t, dockerCli),
 	}
-	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
+	_, clientIP, err := dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
 		t.Fatalf("cannot create client container (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.dockerCli.deleteContainer(context.Background(), clientName) }, t)
+	maybeCleanupT(func() error { return dockerCli.deleteContainer(context.Background(), clientName) }, t)
 
-	if err := suite.ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
+	if err := ciliumCli.doBGPPeeringForClient(ctx, clientIP); err != nil {
 		t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
 	}
-	maybeCleanupT(func() error { return suite.ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
+	maybeCleanupT(func() error { return ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, t)
 
 	t.Logf("Creating LB service objects...")
 
 	// 2. Create LBVIP
 
 	vip := lbVIP(name, "")
-	if err := suite.ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBVIP(ctx, ns, vip, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB VIP (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBVIP(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 3. Create LBBackendPool
@@ -392,45 +401,45 @@ func TestHTTPPath(t *testing.T) {
 	}
 	backendPool := lbBackendPool(name, "/health", 10, backends)
 
-	if err := suite.ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBBackend(ctx, ns, backendPool, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Backend Pool (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBBackend(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 4. Create LBService
 
 	service := lbService(name, name, 80, lbServiceApplicationsHTTP(name, hostName, path))
 
-	if err := suite.ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
+	if err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			t.Fatalf("cannot create LB Service (%s): %s", name, err)
 		}
 	}
 	maybeCleanupT(func() error {
-		return suite.ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
+		return ciliumCli.DeleteLBService(context.Background(), ns, name, metav1.DeleteOptions{})
 	}, t)
 
 	// 5. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 
 	t.Logf("Waiting for VIP of %q...", name)
 
-	ip, err := suite.ciliumCli.WaitForLBVIP(ctx, ns, name)
+	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
 	if err != nil {
 		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
 	}
 
-	err = suite.dockerCli.waitForIPRoute(ctx, clientName, ip)
+	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
 	if err != nil {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, path))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := suite.dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
