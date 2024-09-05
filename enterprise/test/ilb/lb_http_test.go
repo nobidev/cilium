@@ -246,7 +246,7 @@ func TestHTTPPath(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, path))
 	scenario.createLBService(ctx, service)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -263,10 +263,21 @@ func TestHTTPPath(t *testing.T) {
 		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
 	}
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, path))
-	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
-	if err != nil {
-		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	{
+		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, path))
+		t.Logf("Testing %q...", testCmd)
+		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		if err != nil {
+			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+	}
+
+	{
+		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, "/other"))
+		t.Logf("Testing failure on other path %q...", testCmd)
+		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		if err == nil {
+			t.Fatalf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
 	}
 }
