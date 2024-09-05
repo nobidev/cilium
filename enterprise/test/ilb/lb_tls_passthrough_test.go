@@ -84,22 +84,12 @@ func TestTLSPassthrough(t *testing.T) {
 	service := lbService(ns, name, name, 80, lbServiceApplicationsTLSPassthrough(routes))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTPs request
-
-	t.Logf("Waiting for VIP of %q...", name)
-
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
-	testCmd1 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, ip, hostName1))
-	testCmd2 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, ip, hostName2))
+	testCmd1 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
+	testCmd2 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)

@@ -57,20 +57,10 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	service := lbService(ns, name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-
-	t.Logf("Waiting for VIP of %q...", name)
-
-	vipIP, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, vipIP)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
 	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
@@ -182,21 +172,11 @@ func TestHTTP2(t *testing.T) {
 	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-
-	t.Logf("Waiting for VIP of %q...", name)
-
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
-	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", ip))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
@@ -249,22 +229,12 @@ func TestHTTPPath(t *testing.T) {
 	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, path))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-
-	t.Logf("Waiting for VIP of %q...", name)
-
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, path))
+		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 		if err != nil {
@@ -273,7 +243,7 @@ func TestHTTPPath(t *testing.T) {
 	}
 
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, ip, hostName, "/other"))
+		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
 		t.Logf("Testing failure on other path %q...", testCmd)
 		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 		if err == nil {

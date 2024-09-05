@@ -61,21 +61,11 @@ func TestHTTPS(t *testing.T) {
 	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, nil))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTPs request
-
-	t.Logf("Waiting for VIP of %q...", name)
-
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
-	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", ip))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {
@@ -129,20 +119,11 @@ func TestHTTP2S(t *testing.T) {
 	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, cfg))
 	scenario.createLBService(ctx, service)
 
+	t.Logf("Waiting for full VIP connectivity of %q...", name)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+
 	// 1. Send HTTPs request
-	t.Logf("Waiting for VIP of %q...", name)
-
-	ip, err := ciliumCli.WaitForLBVIP(ctx, ns, name)
-	if err != nil {
-		t.Fatalf("failed to wait for VIP (%s): %s", name, err)
-	}
-
-	err = dockerCli.waitForIPRoute(ctx, clientName, ip)
-	if err != nil {
-		t.Fatalf("failed to wait for IP route in client (%s): %s", clientName, err)
-	}
-
-	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, ip, hostName))
+	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 	if err != nil {

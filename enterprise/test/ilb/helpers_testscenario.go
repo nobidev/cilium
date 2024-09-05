@@ -66,6 +66,22 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 	}
 }
 
+func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context) string {
+	ip, err := r.ciliumCli.WaitForLBVIP(ctx, r.k8sNamespace, r.testName)
+	if err != nil {
+		r.t.Fatalf("failed to wait for VIP (%s): %s", r.testName, err)
+	}
+
+	for cName, c := range r.frrClients {
+		err = r.dockerCli.waitForIPRoute(ctx, c.id, ip)
+		if err != nil {
+			r.t.Fatalf("failed to wait for IP route in client (%s): %s", cName, err)
+		}
+	}
+
+	return ip
+}
+
 func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, additionalEnvVars []string) {
 	startIndex := len(r.backendApps)
 
