@@ -57,7 +57,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBOR=" + suite.lbT1IP,
+		"NEIGHBORS=" + suite.lbT1IP,
 	}
 	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
@@ -236,7 +236,7 @@ func TestHTTP2(t *testing.T) {
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBOR=" + suite.lbT1IP,
+		"NEIGHBORS=" + suite.lbT1IP,
 	}
 	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {
@@ -357,7 +357,7 @@ func TestHTTPPath(t *testing.T) {
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBOR=" + suite.lbT1IP,
+		"NEIGHBORS=" + suite.lbT1IP,
 	}
 	_, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {

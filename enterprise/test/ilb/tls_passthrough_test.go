@@ -83,7 +83,7 @@ func TestTLSPassthrough(t *testing.T) {
 
 	clientName := name + "-client"
 	env := []string{
-		"NEIGHBOR=" + suite.lbT1IP,
+		"NEIGHBORS=" + suite.lbT1IP,
 	}
 	clientID, clientIP, err := suite.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 	if err != nil {

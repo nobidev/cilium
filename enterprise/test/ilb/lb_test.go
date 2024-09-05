@@ -26,7 +26,7 @@ const (
 	containerNetwork = "kind-cilium"
 
 	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4"
-	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.1"
+	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.2"
 
 	lbIPPoolName = "lb-pool"
 )
