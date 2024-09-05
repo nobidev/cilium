@@ -33,13 +33,13 @@ type lbTestScenario struct {
 	k8sCli    *k8s.Clientset
 	dockerCli *dockerCli
 
-	backendApps         map[string]*backendApp
-	frrClients          map[string]*backendApp
+	backendApps         map[string]*dockerContainer
+	frrClients          map[string]*dockerContainer
 	serverCertificates  map[string]*tlsCertificate
 	backendCertificates map[string]*tlsCertificate
 }
 
-type backendApp struct {
+type dockerContainer struct {
 	id string
 	ip string
 }
@@ -59,8 +59,8 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		ciliumCli:           ciliumCli,
 		k8sCli:              k8sCli,
 		dockerCli:           dockerCli,
-		backendApps:         map[string]*backendApp{},
-		frrClients:          map[string]*backendApp{},
+		backendApps:         map[string]*dockerContainer{},
+		frrClients:          map[string]*dockerContainer{},
 		serverCertificates:  map[string]*tlsCertificate{},
 		backendCertificates: map[string]*tlsCertificate{},
 	}
@@ -84,7 +84,7 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
 
-		r.backendApps[appName] = &backendApp{
+		r.backendApps[appName] = &dockerContainer{
 			id: id,
 			ip: ip,
 		}
@@ -110,7 +110,7 @@ func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int,
 			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}
 
-		r.frrClients[clientName] = &backendApp{
+		r.frrClients[clientName] = &dockerContainer{
 			id: id,
 			ip: ip,
 		}
