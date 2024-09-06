@@ -213,7 +213,12 @@ func (r *lbTestScenario) createLBService(ctx context.Context, svc *isovalentv1al
 	}, r.t)
 }
 
-func (r *lbTestScenario) createServerCertificate(ctx context.Context, hostName string) {
+// createLBServerCertificate creates a server certificate that can be used to terminate TLS traffic on the Loadbalancer.
+// In addition to creating the creating the cert & key, the corresponding K8s TLS Secret gets created.
+//
+// Note: Certificates need to be created before creating any FRR client that references the cert.
+// Otherwise loading the cert into the corresponding docker container fails.
+func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName string) {
 	key, cert, err := genSelfSignedX509(hostName)
 	if err != nil {
 		r.t.Fatalf("failed to gen x509: %s", err)
@@ -240,7 +245,11 @@ func (r *lbTestScenario) createServerCertificate(ctx context.Context, hostName s
 	}, r.t)
 }
 
-func (r *lbTestScenario) createBackendCertificate(_ context.Context, hostName string) {
+// createBackendServerCertificate creates a server certificate that can be used to terminate TLS traffic on a backend application.
+//
+// Note: Certificates need to be created before creating any backend application or FRR client that references the cert.
+// Otherwise loading the cert/key into the corresponding docker container fails.
+func (r *lbTestScenario) createBackendServerCertificate(_ context.Context, hostName string) {
 	key, cert, err := genSelfSignedX509(hostName)
 	if err != nil {
 		r.t.Fatalf("failed to gen x509: %s", err)

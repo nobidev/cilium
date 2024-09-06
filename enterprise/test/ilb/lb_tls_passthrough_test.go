@@ -32,8 +32,8 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
-	scenario.createBackendCertificate(ctx, hostName1)
-	scenario.createBackendCertificate(ctx, hostName2)
+	scenario.createBackendServerCertificate(ctx, hostName1)
+	scenario.createBackendServerCertificate(ctx, hostName2)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName1})

@@ -32,7 +32,7 @@ func TestHTTPS(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
-	scenario.createServerCertificate(ctx, hostName)
+	scenario.createLBServerCertificate(ctx, hostName)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -86,7 +86,7 @@ func TestHTTP2S(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
-	scenario.createServerCertificate(ctx, hostName)
+	scenario.createLBServerCertificate(ctx, hostName)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
