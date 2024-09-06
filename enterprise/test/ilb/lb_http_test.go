@@ -31,10 +31,10 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
 	clientName := name + "-client-0"
 
@@ -146,10 +146,10 @@ func TestHTTP2(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
 	clientName := name + "-client-0"
 
@@ -203,10 +203,10 @@ func TestHTTPPath(t *testing.T) {
 	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
 	clientName := name + "-client-0"
 

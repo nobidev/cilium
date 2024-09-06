@@ -36,19 +36,11 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario.createBackendCertificate(ctx, hostName2)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 1, []string{
-		"TLS_ENABLED=true",
-		"TLS_KEY_BASE64=" + scenario.backendCertificates[hostName1].keyBase64,
-		"TLS_CERT_BASE64=" + scenario.backendCertificates[hostName1].certBase64,
-	})
-	scenario.addBackendApplications(ctx, 1, []string{
-		"TLS_ENABLED=true",
-		"TLS_KEY_BASE64=" + scenario.backendCertificates[hostName2].keyBase64,
-		"TLS_CERT_BASE64=" + scenario.backendCertificates[hostName2].certBase64,
-	})
+	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName1})
+	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName2})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{hostName1, hostName2})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})
 
 	clientName := name + "-client-0"
 

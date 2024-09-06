@@ -35,10 +35,10 @@ func TestHTTPS(t *testing.T) {
 	scenario.createServerCertificate(ctx, hostName)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{hostName})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
 
 	clientName := name + "-client-0"
 
@@ -89,10 +89,10 @@ func TestHTTP2S(t *testing.T) {
 	scenario.createServerCertificate(ctx, hostName)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, []string{"H2C_ENABLED=true"})
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFrrClients(ctx, 1, []string{}, []string{hostName})
+	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
 
 	clientName := name + "-client-0"
 

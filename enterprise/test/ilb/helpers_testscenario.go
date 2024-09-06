@@ -82,20 +82,14 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context) string 
 	return ip
 }
 
-func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, additionalEnvVars []string) {
+func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) {
 	startIndex := len(r.backendApps)
 
 	for i := startIndex; i < startIndex+numberOfBackends; i++ {
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
+		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		env := []string{
-			"SERVICE_NAME=" + appName,
-			"INSTANCE_NAME=" + appName,
-		}
-
-		env = append(env, additionalEnvVars...)
-
-		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, env, containerNetwork, false)
+		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, envVars, containerNetwork, false)
 		if err != nil {
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
@@ -109,17 +103,43 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 	}
 }
 
-func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int, additionalEnvVars []string, serverCertificateHostnames []string) {
+func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config backendApplicationConfig) []string {
+	env := []string{
+		"SERVICE_NAME=" + appName,
+		"INSTANCE_NAME=" + appName,
+	}
+
+	if config.h2cEnabled {
+		env = append(env, "H2C_ENABLED=true")
+	}
+
+	if len(config.tlsCertHostname) > 0 {
+		cert, ok := r.backendCertificates[config.tlsCertHostname]
+		if !ok {
+			r.t.Fatalf("backend certificate with hostname %q not found", config.tlsCertHostname)
+		}
+
+		env = append(env, "TLS_ENABLED=true")
+		env = append(env, "TLS_KEY_BASE64="+cert.keyBase64)
+		env = append(env, "TLS_CERT_BASE64="+cert.certBase64)
+	}
+
+	return env
+}
+
+type backendApplicationConfig struct {
+	h2cEnabled      bool
+	tlsCertHostname string
+}
+
+func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) {
 	startIndex := len(r.frrClients)
 
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
 		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
-
 		env := []string{
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.dockerCli),
 		}
-
-		env = append(env, additionalEnvVars...)
 
 		id, ip, err := r.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)
 		if err != nil {
@@ -138,7 +158,7 @@ func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int,
 		}
 		maybeCleanupT(func() error { return r.ciliumCli.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
 
-		for _, h := range serverCertificateHostnames {
+		for _, h := range config.trustedCertsHostnames {
 			sc, serverCertFound := r.serverCertificates[h]
 			if !serverCertFound {
 				bc, backendCertFound := r.backendCertificates[h]
@@ -154,6 +174,10 @@ func (r *lbTestScenario) addFrrClients(ctx context.Context, numberOfClients int,
 		}
 
 	}
+}
+
+type frrClientConfig struct {
+	trustedCertsHostnames []string
 }
 
 func (r *lbTestScenario) createLBVIP(ctx context.Context, vip *isovalentv1alpha1.LBVIP) {
