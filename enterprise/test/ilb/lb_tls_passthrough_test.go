@@ -20,8 +20,8 @@ import (
 
 func TestTLSPassthrough(t *testing.T) {
 	ctx := context.Background()
-	name := "https-passthrough-1"
-	ns := "default"
+	testName := "https-passthrough-1"
+	testK8sNamespace := "default"
 	hostName1 := "passthrough.acme.io"
 	hostName2 := "passthrough-2.acme.io"
 
@@ -29,7 +29,7 @@ func TestTLSPassthrough(t *testing.T) {
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createBackendServerCertificate(ctx, hostName1)
@@ -42,17 +42,17 @@ func TestTLSPassthrough(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backendPool1 := lbBackendPool(ns, name+"-1", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[name+"-app-0"].ip, Port: 8080}})
+	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[testName+"-app-0"].ip, Port: 8080}})
 	scenario.createLBBackendPool(ctx, backendPool1)
 
-	backendPool2 := lbBackendPool(ns, name+"-2", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[name+"-app-1"].ip, Port: 8080}})
+	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[testName+"-app-1"].ip, Port: 8080}})
 	scenario.createLBBackendPool(ctx, backendPool2)
 
 	t.Logf("Creating LB Service resources...")
@@ -64,20 +64,20 @@ func TestTLSPassthrough(t *testing.T) {
 				},
 			},
 			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-				Name: name + "-1",
+				Name: testName + "-1",
 			},
 		},
 		{
 			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-				Name: name + "-2",
+				Name: testName + "-2",
 			},
 		},
 	}
-	service := lbService(ns, name, name, 80, lbServiceApplicationsTLSPassthrough(routes))
+	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsTLSPassthrough(routes))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
 	testCmd1 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))

@@ -21,14 +21,14 @@ import (
 
 func TestHTTPAndT2HealthChecks(t *testing.T) {
 	ctx := context.Background()
-	name := "http-1"
-	ns := "default"
+	testName := "http-1"
+	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -36,10 +36,10 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -50,15 +50,15 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(ns, name, name, 81, lbServiceApplicationsHTTP(name, "", ""))
+	service := lbService(testK8sNamespace, testName, testName, 81, lbServiceApplicationsHTTP(testName, "", ""))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
@@ -135,15 +135,15 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 func TestHTTP2(t *testing.T) {
 	ctx := context.Background()
-	name := "http2-1"
-	ns := "default"
+	testName := "http2-1"
+	testK8sNamespace := "default"
 	hostName := "mixed.acme.io"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -151,10 +151,10 @@ func TestHTTP2(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -165,15 +165,15 @@ func TestHTTP2(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, ""))
+	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsHTTP(testName, hostName, ""))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
@@ -191,8 +191,8 @@ func TestHTTP2(t *testing.T) {
 
 func TestHTTPPath(t *testing.T) {
 	ctx := context.Background()
-	name := "http-path-1"
-	ns := "default"
+	testName := "http-path-1"
+	testK8sNamespace := "default"
 	hostName := "insecure.acme.io"
 	path := "/api/foo-insecure"
 
@@ -200,7 +200,7 @@ func TestHTTPPath(t *testing.T) {
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -208,10 +208,10 @@ func TestHTTPPath(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -222,15 +222,15 @@ func TestHTTPPath(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(ns, name, name, 80, lbServiceApplicationsHTTP(name, hostName, path))
+	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsHTTP(testName, hostName, path))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	{

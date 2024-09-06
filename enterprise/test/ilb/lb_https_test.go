@@ -21,15 +21,15 @@ import (
 
 func TestHTTPS(t *testing.T) {
 	ctx := context.Background()
-	name := "https-1"
-	ns := "default"
+	testName := "https-1"
+	testK8sNamespace := "default"
 	hostName := "secure.acme.io"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createLBServerCertificate(ctx, hostName)
@@ -40,10 +40,10 @@ func TestHTTPS(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -54,15 +54,15 @@ func TestHTTPS(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, nil))
+	service := lbService(testK8sNamespace, testName, testName, 443, lbServiceApplicationsHTTPSProxy(testName, testName, hostName, nil))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
 	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
@@ -75,15 +75,15 @@ func TestHTTPS(t *testing.T) {
 
 func TestHTTP2S(t *testing.T) {
 	ctx := context.Background()
-	name := "http2s-1"
-	ns := "default"
+	testName := "http2s-1"
+	testK8sNamespace := "default"
 	hostName := "secure-http2.acme.io"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, name, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createLBServerCertificate(ctx, hostName)
@@ -94,10 +94,10 @@ func TestHTTP2S(t *testing.T) {
 	t.Log("Creating clients and add BGP peering ...")
 	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
 
-	clientName := name + "-client-0"
+	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(ns, name, "")
+	vip := lbVIP(testK8sNamespace, testName, "")
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
@@ -108,7 +108,7 @@ func TestHTTP2S(t *testing.T) {
 			Port: 8080,
 		})
 	}
-	backendPool := lbBackendPool(ns, name, "/health", 10, backends)
+	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
@@ -116,11 +116,11 @@ func TestHTTP2S(t *testing.T) {
 		EnableHTTP11: model.AddressOf(true),
 		EnableHTTP2:  model.AddressOf(true),
 	}
-	service := lbService(ns, name, name, 443, lbServiceApplicationsHTTPSProxy(name, name, hostName, cfg))
+	service := lbService(testK8sNamespace, testName, testName, 443, lbServiceApplicationsHTTPSProxy(testName, testName, hostName, cfg))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", name)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx)
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
 	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))

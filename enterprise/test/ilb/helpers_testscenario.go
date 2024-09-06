@@ -66,10 +66,10 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 	}
 }
 
-func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context) string {
-	ip, err := r.ciliumCli.WaitForLBVIP(ctx, r.k8sNamespace, r.testName)
+func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName string) string {
+	ip, err := r.ciliumCli.WaitForLBVIP(ctx, r.k8sNamespace, vipName)
 	if err != nil {
-		r.t.Fatalf("failed to wait for VIP (%s): %s", r.testName, err)
+		r.t.Fatalf("failed to wait for VIP (%s): %s", vipName, err)
 	}
 
 	for cName, c := range r.frrClients {
