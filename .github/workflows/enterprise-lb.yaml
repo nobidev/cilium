@@ -203,7 +203,7 @@ jobs:
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
-          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb
+          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb --cleanup=false
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
