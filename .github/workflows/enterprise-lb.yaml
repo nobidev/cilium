@@ -205,6 +205,12 @@ jobs:
 
           DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb --cleanup=false
 
+      - name: Run "cilium lb status"
+        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          ./cilium-cli lb status
+
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
