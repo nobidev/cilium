@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -158,9 +159,10 @@ func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) 
 	name := bgpPolicyName
 	pol.Spec.VirtualRouters[0].Neighbors = append(pol.Spec.VirtualRouters[0].Neighbors,
 		ciliumv2alpha1.CiliumBGPNeighbor{
-			PeerAddress:   clientIP + "/32",
-			PeerASN:       64512,
-			BFDProfileRef: &name,
+			PeerAddress:             clientIP + "/32",
+			PeerASN:                 64512,
+			BFDProfileRef:           &name,
+			ConnectRetryTimeSeconds: ptr.To(int32(1)),
 		})
 
 	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
