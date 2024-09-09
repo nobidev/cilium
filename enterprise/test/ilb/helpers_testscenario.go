@@ -37,6 +37,7 @@ type lbTestScenario struct {
 	frrClients          map[string]*dockerContainer
 	serverCertificates  map[string]*tlsCertificate
 	backendCertificates map[string]*tlsCertificate
+	clientCertificates  map[string]*tlsCertificate
 }
 
 type dockerContainer struct {
@@ -63,6 +64,7 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		frrClients:          map[string]*dockerContainer{},
 		serverCertificates:  map[string]*tlsCertificate{},
 		backendCertificates: map[string]*tlsCertificate{},
+		clientCertificates:  map[string]*tlsCertificate{},
 	}
 }
 
@@ -173,6 +175,14 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 			}
 		}
 
+		for hostName, cert := range r.clientCertificates {
+			if err := r.dockerCli.copyToContainer(ctx, id, cert.cert, hostName+".crt", "/tmp"); err != nil {
+				r.t.Fatalf("failed to copy cert to client container: %s", err)
+			}
+			if err := r.dockerCli.copyToContainer(ctx, id, cert.key, hostName+".key", "/tmp"); err != nil {
+				r.t.Fatalf("failed to copy key to client container: %s", err)
+			}
+		}
 	}
 }
 
@@ -234,6 +244,38 @@ func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName
 	certBytes := cert.Bytes()
 	keyBytes := key.Bytes()
 	r.serverCertificates[hostName] = &tlsCertificate{
+		cert:       certBytes,
+		key:        keyBytes,
+		certBase64: base64.StdEncoding.EncodeToString(certBytes),
+		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
+	}
+
+	maybeCleanupT(func() error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName, metav1.DeleteOptions{})
+	}, r.t)
+}
+
+// createLBClientCertificate creates a client certificate that can be used to authenticate clients to the Loadbalancer.
+// In addition to creating the creating the cert & key, the corresponding K8s TLS Secret gets created.
+//
+// Note: Certificates need to be created before creating any FRR client that references the cert.
+// Otherwise loading the cert into the corresponding docker container fails.
+func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, hostName string) {
+	key, cert, err := genSelfSignedX509(hostName)
+	if err != nil {
+		r.t.Fatalf("failed to gen x509: %s", err)
+	}
+
+	sec := secret(r.k8sNamespace, r.testName+"-client", key.Bytes(), cert.Bytes())
+	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+		}
+	}
+
+	certBytes := cert.Bytes()
+	keyBytes := key.Bytes()
+	r.clientCertificates[hostName] = &tlsCertificate{
 		cert:       certBytes,
 		key:        keyBytes,
 		certBase64: base64.StdEncoding.EncodeToString(certBytes),
