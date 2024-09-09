@@ -17,6 +17,7 @@ metadata:
   namespace: special-namespace
   name: lbfe-lb-1
 spec:
+  allocateLoadBalancerNodePorts: false
   ports:
     - name: http
       port: 80

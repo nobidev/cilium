@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
@@ -66,7 +67,8 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type:                          corev1.ServiceTypeLoadBalancer,
+			AllocateLoadBalancerNodePorts: ptr.To(false),
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
