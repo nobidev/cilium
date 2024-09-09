@@ -45,14 +45,14 @@ func TestTLSPassthrough(t *testing.T) {
 	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[testName+"-app-0"].ip, Port: 8080}}, nil)
+	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withBackend(scenario.backendApps[testName+"-app-0"].ip, 8080))
 	scenario.createLBBackendPool(ctx, backendPool1)
 
-	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", "/health", 10, []isovalentv1alpha1.Backend{{IP: scenario.backendApps[testName+"-app-1"].ip, Port: 8080}}, nil)
+	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withBackend(scenario.backendApps[testName+"-app-1"].ip, 8080))
 	scenario.createLBBackendPool(ctx, backendPool2)
 
 	t.Logf("Creating LB Service resources...")
@@ -73,7 +73,7 @@ func TestTLSPassthrough(t *testing.T) {
 			},
 		},
 	}
-	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsTLSPassthrough(routes))
+	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(routes))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

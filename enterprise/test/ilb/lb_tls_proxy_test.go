@@ -40,7 +40,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	t.Logf("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName, "")
+	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Log("Creating backend app...")
@@ -57,12 +57,12 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, "/health", 10, []isovalentv1alpha1.Backend{{IP: backends[0].ip, Port: 8080}}, nil)
+	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, 8080))
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, testName, 10080, lbServiceApplicationsTLSProxy(backendPool.Name, testName, serviceHostName))
+	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(backendPool.Name, testName, serviceHostName))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -137,7 +137,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	t.Logf("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName, "")
+	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	backendHostName := "secure-backend.acme.io"
@@ -160,12 +160,12 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, "/health", 10, []isovalentv1alpha1.Backend{{IP: backends[0].ip, Port: 8080}}, &isovalentv1alpha1.LBBackendTLSConfig{})
+	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, 8080), withBackendTLS())
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, testName, 10443, lbServiceApplicationsTLSProxy(backendPool.Name, testName, serviceHostName))
+	service := lbService(ns, testName, withPort(10443), withTLSProxyApplication(backendPool.Name, testName, serviceHostName))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

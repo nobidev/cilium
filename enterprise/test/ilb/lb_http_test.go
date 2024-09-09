@@ -14,8 +14,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestHTTPAndT2HealthChecks(t *testing.T) {
@@ -38,22 +36,19 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backends := []isovalentv1alpha1.Backend{}
+	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, isovalentv1alpha1.Backend{
-			IP:   b.ip,
-			Port: 8080,
-		})
+		backends = append(backends, withBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, testName, 81, lbServiceApplicationsHTTP(testName, "", ""))
+	service := lbService(testK8sNamespace, testName, withPort(81), withHTTPProxyApplication(testName))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -137,22 +132,19 @@ func TestHTTP2(t *testing.T) {
 	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backends := []isovalentv1alpha1.Backend{}
+	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, isovalentv1alpha1.Backend{
-			IP:   b.ip,
-			Port: 8080,
-		})
+		backends = append(backends, withBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsHTTP(testName, hostName, ""))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpHostname(hostName)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -194,22 +186,19 @@ func TestHTTPPath(t *testing.T) {
 	clientName := testName + "-client-0"
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backends := []isovalentv1alpha1.Backend{}
+	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, isovalentv1alpha1.Backend{
-			IP:   b.ip,
-			Port: 8080,
-		})
+		backends = append(backends, withBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, testName, 80, lbServiceApplicationsHTTP(testName, hostName, path))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpHostname(hostName), withHttpPath(path)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

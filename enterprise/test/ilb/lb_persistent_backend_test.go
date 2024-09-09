@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
-	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -43,18 +42,15 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backends := []isovalentv1alpha1.Backend{}
+	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, isovalentv1alpha1.Backend{
-			IP:   b.ip,
-			Port: 8080,
-		})
+		backends = append(backends, withBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
 		Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
 			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
@@ -63,13 +59,7 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	httpApp := lbServiceApplicationsHTTP(testName, "", "")
-	httpApp.HTTPProxy.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
-		Cookies: []isovalentv1alpha1.LBServiceHTTPRoutePersistentBackendCookie{
-			{Name: "session"},
-		},
-	}
-	service := lbService(testK8sNamespace, testName, testName, 80, httpApp)
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpBackendPersistenceByCookie("session")))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -119,18 +109,15 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	scenario.addFRRClients(ctx, 2, frrClientConfig{})
 
 	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName, "")
+	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backends := []isovalentv1alpha1.Backend{}
+	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, isovalentv1alpha1.Backend{
-			IP:   b.ip,
-			Port: 8080,
-		})
+		backends = append(backends, withBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, "/health", 10, backends, nil)
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
 		Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
 			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
@@ -139,11 +126,7 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	httpApp := lbServiceApplicationsHTTP(testName, "", "")
-	httpApp.HTTPProxy.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
-		SourceIP: ptr.To(true),
-	}
-	service := lbService(testK8sNamespace, testName, testName, 80, httpApp)
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpBackendPersistenceBySourceIP()))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -63,13 +64,17 @@ func lbServiceApplicationsTLSPassthrough(routes []isovalentv1alpha1.LBServiceTLS
 	}
 }
 
-func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, cfg *isovalentv1alpha1.LBServiceHTTPConfig) isovalentv1alpha1.LBServiceApplications {
+func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, opts ...httpsApplicationOption) isovalentv1alpha1.LBServiceApplications {
 	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
 			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
 				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 					{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
 				},
+			},
+			HTTPConfig: &isovalentv1alpha1.LBServiceHTTPConfig{
+				EnableHTTP11: ptr.To(true),
+				EnableHTTP2:  ptr.To(true),
 			},
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
 				{
@@ -84,14 +89,52 @@ func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, cf
 		},
 	}
 
-	if cfg != nil {
-		obj.HTTPSProxy.HTTPConfig = cfg
+	for _, o := range opts {
+		o(obj.HTTPSProxy)
 	}
 
 	return obj
 }
 
-func lbServiceApplicationsHTTP(backendRef, hostName, path string) isovalentv1alpha1.LBServiceApplications {
+type httpApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy)
+
+func withHttpHostname(hostname string) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Routes[0].Match = &isovalentv1alpha1.LBServiceHTTPRouteMatch{
+			HostNames: []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostname)},
+		}
+	}
+}
+
+func withHttpPath(path string) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Routes[0].Match.Path = &isovalentv1alpha1.LBServiceHTTPPath{
+			Exact: &path,
+		}
+	}
+}
+
+func withHttpBackendPersistenceBySourceIP() httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
+			SourceIP: ptr.To(true),
+		}
+	}
+}
+
+func withHttpBackendPersistenceByCookie(cookieName string) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
+			Cookies: []isovalentv1alpha1.LBServiceHTTPRoutePersistentBackendCookie{
+				{
+					Name: cookieName,
+				},
+			},
+		}
+	}
+}
+
+func lbServiceApplicationsHTTPProxy(backendRef string, opts ...httpApplicationOption) isovalentv1alpha1.LBServiceApplications {
 	obj := isovalentv1alpha1.LBServiceApplications{
 		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
@@ -104,57 +147,140 @@ func lbServiceApplicationsHTTP(backendRef, hostName, path string) isovalentv1alp
 		},
 	}
 
-	if hostName != "" {
-		obj.HTTPProxy.Routes[0].Match = &isovalentv1alpha1.LBServiceHTTPRouteMatch{
-			HostNames: []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostName)},
-		}
-
-		if path != "" {
-			obj.HTTPProxy.Routes[0].Match.Path = &isovalentv1alpha1.LBServiceHTTPPath{
-				Exact: &path,
-			}
-		}
+	for _, o := range opts {
+		o(obj.HTTPProxy)
 	}
 
 	return obj
 }
 
-func lbService(namespace, name, vipRefName string, port int32, app isovalentv1alpha1.LBServiceApplications) *isovalentv1alpha1.LBService {
-	return &isovalentv1alpha1.LBService{
+type serviceOption func(o *isovalentv1alpha1.LBService)
+
+func withVIPRef(vipName string) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.VIPRef = isovalentv1alpha1.LBServiceVIPRef{
+			Name: vipName,
+		}
+	}
+}
+
+func withPort(port int32) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Port = port
+	}
+}
+
+func withHTTPProxyApplication(backendRef string, opts ...httpApplicationOption) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = lbServiceApplicationsHTTPProxy(backendRef, opts...)
+	}
+}
+
+type httpsApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy)
+
+func withHTTPSH2(h2Enabled bool) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.HTTPConfig.EnableHTTP2 = &h2Enabled
+	}
+}
+
+func withHTTPSH11(h11Enabled bool) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.HTTPConfig.EnableHTTP11 = &h11Enabled
+	}
+}
+
+func withHTTPSProxyApplication(backendRef, secretName, hostName string, opts ...httpsApplicationOption) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName, opts...)
+	}
+}
+
+func withTLSPassthroughApplication(routes []isovalentv1alpha1.LBServiceTLSPassthroughRoute) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = lbServiceApplicationsTLSPassthrough(routes)
+	}
+}
+
+func withTLSProxyApplication(backendRef, secretName, hostName string) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = lbServiceApplicationsTLSProxy(backendRef, secretName, hostName)
+	}
+}
+
+func lbService(namespace string, name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
+	svc := &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
 		Spec: isovalentv1alpha1.LBServiceSpec{
 			VIPRef: isovalentv1alpha1.LBServiceVIPRef{
-				Name: vipRefName,
+				// use VIP with same name by default
+				Name: name,
 			},
-			Port:         port,
-			Applications: app,
+			Port: 80,
 		},
+	}
+
+	for _, o := range opts {
+		o(svc)
+	}
+
+	return svc
+}
+
+type backendPoolOption func(o *isovalentv1alpha1.LBBackendPool)
+
+func withBackend(ip string, port int32) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
+			IP:     ip,
+			Port:   port,
+			Weight: model.AddressOf[uint32](1),
+		})
 	}
 }
 
-func lbBackendPool(namespace, name string, hcHTTPPath string, hcInterval int32, backends []isovalentv1alpha1.Backend, tlsConfig *isovalentv1alpha1.LBBackendTLSConfig) *isovalentv1alpha1.LBBackendPool {
-	return &isovalentv1alpha1.LBBackendPool{
+func withBackendTLS() backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.TLSConfig = &isovalentv1alpha1.LBBackendTLSConfig{}
+	}
+}
+
+func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *isovalentv1alpha1.LBBackendPool {
+	pool := &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
 		Spec: isovalentv1alpha1.LBBackendPoolSpec{
 			HealthCheck: isovalentv1alpha1.HealthCheck{
-				IntervalSeconds: &hcInterval,
+				IntervalSeconds: model.AddressOf[int32](10),
 				HTTP: &isovalentv1alpha1.HealthCheckHTTP{
-					Path: &hcHTTPPath,
+					Path: model.AddressOf("/health"),
 				},
 			},
-			Backends:  backends,
-			TLSConfig: tlsConfig,
+			Backends: []isovalentv1alpha1.Backend{},
 		},
+	}
+
+	for _, o := range opts {
+		o(pool)
+	}
+
+	return pool
+}
+
+type vipOption func(o *isovalentv1alpha1.LBVIP)
+
+func withRequestedIPv4(ipv4 string) vipOption {
+	return func(o *isovalentv1alpha1.LBVIP) {
+		o.Spec.IPv4Request = &ipv4
 	}
 }
 
-func lbVIP(namespace, name, ipv4Requested string) *isovalentv1alpha1.LBVIP {
+func lbVIP(namespace string, name string, opts ...vipOption) *isovalentv1alpha1.LBVIP {
 	obj := &isovalentv1alpha1.LBVIP{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -162,8 +288,9 @@ func lbVIP(namespace, name, ipv4Requested string) *isovalentv1alpha1.LBVIP {
 		},
 		Spec: isovalentv1alpha1.LBVIPSpec{},
 	}
-	if ipv4Requested != "" {
-		obj.Spec.IPv4Request = &ipv4Requested
+
+	for _, o := range opts {
+		o(obj)
 	}
 
 	return obj
