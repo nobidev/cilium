@@ -200,6 +200,15 @@ spec:
                 required:
                 - algorithm
                 type: object
+              tcpConfig:
+                description: The pool-wide TCP configuration.
+                properties:
+                  connectTimeoutSeconds:
+                    description: The connect timeout for the connections.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                type: object
               tlsConfig:
                 description: The pool-wide TLS configuration.
                 properties:

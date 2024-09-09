@@ -578,6 +578,11 @@ type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Optional
 	Loadbalancing *Loadbalancing `json:"loadbalancing,omitempty"`
 
+	// The pool-wide TCP configuration.
+	//
+	// +kubebuilder:validation:Optional
+	TCPConfig *LBBackendTCPConfig `json:"tcpConfig,omitempty"`
+
 	// The pool-wide TLS configuration.
 	//
 	// +kubebuilder:validation:Optional
@@ -587,6 +592,14 @@ type LBBackendPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
+}
+
+type LBBackendTCPConfig struct {
+	// The connect timeout for the connections.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	ConnectTimeoutSeconds *int32 `json:"connectTimeoutSeconds,omitempty"`
 }
 
 type LBBackendTLSConfig struct {

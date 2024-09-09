@@ -170,6 +170,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
@@ -224,6 +225,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
@@ -297,6 +299,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
@@ -346,6 +349,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
 				},
+				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
@@ -539,6 +543,17 @@ func getVIPBindStatus(t1Service *corev1.Service) lbVIPBindStatus {
 	}
 }
 
+func (*ingestor) toBackendTCPConfig(tcpConfig *isovalentv1alpha1.LBBackendTCPConfig) *lbBackendTCPConfig {
+	connectTimeout := int32(5)
+	if tcpConfig != nil && tcpConfig.ConnectTimeoutSeconds != nil {
+		connectTimeout = *tcpConfig.ConnectTimeoutSeconds
+	}
+
+	return &lbBackendTCPConfig{
+		connectTimeoutSeconds: connectTimeout,
+	}
+}
+
 func (*ingestor) toBackendTLSConfig(tlsConfig *isovalentv1alpha1.LBBackendTLSConfig) *lbBackendTLSConfig {
 	if tlsConfig == nil {
 		return nil
@@ -570,11 +585,11 @@ func (*ingestor) toBackendTLSConfig(tlsConfig *isovalentv1alpha1.LBBackendTLSCon
 	}
 
 	return &lbBackendTLSConfig{
-		MinTLSVersion:              minTLSVersion,
-		MaxTLSVersion:              maxTLSVersion,
-		AllowedCipherSuites:        allowedCipherSuites,
-		AllowedECDHCurves:          allowedECDHCurves,
-		AllowedSignatureAlgorithms: allowedSignatureAlgorithms,
+		minTLSVersion:              minTLSVersion,
+		maxTLSVersion:              maxTLSVersion,
+		allowedCipherSuites:        allowedCipherSuites,
+		allowedECDHCurves:          allowedECDHCurves,
+		allowedSignatureAlgorithms: allowedSignatureAlgorithms,
 	}
 }
 

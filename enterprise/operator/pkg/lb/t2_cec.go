@@ -329,11 +329,11 @@ func (r *lbServiceReconciler) toListenerTLSParams(model *lbServiceTLSConfig) *en
 
 func (r *lbServiceReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
 	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
-		TlsMinimumProtocolVersion: r.toTLSVersion(tlsConfig.MinTLSVersion),
-		TlsMaximumProtocolVersion: r.toTLSVersion(tlsConfig.MaxTLSVersion),
-		CipherSuites:              tlsConfig.AllowedCipherSuites,
-		EcdhCurves:                tlsConfig.AllowedECDHCurves,
-		SignatureAlgorithms:       tlsConfig.AllowedSignatureAlgorithms,
+		TlsMinimumProtocolVersion: r.toTLSVersion(tlsConfig.minTLSVersion),
+		TlsMaximumProtocolVersion: r.toTLSVersion(tlsConfig.maxTLSVersion),
+		CipherSuites:              tlsConfig.allowedCipherSuites,
+		EcdhCurves:                tlsConfig.allowedECDHCurves,
+		SignatureAlgorithms:       tlsConfig.allowedSignatureAlgorithms,
 	}
 }
 
@@ -941,7 +941,7 @@ func (r *lbServiceReconciler) desiredEnvoyCluster(name string, b backend, transp
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
 			HealthyPanicThreshold: &envoy_typev3.Percent{Value: 0.0},
 		},
-		ConnectTimeout:         &durationpb.Duration{Seconds: 5}, // default
+		ConnectTimeout:         &durationpb.Duration{Seconds: int64(b.tcpConfig.connectTimeoutSeconds)},
 		TransportSocketMatches: transportSocketMatches,
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
 		LbPolicy:               mapLbPolicy(b.lbAlgorithm.algorithm),

@@ -222,6 +222,7 @@ type backend struct {
 	hostnames         []lbBackend
 	lbAlgorithm       lbBackendLBAlgorithm
 	healthCheckConfig lbBackendHealthCheckConfig
+	tcpConfig         *lbBackendTCPConfig
 	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
 }
@@ -267,12 +268,16 @@ type lbBackendHealthCheckHTTPConfig struct {
 
 type lbBackendHealthCheckTCPConfig struct{}
 
+type lbBackendTCPConfig struct {
+	connectTimeoutSeconds int32
+}
+
 type lbBackendTLSConfig struct {
-	MinTLSVersion              string
-	MaxTLSVersion              string
-	AllowedCipherSuites        []string
-	AllowedECDHCurves          []string
-	AllowedSignatureAlgorithms []string
+	minTLSVersion              string
+	maxTLSVersion              string
+	allowedCipherSuites        []string
+	allowedECDHCurves          []string
+	allowedSignatureAlgorithms []string
 }
 
 type lbBackendHTTPConfig struct {
