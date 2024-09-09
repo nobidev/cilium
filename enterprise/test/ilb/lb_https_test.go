@@ -15,7 +15,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/operator/pkg/model"
+	"k8s.io/utils/ptr"
+
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
@@ -113,8 +114,8 @@ func TestHTTP2S(t *testing.T) {
 
 	t.Logf("Creating LB Service resources...")
 	cfg := &isovalentv1alpha1.LBServiceHTTPConfig{
-		EnableHTTP11: model.AddressOf(true),
-		EnableHTTP2:  model.AddressOf(true),
+		EnableHTTP11: ptr.To(true),
+		EnableHTTP2:  ptr.To(true),
 	}
 	service := lbService(testK8sNamespace, testName, testName, 443, lbServiceApplicationsHTTPSProxy(testName, testName, hostName, cfg))
 	scenario.createLBService(ctx, service)
