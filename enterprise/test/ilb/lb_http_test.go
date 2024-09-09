@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
@@ -84,21 +83,13 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	t.Logf("Waiting for curl to fails...")
 
-	ctx, cancel := context.WithTimeout(ctx, longTimeout)
-	defer cancel()
-
-	for {
+	eventually(t, func() error {
 		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
 		if err != nil {
-			break
+			return nil
 		}
-
-		select {
-		case <-inctimer.After(longPollInterval):
-		case <-ctx.Done():
-			t.Fatalf("Timeout reached waiting for curl to fail")
-		}
-	}
+		return fmt.Errorf("curl request still succeeds (expect to fail)")
+	}, longTimeout, longPollInterval)
 
 	t.Logf("Setting T2 HC to pass...")
 
@@ -114,21 +105,13 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 
 	// 2.4. Expect to pass
 
-	ctx, cancel = context.WithTimeout(ctx, longTimeout)
-	defer cancel()
-
-	for {
+	eventually(t, func() error {
 		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
-		if err == nil {
-			break
+		if err != nil {
+			return fmt.Errorf("curl request still fails (expect to succeed")
 		}
-
-		select {
-		case <-inctimer.After(longPollInterval):
-		case <-ctx.Done():
-			t.Fatalf("Timeout reached waiting for curl to pass")
-		}
-	}
+		return nil
+	}, longTimeout, longPollInterval)
 
 	// TODO(brb) bring back only one backend
 }

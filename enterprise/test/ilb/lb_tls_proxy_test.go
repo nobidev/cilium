@@ -181,9 +181,9 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 			if err != nil {
 				// Enrich error with curl output
-				err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 			}
-			return err
+			return nil
 		}, 10*time.Second, 100*time.Millisecond)
 	})
 
@@ -214,9 +214,9 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
 			if err != nil {
 				// Enrich error with curl output
-				err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 			}
-			return err
+			return nil
 		}, 10*time.Second, 100*time.Millisecond)
 	})
 }
