@@ -30,11 +30,9 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 		return nil
 	}
 
-	labels := map[string]string{
-		"service.cilium.io/node": "t1",
+	annotations := map[string]string{
+		ossannotation.ServiceNodeExposure: "t1",
 	}
-
-	annotations := map[string]string{}
 
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
@@ -63,7 +61,7 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   model.namespace,
 			Name:        model.getOwningResourceName(),
-			Labels:      labels,
+			Labels:      map[string]string{},
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{

@@ -12,7 +12,6 @@ metadata:
     service.cilium.io/health-check-quarantine-timeout: 0s
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
-  labels:
     service.cilium.io/node: t1
   namespace: default
   name: lbfe-lb-1
