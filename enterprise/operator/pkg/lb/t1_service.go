@@ -37,6 +37,9 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
 
+	// Expose only LoadBalancer service
+	annotations[ossannotation.ServiceTypeExposure] = "LoadBalancer"
+
 	// Set the assigned IP address of the LBVIP as LB IPAM annotation.
 	// This way we treat the Service of the LBVIP as the main leader from an
 	// LB IPAM perspective. This way, when switching the LBVIP, the IP gets changed
