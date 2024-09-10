@@ -6,6 +6,7 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 set -x
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${script_dir}/common.sh"
 
 #
 # Backends
@@ -54,7 +55,7 @@ for i in "${frrClients[@]}"; do
 done
 
 neighbors=""
-t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq '.items[].metadata.name')
+t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq_run '.items[].metadata.name')
 for i in $(echo $t1NodeNames); do
   LB_T1_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${i}")
   if [[ "${neighbors}" != "" ]]; then
@@ -90,7 +91,7 @@ done
 cp "${script_dir}/example/lb-bgp-frr-config.yaml" "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
 
 for i in "${BGP_FRR_IPS[@]}"; do
-  ip=$i yq -i '.spec.virtualRouters[0].neighbors += {"peerAddress": strenv(ip) + "/32", "peerASN": 64512, "bfdProfileRef": "frr", "connectRetryTimeSeconds": 1}' "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
+  ip=$i yq_run -i '.spec.virtualRouters[0].neighbors += {"peerAddress": strenv(ip) + "/32", "peerASN": 64512, "bfdProfileRef": "frr", "connectRetryTimeSeconds": 1}' "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
 done
 
 kubectl apply -f "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"

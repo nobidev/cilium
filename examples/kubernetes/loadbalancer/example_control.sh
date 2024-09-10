@@ -18,6 +18,9 @@
 
 set -e
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${script_dir}/common.sh"
+
 if [ -z ${1+x} ]; then
   echo "no instance type set [t2-lb|backend]"
   exit 1
@@ -47,7 +50,7 @@ elif [ "$1" = "t2-lb" ]; then
     exit 1
   fi
 
-  agentPod=$(kubectl -n kube-system get pods --field-selector spec.nodeName="${2}" -l k8s-app=cilium -oyaml | yq '.items[0].metadata.name')
+  agentPod=$(kubectl -n kube-system get pods --field-selector spec.nodeName="${2}" -l k8s-app=cilium -oyaml | yq_run '.items[0].metadata.name')
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- apt-get update -qq
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- apt-get install -y -qq curl
   kubectl -n kube-system exec "${agentPod}" -c cilium-agent -- curl -X POST -s --unix-socket /var/run/cilium/envoy/sockets/admin.sock http:/admin/"$3"/"$4"

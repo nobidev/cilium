@@ -5,6 +5,7 @@ set -u          # Exit in error if there is a reference to a non previously defi
 set -o pipefail # Exit if any command in a pipeline fails, that return code will be used as the return code of the whole pipeline.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${script_dir}/common.sh"
 
 # Define T1 and T2 nodes
 
@@ -55,7 +56,7 @@ echo ""
 # T1 nodeconfig
 kubectl apply -f "${script_dir}/lb/t1-nodeconfig.yaml"
 
-t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq '.items[].metadata.name')
+t1NodeNames=$(kubectl get nodes -l service.cilium.io/node=t1 -oyaml | yq_run '.items[].metadata.name')
 for i in $(echo $t1NodeNames); do
   CILIUM_T1_POD=$(kubectl get pod -l k8s-app=cilium -n kube-system --field-selector spec.nodeName="${i}" -o name)
   kubectl delete -n kube-system "${CILIUM_T1_POD}"
