@@ -65,6 +65,10 @@ func (c *ciliumCli) DeleteLBVIP(ctx context.Context, namespace, name string, opt
 	return c.IsovalentV1alpha1().LBVIPs(namespace).Delete(ctx, name, opts)
 }
 
+func (c *ciliumCli) GetLBVIP(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBVIP, error) {
+	return c.IsovalentV1alpha1().LBVIPs(namespace).Get(ctx, name, opts)
+}
+
 func (c *ciliumCli) CreateLBService(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBService, opts metav1.CreateOptions) error {
 	_, err := c.IsovalentV1alpha1().LBServices(namespace).Create(ctx, obj, opts)
 	return err
@@ -106,7 +110,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	defer cancel()
 
 	for {
-		obj, err := c.GetLBService(ctx, namespace, name, metav1.GetOptions{})
+		obj, err := c.GetLBVIP(ctx, namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -119,7 +123,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 		case <-inctimer.After(pollInterval):
 		case <-ctx.Done():
 			return "",
-				fmt.Errorf("timeout reached waiting for LB Service %s to get VIP assigned (last error: %w)",
+				fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (last error: %w)",
 					name, err)
 		}
 	}
