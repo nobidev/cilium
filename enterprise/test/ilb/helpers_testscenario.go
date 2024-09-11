@@ -246,7 +246,7 @@ func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName
 		r.t.Fatalf("failed to gen x509: %s", err)
 	}
 
-	sec := secret(r.k8sNamespace, r.testName, key.Bytes(), cert.Bytes())
+	sec := tlsSecret(r.k8sNamespace, r.testName, key.Bytes(), cert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
@@ -278,7 +278,7 @@ func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, hostName
 		r.t.Fatalf("failed to gen x509: %s", err)
 	}
 
-	sec := secret(r.k8sNamespace, r.testName+"-client", key.Bytes(), cert.Bytes())
+	sec := tlsSecret(r.k8sNamespace, r.testName+"-client", key.Bytes(), cert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
@@ -295,7 +295,7 @@ func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, hostName
 	}
 
 	maybeCleanupT(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName, metav1.DeleteOptions{})
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName+"-client", metav1.DeleteOptions{})
 	}, r.t)
 }
 

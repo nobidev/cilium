@@ -352,7 +352,7 @@ func bfdProfile(name string) *isovalentv1alpha1.IsovalentBFDProfile {
 	}
 }
 
-func secret(namespace, name string, key, cert []byte) *v1.Secret {
+func tlsSecret(namespace, name string, key, cert []byte) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
