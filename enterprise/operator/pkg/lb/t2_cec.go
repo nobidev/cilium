@@ -41,6 +41,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -107,7 +108,7 @@ func (r *lbServiceReconciler) desiredCiliumEnvoyConfig(model *lbService) (*ciliu
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-					"service.cilium.io/node": "t2",
+					ossannotation.ServiceNodeExposure: "t2",
 				},
 			},
 			Resources: envoyResources,

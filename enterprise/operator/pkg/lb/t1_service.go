@@ -173,7 +173,7 @@ func (r *lbServiceReconciler) getT2NodeAddresses(ctx context.Context) ([]string,
 
 	allNodes := nodeStore.List()
 	for _, cn := range allNodes {
-		if v := cn.Labels["service.cilium.io/node"]; v == "t2" {
+		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == "t2" {
 			var nodeIP string
 			for _, addr := range cn.Spec.Addresses {
 				if addr.Type == addressing.NodeInternalIP {

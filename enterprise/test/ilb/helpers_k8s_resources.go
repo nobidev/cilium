@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -304,7 +305,7 @@ func bgpPeeringPolicy(name string) *ciliumv2alpha1.CiliumBGPPeeringPolicy {
 		Spec: ciliumv2alpha1.CiliumBGPPeeringPolicySpec{
 			NodeSelector: &slimv1.LabelSelector{
 				MatchLabels: map[string]slimv1.MatchLabelsValue{
-					"service.cilium.io/node": "t1",
+					ossannotation.ServiceNodeExposure: "t1",
 				},
 			},
 			VirtualRouters: []ciliumv2alpha1.CiliumBGPVirtualRouter{
