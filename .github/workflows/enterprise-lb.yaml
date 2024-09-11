@@ -122,11 +122,6 @@ jobs:
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
 
-      - name: Set infra and LB params
-        id: params
-        shell: bash
-        run: |
-
       - name: Provision K8s control-plane on LVH VM
         uses: ./.github/actions/lvh-kind
         with:
@@ -209,7 +204,7 @@ jobs:
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
-          ./cilium-cli lb status
+          cilium lb status
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
