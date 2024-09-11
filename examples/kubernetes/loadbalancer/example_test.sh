@@ -99,7 +99,7 @@ done
 
 echo "Making lb-9 healthy again"
 
-docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.4
+docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.5
 BACKEND7_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app7)
 kubectl patch lbbackendpool lb-9 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND7_IP}\"}]"
 
