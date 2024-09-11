@@ -68,26 +68,32 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	// 1. Test persistent backend selection with cookie
 	clientName := testName + "-client-0"
 
-	for i := 0; i < 100; i++ {
+	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=123' http://%s:80/test1", vipIP))
-		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
-		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Logf("Testing 100 requests: %q...", testCmd)
+		for i := 0; i < 100; i++ {
+			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			if err != nil {
+				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
 		}
 	}
 
+	t.Log("Check backend persistence")
 	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test1"), 10*time.Second, 1*time.Second)
 
-	for i := 0; i < 100; i++ {
+	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=234' http://%s:80/test2", vipIP))
-		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
-		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Logf("Testing 100 requests: %q...", testCmd)
+		for i := 0; i < 100; i++ {
+			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			if err != nil {
+				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
 		}
 	}
 
+	t.Log("Check backend persistence")
 	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test2"), 10*time.Second, 1*time.Second)
 }
 
@@ -136,26 +142,32 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	client0Name := testName + "-client-0"
 	client1Name := testName + "-client-1"
 
-	for i := 0; i < 100; i++ {
+	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test1", vipIP))
-		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, client0Name, testCmd)
-		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Logf("Testing 100 requests: %q...", testCmd)
+		for i := 0; i < 100; i++ {
+			stdout, stderr, err := dockerCli.clientExec(ctx, client0Name, testCmd)
+			if err != nil {
+				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
 		}
 	}
 
+	t.Log("Check backend persistence")
 	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test1"), 10*time.Second, 1*time.Second)
 
-	for i := 0; i < 100; i++ {
+	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test2", vipIP))
-		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, client1Name, testCmd)
-		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Logf("Testing 100 requests: %q...", testCmd)
+		for i := 0; i < 100; i++ {
+			stdout, stderr, err := dockerCli.clientExec(ctx, client1Name, testCmd)
+			if err != nil {
+				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
 		}
 	}
 
+	t.Log("Check backend persistence")
 	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test2"), 10*time.Second, 1*time.Second)
 }
 
