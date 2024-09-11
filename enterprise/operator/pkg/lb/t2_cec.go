@@ -16,23 +16,23 @@ import (
 	"slices"
 	"time"
 
-	cilium_proxy "github.com/cilium/proxy/go/cilium/api"
-	envoy_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
+	cilium_proxy_api "github.com/cilium/proxy/go/cilium/api"
+	envoy_config_accesslog_v3 "github.com/cilium/proxy/go/envoy/config/accesslog/v3"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
-	envoy_corev3 "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint_v3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener_v3 "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
-	envoy_health_check_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
+	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
-	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
-	envoy_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
-	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_extensions_filters_listener_tlsinspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
+	envoy_extensions_filters_network_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_extensions_transportsockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	envoy_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	envoy_typev3 "github.com/cilium/proxy/go/envoy/type/v3"
+	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -116,18 +116,18 @@ func (r *lbServiceReconciler) desiredCiliumEnvoyConfig(model *lbService) (*ciliu
 }
 
 func (r *lbServiceReconciler) desiredEnvoyListener(model *lbService) *envoy_config_listener_v3.Listener {
-	accessLoggers := []*envoy_accesslog_v3.AccessLog{}
+	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
 
 	if r.config.AccessLog.EnableTCP {
-		accessLoggers = append(accessLoggers, &envoy_accesslog_v3.AccessLog{
+		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
 			Name: "stdout",
-			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_corev3.SubstitutionFormatString{
-							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_corev3.DataSource{
-									Specifier: &envoy_corev3.DataSource_InlineString{
+						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
+							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_config_core_v3.DataSource{
+									Specifier: &envoy_config_core_v3.DataSource_InlineString{
 										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTCP),
 									},
 								},
@@ -141,11 +141,11 @@ func (r *lbServiceReconciler) desiredEnvoyListener(model *lbService) *envoy_conf
 
 	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
-		Address: &envoy_corev3.Address{
-			Address: &envoy_corev3.Address_SocketAddress{
-				SocketAddress: &envoy_corev3.SocketAddress{
+		Address: &envoy_config_core_v3.Address{
+			Address: &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
 					Address: *model.vip.assignedIPv4,
-					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
 						PortValue: uint32(model.port),
 					},
 				},
@@ -155,7 +155,7 @@ func (r *lbServiceReconciler) desiredEnvoyListener(model *lbService) *envoy_conf
 			{
 				Name: "envoy.filters.listener.tls_inspector",
 				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+					TypedConfig: toAny(&envoy_extensions_filters_listener_tlsinspector_v3.TlsInspector{}),
 				},
 			},
 			// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
@@ -164,7 +164,7 @@ func (r *lbServiceReconciler) desiredEnvoyListener(model *lbService) *envoy_conf
 			{
 				Name: "cilium.bpf_metadata",
 				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-					TypedConfig: toAny(&cilium_proxy.BpfMetadata{
+					TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
 						BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
 					}),
 				},
@@ -211,7 +211,7 @@ func (r *lbServiceReconciler) desiredEnvoyListenerHttpFilterChain(model *lbServi
 			{
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+					TypedConfig: toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 						ServerName:                   r.config.ServerName,
 						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
 						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
@@ -222,31 +222,31 @@ func (r *lbServiceReconciler) desiredEnvoyListenerHttpFilterChain(model *lbServi
 						NormalizePath:                wrapperspb.Bool(true),
 						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
-						HttpFilters: []*envoy_hcm_v3.HttpFilter{
+						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
 							{
 								Name: "envoy.filters.http.health_check",
-								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 									TypedConfig: toAny(r.desiredHealthCheckFilter(model)),
 								},
 							},
 							{
 								Name: "envoy.filters.http.router",
-								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 								},
 							},
 						},
-						RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
-							Rds: &envoy_hcm_v3.Rds{
+						RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
+							Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
 								RouteConfigName: "frontend_routeconfig_http",
 							},
 						},
-						CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
-							HeadersWithUnderscoresAction: envoy_corev3.HttpProtocolOptions_REJECT_REQUEST,
+						CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+							HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
 							MaxConnectionDuration:        durationpb.New(time.Hour),
 						},
-						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
+						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
 							MaxConcurrentStreams:        wrapperspb.UInt32(100),
 							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
 							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
@@ -282,20 +282,20 @@ func (r *lbServiceReconciler) toHTTPSServerNames(model *lbService) []string {
 	return slices.Compact(serverNames)
 }
 
-func (r *lbServiceReconciler) toCodecType(httpConfig *lbServiceHTTPConfig) envoy_hcm_v3.HttpConnectionManager_CodecType {
+func (r *lbServiceReconciler) toCodecType(httpConfig *lbServiceHTTPConfig) envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_CodecType {
 	if httpConfig == nil {
-		return envoy_hcm_v3.HttpConnectionManager_AUTO
+		return envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_AUTO
 	}
 
 	if httpConfig.enableHTTP11 && !httpConfig.enableHTTP2 {
-		return envoy_hcm_v3.HttpConnectionManager_HTTP1
+		return envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_HTTP1
 	}
 
 	if httpConfig.enableHTTP2 && !httpConfig.enableHTTP11 {
-		return envoy_hcm_v3.HttpConnectionManager_HTTP2
+		return envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_HTTP2
 	}
 
-	return envoy_hcm_v3.HttpConnectionManager_AUTO
+	return envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_AUTO
 }
 
 func (r *lbServiceReconciler) toAlpnProtocols(model *lbService) []string {
@@ -317,8 +317,8 @@ func (r *lbServiceReconciler) toAlpnProtocols(model *lbService) []string {
 	return alpnProtocols
 }
 
-func (r *lbServiceReconciler) toListenerTLSParams(model *lbServiceTLSConfig) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
-	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
+func (r *lbServiceReconciler) toListenerTLSParams(model *lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.TlsParameters {
+	return &envoy_extensions_transportsockets_tls_v3.TlsParameters{
 		TlsMinimumProtocolVersion: r.toTLSVersion(model.minTLSVersion),
 		TlsMaximumProtocolVersion: r.toTLSVersion(model.maxTLSVersion),
 		CipherSuites:              model.allowedCipherSuites,
@@ -327,8 +327,8 @@ func (r *lbServiceReconciler) toListenerTLSParams(model *lbServiceTLSConfig) *en
 	}
 }
 
-func (r *lbServiceReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) *envoy_extensions_transport_sockets_tls_v3.TlsParameters {
-	return &envoy_extensions_transport_sockets_tls_v3.TlsParameters{
+func (r *lbServiceReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) *envoy_extensions_transportsockets_tls_v3.TlsParameters {
+	return &envoy_extensions_transportsockets_tls_v3.TlsParameters{
 		TlsMinimumProtocolVersion: r.toTLSVersion(tlsConfig.minTLSVersion),
 		TlsMaximumProtocolVersion: r.toTLSVersion(tlsConfig.maxTLSVersion),
 		CipherSuites:              tlsConfig.allowedCipherSuites,
@@ -337,8 +337,8 @@ func (r *lbServiceReconciler) toClusterTLSParams(tlsConfig *lbBackendTLSConfig) 
 	}
 }
 
-func (r *lbServiceReconciler) toTLSVersion(version string) envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol {
-	return envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol(envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol_value[version])
+func (r *lbServiceReconciler) toTLSVersion(version string) envoy_extensions_transportsockets_tls_v3.TlsParameters_TlsProtocol {
+	return envoy_extensions_transportsockets_tls_v3.TlsParameters_TlsProtocol(envoy_extensions_transportsockets_tls_v3.TlsParameters_TlsProtocol_value[version])
 }
 
 func (r *lbServiceReconciler) toTLSServerNames(tlsHostNames []string) []string {
@@ -356,18 +356,18 @@ func (r *lbServiceReconciler) toTLSServerNames(tlsHostNames []string) []string {
 	return slices.Compact(serverNames)
 }
 
-func (r *lbServiceReconciler) toTLSCertificateSdsConfigs(model *lbService) []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
-	secrets := []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{}
+func (r *lbServiceReconciler) toTLSCertificateSdsConfigs(model *lbService) []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig {
+	secrets := []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{}
 
 	if model.applications.httpsProxy != nil && model.applications.httpsProxy.tlsConfig != nil {
 		for _, cs := range model.applications.httpsProxy.tlsConfig.certificateSecrets {
-			secrets = append(secrets, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+			secrets = append(secrets, &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
 				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
 			})
 		}
 	} else if model.applications.tlsProxy != nil && model.applications.tlsProxy.tlsConfig != nil {
 		for _, cs := range model.applications.tlsProxy.tlsConfig.certificateSecrets {
-			secrets = append(secrets, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+			secrets = append(secrets, &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
 				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
 			})
 		}
@@ -376,20 +376,20 @@ func (r *lbServiceReconciler) toTLSCertificateSdsConfigs(model *lbService) []*en
 	return secrets
 }
 
-func (r *lbServiceReconciler) toTLSValidationContext(namespace string, model *lbServiceTLSConfig) *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext {
+func (r *lbServiceReconciler) toTLSValidationContext(namespace string, model *lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext {
 	if len(model.validationContext.trustedCASecretName) == 0 {
 		return nil
 	}
 
-	defaultValidationContext := &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{}
+	defaultValidationContext := &envoy_extensions_transportsockets_tls_v3.CertificateValidationContext{}
 
 	if len(model.validationContext.subjectAlternativeNames) > 0 {
-		sanMatchers := []*envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher{}
+		sanMatchers := []*envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher{}
 		for _, san := range model.validationContext.subjectAlternativeNames {
-			sanMatchers = append(sanMatchers, &envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher{
-				SanType: envoy_extensions_transport_sockets_tls_v3.SubjectAltNameMatcher_DNS,
-				Matcher: &envoy_matcher_v3.StringMatcher{
-					MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+			sanMatchers = append(sanMatchers, &envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher{
+				SanType: envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_DNS,
+				Matcher: &envoy_type_matcher_v3.StringMatcher{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
 						Exact: san,
 					},
 				},
@@ -398,9 +398,9 @@ func (r *lbServiceReconciler) toTLSValidationContext(namespace string, model *lb
 		defaultValidationContext.MatchTypedSubjectAltNames = sanMatchers
 	}
 
-	return &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
-		CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
-			ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+	return &envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+			ValidationContextSdsSecretConfig: &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
 				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, namespace, model.validationContext.trustedCASecretName),
 			},
 			DefaultValidationContext: defaultValidationContext,
@@ -408,7 +408,7 @@ func (r *lbServiceReconciler) toTLSValidationContext(namespace string, model *lb
 	}
 }
 
-func (r *lbServiceReconciler) requiresClientCertificate(validationContext *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext) *wrapperspb.BoolValue {
+func (r *lbServiceReconciler) requiresClientCertificate(validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext) *wrapperspb.BoolValue {
 	if validationContext == nil {
 		return nil
 	}
@@ -418,8 +418,8 @@ func (r *lbServiceReconciler) requiresClientCertificate(validationContext *envoy
 
 func (r *lbServiceReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
 	var (
-		validationContext *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext
-		tlsParams         *envoy_extensions_transport_sockets_tls_v3.TlsParameters
+		validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
+		tlsParams         *envoy_extensions_transportsockets_tls_v3.TlsParameters
 	)
 
 	if model.applications.httpsProxy.tlsConfig != nil {
@@ -432,17 +432,17 @@ func (r *lbServiceReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbServ
 			TransportProtocol: "tls",
 			ServerNames:       r.toHTTPSServerNames(model),
 		},
-		TransportSocket: &envoy_corev3.TransportSocket{
+		TransportSocket: &envoy_config_core_v3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
-			ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+			ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.DownstreamTlsContext{
 					// Upstream Envoy Secret Sync only supports setting the trusted CA without further verification data.
 					// Therefore it's necessary to explicitly enable `require_client_certificate if the validation context isn't nil.
 					//
 					// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-certificatevalidationcontext
 					// By default, a client certificate is optional, unless one of the additional options (require_client_certificate, verify_certificate_spki, verify_certificate_hash, or match_typed_subject_alt_names) is also specified.
 					RequireClientCertificate: r.requiresClientCertificate(validationContext),
-					CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+					CommonTlsContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model),
 						ValidationContextType:          validationContext,
 						AlpnProtocols:                  r.toAlpnProtocols(model),
@@ -455,7 +455,7 @@ func (r *lbServiceReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbServ
 			{
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(&envoy_hcm_v3.HttpConnectionManager{
+					TypedConfig: toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 						ServerName:                   r.config.ServerName,
 						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
 						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
@@ -466,24 +466,24 @@ func (r *lbServiceReconciler) desiredEnvoyListenerHttpsFilterChain(model *lbServ
 						NormalizePath:                wrapperspb.Bool(true),
 						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
-						HttpFilters: []*envoy_hcm_v3.HttpFilter{
+						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
 							{
 								Name: "envoy.filters.http.router",
-								ConfigType: &envoy_hcm_v3.HttpFilter_TypedConfig{
+								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 								},
 							},
 						},
-						RouteSpecifier: &envoy_hcm_v3.HttpConnectionManager_Rds{
-							Rds: &envoy_hcm_v3.Rds{
+						RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
+							Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
 								RouteConfigName: "frontend_routeconfig_https",
 							},
 						},
-						CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
-							HeadersWithUnderscoresAction: envoy_corev3.HttpProtocolOptions_REJECT_REQUEST,
+						CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+							HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
 							MaxConnectionDuration:        durationpb.New(time.Hour),
 						},
-						Http2ProtocolOptions: &envoy_corev3.Http2ProtocolOptions{
+						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
 							MaxConcurrentStreams:        wrapperspb.UInt32(100),
 							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
 							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
@@ -511,11 +511,11 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mod
 				{
 					Name: "envoy.filters.network.tcp_proxy",
 					ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-						TypedConfig: toAny(&envoy_tcpproxy_v3.TcpProxy{
+						TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
 							StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
 							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
-							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
+							ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 								Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
 							},
 						}),
@@ -532,8 +532,8 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSPassthroughFilterChains(mod
 
 func (r *lbServiceReconciler) desiredEnvoyListenerTLSProxyFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
 	var (
-		validationContext *envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext
-		tlsParams         *envoy_extensions_transport_sockets_tls_v3.TlsParameters
+		validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
+		tlsParams         *envoy_extensions_transportsockets_tls_v3.TlsParameters
 	)
 	if model.applications.tlsProxy.tlsConfig != nil {
 		validationContext = r.toTLSValidationContext(model.namespace, model.applications.tlsProxy.tlsConfig)
@@ -547,17 +547,17 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSProxyFilterChains(model *lb
 				TransportProtocol: "tls",
 				ServerNames:       r.toTLSServerNames(tr.match.hostNames),
 			},
-			TransportSocket: &envoy_corev3.TransportSocket{
+			TransportSocket: &envoy_config_core_v3.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
-				ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
+				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.DownstreamTlsContext{
 						// Upstream Envoy Secret Sync only supports setting the trusted CA without further verification data.
 						// Therefore it's necessary to explicitly enable `require_client_certificate if the validation context isn't nil.
 						//
 						// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-certificatevalidationcontext
 						// By default, a client certificate is optional, unless one of the additional options (require_client_certificate, verify_certificate_spki, verify_certificate_hash, or match_typed_subject_alt_names) is also specified.
 						RequireClientCertificate: r.requiresClientCertificate(validationContext),
-						CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+						CommonTlsContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext{
 							TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model),
 							ValidationContextType:          validationContext,
 							AlpnProtocols:                  r.toAlpnProtocols(model),
@@ -570,11 +570,11 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSProxyFilterChains(model *lb
 				{
 					Name: "envoy.filters.network.tcp_proxy",
 					ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-						TypedConfig: toAny(&envoy_tcpproxy_v3.TcpProxy{
+						TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
 							StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
 							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
-							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
+							ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 								Cluster: fmt.Sprintf("backend_cluster_tls_proxy_%d", i),
 							},
 						}),
@@ -589,20 +589,20 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSProxyFilterChains(model *lb
 	return tlsProxyFilterChains
 }
 
-func (r *lbServiceReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog_v3.AccessLog {
-	var hcFilter *envoy_accesslog_v3.AccessLogFilter
+func (r *lbServiceReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
+	var hcFilter *envoy_config_accesslog_v3.AccessLogFilter
 
 	if r.config.AccessLog.ExcludeHC {
 		// Exclude T1->T2 HC requests by the user-agent
-		hcFilter = &envoy_accesslog_v3.AccessLogFilter{
-			FilterSpecifier: &envoy_accesslog_v3.AccessLogFilter_HeaderFilter{
-				HeaderFilter: &envoy_accesslog_v3.HeaderFilter{
+		hcFilter = &envoy_config_accesslog_v3.AccessLogFilter{
+			FilterSpecifier: &envoy_config_accesslog_v3.AccessLogFilter_HeaderFilter{
+				HeaderFilter: &envoy_config_accesslog_v3.HeaderFilter{
 					Header: &envoy_config_route_v3.HeaderMatcher{
 						InvertMatch: true,
 						Name:        "user-agent",
 						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-							StringMatch: &envoy_matcher_v3.StringMatcher{
-								MatchPattern: &envoy_matcher_v3.StringMatcher_Prefix{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
 									Prefix: "cilium-probe/", // Sent by T1 HC
 								},
 							},
@@ -613,17 +613,17 @@ func (r *lbServiceReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog
 		}
 	}
 
-	return []*envoy_accesslog_v3.AccessLog{
+	return []*envoy_config_accesslog_v3.AccessLog{
 		{
 			Name:   "stdout",
 			Filter: hcFilter,
-			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_corev3.SubstitutionFormatString{
-							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_corev3.DataSource{
-									Specifier: &envoy_corev3.DataSource_InlineString{
+						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
+							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_config_core_v3.DataSource{
+									Specifier: &envoy_config_core_v3.DataSource_InlineString{
 										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatHTTP),
 									},
 								},
@@ -636,20 +636,20 @@ func (r *lbServiceReconciler) desiredEnvoyHTTPAccessLoggers() []*envoy_accesslog
 	}
 }
 
-func (r *lbServiceReconciler) desiredEnvoyTLSAccessLoggers() []*envoy_accesslog_v3.AccessLog {
-	var hcFilter *envoy_accesslog_v3.AccessLogFilter
+func (r *lbServiceReconciler) desiredEnvoyTLSAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
+	var hcFilter *envoy_config_accesslog_v3.AccessLogFilter
 
-	return []*envoy_accesslog_v3.AccessLog{
+	return []*envoy_config_accesslog_v3.AccessLog{
 		{
 			Name:   "stdout",
 			Filter: hcFilter,
-			ConfigType: &envoy_accesslog_v3.AccessLog_TypedConfig{
+			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_corev3.SubstitutionFormatString{
-							Format: &envoy_corev3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_corev3.DataSource{
-									Specifier: &envoy_corev3.DataSource_InlineString{
+						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
+							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_config_core_v3.DataSource{
+									Specifier: &envoy_config_core_v3.DataSource_InlineString{
 										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTLS),
 									},
 								},
@@ -812,8 +812,8 @@ func (r *lbServiceReconciler) toHostNamesWithPort(hostnames []string, defaultPor
 	return hostNamesWithPort
 }
 
-func (r *lbServiceReconciler) desiredHealthCheckFilter(model *lbService) *envoy_health_check_v3.HealthCheck {
-	healthCheckFilterClusters := map[string]*envoy_typev3.Percent{}
+func (r *lbServiceReconciler) desiredHealthCheckFilter(model *lbService) *envoy_extensions_filters_http_healthcheck_v3.HealthCheck {
+	healthCheckFilterClusters := map[string]*envoy_type_v3.Percent{}
 
 	minHealthyBackendPercentage := r.config.T1T2HealthCheck.T2ProbeMinHealthyBackendPercentage
 	if minHealthyBackendPercentage > 100 {
@@ -822,34 +822,34 @@ func (r *lbServiceReconciler) desiredHealthCheckFilter(model *lbService) *envoy_
 
 	if model.applications.httpProxy != nil {
 		for i := range model.applications.httpProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.httpsProxy != nil {
 		for i := range model.applications.httpsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.tlsPassthrough != nil {
 		for i := range model.applications.tlsPassthrough.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.tlsProxy != nil {
 		for i := range model.applications.tlsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tls_proxy_%d", i)] = &envoy_typev3.Percent{Value: float64(minHealthyBackendPercentage)}
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tls_proxy_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 
-	healthCheckFilter := &envoy_health_check_v3.HealthCheck{
+	healthCheckFilter := &envoy_extensions_filters_http_healthcheck_v3.HealthCheck{
 		PassThroughMode:              &wrapperspb.BoolValue{Value: false},
 		ClusterMinHealthyPercentages: healthCheckFilterClusters,
 		Headers: []*envoy_config_route_v3.HeaderMatcher{
 			{
 				Name: ":path",
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_matcher_v3.StringMatcher{
-						MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+					StringMatch: &envoy_type_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
 							Exact: healthCheckHttpPath,
 						},
 					},
@@ -858,8 +858,8 @@ func (r *lbServiceReconciler) desiredHealthCheckFilter(model *lbService) *envoy_
 			{
 				Name: ":method",
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_matcher_v3.StringMatcher{
-						MatchPattern: &envoy_matcher_v3.StringMatcher_Exact{
+					StringMatch: &envoy_type_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
 							Exact: healthCheckHttpMethod,
 						},
 					},
@@ -868,8 +868,8 @@ func (r *lbServiceReconciler) desiredHealthCheckFilter(model *lbService) *envoy_
 			{
 				Name: "user-agent",
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_matcher_v3.StringMatcher{
-						MatchPattern: &envoy_matcher_v3.StringMatcher_Prefix{
+					StringMatch: &envoy_type_matcher_v3.StringMatcher{
+						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
 							Prefix: healthCheckHttpUserAgentPrefix,
 						},
 					},
@@ -907,10 +907,10 @@ func (r *lbServiceReconciler) desiredEnvoyClusters(model *lbService) []*envoy_co
 								"type": structpb.NewStringValue("tls"),
 							},
 						},
-						TransportSocket: &envoy_corev3.TransportSocket{
+						TransportSocket: &envoy_config_core_v3.TransportSocket{
 							Name: "envoy.transport_sockets.tls",
-							ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
-								TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{}),
+							ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+								TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{}),
 							},
 						},
 					},
@@ -940,7 +940,7 @@ func (r *lbServiceReconciler) desiredEnvoyCluster(name string, b backend, transp
 		},
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
-			HealthyPanicThreshold: &envoy_typev3.Percent{Value: 0.0},
+			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
 		},
 		ConnectTimeout:         &durationpb.Duration{Seconds: int64(b.tcpConfig.connectTimeoutSeconds)},
 		TransportSocketMatches: transportSocketMatches,
@@ -986,16 +986,16 @@ func (r *lbServiceReconciler) toLbConfigMaglev(algorithmConfig lbBackendLBAlgori
 	}
 }
 
-func (r *lbServiceReconciler) toTLSTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_corev3.TransportSocket {
+func (r *lbServiceReconciler) toTLSTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_config_core_v3.TransportSocket {
 	if tlsConfig == nil {
 		return nil
 	}
 
-	return &envoy_corev3.TransportSocket{
+	return &envoy_config_core_v3.TransportSocket{
 		Name: "envoy.transport_sockets.tls",
-		ConfigType: &envoy_corev3.TransportSocket_TypedConfig{
-			TypedConfig: toAny(&envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
-				CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+		ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{
+				CommonTlsContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext{
 					TlsParams: r.toClusterTLSParams(tlsConfig),
 				},
 			}),
@@ -1007,7 +1007,7 @@ func (r *lbServiceReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackendH
 	switch {
 	case httpConfig.enableHTTP11 && !httpConfig.enableHTTP2:
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
-			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
 				MaxConnectionDuration: durationpb.New(time.Hour),
 			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
@@ -1018,7 +1018,7 @@ func (r *lbServiceReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackendH
 		})
 	case httpConfig.enableHTTP2 && !httpConfig.enableHTTP11:
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
-			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
 				MaxConnectionDuration: durationpb.New(time.Hour),
 			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
@@ -1032,7 +1032,7 @@ func (r *lbServiceReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackendH
 		// The reason is to prevent HTTP/2 issues due to backends that don't support H2C (HTTP2 without TLS).
 		// Note: Once we support TLS re-encryption to the backend we can enable AutoConfig to make use of ALPN protocol negotiation.
 		return toAny(&envoy_extensions_upstreams_http_v3.HttpProtocolOptions{
-			CommonHttpProtocolOptions: &envoy_corev3.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
 				MaxConnectionDuration: durationpb.New(time.Hour),
 			},
 			UpstreamProtocolOptions: &envoy_extensions_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
@@ -1044,8 +1044,8 @@ func (r *lbServiceReconciler) toClusterHTTPProtocolOptions(httpConfig lbBackendH
 	}
 }
 
-func (r *lbServiceReconciler) toClusterHealthChecks(healthCheckConfig lbBackendHealthCheckConfig, hcTransportSocketMatchCriteria *structpb.Struct) []*envoy_corev3.HealthCheck {
-	healthCheck := &envoy_corev3.HealthCheck{
+func (r *lbServiceReconciler) toClusterHealthChecks(healthCheckConfig lbBackendHealthCheckConfig, hcTransportSocketMatchCriteria *structpb.Struct) []*envoy_config_core_v3.HealthCheck {
+	healthCheck := &envoy_config_core_v3.HealthCheck{
 		Interval:                     &durationpb.Duration{Seconds: int64(healthCheckConfig.intervalSeconds)},
 		UnhealthyInterval:            &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyIntervalSeconds)},
 		UnhealthyEdgeInterval:        &durationpb.Duration{Seconds: int64(healthCheckConfig.unhealthyEdgeIntervalSeconds)},
@@ -1064,23 +1064,23 @@ func (r *lbServiceReconciler) toClusterHealthChecks(healthCheckConfig lbBackendH
 	default:
 		return nil
 	}
-	return []*envoy_corev3.HealthCheck{
+	return []*envoy_config_core_v3.HealthCheck{
 		healthCheck,
 	}
 }
 
-func (r *lbServiceReconciler) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_corev3.HealthCheck_HttpHealthCheck_ {
-	return &envoy_corev3.HealthCheck_HttpHealthCheck_{
-		HttpHealthCheck: &envoy_corev3.HealthCheck_HttpHealthCheck{
+func (r *lbServiceReconciler) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_HttpHealthCheck_ {
+	return &envoy_config_core_v3.HealthCheck_HttpHealthCheck_{
+		HttpHealthCheck: &envoy_config_core_v3.HealthCheck_HttpHealthCheck{
 			Host: healthCheckConfig.http.host,
 			Path: healthCheckConfig.http.path,
 		},
 	}
 }
 
-func (r *lbServiceReconciler) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_corev3.HealthCheck_TcpHealthCheck_ {
-	return &envoy_corev3.HealthCheck_TcpHealthCheck_{
-		TcpHealthCheck: &envoy_corev3.HealthCheck_TcpHealthCheck{},
+func (r *lbServiceReconciler) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_TcpHealthCheck_ {
+	return &envoy_config_core_v3.HealthCheck_TcpHealthCheck_{
+		TcpHealthCheck: &envoy_config_core_v3.HealthCheck_TcpHealthCheck{},
 	}
 }
 
@@ -1119,9 +1119,9 @@ func (r *lbServiceReconciler) desiredEnvoyEndpoint(name string, b backend) *envo
 			LoadBalancingWeight: wrapperspb.UInt32(ipBackends.weight),
 			HealthStatus:        r.toHealthStatus(ipBackends.status),
 			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
-				Address: &envoy_corev3.Address{Address: &envoy_corev3.Address_SocketAddress{SocketAddress: &envoy_corev3.SocketAddress{
+				Address: &envoy_config_core_v3.Address{Address: &envoy_config_core_v3.Address_SocketAddress{SocketAddress: &envoy_config_core_v3.SocketAddress{
 					Address:       ipBackends.address,
-					PortSpecifier: &envoy_corev3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
 				}}},
 			}},
 		})
@@ -1137,12 +1137,12 @@ func (r *lbServiceReconciler) desiredEnvoyEndpoint(name string, b backend) *envo
 	}
 }
 
-func (r *lbServiceReconciler) toHealthStatus(status lbBackendStatus) envoy_corev3.HealthStatus {
+func (r *lbServiceReconciler) toHealthStatus(status lbBackendStatus) envoy_config_core_v3.HealthStatus {
 	switch status {
 	case lbBackendStatusDraining:
-		return envoy_corev3.HealthStatus_DRAINING
+		return envoy_config_core_v3.HealthStatus_DRAINING
 	default:
-		return envoy_corev3.HealthStatus_UNKNOWN
+		return envoy_config_core_v3.HealthStatus_UNKNOWN
 	}
 }
 
@@ -1206,16 +1206,16 @@ func (r *lbServiceReconciler) toHTTPRouteHashpolicy(persistentBackendConfig *lbR
 	return hashPolicy
 }
 
-func (r *lbServiceReconciler) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPersistentBackend) []*envoy_typev3.HashPolicy {
+func (r *lbServiceReconciler) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPersistentBackend) []*envoy_type_v3.HashPolicy {
 	if persistentBackendConfig == nil {
 		return nil
 	}
 
-	hashPolicy := []*envoy_typev3.HashPolicy{}
+	hashPolicy := []*envoy_type_v3.HashPolicy{}
 
 	if persistentBackendConfig.SourceIP {
-		hashPolicy = append(hashPolicy, &envoy_typev3.HashPolicy{
-			PolicySpecifier: &envoy_typev3.HashPolicy_SourceIp_{SourceIp: &envoy_typev3.HashPolicy_SourceIp{}},
+		hashPolicy = append(hashPolicy, &envoy_type_v3.HashPolicy{
+			PolicySpecifier: &envoy_type_v3.HashPolicy_SourceIp_{SourceIp: &envoy_type_v3.HashPolicy_SourceIp{}},
 		})
 	}
 
