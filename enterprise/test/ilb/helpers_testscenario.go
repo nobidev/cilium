@@ -33,7 +33,7 @@ type lbTestScenario struct {
 	k8sCli    *k8s.Clientset
 	dockerCli *dockerCli
 
-	backendApps         map[string]*dockerContainer
+	backendApps         map[string]*hcAppContainer
 	frrClients          map[string]*dockerContainer
 	serverCertificates  map[string]*tlsCertificate
 	backendCertificates map[string]*tlsCertificate
@@ -55,7 +55,7 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		ciliumCli:           ciliumCli,
 		k8sCli:              k8sCli,
 		dockerCli:           dockerCli,
-		backendApps:         map[string]*dockerContainer{},
+		backendApps:         map[string]*hcAppContainer{},
 		frrClients:          map[string]*dockerContainer{},
 		serverCertificates:  map[string]*tlsCertificate{},
 		backendCertificates: map[string]*tlsCertificate{},
@@ -79,8 +79,8 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 	return ip
 }
 
-func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) []*dockerContainer {
-	containers := []*dockerContainer{}
+func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) []*hcAppContainer {
+	containers := []*hcAppContainer{}
 	startIndex := len(r.backendApps)
 
 	for i := startIndex; i < startIndex+numberOfBackends; i++ {
@@ -92,9 +92,14 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
 
-		container := &dockerContainer{
-			id: id,
-			ip: ip,
+		container := &hcAppContainer{
+			dockerContainer: dockerContainer{
+				t:         r.t,
+				id:        id,
+				ip:        ip,
+				dockerCli: r.dockerCli,
+			},
+			config: config,
 		}
 
 		r.backendApps[appName] = container
@@ -129,11 +134,6 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 	}
 
 	return env
-}
-
-type backendApplicationConfig struct {
-	h2cEnabled      bool
-	tlsCertHostname string
 }
 
 func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) []*dockerContainer {

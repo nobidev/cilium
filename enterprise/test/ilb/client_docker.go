@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -184,31 +183,6 @@ func (c *dockerCli) copyToContainer(ctx context.Context, containerID string, con
 
 	opts := container.CopyToContainerOptions{AllowOverwriteDirWithFile: true}
 	return c.CopyToContainer(ctx, containerID, dstDir, reader, opts)
-}
-
-type hcState string
-
-const (
-	hcFail hcState = "fail"
-	hcOK   hcState = "ok"
-)
-
-func (c *dockerCli) controlBackendHC(ctx context.Context, clientName, ip string, hc hcState) error {
-	stdout, stderr, err := c.clientExec(ctx, clientName,
-		fmt.Sprintf("curl --silent -X POST http://%s:8080/control/healthcheck/"+string(hc), ip))
-	if err != nil {
-		return fmt.Errorf("failed cmd (stdout: %q, stderr: %q): %w", stdout, stderr, err)
-	}
-
-	state := "false"
-	if hc == hcOK {
-		state = "true"
-	}
-	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
-		return fmt.Errorf("expected different output, got %q", stdout)
-	}
-
-	return nil
 }
 
 func createTAR(content []byte, path string) (io.Reader, error) {

@@ -67,9 +67,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Logf("Setting T2 HC to fail...")
 
 	for _, b := range scenario.backendApps {
-		if err := dockerCli.controlBackendHC(ctx, client.ID(), b.ip, hcFail); err != nil {
-			t.Fatalf("failed to set HC to fail (%s): %s", b.ip, err)
-		}
+		b.SetHC(ctx, hcFail)
 	}
 
 	// 2.2. Wait until curl fails due to failing HCs
@@ -89,9 +87,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	// 2.3. Bring back both backends
 
 	for _, b := range scenario.backendApps {
-		if err := dockerCli.controlBackendHC(ctx, client.ID(), b.ip, hcOK); err != nil {
-			t.Fatalf("failed to set HC to pass (%s): %s", b.ip, err)
-		}
+		b.SetHC(ctx, hcOK)
 	}
 
 	t.Logf("Waiting for curl to pass...")
