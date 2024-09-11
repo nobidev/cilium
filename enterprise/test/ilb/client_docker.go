@@ -24,7 +24,6 @@ import (
 	docker_client "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -91,14 +90,6 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 	return stdout.String(), stderr.String(), err
 }
 
-func (c *dockerCli) clientExec(ctx context.Context, clientContainerName, cmd string) (string, string, error) {
-	stdout, stderr, err := c.ContainerExec(ctx, clientContainerName,
-		[]string{"sh", "-c", cmd},
-	)
-
-	return stdout, stderr, err
-}
-
 func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	reader, err := c.ImagePull(ctx, img, image.PullOptions{})
 	if err != nil {
@@ -151,28 +142,6 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {
 	return c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
-}
-
-func (c *dockerCli) waitForIPRoute(ctx context.Context, clientName, lbIP string) error {
-	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
-	defer cancel()
-
-	for {
-		cmd := "ip route list | grep -qF " + lbIP
-		stdout, stderr, err := c.clientExec(ctx, clientName, cmd)
-		if err == nil {
-			break
-		}
-
-		select {
-		case <-inctimer.After(pollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for IP route to LB VIP (stdout: %q, stderr: %q, err: %w",
-				stdout, stderr, err)
-		}
-	}
-
-	return nil
 }
 
 func (c *dockerCli) copyToContainer(ctx context.Context, containerID string, content []byte, dstFile, dstDir string) error {

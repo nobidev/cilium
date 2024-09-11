@@ -34,7 +34,7 @@ type lbTestScenario struct {
 	dockerCli *dockerCli
 
 	backendApps         map[string]*hcAppContainer
-	frrClients          map[string]*dockerContainer
+	frrClients          map[string]*frrContainer
 	serverCertificates  map[string]*tlsCertificate
 	backendCertificates map[string]*tlsCertificate
 	clientCertificates  map[string]*tlsCertificate
@@ -56,7 +56,7 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		k8sCli:              k8sCli,
 		dockerCli:           dockerCli,
 		backendApps:         map[string]*hcAppContainer{},
-		frrClients:          map[string]*dockerContainer{},
+		frrClients:          map[string]*frrContainer{},
 		serverCertificates:  map[string]*tlsCertificate{},
 		backendCertificates: map[string]*tlsCertificate{},
 		clientCertificates:  map[string]*tlsCertificate{},
@@ -69,11 +69,10 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 		r.t.Fatalf("failed to wait for VIP (%s): %s", vipName, err)
 	}
 
-	for cName, c := range r.frrClients {
-		err = r.dockerCli.waitForIPRoute(ctx, c.id, ip)
-		if err != nil {
-			r.t.Fatalf("failed to wait for IP route in client (%s): %s", cName, err)
-		}
+	for _, c := range r.frrClients {
+		eventually(r.t, func() error {
+			return c.EnsureRoute(ctx, ip+"/32")
+		}, shortTimeout, pollInterval)
 	}
 
 	return ip
@@ -136,8 +135,8 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 	return env
 }
 
-func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) []*dockerContainer {
-	containers := []*dockerContainer{}
+func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) []*frrContainer {
+	containers := []*frrContainer{}
 	startIndex := len(r.frrClients)
 
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
@@ -151,11 +150,13 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}
 
-		container := &dockerContainer{
-			t:         r.t,
-			id:        id,
-			ip:        ip,
-			dockerCli: r.dockerCli,
+		container := &frrContainer{
+			dockerContainer: dockerContainer{
+				t:         r.t,
+				id:        id,
+				ip:        ip,
+				dockerCli: r.dockerCli,
+			},
 		}
 
 		r.frrClients[clientName] = container
