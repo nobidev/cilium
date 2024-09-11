@@ -573,6 +573,7 @@ func (r *lbServiceReconciler) desiredEnvoyListenerTLSProxyFilterChains(model *lb
 						TypedConfig: toAny(&envoy_tcpproxy_v3.TcpProxy{
 							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
 							StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
+							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 							ClusterSpecifier: &envoy_tcpproxy_v3.TcpProxy_Cluster{
 								Cluster: fmt.Sprintf("backend_cluster_tls_proxy_%d", i),
 							},
@@ -1195,7 +1196,7 @@ func (r *lbServiceReconciler) toHTTPRouteHashpolicy(persistentBackendConfig *lbR
 	return hashPolicy
 }
 
-func (r *lbServiceReconciler) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPassthroughPersistentBackend) []*envoy_typev3.HashPolicy {
+func (r *lbServiceReconciler) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPersistentBackend) []*envoy_typev3.HashPolicy {
 	if persistentBackendConfig == nil {
 		return nil
 	}

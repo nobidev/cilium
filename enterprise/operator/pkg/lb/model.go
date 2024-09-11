@@ -197,20 +197,21 @@ type lbRouteHTTPPersistentBackend struct {
 type lbRouteTLSPassthrough struct {
 	match             lbRouteTLSPassthroughMatch
 	backend           backend
-	persistentBackend *lbRouteTLSPassthroughPersistentBackend
+	persistentBackend *lbRouteTLSPersistentBackend
 }
 
 type lbRouteTLSPassthroughMatch struct {
 	hostNames []string
 }
 
-type lbRouteTLSPassthroughPersistentBackend struct {
+type lbRouteTLSPersistentBackend struct {
 	SourceIP bool
 }
 
 type lbRouteTLSProxy struct {
-	match   lbRouteTLSProxyMatch
-	backend backend
+	match             lbRouteTLSProxyMatch
+	backend           backend
+	persistentBackend *lbRouteTLSPersistentBackend
 }
 
 type lbRouteTLSProxyMatch struct {

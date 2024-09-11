@@ -353,6 +353,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
+			persistentBackend: r.toTLSPassthroughPersistentBackendConfig(lr.PersistentBackend),
 		})
 	}
 
@@ -638,7 +639,7 @@ func (*ingestor) toHTTPPersistentBackendConfig(persistentBackendConfig *isovalen
 	}
 }
 
-func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTLSPassthroughRoutePersistentBackend) *lbRouteTLSPassthroughPersistentBackend {
+func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTLSRoutePersistentBackend) *lbRouteTLSPersistentBackend {
 	if persistentBackendConfig == nil {
 		return nil
 	}
@@ -648,7 +649,7 @@ func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig
 		sourceIP = *persistentBackendConfig.SourceIP
 	}
 
-	return &lbRouteTLSPassthroughPersistentBackend{
+	return &lbRouteTLSPersistentBackend{
 		SourceIP: sourceIP,
 	}
 }

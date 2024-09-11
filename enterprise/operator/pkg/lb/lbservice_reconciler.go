@@ -689,6 +689,12 @@ func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv
 				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
 			}
 		}
+	case lbsvc.Spec.Applications.TLSProxy != nil:
+		for _, r := range lbsvc.Spec.Applications.TLSProxy.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
 	}
 
 	hasIncompatibleBackends := false

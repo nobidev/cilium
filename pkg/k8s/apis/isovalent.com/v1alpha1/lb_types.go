@@ -380,7 +380,7 @@ type LBServiceTLSPassthroughRoute struct {
 	// with loadbalancing algorithm `consistentHashing`.
 	//
 	// +kubebuilder:validation:Optional
-	PersistentBackend *LBServiceTLSPassthroughRoutePersistentBackend `json:"persistentBackend,omitempty"`
+	PersistentBackend *LBServiceTLSRoutePersistentBackend `json:"persistentBackend,omitempty"`
 }
 
 type LBServiceTLSRoute struct {
@@ -396,6 +396,17 @@ type LBServiceTLSRoute struct {
 	//
 	// +kubebuilder:validation:Required
 	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional persistent backend configuration for this TLS proxy route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceTLSRoutePersistentBackend `json:"persistentBackend,omitempty"`
 }
 
 type LBServiceTLSPassthroughRouteMatch struct {
@@ -435,7 +446,7 @@ type LBServiceTLSRouteMatch struct {
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
-type LBServiceTLSPassthroughRoutePersistentBackend struct {
+type LBServiceTLSRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
 	//
