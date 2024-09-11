@@ -91,7 +91,7 @@ done
 cp "${script_dir}/example/lb-bgp-frr-config.yaml" "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
 
 for i in "${BGP_FRR_IPS[@]}"; do
-  ip=$i yq_run -i '.spec.virtualRouters[0].neighbors += {"peerAddress": strenv(ip) + "/32", "peerASN": 64512, "bfdProfileRef": "frr", "connectRetryTimeSeconds": 1}' "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
+  yq_run -i ".spec.virtualRouters[0].neighbors += {\"peerAddress\": \"${i}/32\", \"peerASN\": 64512, \"bfdProfileRef\": \"frr\", \"connectRetryTimeSeconds\": 1}" "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
 done
 
 kubectl apply -f "${script_dir}/example/lb-bgp-frr-config.yaml-tmp"
