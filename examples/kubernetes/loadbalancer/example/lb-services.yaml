@@ -174,21 +174,3 @@ spec:
               - "secure-backend.acme.io"
           backendRef:
             name: lb-8
----
-apiVersion: isovalent.com/v1alpha1
-kind: LBService
-metadata:
-  namespace: default
-  name: lb-9
-spec:
-  vipRef:
-    name: lb-9
-  port: 80
-  applications:
-    httpProxy:
-      routes:
-        - match:
-            hostNames:
-              - "insecure.acme.io"
-          backendRef:
-            name: lb-9

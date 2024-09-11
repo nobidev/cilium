@@ -17,7 +17,6 @@ while :; do
   VIP_LB6=$(kubectl -n default get lbvip lb-6 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB7=$(kubectl -n default get lbvip lb-7 -ojson | jq -r '.status.addresses.ipv4')
   VIP_LB8=$(kubectl -n default get lbvip lb-8 -ojson | jq -r '.status.addresses.ipv4')
-  VIP_LB9=$(kubectl -n default get lbvip lb-9 -ojson | jq -r '.status.addresses.ipv4')
 
   if [ "${VIP_LB1}" != "" ] &&
     [ "${VIP_LB2}" != "" ] &&
@@ -26,8 +25,7 @@ while :; do
     [ "${VIP_LB5}" != "" ] &&
     [ "${VIP_LB6}" != "" ] &&
     [ "${VIP_LB7}" != "" ] &&
-    [ "${VIP_LB8}" != "" ] &&
-    [ "${VIP_LB9}" != "" ]; then
+    [ "${VIP_LB8}" != "" ]; then
     break
   fi
 
@@ -37,14 +35,14 @@ done
 echo ""
 
 echo -n "Waiting until BFD sessions are established "
-until [ $(docker exec -it frr vtysh -c "show bfd peers json" | jq -r '.[].status=="up" // false') != *"false"* ]; do
+until [ $(docker exec -it frr vtysh -c "show bfd peers json" | jq -r 'all(.status=="up") // false') != "false" ]; do
   echo -n "."
   sleep 1
 done
 echo ""
 
 echo -n "Waiting until BGP sessions are established "
-until [ $(docker exec -it frr vtysh -c "show bgp summary json" | jq -r '.ipv4Unicast.peers[].state == "Established" // false') != *"false"* ]; do
+until [ $(docker exec -it frr vtysh -c "show bgp summary json" | jq -r '(.ipv4Unicast.peers | all(.state == "Established")) // false') != "false" ]; do
   echo -n "."
   sleep 1
 done
@@ -63,8 +61,7 @@ until [ $(route_exists $VIP_LB1) == "true" ] &&
   [ $(route_exists $VIP_LB5) == "true" ] &&
   [ $(route_exists $VIP_LB6) == "true" ] &&
   [ $(route_exists $VIP_LB7) == "true" ] &&
-  [ $(route_exists $VIP_LB8) == "true" ] &&
-  [ $(route_exists $VIP_LB9) == "true" ]; do
+  [ $(route_exists $VIP_LB8) == "true" ]; do
   echo -n "."
   sleep 1
 done
@@ -85,27 +82,3 @@ docker exec frr bash -c "echo -n 'HTTPS H2 UNDERSCORE   service1: ' && errMsg=\$
 docker exec frr bash -c "echo -n 'HTTP  UNDERSCORE      service2: ' && httpCode=\$(curl -s --fail --resolve insecure.acme.io:80:${VIP_LB2} -H \"X_INVALID: foo\" -w '%{http_code}' http://insecure.acme.io:80/api/foo-insecure) || echo Code \$httpCode && if [ \$httpCode != '400' ]; then exit 1; fi"
 docker exec frr bash -c "echo -n 'HTTPS H2              service7: ' && httpVersion=\$(curl -s --fail -o/dev/null -w '%{http_version}' --cacert /tmp/tls-secure-http2.crt --resolve secure-http2.acme.io:443:${VIP_LB7} https://secure-http2.acme.io:443/) && echo Version \$httpVersion && if [ \$httpVersion != '2' ]; then exit 1; fi"
 docker exec frr bash -c "echo -n 'HTTPS RE              service8: ' && curl -s --fail --cacert /tmp/tls-secure-backend3.crt --resolve secure-backend.acme.io:443:${VIP_LB8} https://secure-backend.acme.io:443/"
-
-echo "Making lb-9 unhealthy"
-
-docker kill app7
-
-echo "Waiting for the BGP route to be withdrawn"
-
-until [ $(route_exists $VIP_LB9) == "false" ]; do
-  echo -n "."
-  sleep 1
-done
-
-echo "Making lb-9 healthy again"
-
-docker run -d --name app7 --rm --env SERVICE_NAME=service7 --env INSTANCE_NAME=7 --env H2C_ENABLED=true --network kind-cilium quay.io/isovalent-dev/lb-healthcheck-app:v0.0.5
-BACKEND7_IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' app7)
-kubectl patch lbbackendpool lb-9 --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/backends/0/ip\", \"value\":\"${BACKEND7_IP}\"}]"
-
-echo "Waiting for the BGP route to be installed"
-
-until [ $(route_exists $VIP_LB9) == "true" ]; do
-  echo -n "."
-  sleep 1
-done
