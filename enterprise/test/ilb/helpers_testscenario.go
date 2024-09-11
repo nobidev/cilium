@@ -40,11 +40,6 @@ type lbTestScenario struct {
 	clientCertificates  map[string]*tlsCertificate
 }
 
-type dockerContainer struct {
-	id string
-	ip string
-}
-
 type tlsCertificate struct {
 	cert       []byte
 	key        []byte
@@ -141,7 +136,8 @@ type backendApplicationConfig struct {
 	tlsCertHostname string
 }
 
-func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) {
+func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int, config frrClientConfig) []*dockerContainer {
+	containers := []*dockerContainer{}
 	startIndex := len(r.frrClients)
 
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
@@ -155,10 +151,16 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}
 
-		r.frrClients[clientName] = &dockerContainer{
-			id: id,
-			ip: ip,
+		container := &dockerContainer{
+			t:         r.t,
+			id:        id,
+			ip:        ip,
+			dockerCli: r.dockerCli,
 		}
+
+		r.frrClients[clientName] = container
+
+		containers = append(containers, container)
 
 		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
 
@@ -177,20 +179,22 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 				sc = bc
 			}
 
-			if err := r.dockerCli.copyToContainer(ctx, id, sc.cert, h+".crt", "/tmp"); err != nil {
+			if err := container.Copy(ctx, sc.cert, h+".crt", "/tmp"); err != nil {
 				r.t.Fatalf("failed to copy cert to client container: %s", err)
 			}
 		}
 
 		for hostName, cert := range r.clientCertificates {
-			if err := r.dockerCli.copyToContainer(ctx, id, cert.cert, hostName+".crt", "/tmp"); err != nil {
+			if err := container.Copy(ctx, cert.cert, hostName+".crt", "/tmp"); err != nil {
 				r.t.Fatalf("failed to copy cert to client container: %s", err)
 			}
-			if err := r.dockerCli.copyToContainer(ctx, id, cert.key, hostName+".key", "/tmp"); err != nil {
+			if err := container.Copy(ctx, cert.key, hostName+".key", "/tmp"); err != nil {
 				r.t.Fatalf("failed to copy key to client container: %s", err)
 			}
 		}
 	}
+
+	return containers
 }
 
 type frrClientConfig struct {

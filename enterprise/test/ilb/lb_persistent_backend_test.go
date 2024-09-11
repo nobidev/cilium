@@ -39,7 +39,7 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -66,13 +66,11 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Test persistent backend selection with cookie
-	clientName := testName + "-client-0"
-
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=123' http://%s:80/test1", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
 		for i := 0; i < 100; i++ {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
@@ -86,7 +84,7 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=234' http://%s:80/test2", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
 		for i := 0; i < 100; i++ {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
@@ -112,7 +110,7 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 2, frrClientConfig{})
+	clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -139,14 +137,11 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Test persistent backend selection with source IP
-	client0Name := testName + "-client-0"
-	client1Name := testName + "-client-1"
-
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test1", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
 		for i := 0; i < 100; i++ {
-			stdout, stderr, err := dockerCli.clientExec(ctx, client0Name, testCmd)
+			stdout, stderr, err := clients[0].Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
@@ -160,7 +155,7 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test2", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
 		for i := 0; i < 100; i++ {
-			stdout, stderr, err := dockerCli.clientExec(ctx, client1Name, testCmd)
+			stdout, stderr, err := clients[1].Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}

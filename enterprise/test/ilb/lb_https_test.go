@@ -35,9 +35,7 @@ func TestHTTPS(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -61,7 +59,7 @@ func TestHTTPS(t *testing.T) {
 	// 1. Send HTTPs request
 	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
@@ -86,9 +84,7 @@ func TestHTTP2S(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -112,7 +108,7 @@ func TestHTTP2S(t *testing.T) {
 	// 1. Send HTTPs request
 	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}

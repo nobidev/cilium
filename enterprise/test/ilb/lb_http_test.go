@@ -31,9 +31,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -57,7 +55,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
@@ -69,7 +67,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Logf("Setting T2 HC to fail...")
 
 	for _, b := range scenario.backendApps {
-		if err := dockerCli.controlBackendHC(ctx, clientName, b.ip, hcFail); err != nil {
+		if err := dockerCli.controlBackendHC(ctx, client.ID(), b.ip, hcFail); err != nil {
 			t.Fatalf("failed to set HC to fail (%s): %s", b.ip, err)
 		}
 	}
@@ -79,7 +77,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Logf("Waiting for curl to fails...")
 
 	eventually(t, func() error {
-		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		_, _, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			return nil
 		}
@@ -91,7 +89,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	// 2.3. Bring back both backends
 
 	for _, b := range scenario.backendApps {
-		if err := dockerCli.controlBackendHC(ctx, clientName, b.ip, hcOK); err != nil {
+		if err := dockerCli.controlBackendHC(ctx, client.ID(), b.ip, hcOK); err != nil {
 			t.Fatalf("failed to set HC to pass (%s): %s", b.ip, err)
 		}
 	}
@@ -101,7 +99,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	// 2.4. Expect to pass
 
 	eventually(t, func() error {
-		_, _, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		_, _, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			return fmt.Errorf("curl request still fails (expect to succeed")
 		}
@@ -127,9 +125,7 @@ func TestHTTP2(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -153,7 +149,7 @@ func TestHTTP2(t *testing.T) {
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
@@ -181,9 +177,7 @@ func TestHTTPPath(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -208,7 +202,7 @@ func TestHTTPPath(t *testing.T) {
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
 		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
@@ -217,7 +211,7 @@ func TestHTTPPath(t *testing.T) {
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
 		t.Logf("Testing failure on other path %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err == nil {
 			t.Fatalf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}

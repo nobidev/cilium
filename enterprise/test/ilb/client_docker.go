@@ -94,7 +94,7 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 
 func (c *dockerCli) clientExec(ctx context.Context, clientContainerName, cmd string) (string, string, error) {
 	stdout, stderr, err := c.ContainerExec(ctx, clientContainerName,
-		[]string{"bash", "-c", cmd},
+		[]string{"sh", "-c", cmd},
 	)
 
 	return stdout, stderr, err

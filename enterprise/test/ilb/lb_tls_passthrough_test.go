@@ -40,9 +40,7 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName2})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
@@ -84,7 +82,7 @@ func TestTLSPassthrough(t *testing.T) {
 	testCmd2 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}

@@ -49,10 +49,9 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	t.Log("Creating client and add BGP peering...")
 
-	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
-	clientName := testName + "-client-0"
 	clientCertSecretName := testName + "-client"
 
 	t.Log("Creating LB BackendPool resources...")
@@ -75,7 +74,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 		t.Logf("Testing %q...", testCmd)
 
 		eventually(t, func() error {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				// Enrich error with curl output
 				err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -108,7 +107,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 		t.Logf("Testing %q...", testCmd)
 
 		eventually(t, func() error {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				// Enrich error with curl output
 				err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -152,10 +151,9 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	t.Log("Creating client and add BGP peering...")
 
-	scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
-	clientName := testName + "-client-0"
 	clientCertSecretName := testName + "-client"
 
 	t.Log("Creating LB BackendPool resources...")
@@ -178,7 +176,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 		t.Logf("Testing %q...", testCmd)
 
 		eventually(t, func() error {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				// Enrich error with curl output
 				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -211,7 +209,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 		t.Logf("Testing %q...", testCmd)
 
 		eventually(t, func() error {
-			stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				// Enrich error with curl output
 				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)

@@ -31,9 +31,7 @@ func TestSharedVIP(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	sharedVIPName := testName + "-shared"
@@ -62,7 +60,7 @@ func TestSharedVIP(t *testing.T) {
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/", vipIP))
 		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
@@ -71,7 +69,7 @@ func TestSharedVIP(t *testing.T) {
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
 		t.Logf("Testing %q...", testCmd)
-		stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
@@ -93,9 +91,7 @@ func TestRequestedVIP(t *testing.T) {
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
-	scenario.addFRRClients(ctx, 1, frrClientConfig{})
-
-	clientName := testName + "-client-0"
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
 	t.Logf("Creating LB VIP resources...")
 	requestedVIP := "100.64.0.250"
@@ -120,7 +116,7 @@ func TestRequestedVIP(t *testing.T) {
 	// 1. Send HTTP request to requested VIP
 	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/", requestedVIP))
 	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := dockerCli.clientExec(ctx, clientName, testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
