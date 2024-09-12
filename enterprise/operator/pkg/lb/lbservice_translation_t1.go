@@ -11,21 +11,28 @@
 package lb
 
 import (
-	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
+// T1 health check related const
+const (
+	healthCheckHttpPath            = "/health"
+	healthCheckHttpMethod          = "GET"
+	healthCheckHttpUserAgentPrefix = "cilium-probe/"
+)
+
+type lbServiceT1Translator struct {
+	config reconcilerConfig
+}
+
+func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service {
 	if model.vip.assignedIPv4 == nil {
 		return nil
 	}
@@ -54,7 +61,7 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 	// T1 -> T2 health checking
 	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
 	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
-	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", getHealthCheckIntervalSeconds(model))
+	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
 	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
@@ -81,7 +88,7 @@ func (r *lbServiceReconciler) desiredService(model *lbService) *corev1.Service {
 	}
 }
 
-func getHealthCheckIntervalSeconds(model *lbService) int {
+func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) int {
 	shortestInterval := 0
 
 	for _, r := range model.applications.getHTTPProxyRoutes() {
@@ -117,7 +124,7 @@ func getHealthCheckIntervalSeconds(model *lbService) int {
 	return hcInterval
 }
 
-func (r *lbServiceReconciler) desiredEndpoints(model *lbService, t2NodeIPs []string) (*corev1.Endpoints, error) {
+func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService, t2NodeIPs []string) (*corev1.Endpoints, error) {
 	if model.vip.assignedIPv4 == nil {
 		return nil, nil
 	}
@@ -145,67 +152,4 @@ func (r *lbServiceReconciler) desiredEndpoints(model *lbService, t2NodeIPs []str
 			},
 		},
 	}, nil
-}
-
-func (r *lbServiceReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbService) error {
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: model.namespace,
-			Name:      model.getOwningResourceName(),
-		},
-	}
-	if err := r.client.Delete(ctx, ep); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-		// Endpoints does not exist, which is fine
-	}
-	return nil
-}
-
-func (r *lbServiceReconciler) getT2NodeAddresses(ctx context.Context) ([]string, error) {
-	nodeStore, err := r.nodeSource.Store(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get node store: %w", err)
-	}
-
-	t2NodeIPs := []string{}
-
-	allNodes := nodeStore.List()
-	for _, cn := range allNodes {
-		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == "t2" {
-			var nodeIP string
-			for _, addr := range cn.Spec.Addresses {
-				if addr.Type == addressing.NodeInternalIP {
-					nodeIP = addr.IP
-					break
-				}
-			}
-			if nodeIP == "" {
-				r.logger.
-					WithField(logfields.Resource, cn.Name).
-					Warn("Could not find InternalIP for tier 2 CiliumNode")
-				continue
-			}
-			t2NodeIPs = append(t2NodeIPs, nodeIP)
-		}
-	}
-
-	return t2NodeIPs, nil
-}
-
-func (r *lbServiceReconciler) ensureServiceDeleted(ctx context.Context, model *lbService) error {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: model.namespace,
-			Name:      model.getOwningResourceName(),
-		},
-	}
-	if err := r.client.Delete(ctx, svc); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-		// Service does not exist, which is fine
-	}
-	return nil
 }

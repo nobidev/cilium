@@ -90,27 +90,36 @@ func registerReconcilers(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	lbServiceReconciler := newLbServiceReconciler(params.Logger, params.CtrlRuntimeManager.GetClient(), params.Scheme, params.NodeSource, &ingestor{logger: params.Logger},
-		reconcilerConfig{
-			SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
-			ServerName:       params.Config.LoadBalancerCPHTTPServerName,
-			AccessLog: reconcilerAccesslogConfig{
-				EnableTCP:  params.Config.LoadBalancerCPEnabled,
-				FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
-				FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
-				FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
-				ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
-			},
-			RequestID: reconcilerRequestIDConfig{
-				Generate: params.Config.LoadBalancerCPRequestIDGenerate,
-				Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
-				Response: params.Config.LoadBalancerCPRequestIDResponse,
-			},
-			T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
-				T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
-				T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
-			},
-		})
+	reconcilerConfig := reconcilerConfig{
+		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
+		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
+		AccessLog: reconcilerAccesslogConfig{
+			EnableTCP:  params.Config.LoadBalancerCPEnabled,
+			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
+			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
+			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
+			ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
+		},
+		RequestID: reconcilerRequestIDConfig{
+			Generate: params.Config.LoadBalancerCPRequestIDGenerate,
+			Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
+			Response: params.Config.LoadBalancerCPRequestIDResponse,
+		},
+		T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
+			T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
+		},
+	}
+
+	lbServiceReconciler := newLbServiceReconciler(
+		params.Logger,
+		params.CtrlRuntimeManager.GetClient(),
+		params.Scheme,
+		params.NodeSource,
+		&ingestor{logger: params.Logger},
+		&lbServiceT1Translator{config: reconcilerConfig},
+		&lbServiceT2Translator{config: reconcilerConfig},
+	)
 
 	lbVIPReconciler := newLBVIPReconciler(
 		lbVIPReconcilerParams{

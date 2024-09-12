@@ -29,9 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 const (
@@ -41,13 +43,13 @@ const (
 )
 
 type lbServiceReconciler struct {
-	logger     logrus.FieldLogger
-	client     client.Client
-	scheme     *runtime.Scheme
-	nodeSource *ciliumNodeSource
-	ingestor   *ingestor
-
-	config reconcilerConfig
+	logger       logrus.FieldLogger
+	client       client.Client
+	scheme       *runtime.Scheme
+	nodeSource   *ciliumNodeSource
+	ingestor     *ingestor
+	t1Translator *lbServiceT1Translator
+	t2Translator *lbServiceT2Translator
 }
 
 type reconcilerConfig struct {
@@ -77,15 +79,15 @@ type reconcilerT1T2HealthCheckConfig struct {
 	T2ProbeMinHealthyBackendPercentage uint
 }
 
-func newLbServiceReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, config reconcilerConfig) *lbServiceReconciler {
+func newLbServiceReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {
 	return &lbServiceReconciler{
-		logger:     logger,
-		client:     client,
-		scheme:     scheme,
-		nodeSource: nodeSource,
-		ingestor:   ingestor,
-
-		config: config,
+		logger:       logger,
+		client:       client,
+		scheme:       scheme,
+		nodeSource:   nodeSource,
+		ingestor:     ingestor,
+		t1Translator: t1Translator,
+		t2Translator: t2Translator,
 	}
 }
 
@@ -253,15 +255,15 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 	//
 
 	// Build desired resources
-	desiredT1Service := r.desiredService(model)
+	desiredT1Service := r.t1Translator.DesiredService(model)
 
 	// TODO: include in model?
-	t2NodeIPs, err := r.getT2NodeAddresses(ctx)
+	t2NodeIPs, err := r.loadT2NodeAddresses(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}
 
-	desiredT1Endpoints, err := r.desiredEndpoints(model, t2NodeIPs)
+	desiredT1Endpoints, err := r.t1Translator.DesiredEndpoints(model, t2NodeIPs)
 	if err != nil {
 		return err
 	}
@@ -302,7 +304,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 	}
 
 	// Build desired resources
-	desiredT2CiliumEnvoyConfig, err := r.desiredCiliumEnvoyConfig(model)
+	desiredT2CiliumEnvoyConfig, err := r.t2Translator.DesiredCiliumEnvoyConfig(model)
 	if err != nil {
 		return err
 	}
@@ -382,6 +384,37 @@ func (r *lbServiceReconciler) loadMissingTLSSecrets(ctx context.Context, lbsvc *
 	return missingSecrets, nil
 }
 
+func (r *lbServiceReconciler) loadT2NodeAddresses(ctx context.Context) ([]string, error) {
+	nodeStore, err := r.nodeSource.Store(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node store: %w", err)
+	}
+
+	t2NodeIPs := []string{}
+
+	allNodes := nodeStore.List()
+	for _, cn := range allNodes {
+		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == "t2" {
+			var nodeIP string
+			for _, addr := range cn.Spec.Addresses {
+				if addr.Type == addressing.NodeInternalIP {
+					nodeIP = addr.IP
+					break
+				}
+			}
+			if nodeIP == "" {
+				r.logger.
+					WithField(logfields.Resource, cn.Name).
+					Warn("Could not find InternalIP for tier 2 CiliumNode")
+				continue
+			}
+			t2NodeIPs = append(t2NodeIPs, nodeIP)
+		}
+	}
+
+	return t2NodeIPs, nil
+}
+
 func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
 	svc := desiredService.DeepCopy()
 
@@ -399,6 +432,22 @@ func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desired
 
 	r.logger.Debugf("Service %s has been %s", client.ObjectKeyFromObject(svc), result)
 
+	return nil
+}
+
+func (r *lbServiceReconciler) ensureServiceDeleted(ctx context.Context, model *lbService) error {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, svc); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// Service does not exist, which is fine
+	}
 	return nil
 }
 
@@ -436,6 +485,22 @@ func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desir
 	return nil
 }
 
+func (r *lbServiceReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbService) error {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, ep); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// Endpoints does not exist, which is fine
+	}
+	return nil
+}
+
 func (r *lbServiceReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
 	cec := desiredCEC.DeepCopy()
 
@@ -453,6 +518,22 @@ func (r *lbServiceReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Contex
 
 	r.logger.Debugf("CiliumEnvoyConfig %s has been %s", client.ObjectKeyFromObject(cec), result)
 
+	return nil
+}
+
+func (r *lbServiceReconciler) ensureCECDeleted(ctx context.Context, model *lbService) error {
+	cec := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+		},
+	}
+	if err := r.client.Delete(ctx, cec); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// CEC does not exist, which is fine
+	}
 	return nil
 }
 

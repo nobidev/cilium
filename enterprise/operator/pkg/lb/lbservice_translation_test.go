@@ -112,12 +112,15 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		readInput(t, fmt.Sprintf("%s/%s/input-config.yaml", translationDir, tc.name), &config)
 
 		// translation
-		reconciler := &lbServiceReconciler{
+		t1Translator := &lbServiceT1Translator{
+			config: config,
+		}
+		t2Translator := &lbServiceT2Translator{
 			config: config,
 		}
 
 		// T1 Service
-		service := reconciler.desiredService(model)
+		service := t1Translator.DesiredService(model)
 
 		actualServiceYaml := ""
 		if service != nil {
@@ -127,7 +130,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml)
 
 		// T1 Endpoints
-		endpoints, err := reconciler.desiredEndpoints(model, tc.t2NodeIPs)
+		endpoints, err := t1Translator.DesiredEndpoints(model, tc.t2NodeIPs)
 		require.NoError(t, err)
 
 		actualEndpointsYaml := ""
@@ -138,7 +141,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		assert.Equal(t, expectedEndpointsYaml, actualEndpointsYaml)
 
 		// T2 CiliumEnvoyConfig
-		cec, err := reconciler.desiredCiliumEnvoyConfig(model)
+		cec, err := t2Translator.DesiredCiliumEnvoyConfig(model)
 		require.NoError(t, err)
 
 		actualCiliumEnvoyConfigYaml := ""
