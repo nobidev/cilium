@@ -2,3 +2,6 @@ prometheus:
   prometheusSpec:
     serviceMonitorSelector: {}
     serviceMonitorSelectorNilUsesHelmValues: false
+kube-state-metrics:
+  metricLabelsAllowlist:
+  - "nodes=[service.cilium.io/node]"
