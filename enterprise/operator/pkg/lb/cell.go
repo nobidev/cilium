@@ -119,6 +119,11 @@ func registerReconcilers(params reconcilerParams) error {
 			scheme: params.Scheme,
 		})
 
+	lbBackendPoolReconciler := newLbBackendPoolReconciler(
+		params.Logger,
+		params.CtrlRuntimeManager.GetClient(),
+	)
+
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
 			// Register reconcilers to manager in lifecycle to ensure that CRDs are installed on the cluster
@@ -128,6 +133,10 @@ func registerReconcilers(params reconcilerParams) error {
 
 			if err := lbVIPReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
 				return fmt.Errorf("failed to setup LBVIP reconciler: %w", err)
+			}
+
+			if err := lbBackendPoolReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+				return fmt.Errorf("failed to setup LBBackendPool reconciler: %w", err)
 			}
 
 			return nil

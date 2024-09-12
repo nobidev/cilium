@@ -890,7 +890,24 @@ type LoadbalancingConsistentHashingAlgorithmMaglev struct {
 	TableSize *uint32 `json:"tableSize"`
 }
 
-type LBBackendPoolStatus struct{}
+type LBBackendPoolStatus struct {
+	// The current conditions of the LBBackendPool.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+const (
+	ConditionTypeBackendAccepted = "lb.cilium.io/Accepted"
+)
+
+const (
+	BackendAcceptedConditionReasonValid   = "Valid"
+	BackendAcceptedConditionReasonInvalid = "Invalid"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -903,6 +920,36 @@ type LBBackendPoolList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []LBBackendPool `json:"items"`
+}
+
+func (r *LBBackendPool) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				r.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		r.Status.Conditions = append(r.Status.Conditions, condition)
+	}
+}
+
+func (r *LBBackendPool) GetStatusCondition(conditionType string) *metav1.Condition {
+	for _, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			return &c
+		}
+	}
+	return nil
 }
 
 // +genclient
