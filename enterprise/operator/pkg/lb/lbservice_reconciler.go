@@ -512,10 +512,7 @@ func tlsSecretIndexerFunc(rawObj client.Object) []string {
 func allReferencedSecretNames(lbService *isovalentv1alpha1.LBService) []string {
 	secretNames := []string{}
 
-	if lbService.Spec.Applications.HTTPSProxy != nil {
-		if lbService.Spec.Applications.HTTPSProxy.TLSConfig == nil {
-			return secretNames
-		}
+	if lbService.Spec.Applications.HTTPSProxy != nil && lbService.Spec.Applications.HTTPSProxy.TLSConfig != nil {
 		for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
 		}
@@ -524,10 +521,7 @@ func allReferencedSecretNames(lbService *isovalentv1alpha1.LBService) []string {
 		}
 	}
 
-	if lbService.Spec.Applications.TLSProxy != nil {
-		if lbService.Spec.Applications.TLSProxy.TLSConfig == nil {
-			return secretNames
-		}
+	if lbService.Spec.Applications.TLSProxy != nil && lbService.Spec.Applications.TLSProxy.TLSConfig != nil {
 		for _, c := range lbService.Spec.Applications.TLSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
 		}
