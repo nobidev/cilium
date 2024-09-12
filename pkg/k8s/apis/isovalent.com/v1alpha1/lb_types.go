@@ -1018,3 +1018,24 @@ type LBVIPList struct {
 
 	Items []LBVIP `json:"items"`
 }
+
+func (r *LBVIP) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				r.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		r.Status.Conditions = append(r.Status.Conditions, condition)
+	}
+}

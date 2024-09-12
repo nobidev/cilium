@@ -154,7 +154,7 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	v4Allocated := r.extractConditionsFromService(lbvip, currentSvc)
 
 	// Update the LBVIP status with the conditions
-	r.upsertCondition(lbvip, v4Allocated.Type, v4Allocated)
+	lbvip.UpsertStatusCondition(v4Allocated.Type, v4Allocated)
 
 	// Commit the LBVIP status
 	if err := r.client.Status().Update(ctx, lbvip); err != nil {
@@ -221,27 +221,6 @@ func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredServ
 	r.logger.Debugf("Service %s has been %s", client.ObjectKeyFromObject(svc), result)
 
 	return nil
-}
-
-func (r *lbVIPReconciler) upsertCondition(lbvip *isovalentv1alpha1.LBVIP, conditionType string, condition metav1.Condition) {
-	conditionExists := false
-	for i, c := range lbvip.Status.Conditions {
-		if c.Type == conditionType {
-			if c.Status != condition.Status ||
-				c.Reason != condition.Reason ||
-				c.Message != condition.Message ||
-				c.ObservedGeneration != condition.ObservedGeneration {
-				// transition -> update condition
-				lbvip.Status.Conditions[i] = condition
-			}
-			conditionExists = true
-			break
-		}
-	}
-
-	if !conditionExists {
-		lbvip.Status.Conditions = append(lbvip.Status.Conditions, condition)
-	}
 }
 
 func (r *lbVIPReconciler) extractVIPsFromService(svc *corev1.Service) (netip.Addr, error) {
