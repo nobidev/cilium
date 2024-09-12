@@ -98,9 +98,15 @@ func newLbServiceReconciler(logger logrus.FieldLogger, client client.Client, sch
 // the different watches. All the watcher trigger a reconciliation.
 func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		lbServiceVIPIndexName:        vipIndexerFunc,
-		lbServiceBackendIndexName:    backendIndexerFunc,
-		lbServiceTlsSecretsIndexName: tlsSecretIndexerFunc,
+		lbServiceVIPIndexName: func(rawObj client.Object) []string {
+			return rawObj.(*isovalentv1alpha1.LBService).AllReferencedVIPNames()
+		},
+		lbServiceBackendIndexName: func(rawObj client.Object) []string {
+			return rawObj.(*isovalentv1alpha1.LBService).AllReferencedBackendNames()
+		},
+		lbServiceTlsSecretsIndexName: func(rawObj client.Object) []string {
+			return rawObj.(*isovalentv1alpha1.LBService).AllReferencedSecretNames()
+		},
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBService{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -538,31 +544,6 @@ func (r *lbServiceReconciler) ensureCECDeleted(ctx context.Context, model *lbSer
 		// CEC does not exist, which is fine
 	}
 	return nil
-}
-
-func vipIndexerFunc(rawObj client.Object) []string {
-	// Extract the VIP reference
-	lbService := rawObj.(*isovalentv1alpha1.LBService)
-
-	if lbService.Spec.VIPRef.Name == "" {
-		return nil
-	}
-
-	return []string{lbService.Spec.VIPRef.Name}
-}
-
-func backendIndexerFunc(rawObj client.Object) []string {
-	// Extract the backend references
-	lbService := rawObj.(*isovalentv1alpha1.LBService)
-
-	return lbService.AllReferencedBackendNames()
-}
-
-func tlsSecretIndexerFunc(rawObj client.Object) []string {
-	lbService := rawObj.(*isovalentv1alpha1.LBService)
-
-	// Extract the TLS secret references
-	return lbService.AllReferencedSecretNames()
 }
 
 func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName string) handler.EventHandler {

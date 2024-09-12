@@ -594,6 +594,17 @@ func (r *LBService) AllReferencedBackendNames() []string {
 	return slices.Compact(backends)
 }
 
+func (r *LBService) AllReferencedVIPNames() []string {
+	vips := []string{}
+
+	if r.Spec.VIPRef.Name != "" {
+		vips = append(vips, r.Spec.VIPRef.Name)
+	}
+
+	slices.Sort(vips)
+	return slices.Compact(vips)
+}
+
 func (r *LBService) UpsertCondition(conditionType string, condition metav1.Condition) {
 	conditionExists := false
 	for i, c := range r.Status.Conditions {
