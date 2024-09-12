@@ -623,7 +623,7 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 
 	lbsvc.Status.Addresses.IPv4 = assignedIPv4
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {
@@ -642,7 +642,7 @@ func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService
 		vipExistsCondition.Message = fmt.Sprintf("Referenced VIP %v is missing", lbsvc.Spec.VIPRef.Name)
 	}
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
 }
 
 func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingBackends []string) {
@@ -661,7 +661,7 @@ func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alp
 		backendsExistCondition.Message = fmt.Sprintf("There are referenced backends that do not exist: %v", missingBackends)
 	}
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
 }
 
 func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
@@ -685,7 +685,7 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 		backendsCompatibleCondition.Message = strings.Join(incompatibleBackendMessages, "\n")
 	}
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
 }
 
 func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
@@ -761,5 +761,5 @@ func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBSer
 		secretsExistCondition.Message = fmt.Sprintf("There are referenced TLS secrets that do not exist: %v", missingSecrets)
 	}
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
 }

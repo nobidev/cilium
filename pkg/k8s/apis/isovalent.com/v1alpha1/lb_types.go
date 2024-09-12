@@ -605,7 +605,7 @@ func (r *LBService) AllReferencedVIPNames() []string {
 	return slices.Compact(vips)
 }
 
-func (r *LBService) UpsertCondition(conditionType string, condition metav1.Condition) {
+func (r *LBService) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
 	conditionExists := false
 	for i, c := range r.Status.Conditions {
 		if c.Type == conditionType {
@@ -624,6 +624,15 @@ func (r *LBService) UpsertCondition(conditionType string, condition metav1.Condi
 	if !conditionExists {
 		r.Status.Conditions = append(r.Status.Conditions, condition)
 	}
+}
+
+func (r *LBService) GetStatusCondition(conditionType string) *metav1.Condition {
+	for _, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			return &c
+		}
+	}
+	return nil
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
