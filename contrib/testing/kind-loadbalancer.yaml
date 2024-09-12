@@ -25,6 +25,7 @@ envoyConfig:
   enabled: true
 bpf:
   monitorAggregation: none
+  ctAccounting: true
 kubeProxyReplacement: true
 ipv6:
   enabled: false
