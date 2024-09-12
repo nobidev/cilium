@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -538,6 +540,80 @@ const (
 	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
 	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"
 )
+
+func (r *LBService) AllReferencedSecretNames() []string {
+	secretNames := []string{}
+
+	if r.Spec.Applications.HTTPSProxy != nil && r.Spec.Applications.HTTPSProxy.TLSConfig != nil {
+		for _, c := range r.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
+			secretNames = append(secretNames, c.SecretRef.Name)
+		}
+		if r.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+			secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+		}
+	}
+
+	if r.Spec.Applications.TLSProxy != nil && r.Spec.Applications.TLSProxy.TLSConfig != nil {
+		for _, c := range r.Spec.Applications.TLSProxy.TLSConfig.Certificates {
+			secretNames = append(secretNames, c.SecretRef.Name)
+		}
+		if r.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
+			secretNames = append(secretNames, r.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
+		}
+	}
+
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
+}
+
+func (r *LBService) AllReferencedBackendNames() []string {
+	backends := []string{}
+
+	if r.Spec.Applications.HTTPProxy != nil {
+		for _, lr := range r.Spec.Applications.HTTPProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if r.Spec.Applications.HTTPSProxy != nil {
+		for _, lr := range r.Spec.Applications.HTTPSProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if r.Spec.Applications.TLSPassthrough != nil {
+		for _, lr := range r.Spec.Applications.TLSPassthrough.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if r.Spec.Applications.TLSProxy != nil {
+		for _, lr := range r.Spec.Applications.TLSProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+
+	slices.Sort(backends)
+	return slices.Compact(backends)
+}
+
+func (r *LBService) UpsertCondition(conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				r.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		r.Status.Conditions = append(r.Status.Conditions, condition)
+	}
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true

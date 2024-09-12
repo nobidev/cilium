@@ -13,7 +13,6 @@ package lb
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -209,7 +208,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 	r.updateBackendCompatibilityInStatus(lbsvc, backends)
 
 	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
-	missingSecrets, err := r.getMissingTLSSecrets(ctx, lbsvc)
+	missingSecrets, err := r.loadMissingTLSSecrets(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced TLS secrets: %w", err)
 	}
@@ -339,7 +338,7 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 	backends := []*isovalentv1alpha1.LBBackendPool{}
 	missingBackends := []string{}
 
-	backendNames := allBackendNames(lbsvc)
+	backendNames := lbsvc.AllReferencedBackendNames()
 
 	for _, bName := range backendNames {
 		b := &isovalentv1alpha1.LBBackendPool{}
@@ -361,8 +360,8 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 	return backends, missingBackends, nil
 }
 
-func (r *lbServiceReconciler) getMissingTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]string, error) {
-	allReferencedSecretNames := allReferencedSecretNames(lbsvc)
+func (r *lbServiceReconciler) loadMissingTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]string, error) {
+	allReferencedSecretNames := lbsvc.AllReferencedSecretNames()
 
 	missingSecrets := []string{}
 
@@ -472,66 +471,14 @@ func backendIndexerFunc(rawObj client.Object) []string {
 	// Extract the backend references
 	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
-	return allBackendNames(lbService)
-}
-
-func allBackendNames(lbService *isovalentv1alpha1.LBService) []string {
-	backends := []string{}
-
-	if lbService.Spec.Applications.HTTPProxy != nil {
-		for _, lr := range lbService.Spec.Applications.HTTPProxy.Routes {
-			backends = append(backends, lr.BackendRef.Name)
-		}
-	}
-	if lbService.Spec.Applications.HTTPSProxy != nil {
-		for _, lr := range lbService.Spec.Applications.HTTPSProxy.Routes {
-			backends = append(backends, lr.BackendRef.Name)
-		}
-	}
-	if lbService.Spec.Applications.TLSPassthrough != nil {
-		for _, lr := range lbService.Spec.Applications.TLSPassthrough.Routes {
-			backends = append(backends, lr.BackendRef.Name)
-		}
-	}
-	if lbService.Spec.Applications.TLSProxy != nil {
-		for _, lr := range lbService.Spec.Applications.TLSProxy.Routes {
-			backends = append(backends, lr.BackendRef.Name)
-		}
-	}
-	slices.Sort(backends)
-	return slices.Compact(backends)
+	return lbService.AllReferencedBackendNames()
 }
 
 func tlsSecretIndexerFunc(rawObj client.Object) []string {
 	lbService := rawObj.(*isovalentv1alpha1.LBService)
 
 	// Extract the TLS secret references
-	return allReferencedSecretNames(lbService)
-}
-
-func allReferencedSecretNames(lbService *isovalentv1alpha1.LBService) []string {
-	secretNames := []string{}
-
-	if lbService.Spec.Applications.HTTPSProxy != nil && lbService.Spec.Applications.HTTPSProxy.TLSConfig != nil {
-		for _, c := range lbService.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
-			secretNames = append(secretNames, c.SecretRef.Name)
-		}
-		if lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-			secretNames = append(secretNames, lbService.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
-		}
-	}
-
-	if lbService.Spec.Applications.TLSProxy != nil && lbService.Spec.Applications.TLSProxy.TLSConfig != nil {
-		for _, c := range lbService.Spec.Applications.TLSProxy.TLSConfig.Certificates {
-			secretNames = append(secretNames, c.SecretRef.Name)
-		}
-		if lbService.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
-			secretNames = append(secretNames, lbService.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
-		}
-	}
-
-	slices.Sort(secretNames)
-	return slices.Compact(secretNames)
+	return lbService.AllReferencedSecretNames()
 }
 
 func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName string) handler.EventHandler {
@@ -611,7 +558,7 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 
 	lbsvc.Status.Addresses.IPv4 = assignedIPv4
 
-	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {
@@ -630,7 +577,7 @@ func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService
 		vipExistsCondition.Message = fmt.Sprintf("Referenced VIP %v is missing", lbsvc.Spec.VIPRef.Name)
 	}
 
-	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeVIPExist, vipExistsCondition)
 }
 
 func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingBackends []string) {
@@ -649,7 +596,7 @@ func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alp
 		backendsExistCondition.Message = fmt.Sprintf("There are referenced backends that do not exist: %v", missingBackends)
 	}
 
-	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
 }
 
 func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
@@ -709,7 +656,7 @@ func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv
 		backendsCompatibleCondition.Message = strings.Join(incompatibleBackends, "\n")
 	}
 
-	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
 }
 
 func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {
@@ -728,26 +675,5 @@ func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBSer
 		secretsExistCondition.Message = fmt.Sprintf("There are referenced TLS secrets that do not exist: %v", missingSecrets)
 	}
 
-	upsertCondition(lbsvc, isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
-}
-
-func upsertCondition(lbsvc *isovalentv1alpha1.LBService, conditionType string, condition metav1.Condition) {
-	conditionExists := false
-	for i, c := range lbsvc.Status.Conditions {
-		if c.Type == conditionType {
-			if c.Status != condition.Status ||
-				c.Reason != condition.Reason ||
-				c.Message != condition.Message ||
-				c.ObservedGeneration != condition.ObservedGeneration {
-				// transition -> update condition
-				lbsvc.Status.Conditions[i] = condition
-			}
-			conditionExists = true
-			break
-		}
-	}
-
-	if !conditionExists {
-		lbsvc.Status.Conditions = append(lbsvc.Status.Conditions, condition)
-	}
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
 }

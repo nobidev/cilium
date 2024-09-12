@@ -40,7 +40,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 
 		var reqs []reconcile.Request
 
-		allReferencedSecretNames := allReferencedSecretNames(lbService)
+		allReferencedSecretNames := lbService.AllReferencedSecretNames()
 		for _, secretName := range allReferencedSecretNames {
 			s := types.NamespacedName{
 				Namespace: lbService.Namespace,
