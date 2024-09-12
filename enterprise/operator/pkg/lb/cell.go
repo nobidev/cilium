@@ -107,6 +107,9 @@ func registerReconcilers(params reconcilerParams) error {
 		},
 		T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
 			T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+			T1ProbeHttpPath:                    "/health",
+			T1ProbeHttpMethod:                  "GET",
+			T1ProbeHttpUserAgentPrefix:         "cilium-probe/",
 			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
 		},
 	}

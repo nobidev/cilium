@@ -853,7 +853,7 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 					StringMatch: &envoy_type_matcher_v3.StringMatcher{
 						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-							Exact: healthCheckHttpPath,
+							Exact: r.config.T1T2HealthCheck.T1ProbeHttpPath,
 						},
 					},
 				},
@@ -863,7 +863,7 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 					StringMatch: &envoy_type_matcher_v3.StringMatcher{
 						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-							Exact: healthCheckHttpMethod,
+							Exact: r.config.T1T2HealthCheck.T1ProbeHttpMethod,
 						},
 					},
 				},
@@ -873,7 +873,7 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 				HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 					StringMatch: &envoy_type_matcher_v3.StringMatcher{
 						MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
-							Prefix: healthCheckHttpUserAgentPrefix,
+							Prefix: r.config.T1T2HealthCheck.T1ProbeHttpUserAgentPrefix,
 						},
 					},
 				},

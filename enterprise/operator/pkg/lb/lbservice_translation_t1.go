@@ -21,13 +21,6 @@ import (
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 )
 
-// T1 health check related const
-const (
-	healthCheckHttpPath            = "/health"
-	healthCheckHttpMethod          = "GET"
-	healthCheckHttpUserAgentPrefix = "cilium-probe/"
-)
-
 type lbServiceT1Translator struct {
 	config reconcilerConfig
 }
@@ -59,8 +52,8 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
 
 	// T1 -> T2 health checking
-	annotations[annotation.ServiceHealthHTTPPath] = healthCheckHttpPath
-	annotations[annotation.ServiceHealthHTTPMethod] = healthCheckHttpMethod
+	annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
+	annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
 	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
 	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 	annotations[annotation.ServiceHealthThresholdHealthy] = "1"

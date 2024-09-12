@@ -76,6 +76,9 @@ type reconcilerRequestIDConfig struct {
 
 type reconcilerT1T2HealthCheckConfig struct {
 	T1ProbeTimeoutSeconds              uint
+	T1ProbeHttpPath                    string
+	T1ProbeHttpMethod                  string
+	T1ProbeHttpUserAgentPrefix         string
 	T2ProbeMinHealthyBackendPercentage uint
 }
 
