@@ -159,7 +159,7 @@ func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 		return controllerruntime.Success()
 	}
 
-	if err := r.reconcileResources(ctx, scopedLog, lb); err != nil {
+	if err := r.reconcileResources(ctx, lb); err != nil {
 		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
 			// The creation of one of the resources failed because the
 			// namespace is terminating. The LBService resource itself is also expected
@@ -180,7 +180,7 @@ func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	return controllerruntime.Success()
 }
 
-func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogger logrus.FieldLogger, lbsvc *isovalentv1alpha1.LBService) error {
+func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) error {
 	//
 	// Load dependent resources that have relevant input for the model
 	//
@@ -209,12 +209,6 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 		return fmt.Errorf("failed to load referenced backends: %w", err)
 	}
 
-	if len(missingBackends) > 0 {
-		scopedLogger.
-			WithField("backends", missingBackends).
-			Debug("Some referenced LBBackends don't exist")
-	}
-
 	r.updateBackendExistenceInStatus(lbsvc, missingBackends)
 	r.updateBackendCompatibilityInStatus(lbsvc, backends)
 
@@ -222,12 +216,6 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, scopedLogg
 	missingSecrets, err := r.loadMissingTLSSecrets(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced TLS secrets: %w", err)
-	}
-
-	if len(missingSecrets) > 0 {
-		scopedLogger.
-			WithField("secrets", missingSecrets).
-			Debug("Some referenced TLS Secrets don't exist")
 	}
 
 	r.updateSecretsInStatus(lbsvc, missingSecrets)
