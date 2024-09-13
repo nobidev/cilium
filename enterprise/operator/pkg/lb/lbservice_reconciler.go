@@ -608,7 +608,7 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 		LastTransitionTime: metav1.Now(),
 	}
 
-	var assignedIPv4 *string = nil
+	var assignedIPv4 *string
 
 	if model.vip.bindStatus.serviceExists && !model.vip.bindStatus.bindSuccessful {
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPFailure
@@ -703,19 +703,17 @@ func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv
 		}
 	}
 
-	hasIncompatibleBackends := false
 	incompatibleBackends := []string{}
 
 	for b := range backendsUsedForPersistentBackend {
 		for _, configuredBackend := range backends {
 			if b == configuredBackend.Name && (configuredBackend.Spec.Loadbalancing == nil || configuredBackend.Spec.Loadbalancing.Algorithm.ConsistentHashing == nil) {
-				hasIncompatibleBackends = true
 				incompatibleBackends = append(incompatibleBackends, fmt.Sprintf("Backend %q is incompatible: Configured \"persistentBackend\" without LB algorithm \"consistentHashing\"", b))
 			}
 		}
 	}
 
-	if hasIncompatibleBackends {
+	if len(incompatibleBackends) > 0 {
 		backendsCompatibleCondition.Status = metav1.ConditionFalse
 		backendsCompatibleCondition.Reason = isovalentv1alpha1.BackendsCompatibleConditionReasonIncompatibleBackends
 		backendsCompatibleCondition.Message = strings.Join(incompatibleBackends, "\n")
