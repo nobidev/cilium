@@ -186,6 +186,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	//
 
 	// Try loading referenced LBVIP
+	// -> vip can be nil
 	vip, err := r.loadVIP(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced LBVIP: %w", err)
@@ -193,14 +194,11 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	r.updateVIPInStatus(lbsvc, vip)
 
-	// Try loading any existing T1 Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
-	existingT1Service := &corev1.Service{}
-	if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: getOwningResourceName(lbsvc.Name)}, existingT1Service); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get T1 Service: %w", err)
-		}
-
-		// Continue if not found
+	// Try loading any existing T1 K8s Service from a previous reconciliation as this might contain the IP that has been allocated by LB IPAM
+	// -> existingT1K8sService can be nil
+	existingT1K8sService, err := r.loadT1Service(ctx, lbsvc)
+	if err != nil {
+		return fmt.Errorf("failed to load existing T1 k8s service: %w", err)
 	}
 
 	// Try loading referenced LBBackends (in same namespace)
@@ -224,7 +222,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1Service)
+	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBService into model: %w", err)
 	}
@@ -290,7 +288,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Stop reconciliation if T1 service is not available yet or is not able to bind
 	// to the VIP (e.g. due to port clash with another service on the same VIP).
 	// In this case any existing CEC gets deleted too. We don't delete Services & Endpoints
-	// as this would result in a loop when the same  services is created in the next
+	// as this would result in a loop when the same services is created in the next
 	// reconciliation.
 	// Creating/Updating the T1 Service will trigger an additional reconciliation.
 	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful {
@@ -379,6 +377,20 @@ func (r *lbServiceReconciler) loadMissingTLSSecrets(ctx context.Context, lbsvc *
 	}
 
 	return missingSecrets, nil
+}
+
+func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: getOwningResourceName(lbsvc.Name)}, svc); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil, err
+		}
+
+		// Continue if not found
+		return nil, nil
+	}
+
+	return svc, nil
 }
 
 func (r *lbServiceReconciler) loadT2NodeAddresses(ctx context.Context) ([]string, error) {
