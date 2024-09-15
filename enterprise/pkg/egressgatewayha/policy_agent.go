@@ -59,6 +59,9 @@ type gatewayConfig struct {
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
 
+	// egressIfindex is the ifindex of the interface used to SNAT traffic
+	egressIfindex uint32
+
 	// egressIP is the IP used to SNAT traffic
 	egressIP netip.Addr
 
@@ -202,6 +205,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				egressIPs = append(egressIPs, gwEgressIPConfig{egressIP, iface.Attrs().Name})
 
 				gwc.ifaceName = iface.Attrs().Name
+				gwc.egressIfindex = uint32(iface.Attrs().Index)
 				gwc.egressIP = egressIP
 			} else if err := gwc.deriveFromGroupConfig(&gc); err != nil {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
@@ -280,6 +284,15 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
 		// If the group config specifies an interface, use the first IPv4 assigned to that
 		// interface as egress IP
 		gwc.ifaceName = gc.iface
+
+		iface, err := safenetlink.LinkByName(gc.iface)
+		if err != nil {
+			gwc.egressIP = EgressIPNotFoundIPv4
+			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
+		}
+
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			gwc.egressIP = EgressIPNotFoundIPv4
@@ -289,12 +302,14 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
 		// If the group config specifies an egress IP, use the interface with that IP as egress
 		// interface
 		gwc.egressIP = gc.egressIP
+		// Don't apply ifindex-based BPF forwarding, and instead defer to IP routing:
+		gwc.egressIfindex = 0
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
 	default:
-		// If the group config doesn't specify any egress IP or interface, us
+		// If the group config doesn't specify any egress IP or interface, use
 		// the interface with the IPv4 default route
 		iface, err := route.NodeDeviceWithDefaultRoute(true, false)
 		if err != nil {
@@ -303,6 +318,7 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
 		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			gwc.egressIP = EgressIPNotFoundIPv4
