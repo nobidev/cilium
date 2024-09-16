@@ -14,18 +14,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-type ingestor struct {
-	logger logrus.FieldLogger
-}
+type ingestor struct{}
 
 func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbService, error) {
 	applications, err := r.toApplications(lbsvc, backends)
@@ -159,7 +154,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(client.ObjectKeyFromObject(lbsvc), client.ObjectKeyFromObject(routeBackend), routeBackend.Spec.Loadbalancing),
+				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
@@ -214,7 +209,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(client.ObjectKeyFromObject(lbsvc), client.ObjectKeyFromObject(routeBackend), routeBackend.Spec.Loadbalancing),
+				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
@@ -288,7 +283,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(client.ObjectKeyFromObject(lbsvc), client.ObjectKeyFromObject(routeBackend), routeBackend.Spec.Loadbalancing),
+				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
@@ -338,7 +333,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 			backend: backend{
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(client.ObjectKeyFromObject(lbsvc), client.ObjectKeyFromObject(routeBackend), routeBackend.Spec.Loadbalancing),
+				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
 				healthCheckConfig: lbBackendHealthCheckConfig{
 					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
 					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
@@ -411,7 +406,7 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBacke
 	return ipBackends
 }
 
-func (r *ingestor) toLBBackendAlgorithm(serviceNamespaceName types.NamespacedName, backendNamespaceName types.NamespacedName, loadbalancing *isovalentv1alpha1.Loadbalancing) lbBackendLBAlgorithm {
+func (r *ingestor) toLBBackendAlgorithm(loadbalancing *isovalentv1alpha1.Loadbalancing) lbBackendLBAlgorithm {
 	switch {
 	case loadbalancing == nil:
 		return lbBackendLBAlgorithm{algorithm: lbAlgorithmRoundRobin}
@@ -426,12 +421,6 @@ func (r *ingestor) toLBBackendAlgorithm(serviceNamespaceName types.NamespacedNam
 			desiredMaglevTableSize := *loadbalancing.Algorithm.ConsistentHashing.Algorithm.Maglev.TableSize
 			if big.NewInt(int64(desiredMaglevTableSize)).ProbablyPrime(1) {
 				maglevTableSize = desiredMaglevTableSize
-			} else {
-				r.logger.
-					WithField("service", serviceNamespaceName).
-					WithField("backend", backendNamespaceName).
-					WithField("table_size", desiredMaglevTableSize).
-					Debug("Configured maglev table size isn't prime")
 			}
 		}
 

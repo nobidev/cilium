@@ -664,7 +664,7 @@ func (*lbServiceReconciler) updateBackendExistenceInStatus(lbsvc *isovalentv1alp
 	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsExist, backendsExistCondition)
 }
 
-func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
+func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
 	backendsCompatibleCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeBackendsCompatible,
 		Status:             metav1.ConditionTrue,
@@ -673,6 +673,23 @@ func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv
 		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
+
+	incompatibleBackendMessages := []string{}
+
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatiblePersistentBackendLBAlgorithms(lbsvc, backends)...)
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getInvalidBackends(backends)...)
+
+	if len(incompatibleBackendMessages) > 0 {
+		backendsCompatibleCondition.Status = metav1.ConditionFalse
+		backendsCompatibleCondition.Reason = isovalentv1alpha1.BackendsCompatibleConditionReasonIncompatibleBackends
+		backendsCompatibleCondition.Message = strings.Join(incompatibleBackendMessages, "\n")
+	}
+
+	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
+}
+
+func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+	incompatibleBackendMessages := []string{}
 
 	backendsUsedForPersistentBackend := map[string]struct{}{}
 
@@ -703,23 +720,29 @@ func (*lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalentv
 		}
 	}
 
-	incompatibleBackends := []string{}
-
 	for b := range backendsUsedForPersistentBackend {
 		for _, configuredBackend := range backends {
 			if b == configuredBackend.Name && (configuredBackend.Spec.Loadbalancing == nil || configuredBackend.Spec.Loadbalancing.Algorithm.ConsistentHashing == nil) {
-				incompatibleBackends = append(incompatibleBackends, fmt.Sprintf("Backend %q is incompatible: Configured \"persistentBackend\" without LB algorithm \"consistentHashing\"", b))
+				incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("Backend %q is incompatible: Configured \"persistentBackend\" without LB algorithm \"consistentHashing\"", b))
 			}
 		}
 	}
 
-	if len(incompatibleBackends) > 0 {
-		backendsCompatibleCondition.Status = metav1.ConditionFalse
-		backendsCompatibleCondition.Reason = isovalentv1alpha1.BackendsCompatibleConditionReasonIncompatibleBackends
-		backendsCompatibleCondition.Message = strings.Join(incompatibleBackends, "\n")
+	return incompatibleBackendMessages
+}
+
+func (*lbServiceReconciler) getInvalidBackends(backends []*isovalentv1alpha1.LBBackendPool) []string {
+	invalidBackendMessages := []string{}
+
+	for _, b := range backends {
+		condition := b.GetStatusCondition(isovalentv1alpha1.ConditionTypeBackendAccepted)
+
+		if condition != nil && condition.Reason == isovalentv1alpha1.BackendAcceptedConditionReasonInvalid {
+			invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is invalid: %q", b.Name, condition.Message))
+		}
 	}
 
-	lbsvc.UpsertCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
+	return invalidBackendMessages
 }
 
 func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {
