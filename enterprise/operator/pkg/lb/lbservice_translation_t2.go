@@ -606,7 +606,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHTTPAccessLoggers() []*envoy_config_
 						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 							StringMatch: &envoy_type_matcher_v3.StringMatcher{
 								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
-									Prefix: "cilium-probe/", // Sent by T1 HC
+									Prefix: r.config.T1T2HealthCheck.T1ProbeHttpUserAgentPrefix, // Sent by T1 HC
 								},
 							},
 						},
