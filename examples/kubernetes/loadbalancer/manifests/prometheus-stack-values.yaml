@@ -5,3 +5,6 @@ prometheus:
 kube-state-metrics:
   metricLabelsAllowlist:
   - "nodes=[service.cilium.io/node]"
+prometheus-node-exporter:
+  extraArgs:
+  - --collector.ethtool
