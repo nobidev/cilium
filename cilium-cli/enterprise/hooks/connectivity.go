@@ -228,6 +228,30 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			WithScenarios(enterpriseTests.EgressGatewayAZAffinity())
 	}
 
+	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
+		newTest(ct, "egress-gateway-ha-ipam").
+			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
+				Name:            "iegp-sample-client",
+				PodSelectorKind: "client",
+				EgressCIDRs:     enterpriseTests.Params.EgressGateway.CIDRs,
+				EgressGroup:     enterpriseCheck.SingleGateway,
+			}).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(enterpriseTests.EgressGatewayHAIPAM())
+	}
+
+	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
+		newTest(ct, "egress-gateway-ha-ipam-multiple-gateways").
+			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
+				Name:            "iegp-sample-client",
+				PodSelectorKind: "client",
+				EgressCIDRs:     enterpriseTests.Params.EgressGateway.CIDRs,
+				EgressGroup:     enterpriseCheck.AllCiliumNodes,
+			}).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(enterpriseTests.EgressGatewayHAIPAMMultipleGateways())
+	}
+
 	return nil
 }
 
