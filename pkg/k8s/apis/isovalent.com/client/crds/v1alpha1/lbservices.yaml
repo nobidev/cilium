@@ -70,6 +70,49 @@ spec:
                       Defining this stanza enables HTTPProxy application that proxies the
                       HTTP traffic to the backends over TCP connection.
                     properties:
+                      connectionFiltering:
+                        description: The optional connection filtering configuration
+                          for all HTTP connections. It defines the connection attributes
+                          that should be obtained to decide whether connections should
+                          be denied or allowed.
+                        properties:
+                          ruleType:
+                            description: The type of the rules.
+                            enum:
+                            - Allow
+                            - Deny
+                            type: string
+                          rules:
+                            description: Configure the rules that should be used for
+                              the HTTP application. Each rule needs to define at least
+                              one property to filter on. The properties of each entry
+                              are logically ANDed.
+                            items:
+                              properties:
+                                sourceCIDR:
+                                  description: Source CIDR based matching. This allows
+                                    for matching a specific or a range of IPv4 or
+                                    IPv6 addresses.
+                                  properties:
+                                    cidr:
+                                      description: CIDR of the source. This must be
+                                        in CIDR notation and use a /32 to express
+                                        a single host.
+                                      format: cidr
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - cidr
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceCIDR))
+                            minItems: 1
+                            type: array
+                        required:
+                        - ruleType
+                        type: object
                       httpConfig:
                         description: The application-wide HTTP configuration.
                         properties:
@@ -196,6 +239,90 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
+                            requestFiltering:
+                              description: The optional request filtering configuration
+                                for this HTTP route. It defines the request attributes
+                                that should be obtained to decide whether requests
+                                should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: Configure the rules that should be
+                                    used for the HTTP route. Each rule needs to define
+                                    at least one property to filter on. The properties
+                                    of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      hostName:
+                                        description: Host-based matching. Only one
+                                          of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The hostname
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          suffix:
+                                            description: Suffix matching. The hostname
+                                              must end with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one hostname type (exact
+                                            or suffix) must be specified
+                                          rule: (has(self.exact) || has(self.suffix))
+                                            && !(has(self.exact) && has(self.suffix))
+                                      path:
+                                        description: Path-based matching. Only one
+                                          of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The path
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          prefix:
+                                            description: Prefix matching. The path
+                                              must start with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one path type (exact or
+                                            prefix) must be specified
+                                          rule: (has(self.exact) || has(self.prefix))
+                                            && !(has(self.exact) && has(self.prefix))
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: CIDR of the source. This
+                                              must be in CIDR notation and use a /32
+                                              to express a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR) || has(self.hostName)
+                                        || has(self.path))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
+                              type: object
                           required:
                           - backendRef
                           type: object
@@ -209,6 +336,49 @@ spec:
                       Defining this stanza enables HTTPSProxy application that proxies the
                       HTTPS traffic to the backends over TLS and TCP connections.
                     properties:
+                      connectionFiltering:
+                        description: The optional connection filtering configuration
+                          for all HTTPS connections. It defines the connection attributes
+                          that should be obtained to decide whether connections should
+                          be denied or allowed.
+                        properties:
+                          ruleType:
+                            description: The type of the rules.
+                            enum:
+                            - Allow
+                            - Deny
+                            type: string
+                          rules:
+                            description: Configure the rules that should be used for
+                              the HTTP application. Each rule needs to define at least
+                              one property to filter on. The properties of each entry
+                              are logically ANDed.
+                            items:
+                              properties:
+                                sourceCIDR:
+                                  description: Source CIDR based matching. This allows
+                                    for matching a specific or a range of IPv4 or
+                                    IPv6 addresses.
+                                  properties:
+                                    cidr:
+                                      description: CIDR of the source. This must be
+                                        in CIDR notation and use a /32 to express
+                                        a single host.
+                                      format: cidr
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - cidr
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceCIDR))
+                            minItems: 1
+                            type: array
+                        required:
+                        - ruleType
+                        type: object
                       httpConfig:
                         description: The application-wide HTTP configuration.
                         properties:
@@ -335,6 +505,90 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
+                            requestFiltering:
+                              description: The optional request filtering configuration
+                                for this HTTP route. It defines the request attributes
+                                that should be obtained to decide whether requests
+                                should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: Configure the rules that should be
+                                    used for the HTTP route. Each rule needs to define
+                                    at least one property to filter on. The properties
+                                    of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      hostName:
+                                        description: Host-based matching. Only one
+                                          of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The hostname
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          suffix:
+                                            description: Suffix matching. The hostname
+                                              must end with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one hostname type (exact
+                                            or suffix) must be specified
+                                          rule: (has(self.exact) || has(self.suffix))
+                                            && !(has(self.exact) && has(self.suffix))
+                                      path:
+                                        description: Path-based matching. Only one
+                                          of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The path
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          prefix:
+                                            description: Prefix matching. The path
+                                              must start with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one path type (exact or
+                                            prefix) must be specified
+                                          rule: (has(self.exact) || has(self.prefix))
+                                            && !(has(self.exact) && has(self.prefix))
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: CIDR of the source. This
+                                              must be in CIDR notation and use a /32
+                                              to express a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR) || has(self.hostName)
+                                        || has(self.path))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
+                              type: object
                           required:
                           - backendRef
                           type: object
@@ -482,6 +736,69 @@ spec:
                               required:
                               - name
                               type: object
+                            connectionFiltering:
+                              description: The optional connection filtering configuration
+                                for this TLS passthrough route. It defines the connection
+                                attributes that should be obtained to decide whether
+                                connections should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: Configure the rules that should be
+                                    used for the TLS route. Each rule needs to define
+                                    at least one property to filter on. The properties
+                                    of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      serverName:
+                                        description: Servername-based matching. Only
+                                          one of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The servername
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          suffix:
+                                            description: Suffix matching. The servername
+                                              must end with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one servername type (exact
+                                            or suffix) must be specified
+                                          rule: (has(self.exact) || has(self.suffix))
+                                            && !(has(self.exact) && has(self.suffix))
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: CIDR of the source. This
+                                              must be in CIDR notation and use a /32
+                                              to express a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR) || has(self.serverName))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
+                              type: object
                             match:
                               description: |-
                                 The TLS route matching criteria. All conditions must be satisfied
@@ -556,6 +873,69 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            connectionFiltering:
+                              description: The optional connection filtering configuration
+                                for this TLS proxy route. It defines the connection
+                                attributes that should be obtained to decide whether
+                                connections should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: Configure the rules that should be
+                                    used for the TLS route. Each rule needs to define
+                                    at least one property to filter on. The properties
+                                    of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      serverName:
+                                        description: Servername-based matching. Only
+                                          one of exact or suffix match can be specified.
+                                        properties:
+                                          exact:
+                                            description: Exact matching. The servername
+                                              must be exactly the same as the value.
+                                            minLength: 1
+                                            type: string
+                                          suffix:
+                                            description: Suffix matching. The servername
+                                              must end with the value.
+                                            minLength: 1
+                                            type: string
+                                        type: object
+                                        x-kubernetes-validations:
+                                        - message: Exactly one servername type (exact
+                                            or suffix) must be specified
+                                          rule: (has(self.exact) || has(self.suffix))
+                                            && !(has(self.exact) && has(self.suffix))
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: CIDR of the source. This
+                                              must be in CIDR notation and use a /32
+                                              to express a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR) || has(self.serverName))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
                               type: object
                             match:
                               description: |-

@@ -13,6 +13,7 @@ package lb
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -129,7 +130,7 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Endpoints{}).
 		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBService
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		// CiliumNode changes should trigger a reconciliation of all LBServices T1 Endpoints addresses (T2 nodes))
+		// CiliumNode changes should trigger a reconciliation of all LBServices
 		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices())).
 		Complete(r)
 }
@@ -187,6 +188,16 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Load dependent resources that have relevant input for the model
 	//
 
+	t1NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT1)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+	}
+
+	t2NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT2)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+	}
+
 	// Try loading referenced LBVIP
 	// -> vip can be nil
 	vip, err := r.loadVIP(ctx, lbsvc)
@@ -225,7 +236,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService)
+	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs)
 	if err != nil {
 		return fmt.Errorf("failed to ingest LBService into model: %w", err)
 	}
@@ -255,13 +266,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Build desired resources
 	desiredT1Service := r.t1Translator.DesiredService(model)
 
-	// TODO: include in model?
-	t2NodeIPs, err := r.loadT2NodeAddresses(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
-	}
-
-	desiredT1Endpoints, err := r.t1Translator.DesiredEndpoints(model, t2NodeIPs)
+	desiredT1Endpoints, err := r.t1Translator.DesiredEndpoints(model)
 	if err != nil {
 		return err
 	}
@@ -401,17 +406,17 @@ func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalen
 	return svc, nil
 }
 
-func (r *lbServiceReconciler) loadT2NodeAddresses(ctx context.Context) ([]string, error) {
+func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeType string) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node store: %w", err)
 	}
 
-	t2NodeIPs := []string{}
+	nodeIPs := []string{}
 
 	allNodes := nodeStore.List()
 	for _, cn := range allNodes {
-		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == "t2" {
+		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == nodeType {
 			var nodeIP string
 			for _, addr := range cn.Spec.Addresses {
 				if addr.Type == addressing.NodeInternalIP {
@@ -422,14 +427,16 @@ func (r *lbServiceReconciler) loadT2NodeAddresses(ctx context.Context) ([]string
 			if nodeIP == "" {
 				r.logger.
 					WithField(logfields.Resource, cn.Name).
-					Warn("Could not find InternalIP for tier 2 CiliumNode")
+					WithField("nodeType", nodeType).
+					Warn("Could not find InternalIP for CiliumNode")
 				continue
 			}
-			t2NodeIPs = append(t2NodeIPs, nodeIP)
+			nodeIPs = append(nodeIPs, nodeIP)
 		}
 	}
 
-	return t2NodeIPs, nil
+	slices.Sort(nodeIPs)
+	return nodeIPs, nil
 }
 
 func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {

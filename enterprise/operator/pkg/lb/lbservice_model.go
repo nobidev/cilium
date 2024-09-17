@@ -24,6 +24,8 @@ type lbService struct {
 	vip          lbVIP
 	port         int32
 	applications lbApplications
+	t1NodeIPs    []string
+	t2NodeIPs    []string
 }
 
 type lbVIP struct {
@@ -95,6 +97,34 @@ func (r lbApplications) isTLSProxyConfigured() bool {
 	return r.tlsProxy != nil
 }
 
+func (r lbService) usesHTTPRequestFiltering() bool {
+	a := r.applications
+
+	if a.httpProxy != nil {
+		for _, ar := range a.httpProxy.routes {
+			if ar.requestFiltering != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (r lbService) usesHTTPSRequestFiltering() bool {
+	a := r.applications
+
+	if a.httpsProxy != nil {
+		for _, ar := range a.httpsProxy.routes {
+			if ar.requestFiltering != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func (r lbApplications) getHTTPProxyRoutes() []lbRouteHTTP {
 	if r.httpProxy == nil {
 		return nil
@@ -143,15 +173,33 @@ func (r lbApplications) getHTTPSHTTPConfig() *lbServiceHTTPConfig {
 	return r.httpsProxy.httpConfig
 }
 
+func (r lbApplications) getHTTPConnectionFiltering() *lbServiceHTTPConnectionFiltering {
+	if r.httpProxy == nil {
+		return nil
+	}
+
+	return r.httpProxy.connectionFiltering
+}
+
+func (r lbApplications) getHTTPSConnectionFiltering() *lbServiceHTTPConnectionFiltering {
+	if r.httpsProxy == nil {
+		return nil
+	}
+
+	return r.httpsProxy.connectionFiltering
+}
+
 type lbApplicationHTTPProxy struct {
-	httpConfig *lbServiceHTTPConfig
-	routes     []lbRouteHTTP
+	httpConfig          *lbServiceHTTPConfig
+	connectionFiltering *lbServiceHTTPConnectionFiltering
+	routes              []lbRouteHTTP
 }
 
 type lbApplicationHTTPSProxy struct {
-	httpConfig *lbServiceHTTPConfig
-	tlsConfig  *lbServiceTLSConfig
-	routes     []lbRouteHTTPS
+	httpConfig          *lbServiceHTTPConfig
+	tlsConfig           *lbServiceTLSConfig
+	connectionFiltering *lbServiceHTTPConnectionFiltering
+	routes              []lbRouteHTTPS
 }
 
 type lbApplicationTLSPassthrough struct {
@@ -167,37 +215,96 @@ type lbRouteHTTP struct {
 	match             lbRouteHTTPMatch
 	backend           backend
 	persistentBackend *lbRouteHTTPPersistentBackend
+	requestFiltering  *lbRouteHTTPRequestFiltering
 }
 
 type lbRouteHTTPS struct {
 	match             lbRouteHTTPMatch
 	backend           backend
 	persistentBackend *lbRouteHTTPPersistentBackend
+	requestFiltering  *lbRouteHTTPRequestFiltering
 }
 
 type lbRouteHTTPMatch struct {
 	hostNames []string
 	path      string
-	pathType  pathTypeType
+	pathType  routePathTypeType
 }
 
-type pathTypeType int
+type routePathTypeType int
 
 const (
-	pathTypePrefix pathTypeType = iota
-	pathTypeExact
+	routePathTypePrefix routePathTypeType = iota
+	routePathTypeExact
 )
 
 type lbRouteHTTPPersistentBackend struct {
-	SourceIP    bool
-	CookieNames []string
-	HeaderNames []string
+	sourceIP    bool
+	cookieNames []string
+	headerNames []string
 }
 
+type ruleTypeType int
+
+const (
+	ruleTypeAllow ruleTypeType = iota
+	ruleTypeDeny
+)
+
+type lbServiceHTTPConnectionFiltering struct {
+	ruleType ruleTypeType
+	rules    []lbServiceHTTPConnectionFilteringRule
+}
+
+type lbServiceHTTPConnectionFilteringRule struct {
+	sourceCIDR *lbRouteRequestFilteringSourceCIDR
+}
+
+type lbRouteHTTPRequestFiltering struct {
+	ruleType ruleTypeType
+	rules    []lbRouteHTTPRequestFilteringRule
+}
+
+type lbRouteHTTPRequestFilteringRule struct {
+	sourceCIDR *lbRouteRequestFilteringSourceCIDR
+	hostname   *lbRouteRequestFilteringHostName
+	path       *lbRouteRequestFilteringHTTPPath
+}
+
+type lbRouteRequestFilteringSourceCIDR struct {
+	addressPrefix string
+	prefixLen     uint32
+}
+
+type lbRouteRequestFilteringHostName struct {
+	hostName     string
+	hostNameType filterHostnameTypeType
+}
+
+type filterHostnameTypeType int
+
+const (
+	filterHostnameTypeSuffix filterHostnameTypeType = iota
+	filterHostnameTypeExact
+)
+
+type lbRouteRequestFilteringHTTPPath struct {
+	path     string
+	pathType filterPathTypeType
+}
+
+type filterPathTypeType int
+
+const (
+	filterPathTypePrefix filterPathTypeType = iota
+	filterPathTypeExact
+)
+
 type lbRouteTLSPassthrough struct {
-	match             lbRouteTLSPassthroughMatch
-	backend           backend
-	persistentBackend *lbRouteTLSPersistentBackend
+	match               lbRouteTLSPassthroughMatch
+	backend             backend
+	persistentBackend   *lbRouteTLSPersistentBackend
+	connectionFiltering *lbRouteTLSConnectionFiltering
 }
 
 type lbRouteTLSPassthroughMatch struct {
@@ -205,13 +312,24 @@ type lbRouteTLSPassthroughMatch struct {
 }
 
 type lbRouteTLSPersistentBackend struct {
-	SourceIP bool
+	sourceIP bool
+}
+
+type lbRouteTLSConnectionFiltering struct {
+	ruleType ruleTypeType
+	rules    []lbRouteTLSConnectionFilteringRule
+}
+
+type lbRouteTLSConnectionFilteringRule struct {
+	sourceCIDR *lbRouteRequestFilteringSourceCIDR
+	servername *lbRouteRequestFilteringHostName
 }
 
 type lbRouteTLSProxy struct {
-	match             lbRouteTLSProxyMatch
-	backend           backend
-	persistentBackend *lbRouteTLSPersistentBackend
+	match               lbRouteTLSProxyMatch
+	backend             backend
+	persistentBackend   *lbRouteTLSPersistentBackend
+	connectionFiltering *lbRouteTLSConnectionFiltering
 }
 
 type lbRouteTLSProxyMatch struct {

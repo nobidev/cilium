@@ -21,12 +21,15 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint_v3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener_v3 "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_rbac_v3 "github.com/cilium/proxy/go/envoy/config/rbac/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
+	envoy_extensions_filters_http_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_filters_listener_tlsinspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transportsockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
@@ -43,6 +46,11 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+)
+
+const (
+	httpTypeHTTP  = "http"
+	httpTypeHTTPS = "https"
 )
 
 type lbServiceT2Translator struct {
@@ -110,7 +118,7 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-					ossannotation.ServiceNodeExposure: "t2",
+					ossannotation.ServiceNodeExposure: lbNodeTypeT2,
 				},
 			},
 			Resources: envoyResources,
@@ -206,60 +214,93 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbServic
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
+	networkFilters := []*envoy_config_listener_v3.Filter{}
+
+	if model.applications.getHTTPConnectionFiltering() != nil {
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.rbac",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), model.t1NodeIPs, httpTypeHTTP)),
+			},
+		})
+	}
+
+	networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+		Name: "envoy.filters.network.http_connection_manager",
+		ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+			TypedConfig: toAny(r.desiredEnvoyListenerHTTPHCM(model)),
+		},
+	})
+
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 			TransportProtocol: "raw_buffer",
 		},
-		Filters: []*envoy_config_listener_v3.Filter{
-			{
-				Name: "envoy.filters.network.http_connection_manager",
-				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
-						ServerName:                   r.config.ServerName,
-						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
-						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
-						PreserveExternalRequestId:    r.config.RequestID.Preserve,
-						AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
-						StatPrefix:                   "frontend_listener_http",
-						CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
-						NormalizePath:                wrapperspb.Bool(true),
-						MergeSlashes:                 true,
-						UseRemoteAddress:             wrapperspb.Bool(true),
-						StripMatchingHostPort:        true,
-						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
-							// Health Check filter is only exposed on HTTP
-							{
-								Name: "envoy.filters.http.health_check",
-								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-									TypedConfig: toAny(r.desiredHealthCheckFilter(model)),
-								},
-							},
-							{
-								Name: "envoy.filters.http.router",
-								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
-								},
-							},
-						},
-						RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
-							Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
-								RouteConfigName: "frontend_routeconfig_http",
-							},
-						},
-						CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
-							HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
-							MaxConnectionDuration:        durationpb.New(time.Hour),
-						},
-						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
-							MaxConcurrentStreams:        wrapperspb.UInt32(100),
-							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
-							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
-						},
-					}),
-				},
+		Filters: networkFilters,
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
+	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
+		ServerName:                   r.config.ServerName,
+		AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
+		PreserveExternalRequestId:    r.config.RequestID.Preserve,
+		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
+		StatPrefix:                   "frontend_listener_http",
+		CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
+		NormalizePath:                wrapperspb.Bool(true),
+		MergeSlashes:                 true,
+		UseRemoteAddress:             wrapperspb.Bool(true),
+		StripMatchingHostPort:        true,
+		HttpFilters:                  r.desiredEnvoyListenerHttpHTTPFilters(model),
+		RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
+			Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
+				RouteConfigName: "frontend_routeconfig_http",
 			},
 		},
+		CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+			HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
+			MaxConnectionDuration:        durationpb.New(time.Hour),
+		},
+		Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
+			MaxConcurrentStreams:        wrapperspb.UInt32(100),
+			InitialStreamWindowSize:     wrapperspb.UInt32(65535),
+			InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
+		},
 	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
+	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
+
+	// Health Check filter is only exposed on HTTP
+	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+		Name: "envoy.filters.http.health_check",
+		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(r.desiredHealthCheckFilter(model)),
+		},
+	})
+
+	if model.usesHTTPRequestFiltering() {
+		// Only add the RBAC filter if there's at least one route that is using request filtering.
+		// The RBAC filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.rbac",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
+			},
+		})
+	}
+
+	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+		Name: "envoy.filters.http.router",
+		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+		},
+	})
+
+	return httpFilters
 }
 
 func (r *lbServiceT2Translator) toHTTPSServerNames(model *lbService) []string {
@@ -322,6 +363,10 @@ func (r *lbServiceT2Translator) toAlpnProtocols(model *lbService) []string {
 }
 
 func (r *lbServiceT2Translator) toListenerTLSParams(model *lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.TlsParameters {
+	if model == nil {
+		return nil
+	}
+
 	return &envoy_extensions_transportsockets_tls_v3.TlsParameters{
 		TlsMinimumProtocolVersion: r.toTLSVersion(model.minTLSVersion),
 		TlsMaximumProtocolVersion: r.toTLSVersion(model.maxTLSVersion),
@@ -417,15 +462,27 @@ func (r *lbServiceT2Translator) requiresClientCertificate(validationContext *env
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
-	var (
-		validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
-		tlsParams         *envoy_extensions_transportsockets_tls_v3.TlsParameters
-	)
-
+	var validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
 	if model.applications.httpsProxy.tlsConfig != nil {
 		validationContext = r.toTLSValidationContext(model.namespace, model.applications.httpsProxy.tlsConfig)
-		tlsParams = r.toListenerTLSParams(model.applications.httpsProxy.tlsConfig)
 	}
+
+	networkFilters := []*envoy_config_listener_v3.Filter{}
+
+	if model.applications.getHTTPSConnectionFiltering() != nil {
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.rbac",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPSConnectionFiltering(), model.t1NodeIPs, httpTypeHTTPS)),
+			},
+		})
+	}
+	networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+		Name: "envoy.filters.network.http_connection_manager",
+		ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+			TypedConfig: toAny(r.desiredEnvoyListenerHTTPSHCM(model)),
+		},
+	})
 
 	return &envoy_config_listener_v3.FilterChain{
 		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
@@ -446,54 +503,68 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 						TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model.namespace, model.applications.httpsProxy.tlsConfig),
 						ValidationContextType:          validationContext,
 						AlpnProtocols:                  r.toAlpnProtocols(model),
-						TlsParams:                      tlsParams,
+						TlsParams:                      r.toListenerTLSParams(model.applications.httpsProxy.tlsConfig),
 					},
 				}),
 			},
 		},
-		Filters: []*envoy_config_listener_v3.Filter{
-			{
-				Name: "envoy.filters.network.http_connection_manager",
-				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
-						ServerName:                   r.config.ServerName,
-						AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
-						GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
-						PreserveExternalRequestId:    r.config.RequestID.Preserve,
-						AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
-						StatPrefix:                   "frontend_listener_https",
-						CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
-						NormalizePath:                wrapperspb.Bool(true),
-						MergeSlashes:                 true,
-						UseRemoteAddress:             wrapperspb.Bool(true),
-						StripMatchingHostPort:        true,
-						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
-							{
-								Name: "envoy.filters.http.router",
-								ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-									TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
-								},
-							},
-						},
-						RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
-							Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
-								RouteConfigName: "frontend_routeconfig_https",
-							},
-						},
-						CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
-							HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
-							MaxConnectionDuration:        durationpb.New(time.Hour),
-						},
-						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
-							MaxConcurrentStreams:        wrapperspb.UInt32(100),
-							InitialStreamWindowSize:     wrapperspb.UInt32(65535),
-							InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
-						},
-					}),
-				},
+		Filters: networkFilters,
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
+	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
+		ServerName:                   r.config.ServerName,
+		AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
+		PreserveExternalRequestId:    r.config.RequestID.Preserve,
+		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
+		StatPrefix:                   "frontend_listener_https",
+		CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
+		NormalizePath:                wrapperspb.Bool(true),
+		MergeSlashes:                 true,
+		UseRemoteAddress:             wrapperspb.Bool(true),
+		StripMatchingHostPort:        true,
+		HttpFilters:                  r.desiredEnvoyListenerHttpsHTTPFilters(model),
+		RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
+			Rds: &envoy_extensions_filters_network_hcm_v3.Rds{
+				RouteConfigName: "frontend_routeconfig_https",
 			},
 		},
+		CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+			HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
+			MaxConnectionDuration:        durationpb.New(time.Hour),
+		},
+		Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
+			MaxConcurrentStreams:        wrapperspb.UInt32(100),
+			InitialStreamWindowSize:     wrapperspb.UInt32(65535),
+			InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
+		},
 	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
+	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
+
+	if model.usesHTTPSRequestFiltering() {
+		// Only add the RBAC filter if there's at least one route that is using request filtering.
+		// The RBAC filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.rbac",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
+			},
+		})
+	}
+
+	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+		Name: "envoy.filters.http.router",
+		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+		},
+	})
+
+	return httpFilters
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
@@ -502,27 +573,39 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 	if model.applications.tlsPassthrough == nil {
 		return tlsPassthroughFilterChains
 	}
+
 	for i, tr := range model.applications.tlsPassthrough.routes {
+		networkFilters := []*envoy_config_listener_v3.Filter{}
+
+		if tr.connectionFiltering != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.rbac",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+				},
+			})
+		}
+
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.tcp_proxy",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
+					AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
+					StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
+					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
+					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
+						Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
+					},
+				}),
+			},
+		})
+
 		f := &envoy_config_listener_v3.FilterChain{
 			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 				TransportProtocol: "tls",
 				ServerNames:       r.toTLSServerNames(tr.match.hostNames),
 			},
-			Filters: []*envoy_config_listener_v3.Filter{
-				{
-					Name: "envoy.filters.network.tcp_proxy",
-					ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-						TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
-							StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
-							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
-							ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
-								Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
-							},
-						}),
-					},
-				},
-			},
+			Filters: networkFilters,
 		}
 
 		tlsPassthroughFilterChains = append(tlsPassthroughFilterChains, f)
@@ -532,17 +615,38 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
-	var (
-		validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
-		tlsParams         *envoy_extensions_transportsockets_tls_v3.TlsParameters
-	)
+	var validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
 	if model.applications.tlsProxy.tlsConfig != nil {
 		validationContext = r.toTLSValidationContext(model.namespace, model.applications.tlsProxy.tlsConfig)
-		tlsParams = r.toListenerTLSParams(model.applications.tlsProxy.tlsConfig)
 	}
 
 	tlsProxyFilterChains := []*envoy_config_listener_v3.FilterChain{}
 	for i, tr := range model.applications.tlsProxy.routes {
+		networkFilters := []*envoy_config_listener_v3.Filter{}
+
+		if tr.connectionFiltering != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.rbac",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+				},
+			})
+		}
+
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.tcp_proxy",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
+					AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
+					StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
+					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
+					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
+						Cluster: fmt.Sprintf("backend_cluster_tls_proxy_%d", i),
+					},
+				}),
+			},
+		})
+
 		f := &envoy_config_listener_v3.FilterChain{
 			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
 				TransportProtocol: "tls",
@@ -562,26 +666,12 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 							TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model.namespace, model.applications.tlsProxy.tlsConfig),
 							ValidationContextType:          validationContext,
 							AlpnProtocols:                  r.toAlpnProtocols(model),
-							TlsParams:                      tlsParams,
+							TlsParams:                      r.toListenerTLSParams(model.applications.tlsProxy.tlsConfig),
 						},
 					}),
 				},
 			},
-			Filters: []*envoy_config_listener_v3.Filter{
-				{
-					Name: "envoy.filters.network.tcp_proxy",
-					ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-						TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-							AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
-							StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
-							HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
-							ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
-								Cluster: fmt.Sprintf("backend_cluster_tls_proxy_%d", i),
-							},
-						}),
-					},
-				},
-			},
+			Filters: networkFilters,
 		}
 
 		tlsProxyFilterChains = append(tlsProxyFilterChains, f)
@@ -671,7 +761,7 @@ func (r *lbServiceT2Translator) desiredEnvoyRouteConfigs(model *lbService) []*en
 func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_http",
-		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, "http"),
+		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, httpTypeHTTP),
 	}
 }
 
@@ -683,6 +773,12 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(model *lbServi
 	}
 
 	for i, route := range model.applications.httpProxy.routes {
+		tpfc := map[string]*anypb.Any{}
+
+		if model.usesHTTPRequestFiltering() {
+			tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+		}
+
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
@@ -698,6 +794,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(model *lbServi
 								},
 							},
 						},
+						TypedPerFilterConfig: tpfc,
 					},
 				},
 				RequestHeadersToRemove: []string{
@@ -718,7 +815,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(model *lbServi
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_https",
-		VirtualHosts: r.desiredEnvoyHttpsRouteVirtualHosts(model, "https"),
+		VirtualHosts: r.desiredEnvoyHttpsRouteVirtualHosts(model, httpTypeHTTPS),
 	}
 }
 
@@ -730,6 +827,12 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteVirtualHosts(model *lbServ
 	}
 
 	for i, route := range model.applications.httpsProxy.routes {
+		tpfc := map[string]*anypb.Any{}
+
+		if model.usesHTTPSRequestFiltering() {
+			tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+		}
+
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
@@ -745,6 +848,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteVirtualHosts(model *lbServ
 								},
 							},
 						},
+						TypedPerFilterConfig: tpfc,
 					},
 				},
 				RequestHeadersToRemove: []string{
@@ -764,13 +868,13 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteVirtualHosts(model *lbServ
 
 func (r *lbServiceT2Translator) toRouteMatch(match lbRouteHTTPMatch) *envoy_config_route_v3.RouteMatch {
 	switch match.pathType {
-	case pathTypePrefix:
+	case routePathTypePrefix:
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
 				Prefix: match.path,
 			},
 		}
-	case pathTypeExact:
+	case routePathTypeExact:
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
 				Path: match.path,
@@ -1127,17 +1231,17 @@ func (r *lbServiceT2Translator) toHTTPRouteHashpolicy(persistentBackendConfig *l
 
 	hashPolicy := []*envoy_config_route_v3.RouteAction_HashPolicy{}
 
-	if persistentBackendConfig.SourceIP {
+	if persistentBackendConfig.sourceIP {
 		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
 			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_ConnectionProperties_{
 				ConnectionProperties: &envoy_config_route_v3.RouteAction_HashPolicy_ConnectionProperties{
-					SourceIp: persistentBackendConfig.SourceIP,
+					SourceIp: persistentBackendConfig.sourceIP,
 				},
 			},
 		})
 	}
 
-	for _, c := range persistentBackendConfig.CookieNames {
+	for _, c := range persistentBackendConfig.cookieNames {
 		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
 			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoy_config_route_v3.RouteAction_HashPolicy_Cookie{
@@ -1147,7 +1251,7 @@ func (r *lbServiceT2Translator) toHTTPRouteHashpolicy(persistentBackendConfig *l
 		})
 	}
 
-	for _, h := range persistentBackendConfig.HeaderNames {
+	for _, h := range persistentBackendConfig.headerNames {
 		hashPolicy = append(hashPolicy, &envoy_config_route_v3.RouteAction_HashPolicy{
 			PolicySpecifier: &envoy_config_route_v3.RouteAction_HashPolicy_Header_{
 				Header: &envoy_config_route_v3.RouteAction_HashPolicy_Header{
@@ -1171,7 +1275,7 @@ func (r *lbServiceT2Translator) toTCPProxyHashpolicy(persistentBackendConfig *lb
 
 	hashPolicy := []*envoy_type_v3.HashPolicy{}
 
-	if persistentBackendConfig.SourceIP {
+	if persistentBackendConfig.sourceIP {
 		hashPolicy = append(hashPolicy, &envoy_type_v3.HashPolicy{
 			PolicySpecifier: &envoy_type_v3.HashPolicy_SourceIp_{SourceIp: &envoy_type_v3.HashPolicy_SourceIp{}},
 		})
@@ -1194,6 +1298,279 @@ func (r *lbServiceT2Translator) mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_c
 		return envoy_config_cluster_v3.Cluster_MAGLEV
 	default:
 		return envoy_config_cluster_v3.Cluster_ROUND_ROBIN
+	}
+}
+
+func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPConnectionFiltering, t1NodeIPs []string, httpType string) *envoy_extensions_filters_network_rbac_v3.RBAC {
+	if config == nil {
+		return nil
+	}
+
+	policies := map[string]*envoy_config_rbac_v3.Policy{}
+	action := r.toRBACAction(config.ruleType)
+
+	// Configure allow rules for all T1 nodes to prevent T1->T2 health checks (HTTP only) from being blocked
+	if httpType == httpTypeHTTP && action == envoy_config_rbac_v3.RBAC_ALLOW {
+		for i, t1IP := range t1NodeIPs {
+			permissions := []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAny()}
+			principals := []*envoy_config_rbac_v3.Principal{}
+
+			principals = append(principals, r.toRBACPrincipalRemoteIP(&lbRouteRequestFilteringSourceCIDR{
+				addressPrefix: t1IP,
+				prefixLen:     32,
+			}))
+
+			policies[fmt.Sprintf("rule-t1-%d", i)] = &envoy_config_rbac_v3.Policy{
+				Permissions: permissions,
+				Principals:  principals,
+			}
+		}
+	}
+
+	for i, rr := range config.rules {
+		permissions := []*envoy_config_rbac_v3.Permission{}
+		principals := []*envoy_config_rbac_v3.Principal{}
+
+		if rr.sourceCIDR != nil {
+			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+		}
+
+		if len(principals) == 0 {
+			principals = append(principals, r.toRBACPrincipalAny())
+		}
+
+		if len(permissions) == 0 {
+			permissions = append(permissions, r.toRBACPermissionAny())
+		}
+
+		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
+			Permissions: permissions,
+			Principals:  principals,
+		}
+	}
+
+	return &envoy_extensions_filters_network_rbac_v3.RBAC{
+		StatPrefix: fmt.Sprintf("%s_proxy_request_filtering", httpType),
+		Rules: &envoy_config_rbac_v3.RBAC{
+			Action:   action,
+			Policies: policies,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequestFiltering) *envoy_extensions_filters_http_rbac_v3.RBACPerRoute {
+	action := envoy_config_rbac_v3.RBAC_DENY
+	policies := map[string]*envoy_config_rbac_v3.Policy{}
+
+	rules := []lbRouteHTTPRequestFilteringRule{}
+
+	if config != nil {
+		rules = config.rules
+		action = r.toRBACAction(config.ruleType)
+	}
+
+	for i, rr := range rules {
+		permissions := []*envoy_config_rbac_v3.Permission{}
+		principals := []*envoy_config_rbac_v3.Principal{}
+
+		if rr.sourceCIDR != nil {
+			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+		}
+
+		andPermissions := []*envoy_config_rbac_v3.Permission{}
+		if rr.hostname != nil {
+			andPermissions = append(andPermissions, r.toRBACPermissionHostName(rr.hostname))
+		}
+
+		if rr.path != nil {
+			andPermissions = append(andPermissions, r.toRBACPermissionHTTPPath(rr.path))
+		}
+
+		if len(andPermissions) > 0 {
+			permissions = append(permissions, r.toRBACPermissionAnd(andPermissions...))
+		}
+
+		if len(principals) == 0 {
+			principals = append(principals, r.toRBACPrincipalAny())
+		}
+
+		if len(permissions) == 0 {
+			permissions = append(permissions, r.toRBACPermissionAny())
+		}
+
+		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
+			Permissions: permissions,
+			Principals:  principals,
+		}
+	}
+
+	return &envoy_extensions_filters_http_rbac_v3.RBACPerRoute{
+		Rbac: &envoy_extensions_filters_http_rbac_v3.RBAC{
+			Rules: &envoy_config_rbac_v3.RBAC{
+				Action:   action,
+				Policies: policies,
+			},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectionFiltering) *envoy_extensions_filters_network_rbac_v3.RBAC {
+	if config == nil {
+		return nil
+	}
+
+	policies := map[string]*envoy_config_rbac_v3.Policy{}
+	action := r.toRBACAction(config.ruleType)
+
+	for i, rr := range config.rules {
+		permissions := []*envoy_config_rbac_v3.Permission{}
+		principals := []*envoy_config_rbac_v3.Principal{}
+
+		if rr.sourceCIDR != nil {
+			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+		}
+
+		if rr.servername != nil {
+			permissions = append(permissions, r.toRBACPermissionServerName(*rr.servername))
+		}
+
+		if len(principals) == 0 {
+			principals = append(principals, r.toRBACPrincipalAny())
+		}
+
+		if len(permissions) == 0 {
+			permissions = append(permissions, r.toRBACPermissionAny())
+		}
+
+		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
+			Permissions: permissions,
+			Principals:  principals,
+		}
+	}
+
+	return &envoy_extensions_filters_network_rbac_v3.RBAC{
+		StatPrefix: "tls_passthrough_request_filtering",
+		Rules: &envoy_config_rbac_v3.RBAC{
+			Action:   action,
+			Policies: policies,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPrincipalRemoteIP(sourceCIDRRule *lbRouteRequestFilteringSourceCIDR) *envoy_config_rbac_v3.Principal {
+	return &envoy_config_rbac_v3.Principal{
+		Identifier: &envoy_config_rbac_v3.Principal_RemoteIp{
+			RemoteIp: &envoy_config_core_v3.CidrRange{
+				AddressPrefix: sourceCIDRRule.addressPrefix,
+				PrefixLen:     wrapperspb.UInt32(uint32(sourceCIDRRule.prefixLen)),
+			},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionHostName(hostnameRule *lbRouteRequestFilteringHostName) *envoy_config_rbac_v3.Permission {
+	headerPermRule := &envoy_config_rbac_v3.Permission_Header{
+		Header: &envoy_config_route_v3.HeaderMatcher{
+			Name: ":authority",
+		},
+	}
+
+	switch hostnameRule.hostNameType {
+	case filterHostnameTypeExact:
+		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_ExactMatch{
+			ExactMatch: hostnameRule.hostName,
+		}
+	case filterHostnameTypeSuffix:
+		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_SuffixMatch{
+			SuffixMatch: hostnameRule.hostName,
+		}
+	}
+
+	return &envoy_config_rbac_v3.Permission{
+		Rule: headerPermRule,
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionHTTPPath(httpPathRule *lbRouteRequestFilteringHTTPPath) *envoy_config_rbac_v3.Permission {
+	pathMatcherPermRule := &envoy_type_matcher_v3.PathMatcher_Path{
+		Path: &envoy_type_matcher_v3.StringMatcher{},
+	}
+
+	switch httpPathRule.pathType {
+	case filterPathTypeExact:
+		pathMatcherPermRule.Path.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+			Exact: httpPathRule.path,
+		}
+	case filterPathTypePrefix:
+		pathMatcherPermRule.Path.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
+			Prefix: httpPathRule.path,
+		}
+	}
+
+	return &envoy_config_rbac_v3.Permission{
+		Rule: &envoy_config_rbac_v3.Permission_UrlPath{
+			UrlPath: &envoy_type_matcher_v3.PathMatcher{
+				Rule: pathMatcherPermRule,
+			},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionServerName(serverNameRule lbRouteRequestFilteringHostName) *envoy_config_rbac_v3.Permission {
+	serverNameSM := &envoy_type_matcher_v3.StringMatcher{}
+
+	switch serverNameRule.hostNameType {
+	case filterHostnameTypeExact:
+		serverNameSM.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+			Exact: serverNameRule.hostName,
+		}
+	case filterHostnameTypeSuffix:
+		serverNameSM.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Suffix{
+			Suffix: serverNameRule.hostName,
+		}
+	}
+
+	return &envoy_config_rbac_v3.Permission{
+		Rule: &envoy_config_rbac_v3.Permission_RequestedServerName{
+			RequestedServerName: serverNameSM,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionAnd(rules ...*envoy_config_rbac_v3.Permission) *envoy_config_rbac_v3.Permission {
+	return &envoy_config_rbac_v3.Permission{
+		Rule: &envoy_config_rbac_v3.Permission_AndRules{
+			AndRules: &envoy_config_rbac_v3.Permission_Set{
+				Rules: rules,
+			},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionAny() *envoy_config_rbac_v3.Permission {
+	return &envoy_config_rbac_v3.Permission{
+		Rule: &envoy_config_rbac_v3.Permission_Any{
+			Any: true,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPrincipalAny() *envoy_config_rbac_v3.Principal {
+	return &envoy_config_rbac_v3.Principal{
+		Identifier: &envoy_config_rbac_v3.Principal_Any{
+			Any: true,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACAction(ruleType ruleTypeType) envoy_config_rbac_v3.RBAC_Action {
+	switch ruleType {
+	case ruleTypeAllow:
+		return envoy_config_rbac_v3.RBAC_ALLOW
+	case ruleTypeDeny:
+		return envoy_config_rbac_v3.RBAC_DENY
+	default:
+		return envoy_config_rbac_v3.RBAC_DENY
 	}
 }
 

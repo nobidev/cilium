@@ -31,7 +31,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	}
 
 	annotations := map[string]string{
-		ossannotation.ServiceNodeExposure: "t1",
+		ossannotation.ServiceNodeExposure: lbNodeTypeT1,
 	}
 
 	// Set the sharing key (LBVIP name)
@@ -117,13 +117,13 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	return hcInterval
 }
 
-func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService, t2NodeIPs []string) (*corev1.Endpoints, error) {
+func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endpoints, error) {
 	if model.vip.assignedIPv4 == nil {
 		return nil, nil
 	}
 
 	epAddresses := []corev1.EndpointAddress{}
-	for _, addr := range t2NodeIPs {
+	for _, addr := range model.t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
 	}
 

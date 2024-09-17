@@ -1,0 +1,37 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  applications:
+    httpsProxy:
+      connectionFiltering:
+        ruleType: Allow
+        rules:
+          - sourceCIDR:
+              cidr: 100.64.0.100/32
+          - sourceCIDR:
+              cidr: 100.64.0.101/32
+      routes:
+        - backendRef:
+            name: lb-1
+        - match:
+            hostNames:
+              - "bar.acme.io"
+            path:
+              exact: "/api"
+          backendRef:
+            name: lb-2
+          requestFiltering:
+            ruleType: Deny
+            rules:
+              - path:
+                  exact: /admin
+                sourceCIDR:
+                  cidr: 100.64.0.100/32
+                hostName:
+                  exact: bar.acme.io

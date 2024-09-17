@@ -91,6 +91,13 @@ type LBServiceApplicationHTTPProxy struct {
 	// +kubebuilder:validation:Optional
 	HTTPConfig *LBServiceHTTPConfig `json:"httpConfig,omitempty"`
 
+	// The optional connection filtering configuration for all HTTP connections.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceHTTPConnectionFiltering `json:"connectionFiltering,omitempty"`
+
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
@@ -108,6 +115,13 @@ type LBServiceApplicationHTTPSProxy struct {
 	//
 	// +kubebuilder:validation:Optional
 	TLSConfig *LBServiceTLSConfig `json:"tlsConfig,omitempty"`
+
+	// The optional connection filtering configuration for all HTTPS connections.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceHTTPConnectionFiltering `json:"connectionFiltering,omitempty"`
 
 	// The HTTP routing configuration.
 	//
@@ -284,6 +298,13 @@ type LBServiceHTTPRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	PersistentBackend *LBServiceHTTPRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
+	// The optional request filtering configuration for this HTTP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	RequestFiltering *LBServiceHTTPRouteRequestFiltering `json:"requestFiltering,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP) || size(self.cookies) > 0 || size(self.headers) > 0)"
@@ -317,6 +338,112 @@ type LBServiceHTTPRoutePersistentBackendHeader struct {
 	//
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+}
+
+// +kubebuilder:validation:Enum=Allow;Deny
+type RequestFilteringRuleType string
+
+const (
+	// Allow rules
+	RequestFilteringRuleTypeAllow RequestFilteringRuleType = "Allow"
+	// Deny rules
+	RequestFilteringRuleTypeDeny RequestFilteringRuleType = "Deny"
+)
+
+type LBServiceHTTPConnectionFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the HTTP application.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceHTTPConnectionFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
+type LBServiceHTTPConnectionFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+}
+
+type LBServiceHTTPRouteRequestFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the HTTP route.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceHTTPRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.hostName) || has(self.path))"
+type LBServiceHTTPRouteRequestFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+
+	// Host-based matching. Only one of exact or suffix match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	HostName *LBServiceRequestFilteringRuleHTTPHostname `json:"hostName,omitempty"`
+	// Path-based matching. Only one of exact or suffix match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	Path *LBServiceRequestFilteringRuleHTTPPath `json:"path,omitempty"`
+}
+
+type LBServiceRequestFilteringRuleSourceCIDR struct {
+	// CIDR of the source.
+	// This must be in CIDR notation and use a /32 to express
+	// a single host.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Format=cidr
+	CIDR string `json:"cidr"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one hostname type (exact or suffix) must be specified",rule="(has(self.exact) || has(self.suffix)) && !(has(self.exact) && has(self.suffix))"
+type LBServiceRequestFilteringRuleHTTPHostname struct {
+	// Exact matching. The hostname must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Exact *string `json:"exact,omitempty"`
+
+	// Suffix matching. The hostname must end with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Suffix *string `json:"suffix,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
+type LBServiceRequestFilteringRuleHTTPPath struct {
+	// Exact matching. The path must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Exact *string `json:"exact,omitempty"`
+
+	// Prefix matching. The path must start with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Prefix *string `json:"prefix,omitempty"`
 }
 
 type LBServiceHTTPRouteMatch struct {
@@ -384,6 +511,13 @@ type LBServiceTLSPassthroughRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	PersistentBackend *LBServiceTLSRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
+	// The optional connection filtering configuration for this TLS passthrough route.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceTLSRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
 }
 
 type LBServiceTLSRoute struct {
@@ -410,6 +544,13 @@ type LBServiceTLSRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	PersistentBackend *LBServiceTLSRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
+	// The optional connection filtering configuration for this TLS proxy route.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceTLSRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
 }
 
 type LBServiceTLSPassthroughRouteMatch struct {
@@ -455,6 +596,49 @@ type LBServiceTLSRoutePersistentBackend struct {
 	//
 	// +kubebuilder:validation:Optional
 	SourceIP *bool `json:"sourceIP,omitempty"`
+}
+
+type LBServiceTLSRouteConnectionFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the TLS route.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceTLSRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.serverName))"
+type LBServiceTLSRouteRequestFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+
+	// Servername-based matching. Only one of exact or suffix match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	ServerName *LBServiceRequestFilteringRuleTLSServername `json:"serverName,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one servername type (exact or suffix) must be specified",rule="(has(self.exact) || has(self.suffix)) && !(has(self.exact) && has(self.suffix))"
+type LBServiceRequestFilteringRuleTLSServername struct {
+	// Exact matching. The servername must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Exact *string `json:"exact,omitempty"`
+
+	// Suffix matching. The servername must end with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Suffix *string `json:"suffix,omitempty"`
 }
 
 type LBServiceVIPRef struct {

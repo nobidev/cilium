@@ -13,6 +13,7 @@ package lb
 import (
 	"fmt"
 	"math/big"
+	"net"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +23,7 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service) (*lbService, error) {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string) (*lbService, error) {
 	applications, err := r.toApplications(lbsvc, backends)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ingest applications: %w", err)
@@ -38,6 +39,8 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 		},
 		port:         lbsvc.Spec.Port,
 		applications: applications,
+		t1NodeIPs:    t1NodeIPs,
+		t2NodeIPs:    t2NodeIPs,
 	}, nil
 }
 
@@ -170,12 +173,14 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
+			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 		})
 	}
 
 	return &lbApplicationHTTPProxy{
-		httpConfig: r.toHTTPConfig(lbsvc.Spec.Applications.HTTPProxy.HTTPConfig),
-		routes:     routes,
+		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPProxy.HTTPConfig),
+		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPProxy.ConnectionFiltering),
+		routes:              routes,
 	}
 }
 
@@ -225,6 +230,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
+			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 		})
 	}
 
@@ -234,22 +240,23 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 	}
 
 	return &lbApplicationHTTPSProxy{
-		httpConfig: r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
-		tlsConfig:  tlsConfig,
-		routes:     routes,
+		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
+		tlsConfig:           tlsConfig,
+		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPSProxy.ConnectionFiltering),
+		routes:              routes,
 	}
 }
 
-func toPath(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) (pathTypeType, string) {
-	pathType := pathTypePrefix
+func toPath(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) (routePathTypeType, string) {
+	pathType := routePathTypePrefix
 	path := "/"
 
 	if match != nil && match.Path != nil {
 		if match.Path.Prefix != nil {
-			pathType = pathTypePrefix
+			pathType = routePathTypePrefix
 			path = *match.Path.Prefix
 		} else if match.Path.Exact != nil {
-			pathType = pathTypeExact
+			pathType = routePathTypeExact
 			path = *match.Path.Exact
 		}
 	}
@@ -298,7 +305,8 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
-			persistentBackend: r.toTLSPassthroughPersistentBackendConfig(lr.PersistentBackend),
+			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
+			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
 		})
 	}
 
@@ -348,7 +356,8 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
 				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
 			},
-			persistentBackend: r.toTLSPassthroughPersistentBackendConfig(lr.PersistentBackend),
+			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
+			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
 		})
 	}
 
@@ -628,13 +637,13 @@ func (*ingestor) toHTTPPersistentBackendConfig(persistentBackendConfig *isovalen
 	}
 
 	return &lbRouteHTTPPersistentBackend{
-		SourceIP:    sourceIP,
-		CookieNames: cookieNames,
-		HeaderNames: headerNames,
+		sourceIP:    sourceIP,
+		cookieNames: cookieNames,
+		headerNames: headerNames,
 	}
 }
 
-func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTLSRoutePersistentBackend) *lbRouteTLSPersistentBackend {
+func (*ingestor) toTLSPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTLSRoutePersistentBackend) *lbRouteTLSPersistentBackend {
 	if persistentBackendConfig == nil {
 		return nil
 	}
@@ -645,6 +654,169 @@ func (*ingestor) toTLSPassthroughPersistentBackendConfig(persistentBackendConfig
 	}
 
 	return &lbRouteTLSPersistentBackend{
-		SourceIP: sourceIP,
+		sourceIP: sourceIP,
 	}
+}
+
+func (r *ingestor) toHTTPConnectionFilteringConfig(config *isovalentv1alpha1.LBServiceHTTPConnectionFiltering) *lbServiceHTTPConnectionFiltering {
+	if config == nil {
+		return nil
+	}
+
+	rules := []lbServiceHTTPConnectionFilteringRule{}
+
+	for _, ir := range config.Rules {
+
+		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
+
+		if ir.SourceCIDR != nil {
+			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
+		}
+
+		rules = append(rules, lbServiceHTTPConnectionFilteringRule{
+			sourceCIDR: sourceCIDR,
+		})
+	}
+
+	return &lbServiceHTTPConnectionFiltering{
+		ruleType: r.mapRuleType(config.RuleType),
+		rules:    rules,
+	}
+}
+
+func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering) *lbRouteHTTPRequestFiltering {
+	if config == nil {
+		return nil
+	}
+
+	rules := []lbRouteHTTPRequestFilteringRule{}
+
+	for _, ir := range config.Rules {
+
+		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
+		var hostname *lbRouteRequestFilteringHostName
+		var path *lbRouteRequestFilteringHTTPPath
+
+		if ir.SourceCIDR != nil {
+			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
+		}
+
+		if ir.HostName != nil {
+			var hostName string
+			var hostNameType filterHostnameTypeType
+
+			if ir.HostName.Exact != nil {
+				hostName = *ir.HostName.Exact
+				hostNameType = filterHostnameTypeExact
+			} else if ir.HostName.Suffix != nil {
+				hostName = *ir.HostName.Suffix
+				hostNameType = filterHostnameTypeSuffix
+			}
+
+			hostname = &lbRouteRequestFilteringHostName{
+				hostName:     hostName,
+				hostNameType: hostNameType,
+			}
+		}
+
+		if ir.Path != nil {
+			var p string
+			var pType filterPathTypeType
+
+			if ir.Path.Exact != nil {
+				p = *ir.Path.Exact
+				pType = filterPathTypeExact
+			} else if ir.Path.Prefix != nil {
+				p = *ir.Path.Prefix
+				pType = filterPathTypePrefix
+			}
+
+			path = &lbRouteRequestFilteringHTTPPath{
+				path:     p,
+				pathType: pType,
+			}
+		}
+
+		rules = append(rules, lbRouteHTTPRequestFilteringRule{
+			sourceCIDR: sourceCIDR,
+			hostname:   hostname,
+			path:       path,
+		})
+	}
+
+	return &lbRouteHTTPRequestFiltering{
+		ruleType: r.mapRuleType(config.RuleType),
+		rules:    rules,
+	}
+}
+
+func (r *ingestor) toSourceCIDR(cidr string) *lbRouteRequestFilteringSourceCIDR {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		// return nil as this should already be covered by CRD field validation
+		return nil
+	}
+
+	prefixLen, _ := ipNet.Mask.Size()
+	return &lbRouteRequestFilteringSourceCIDR{
+		addressPrefix: ipNet.IP.String(),
+		prefixLen:     uint32(prefixLen),
+	}
+}
+
+func (r *ingestor) toTLSRequestFilteringConfig(config *isovalentv1alpha1.LBServiceTLSRouteConnectionFiltering) *lbRouteTLSConnectionFiltering {
+	if config == nil {
+		return nil
+	}
+
+	rules := []lbRouteTLSConnectionFilteringRule{}
+
+	for _, ir := range config.Rules {
+
+		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
+		var servername *lbRouteRequestFilteringHostName
+
+		if ir.SourceCIDR != nil {
+			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
+		}
+
+		if ir.ServerName != nil {
+			var serverName string
+			var serverNameType filterHostnameTypeType
+
+			if ir.ServerName.Exact != nil {
+				serverName = *ir.ServerName.Exact
+				serverNameType = filterHostnameTypeExact
+			} else if ir.ServerName.Suffix != nil {
+				serverName = *ir.ServerName.Suffix
+				serverNameType = filterHostnameTypeSuffix
+			}
+
+			servername = &lbRouteRequestFilteringHostName{
+				hostName:     serverName,
+				hostNameType: serverNameType,
+			}
+		}
+
+		rules = append(rules, lbRouteTLSConnectionFilteringRule{
+			sourceCIDR: sourceCIDR,
+			servername: servername,
+		})
+	}
+
+	return &lbRouteTLSConnectionFiltering{
+		ruleType: r.mapRuleType(config.RuleType),
+		rules:    rules,
+	}
+}
+
+func (*ingestor) mapRuleType(ruleType isovalentv1alpha1.RequestFilteringRuleType) ruleTypeType {
+	switch ruleType {
+	case isovalentv1alpha1.RequestFilteringRuleTypeAllow:
+		return ruleTypeAllow
+	case isovalentv1alpha1.RequestFilteringRuleTypeDeny:
+		return ruleTypeDeny
+	}
+
+	return ruleTypeDeny
 }

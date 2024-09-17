@@ -28,6 +28,7 @@ import (
 
 type testcase struct {
 	name      string
+	t1NodeIPs []string
 	t2NodeIPs []string
 }
 
@@ -48,6 +49,7 @@ func TestTranslation(t *testing.T) {
 
 		testCases = append(testCases, testcase{
 			name:      d.Name(),
+			t1NodeIPs: []string{"172.18.0.0", "172.18.0.1"}, // TODO: define nodes as YAML?
 			t2NodeIPs: []string{"172.18.0.3", "172.18.0.2"}, // TODO: define nodes as YAML?
 		})
 
@@ -99,7 +101,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService)
+		model, err := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs)
 		require.NoError(t, err)
 
 		// Input Config
@@ -126,7 +128,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml)
 
 		// T1 Endpoints
-		endpoints, err := t1Translator.DesiredEndpoints(model, tc.t2NodeIPs)
+		endpoints, err := t1Translator.DesiredEndpoints(model)
 		require.NoError(t, err)
 
 		actualEndpointsYaml := ""
