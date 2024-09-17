@@ -63,6 +63,7 @@ spec:
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http
+                stripMatchingHostPort: true
                 useRemoteAddress: true
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector

@@ -64,6 +64,7 @@ spec:
                   routeConfigName: frontend_routeconfig_http
                 serverName: ilb
                 statPrefix: frontend_listener_http
+                stripMatchingHostPort: true
                 useRemoteAddress: true
         - filterChainMatch:
             serverNames:
@@ -99,6 +100,7 @@ spec:
                   routeConfigName: frontend_routeconfig_https
                 serverName: ilb
                 statPrefix: frontend_listener_https
+                stripMatchingHostPort: true
                 useRemoteAddress: true
           transportSocket:
             name: envoy.transport_sockets.tls
@@ -126,7 +128,7 @@ spec:
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
-            - "foo.acme.io:80"
+            - "foo.acme.io"
           name: frontend_virtualhost_https_0
           requestHeadersToRemove:
             - x-envoy-internal
@@ -140,7 +142,7 @@ spec:
               route:
                 cluster: backend_cluster_https_0
         - domains:
-            - "bar.acme.io:80"
+            - "bar.acme.io"
           name: frontend_virtualhost_https_1
           requestHeadersToRemove:
             - x-envoy-internal

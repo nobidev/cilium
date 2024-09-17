@@ -225,6 +225,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 						NormalizePath:                wrapperspb.Bool(true),
 						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
+						StripMatchingHostPort:        true,
 						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
 							// Health Check filter is only exposed on HTTP
 							{
@@ -469,6 +470,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 						NormalizePath:                wrapperspb.Bool(true),
 						MergeSlashes:                 true,
 						UseRemoteAddress:             wrapperspb.Bool(true),
+						StripMatchingHostPort:        true,
 						HttpFilters: []*envoy_extensions_filters_network_hcm_v3.HttpFilter{
 							{
 								Name: "envoy.filters.http.router",
@@ -700,7 +702,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(model *lbServi
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(80), model.port),
+				Domains: route.match.hostNames,
 				Routes: []*envoy_config_route_v3.Route{
 					{
 						Match: r.toRouteMatch(route.match),
@@ -747,7 +749,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteVirtualHosts(model *lbServ
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
 				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: r.toHostNamesWithPort(route.match.hostNames, int32(443), model.port),
+				Domains: route.match.hostNames,
 				Routes: []*envoy_config_route_v3.Route{
 					{
 						Match: r.toRouteMatch(route.match),
@@ -798,21 +800,6 @@ func (r *lbServiceT2Translator) toRouteMatch(match lbRouteHTTPMatch) *envoy_conf
 			},
 		}
 	}
-}
-
-// toHostNamesWithPort appends the port to the hostname because Envoy' domain matching on the virtualhost
-// checks for port too. But only if it's different than the expected default port.
-func (r *lbServiceT2Translator) toHostNamesWithPort(hostnames []string, defaultPort int32, port int32) []string {
-	hostNamesWithPort := []string{}
-	for _, v := range hostnames {
-		if v == "*" || defaultPort == port {
-			hostNamesWithPort = append(hostNamesWithPort, v)
-		} else {
-			hostNamesWithPort = append(hostNamesWithPort, fmt.Sprintf("%s:%d", v, port))
-		}
-	}
-
-	return hostNamesWithPort
 }
 
 func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envoy_extensions_filters_http_healthcheck_v3.HealthCheck {

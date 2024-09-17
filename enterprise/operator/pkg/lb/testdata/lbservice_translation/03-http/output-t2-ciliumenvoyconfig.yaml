@@ -60,6 +60,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
                 mergeSlashes: true
+                stripMatchingHostPort: true
                 useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_http

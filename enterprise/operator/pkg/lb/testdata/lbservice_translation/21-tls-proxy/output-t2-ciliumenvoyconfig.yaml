@@ -57,13 +57,14 @@ spec:
                       passThroughMode: false
                   - name: envoy.filters.http.router
                     typedConfig:
-                      '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 mergeSlashes: true
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 serverName: ilb
                 statPrefix: frontend_listener_http
+                stripMatchingHostPort: true
                 useRemoteAddress: true
         - filterChainMatch:
             serverNames:

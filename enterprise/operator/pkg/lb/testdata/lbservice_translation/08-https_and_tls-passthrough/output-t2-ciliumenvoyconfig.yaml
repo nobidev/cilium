@@ -60,6 +60,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
                 mergeSlashes: true
+                stripMatchingHostPort: true
                 useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
@@ -93,6 +94,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
                 mergeSlashes: true
+                stripMatchingHostPort: true
                 useRemoteAddress: true
                 rds:
                   routeConfigName: frontend_routeconfig_https
@@ -140,7 +142,7 @@ spec:
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
-            - "bar.acme.io:80"
+            - "bar.acme.io"
           name: frontend_virtualhost_https_0
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
