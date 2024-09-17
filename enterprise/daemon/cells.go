@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/api/v1/server"
-	"github.com/cilium/cilium/enterprise/featurelist"
 	"github.com/cilium/cilium/enterprise/pkg/api"
 	"github.com/cilium/cilium/enterprise/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1"
@@ -24,7 +23,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
-	"github.com/cilium/cilium/enterprise/pkg/features"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
@@ -54,9 +52,6 @@ var (
 		// enterprise-only cells here
 		ControlPlane,
 		Datapath,
-
-		features.Cell,
-		featurelist.Cell,
 	)
 
 	ControlPlane = cell.Module(

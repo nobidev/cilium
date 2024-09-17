@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/enterprise/api/v1/models"
 	"github.com/cilium/cilium/enterprise/api/v1/server/restapi/network"
 	"github.com/cilium/cilium/enterprise/pkg/api"
-	"github.com/cilium/cilium/enterprise/pkg/features"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -35,12 +34,6 @@ var Cell = cell.Module(
 	cell.Provide(newMultiNetworkManager),
 	cell.Provide(newNetworkAPIHandler),
 	cell.Config(defaultConfig),
-	features.FeatureWithConfigT[Config](features.Spec{
-		ID:          "MultiNetwork",
-		Name:        "Multinetwork Pods",
-		Description: "Provides functionality for attaching multiple network interfaces to Pods",
-		Stage:       features.Alpha,
-	}),
 )
 
 var defaultConfig = Config{

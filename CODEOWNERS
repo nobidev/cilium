@@ -790,7 +790,6 @@ Makefile* @cilium/build
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
 /enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
-/enterprise/featurelist/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
 /enterprise/grafana/loadbalancer/ @isovalent/isovalent-loadbalancer
@@ -809,7 +808,6 @@ Makefile* @cilium/build
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
 /enterprise/pkg/encryption/ @isovalent/encryption
-/enterprise/pkg/features/ @isovalent/foundations
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
