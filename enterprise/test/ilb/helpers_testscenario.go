@@ -12,6 +12,9 @@ package ilb
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -272,31 +275,70 @@ func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName
 //
 // Note: Certificates need to be created before creating any FRR client that references the cert.
 // Otherwise loading the cert into the corresponding docker container fails.
-func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, hostName string) {
-	key, cert, err := genSelfSignedX509(hostName)
+func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, caName, hostName string) {
+	// Generate CA cert and key
+	caPriv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		r.t.Fatalf("failed to gen x509: %s", err)
+		r.t.Fatalf("failed to generate CA priv key: %s", err)
 	}
 
-	sec := tlsSecret(r.k8sNamespace, r.testName+"-client", key.Bytes(), cert.Bytes())
-	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
+	caTemplate, err := genTemplate(caName, x509.KeyUsageDigitalSignature|x509.KeyUsageCRLSign|x509.KeyUsageCertSign, nil)
+	if err != nil {
+		r.t.Fatalf("failed to gen CA template: %s", err)
+	}
+
+	caCertDERBytes, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
+	if err != nil {
+		r.t.Fatalf("failed to create CA cert: %s", err)
+	}
+
+	_, caCert, err := encodePEM(caCertDERBytes, caPriv)
+	if err != nil {
+		r.t.Fatalf("failed to encode CA PEM: %s", err)
+	}
+
+	caSec := caSecret(r.k8sNamespace, r.testName+"-client-ca", caCert.Bytes())
+	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, caSec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+			r.t.Fatalf("failed to create CA secret (%s): %s", r.testName, err)
 		}
 	}
 
-	certBytes := cert.Bytes()
-	keyBytes := key.Bytes()
+	maybeCleanupT(func() error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, caSec.Name, metav1.DeleteOptions{})
+	}, r.t)
+
+	clientPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		r.t.Fatalf("failed to generate priv key: %s", err)
+	}
+
+	// Generate client cert and key signed with CA cert
+	clientTemplate, err := genTemplate(hostName, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
+		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
+	if err != nil {
+		r.t.Fatalf("failed to gen client template: %s", err)
+	}
+
+	clientCertDERBytes, err := x509.CreateCertificate(rand.Reader, clientTemplate, caTemplate, &clientPriv.PublicKey, caPriv)
+	if err != nil {
+		r.t.Fatalf("failed to create client cert: %s", err)
+	}
+
+	clientKey, clientCert, err := encodePEM(clientCertDERBytes, clientPriv)
+	if err != nil {
+		r.t.Fatalf("failed to encode client PEM: %s", err)
+	}
+
+	// Store client certificates for later use
+	certBytes := clientCert.Bytes()
+	keyBytes := clientKey.Bytes()
 	r.clientCertificates[hostName] = &tlsCertificate{
 		cert:       certBytes,
 		key:        keyBytes,
 		certBase64: base64.StdEncoding.EncodeToString(certBytes),
 		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
 	}
-
-	maybeCleanupT(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName+"-client", metav1.DeleteOptions{})
-	}, r.t)
 }
 
 // createBackendServerCertificate creates a server certificate that can be used to terminate TLS traffic on a backend application.

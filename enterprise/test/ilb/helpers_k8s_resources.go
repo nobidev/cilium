@@ -365,3 +365,16 @@ func tlsSecret(namespace, name string, key, cert []byte) *v1.Secret {
 		},
 	}
 }
+
+func caSecret(namespace, name string, cert []byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Type: v1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"ca.crt": cert,
+		},
+	}
+}

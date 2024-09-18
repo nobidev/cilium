@@ -26,6 +26,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 	ns := "default"
 	testName := "tls-proxy-tcp-backend"
 	serviceHostName := "secure.acme.io"
+	clientCAName := "acme.io"
 	clientHostName := "client.acme.io"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
@@ -36,7 +37,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 	t.Log("Creating cert and secret...")
 
 	scenario.createLBServerCertificate(ctx, serviceHostName)
-	scenario.createLBClientCertificate(ctx, clientHostName)
+	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
 	t.Logf("Creating LB VIP resources...")
 
@@ -52,7 +53,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
-	clientCertSecretName := testName + "-client"
+	clientCASecretName := testName + "-client-ca"
 
 	t.Log("Creating LB BackendPool resources...")
 
@@ -93,7 +94,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 		// Add validation context to the TLS config and update
 		curSvc.Spec.Applications.TLSProxy.TLSConfig.Validation = &isovalentv1alpha1.LBTLSValidationConfig{
 			SecretRef: isovalentv1alpha1.LBServiceSecretRef{
-				Name: clientCertSecretName,
+				Name: clientCASecretName,
 			},
 		}
 
@@ -122,6 +123,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 	ns := "default"
 	testName := "tls-proxy-tls-backend"
 	serviceHostName := "secure.acme.io"
+	clientCAName := "acme.io"
 	clientHostName := "client.acme.io"
 
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
@@ -132,7 +134,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 	t.Log("Creating cert and secret...")
 
 	scenario.createLBServerCertificate(ctx, serviceHostName)
-	scenario.createLBClientCertificate(ctx, clientHostName)
+	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
 	t.Logf("Creating LB VIP resources...")
 
@@ -154,7 +156,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
-	clientCertSecretName := testName + "-client"
+	caCertSecretName := testName + "-client-ca"
 
 	t.Log("Creating LB BackendPool resources...")
 
@@ -195,7 +197,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 		// Add validation context to the TLS config and update
 		curSvc.Spec.Applications.TLSProxy.TLSConfig.Validation = &isovalentv1alpha1.LBTLSValidationConfig{
 			SecretRef: isovalentv1alpha1.LBServiceSecretRef{
-				Name: clientCertSecretName,
+				Name: caCertSecretName,
 			},
 		}
 
