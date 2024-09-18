@@ -24,16 +24,7 @@ import (
 	"time"
 )
 
-func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
-	var key, cert bytes.Buffer
-
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate priv key: %w", err)
-	}
-
-	keyUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
-
+func genTemplate(hostName string, usage x509.KeyUsage, extUsage []x509.ExtKeyUsage) (*x509.Certificate, error) {
 	notBefore := time.Now()
 	validFor := 365 * 24 * time.Hour
 	notAfter := notBefore.Add(validFor)
@@ -41,7 +32,7 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate SN: %w", err)
+		return nil, fmt.Errorf("failed to generate SN: %w", err)
 	}
 
 	template := x509.Certificate{
@@ -51,12 +42,13 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              keyUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage:              usage,
+		ExtKeyUsage:           extUsage,
 		BasicConstraintsValid: true,
+		DNSNames:              []string{hostName},
 	}
 
-	hosts := strings.Split(host, ",")
+	hosts := strings.Split(hostName, ",")
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
@@ -65,10 +57,11 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 		}
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create cert: %w", err)
-	}
+	return &template, nil
+}
+
+func encodePEM(derBytes []byte, priv *rsa.PrivateKey) (*bytes.Buffer, *bytes.Buffer, error) {
+	var cert, key bytes.Buffer
 
 	if err := pem.Encode(&cert, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
 		return nil, nil, fmt.Errorf("failed to PEM encode cert: %w", err)
@@ -84,4 +77,29 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 	}
 
 	return &key, &cert, nil
+}
+
+func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate priv key: %w", err)
+	}
+
+	template, err := genTemplate(host, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
+		[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate template: %w", err)
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create cert: %w", err)
+	}
+
+	key, cert, err := encodePEM(derBytes, priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode PEM: %w", err)
+	}
+
+	return key, cert, nil
 }
