@@ -211,12 +211,13 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	r.updateBackendCompatibilityInStatus(lbsvc, backends)
 
 	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
-	missingSecrets, err := r.loadMissingTLSSecrets(ctx, lbsvc)
+	referencedSecrets, missingSecrets, err := r.loadTLSSecrets(ctx, lbsvc)
 	if err != nil {
 		return fmt.Errorf("failed to load referenced TLS secrets: %w", err)
 	}
 
-	r.updateSecretsInStatus(lbsvc, missingSecrets)
+	r.updateSecretExistenceInStatus(lbsvc, missingSecrets)
+	r.updateSecretCompatibilityInStatus(lbsvc, referencedSecrets)
 
 	//
 	// Translate into internal model
@@ -335,9 +336,9 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 	backends := []*isovalentv1alpha1.LBBackendPool{}
 	missingBackends := []string{}
 
-	backendNames := lbsvc.AllReferencedBackendNames()
+	allReferencedBackendNames := lbsvc.AllReferencedBackendNames()
 
-	for _, bName := range backendNames {
+	for _, bName := range allReferencedBackendNames {
 		b := &isovalentv1alpha1.LBBackendPool{}
 		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: bName}, b); err != nil {
 			if !k8serrors.IsNotFound(err) {
@@ -357,26 +358,31 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 	return backends, missingBackends, nil
 }
 
-func (r *lbServiceReconciler) loadMissingTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]string, error) {
-	allReferencedSecretNames := lbsvc.AllReferencedSecretNames()
-
+func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]*corev1.Secret, []string, error) {
+	secrets := []*corev1.Secret{}
 	missingSecrets := []string{}
+
+	// TLS Certs
+	allReferencedSecretNames := lbsvc.AllReferencedSecretNames()
 
 	for _, secretName := range allReferencedSecretNames {
 		s := &corev1.Secret{}
 		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: secretName}, s); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				return nil, fmt.Errorf("failed to get referenced TLS Secret: %w", err)
+				return nil, nil, fmt.Errorf("failed to get referenced TLS Secret: %w", err)
 			}
 
 			// Continue reconciliation if TLS Secrets don't exist (yet).
 			// But keep track of them to report in log and status later on.
 			// Once the missing referenced backends gets created it will trigger a reconciliation
 			missingSecrets = append(missingSecrets, secretName)
+			continue
 		}
+
+		secrets = append(secrets, s)
 	}
 
-	return missingSecrets, nil
+	return secrets, missingSecrets, nil
 }
 
 func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*corev1.Service, error) {
@@ -745,7 +751,7 @@ func (*lbServiceReconciler) getInvalidBackends(backends []*isovalentv1alpha1.LBB
 	return invalidBackendMessages
 }
 
-func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {
+func (*lbServiceReconciler) updateSecretExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingSecrets []string) {
 	secretsExistCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeSecretsExist,
 		Status:             metav1.ConditionTrue,
@@ -762,4 +768,66 @@ func (*lbServiceReconciler) updateSecretsInStatus(lbsvc *isovalentv1alpha1.LBSer
 	}
 
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
+}
+
+func (r *lbServiceReconciler) updateSecretCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, secrets []*corev1.Secret) {
+	secretsCompatibleCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeSecretsCompatible,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.SecretsCompatibleConditionReasonAllSecretsCompatible,
+		Message:            "All referenced secrets are compatible",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	incompatibleSecretMessages := []string{}
+
+	incompatibleSecretMessages = append(incompatibleSecretMessages, r.getIncompatibleSecretTypes(lbsvc, secrets)...)
+
+	if len(incompatibleSecretMessages) > 0 {
+		secretsCompatibleCondition.Status = metav1.ConditionFalse
+		secretsCompatibleCondition.Reason = isovalentv1alpha1.SecretsCompatibleConditionReasonIncompatibleSecrets
+		secretsCompatibleCondition.Message = strings.Join(incompatibleSecretMessages, "\n")
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeSecretsCompatible, secretsCompatibleCondition)
+}
+
+func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha1.LBService, secrets []*corev1.Secret) []string {
+	messages := []string{}
+
+	secretMap := map[string]*corev1.Secret{}
+
+	for _, s := range secrets {
+		secretMap[s.Name] = s
+	}
+
+	for _, s := range lbsvc.AllReferencedTLSCertificateSecretNames() {
+		secret, ok := secretMap[s]
+		if !ok {
+			continue
+		}
+
+		if secret.Type != corev1.SecretTypeTLS ||
+			secret.Data[corev1.TLSCertKey] == nil || string(secret.Data[corev1.TLSCertKey]) == "" ||
+			secret.Data[corev1.TLSPrivateKeyKey] == nil || string(secret.Data[corev1.TLSPrivateKeyKey]) == "" {
+
+			messages = append(messages, fmt.Sprintf("Secret %q is incompatible: Referenced as TLS Certificate but not of type TLS and/or relevant data fields (%q, %q) missing", s, corev1.TLSCertKey, corev1.TLSPrivateKeyKey))
+		}
+	}
+
+	for _, s := range lbsvc.AllReferencedTLSCACertValidationSecretNames() {
+		secret, ok := secretMap[s]
+		if !ok {
+			continue
+		}
+
+		if secret.Type != corev1.SecretTypeOpaque ||
+			secret.Data["ca.crt"] == nil || string(secret.Data["ca.crt"]) == "" {
+
+			messages = append(messages, fmt.Sprintf("Secret %q is incompatible: Referenced as CA Certificate but not of type Opaque and/or relevant data fields (%q) missing", s, "ca.crt"))
+		}
+	}
+
+	return messages
 }

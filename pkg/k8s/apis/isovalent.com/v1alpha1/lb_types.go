@@ -503,6 +503,7 @@ const (
 	ConditionTypeBackendsExist      = "lb.cilium.io/BackendsExist"
 	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
 	ConditionTypeSecretsExist       = "lb.cilium.io/SecretsExist"
+	ConditionTypeSecretsCompatible  = "lb.cilium.io/SecretsCompatible"
 )
 
 const (
@@ -532,6 +533,11 @@ const (
 )
 
 const (
+	SecretsCompatibleConditionReasonAllSecretsCompatible = "AllSecretsCompatible"
+	SecretsCompatibleConditionReasonIncompatibleSecrets  = "IncompatibleSecrets"
+)
+
+const (
 	ConditionTypeIPv4AddressAllocated = "lb.cilium.io/IPv4AddressAllocated"
 )
 
@@ -544,12 +550,19 @@ const (
 func (r *LBService) AllReferencedSecretNames() []string {
 	secretNames := []string{}
 
+	secretNames = append(secretNames, r.AllReferencedTLSCertificateSecretNames()...)
+	secretNames = append(secretNames, r.AllReferencedTLSCACertValidationSecretNames()...)
+
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
+}
+
+func (r *LBService) AllReferencedTLSCertificateSecretNames() []string {
+	secretNames := []string{}
+
 	if r.Spec.Applications.HTTPSProxy != nil && r.Spec.Applications.HTTPSProxy.TLSConfig != nil {
 		for _, c := range r.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
-		}
-		if r.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
-			secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
 		}
 	}
 
@@ -557,6 +570,22 @@ func (r *LBService) AllReferencedSecretNames() []string {
 		for _, c := range r.Spec.Applications.TLSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
 		}
+	}
+
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
+}
+
+func (r *LBService) AllReferencedTLSCACertValidationSecretNames() []string {
+	secretNames := []string{}
+
+	if r.Spec.Applications.HTTPSProxy != nil && r.Spec.Applications.HTTPSProxy.TLSConfig != nil {
+		if r.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
+			secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
+		}
+	}
+
+	if r.Spec.Applications.TLSProxy != nil && r.Spec.Applications.TLSProxy.TLSConfig != nil {
 		if r.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
 			secretNames = append(secretNames, r.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
 		}

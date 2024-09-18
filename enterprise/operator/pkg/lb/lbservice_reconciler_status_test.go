@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -233,7 +234,7 @@ func TestLBServiceStatusSecret(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			r.updateSecretsInStatus(tc.lbsvc, tc.missingSecrets)
+			r.updateSecretExistenceInStatus(tc.lbsvc, tc.missingSecrets)
 
 			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
 
@@ -482,6 +483,334 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, c.Status)
 			assert.Equal(t, tc.expectedReason, c.Reason)
 			assert.Equal(t, tc.expectedMessage, c.Message)
+		})
+	}
+}
+
+func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
+	testCases := []struct {
+		desc             string
+		svc              *isovalentv1alpha1.LBService
+		secrets          []*corev1.Secret
+		expectedMessages []string
+	}{
+		{
+			desc: "skip services that aren't found",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets:          []*corev1.Secret{},
+			expectedMessages: []string{},
+		},
+		{
+			desc: "list incompatible secrets",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets: []*corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
+					Type:       corev1.SecretTypeTLS,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
+					Type:       corev1.SecretTypeOpaque,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+			},
+			expectedMessages: []string{
+				`Secret "tls-1" is incompatible: Referenced as TLS Certificate but not of type TLS and/or relevant data fields ("tls.crt", "tls.key") missing`,
+				`Secret "tls-2" is incompatible: Referenced as TLS Certificate but not of type TLS and/or relevant data fields ("tls.crt", "tls.key") missing`,
+				`Secret "ca-cert-1" is incompatible: Referenced as CA Certificate but not of type Opaque and/or relevant data fields ("ca.crt") missing`,
+				`Secret "ca-cert-2" is incompatible: Referenced as CA Certificate but not of type Opaque and/or relevant data fields ("ca.crt") missing`,
+			},
+		},
+		{
+			desc: "don't list any secrets if everything is compatible",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets: []*corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+			},
+			expectedMessages: []string{},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			r := lbServiceReconciler{}
+			messages := r.getIncompatibleSecretTypes(tC.svc, tC.secrets)
+
+			assert.Equal(t, tC.expectedMessages, messages)
+		})
+	}
+}
+
+func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
+	testCases := []struct {
+		desc                    string
+		svc                     *isovalentv1alpha1.LBService
+		secrets                 []*corev1.Secret
+		expectedConditionStatus metav1.ConditionStatus
+	}{
+		{
+			desc: "skip services that aren't found",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets:                 []*corev1.Secret{},
+			expectedConditionStatus: metav1.ConditionTrue,
+		},
+		{
+			desc: "list incompatible secrets",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets: []*corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
+					Type:       corev1.SecretTypeTLS,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
+					Type:       corev1.SecretTypeOpaque,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+			},
+			expectedConditionStatus: metav1.ConditionFalse,
+		},
+		{
+			desc: "don't list any secrets if everything is compatible",
+			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-1"},
+						},
+					},
+				},
+				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
+					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
+							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
+						},
+						Validation: &isovalentv1alpha1.LBTLSValidationConfig{
+							SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "ca-cert-2"},
+						},
+					},
+				},
+			}}},
+			secrets: []*corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
+					Type:       corev1.SecretTypeTLS,
+					Data: map[string][]byte{
+						"tls.key": []byte("bla"),
+						"tls.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
+					Type:       corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"ca.crt": []byte("bla"),
+					},
+				},
+			},
+			expectedConditionStatus: metav1.ConditionTrue,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			r := lbServiceReconciler{}
+			r.updateSecretCompatibilityInStatus(tC.svc, tC.secrets)
+
+			c := tC.svc.GetStatusCondition(isovalentv1alpha1.ConditionTypeSecretsCompatible)
+			require.NotNil(t, c)
+
+			assert.Equal(t, tC.expectedConditionStatus, c.Status)
 		})
 	}
 }
