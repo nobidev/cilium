@@ -15,6 +15,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".spec.vipRef.name",name="VIP Reference",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="VIP IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -495,6 +496,11 @@ type LBServiceStatus struct {
 	// +listMapKey=type
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Status of the resource.
+	//
+	// +kubebuilder:validation:Required
+	Status LBResourceStatus `json:"status"`
 }
 
 const (
@@ -664,6 +670,19 @@ func (r *LBService) GetStatusCondition(conditionType string) *metav1.Condition {
 	return nil
 }
 
+func (r *LBService) UpdateResourceStatus() {
+	resourceStatus := LBResourceStatusOK
+
+	for _, c := range r.Status.Conditions {
+		if c.Status == metav1.ConditionFalse {
+			resourceStatus = LBResourceStatusConditionNotMet
+			break
+		}
+	}
+
+	r.Status.Status = resourceStatus
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
@@ -680,6 +699,7 @@ type LBServiceList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbbackendpool",path="lbbackendpools",scope="Namespaced",shortName={lbbep}
+// +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -947,6 +967,11 @@ type LBBackendPoolStatus struct {
 	// +listMapKey=type
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Status of the resource.
+	//
+	// +kubebuilder:validation:Required
+	Status LBResourceStatus `json:"status"`
 }
 
 const (
@@ -1001,11 +1026,25 @@ func (r *LBBackendPool) GetStatusCondition(conditionType string) *metav1.Conditi
 	return nil
 }
 
+func (r *LBBackendPool) UpdateResourceStatus() {
+	resourceStatus := LBResourceStatusOK
+
+	for _, c := range r.Status.Conditions {
+		if c.Status == metav1.ConditionFalse {
+			resourceStatus = LBResourceStatusConditionNotMet
+			break
+		}
+	}
+
+	r.Status.Status = resourceStatus
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbvip",path="lbvips",scope="Namespaced",shortName={lbvip}
-// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
@@ -1041,6 +1080,11 @@ type LBVIPStatus struct {
 	// +listMapKey=type
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Status of the resource.
+	//
+	// +kubebuilder:validation:Required
+	Status LBResourceStatus `json:"status"`
 
 	// Allocated addresses
 	//
@@ -1088,3 +1132,26 @@ func (r *LBVIP) UpsertStatusCondition(conditionType string, condition metav1.Con
 		r.Status.Conditions = append(r.Status.Conditions, condition)
 	}
 }
+
+func (r *LBVIP) UpdateResourceStatus() {
+	resourceStatus := LBResourceStatusOK
+
+	for _, c := range r.Status.Conditions {
+		if c.Status == metav1.ConditionFalse {
+			resourceStatus = LBResourceStatusConditionNotMet
+			break
+		}
+	}
+
+	r.Status.Status = resourceStatus
+}
+
+// +kubebuilder:validation:Enum=OK;ConditionNotMet
+type LBResourceStatus string
+
+const (
+	// Status OK: everytying is OK
+	LBResourceStatusOK LBResourceStatus = "OK"
+	// Status ConditionNotMet: At least one condition isn't met
+	LBResourceStatusConditionNotMet LBResourceStatus = "ConditionNotMet"
+)

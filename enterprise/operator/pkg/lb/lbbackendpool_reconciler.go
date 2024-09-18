@@ -76,6 +76,8 @@ func (r *lbBackendPoolReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	r.updateAcceptedStatusCondition(lb)
 
+	lb.UpdateResourceStatus()
+
 	// Update the status of LBBackendPool
 	if err := r.client.Status().Update(ctx, lb); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update LBBackendPool status: %w", err))

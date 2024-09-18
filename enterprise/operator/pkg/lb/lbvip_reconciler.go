@@ -156,6 +156,8 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	// Update the LBVIP status with the conditions
 	lbvip.UpsertStatusCondition(v4Allocated.Type, v4Allocated)
 
+	lbvip.UpdateResourceStatus()
+
 	// Commit the LBVIP status
 	if err := r.client.Status().Update(ctx, lbvip); err != nil {
 		return fmt.Errorf("failed to update LBVIP status: %w", err)

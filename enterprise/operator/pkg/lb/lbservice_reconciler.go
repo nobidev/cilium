@@ -172,6 +172,8 @@ func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBService: %w", err))
 	}
 
+	lb.UpdateResourceStatus()
+
 	// Update the status of LBService
 	if err := r.client.Status().Update(ctx, lb); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update LBService status: %w", err))

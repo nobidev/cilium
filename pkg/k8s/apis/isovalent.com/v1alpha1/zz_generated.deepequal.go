@@ -2013,6 +2013,10 @@ func (in *LBBackendPoolStatus) DeepEqual(other *LBBackendPoolStatus) bool {
 		return false
 	}
 
+	if in.Status != other.Status {
+		return false
+	}
+
 	return true
 }
 
@@ -2568,6 +2572,10 @@ func (in *LBServiceStatus) DeepEqual(other *LBServiceStatus) bool {
 		return false
 	}
 
+	if in.Status != other.Status {
+		return false
+	}
+
 	return true
 }
 
@@ -2957,6 +2965,9 @@ func (in *LBVIPStatus) DeepEqual(other *LBVIPStatus) bool {
 		return false
 	}
 
+	if in.Status != other.Status {
+		return false
+	}
 	if !in.Addresses.DeepEqual(&other.Addresses) {
 		return false
 	}

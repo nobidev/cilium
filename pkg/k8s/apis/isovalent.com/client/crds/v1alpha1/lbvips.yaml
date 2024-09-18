@@ -21,12 +21,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
     - jsonPath: .status.addresses.ipv4
       name: IPv4
       type: string
+    - jsonPath: .status.status
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -127,8 +130,15 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              status:
+                description: Status of the resource.
+                enum:
+                - OK
+                - ConditionNotMet
+                type: string
             required:
             - addresses
+            - status
             type: object
         required:
         - spec

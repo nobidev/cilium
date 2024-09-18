@@ -21,6 +21,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.status
+      name: Status
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -333,6 +336,14 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              status:
+                description: Status of the resource.
+                enum:
+                - OK
+                - ConditionNotMet
+                type: string
+            required:
+            - status
             type: object
         required:
         - spec
