@@ -17,6 +17,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -194,6 +195,11 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 			t.Fatalf("failed to get LB service (%s): %s", testName, err)
 		}
 
+		// curl's TLS1.3 implementation doesn't return handshake error
+		// (35) on certificate validation failure. TLS1.2 does, so
+		// easier to handle.
+		curSvc.Spec.Applications.TLSProxy.TLSConfig.MaxTLSVersion = ptr.To(isovalentv1alpha1.LBTLSProtocolVersion("TLSv1_2"))
+
 		// Add validation context to the TLS config and update
 		curSvc.Spec.Applications.TLSProxy.TLSConfig.Validation = &isovalentv1alpha1.LBTLSValidationConfig{
 			SecretRef: isovalentv1alpha1.LBServiceSecretRef{
@@ -204,6 +210,23 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 		if err := ciliumCli.UpdateLBService(ctx, ns, curSvc, metav1.UpdateOptions{}); err != nil {
 			t.Fatalf("failed to update LB service (%s): %s", testName, err)
 		}
+
+		failTestCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", serviceHostName, vipIP))
+
+		t.Logf("Testing %q...", failTestCmd)
+
+		eventually(t, func() error {
+			stdout, stderr, err := client.Exec(ctx, failTestCmd)
+			if err == nil {
+				// Enrich error with curl output
+				return fmt.Errorf("curl should have failed but succeeded (cmd: %q, stdout: %q, stderr: %q)", failTestCmd, stdout, stderr)
+			} else {
+				if err.Error() != "cmd failed: 35" {
+					return fmt.Errorf("curl failed with unexpected error (cmd: %q, stdout: %q, stderr: %q): %w", failTestCmd, stdout, stderr, err)
+				}
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond)
 
 		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/",
 			clientHostName, clientHostName, serviceHostName, vipIP))
