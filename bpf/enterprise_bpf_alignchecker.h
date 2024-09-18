@@ -4,3 +4,5 @@
 add_type(struct egress_gw_ha_ct_entry);
 add_type(struct egress_gw_ha_policy_key);
 add_type(struct egress_gw_ha_policy_entry);
+add_type(struct encryption_policy_key);
+add_type(struct encryption_policy_entry);
