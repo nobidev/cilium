@@ -65,6 +65,9 @@ const (
 	policyInitializerName   = "isovalentclusterwideencryptionpolicy-synced"
 	identityInitializerName = "identities-synced"
 
+	policyUpdateObserver   = "encryption-policy-resource-events"
+	identityUpdateObserver = "encryption-policy-identity-events"
+
 	identityBatchTimeout = 100 * time.Millisecond
 	identityBatchSize    = 1000
 )
@@ -89,7 +92,8 @@ type engineParams struct {
 	Log       *slog.Logger
 	Lifecycle cell.Lifecycle
 	Config    types.Config
-	Group     job.Group
+	Registry  job.Registry
+	Health    cell.Health
 
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	DaemonConfig    *option.DaemonConfig
@@ -144,9 +148,17 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 			return append(buf, c)
 		})
 
+	// Custom job group to obtain runtime metrics
+	jobGroup := params.Registry.NewGroup(params.Health,
+		job.WithMetrics(params.Metrics),
+		job.WithLogger(params.Log),
+	)
+
 	engine.log.Info("Starting encryption-policy subsystem")
-	params.Group.Add(job.Observer("encryption-policy-identity-events", engine.handleIdentityChange, identityChanges))
-	params.Group.Add(job.Observer("encryption-policy-resource-events", engine.handlePolicyChange, params.ICEPResource))
+	jobGroup.Add(job.Observer(identityUpdateObserver, engine.handleIdentityChange, identityChanges))
+	jobGroup.Add(job.Observer(policyUpdateObserver, engine.handlePolicyChange, params.ICEPResource))
+	params.Lifecycle.Append(jobGroup)
+
 	return engine
 }
 
