@@ -165,6 +165,7 @@ cilium-agent [flags]
       --enable-ipv4-egress-gateway                                     Enable egress gateway for IPv4
       --enable-ipv4-fragment-tracking                                  Enable IPv4 fragments tracking for L4-based lookups (default true)
       --enable-ipv4-masquerade                                         Masquerade IPv4 traffic from endpoints leaving the host (default true)
+      --enable-ipv4-standalone-egress-gateway                          Enable standalone egress gateway for IPv4
       --enable-ipv6                                                    Enable IPv6 support (default true)
       --enable-ipv6-big-tcp                                            Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-ipv6-fragment-tracking                                  Enable IPv6 fragments tracking for L4-based lookups (default true)
@@ -440,6 +441,7 @@ cilium-agent [flags]
       --service-no-backend-response string                             Response to traffic for a service without backends (default "reject")
       --socket-path string                                             Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
+      --standalone-egress-gateway-interface string                     Name of the egress interface for the standalone gateway; if empty, it automatically selects the interface with the default route
       --standalone-egress-gateway-map-max int                          Maximum number of entries in the standalone egress gateway map (default 16384)
       --state-dir string                                               Directory path to store runtime state (default "/var/run/cilium")
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.

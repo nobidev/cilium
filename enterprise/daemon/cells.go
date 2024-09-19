@@ -23,6 +23,7 @@ import (
 	cecm "github.com/cilium/cilium/enterprise/pkg/clustermesh"
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
+	segw "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
@@ -77,6 +78,7 @@ var (
 		rib.Cell,
 		egressgatewayha.Cell,
 		egressgatewayha.PolicyCell,
+		segw.Cell,
 		cell.Invoke(func(*egressgatewayha.Manager) {}),
 
 		ciliummesh.CiliumMeshCell,

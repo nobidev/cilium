@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"go4.org/netipx"
 
+	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/option"
@@ -53,6 +54,7 @@ type PolicyMapV2 interface {
 	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyV2Val4, error)
 	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP netip.Addr, gatewayIPs []netip.Addr, egressIfindex uint32) error
 	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
+	Default(egressIP netip.Addr, egressIfindex uint32) error
 	IterateWithCallback(EgressPolicyV2IterateCallback) error
 }
 
@@ -66,6 +68,7 @@ func createPolicyMapV2FromDaemonConfig(in struct {
 
 	Lifecycle cell.Lifecycle
 	*option.DaemonConfig
+	segwcfg.Config
 	PolicyConfig
 }) (out struct {
 	cell.Out
@@ -77,7 +80,7 @@ func createPolicyMapV2FromDaemonConfig(in struct {
 		"EGRESS_GW_HA_POLICY_MAP_V2_SIZE": fmt.Sprint(in.EgressGatewayHAPolicyMapMax),
 	}
 
-	if !in.EnableIPv4EgressGatewayHA {
+	if !(in.EnableIPv4EgressGatewayHA || in.EnableIPv4StandaloneEgressGateway) {
 		return
 	}
 
@@ -261,6 +264,15 @@ func (m *policyMapV2) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
 	key := NewEgressPolicyV2Key4(sourceIP, destCIDR)
 
 	return m.m.Delete(&key)
+}
+
+// Default configures the default entry that matches all traffic and causes
+// it to egress via the given egressIP.
+func (m *policyMapV2) Default(egressIP netip.Addr, egressIfindex uint32) error {
+	key := EgressPolicyV2Key4{}
+	val := NewEgressPolicyV2Val4(egressIP, []netip.Addr{egressIP}, egressIfindex)
+
+	return m.m.Update(&key, &val)
 }
 
 // EgressPolicyIterateCallback represents the signature of the callback function

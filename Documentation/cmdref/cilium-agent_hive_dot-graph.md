@@ -80,6 +80,7 @@ cilium-agent hive dot-graph [flags]
       --enable-ingress-controller                                      Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-inter-cluster-snat                                      Enable inter-cluster SNAT, to support overlapping PodCIDRs
       --enable-ipv4-big-tcp                                            Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
+      --enable-ipv4-standalone-egress-gateway                          Enable standalone egress gateway for IPv4
       --enable-ipv6-big-tcp                                            Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
@@ -258,6 +259,7 @@ cilium-agent hive dot-graph [flags]
       --restored-proxy-ports-age-limit uint                            Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --router-advertisement-interval duration                         Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled (default 3s)
       --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
+      --standalone-egress-gateway-interface string                     Name of the egress interface for the standalone gateway; if empty, it automatically selects the interface with the default route
       --standalone-egress-gateway-map-max int                          Maximum number of entries in the standalone egress gateway map (default 16384)
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration                    The duration after which a probe is considered failed (default 1m0s)
