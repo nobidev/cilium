@@ -94,7 +94,7 @@ func registerReconcilers(params reconcilerParams) error {
 		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
 		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
 		AccessLog: reconcilerAccesslogConfig{
-			EnableTCP:  params.Config.LoadBalancerCPEnabled,
+			EnableTCP:  params.Config.LoadBalancerCPAccessLogEnableTCP,
 			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
 			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
 			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
