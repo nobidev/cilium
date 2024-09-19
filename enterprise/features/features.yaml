@@ -98,6 +98,36 @@ features:
     helm: 
       enterprise.bgpControlPlane.enabled: true
 
+  Multicast:
+    maturity: Limited
+    description: |
+      Multicast allows user application to distribute data feeds to multiple consumers
+    skip-flag-check: true
+    flags:
+      multicast-enabled: true
+    helm:
+      enterprise.multicast.enabled: true
+
+  ClusterMeshMixedRoutingMode:
+    maturity: Limited
+    description: |
+      Meshing clusters configured with a different primary routing mode
+    skip-flag-check: true
+    flags: # this checks that flag is not empty
+      fallback-routing-mode: "!"
+    helm:
+      enterprise.clustermesh.mixedRoutingMode.enabled: true
+
+  ClusterMeshPhantomServices:
+    maturity: Limited
+    description: |
+      Phantom Services support
+    skip-flag-check: true
+    flags:
+      enable-phantom-services: true
+    helm:
+      enterprise.clustermesh.phantomServices.enabled: true
+
   ##########################################
   # OSS features
   ##########################################
@@ -195,6 +225,16 @@ features:
       routingMode: tunnel
       tunnelProtocol: geneve
 
+  #DatapathNonDefaultDenyPolicies:
+  #  name: Non-default-deny mode
+  #  maturity: Limited
+  #  description: |
+  #    Policies using non-default-deny mode
+  #  flags:
+  #    enable-non-default-deny-policies: true
+  #  helm:
+  #    enableNonDefaultDenyPolicies: true
+
   ### Egress gateway features 
 
   EgressGatewayIPv4:
@@ -251,6 +291,16 @@ features:
     helm:
       enterprise.encryption.policy.enabled: true
 
+  ### Envoy
+
+  EnvoyDaemonSet:
+    maturity: Beta
+    description: |
+      Envoy Proxy in standalone DaemonSet.
+    flags:
+      external-envoy-proxy: true
+    helm:
+      envoy.enabled: true
 
   ### CNI
 
@@ -362,8 +412,58 @@ features:
       Enables the BGP control-plane for Cilium Enterprise
     flags:
       enable-bgp-control-plane: true
-    helm: 
+    helm:
       bgpControlPlane.enabled: true
+
+  ### ClusterMesh
+
+  ClusterMesh:
+    maturity: Stable
+    description: |
+      Multi-cluster Kubernetes powered by Cilium
+    # no flag since there is no corresponding entry in cilium-config
+    helm:
+      clustermesh.config.enabled: true
+
+  ClusterMeshKVStoreMesh:
+    maturity: Limited
+    description: |
+      KVStoreMesh caches the information retrieves from the remote clusters in the local etcd instance
+    # no flag since there is no corresponding entry in cilium-config
+    helm:
+      clustermesh.useAPIServer: true
+      clustermesh.apiserver.kvstoremesh.enabled: true
+
+  ### L7
+
+  L7Proxy:
+    maturity: Stable
+    description: |
+      L7 Cilium Network Policy
+    flags:
+      enable-l7-proxy: true
+    helm:
+      l7Proxy: true
+
+  ### SCTP
+
+  SCTP:
+    maturity: Beta
+    description: |
+      SCTP support
+    flags:
+      enable-sctp: true
+    helm:
+      sctp.enabled: true
+
+  ### CiliumNodeConfig is commented out because it's enabled by default, just sitting dormant until user creates a CRD
+  ### If we want to gate it, we need a mechanism for enabling it, e.g https://github.com/cilium/cilium/pull/34943
+
+  #CiliumNodeConfig:
+  #  maturity: Limited
+  #  description: |
+  #    Use CiliumNodeConfig to configure Cilium agent
+  #  helm-check: "or (kindIs \"invalid\" .daemon.configSources) (mustHas \"cilium-node-config\" .daemon.configSources)"
 
   #######################################################
   # Example feature (this will be ignored by the parser)

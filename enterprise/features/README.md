@@ -57,7 +57,7 @@ can test this in action with the `hive` command (for flags coming from cell.Conf
 
 `helm-gen/main.go` generates a helm template from `features.yaml`. This is invoked
 from `install/kubernetes/Makefile` to generate the helm validation template
-`install/kubernetes/cilium/templates/enterprise_validate_features.yaml`.
+`install/kubernetes/cilium/templates/enterprise_features_validate.yaml`.
 
 To generate to stdout:
 
@@ -65,7 +65,7 @@ To generate to stdout:
 
 To regenerate the template file run:
 
-  cilium$ make -C install/kubernetes cilium/templates/enterprise_validate_features.yaml
+  cilium$ make -C install/kubernetes cilium/templates/enterprise_features_validate.yaml
  
 ## Tests
 
