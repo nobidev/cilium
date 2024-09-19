@@ -360,21 +360,17 @@ func (r *lbServiceT2Translator) toTLSServerNames(tlsHostNames []string) []string
 	return slices.Compact(serverNames)
 }
 
-func (r *lbServiceT2Translator) toTLSCertificateSdsConfigs(model *lbService) []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig {
+func (r *lbServiceT2Translator) toTLSCertificateSdsConfigs(namespace string, tlsConfig *lbServiceTLSConfig) []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig {
+	if tlsConfig == nil {
+		return nil
+	}
+
 	secrets := []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{}
 
-	if model.applications.httpsProxy != nil && model.applications.httpsProxy.tlsConfig != nil {
-		for _, cs := range model.applications.httpsProxy.tlsConfig.certificateSecrets {
-			secrets = append(secrets, &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
-				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
-			})
-		}
-	} else if model.applications.tlsProxy != nil && model.applications.tlsProxy.tlsConfig != nil {
-		for _, cs := range model.applications.tlsProxy.tlsConfig.certificateSecrets {
-			secrets = append(secrets, &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
-				Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, model.namespace, cs),
-			})
-		}
+	for _, cs := range tlsConfig.certificateSecrets {
+		secrets = append(secrets, &envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{
+			Name: fmt.Sprintf("%s/%s-%s", r.config.SecretsNamespace, namespace, cs),
+		})
 	}
 
 	return secrets
@@ -447,7 +443,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 					// By default, a client certificate is optional, unless one of the additional options (require_client_certificate, verify_certificate_spki, verify_certificate_hash, or match_typed_subject_alt_names) is also specified.
 					RequireClientCertificate: r.requiresClientCertificate(validationContext),
 					CommonTlsContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext{
-						TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model),
+						TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model.namespace, model.applications.httpsProxy.tlsConfig),
 						ValidationContextType:          validationContext,
 						AlpnProtocols:                  r.toAlpnProtocols(model),
 						TlsParams:                      tlsParams,
@@ -563,7 +559,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 						// By default, a client certificate is optional, unless one of the additional options (require_client_certificate, verify_certificate_spki, verify_certificate_hash, or match_typed_subject_alt_names) is also specified.
 						RequireClientCertificate: r.requiresClientCertificate(validationContext),
 						CommonTlsContext: &envoy_extensions_transportsockets_tls_v3.CommonTlsContext{
-							TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model),
+							TlsCertificateSdsSecretConfigs: r.toTLSCertificateSdsConfigs(model.namespace, model.applications.tlsProxy.tlsConfig),
 							ValidationContextType:          validationContext,
 							AlpnProtocols:                  r.toAlpnProtocols(model),
 							TlsParams:                      tlsParams,
