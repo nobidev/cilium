@@ -598,22 +598,10 @@ func (r *lbServiceT2Translator) desiredEnvoyHTTPAccessLoggers() []*envoy_config_
 	var hcFilter *envoy_config_accesslog_v3.AccessLogFilter
 
 	if r.config.AccessLog.ExcludeHC {
-		// Exclude T1->T2 HC requests by the user-agent
+		// Exclude T1->T2 HC requests
 		hcFilter = &envoy_config_accesslog_v3.AccessLogFilter{
-			FilterSpecifier: &envoy_config_accesslog_v3.AccessLogFilter_HeaderFilter{
-				HeaderFilter: &envoy_config_accesslog_v3.HeaderFilter{
-					Header: &envoy_config_route_v3.HeaderMatcher{
-						InvertMatch: true,
-						Name:        "user-agent",
-						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-							StringMatch: &envoy_type_matcher_v3.StringMatcher{
-								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
-									Prefix: r.config.T1T2HealthCheck.T1ProbeHttpUserAgentPrefix, // Sent by T1 HC
-								},
-							},
-						},
-					},
-				},
+			FilterSpecifier: &envoy_config_accesslog_v3.AccessLogFilter_NotHealthCheckFilter{
+				NotHealthCheckFilter: &envoy_config_accesslog_v3.NotHealthCheckFilter{},
 			},
 		}
 	}
