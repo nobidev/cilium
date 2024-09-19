@@ -1,0 +1,356 @@
+name: Enterprise Standalone Egress Gateway (ci-standalone-egress-gateway)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 3/6 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: workload
+
+  gatewayNamePfx: gateway
+  gatewayNumber: 2
+
+  internalNetwork: kind
+  externalNetwork: external
+
+jobs:
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  installation-and-connectivity:
+    name: Setup & Test
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout context ref
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      with:
+        ref: ${{ inputs.context-ref || github.sha }}
+        persist-credentials: false
+
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
+
+    - name: Get Cilium's default values
+      id: default_vars
+      uses: ./.github/actions/helm-default
+      with:
+        image-tag: ${{ inputs.SHA }}
+        chart-dir: ./untrusted/install/kubernetes/cilium
+
+    - name: Set up job variables for GHA environment
+      id: vars
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          SHA="${{ inputs.SHA }}"
+        else
+          SHA="${{ github.sha }}"
+        fi
+
+        echo sha=${SHA} >> $GITHUB_OUTPUT
+
+    - name: Install Cilium CLI
+      uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+      with:
+        repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+        release-version: ${{ env.CILIUM_CLI_VERSION }}
+        local-path: './enterprise/cilium-cli'
+
+    - name: Generate Kind configuration file
+      env:
+        PODCIDR: 10.240.0.0/16
+        SVCCIDR: 10.241.0.0/16
+        IPFAMILY: ipv4
+        KUBEPROXYMODE: none
+      run: |
+          envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config.yaml
+
+    - name: Create Workload Kind cluster
+      uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
+      with:
+        cluster_name: ${{ env.clusterName }}
+        version: ${{ env.KIND_VERSION }}
+        node_image: ${{ env.KIND_K8S_IMAGE }}
+        kubectl_version: ${{ env.KIND_K8S_VERSION }}
+        config: ./.github/kind-config.yaml
+        wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+    - name: Wait for images to be available
+      timeout-minutes: 20
+      shell: bash
+      run: |
+        for image in cilium-ci operator-generic-ci; do
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+        done
+
+    # Warning: since this is a privileged workflow, subsequent workflow job
+    # steps must take care not to execute untrusted code.
+    - name: Checkout pull request branch (NOT TRUSTED)
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      with:
+        ref: ${{ steps.vars.outputs.sha }}
+        persist-credentials: false
+        path: untrusted
+        sparse-checkout: |
+          install/kubernetes/cilium
+
+    - name: Install Cilium in workload cluster
+      run: |
+        cilium install \
+          ${{ steps.default_vars.outputs.cilium_install_defaults }} \
+          --set ipv4.enabled=true \
+          --set ipv6.enabled=false \
+          --set kubeProxyReplacement=true \
+          --set bpf.masquerade=true \
+          --set routingMode=native \
+          --set ipv4NativeRoutingCIDR=10.240.0.0/16 \
+          --set enterprise.egressGatewayHA.enabled=true
+
+    - name: Wait for Cilium to be ready
+      run: |
+        cilium status --wait
+
+    - name: Deploy the gateway containers
+      id: gateway
+      run: |
+        docker network create -d=bridge \
+          -o "com.docker.network.bridge.enable_ip_masquerade=true" \
+          --subnet=172.255.0.0/16 \
+          ${{ env.externalNetwork }}
+
+        GATEWAY_IPS=""
+        for i in $(seq 1 ${{ env.gatewayNumber }}); do
+          GATEWAY_NAME=${{ env.gatewayNamePfx}}${i}
+          docker create \
+            --name ${GATEWAY_NAME} \
+            --network ${{ env.internalNetwork }} \
+            --privileged=true \
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} \
+                cilium-agent \
+                --enable-bpf-masquerade=true \
+                --enable-endpoint-health-checking=false \
+                --enable-health-check-nodeport=false \
+                --enable-ipv4=true \
+                --enable-ipv4-masquerade=true \
+                --enable-ipv6=false \
+                --enable-ipv6-masquerade=false \
+                --enable-k8s=false \
+                --enable-l7-proxy=false \
+                --enable-local-node-route=false \
+                --enable-node-port=true \
+                --enable-well-known-identities=false \
+                --identity-allocation-mode=crd \
+                --install-iptables-rules=false \
+                --ipv4-native-routing-cidr=10.255.255.252/30 \
+                --ipv4-range=10.255.255.252/30 \
+                --mesh-auth-enabled=false \
+                --routing-mode=native \
+                --enable-ipv4-standalone-egress-gateway=true \
+                --standalone-egress-gateway-interface=eth1 \
+                --devices=eth0,eth1 \
+                --direct-routing-device=eth0
+
+          docker network connect ${{ env.externalNetwork }} $GATEWAY_NAME
+          docker start $GATEWAY_NAME
+
+          GATEWAY_IP_INTERNAL=$(docker inspect -f json $GATEWAY_NAME | jq '.[0].NetworkSettings.Networks.${{ env.internalNetwork }}.IPAddress')
+          GATEWAY_IP_EXTERNAL=$(docker inspect -f json $GATEWAY_NAME | jq '.[0].NetworkSettings.Networks.${{ env.externalNetwork }}.IPAddress')
+          GATEWAY_IPS="${GATEWAY_IPS} ${GATEWAY_IP_EXTERNAL//\"/}"
+
+          cat << EOF | kubectl apply -f -
+          apiVersion: cilium.io/v2
+          kind: CiliumNode
+          metadata:
+            name: ${GATEWAY_NAME}
+            labels:
+              egw-node: "true"
+            annotations:
+              cilium.io/do-not-gc: "true"
+          spec:
+            addresses:
+            - ip: ${GATEWAY_IP_INTERNAL}
+              type: InternalIP
+        EOF
+        # ^^ The heredoc here needs to be indented this way.
+        done
+
+        echo ips=${GATEWAY_IPS/ /} >> $GITHUB_OUTPUT
+
+    - name: Deploy the external application
+      id: app
+      run: |
+        docker run -d --name httpbin --network ${{ env.externalNetwork }} kennethreitz/httpbin
+        APP_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' httpbin)
+        echo ip=${APP_IP} >> $GITHUB_OUTPUT
+
+    - name: Deploy the client application
+      run: |
+        cat << EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: netshoot
+          labels:
+            app: netshoot
+        spec:
+          containers:
+          - name: netshoot
+            image: nicolaka/netshoot:v0.9
+            command: ["sleep", "infinite"]
+        EOF
+
+        kubectl wait pods -l app=netshoot --for condition=Ready --timeout=300s
+
+    - name: Deploy the egress gateway policy
+      run: |
+        cat << EOF | kubectl apply -f -
+        apiVersion: isovalent.com/v1
+        kind: IsovalentEgressGatewayPolicy
+        metadata:
+          name: egress
+        spec:
+          destinationCIDRs:
+          - "172.255.0.0/16"
+          selectors:
+          - podSelector:
+              matchLabels:
+                io.kubernetes.pod.namespace: default
+                app: netshoot
+          egressGroups:
+          - nodeSelector:
+              matchLabels:
+                egw-node: "true"
+        EOF
+
+    - name: Wait for BPF policy entries
+      run: |
+        NODE=$(kubectl get pod netshoot -o jsonpath='{.spec.nodeName}')
+        CILIUM_POD=$(kubectl get po -n kube-system \
+          -l app.kubernetes.io/name=cilium-agent \
+          --field-selector spec.nodeName=${NODE} \
+          -o jsonpath='{.items[*].metadata.name}')
+
+        for i in $(seq 1 30); do
+          echo "Checking the BPF policy entries..."
+          GATEWAYS=$(kubectl exec -n kube-system ${CILIUM_POD} -c cilium-agent -- \
+            cilium-dbg bpf egress-ha list -o json | \
+              jq '.[0].GatewayIPs | length')
+
+          if [[ $GATEWAYS == ${{ env.gatewayNumber }} ]]; then
+            echo "The BPF policy map contains the expected entries"
+            kubectl exec -n kube-system ${CILIUM_POD} -c cilium-agent -- cilium-dbg bpf egress-ha list
+            exit 0
+          fi
+
+          sleep 1
+        done
+
+        echo "The BPF policy map does not contain the expected entries"
+        kubectl exec -n kube-system ${CILIUM_POD} -c cilium-agent -- cilium-dbg bpf egress-ha list
+        exit 1
+
+    - name: Ensure that traffic to the external application gets correctly masqueraded
+      shell: bash # Implicitly enables -e -o pipefail
+      run: |
+        EXPECTED="${{ steps.gateway.outputs.ips }}"
+
+        for i in $(seq 1 100); do
+          # Make a request to service and get origin IP address returned from server
+          GOT=$(kubectl exec netshoot -- curl --max-time 2 -s http://${{ steps.app.outputs.ip }}/get | jq -r .origin)
+
+          if [[ ! ${EXPECTED} =~ (^|[[:space:]])${GOT}($|[[:space:]]) ]]; then
+            echo "Connectivity test failed. Expected: ${EXPECTED}, Got: ${GOT}"
+            exit 1
+          fi
+
+          echo "Successfully connected to the backend application, source IP: ${GOT}"
+        done
+
+    - name: Post-test information gathering
+      if: ${{ !success() }}
+      run: |
+        cilium status
+        kubectl get pods --all-namespaces -o wide
+
+        mkdir -p sysdumps
+        cilium sysdump --output-filename sysdumps/cilium-sysdump-final
+
+        for i in $(seq 1 ${{ env.gatewayNumber }}); do
+          GATEWAY_NAME=${{ env.gatewayNamePfx}}${i}
+          docker exec ${GATEWAY_NAME} cilium-bugtool --archive -o gz -t - > sysdumps/${GATEWAY_NAME}-bugtool.tar.gz
+          docker logs ${GATEWAY_NAME} 2> sysdumps/${GATEWAY_NAME}-logs.txt
+        done
+      shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+    - name: Upload artifacts
+      if: ${{ !success() }}
+      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      with:
+        name: cilium-sysdumps
+        path: sysdumps
+        retention-days: 5
+
+  commit-status-final:
+    name: Commit Status Final
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.installation-and-connectivity.result }}

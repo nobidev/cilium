@@ -69,6 +69,9 @@ triggers:
   /ci-ingress-policy:
     workflows:
     - enterprise-ingress-policy.yaml
+  /ci-standalone-egress-gateway:
+    workflows:
+    - enterprise-standalone-egress-gateway.yaml
 
 schedule:
   nightly:
@@ -101,4 +104,6 @@ workflows:
   enterprise-conformance-openshift.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   enterprise-ingress-policy.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
+  enterprise-standalone-egress-gateway.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
