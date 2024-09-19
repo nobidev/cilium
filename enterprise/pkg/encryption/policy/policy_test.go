@@ -68,6 +68,7 @@ func newTestEngine(t testing.TB) (
 		reconciler:          &mockReconciler{},
 		policyInitializer:   func(txn statedb.WriteTxn) {},
 		identityInitializer: func(txn statedb.WriteTxn) {},
+		metrics:             newEncryptionPolicyMetrics(),
 		rulesRevision:       0,
 		rulesByResource:     map[resource.Key][]*encryptionRule{},
 	}

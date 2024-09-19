@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
@@ -48,6 +49,9 @@ var Cell = cell.Module(
 	// Register StateDB table
 	cell.Provide(NewEncryptionPolicyTable),
 	cell.Invoke(statedb.RegisterTable[*EncryptionPolicyEntry]),
+
+	// Metrics
+	metrics.Metric(newEncryptionPolicyMetrics),
 
 	// Provide BPF datapath configuration, BPF map pressure metrics and BPF map reconciler
 	cell.Provide(newNodeConfig),
@@ -94,6 +98,8 @@ type engineParams struct {
 	StateDB     *statedb.DB
 	PolicyTable statedb.RWTable[*EncryptionPolicyEntry]
 	Reconciler  reconciler.Reconciler[*EncryptionPolicyEntry]
+
+	Metrics *encryptionPolicyMetrics
 }
 
 // newSelectiveEncryptionEngine creates a new instance of encryption policy engine
@@ -126,6 +132,8 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 		policyInitializer:   policyInitializer,
 		identityInitializer: identityInitializer,
+
+		metrics: params.Metrics,
 
 		rulesByResource: map[resource.Key][]*encryptionRule{},
 	}
@@ -180,6 +188,8 @@ type Engine struct {
 	reconciler          reconciler.Reconciler[*EncryptionPolicyEntry]
 	policyInitializer   func(txn statedb.WriteTxn)
 	identityInitializer func(txn statedb.WriteTxn)
+
+	metrics *encryptionPolicyMetrics
 
 	// rulesMutex protects access to rulesRevision and rulesByResource, but not
 	// to the stored encryptionRule themselves (they are immutable and might

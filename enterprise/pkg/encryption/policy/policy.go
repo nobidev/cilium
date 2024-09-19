@@ -208,6 +208,11 @@ func (e *Engine) replaceRules(resourceKey resource.Key, rules []parsedSelectorRu
 		}
 	}
 
+	// Update metric if needed
+	if e.metrics.EncryptionPolicyRules.IsEnabled() {
+		e.metrics.EncryptionPolicyRules.Add(float64(len(newRules) - len(oldRules)))
+	}
+
 	return newRules, oldRuleKeys
 }
 
