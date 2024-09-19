@@ -90,29 +90,7 @@ func registerReconcilers(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
-	reconcilerConfig := reconcilerConfig{
-		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
-		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
-		AccessLog: reconcilerAccesslogConfig{
-			EnableTCP:  params.Config.LoadBalancerCPAccessLogEnableTCP,
-			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
-			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
-			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
-			ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
-		},
-		RequestID: reconcilerRequestIDConfig{
-			Generate: params.Config.LoadBalancerCPRequestIDGenerate,
-			Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
-			Response: params.Config.LoadBalancerCPRequestIDResponse,
-		},
-		T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
-			T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
-			T1ProbeHttpPath:                    "/health",
-			T1ProbeHttpMethod:                  "GET",
-			T1ProbeHttpUserAgentPrefix:         "cilium-probe/",
-			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
-		},
-	}
+	reconcilerConfig := mapReconcilerConfig(params)
 
 	lbServiceReconciler := newLbServiceReconciler(
 		params.Logger,
@@ -156,6 +134,32 @@ func registerReconcilers(params reconcilerParams) error {
 	})
 
 	return nil
+}
+
+func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
+	return reconcilerConfig{
+		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
+		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
+		AccessLog: reconcilerAccesslogConfig{
+			EnableTCP:  params.Config.LoadBalancerCPAccessLogEnableTCP,
+			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
+			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
+			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
+			ExcludeHC:  params.Config.LoadBalancerCPAccessLogExcludeHC,
+		},
+		RequestID: reconcilerRequestIDConfig{
+			Generate: params.Config.LoadBalancerCPRequestIDGenerate,
+			Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
+			Response: params.Config.LoadBalancerCPRequestIDResponse,
+		},
+		T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
+			T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+			T1ProbeHttpPath:                    "/health",
+			T1ProbeHttpMethod:                  "GET",
+			T1ProbeHttpUserAgentPrefix:         "cilium-probe/",
+			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
+		},
+	}
 }
 
 // registerSecretSync registers the LoadBalancer controlplane for secret synchronization based on TLS secrets referenced
