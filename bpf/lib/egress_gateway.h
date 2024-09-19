@@ -220,14 +220,24 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 {
 	if (egress_gw_reply_matches_policy(ip4) ||
 	    egress_gw_ha_reply_matches_policy(ip4)) {
-		struct remote_endpoint_info *info;
+		struct remote_endpoint_info *info  __maybe_unused;
+		struct egress_gw_standalone_entry *segw_entry __maybe_unused;
 
+#if !defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (!info || !info->flag_has_tunnel_ep)
 			return false;
 
 		*tunnel_endpoint = info->tunnel_endpoint.ip4;
 		*dst_sec_identity = info->sec_identity;
+#else
+		segw_entry = lookup_ip4_segw(ip4->daddr);
+		if (!segw_entry || segw_entry->tunnel_endpoint == 0)
+			return false;
+
+		*tunnel_endpoint = segw_entry->tunnel_endpoint;
+		*dst_sec_identity = segw_entry->sec_identity;
+#endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
 
 		return true;
 	}

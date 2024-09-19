@@ -52,6 +52,15 @@ struct egress_gw_ha_ct_entry *lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
 	return map_lookup_elem(&EGRESS_GW_HA_CT_MAP, ct_key);
 }
 
+#ifdef ENABLE_EGRESS_GATEWAY_STANDALONE
+struct egress_gw_standalone_entry *lookup_ip4_segw(__be32 addr)
+{
+	struct egress_gw_standalone_key segw_key = { .endpoint_ip = addr };
+
+	return map_lookup_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key);
+}
+#endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
+
 static __always_inline
 void update_egress_gw_ha_ct_entry(struct ipv4_ct_tuple *ct_key, __be32 gateway)
 {
@@ -214,6 +223,30 @@ egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 #else
 	return false;
 #endif /* ENABLE_EGRESS_GATEWAY_HA */
+}
+
+static __always_inline
+int egress_gw_standalone_map_update(struct __ctx_buff *ctx __maybe_unused,
+				    __be32 saddr __maybe_unused,
+				    __u32 src_sec_identity __maybe_unused)
+{
+#if defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
+	struct bpf_tunnel_key tunnel_key = {};
+	struct egress_gw_standalone_key segw_key = { .endpoint_ip = saddr };
+	struct egress_gw_standalone_entry segw_value = {};
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+
+	if (unlikely(ctx_get_tunnel_key(ctx, &tunnel_key, key_size, 0) < 0))
+		return DROP_NO_TUNNEL_KEY;
+
+	segw_value.tunnel_endpoint = bpf_htonl(tunnel_key.remote_ipv4);
+	segw_value.sec_identity = src_sec_identity;
+	if (unlikely(map_update_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key,
+				     &segw_value, BPF_ANY) != 0))
+		return DROP_WRITE_ERROR;
+#endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
+
+	return CTX_ACT_OK;
 }
 
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */

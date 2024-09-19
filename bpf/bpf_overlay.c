@@ -485,6 +485,10 @@ not_esp:
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 				return DROP_NO_EGRESS_IP;
 
+			ret = egress_gw_standalone_map_update(ctx, ip4->saddr, *identity);
+			if (unlikely(ret != CTX_ACT_OK))
+				return ret;
+
 			ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
 			if (unlikely(ret != CTX_ACT_OK))
 				return ret;
