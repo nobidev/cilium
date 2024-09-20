@@ -6,8 +6,10 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"slices"
 	"sort"
@@ -1169,4 +1171,112 @@ func (s *egressGatewayHAIPAMMultipleGateways) Run(ctx context.Context, t *check.
 			t.Fatalf("No request has gone through gateway with egress IP %s", egressIP)
 		}
 	}
+}
+
+// IPAMEgressCIDRs returns the IPv4 egress CIDRs to be used in IsovalentEgressGatewayPolicy for IPAM.
+// First, it looks for user-specified CIDRs. If there aren't any, it tries to auto-detect the
+// native routing CIDR from the local address and mask of the interface managing the default route.
+// Then the egress CIDR to use is calculated as a subset of the native routing CIDR.
+// In case of error, it returns a nil slice.
+func IPAMEgressCIDRs(ctx context.Context, t *check.Test, ct *check.ConnectivityTest) []string {
+	// user-specified CIDRs take precedence
+	if len(Params.EgressGateway.CIDRs) != 0 {
+		return Params.EgressGateway.CIDRs
+	}
+
+	// detect native routing CIDR or fallback to default values in case of error
+	nativeCIDR, err := nativeRoutingCIDR(ctx, ct)
+	if err != nil {
+		t.Logf("Failed to get native routing CIDR: %s", err)
+		return nil
+	}
+	t.Logf("Detected native routing CIDR %s", nativeCIDR.String())
+
+	egressCIDR, err := egressCIDRFromNative(nativeCIDR)
+	if err != nil {
+		t.Logf("Failed to reserve an egress CIDR from native routing CIDR: %s", err)
+		return nil
+	}
+
+	return []string{egressCIDR.String()}
+}
+
+func nativeRoutingCIDR(ctx context.Context, ct *check.ConnectivityTest) (netip.Prefix, error) {
+	var ciliumPod *check.Pod
+	for _, pod := range ct.CiliumPods() {
+		ciliumPod = &pod
+	}
+	if ciliumPod == nil {
+		return netip.Prefix{}, errors.New("unable to find any Cilium pod")
+	}
+
+	// get iface managing default route
+	cmd := []string{"/bin/sh", "-c", "ip --family inet --json route show default | jq -j -r '.[0].dev'"}
+	stdout, err := ct.K8sClient().ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("failed to get interface managing default route: %w", err)
+	}
+	iface := strings.TrimSpace(stdout.String())
+
+	// get iface local address
+	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info.[0].local'", iface)}
+	stdout, err = ct.K8sClient().ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("failed to get interface %s address: %w", iface, err)
+	}
+	addr := stdout.String()
+
+	// get iface local address mask bitlen
+	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info.[0].prefixlen'", iface)}
+	stdout, err = ct.K8sClient().ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("failed to get interface %s mask bitlen: %w", iface, err)
+	}
+	bits := stdout.String()
+
+	prefix, err := netip.ParsePrefix(fmt.Sprintf("%s/%s", addr, bits))
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return prefix.Masked(), nil
+}
+
+func egressCIDRFromNative(nativeCIDR netip.Prefix) (netip.Prefix, error) {
+	notEnoughAddrs := errors.New("not enough addresses in native routing CIDR")
+
+	if nativeCIDR.Bits() >= 30 {
+		return netip.Prefix{}, notEnoughAddrs
+	}
+
+	bitlen := nativeCIDR.Bits()
+	if bitlen > 28 {
+		// for egwha IPAM tests we need at least a total of 7 addresses:
+		// - 4 address for the kind cluster
+		//   - 1 controlplane node
+		//   - 2 worker nodes
+		//   - 1 worker node without Cilium
+		// - 3 addresses to be allocated through IPAM to each node managed by Cilium
+		//
+		// Moreover, we have to consider that the addresses allocation for the cluster does not
+		// start with the first available IP (as an example, for a kind cluster the first IP used
+		// for a node is usually 172.18.0.2, taken from a native routing CIDR equal to 172.18.0.0/16).
+		//
+		// Therefore, in order to extract an egress CIDR wide enough to fulfill the allocations needed
+		// for the tests, while not overlapping with the initial allocations for the nodes, we require
+		// at least a "/28" CIDR.
+		return netip.Prefix{}, notEnoughAddrs
+	}
+
+	// avoid using the first 8 addresses in the native routing CIDR as
+	// they might be already used for the nodes.
+	first := nativeCIDR.Addr()
+	for range 8 {
+		first = first.Next()
+	}
+	if !first.IsValid() {
+		return netip.Prefix{}, notEnoughAddrs
+	}
+
+	return netip.PrefixFrom(first, 30), nil
 }

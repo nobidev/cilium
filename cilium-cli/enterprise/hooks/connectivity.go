@@ -11,6 +11,7 @@
 package hooks
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 
@@ -90,7 +91,7 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 }
 
 func (ec *EnterpriseConnectivity) addConnectivityTestFlags(flags *pflag.FlagSet) {
-	flags.StringSliceVar(&enterpriseTests.Params.EgressGateway.CIDRs, "egw-ipam-cidrs", defaults.EgressGatewayCIDRsDefault, "CIDRs to use to allocate Egress IPs in egress gateway ha ipam connectivity tests")
+	flags.StringSliceVar(&enterpriseTests.Params.EgressGateway.CIDRs, "egw-ipam-cidrs", nil, "CIDRs to use to allocate Egress IPs in egress gateway ha ipam connectivity tests")
 	flags.UintVar(&enterpriseTests.Params.EgressGateway.Retry, "egw-ipam-retry", defaults.EgressGatewayConnectRetryDefault, "Number of retries on connection failure to external targets for egress gateway ha IPAM tests")
 	flags.DurationVar(&enterpriseTests.Params.EgressGateway.RetryDelay, "egw-ipam-retry-delay", defaults.EgressGatewayConnectRetryDelayDefault, "Delay between retries to external targets for egress gateway ha IPAM tests")
 }
@@ -228,12 +229,30 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			WithScenarios(enterpriseTests.EgressGatewayAZAffinity())
 	}
 
+	newIPAMTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {
+		et := enterpriseCheck.NewEnterpriseConnectivityTest(ct).
+			NewEnterpriseTestWithoutSetup(name).
+			WithFeatureRequirements(
+				features.RequireEnabled(enterpriseFeatures.EgressGatewayHA),
+				features.RequireEnabled(features.NodeWithoutCilium))
+		et.WithSetupFunc(func(ctx context.Context, t *check.Test, ct *check.ConnectivityTest) error {
+			// get egress CIDRs to be used for IPAM before applying the policies
+			egressCIDRs := enterpriseTests.IPAMEgressCIDRs(ctx, t, ct)
+			if len(egressCIDRs) == 0 {
+				egressCIDRs = defaults.EgressGatewayCIDRsDefault
+			}
+			t.Logf("Using egress CIDRs %v for IEGP IPAM", egressCIDRs)
+			et.WithEgressCIDRsforIEGP("iegp-sample-client", egressCIDRs)
+			return et.Setup(ctx)
+		})
+		return et
+	}
+
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-ipam").
+		newIPAMTest(ct, "egress-gateway-ha-ipam").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
-				EgressCIDRs:     enterpriseTests.Params.EgressGateway.CIDRs,
 				EgressGroup:     enterpriseCheck.SingleGateway,
 			}).
 			WithIPRoutesFromOutsideToPodCIDRs().
@@ -241,11 +260,10 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-ipam-multiple-gateways").
+		newIPAMTest(ct, "egress-gateway-ha-ipam-multiple-gateways").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
-				EgressCIDRs:     enterpriseTests.Params.EgressGateway.CIDRs,
 				EgressGroup:     enterpriseCheck.AllCiliumNodes,
 			}).
 			WithIPRoutesFromOutsideToPodCIDRs().

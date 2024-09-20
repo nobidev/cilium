@@ -88,9 +88,6 @@ type IsovalentEgressGatewayPolicyParams struct {
 	// PodSelectorKind is used to select the client pods. The parameter is used to select pods with a matching "kind" label
 	PodSelectorKind string
 
-	// EgressCIDRs is the list of CIDRs used to allocate egress IPs for the policy
-	EgressCIDRs []string
-
 	// EgressGroup controls how the egressGroup of the policy should be configured
 	EgressGroup EgressGroupKind
 
@@ -179,12 +176,6 @@ func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgress
 			}
 		}
 
-		egressCIDRs := make([]isovalentv1.IPv4CIDR, 0, len(params.EgressCIDRs))
-		for _, cidr := range params.EgressCIDRs {
-			egressCIDRs = append(egressCIDRs, isovalentv1.IPv4CIDR(cidr))
-		}
-		pl[i].Spec.EgressCIDRs = egressCIDRs
-
 		if params.AZAffinity == "" {
 			params.AZAffinity = "disabled"
 		}
@@ -196,6 +187,26 @@ func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgress
 	}
 
 	t.WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.EgressGatewayHA))
+
+	return t
+}
+
+func (t *EnterpriseTest) WithEgressCIDRsforIEGP(name string, cidrs []string) *EnterpriseTest {
+	var target *isovalentv1.IsovalentEgressGatewayPolicy
+	for _, iegp := range t.iegps {
+		if iegp.Name == name {
+			target = iegp
+		}
+	}
+	if target == nil {
+		return t
+	}
+
+	egressCIDRs := make([]isovalentv1.IPv4CIDR, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		egressCIDRs = append(egressCIDRs, isovalentv1.IPv4CIDR(cidr))
+	}
+	target.Spec.EgressCIDRs = egressCIDRs
 
 	return t
 }
