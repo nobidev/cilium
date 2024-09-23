@@ -33,6 +33,15 @@ struct egress_gw_ha_ct_entry {
 	__be32 gateway_ip;
 };
 
+struct egress_gw_standalone_key {
+	__be32 endpoint_ip;
+};
+
+struct egress_gw_standalone_entry {
+	__be32 sec_identity;
+	__be32 tunnel_endpoint;
+};
+
 #define ENCRYPTION_POLICY_FULL_PREFIX						\
   (8 * (sizeof(struct encryption_policy_key) - sizeof(struct bpf_lpm_trie_key)))
 

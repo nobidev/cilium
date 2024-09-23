@@ -22,6 +22,9 @@ var Cell = cell.Module(
 	cell.Config(DefaultPolicyConfig),
 	cell.Provide(createPolicyMapV2FromDaemonConfig),
 	cell.Provide(createCtMapFromDaemonConfig),
+
+	cell.Config(DefaultSEGWMapConfig),
+	cell.Provide(segwMapDefines),
 )
 
 type PolicyConfig struct {

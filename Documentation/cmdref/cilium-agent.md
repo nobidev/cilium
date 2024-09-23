@@ -440,6 +440,7 @@ cilium-agent [flags]
       --service-no-backend-response string                             Response to traffic for a service without backends (default "reject")
       --socket-path string                                             Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
+      --standalone-egress-gateway-map-max int                          Maximum number of entries in the standalone egress gateway map (default 16384)
       --state-dir string                                               Directory path to store runtime state (default "/var/run/cilium")
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration                    The duration after which a probe is considered failed (default 1m0s)

@@ -253,6 +253,7 @@ cilium-agent hive [flags]
       --restored-proxy-ports-age-limit uint                            Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --router-advertisement-interval duration                         Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled (default 3s)
       --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
+      --standalone-egress-gateway-map-max int                          Maximum number of entries in the standalone egress gateway map (default 16384)
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration                    The duration after which a probe is considered failed (default 1m0s)
       --status-collector-interval duration                             The interval between probe invocations (default 5s)
