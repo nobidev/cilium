@@ -19,6 +19,7 @@ func enterpriseCommands(confDir string, _ string) []string {
 		"tc/globals/cilium_egress_gw_ha_policy_v4",
 		"tc/globals/cilium_egress_gw_ha_policy_v4_v2",
 		"tc/globals/cilium_egress_gw_ha_ct_v4",
+		"tc/globals/cilium_egress_gw_standalone_v4",
 		"tc/globals/cilium_encryption_policy_map",
 	}
 	bpfCommands := bpfMapDumpCommands(bpfMapsPath)
@@ -26,6 +27,7 @@ func enterpriseCommands(confDir string, _ string) []string {
 	infoCommands := []string{
 		"cilium-dbg bpf egress-ha list",
 		"cilium-dbg bpf egress-ha ct list",
+		"cilium-dbg bpf egress-ha standalone list",
 	}
 	return append(bpfCommands, infoCommands...)
 }
