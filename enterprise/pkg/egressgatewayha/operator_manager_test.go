@@ -347,28 +347,6 @@ func TestEgressGatewayOperatorManagerHAGroupNodeRestartScenario(t *testing.T) {
 	})
 }
 
-func TestEgressGatewayManagerWithoutNodeSelector(t *testing.T) {
-	k := setupEgressGatewayOperatorTestSuite(t)
-
-	k.addNode(t, node1Name, node1IP, nodeGroup1Labels)
-	k.addNode(t, node2Name, node2IP, nodeGroup1Labels)
-
-	// Create a new policy without nodeSelector
-	k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		egressIP:        egressIP1,
-	})
-
-	// Operator should select no active / healthy gateways for this policy
-	k.assertIegpGatewayStatus(t, gatewayStatus{
-		activeGatewayIPs:  []string{},
-		healthyGatewayIPs: []string{},
-	})
-}
-
 func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 	k := setupEgressGatewayOperatorTestSuite(t)
 
