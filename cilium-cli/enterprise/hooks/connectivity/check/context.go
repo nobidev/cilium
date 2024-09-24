@@ -45,21 +45,16 @@ func NewEnterpriseConnectivityTest(ct *check.ConnectivityTest) *EnterpriseConnec
 
 //nolint:misspell
 func (ect *EnterpriseConnectivityTest) NewEnterpriseTest(name string) *EnterpriseTest {
-	ct := check.NewTest(name, ect.ConnectivityTest.Params().Verbose, ect.ConnectivityTest.Params().Debug)
-	ect.ConnectivityTest.AddTest(ct)
-	et := EnterpriseTest{
-		Test:         ct,
-		ctx:          ect,
-		iegps:        make(map[string]*isovalentv1.IsovalentEgressGatewayPolicy),
-		imgs:         make(map[string]*isovalentv1alpha1.IsovalentMulticastGroup),
-		mcastDeploys: make(map[string]*appsv1.Deployment),
-	}
-
-	ct.WithSetupFunc(func(ctx context.Context, t *check.Test, ct *check.ConnectivityTest) error {
-		return et.setup(ctx)
+	et := ect.newEnterpriseTest(name)
+	et.Test.WithSetupFunc(func(ctx context.Context, t *check.Test, ct *check.ConnectivityTest) error {
+		return et.Setup(ctx)
 	})
+	return et
+}
 
-	return &et
+//nolint:misspell
+func (ect *EnterpriseConnectivityTest) NewEnterpriseTestWithoutSetup(name string) *EnterpriseTest {
+	return ect.newEnterpriseTest(name)
 }
 
 //nolint:misspell
@@ -71,4 +66,19 @@ func (ect *EnterpriseTest) WithFeatureRequirements(reqs ...features.Requirement)
 //nolint:misspell
 func (ect *EnterpriseConnectivityTest) EntClients() []*enterpriseK8s.EnterpriseClient {
 	return ect.clients.clients()
+}
+
+//nolint:misspell
+func (ect *EnterpriseConnectivityTest) newEnterpriseTest(name string) *EnterpriseTest {
+	ct := check.NewTest(name, ect.ConnectivityTest.Params().Verbose, ect.ConnectivityTest.Params().Debug)
+	ect.ConnectivityTest.AddTest(ct)
+	et := EnterpriseTest{
+		Test:         ct,
+		ctx:          ect,
+		iegps:        make(map[string]*isovalentv1.IsovalentEgressGatewayPolicy),
+		imgs:         make(map[string]*isovalentv1alpha1.IsovalentMulticastGroup),
+		mcastDeploys: make(map[string]*appsv1.Deployment),
+	}
+
+	return &et
 }

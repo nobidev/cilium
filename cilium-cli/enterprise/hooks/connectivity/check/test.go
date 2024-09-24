@@ -293,7 +293,7 @@ func (t *EnterpriseTest) WithScenarios(sl ...check.Scenario) *EnterpriseTest {
 	return t
 }
 
-func (t *EnterpriseTest) setup(ctx context.Context) error {
+func (t *EnterpriseTest) Setup(ctx context.Context) error {
 	if err := t.applyPolicies(ctx); err != nil {
 		t.CiliumLogs(ctx)
 		return fmt.Errorf("applying policies: %w", err)
