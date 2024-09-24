@@ -171,6 +171,9 @@ jobs:
           "
           echo "cilium_newest_install=${CILIUM_NEWEST_INSTALL}" >> $GITHUB_OUTPUT
 
+          CILIUM_NEWEST_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA}"
+          echo "cilium_newest_image=${CILIUM_NEWEST_IMAGE}" >> $GITHUB_OUTPUT
+
           # Base cilium-dnsproxy installation config
           DNSPROXY_BASE_INSTALL=" \
             -n kube-system \
@@ -339,10 +342,10 @@ jobs:
 
       # Step 3: Upgrade FQDN HA to PR/HEAD and run FQDN HA specific tests.
 
-      - name: 3. Bring Cilium up
+      - name: 3. Bring Cilium up again
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          cilium upgrade ${{ steps.vars.outputs.cilium_newest_install }}
+          ./enterprise/fqdn-proxy/scripts/bring-cilium-up.sh ${{ steps.vars.outputs.cilium_newest_image }}
           cilium status --wait
 
       - name: 3. Upgrade Cilium DNS proxy ${{ steps.vars.outputs.sha }}
