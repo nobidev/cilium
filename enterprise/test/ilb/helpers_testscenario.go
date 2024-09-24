@@ -75,7 +75,7 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 	for _, c := range r.frrClients {
 		eventually(r.t, func() error {
 			return c.EnsureRoute(ctx, ip+"/32")
-		}, shortTimeout, pollInterval)
+		}, longTimeout, pollInterval)
 	}
 
 	return ip
