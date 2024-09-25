@@ -7,6 +7,8 @@ This package defines features and feature gates for Cilium Enterprise.
 1. Edit features.yaml to add in the new feature.
 
 2. Test that the flags refer to real flags: `go test ./enterprise/features/...`
+   NOTE: Currently validating only against the flags in OSS agent&operator,
+   set 'skip-flag-check' when adding enterprise-only flag.
 
 3. Update the generated helm validation:
    `make -C install/kubernetes cilium/templates/enterprise_features_validate.yaml`.

@@ -57,6 +57,9 @@ type YAMLFeature struct {
 	// the value is checked to be parseable as such, but enumerations are not validated!
 	Flags map[string]string `yaml:"flags"`
 
+	// SkipFlagCheck causes 'tests/validate_test.go' to skip checking this flag.
+	SkipFlagCheck bool `yaml:"skip-flag-check"`
+
 	// Helm is the helm options to enable the feature.
 	Helm map[string]string `yaml:"helm"`
 

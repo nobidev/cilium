@@ -55,6 +55,7 @@ features:
     description: Enable SRv6 support
     flags:
       enable-srv6: true
+    skip-flag-check: true
     helm: 
       enterprise.srv6.enabled: true
 
@@ -64,6 +65,7 @@ features:
       Provides functionality for attaching multiple network interfaces to Pods
     flags:
       enable-multi-network: true
+    skip-flag-check: true
     helm:
       enterprise.multiNetwork.enabled: true
 
@@ -73,6 +75,7 @@ features:
       Enables external DNS proxy for high availability
     flags:
       external-dns-proxy: true
+    skip-flag-check: true
     helm-check: "get .extraConfig \"external-dns-proxy\""
 
   EgressGatewayHA:
@@ -81,6 +84,7 @@ features:
       Egress Gateway High Availability, enabled by having egress-gateway-ha set to true
     flags:
       enable-ipv4-egress-gateway-ha: true
+    skip-flag-check: true
     helm: 
       enterprise.egressGatewayHA.enabled: true
 
@@ -90,6 +94,7 @@ features:
       Enables the enterprise BGP control-plane for Cilium Enterprise
     flags:
       enable-enterprise-bgp-control-plane: true
+    skip-flag-check: true
     helm: 
       enterprise.bgpControlPlane.enabled: true
 
