@@ -128,6 +128,29 @@ spec:
                         - message: At least one http version must be enabled
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
+                      rateLimits:
+                        description: Optional global rate limit configuration for
+                          the HTTP proxy application. Currently, this is only a local
+                          rate limit (enforced on each LB node individually).
+                        properties:
+                          connections:
+                            description: Rate limiting on connection basis. It is
+                              applied and enforced when the connection is established.
+                            properties:
+                              limit:
+                                minimum: 1
+                                type: integer
+                              timePeriodSeconds:
+                                minimum: 1
+                                type: integer
+                            required:
+                            - limit
+                            - timePeriodSeconds
+                            type: object
+                        type: object
+                        x-kubernetes-validations:
+                        - message: At least one rate limit must be configured
+                          rule: (has(self.connections))
                       routes:
                         description: The HTTP routing configuration.
                         items:
@@ -236,6 +259,30 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
+                            rateLimits:
+                              description: Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced
+                                on each LB node individually).
+                              properties:
+                                requests:
+                                  description: Configure max allowed requests for
+                                    the HTTP route. It is applied and enforced before
+                                    routing the HTTP request.
+                                  properties:
+                                    limit:
+                                      minimum: 1
+                                      type: integer
+                                    timePeriodSeconds:
+                                      minimum: 1
+                                      type: integer
+                                  required:
+                                  - limit
+                                  - timePeriodSeconds
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one rate limit must be configured
+                                rule: (has(self.requests))
                             requestFiltering:
                               description: |-
                                 The optional request filtering configuration for this HTTP route.
@@ -392,6 +439,29 @@ spec:
                         - message: At least one http version must be enabled
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
+                      rateLimits:
+                        description: Optional global rate limit configuration for
+                          the HTTPS proxy application. Currently, this is only a local
+                          rate limit (enforced on each LB node individually).
+                        properties:
+                          connections:
+                            description: Rate limiting on connection basis. It is
+                              applied and enforced when the connection is established.
+                            properties:
+                              limit:
+                                minimum: 1
+                                type: integer
+                              timePeriodSeconds:
+                                minimum: 1
+                                type: integer
+                            required:
+                            - limit
+                            - timePeriodSeconds
+                            type: object
+                        type: object
+                        x-kubernetes-validations:
+                        - message: At least one rate limit must be configured
+                          rule: (has(self.connections))
                       routes:
                         description: The HTTP routing configuration.
                         items:
@@ -500,6 +570,30 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
+                            rateLimits:
+                              description: Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced
+                                on each LB node individually).
+                              properties:
+                                requests:
+                                  description: Configure max allowed requests for
+                                    the HTTP route. It is applied and enforced before
+                                    routing the HTTP request.
+                                  properties:
+                                    limit:
+                                      minimum: 1
+                                      type: integer
+                                    timePeriodSeconds:
+                                      minimum: 1
+                                      type: integer
+                                  required:
+                                  - limit
+                                  - timePeriodSeconds
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one rate limit must be configured
+                                rule: (has(self.requests))
                             requestFiltering:
                               description: |-
                                 The optional request filtering configuration for this HTTP route.
@@ -837,6 +931,30 @@ spec:
                               x-kubernetes-validations:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP))
+                            rateLimits:
+                              description: Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced
+                                on each LB node individually).
+                              properties:
+                                connections:
+                                  description: Configure max allowed connections for
+                                    the TLS route. It is applied and enforced when
+                                    the connection is established.
+                                  properties:
+                                    limit:
+                                      minimum: 1
+                                      type: integer
+                                    timePeriodSeconds:
+                                      minimum: 1
+                                      type: integer
+                                  required:
+                                  - limit
+                                  - timePeriodSeconds
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one rate limit must be configured
+                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object
@@ -972,6 +1090,30 @@ spec:
                               x-kubernetes-validations:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP))
+                            rateLimits:
+                              description: Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced
+                                on each LB node individually).
+                              properties:
+                                connections:
+                                  description: Configure max allowed connections for
+                                    the TLS route. It is applied and enforced when
+                                    the connection is established.
+                                  properties:
+                                    limit:
+                                      minimum: 1
+                                      type: integer
+                                    timePeriodSeconds:
+                                      minimum: 1
+                                      type: integer
+                                  required:
+                                  - limit
+                                  - timePeriodSeconds
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one rate limit must be configured
+                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object

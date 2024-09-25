@@ -127,6 +127,38 @@ func (r lbService) usesHTTPSRequestFiltering() bool {
 	return false
 }
 
+func (r lbService) usesHTTPRequestRateLimiting() bool {
+	a := r.applications
+
+	if a.httpProxy != nil {
+		for _, routes := range a.httpProxy.routes {
+			for _, ar := range routes {
+				if ar.rateLimits != nil {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (r lbService) usesHTTPSRequestRateLimiting() bool {
+	a := r.applications
+
+	if a.httpsProxy != nil {
+		for _, routes := range a.httpsProxy.routes {
+			for _, ar := range routes {
+				if ar.rateLimits != nil {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
@@ -159,9 +191,26 @@ func (r lbApplications) getHTTPSConnectionFiltering() *lbServiceHTTPConnectionFi
 	return r.httpsProxy.connectionFiltering
 }
 
+func (r lbApplications) getHTTPConnectionRateLimits() *lbServiceConnectionRateLimit {
+	if r.httpProxy == nil {
+		return nil
+	}
+
+	return r.httpProxy.rateLimits
+}
+
+func (r lbApplications) getHTTPSConnectionRateLimits() *lbServiceConnectionRateLimit {
+	if r.httpsProxy == nil {
+		return nil
+	}
+
+	return r.httpsProxy.rateLimits
+}
+
 type lbApplicationHTTPProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
+	rateLimits          *lbServiceConnectionRateLimit
 	routes              map[string][]lbRouteHTTP
 }
 
@@ -169,6 +218,7 @@ type lbApplicationHTTPSProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	tlsConfig           *lbServiceTLSConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
+	rateLimits          *lbServiceConnectionRateLimit
 	routes              map[string][]lbRouteHTTP
 }
 
@@ -186,6 +236,7 @@ type lbRouteHTTP struct {
 	backendRef        backendRef
 	persistentBackend *lbRouteHTTPPersistentBackend
 	requestFiltering  *lbRouteHTTPRequestFiltering
+	rateLimits        *lbServiceRequestRateLimit
 }
 
 type lbRouteHTTPMatch struct {
@@ -267,6 +318,7 @@ type lbRouteTLSPassthrough struct {
 	backendRef          backendRef
 	persistentBackend   *lbRouteTLSPersistentBackend
 	connectionFiltering *lbRouteTLSConnectionFiltering
+	rateLimits          *lbServiceConnectionRateLimit
 }
 
 type lbRouteTLSPassthroughMatch struct {
@@ -292,6 +344,7 @@ type lbRouteTLSProxy struct {
 	backendRef          backendRef
 	persistentBackend   *lbRouteTLSPersistentBackend
 	connectionFiltering *lbRouteTLSConnectionFiltering
+	rateLimits          *lbServiceConnectionRateLimit
 }
 
 type lbRouteTLSProxyMatch struct {
@@ -300,6 +353,19 @@ type lbRouteTLSProxyMatch struct {
 
 type backendRef struct {
 	name string
+}
+
+type lbServiceRequestRateLimit struct {
+	requests lbServiceRateLimit
+}
+
+type lbServiceConnectionRateLimit struct {
+	connections lbServiceRateLimit
+}
+
+type lbServiceRateLimit struct {
+	limit             uint
+	timePeriodSeconds uint
 }
 
 type backend struct {

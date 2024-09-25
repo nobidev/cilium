@@ -176,6 +176,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referen
 			backendRef:        backendRef{name: lr.BackendRef.Name},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
+			rateLimits:        r.toHTTPRouteRateLimits(lr.RateLimits),
 		}
 
 		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
@@ -192,6 +193,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referen
 	return &lbApplicationHTTPProxy{
 		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPProxy.HTTPConfig),
 		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPProxy.ConnectionFiltering),
+		rateLimits:          r.toHTTPRateLimits(lbsvc.Spec.Applications.HTTPProxy.RateLimits),
 		routes:              routes,
 	}
 }
@@ -219,6 +221,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 			backendRef:        backendRef{name: lr.BackendRef.Name},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
+			rateLimits:        r.toHTTPRouteRateLimits(lr.RateLimits),
 		}
 
 		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
@@ -241,6 +244,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
 		tlsConfig:           tlsConfig,
 		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPSProxy.ConnectionFiltering),
+		rateLimits:          r.toHTTPRateLimits(lbsvc.Spec.Applications.HTTPSProxy.RateLimits),
 		routes:              routes,
 	}
 }
@@ -282,6 +286,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 			backendRef:          backendRef{name: lr.BackendRef.Name},
 			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
 			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
+			rateLimits:          r.toTLSRateLimits(lr.RateLimits),
 		})
 	}
 
@@ -310,6 +315,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, ref
 			backendRef:          backendRef{name: lr.BackendRef.Name},
 			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
 			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
+			rateLimits:          r.toTLSRateLimits(lr.RateLimits),
 		})
 	}
 
@@ -780,4 +786,43 @@ func (*ingestor) mapRuleType(ruleType isovalentv1alpha1.RequestFilteringRuleType
 	}
 
 	return ruleTypeDeny
+}
+
+func (*ingestor) toHTTPRateLimits(rateLimits *isovalentv1alpha1.LBServiceHTTPRateLimits) *lbServiceConnectionRateLimit {
+	if rateLimits == nil {
+		return nil
+	}
+
+	return &lbServiceConnectionRateLimit{
+		connections: lbServiceRateLimit{
+			limit:             rateLimits.Connections.Limit,
+			timePeriodSeconds: rateLimits.Connections.TimePeriodSeconds,
+		},
+	}
+}
+
+func (*ingestor) toHTTPRouteRateLimits(rateLimits *isovalentv1alpha1.LBServiceHTTPRouteRateLimits) *lbServiceRequestRateLimit {
+	if rateLimits == nil {
+		return nil
+	}
+
+	return &lbServiceRequestRateLimit{
+		requests: lbServiceRateLimit{
+			limit:             rateLimits.Requests.Limit,
+			timePeriodSeconds: rateLimits.Requests.TimePeriodSeconds,
+		},
+	}
+}
+
+func (*ingestor) toTLSRateLimits(rateLimits *isovalentv1alpha1.LBServiceTLSRouteRateLimits) *lbServiceConnectionRateLimit {
+	if rateLimits == nil {
+		return nil
+	}
+
+	return &lbServiceConnectionRateLimit{
+		connections: lbServiceRateLimit{
+			limit:             rateLimits.Connections.Limit,
+			timePeriodSeconds: rateLimits.Connections.TimePeriodSeconds,
+		},
+	}
 }

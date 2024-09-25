@@ -98,6 +98,12 @@ type LBServiceApplicationHTTPProxy struct {
 	// +kubebuilder:validation:Optional
 	ConnectionFiltering *LBServiceHTTPConnectionFiltering `json:"connectionFiltering,omitempty"`
 
+	// Optional global rate limit configuration for the HTTP proxy application.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceHTTPRateLimits `json:"rateLimits,omitempty"`
+
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
@@ -122,6 +128,12 @@ type LBServiceApplicationHTTPSProxy struct {
 	//
 	// +kubebuilder:validation:Optional
 	ConnectionFiltering *LBServiceHTTPConnectionFiltering `json:"connectionFiltering,omitempty"`
+
+	// Optional global rate limit configuration for the HTTPS proxy application.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceHTTPRateLimits `json:"rateLimits,omitempty"`
 
 	// The HTTP routing configuration.
 	//
@@ -305,6 +317,12 @@ type LBServiceHTTPRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	RequestFiltering *LBServiceHTTPRouteRequestFiltering `json:"requestFiltering,omitempty"`
+
+	// Optional per-route rate limit configuration.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceHTTPRouteRateLimits `json:"rateLimits,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP) || size(self.cookies) > 0 || size(self.headers) > 0)"
@@ -386,6 +404,43 @@ type LBServiceHTTPRouteRequestFiltering struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
 	Rules []LBServiceHTTPRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
+type LBServiceHTTPRateLimits struct {
+	// Rate limiting on connection basis.
+	// It is applied and enforced when the connection is established.
+	//
+	// +kubebuilder:validation:Optional
+	Connections *LBServiceRateLimit `json:"connections"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.requests))"
+type LBServiceHTTPRouteRateLimits struct {
+	// Configure max allowed requests for the HTTP route.
+	// It is applied and enforced before routing the HTTP request.
+	//
+	// +kubebuilder:validation:Optional
+	Requests *LBServiceRateLimit `json:"requests"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
+type LBServiceTLSRouteRateLimits struct {
+	// Configure max allowed connections for the TLS route.
+	// It is applied and enforced when the connection is established.
+	//
+	// +kubebuilder:validation:Optional
+	Connections *LBServiceRateLimit `json:"connections"`
+}
+
+type LBServiceRateLimit struct {
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Required
+	Limit uint `json:"limit"`
+
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Required
+	TimePeriodSeconds uint `json:"timePeriodSeconds"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.hostName) || has(self.path))"
@@ -514,6 +569,12 @@ type LBServiceTLSPassthroughRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	ConnectionFiltering *LBServiceTLSRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
+
+	// Optional per-route rate limit configuration.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceTLSRouteRateLimits `json:"rateLimits,omitempty"`
 }
 
 type LBServiceTLSRoute struct {
@@ -547,6 +608,12 @@ type LBServiceTLSRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	ConnectionFiltering *LBServiceTLSRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
+
+	// Optional per-route rate limit configuration.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceTLSRouteRateLimits `json:"rateLimits,omitempty"`
 }
 
 type LBServiceTLSPassthroughRouteMatch struct {

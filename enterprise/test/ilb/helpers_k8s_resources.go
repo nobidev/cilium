@@ -266,6 +266,28 @@ func withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(sourceCIDR st
 	}
 }
 
+func withHttpConnectionRateLimiting(limit uint, timePeriodSeconds uint) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.RateLimits = &isovalentv1alpha1.LBServiceHTTPRateLimits{
+			Connections: &isovalentv1alpha1.LBServiceRateLimit{
+				Limit:             limit,
+				TimePeriodSeconds: timePeriodSeconds,
+			},
+		}
+	}
+}
+
+func withHttpRequestRateLimiting(limit uint, timePeriodSeconds uint) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RateLimits = &isovalentv1alpha1.LBServiceHTTPRouteRateLimits{
+			Requests: &isovalentv1alpha1.LBServiceRateLimit{
+				Limit:             limit,
+				TimePeriodSeconds: timePeriodSeconds,
+			},
+		}
+	}
+}
+
 type serviceOption func(o *isovalentv1alpha1.LBService)
 
 func withVIPRef(vipName string) serviceOption {

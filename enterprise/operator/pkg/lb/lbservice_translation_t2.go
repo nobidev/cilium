@@ -26,10 +26,12 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
+	envoy_extensions_filters_http_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
 	envoy_extensions_filters_http_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_filters_listener_tlsinspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
 	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_network_dns_resolver_cares_v3 "github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3"
@@ -131,6 +133,51 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_config_listener_v3.Listener {
+	return &envoy_config_listener_v3.Listener{
+		Name: "frontend_listener",
+		Address: &envoy_config_core_v3.Address{
+			Address: &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
+					Address: *model.vip.assignedIPv4,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+						PortValue: uint32(model.port),
+					},
+				},
+			},
+		},
+		ListenerFilters:               r.desiredEnvoyListenerFilters(model),
+		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
+		AccessLog:                     r.desiredEnvoyListenerAccessLoggers(),
+		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
+	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
+
+	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+		Name: "envoy.filters.listener.tls_inspector",
+		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_filters_listener_tlsinspector_v3.TlsInspector{}),
+		},
+	})
+
+	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
+	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
+	// comes with BPF map lookups enabled.
+	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+		Name: "cilium.bpf_metadata",
+		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
+				BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
+			}),
+		},
+	})
+
+	return listenerFilters
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
 	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
 
 	if r.config.AccessLog.EnableTCP {
@@ -154,41 +201,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 		})
 	}
 
-	return &envoy_config_listener_v3.Listener{
-		Name: "frontend_listener",
-		Address: &envoy_config_core_v3.Address{
-			Address: &envoy_config_core_v3.Address_SocketAddress{
-				SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Address: *model.vip.assignedIPv4,
-					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
-						PortValue: uint32(model.port),
-					},
-				},
-			},
-		},
-		ListenerFilters: []*envoy_config_listener_v3.ListenerFilter{
-			{
-				Name: "envoy.filters.listener.tls_inspector",
-				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_filters_listener_tlsinspector_v3.TlsInspector{}),
-				},
-			},
-			// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
-			// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
-			// comes with BPF map lookups enabled.
-			{
-				Name: "cilium.bpf_metadata",
-				ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-					TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
-						BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
-					}),
-				},
-			},
-		},
-		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
-		AccessLog:                     accessLoggers,
-		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
-	}
+	return accessLoggers
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
@@ -259,6 +272,15 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 			Name: "envoy.filters.network.rbac",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), model.t1NodeIPs, httpTypeHTTP)),
+			},
+		})
+	}
+
+	if model.applications.getHTTPConnectionRateLimits() != nil {
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.local_ratelimit",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPConnectionRateLimits())),
 			},
 		})
 	}
@@ -373,6 +395,19 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 			Name: "envoy.filters.http.rbac",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
+			},
+		})
+	}
+
+	if model.usesHTTPRequestRateLimiting() {
+		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
+		// The filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.local_ratelimit",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
+					StatPrefix: "http_ratelimit", // required attribute
+				}),
 			},
 		})
 	}
@@ -559,6 +594,16 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 			},
 		})
 	}
+
+	if model.applications.getHTTPSConnectionRateLimits() != nil {
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.local_ratelimit",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPSConnectionRateLimits())),
+			},
+		})
+	}
+
 	networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 		Name: "envoy.filters.network.http_connection_manager",
 		ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
@@ -639,6 +684,19 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 		})
 	}
 
+	if model.usesHTTPSRequestRateLimiting() {
+		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
+		// The filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.local_ratelimit",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
+					StatPrefix: "http_ratelimit", // required attribute
+				}),
+			},
+		})
+	}
+
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
@@ -664,6 +722,15 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 				Name: "envoy.filters.network.rbac",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+				},
+			})
+		}
+
+		if tr.rateLimits != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.local_ratelimit",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits)),
 				},
 			})
 		}
@@ -711,6 +778,15 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 				Name: "envoy.filters.network.rbac",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+				},
+			})
+		}
+
+		if tr.rateLimits != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.local_ratelimit",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits)),
 				},
 			})
 		}
@@ -805,7 +881,7 @@ func (r *lbServiceT2Translator) desiredEnvoyRouteConfigs(model *lbService) []*en
 func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPRequestFiltering(), model.applications.httpProxy.routes, httpTypeHTTP)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPRequestFiltering(), model.usesHTTPRequestRateLimiting(), model.applications.httpProxy.routes, httpTypeHTTP)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{
@@ -817,7 +893,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpsProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.applications.httpsProxy.routes, httpTypeHTTPS)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), model.applications.httpsProxy.routes, httpTypeHTTPS)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{
@@ -826,7 +902,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
 	routeHostNamesOrdered := maps.Keys(modelRoutes)
@@ -839,6 +915,9 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 			tpfc := map[string]*anypb.Any{}
 			if usesRequestFiltering {
 				tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+			}
+			if usesRateLimiting {
+				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits))
 			}
 
 			envoyRoutes = append(envoyRoutes, &envoy_config_route_v3.Route{
@@ -1568,6 +1647,58 @@ func (r *lbServiceT2Translator) toRBACAction(ruleType ruleTypeType) envoy_config
 		return envoy_config_rbac_v3.RBAC_DENY
 	default:
 		return envoy_config_rbac_v3.RBAC_DENY
+	}
+}
+
+func (r *lbServiceT2Translator) toNetworkRateLimitFilter(config *lbServiceConnectionRateLimit) *envoy_extensions_filters_network_localratelimit_v3.LocalRateLimit {
+	if config == nil {
+		return nil
+	}
+
+	return &envoy_extensions_filters_network_localratelimit_v3.LocalRateLimit{
+		StatPrefix: "network_ratelimit",
+		TokenBucket: &envoy_type_v3.TokenBucket{
+			MaxTokens:     uint32(config.connections.limit),
+			TokensPerFill: wrapperspb.UInt32(uint32(config.connections.limit)),
+			FillInterval:  &durationpb.Duration{Seconds: int64(config.connections.timePeriodSeconds)},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRateLimit) *envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit {
+	// We have to provide a ratelimit configuration even if no config available.
+	// This is required if the ratelimit is defined as HTTP filter.
+	// Also setting to some random defaults (that meet the validation) -
+	// the filter won't be enforced in this case.
+	tokensPerFill := uint32(100)
+	fillIntervalInSeconds := int64(60)
+	percentageEnabled := uint32(0)
+
+	if config != nil {
+		tokensPerFill = uint32(config.requests.limit)
+		fillIntervalInSeconds = int64(config.requests.timePeriodSeconds)
+		percentageEnabled = 100
+	}
+
+	return &envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
+		StatPrefix: "http_ratelimit",
+		TokenBucket: &envoy_type_v3.TokenBucket{
+			MaxTokens:     tokensPerFill,
+			TokensPerFill: wrapperspb.UInt32(tokensPerFill),
+			FillInterval:  &durationpb.Duration{Seconds: fillIntervalInSeconds},
+		},
+		FilterEnabled: &envoy_config_core_v3.RuntimeFractionalPercent{
+			DefaultValue: &envoy_type_v3.FractionalPercent{
+				Numerator:   percentageEnabled,
+				Denominator: envoy_type_v3.FractionalPercent_HUNDRED,
+			},
+		},
+		FilterEnforced: &envoy_config_core_v3.RuntimeFractionalPercent{
+			DefaultValue: &envoy_type_v3.FractionalPercent{
+				Numerator:   percentageEnabled,
+				Denominator: envoy_type_v3.FractionalPercent_HUNDRED,
+			},
+		},
 	}
 }
 
