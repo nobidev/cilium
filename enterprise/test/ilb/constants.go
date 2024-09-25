@@ -22,8 +22,8 @@ const (
 )
 
 const (
-	lbIPPoolName  = "lb-pool"
-	bgpPolicyName = "ilb-test"
+	lbIPPoolName     = "lb-pool"
+	bgpResourcesName = "ilb-test"
 )
 
 const (

@@ -129,78 +129,101 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	}
 }
 
-func (c *ciliumCli) ensureBGPPeeringPolicyAndBFD(ctx context.Context) error {
-	pol := bgpPeeringPolicy(bgpPolicyName)
-	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Create(ctx, pol, metav1.CreateOptions{}); err != nil {
+func (c *ciliumCli) ensureBGPAndBFDConfig(ctx context.Context) error {
+	bfd := bfdProfile(bgpResourcesName)
+	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BGP peering policy (%s): %w", bgpPolicyName, err)
+			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpResourcesName, err)
 		}
 	}
 
-	bfd := bfdProfile(bgpPolicyName)
-	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
+	cc := bgpClusterConfig(bgpResourcesName)
+	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Create(ctx, cc, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpPolicyName, err)
+			return fmt.Errorf("failed to create BGP cluster config (%s): %w", bgpResourcesName, err)
+		}
+	}
+
+	pc := bgpPeerConfig(bgpResourcesName, bfd.Name)
+	if _, err := c.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(ctx, pc, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BGP peer config (%s): %w", bgpResourcesName, err)
+		}
+	}
+
+	advert := bgpAdvertisement(bgpResourcesName)
+	if _, err := c.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, advert, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create BGP advertisement (%s): %w", bgpResourcesName, err)
 		}
 	}
 
 	return nil
 }
 
-func (c *ciliumCli) deleteBGPPeeringPolicyAndBFD(ctx context.Context) error {
-	if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpPolicyName, err)
+func (c *ciliumCli) deleteBGPAndBFDConfig(ctx context.Context) error {
+	if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpResourcesName, err)
 	}
 
-	if err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Delete(ctx, bgpPolicyName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BGP peering policy (%s): %w", bgpPolicyName, err)
+	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", bgpResourcesName, err)
+	}
+
+	if err := c.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP peer config (%s): %w", bgpResourcesName, err)
+	}
+
+	if err := c.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP advertisement (%s): %w", bgpResourcesName, err)
 	}
 
 	return nil
 }
 
 func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, bgpResourcesName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", bgpResourcesName, err)
 	}
 
-	name := bgpPolicyName
-	pol.Spec.VirtualRouters[0].Neighbors = append(pol.Spec.VirtualRouters[0].Neighbors,
-		ciliumv2alpha1.CiliumBGPNeighbor{
-			PeerAddress:             clientIP + "/32",
-			PeerASN:                 64512,
-			BFDProfileRef:           &name,
-			ConnectRetryTimeSeconds: ptr.To(int32(1)),
+	cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
+		isovalentv1alpha1.IsovalentBGPPeer{
+			Name:        "peer-" + clientIP,
+			PeerAddress: &clientIP,
+			PeerASN:     ptr.To[int64](64512),
+			PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				Name: bgpResourcesName,
+			},
 		})
 
-	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", bgpResourcesName, err)
 	}
 
 	return nil
 }
 
 func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	pol, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Get(ctx, bgpPolicyName, metav1.GetOptions{})
+	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, bgpResourcesName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get BGP peering policy (%s): %w", bgpPolicyName, err)
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", bgpResourcesName, err)
 	}
 
-	neighbors := pol.Spec.VirtualRouters[0].Neighbors
+	peers := cc.Spec.BGPInstances[0].Peers
 
-	updatedNeighbors := []ciliumv2alpha1.CiliumBGPNeighbor{}
-	for _, neigh := range neighbors {
-		if neigh.PeerAddress != clientIP+"/32" {
-			updatedNeighbors = append(updatedNeighbors, neigh)
+	updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
+	for _, peer := range peers {
+		if *peer.PeerAddress != clientIP {
+			updatedPeers = append(updatedPeers, peer)
 		}
 	}
 
-	pol.Spec.VirtualRouters[0].Neighbors = updatedNeighbors
-	if _, err := c.CiliumV2alpha1().CiliumBGPPeeringPolicies().Update(ctx, pol, metav1.UpdateOptions{}); err != nil {
+	cc.Spec.BGPInstances[0].Peers = updatedPeers
+	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP peering policy (%s): %w", bgpPolicyName, err)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", bgpResourcesName, err)
 	}
 
 	return nil

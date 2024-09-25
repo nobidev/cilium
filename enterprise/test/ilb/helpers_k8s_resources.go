@@ -443,34 +443,84 @@ func lbVIP(namespace string, name string, opts ...vipOption) *isovalentv1alpha1.
 	return obj
 }
 
-func bgpPeeringPolicy(name string) *ciliumv2alpha1.CiliumBGPPeeringPolicy {
-	obj := &ciliumv2alpha1.CiliumBGPPeeringPolicy{
+func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig {
+	obj := &isovalentv1alpha1.IsovalentBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: ciliumv2alpha1.CiliumBGPPeeringPolicySpec{
+		Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
 				MatchLabels: map[string]slimv1.MatchLabelsValue{
 					ossannotation.ServiceNodeExposure: "t1",
 				},
 			},
-			VirtualRouters: []ciliumv2alpha1.CiliumBGPVirtualRouter{
+			BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
 				{
-					LocalASN: 64512,
-					ServiceSelector: &slimv1.LabelSelector{
+					Name:     "t1",
+					LocalASN: ptr.To[int64](64512),
+				},
+			},
+		},
+	}
+
+	return obj
+}
+
+func bgpPeerConfig(name, bfdProfileName string) *isovalentv1alpha1.IsovalentBGPPeerConfig {
+	obj := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: map[string]slimv1.MatchLabelsValue{
+								"advertise": "bgp",
+							},
+						},
+					},
+				},
+				Timers: &ciliumv2alpha1.CiliumBGPTimers{
+					ConnectRetryTimeSeconds: ptr.To(int32(1)),
+				},
+			},
+			BFDProfileRef: &bfdProfileName,
+		},
+	}
+
+	return obj
+}
+
+func bgpAdvertisement(name string) *isovalentv1alpha1.IsovalentBGPAdvertisement {
+	obj := &isovalentv1alpha1.IsovalentBGPAdvertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"advertise": "bgp",
+			},
+		},
+		Spec: isovalentv1alpha1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []isovalentv1alpha1.BGPAdvertisement{
+				{
+					AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
+					Service: &ciliumv2alpha1.BGPServiceOptions{
+						Addresses: []ciliumv2alpha1.BGPServiceAddressType{
+							ciliumv2alpha1.BGPLoadBalancerIPAddr,
+						},
+					},
+					Selector: &slimv1.LabelSelector{
 						MatchExpressions: []slimv1.LabelSelectorRequirement{
 							{
 								Key:      "somekey",
 								Operator: slimv1.LabelSelectorOpNotIn,
 								Values:   []string{"never-used-value"},
 							},
-						},
-					},
-					Neighbors: []ciliumv2alpha1.CiliumBGPNeighbor{
-						// Create a dummy neighbor until we switch to BGPv2
-						{
-							PeerAddress:             "0.0.0.0/0",
-							ConnectRetryTimeSeconds: ptr.To(int32(1)),
 						},
 					},
 				},
