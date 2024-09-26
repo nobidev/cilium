@@ -12,6 +12,8 @@
 package features
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,8 +21,17 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/spf13/cast"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var ErrUnsupportedFeatures = errors.New("Unsupported feature(s) enabled")
@@ -44,21 +55,23 @@ func Validate(log *slog.Logger, settings map[string]string) error {
 		MinimumMaturity:    minimum,
 		StrictFeatureGates: true,
 	}
-	gc, err := NewGateChecker(log, cfg)
-	if err != nil {
-		return err
-	}
 	all2 := make(map[string]any)
 	for k, v := range settings {
 		all2[k] = v
 	}
 	return validateFeatureGates(
-		gc,
+		log,
+		cfg,
 		cell.AllSettings(all2),
 	)
 }
 
-func validateFeatureGates(gc *gateChecker, settings cell.AllSettings) error {
+func validateFeatureGates(log *slog.Logger, cfg FeatureGatesConfig, settings cell.AllSettings) error {
+	gc, err := NewGateChecker(log, cfg)
+	if err != nil {
+		return err
+	}
+
 	gateErrors := []string{}
 
 	featureIDs := make([]string, 0, len(FeaturesYaml.Features))
@@ -122,14 +135,13 @@ func validateFeatureGates(gc *gateChecker, settings cell.AllSettings) error {
 		}
 	}
 
-	var err error
 	if len(gateErrors) > 0 {
 		err = fmt.Errorf("%w: %s. %s",
 			ErrUnsupportedFeatures, strings.Join(gateErrors, ", "), pleaseContactSupport)
 		gc.log.Warn("TAINTED: " + err.Error())
 	}
 
-	if gc.cfg.StrictFeatureGates {
+	if cfg.StrictFeatureGates {
 		return err
 	} else {
 		return nil
@@ -176,4 +188,66 @@ func (c *gateChecker) CheckFeatureGates(id ID, feat YAMLFeature) error {
 	default:
 		return featureCheckError(id, feat)
 	}
+}
+
+const (
+	ciliumConfigMapName   = "cilium-config"
+	featureGateAnnotation = "feature-gate-error"
+)
+
+func registerFeatureGatesOperatorValidation(log *slog.Logger, cs client.Clientset, cfg FeatureGatesConfig, settings cell.AllSettings, jg job.Group) {
+	if !cs.IsEnabled() {
+		return
+	}
+
+	// Start a background job to update the config map annotations with the result from
+	// the feature gates.
+	jg.Add(
+		job.OneShot(
+			"update-annotation",
+			func(ctx context.Context, health cell.Health) error {
+				cfg.StrictFeatureGates = true
+				var errorValue string
+				if err := validateFeatureGates(log, cfg, settings); err != nil {
+					errorValue = err.Error()
+				}
+
+				path := fmt.Sprintf("/metadata/annotations/%s~1%s", annotation.ConfigPrefix, featureGateAnnotation)
+				patches := []k8s.JSONPatch{
+					{OP: "add", Path: path, Value: errorValue},
+				}
+				if errorValue == "" {
+					// No error, we can remove the annotation. Note that we do the
+					// "add" on purpose even when removing as otherwise "remove" would
+					// fail.
+					patches = append(patches, k8s.JSONPatch{OP: "remove", Path: path})
+				}
+				patchBytes, err := json.Marshal(patches)
+				if err != nil {
+					return fmt.Errorf("failed to marshal patch: %w", err)
+				}
+				namespace, ok := settings[option.K8sNamespaceName].(string)
+				if !ok {
+					namespace = metav1.NamespaceSystem
+				}
+				maps := cs.CoreV1().ConfigMaps(namespace)
+				_, err = maps.Patch(
+					ctx,
+					ciliumConfigMapName,
+					types.JSONPatchType,
+					patchBytes,
+					metav1.PatchOptions{},
+				)
+				if err != nil {
+					return fmt.Errorf("failed to patch configmaps/%s: %w", ciliumConfigMapName, err)
+				}
+				return nil
+			},
+			job.WithRetry(10, &job.ExponentialBackoff{
+				Min: time.Second,
+				Max: time.Minute,
+			}),
+		),
+	)
+
 }

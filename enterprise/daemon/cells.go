@@ -54,8 +54,8 @@ var (
 		ControlPlane,
 		Datapath,
 
-		// Features implements feature gating
-		features.Cell,
+		// Feature gating to prevent use of unsupported features
+		features.AgentCell,
 	)
 
 	ControlPlane = cell.Module(

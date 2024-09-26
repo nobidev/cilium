@@ -13,6 +13,7 @@ package main
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/enterprise/features"
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
 	"github.com/cilium/cilium/enterprise/operator/dnsresolver"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
@@ -41,6 +42,8 @@ var (
 			},
 
 			// enterprise-only cells to be started after leader election here
+
+			features.OperatorCell,
 
 			locatorpool.Cell,
 

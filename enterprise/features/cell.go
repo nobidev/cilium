@@ -15,11 +15,21 @@ import (
 	"github.com/cilium/hive/cell"
 )
 
-var Cell = cell.Module(
-	"features",
-	"Enterprise feature definitions and gates",
+var AgentCell = cell.Module(
+	"features-agent",
+	"Feature definitions and gates for the agent",
 
 	cell.Config(defaultFeatureGatesConfig),
-	cell.ProvidePrivate(NewGateChecker),
 	cell.Invoke(validateFeatureGates),
+)
+
+// OperatorCell checks the features in configmaps/cilium-config and
+// updates the annotations to mark the config as invalid. This is shown
+// in "cilium status" to the customer.
+var OperatorCell = cell.Module(
+	"features-operator",
+	"Feature definitions and gates for the operator",
+
+	cell.Config(defaultFeatureGatesConfig),
+	cell.Invoke(registerFeatureGatesOperatorValidation),
 )
