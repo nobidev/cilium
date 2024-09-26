@@ -190,6 +190,9 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
 	filterChains := []*envoy_config_listener_v3.FilterChain{}
 
+	healthCheckFilterChain := r.desiredEnvoyListenerHealthCheckHttpFilterChain(model)
+	filterChains = append(filterChains, healthCheckFilterChain)
+
 	if model.applications.isHTTPProxyConfigured() {
 		httpFilterChain := r.desiredEnvoyListenerHttpFilterChain(model)
 		filterChains = append(filterChains, httpFilterChain)
@@ -211,6 +214,37 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbServic
 	}
 
 	return filterChains
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHttpFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
+	networkFilters := []*envoy_config_listener_v3.Filter{}
+
+	networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+		Name: "envoy.filters.network.http_connection_manager",
+		ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+			TypedConfig: toAny(r.desiredEnvoyListenerHealthCheckHTTPHCM(model)),
+		},
+	})
+
+	return &envoy_config_listener_v3.FilterChain{
+		FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
+			TransportProtocol:        "raw_buffer",
+			DirectSourcePrefixRanges: r.t1NodeCIDRRanges(model),
+		},
+		Filters: networkFilters,
+	}
+}
+
+func (r *lbServiceT2Translator) t1NodeCIDRRanges(model *lbService) []*envoy_config_core_v3.CidrRange {
+	t1NodeCIDRs := []*envoy_config_core_v3.CidrRange{}
+	for _, t1NodeIP := range model.t1NodeIPs {
+		t1NodeCIDRs = append(t1NodeCIDRs, &envoy_config_core_v3.CidrRange{
+			AddressPrefix: t1NodeIP,
+			PrefixLen:     wrapperspb.UInt32(32),
+		})
+	}
+
+	return t1NodeCIDRs
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
@@ -237,6 +271,39 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 			TransportProtocol: "raw_buffer",
 		},
 		Filters: networkFilters,
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
+	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
+
+	if !r.config.AccessLog.ExcludeHC {
+		accessLoggers = r.desiredEnvoyHTTPAccessLoggers()
+	}
+
+	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
+		ServerName:                   r.config.ServerName,
+		AccessLog:                    accessLoggers,
+		GenerateRequestId:            wrapperspb.Bool(true),
+		PreserveExternalRequestId:    false,
+		AlwaysSetRequestIdInResponse: false,
+		StatPrefix:                   "frontend_listener_healthcheck_http",
+		CodecType:                    envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_AUTO,
+		NormalizePath:                wrapperspb.Bool(true),
+		MergeSlashes:                 true,
+		UseRemoteAddress:             wrapperspb.Bool(true),
+		StripMatchingHostPort:        true,
+		HttpFilters:                  r.desiredEnvoyListenerHealthCheckHttpHTTPFilters(model),
+		RouteSpecifier:               &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_RouteConfig{}, // no routes - but specifier required
+		CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+			HeadersWithUnderscoresAction: envoy_config_core_v3.HttpProtocolOptions_REJECT_REQUEST,
+			MaxConnectionDuration:        durationpb.New(time.Hour),
+		},
+		Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{
+			MaxConcurrentStreams:        wrapperspb.UInt32(100),
+			InitialStreamWindowSize:     wrapperspb.UInt32(65535),
+			InitialConnectionWindowSize: wrapperspb.UInt32(1048576),
+		},
 	}
 }
 
@@ -271,16 +338,29 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *e
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
+func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHttpHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
 	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
 
-	// Health Check filter is only exposed on HTTP
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.health_check",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 			TypedConfig: toAny(r.desiredHealthCheckFilter(model)),
 		},
 	})
+
+	// adding router as required terminal filter - even though it's not used in case of health checking (no passthrough mode)
+	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+		Name: "envoy.filters.http.router",
+		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+		},
+	})
+
+	return httpFilters
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
+	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
 
 	if model.usesHTTPRequestFiltering() {
 		// Only add the RBAC filter if there's at least one route that is using request filtering.
@@ -681,21 +761,9 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyHTTPAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
-	var hcFilter *envoy_config_accesslog_v3.AccessLogFilter
-
-	if r.config.AccessLog.ExcludeHC {
-		// Exclude T1->T2 HC requests
-		hcFilter = &envoy_config_accesslog_v3.AccessLogFilter{
-			FilterSpecifier: &envoy_config_accesslog_v3.AccessLogFilter_NotHealthCheckFilter{
-				NotHealthCheckFilter: &envoy_config_accesslog_v3.NotHealthCheckFilter{},
-			},
-		}
-	}
-
 	return []*envoy_config_accesslog_v3.AccessLog{
 		{
-			Name:   "stdout",
-			Filter: hcFilter,
+			Name: "stdout",
 			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
@@ -1308,24 +1376,6 @@ func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPCon
 
 	policies := map[string]*envoy_config_rbac_v3.Policy{}
 	action := r.toRBACAction(config.ruleType)
-
-	// Configure allow rules for all T1 nodes to prevent T1->T2 health checks (HTTP only) from being blocked
-	if httpType == httpTypeHTTP && action == envoy_config_rbac_v3.RBAC_ALLOW {
-		for i, t1IP := range t1NodeIPs {
-			permissions := []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAny()}
-			principals := []*envoy_config_rbac_v3.Principal{}
-
-			principals = append(principals, r.toRBACPrincipalRemoteIP(&lbRouteRequestFilteringSourceCIDR{
-				addressPrefix: t1IP,
-				prefixLen:     32,
-			}))
-
-			policies[fmt.Sprintf("rule-t1-%d", i)] = &envoy_config_rbac_v3.Policy{
-				Permissions: permissions,
-				Principals:  principals,
-			}
-		}
-	}
 
 	for i, rr := range config.rules {
 		permissions := []*envoy_config_rbac_v3.Permission{}

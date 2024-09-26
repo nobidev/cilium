@@ -15,6 +15,11 @@ spec:
           portValue: 80
       filterChains:
         - filterChainMatch:
+            directSourcePrefixRanges:
+              - addressPrefix: 172.18.0.0
+                prefixLen: 32
+              - addressPrefix: 172.18.0.1
+                prefixLen: 32
             transportProtocol: raw_buffer
           filters:
             - name: envoy.filters.network.http_connection_manager
@@ -27,10 +32,10 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
                   maxConnectionDuration: 3600s
+                generateRequestId: true
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -55,6 +60,37 @@ spec:
                           stringMatch:
                             prefix: cilium-probe/
                       passThroughMode: false
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                mergeSlashes: true
+                normalizePath: true
+                routeConfig: {}
+                statPrefix: frontend_listener_healthcheck_http
+                stripMatchingHostPort: true
+                useRemoteAddress: true
+        - filterChainMatch:
+            transportProtocol: raw_buffer
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                accessLog:
+                  - name: stdout
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                      logFormat:
+                        textFormatSource:
+                          inlineString: "\n"
+                generateRequestId: false
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
+                httpFilters:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

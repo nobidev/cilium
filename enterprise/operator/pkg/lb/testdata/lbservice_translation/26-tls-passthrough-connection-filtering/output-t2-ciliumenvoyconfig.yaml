@@ -16,6 +16,11 @@ spec:
       filterChains:
         - filterChainMatch:
             transportProtocol: raw_buffer
+            directSourcePrefixRanges:
+              - addressPrefix: 172.18.0.0
+                prefixLen: 32
+              - addressPrefix: 172.18.0.1
+                prefixLen: 32
           filters:
             - name: envoy.filters.network.http_connection_manager
               typedConfig:
@@ -27,7 +32,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                generateRequestId: false
+                generateRequestId: true
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
                   maxConnectionDuration: 3600s
@@ -60,11 +65,10 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 normalizePath: true
                 mergeSlashes: true
+                routeConfig: {}
                 stripMatchingHostPort: true
                 useRemoteAddress: true
-                rds:
-                  routeConfigName: frontend_routeconfig_http
-                statPrefix: frontend_listener_http
+                statPrefix: frontend_listener_healthcheck_http
         - filterChainMatch:
             serverNames:
               - foo.acme.io
@@ -128,8 +132,6 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       perConnectionBufferLimitBytes: 32768
       name: frontend_listener
-    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
-      name: frontend_routeconfig_http
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

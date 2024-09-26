@@ -16,6 +16,11 @@ spec:
       filterChains:
         - filterChainMatch:
             transportProtocol: raw_buffer
+            directSourcePrefixRanges:
+              - addressPrefix: 172.18.0.0
+                prefixLen: 32
+              - addressPrefix: 172.18.0.1
+                prefixLen: 32
           filters:
             - name: envoy.filters.network.http_connection_manager
               typedConfig:
@@ -30,7 +35,7 @@ spec:
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
                   maxConnectionDuration: 3600s
-                generateRequestId: false
+                generateRequestId: true
                 http2ProtocolOptions:
                   initialConnectionWindowSize: 1048576
                   initialStreamWindowSize: 65535
@@ -60,10 +65,9 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 mergeSlashes: true
                 normalizePath: true
-                rds:
-                  routeConfigName: frontend_routeconfig_http
+                routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_http
+                statPrefix: frontend_listener_healthcheck_http
                 stripMatchingHostPort: true
                 useRemoteAddress: true
         - filterChainMatch:
@@ -143,8 +147,6 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
       perConnectionBufferLimitBytes: 32768
-    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
-      name: frontend_routeconfig_http
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

@@ -79,10 +79,7 @@ type lbApplications struct {
 }
 
 func (r lbApplications) isHTTPProxyConfigured() bool {
-	// return   r.applications.httpProxy != nil
-
-	// Always return true as we need HTTP for T1->T2 HC
-	return true
+	return r.httpProxy != nil
 }
 
 func (r lbApplications) isHTTPSProxyConfigured() bool {
