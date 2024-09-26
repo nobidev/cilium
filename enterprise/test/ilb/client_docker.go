@@ -107,20 +107,31 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
+	hostCfg := &container.HostConfig{
+		Privileged: privileged,
+	}
+	networkCfg := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			networkName: {},
+		},
+	}
+
+	if isSingleNode() {
+		// When --mode=single-node, we deploy all containers (client and LB backend)
+		// on the same node. Because T1/T2 LB nodes are unware of IP addrs of
+		// the containers, we deploy them in the host network namespace.
+		hostCfg.NetworkMode = "host"
+		networkCfg = nil
+	}
+
 	resp, err := c.ContainerCreate(ctx,
 		//exhaustruct:ignore
 		&container.Config{
 			Image: img,
 			Env:   env,
 		},
-		&container.HostConfig{
-			Privileged: privileged,
-		},
-		&network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				networkName: {},
-			},
-		},
+		hostCfg,
+		networkCfg,
 		nil,
 		name,
 	)
@@ -132,12 +143,17 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		return "", "", err
 	}
 
-	clientIP, err := c.GetContainerIP(ctx, resp.ID)
-	if err != nil {
-		return "", "", err
+	// In the single node mode, the container runs in the host netns. Hence, it's IP
+	// addr is of the host.
+	containerIP := getSingleNodeIPAddr()
+	if !isSingleNode() {
+		containerIP, err = c.GetContainerIP(ctx, resp.ID)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
-	return resp.ID, clientIP, nil
+	return resp.ID, containerIP, nil
 }
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {

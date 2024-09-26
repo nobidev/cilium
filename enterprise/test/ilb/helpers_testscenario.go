@@ -85,9 +85,19 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 	containers := []*hcAppContainer{}
 	startIndex := len(r.backendApps)
 
+	if config.listenPort == 0 {
+		config.listenPort = 8080
+	}
+
 	for i := startIndex; i < startIndex+numberOfBackends; i++ {
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
+
+		if isSingleNode() {
+			// On the single node all containers are deployed in the host
+			// netns. To avoid port collisions, we keep +1 for each instance.
+			config.listenPort++
+		}
 
 		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, envVars, containerNetwork, false)
 		if err != nil {
@@ -133,6 +143,10 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 		env = append(env, "TLS_ENABLED=true")
 		env = append(env, "TLS_KEY_BASE64="+cert.keyBase64)
 		env = append(env, "TLS_CERT_BASE64="+cert.certBase64)
+	}
+
+	if config.listenPort != 0 {
+		env = append(env, fmt.Sprintf("LISTEN_ADDRESS=:%d", config.listenPort))
 	}
 
 	return env

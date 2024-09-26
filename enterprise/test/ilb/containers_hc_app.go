@@ -24,6 +24,7 @@ type hcAppContainer struct {
 type backendApplicationConfig struct {
 	h2cEnabled      bool
 	tlsCertHostname string
+	listenPort      int
 }
 
 type hcState string

@@ -28,7 +28,14 @@ import (
 //
 // Flags:
 //
-// -cleanup     Cleanup created resources after each test case run (default: true)
+// -cleanup         Cleanup created resources after each test case run (default: true)
+// -mode            Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default: "multi-mode")
+// -single-node-ip  The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.
+//
+// One can run in the --mode=single-node using a remote node for deploying client
+// and LB app containers, and then running test requests from them. To do so,
+// set DOCKER_HOST= to point to the remote node.
+
 func TestMain(m *testing.M) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
 		fmt.Println("Skipping due to LOADBALANCER_TESTS!=true")
@@ -38,6 +45,13 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	pf := &panicFataler{}
+
+	if *flagMode != "single-node" && *flagMode != "multi-node" {
+		pf.Fatalf("invalid --mode: %s", *flagMode)
+	}
+	if *flagMode == "single-mode" && *flagSingleNodeIPAddr == "" {
+		pf.Fatalf("--single-node-ip must be set when --single-node=true")
+	}
 
 	ciliumCli, _ := newCiliumAndK8sCli(pf)
 	dockerCli := newDockerCli(pf)
