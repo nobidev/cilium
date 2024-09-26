@@ -14,22 +14,44 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-func getT1NodeIPs(dockerCli *dockerCli) ([]string, error) {
-	// TODO maybe use "kubectl get nodes"
-	ip, err := dockerCli.GetContainerIP(context.Background(), "kind-control-plane")
+func getT1NodeIPs(k8sCli *k8s.Clientset) ([]string, error) {
+	var ips []string
+
+	nodes, err := k8sCli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve T1 LB IP: %w", err)
+		return nil, fmt.Errorf("failed to retrieve K8s nodes: %w", err)
 	}
 
-	return []string{
-		ip,
-	}, nil
+	for _, node := range nodes.Items {
+		ip := ""
+		for _, addrs := range node.Status.Addresses {
+			// prefer InternalIP
+			if ip == "" && addrs.Type == corev1.NodeExternalIP {
+				ip = addrs.Address
+			} else if addrs.Type == corev1.NodeInternalIP {
+				ip = addrs.Address
+			}
+		}
+
+		if ip == "" {
+			return nil, fmt.Errorf("node %s does not have any IP addr", node.ObjectMeta.Name)
+		}
+
+		ips = append(ips, ip)
+	}
+
+	return ips, nil
 }
 
-func getBGPNeighborString(f fataler, dockerCli *dockerCli) string {
-	t1NodeIPs, err := getT1NodeIPs(dockerCli)
+func getBGPNeighborString(f fataler, k8sCli *k8s.Clientset) string {
+	t1NodeIPs, err := getT1NodeIPs(k8sCli)
 	if err != nil {
 		f.Fatalf("failed to get T1 node ips: %s", err)
 	}

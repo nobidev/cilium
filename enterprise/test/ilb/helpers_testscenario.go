@@ -145,7 +145,7 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
 		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
 		env := []string{
-			"NEIGHBORS=" + getBGPNeighborString(r.t, r.dockerCli),
+			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
 		id, ip, err := r.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true)

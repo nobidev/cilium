@@ -48,12 +48,6 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	// Test retrieving T1 LB IP addr
-
-	if _, err := getT1NodeIPs(dockerCli); err != nil {
-		panic(fmt.Sprintf("Failed to retrieve T1 LB IPs: %s", err))
-	}
-
 	// Create LBIPPool (it is shared among all test cases)
 
 	lbIPPool := lbIPPool(lbIPPoolName, "100.64.0.0/24")
