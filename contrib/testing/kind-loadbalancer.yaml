@@ -24,6 +24,8 @@ envoyConfig:
 bpf:
   monitorAggregation: none
 kubeProxyReplacement: true
+ipv6:
+  enabled: false
 extraConfig:
   enable-ipip-termination: "true"
   loadbalancer-cp-requestid-response: "true"
