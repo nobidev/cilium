@@ -46,9 +46,6 @@ var ConfigReconcilers = cell.Group(
 		NewServiceVRFReconciler,
 	),
 
-	// wire the enterprise Service reconciler with the OSS version
-	cell.Invoke(WireServiceReconcilers),
-
 	// config of the enterprise reconcilers
 	cell.Config(defaultConfig),
 )

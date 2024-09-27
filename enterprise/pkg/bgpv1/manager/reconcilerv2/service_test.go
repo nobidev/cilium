@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -66,47 +67,47 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
 	}
 
-	instanceConfig := &v2alpha1.CiliumBGPNodeInstance{
+	instanceConfig := &v1alpha1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []v2alpha1.CiliumBGPNodePeer{
+		Peers: []v1alpha1.IsovalentBGPNodePeer{
 			{
 				Name:        "peer-65001",
 				PeerAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &v2alpha1.PeerConfigReference{
-					Group: "cilium.io",
-					Kind:  "CiliumBGPPeerConfig",
-					Name:  "peer-config",
+				PeerConfigRef: &v1alpha1.PeerConfigReference{
+					Name: "peer-config",
 				},
 			},
 		},
 	}
 
-	peerConfig := &v2alpha1.CiliumBGPPeerConfig{
+	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "peer-config",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
+		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
 						},
 					},
-				},
-				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-						Afi:  "ipv6",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
 						},
 					},
 				},
@@ -114,18 +115,18 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 	}
 
-	svcAdvertisement := &v2alpha1.CiliumBGPAdvertisement{
+	svcAdvertisement := &v1alpha1.IsovalentBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "svc-advertisement",
 			Labels: map[string]string{
 				"advertise": "bgp",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1alpha1.BGPAdvertisement{
 				{
-					AdvertisementType: v2alpha1.BGPServiceAdvert,
-					Service: &v2alpha1.BGPServiceOptions{
+					AdvertisementType: v1alpha1.BGPServiceAdvert,
+					Service: &v1alpha1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 					},
 					Selector: &slim_metav1.LabelSelector{
@@ -138,15 +139,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 	}
 
-	peerSvcAdvertisements := reconcilerv2.PeerAdvertisements{
-		"peer-65001": reconcilerv2.PeerFamilyAdvertisements{
+	peerSvcAdvertisements := PeerAdvertisements{
+		"peer-65001": FamilyAdvertisements{
 			{Afi: "ipv4", Safi: "unicast"}: svcAdvertisement.Spec.Advertisements,
 			{Afi: "ipv6", Safi: "unicast"}: svcAdvertisement.Spec.Advertisements,
 		},
 	}
 
 	svcRoutePolicy := &types.RoutePolicy{
-		Name: reconcilerv2.PolicyName(instanceConfig.Peers[0].Name, "ipv4", v2alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
+		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv4", v1alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -168,7 +169,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	}
 
 	svcRoutePolicyV6 := &types.RoutePolicy{
-		Name: reconcilerv2.PolicyName(instanceConfig.Peers[0].Name, "ipv6", v2alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
+		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv6", v1alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -241,7 +242,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		// name of the test case
 		name string
 		// advertisements to be upserted in the test step
-		upsertedAdverts []*v2alpha1.CiliumBGPAdvertisement
+		upsertedAdverts []*v1alpha1.IsovalentBGPAdvertisement
 		// the services which will be upserted in the test step
 		upsertedServices []*slim_corev1.Service
 		// the services which will be deleted in the test step
@@ -249,14 +250,14 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		// a list of backend updates applied during the test step
 		backendUpdates []backendUpdate
 		// the expected metadata after the reconciliation
-		expectedMetadata reconcilerv2.ServiceReconcilerMetadata
+		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
 			name:             "advertise new service with no health updates",
-			upsertedAdverts:  []*v2alpha1.CiliumBGPAdvertisement{svcAdvertisement},
+			upsertedAdverts:  []*v1alpha1.IsovalentBGPAdvertisement{svcAdvertisement},
 			upsertedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates:   nil,
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -281,7 +282,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -320,7 +321,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}, {ID: 2}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -353,7 +354,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}, {ID: 2}},
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -378,7 +379,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{}, // unhealthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -411,7 +412,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{}, // unhealthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -435,7 +436,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies:  reconcilerv2.ResourceRoutePolicyMap{},
 				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
@@ -462,7 +463,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -498,7 +499,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -527,7 +528,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -561,7 +562,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -593,7 +594,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{}, // unhealthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -619,7 +620,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}, {ID: 2}}, // 2 backends - healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -644,7 +645,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // 1 backend - unhealthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -668,7 +669,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.Backend{{ID: 1}}, // healthy
 				},
 			},
-			expectedMetadata: reconcilerv2.ServiceReconcilerMetadata{
+			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
 					svcKey: reconcilerv2.RoutePolicyMap{
@@ -682,36 +683,34 @@ func Test_ServiceHealthChecker(t *testing.T) {
 
 	logrus.SetLevel(logrus.DebugLevel)
 
-	testBGPInstance := instance.NewFakeBGPInstance()
-	peerConfigs := []*v2alpha1.CiliumBGPPeerConfig{peerConfig}
-
-	advertStore := store.NewMockBGPCPResourceStore[*v2alpha1.CiliumBGPAdvertisement]()
-	svcDiffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
-	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
-
-	ossParams := reconcilerv2.ServiceReconcilerIn{
-		In:     cell.In{},
-		Logger: svcTestLogger,
-		PeerAdvert: reconcilerv2.NewCiliumPeerAdvertisement(
-			reconcilerv2.PeerAdvertisementIn{
-				Logger:          svcTestLogger,
-				PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](peerConfigs),
-				AdvertStore:     advertStore,
-			}),
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-	}
-	ossReconciler := reconcilerv2.NewServiceReconciler(ossParams).Reconciler.(*reconcilerv2.ServiceReconciler)
+	var (
+		testBGPInstance     = instance.NewFakeBGPInstance()
+		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
+		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
+	)
 
 	ceeParams := ServiceReconcilerIn{
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       Config{SvcHealthCheckingEnabled: true},
 		Logger:    svcTestLogger,
-		Signaler:  signaler.NewBGPCPSignaler(),
+		Upgrader:  newUpgraderMock(instanceConfig),
+		PeerAdvert: &IsovalentAdvertisement{
+			logger:     logger,
+			peerConfig: mockPeerConfigStore,
+			adverts:    mockAdvertStore,
+		},
+		SvcDiffStore: svcDiffstore,
+		EPDiffStore:  epDiffStore,
+		Signaler:     signaler.NewBGPCPSignaler(),
 	}
 	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-	ceeReconciler.ossServiceReconciler = ossReconciler
+
+	// set peer advert state
+	ceeReconciler.peerAdvert.initialized.Store(true)
+	mockPeerConfigStore.Upsert(peerConfig)
 
 	ceeReconciler.Init(testBGPInstance)
 	defer ceeReconciler.Cleanup(testBGPInstance)
@@ -721,7 +720,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			req := require.New(t)
 
 			for _, advert := range tt.upsertedAdverts {
-				advertStore.Upsert(advert)
+				mockAdvertStore.Upsert(advert)
 			}
 			for _, obj := range tt.upsertedServices {
 				svcDiffstore.Upsert(obj)
@@ -742,8 +741,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			}
 
 			err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-				BGPInstance:   testBGPInstance,
-				DesiredConfig: instanceConfig,
+				BGPInstance: testBGPInstance,
 				CiliumNode: &v2.CiliumNode{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node1",
@@ -752,13 +750,13 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			})
 			req.NoError(err)
 
-			serviceMetadataEqual(req, tt.expectedMetadata, ossReconciler.GetMetadata(testBGPInstance))
+			serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
 		})
 	}
 }
 
-func serviceMetadataEqual(req *require.Assertions, expectedMetadata, runningMetadata reconcilerv2.ServiceReconcilerMetadata) {
-	req.Truef(reconcilerv2.PeerAdvertisementsEqual(expectedMetadata.ServiceAdvertisements, runningMetadata.ServiceAdvertisements),
+func serviceMetadataEqual(req *require.Assertions, expectedMetadata, runningMetadata ServiceReconcilerMetadata) {
+	req.Truef(PeerAdvertisementsEqual(expectedMetadata.ServiceAdvertisements, runningMetadata.ServiceAdvertisements),
 		"ServiceAdvertisements mismatch, expected: %v, got: %v", expectedMetadata.ServiceAdvertisements, runningMetadata.ServiceAdvertisements)
 
 	req.Equalf(len(expectedMetadata.ServicePaths), len(runningMetadata.ServicePaths),
