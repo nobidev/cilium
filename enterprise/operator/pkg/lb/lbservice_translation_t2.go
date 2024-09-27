@@ -277,7 +277,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
-	if !r.config.AccessLog.ExcludeHC {
+	if r.config.AccessLog.EnableHC {
 		accessLoggers = r.desiredEnvoyHTTPAccessLoggers()
 	}
 

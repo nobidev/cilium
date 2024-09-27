@@ -1,7 +1,7 @@
 SecretsNamespace: ""
 AccessLog:
   FormatHTTP: "ACCESSLOG_FORMAT_STRING"
-  ExcludeHC: true
+  EnableHC: true
 RequestID:
   Generate: true
 T1T2HealthCheck:

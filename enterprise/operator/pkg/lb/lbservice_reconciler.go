@@ -62,11 +62,11 @@ type reconcilerConfig struct {
 }
 
 type reconcilerAccesslogConfig struct {
+	EnableHC   bool
 	EnableTCP  bool
 	FormatTCP  string
 	FormatHTTP string
 	FormatTLS  string
-	ExcludeHC  bool
 }
 
 type reconcilerRequestIDConfig struct {
