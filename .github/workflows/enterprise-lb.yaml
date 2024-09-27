@@ -84,7 +84,9 @@ jobs:
       max-parallel: 4
       matrix:
         include:
-          - name: "1"
+          - mode: "multi-node"
+            kernel: "6.1-20240710.064909"
+          - mode: "single-node"
             kernel: "6.1-20240710.064909"
 
     timeout-minutes: 60
@@ -129,7 +131,7 @@ jobs:
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.vars.outputs.kind-params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
-          port-forward: '6443:6443,22375:2375'
+          port-forward: '6443:6443,22375:2375,22376:22376'
 
       - name: Preconfigure K8s nodes
         shell: bash
@@ -141,6 +143,18 @@ jobs:
           kubectl label node kind-worker2 service.cilium.io/node=t2
 
           kind get nodes --name kind  | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
+
+      - name: Create testing host (single-node)
+        id: single-node
+        if: ${{ matrix.mode == 'single-node' }}
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+
+          # Create DIND container to simulate the testing host
+          docker run -d --name testing-host --env DOCKER_TLS_CERTDIR="" -p 22376:2375 --privileged --network kind-cilium docker:27.3.1-dind
+          ip=$(docker inspect '--format={{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' testing-host)
+          echo ip=${ip} >> $GITHUB_OUTPUT
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -196,9 +210,20 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
+          PARAMS=""
+          if [ "${{ matrix.mode }}" == "single-node" ]; then
+            export DOCKER_HOST="tcp://127.0.0.1:22376"
+            PARAMS="--mode=single-node --single-node-ip=${{ steps.single-node.outputs.ip }}"
+          else
+            export DOCKER_HOST="tcp://127.0.0.1:22375"
+            # Ideally, we want to replicate real world use cases as much as possible in the tests.
+            # Hence we don't remove LB services after each test case run. This is not possible
+            # in --mode=single-node due to all client/app containers running in the same
+            # netns (port clashes).
+            PARAMS="--cleanup=false"
+          fi
 
-          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb --cleanup=false
+          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb $PARAMS
 
       - name: Run "cilium lb status"
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
