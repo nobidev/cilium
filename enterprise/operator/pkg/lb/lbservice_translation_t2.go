@@ -352,7 +352,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHttpHTTPFilters(m
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+			TypedConfig: toAny(r.desiredEnvoyRouterFilter()),
 		},
 	})
 
@@ -376,7 +376,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+			TypedConfig: toAny(r.desiredEnvoyRouterFilter()),
 		},
 	})
 
@@ -640,7 +640,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-			TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+			TypedConfig: toAny(r.desiredEnvoyRouterFilter()),
 		},
 	})
 
@@ -955,6 +955,12 @@ func (r *lbServiceT2Translator) toRouteMatch(match lbRouteHTTPMatch) *envoy_conf
 				Prefix: "/",
 			},
 		}
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyRouterFilter() *envoy_extensions_filters_http_router_v3.Router {
+	return &envoy_extensions_filters_http_router_v3.Router{
+		SuppressEnvoyHeaders: true,
 	}
 }
 

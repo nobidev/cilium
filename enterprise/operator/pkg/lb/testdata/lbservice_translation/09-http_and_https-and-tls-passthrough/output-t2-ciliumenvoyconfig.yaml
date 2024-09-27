@@ -65,6 +65,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
                 mergeSlashes: true
                 normalizePath: true
                 routeConfig: {}
@@ -96,6 +97,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
                 normalizePath: true
                 mergeSlashes: true
                 stripMatchingHostPort: true
@@ -130,6 +132,7 @@ spec:
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
                 normalizePath: true
                 mergeSlashes: true
                 stripMatchingHostPort: true
