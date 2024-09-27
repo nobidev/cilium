@@ -13,6 +13,7 @@ helm repo update
 kubectl create namespace monitoring
 helm upgrade --install prometheus \
   prometheus-community/kube-prometheus-stack \
+  --version 62.7.0 \
   -n monitoring \
   --values "${script_dir}"/manifests/prometheus-stack-values.yaml
 
