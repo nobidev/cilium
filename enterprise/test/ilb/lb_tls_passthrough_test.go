@@ -36,8 +36,8 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario.createBackendServerCertificate(ctx, hostName2)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName1})
-	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName2})
+	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName1, listenPort: 8080})
+	scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName2, listenPort: 8081})
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
@@ -50,7 +50,7 @@ func TestTLSPassthrough(t *testing.T) {
 	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withBackend(scenario.backendApps[testName+"-app-0"].ip, 8080))
 	scenario.createLBBackendPool(ctx, backendPool1)
 
-	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withBackend(scenario.backendApps[testName+"-app-1"].ip, 8080))
+	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withBackend(scenario.backendApps[testName+"-app-1"].ip, 8081))
 	scenario.createLBBackendPool(ctx, backendPool2)
 
 	t.Logf("Creating LB Service resources...")

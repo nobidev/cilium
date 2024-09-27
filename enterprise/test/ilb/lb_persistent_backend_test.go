@@ -96,6 +96,8 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 }
 
 func TestPersistentBackendWithSourceIP(t *testing.T) {
+	skipIfOnSingleNode(t, ">1 FRR clients are not supported")
+
 	ctx := context.Background()
 	testName := "pers-backend-sourceip-1"
 	testK8sNamespace := "default"

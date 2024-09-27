@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"flag"
+	"testing"
 )
 
 var flagMode = flag.String("mode", "multi-node", "Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace.")
@@ -23,4 +24,10 @@ func isSingleNode() bool {
 
 func getSingleNodeIPAddr() string {
 	return *flagSingleNodeIPAddr
+}
+
+func skipIfOnSingleNode(t *testing.T, msg string) {
+	if isSingleNode() {
+		t.Skipf("skipping due to single-mode: %s", msg)
+	}
 }

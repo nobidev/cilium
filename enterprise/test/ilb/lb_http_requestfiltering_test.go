@@ -219,6 +219,8 @@ func TestHTTPRequestFiltering(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			skipIfOnSingleNode(t, ">1 FRR clients are not supported")
+
 			ctx := context.Background()
 			testName := fmt.Sprintf("http-requestfiltering-%s", tC.desc)
 			testK8sNamespace := "default"
