@@ -278,7 +278,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableHC {
-		accessLoggers = r.desiredEnvoyHTTPAccessLoggers()
+		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHC)
 	}
 
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
@@ -310,7 +310,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -595,7 +595,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyHTTPAccessLoggers(),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -670,7 +670,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
+					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS),
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -717,7 +717,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyTLSAccessLoggers(),
+					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS),
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -760,7 +760,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 	return tlsProxyFilterChains
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHTTPAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
+func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(format string) []*envoy_config_accesslog_v3.AccessLog {
 	return []*envoy_config_accesslog_v3.AccessLog{
 		{
 			Name: "stdout",
@@ -771,33 +771,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHTTPAccessLoggers() []*envoy_config_
 							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
 								TextFormatSource: &envoy_config_core_v3.DataSource{
 									Specifier: &envoy_config_core_v3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatHTTP),
-									},
-								},
-							},
-						},
-					},
-				}),
-			},
-		},
-	}
-}
-
-func (r *lbServiceT2Translator) desiredEnvoyTLSAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
-	var hcFilter *envoy_config_accesslog_v3.AccessLogFilter
-
-	return []*envoy_config_accesslog_v3.AccessLog{
-		{
-			Name:   "stdout",
-			Filter: hcFilter,
-			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
-					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
-							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_config_core_v3.DataSource{
-									Specifier: &envoy_config_core_v3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTLS),
+										InlineString: fmt.Sprintf("%s\n", format),
 									},
 								},
 							},

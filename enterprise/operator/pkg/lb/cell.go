@@ -40,6 +40,7 @@ type Config struct {
 	LoadBalancerCPSecretsNamespace            string
 	LoadBalancerCPAccessLogEnableHC           bool
 	LoadBalancerCPAccessLogEnableTCP          bool
+	LoadBalancerCPAccessLogFormatHC           string
 	LoadBalancerCPAccessLogFormatTCP          string
 	LoadBalancerCPAccessLogFormatHTTP         string
 	LoadBalancerCPAccessLogFormatTLS          string
@@ -56,6 +57,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-hc", false, "Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-tcp", false, "Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane")
+	flags.String("loadbalancer-cp-accesslog-format-hc", "[%START_TIME%][access][healthcheck] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_CODE_DETAILS% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_TLS_SESSION_ID%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\" \"%UPSTREAM_TLS_CIPHER%\" \"%UPSTREAM_TLS_VERSION%\" \"%UPSTREAM_TLS_SESSION_ID%\" \"%UPSTREAM_TRANSPORT_FAILURE_REASON%\"", "Envoy Access Log format for T1 -> T2 Health Check HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tcp", "[%START_TIME%][access][tcp] \"%PROTOCOL%\" %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\" \"%DOWNSTREAM_TRANSPORT_FAILURE_REASON%\"", "Envoy Access Log format for the TCP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-http", "[%START_TIME%][access][http] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_CODE_DETAILS% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_TLS_SESSION_ID%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\" \"%UPSTREAM_TLS_CIPHER%\" \"%UPSTREAM_TLS_VERSION%\" \"%UPSTREAM_TLS_SESSION_ID%\" \"%UPSTREAM_TRANSPORT_FAILURE_REASON%\"", "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tls", "[%START_TIME%][access][tls] %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% \"%STREAM_ID%\" \"%CONNECTION_ID%\" \"%UPSTREAM_CONNECTION_ID%\" \"%CONNECTION_TERMINATION_DETAILS%\" \"%UPSTREAM_HOST%\" \"%DOWNSTREAM_TLS_CIPHER%\" \"%DOWNSTREAM_TLS_VERSION%\" \"%DOWNSTREAM_TLS_SESSION_ID%\" \"%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%\" \"%DOWNSTREAM_REMOTE_ADDRESS%\" \"%UPSTREAM_TLS_CIPHER%\" \"%UPSTREAM_TLS_VERSION%\" \"%UPSTREAM_TLS_SESSION_ID%\"", "Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
@@ -143,6 +145,7 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 		AccessLog: reconcilerAccesslogConfig{
 			EnableHC:   params.Config.LoadBalancerCPAccessLogEnableHC,
 			EnableTCP:  params.Config.LoadBalancerCPAccessLogEnableTCP,
+			FormatHC:   params.Config.LoadBalancerCPAccessLogFormatHC,
 			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
 			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
 			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
