@@ -28,7 +28,7 @@ extraConfig:
   enable-ipip-termination: "true"
   loadbalancer-cp-requestid-response: "true"
   loadbalancer-cp-accesslog-enable-tcp: "true"
-  loadbalancer-cp-accesslog-enable-hc: "false"
+  loadbalancer-cp-accesslog-enable-hc: "true"
 operator:
   prometheus:
     enabled: true
