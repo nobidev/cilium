@@ -71,10 +71,10 @@ spec:
                       HTTP traffic to the backends over TCP connection.
                     properties:
                       connectionFiltering:
-                        description: The optional connection filtering configuration
-                          for all HTTP connections. It defines the connection attributes
-                          that should be obtained to decide whether connections should
-                          be denied or allowed.
+                        description: |-
+                          The optional connection filtering configuration for all HTTP connections.
+                          It defines the connection attributes that should be obtained to decide
+                          whether connections should be denied or allowed.
                         properties:
                           ruleType:
                             description: The type of the rules.
@@ -83,10 +83,10 @@ spec:
                             - Deny
                             type: string
                           rules:
-                            description: Configure the rules that should be used for
-                              the HTTP application. Each rule needs to define at least
-                              one property to filter on. The properties of each entry
-                              are logically ANDed.
+                            description: |-
+                              Configure the rules that should be used for the HTTP application.
+                              Each rule needs to define at least one property to filter on.
+                              The properties of each entry are logically ANDed.
                             items:
                               properties:
                                 sourceCIDR:
@@ -95,8 +95,9 @@ spec:
                                     IPv6 addresses.
                                   properties:
                                     cidr:
-                                      description: CIDR of the source. This must be
-                                        in CIDR notation and use a /32 to express
+                                      description: |-
+                                        CIDR of the source.
+                                        This must be in CIDR notation and use a /32 to express
                                         a single host.
                                       format: cidr
                                       minLength: 1
@@ -157,11 +158,7 @@ spec:
                                     the Host header. The following formats are supported:
 
                                     - Exact domain names: www.example.com
-
-                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
-
-                                    - Prefix domain wildcards: foo.* or foo-*.
-
+                                    - Suffix domain wildcards: *.example.com
                                     - Special wildcard: * matching any domain
 
                                     Omitting this field is identical to specifying a wildcard "*".
@@ -240,10 +237,10 @@ spec:
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
                             requestFiltering:
-                              description: The optional request filtering configuration
-                                for this HTTP route. It defines the request attributes
-                                that should be obtained to decide whether requests
-                                should be denied or allowed.
+                              description: |-
+                                The optional request filtering configuration for this HTTP route.
+                                It defines the request attributes that should be obtained to decide
+                                whether requests should be denied or allowed.
                               properties:
                                 ruleType:
                                   description: The type of the rules.
@@ -252,10 +249,10 @@ spec:
                                   - Deny
                                   type: string
                                 rules:
-                                  description: Configure the rules that should be
-                                    used for the HTTP route. Each rule needs to define
-                                    at least one property to filter on. The properties
-                                    of each entry are logically ANDed.
+                                  description: |-
+                                    Configure the rules that should be used for the HTTP route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
                                   items:
                                     properties:
                                       hostName:
@@ -304,9 +301,10 @@ spec:
                                           of IPv4 or IPv6 addresses.
                                         properties:
                                           cidr:
-                                            description: CIDR of the source. This
-                                              must be in CIDR notation and use a /32
-                                              to express a single host.
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
                                             format: cidr
                                             minLength: 1
                                             type: string
@@ -337,10 +335,10 @@ spec:
                       HTTPS traffic to the backends over TLS and TCP connections.
                     properties:
                       connectionFiltering:
-                        description: The optional connection filtering configuration
-                          for all HTTPS connections. It defines the connection attributes
-                          that should be obtained to decide whether connections should
-                          be denied or allowed.
+                        description: |-
+                          The optional connection filtering configuration for all HTTPS connections.
+                          It defines the connection attributes that should be obtained to decide
+                          whether connections should be denied or allowed.
                         properties:
                           ruleType:
                             description: The type of the rules.
@@ -349,10 +347,10 @@ spec:
                             - Deny
                             type: string
                           rules:
-                            description: Configure the rules that should be used for
-                              the HTTP application. Each rule needs to define at least
-                              one property to filter on. The properties of each entry
-                              are logically ANDed.
+                            description: |-
+                              Configure the rules that should be used for the HTTP application.
+                              Each rule needs to define at least one property to filter on.
+                              The properties of each entry are logically ANDed.
                             items:
                               properties:
                                 sourceCIDR:
@@ -361,8 +359,9 @@ spec:
                                     IPv6 addresses.
                                   properties:
                                     cidr:
-                                      description: CIDR of the source. This must be
-                                        in CIDR notation and use a /32 to express
+                                      description: |-
+                                        CIDR of the source.
+                                        This must be in CIDR notation and use a /32 to express
                                         a single host.
                                       format: cidr
                                       minLength: 1
@@ -423,11 +422,7 @@ spec:
                                     the Host header. The following formats are supported:
 
                                     - Exact domain names: www.example.com
-
-                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
-
-                                    - Prefix domain wildcards: foo.* or foo-*.
-
+                                    - Suffix domain wildcards: *.example.com
                                     - Special wildcard: * matching any domain
 
                                     Omitting this field is identical to specifying a wildcard "*".
@@ -506,10 +501,10 @@ spec:
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
                             requestFiltering:
-                              description: The optional request filtering configuration
-                                for this HTTP route. It defines the request attributes
-                                that should be obtained to decide whether requests
-                                should be denied or allowed.
+                              description: |-
+                                The optional request filtering configuration for this HTTP route.
+                                It defines the request attributes that should be obtained to decide
+                                whether requests should be denied or allowed.
                               properties:
                                 ruleType:
                                   description: The type of the rules.
@@ -518,10 +513,10 @@ spec:
                                   - Deny
                                   type: string
                                 rules:
-                                  description: Configure the rules that should be
-                                    used for the HTTP route. Each rule needs to define
-                                    at least one property to filter on. The properties
-                                    of each entry are logically ANDed.
+                                  description: |-
+                                    Configure the rules that should be used for the HTTP route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
                                   items:
                                     properties:
                                       hostName:
@@ -570,9 +565,10 @@ spec:
                                           of IPv4 or IPv6 addresses.
                                         properties:
                                           cidr:
-                                            description: CIDR of the source. This
-                                              must be in CIDR notation and use a /32
-                                              to express a single host.
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
                                             format: cidr
                                             minLength: 1
                                             type: string
@@ -737,10 +733,10 @@ spec:
                               - name
                               type: object
                             connectionFiltering:
-                              description: The optional connection filtering configuration
-                                for this TLS passthrough route. It defines the connection
-                                attributes that should be obtained to decide whether
-                                connections should be denied or allowed.
+                              description: |-
+                                The optional connection filtering configuration for this TLS passthrough route.
+                                It defines the connection attributes that should be obtained to decide
+                                whether connections should be denied or allowed.
                               properties:
                                 ruleType:
                                   description: The type of the rules.
@@ -749,10 +745,10 @@ spec:
                                   - Deny
                                   type: string
                                 rules:
-                                  description: Configure the rules that should be
-                                    used for the TLS route. Each rule needs to define
-                                    at least one property to filter on. The properties
-                                    of each entry are logically ANDed.
+                                  description: |-
+                                    Configure the rules that should be used for the TLS route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
                                   items:
                                     properties:
                                       serverName:
@@ -781,9 +777,10 @@ spec:
                                           of IPv4 or IPv6 addresses.
                                         properties:
                                           cidr:
-                                            description: CIDR of the source. This
-                                              must be in CIDR notation and use a /32
-                                              to express a single host.
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
                                             format: cidr
                                             minLength: 1
                                             type: string
@@ -810,11 +807,7 @@ spec:
                                     must match the SNI. The following formats are supported:
 
                                     - Exact domain names: www.example.com
-
-                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
-
-                                    - Prefix domain wildcards: foo.* or foo-*.
-
+                                    - Suffix domain wildcards: *.example.com
                                     - Special wildcard: * matching any domain
 
                                     Omitting this field is identical to specifying a wildcard "*".
@@ -875,10 +868,10 @@ spec:
                               - name
                               type: object
                             connectionFiltering:
-                              description: The optional connection filtering configuration
-                                for this TLS proxy route. It defines the connection
-                                attributes that should be obtained to decide whether
-                                connections should be denied or allowed.
+                              description: |-
+                                The optional connection filtering configuration for this TLS proxy route.
+                                It defines the connection attributes that should be obtained to decide
+                                whether connections should be denied or allowed.
                               properties:
                                 ruleType:
                                   description: The type of the rules.
@@ -887,10 +880,10 @@ spec:
                                   - Deny
                                   type: string
                                 rules:
-                                  description: Configure the rules that should be
-                                    used for the TLS route. Each rule needs to define
-                                    at least one property to filter on. The properties
-                                    of each entry are logically ANDed.
+                                  description: |-
+                                    Configure the rules that should be used for the TLS route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
                                   items:
                                     properties:
                                       serverName:
@@ -919,9 +912,10 @@ spec:
                                           of IPv4 or IPv6 addresses.
                                         properties:
                                           cidr:
-                                            description: CIDR of the source. This
-                                              must be in CIDR notation and use a /32
-                                              to express a single host.
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
                                             format: cidr
                                             minLength: 1
                                             type: string
@@ -948,11 +942,7 @@ spec:
                                     must match the SNI. The following formats are supported:
 
                                     - Exact domain names: www.example.com
-
-                                    - Suffix domain wildcards: *.example.com or *-bar.example.com
-
-                                    - Prefix domain wildcards: foo.* or foo-*.
-
+                                    - Suffix domain wildcards: *.example.com
                                     - Special wildcard: * matching any domain
 
                                     Omitting this field is identical to specifying a wildcard "*".
@@ -964,17 +954,19 @@ spec:
                                   type: array
                               type: object
                             persistentBackend:
-                              description: "The optional persistent backend configuration
-                                for this TLS proxy route. It defines the request attributes
-                                that should be obtained to decide whether requests
-                                should be sent to persistently the same backend. The
-                                attributes are logically ANDed. \n Note: Persistent
-                                backend configuration is only supported by LBBackendPools
-                                with loadbalancing algorithm `consistentHashing`."
+                              description: |-
+                                The optional persistent backend configuration for this TLS proxy route.
+                                It defines the request attributes that should be obtained to decide
+                                whether requests should be sent to persistently the same backend.
+                                The attributes are logically ANDed.
+
+                                Note: Persistent backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`.
                               properties:
                                 sourceIP:
-                                  description: Whether requests from the same source
-                                    IP should be sent to the same backend.
+                                  description: |-
+                                    Whether requests from the same source IP should be sent to
+                                    the same backend.
                                   type: boolean
                               type: object
                               x-kubernetes-validations:

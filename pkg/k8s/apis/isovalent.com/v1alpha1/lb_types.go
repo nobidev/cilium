@@ -453,11 +453,7 @@ type LBServiceHTTPRouteMatch struct {
 	// the Host header. The following formats are supported:
 	//
 	// - Exact domain names: www.example.com
-	//
-	// - Suffix domain wildcards: *.example.com or *-bar.example.com
-	//
-	// - Prefix domain wildcards: foo.* or foo-*.
-	//
+	// - Suffix domain wildcards: *.example.com
 	// - Special wildcard: * matching any domain
 	//
 	// Omitting this field is identical to specifying a wildcard "*".
@@ -558,11 +554,7 @@ type LBServiceTLSPassthroughRouteMatch struct {
 	// must match the SNI. The following formats are supported:
 	//
 	// - Exact domain names: www.example.com
-	//
-	// - Suffix domain wildcards: *.example.com or *-bar.example.com
-	//
-	// - Prefix domain wildcards: foo.* or foo-*.
-	//
+	// - Suffix domain wildcards: *.example.com
 	// - Special wildcard: * matching any domain
 	//
 	// Omitting this field is identical to specifying a wildcard "*".
@@ -576,11 +568,7 @@ type LBServiceTLSRouteMatch struct {
 	// must match the SNI. The following formats are supported:
 	//
 	// - Exact domain names: www.example.com
-	//
-	// - Suffix domain wildcards: *.example.com or *-bar.example.com
-	//
-	// - Prefix domain wildcards: foo.* or foo-*.
-	//
+	// - Suffix domain wildcards: *.example.com
 	// - Special wildcard: * matching any domain
 	//
 	// Omitting this field is identical to specifying a wildcard "*".
