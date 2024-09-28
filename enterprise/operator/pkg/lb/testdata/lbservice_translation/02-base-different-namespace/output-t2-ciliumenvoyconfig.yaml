@@ -109,7 +109,7 @@ spec:
       virtualHosts:
         - domains:
             - "*"
-          name: frontend_virtualhost_http_0
+          name: frontend_virtualhost_http_wildcard
           requestHeadersToRemove:
             - x-envoy-internal
             - x-envoy-external-address

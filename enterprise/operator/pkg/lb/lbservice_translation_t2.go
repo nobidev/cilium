@@ -13,6 +13,7 @@ package lb
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	cilium_proxy_api "github.com/cilium/proxy/go/cilium/api"
@@ -35,6 +36,7 @@ import (
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -388,9 +390,7 @@ func (r *lbServiceT2Translator) toHTTPSServerNames(model *lbService) []string {
 	httpsDomainNames := []string{}
 
 	if model.applications.httpsProxy != nil {
-		for _, lr := range model.applications.httpsProxy.routes {
-			httpsDomainNames = append(httpsDomainNames, lr.match.hostNames...)
-		}
+		httpsDomainNames = append(httpsDomainNames, maps.Keys(model.applications.httpsProxy.routes)...)
 	}
 
 	// remove duplicates and raw '*' that is not allowed by Envoy
@@ -801,98 +801,66 @@ func (r *lbServiceT2Translator) desiredEnvoyRouteConfigs(model *lbService) []*en
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
+	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
+	if model.applications.httpProxy != nil {
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPRequestFiltering(), model.applications.httpProxy.routes, httpTypeHTTP)
+	}
+
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_http",
-		VirtualHosts: r.desiredEnvoyHttpRouteVirtualHosts(model, httpTypeHTTP),
+		VirtualHosts: virtualHosts,
 	}
-}
-
-func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(model *lbService, httpType string) []*envoy_config_route_v3.VirtualHost {
-	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
-
-	if model.applications.httpProxy == nil {
-		return virtualHosts
-	}
-
-	for i, route := range model.applications.httpProxy.routes {
-		tpfc := map[string]*anypb.Any{}
-
-		if model.usesHTTPRequestFiltering() {
-			tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
-		}
-
-		virtualHosts = append(virtualHosts,
-			&envoy_config_route_v3.VirtualHost{
-				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: route.match.hostNames,
-				Routes: []*envoy_config_route_v3.Route{
-					{
-						Match: r.toRouteMatch(route.match),
-						Action: &envoy_config_route_v3.Route_Route{
-							Route: &envoy_config_route_v3.RouteAction{
-								HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
-								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
-								},
-							},
-						},
-						TypedPerFilterConfig: tpfc,
-					},
-				},
-				RequestHeadersToRemove: []string{
-					"x-envoy-internal",
-					"x-envoy-external-address",
-				},
-				ResponseHeadersToRemove: []string{
-					"x-envoy-upstream-service-time",
-					"x-envoy-overloaded",
-				},
-			},
-		)
-	}
-
-	return virtualHosts
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
+	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
+	if model.applications.httpsProxy != nil {
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.applications.httpsProxy.routes, httpTypeHTTPS)
+	}
+
 	return &envoy_config_route_v3.RouteConfiguration{
 		Name:         "frontend_routeconfig_https",
-		VirtualHosts: r.desiredEnvoyHttpsRouteVirtualHosts(model, httpTypeHTTPS),
+		VirtualHosts: virtualHosts,
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteVirtualHosts(model *lbService, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
-	if model.applications.httpsProxy == nil {
-		return virtualHosts
-	}
+	routeHostNamesOrdered := maps.Keys(modelRoutes)
+	slices.Sort(routeHostNamesOrdered)
 
-	for i, route := range model.applications.httpsProxy.routes {
-		tpfc := map[string]*anypb.Any{}
+	for _, routeHostname := range routeHostNamesOrdered {
+		envoyRoutes := []*envoy_config_route_v3.Route{}
 
-		if model.usesHTTPSRequestFiltering() {
-			tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+		for _, route := range modelRoutes[routeHostname] {
+			tpfc := map[string]*anypb.Any{}
+			if usesRequestFiltering {
+				tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+			}
+
+			envoyRoutes = append(envoyRoutes, &envoy_config_route_v3.Route{
+				Match: r.toRouteMatch(route.match),
+				Action: &envoy_config_route_v3.Route_Route{
+					Route: &envoy_config_route_v3.RouteAction{
+						HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
+						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+							Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, route.backend.routeIndex),
+						},
+					},
+				},
+				TypedPerFilterConfig: tpfc,
+			})
 		}
+
+		cleanedHostName := strings.ReplaceAll(routeHostname, "*", "wildcard")
+		cleanedHostName = strings.ReplaceAll(cleanedHostName, ".", "_")
 
 		virtualHosts = append(virtualHosts,
 			&envoy_config_route_v3.VirtualHost{
-				Name:    fmt.Sprintf("frontend_virtualhost_%s_%d", httpType, i),
-				Domains: route.match.hostNames,
-				Routes: []*envoy_config_route_v3.Route{
-					{
-						Match: r.toRouteMatch(route.match),
-						Action: &envoy_config_route_v3.Route_Route{
-							Route: &envoy_config_route_v3.RouteAction{
-								HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
-								ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-									Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, i),
-								},
-							},
-						},
-						TypedPerFilterConfig: tpfc,
-					},
-				},
+				Name:    fmt.Sprintf("frontend_virtualhost_%s_%s", httpType, cleanedHostName),
+				Domains: []string{routeHostname},
+				Routes:  envoyRoutes,
 				RequestHeadersToRemove: []string{
 					"x-envoy-internal",
 					"x-envoy-external-address",
@@ -947,23 +915,23 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 	}
 
 	if model.applications.httpProxy != nil {
-		for i := range model.applications.httpProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.httpsProxy != nil {
-		for i := range model.applications.httpsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.tlsPassthrough != nil {
-		for i := range model.applications.tlsPassthrough.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
+		for _, route := range model.applications.tlsPassthrough.routes {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", route.backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 	if model.applications.tlsProxy != nil {
-		for i := range model.applications.tlsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tls_proxy_%d", i)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
+		for _, route := range model.applications.tlsProxy.routes {
+			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tls_proxy_%d", route.backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 		}
 	}
 
@@ -1011,19 +979,21 @@ func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
 	if model.applications.httpProxy != nil {
-		for i, lrh := range model.applications.httpProxy.routes {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_http_%d", i), lrh.backend, nil, nil))
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
+			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex), backend, nil, nil))
 		}
 	}
+
 	if model.applications.httpsProxy != nil {
-		for i, lrh := range model.applications.httpsProxy.routes {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_https_%d", i), lrh.backend, nil, nil))
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
+			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex), backend, nil, nil))
 		}
 	}
+
 	if model.applications.tlsPassthrough != nil {
-		for i, lrh := range model.applications.tlsPassthrough.routes {
+		for _, lrh := range model.applications.tlsPassthrough.routes {
 			clusters = append(clusters, r.desiredEnvoyCluster(
-				fmt.Sprintf("backend_cluster_tlspt_%d", i),
+				fmt.Sprintf("backend_cluster_tlspt_%d", lrh.backend.routeIndex),
 				lrh.backend,
 				[]*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
 					{
@@ -1050,12 +1020,31 @@ func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_
 		}
 	}
 	if model.applications.tlsProxy != nil {
-		for i, lrh := range model.applications.tlsProxy.routes {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_tls_proxy_%d", i), lrh.backend, nil, nil))
+		for _, lrh := range model.applications.tlsProxy.routes {
+			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_tls_proxy_%d", lrh.backend.routeIndex), lrh.backend, nil, nil))
 		}
 	}
 
 	return clusters
+}
+
+func (r *lbServiceT2Translator) getHTTPBackendsOrdered(modelRoutes map[string][]lbRouteHTTP) []backend {
+	backendClusters := map[int]backend{}
+	for _, routes := range modelRoutes {
+		for _, route := range routes {
+			backendClusters[route.backend.routeIndex] = route.backend
+		}
+	}
+
+	backendIDs := maps.Keys(backendClusters)
+	slices.Sort(backendIDs)
+
+	backends := []backend{}
+	for _, bid := range backendIDs {
+		backends = append(backends, backendClusters[bid])
+	}
+
+	return backends
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
@@ -1214,23 +1203,23 @@ func (r *lbServiceT2Translator) desiredEnvoyEndpoints(model *lbService) []*envoy
 	endpoints := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
 
 	if model.applications.httpProxy != nil {
-		for i, lrh := range model.applications.httpProxy.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_http_%d", i), lrh.backend))
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex), backend))
 		}
 	}
 	if model.applications.httpsProxy != nil {
-		for i, lrh := range model.applications.httpsProxy.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_https_%d", i), lrh.backend))
+		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex), backend))
 		}
 	}
 	if model.applications.tlsPassthrough != nil {
-		for i, lrh := range model.applications.tlsPassthrough.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tlspt_%d", i), lrh.backend))
+		for _, lrh := range model.applications.tlsPassthrough.routes {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tlspt_%d", lrh.backend.routeIndex), lrh.backend))
 		}
 	}
 	if model.applications.tlsProxy != nil {
-		for i, lrh := range model.applications.tlsProxy.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tls_proxy_%d", i), lrh.backend))
+		for _, lrh := range model.applications.tlsProxy.routes {
+			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tls_proxy_%d", lrh.backend.routeIndex), lrh.backend))
 		}
 	}
 

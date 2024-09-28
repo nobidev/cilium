@@ -116,7 +116,7 @@ spec:
       virtualHosts:
         - domains:
             - "*"
-          name: frontend_virtualhost_http_0
+          name: frontend_virtualhost_http_wildcard
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded

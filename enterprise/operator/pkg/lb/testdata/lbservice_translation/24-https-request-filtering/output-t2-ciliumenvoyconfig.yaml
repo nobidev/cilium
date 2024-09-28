@@ -145,7 +145,7 @@ spec:
       virtualHosts:
         - domains:
             - "*"
-          name: frontend_virtualhost_https_0
+          name: frontend_virtualhost_https_wildcard
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
@@ -165,7 +165,7 @@ spec:
                       action: DENY
         - domains:
             - "bar.acme.io"
-          name: frontend_virtualhost_https_1
+          name: frontend_virtualhost_https_bar_acme_io
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded

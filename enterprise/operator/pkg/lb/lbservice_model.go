@@ -98,9 +98,11 @@ func (r lbService) usesHTTPRequestFiltering() bool {
 	a := r.applications
 
 	if a.httpProxy != nil {
-		for _, ar := range a.httpProxy.routes {
-			if ar.requestFiltering != nil {
-				return true
+		for _, routes := range a.httpProxy.routes {
+			for _, ar := range routes {
+				if ar.requestFiltering != nil {
+					return true
+				}
 			}
 		}
 	}
@@ -112,9 +114,11 @@ func (r lbService) usesHTTPSRequestFiltering() bool {
 	a := r.applications
 
 	if a.httpsProxy != nil {
-		for _, ar := range a.httpsProxy.routes {
-			if ar.requestFiltering != nil {
-				return true
+		for _, routes := range a.httpsProxy.routes {
+			for _, ar := range routes {
+				if ar.requestFiltering != nil {
+					return true
+				}
 			}
 		}
 	}
@@ -127,15 +131,25 @@ func (r lbApplications) getHTTPProxyRoutes() []lbRouteHTTP {
 		return nil
 	}
 
-	return r.httpProxy.routes
+	lrh := []lbRouteHTTP{}
+	for _, routes := range r.httpProxy.routes {
+		lrh = append(lrh, routes...)
+	}
+
+	return lrh
 }
 
-func (r lbApplications) getHTTPSProxyRoutes() []lbRouteHTTPS {
+func (r lbApplications) getHTTPSProxyRoutes() []lbRouteHTTP {
 	if r.httpsProxy == nil {
 		return nil
 	}
 
-	return r.httpsProxy.routes
+	lrh := []lbRouteHTTP{}
+	for _, routes := range r.httpsProxy.routes {
+		lrh = append(lrh, routes...)
+	}
+
+	return lrh
 }
 
 func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
@@ -189,14 +203,14 @@ func (r lbApplications) getHTTPSConnectionFiltering() *lbServiceHTTPConnectionFi
 type lbApplicationHTTPProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
-	routes              []lbRouteHTTP
+	routes              map[string][]lbRouteHTTP
 }
 
 type lbApplicationHTTPSProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	tlsConfig           *lbServiceTLSConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
-	routes              []lbRouteHTTPS
+	routes              map[string][]lbRouteHTTP
 }
 
 type lbApplicationTLSPassthrough struct {
@@ -215,17 +229,9 @@ type lbRouteHTTP struct {
 	requestFiltering  *lbRouteHTTPRequestFiltering
 }
 
-type lbRouteHTTPS struct {
-	match             lbRouteHTTPMatch
-	backend           backend
-	persistentBackend *lbRouteHTTPPersistentBackend
-	requestFiltering  *lbRouteHTTPRequestFiltering
-}
-
 type lbRouteHTTPMatch struct {
-	hostNames []string
-	path      string
-	pathType  routePathTypeType
+	path     string
+	pathType routePathTypeType
 }
 
 type routePathTypeType int
@@ -334,6 +340,7 @@ type lbRouteTLSProxyMatch struct {
 }
 
 type backend struct {
+	routeIndex        int
 	ips               []lbBackend
 	hostnames         []lbBackend
 	lbAlgorithm       lbBackendLBAlgorithm

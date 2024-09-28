@@ -125,22 +125,8 @@ spec:
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
-            - "foo.acme.io"
-          name: frontend_virtualhost_https_0
-          requestHeadersToRemove:
-            - x-envoy-internal
-            - x-envoy-external-address
-          responseHeadersToRemove:
-            - x-envoy-upstream-service-time
-            - x-envoy-overloaded
-          routes:
-            - match:
-                prefix: /
-              route:
-                cluster: backend_cluster_https_0
-        - domains:
             - "bar.acme.io"
-          name: frontend_virtualhost_https_1
+          name: frontend_virtualhost_https_bar_acme_io
           requestHeadersToRemove:
             - x-envoy-internal
             - x-envoy-external-address
@@ -152,6 +138,20 @@ spec:
                 path: /api/test
               route:
                 cluster: backend_cluster_https_1
+        - domains:
+            - "foo.acme.io"
+          name: frontend_virtualhost_https_foo_acme_io
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_https_0
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

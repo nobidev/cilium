@@ -113,7 +113,7 @@ spec:
       virtualHosts:
         - domains:
             - "*"
-          name: frontend_virtualhost_http_0
+          name: frontend_virtualhost_http_wildcard
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
@@ -127,7 +127,7 @@ spec:
                 cluster: backend_cluster_http_0
         - domains:
             - "bar.acme.io"
-          name: frontend_virtualhost_http_1
+          name: frontend_virtualhost_http_bar_acme_io
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
@@ -141,7 +141,7 @@ spec:
                 cluster: backend_cluster_http_1
         - domains:
             - "foo.acme.io"
-          name: frontend_virtualhost_http_2
+          name: frontend_virtualhost_http_foo_acme_io
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded

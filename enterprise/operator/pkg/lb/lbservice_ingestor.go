@@ -137,9 +137,9 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 		backendIndex[b.Name] = b
 	}
 
-	routes := []lbRouteHTTP{}
+	routes := map[string][]lbRouteHTTP{}
 
-	for _, lr := range lbsvc.Spec.Applications.HTTPProxy.Routes {
+	for i, lr := range lbsvc.Spec.Applications.HTTPProxy.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -148,13 +148,13 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 
 		pathType, path := toPath(lr.Match)
 
-		routes = append(routes, lbRouteHTTP{
+		httpRoute := lbRouteHTTP{
 			match: lbRouteHTTPMatch{
-				hostNames: r.toHTTPHostNames(lr.Match),
-				pathType:  pathType,
-				path:      path,
+				pathType: pathType,
+				path:     path,
 			},
 			backend: backend{
+				routeIndex:  i,
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
@@ -174,7 +174,17 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 			},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
-		})
+		}
+
+		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
+			routes["*"] = append(routes["*"], httpRoute)
+			continue
+		}
+
+		// assigning the route to all hostnames
+		for _, h := range lr.Match.HostNames {
+			routes[string(h)] = append(routes[string(h)], httpRoute)
+		}
 	}
 
 	return &lbApplicationHTTPProxy{
@@ -194,9 +204,9 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 		backendIndex[b.Name] = b
 	}
 
-	routes := []lbRouteHTTPS{}
+	routes := map[string][]lbRouteHTTP{}
 
-	for _, lr := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
+	for i, lr := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -205,13 +215,13 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 
 		pathType, path := toPath(lr.Match)
 
-		routes = append(routes, lbRouteHTTPS{
+		httpRoute := lbRouteHTTP{
 			match: lbRouteHTTPMatch{
-				hostNames: r.toHTTPHostNames(lr.Match),
-				pathType:  pathType,
-				path:      path,
+				pathType: pathType,
+				path:     path,
 			},
 			backend: backend{
+				routeIndex:  i,
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
@@ -231,7 +241,17 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 			},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
-		})
+		}
+
+		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
+			routes["*"] = append(routes["*"], httpRoute)
+			continue
+		}
+
+		// assigning the route to all hostnames
+		for _, h := range lr.Match.HostNames {
+			routes[string(h)] = append(routes[string(h)], httpRoute)
+		}
 	}
 
 	var tlsConfig *lbServiceTLSConfig
@@ -276,7 +296,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 
 	routes := []lbRouteTLSPassthrough{}
 
-	for _, lr := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
+	for i, lr := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -288,6 +308,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 				hostNames: r.toTLSPassthroughHostNames(lr.Match),
 			},
 			backend: backend{
+				routeIndex:  i,
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
@@ -327,7 +348,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 	}
 
 	routes := []lbRouteTLSProxy{}
-	for _, lr := range app.Routes {
+	for i, lr := range app.Routes {
 		routeBackend, ok := backendIndex[lr.BackendRef.Name]
 		if !ok {
 			// backend not present yet
@@ -339,6 +360,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 				hostNames: r.toTLSProxyHostNames(lr.Match),
 			},
 			backend: backend{
+				routeIndex:  i,
 				ips:         r.toIPBackends(routeBackend.Spec.Backends),
 				hostnames:   []lbBackend{},
 				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
@@ -442,19 +464,6 @@ func (r *ingestor) toLBBackendAlgorithm(loadbalancing *isovalentv1alpha1.Loadbal
 	}
 
 	return lbBackendLBAlgorithm{algorithm: lbAlgorithmRoundRobin}
-}
-
-func (r *ingestor) toHTTPHostNames(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) []string {
-	if match == nil || len(match.HostNames) == 0 {
-		return []string{"*"}
-	}
-
-	hostNames := []string{}
-	for _, h := range match.HostNames {
-		hostNames = append(hostNames, string(h))
-	}
-
-	return hostNames
 }
 
 func (r *ingestor) toTLSPassthroughHostNames(match *isovalentv1alpha1.LBServiceTLSPassthroughRouteMatch) []string {

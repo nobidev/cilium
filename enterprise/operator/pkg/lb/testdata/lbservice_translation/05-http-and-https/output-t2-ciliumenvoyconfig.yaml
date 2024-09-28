@@ -156,7 +156,7 @@ spec:
       virtualHosts:
         - domains:
             - "bla.acme.io"
-          name: frontend_virtualhost_http_0
+          name: frontend_virtualhost_http_bla_acme_io
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
@@ -173,7 +173,7 @@ spec:
       virtualHosts:
         - domains:
             - "foo.acme.io"
-          name: frontend_virtualhost_https_0
+          name: frontend_virtualhost_https_foo_acme_io
           responseHeadersToRemove:
             - x-envoy-upstream-service-time
             - x-envoy-overloaded
