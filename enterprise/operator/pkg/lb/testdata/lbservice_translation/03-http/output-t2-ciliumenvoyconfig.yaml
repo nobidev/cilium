@@ -42,6 +42,12 @@ spec:
                           value: 20
                         backend_cluster_http_1:
                           value: 20
+                        backend_cluster_http_2:
+                          value: 20
+                        backend_cluster_http_3:
+                          value: 20
+                        backend_cluster_http_4:
+                          value: 20
                       headers:
                         - name: :path
                           stringMatch:
@@ -125,6 +131,20 @@ spec:
               route:
                 cluster: backend_cluster_http_0
         - domains:
+            - "*.foo.acme.io"
+          name: frontend_virtualhost_http_wildcard_foo_acme_io
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          routes:
+            - match:
+                path: /foo
+              route:
+                cluster: backend_cluster_http_4
+        - domains:
             - "bar.acme.io"
           name: frontend_virtualhost_http_bar_acme_io
           responseHeadersToRemove:
@@ -138,6 +158,24 @@ spec:
                 path: /api
               route:
                 cluster: backend_cluster_http_1
+            - match:
+                path: /bar
+              route:
+                cluster: backend_cluster_http_3
+        - domains:
+            - "foo.acme.io"
+          name: frontend_virtualhost_http_foo_acme_io
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          routes:
+            - match:
+                path: /foo
+              route:
+                cluster: backend_cluster_http_2
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -192,6 +230,87 @@ spec:
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
       ignoreHealthOnHostRemoval: true
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 20s
+          noTrafficInterval: 20s
+          timeout: 5s
+          unhealthyEdgeInterval: 20s
+          unhealthyInterval: 20s
+          unhealthyThreshold: 1
+      name: backend_cluster_http_2
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+      ignoreHealthOnHostRemoval: true
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 20s
+          noTrafficInterval: 20s
+          timeout: 5s
+          unhealthyEdgeInterval: 20s
+          unhealthyInterval: 20s
+          unhealthyThreshold: 1
+      name: backend_cluster_http_3
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+      ignoreHealthOnHostRemoval: true
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 30s
+          noTrafficInterval: 30s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      name: backend_cluster_http_4
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+      ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_http_0
       endpoints:
@@ -222,5 +341,53 @@ spec:
                 address:
                   socketAddress:
                     address: 172.18.0.8
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_2
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.9
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.10
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_3
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.9
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.10
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_http_4
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.5
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.6
                     portValue: 8080
               loadBalancingWeight: 1

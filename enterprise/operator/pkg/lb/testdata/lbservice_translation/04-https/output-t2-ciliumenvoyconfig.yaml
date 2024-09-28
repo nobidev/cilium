@@ -42,6 +42,10 @@ spec:
                           value: 20
                         backend_cluster_https_1:
                           value: 20
+                        backend_cluster_https_2:
+                          value: 20
+                        backend_cluster_https_3:
+                          value: 20
                       headers:
                         - name: :path
                           stringMatch:
@@ -66,6 +70,7 @@ spec:
                 statPrefix: frontend_listener_healthcheck_http
         - filterChainMatch:
             serverNames:
+              - "*.bar.acme.io"
               - bar.acme.io
               - foo.acme.io
             transportProtocol: tls
@@ -125,6 +130,20 @@ spec:
       name: frontend_routeconfig_https
       virtualHosts:
         - domains:
+            - "*.bar.acme.io"
+          name: frontend_virtualhost_https_wildcard_bar_acme_io
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          routes:
+            - match:
+                path: /bar
+              route:
+                cluster: backend_cluster_https_3
+        - domains:
             - "bar.acme.io"
           name: frontend_virtualhost_https_bar_acme_io
           responseHeadersToRemove:
@@ -137,7 +156,7 @@ spec:
             - match:
                 path: /api/test
               route:
-                cluster: backend_cluster_https_1
+                cluster: backend_cluster_https_2
         - domains:
             - "foo.acme.io"
           name: frontend_virtualhost_https_foo_acme_io
@@ -149,9 +168,13 @@ spec:
             - x-envoy-external-address
           routes:
             - match:
-                prefix: /
+                path: /foo
               route:
                 cluster: backend_cluster_https_0
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_https_1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -206,8 +229,78 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 30s
+          noTrafficInterval: 30s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
+      name: backend_cluster_https_2
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 30s
+          noTrafficInterval: 30s
+          timeout: 5s
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
+      name: backend_cluster_https_3
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_https_0
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.9
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.10
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_https_1
       endpoints:
         - lbEndpoints:
             - endpoint:
@@ -223,7 +316,7 @@ spec:
                     portValue: 8080
               loadBalancingWeight: 1
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_1
+      clusterName: backend_cluster_https_2
       endpoints:
         - lbEndpoints:
             - endpoint:
@@ -236,5 +329,21 @@ spec:
                 address:
                   socketAddress:
                     address: 172.18.0.8
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_https_3
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.9
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.10
                     portValue: 8080
               loadBalancingWeight: 1

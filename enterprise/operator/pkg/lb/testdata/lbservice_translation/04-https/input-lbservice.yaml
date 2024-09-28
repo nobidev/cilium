@@ -17,6 +17,13 @@ spec:
         - match:
             hostNames:
               - "foo.acme.io"
+            path:
+              exact: "/foo"
+          backendRef:
+            name: lb-3
+        - match:
+            hostNames:
+              - "foo.acme.io"
           backendRef:
             name: lb-1
         - match:
@@ -26,3 +33,10 @@ spec:
               exact: "/api/test"
           backendRef:
             name: lb-2
+        - match:
+            hostNames:
+              - "*.bar.acme.io"
+            path:
+              exact: "/bar"
+          backendRef:
+            name: lb-3
