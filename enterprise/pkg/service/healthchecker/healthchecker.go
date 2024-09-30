@@ -543,7 +543,13 @@ func (hc *HealthChecker) updateBackendHealthProbeData(svc lb.L3n4Addr, be lb.L3n
 	hc.beHealthMap[svc][be].probe = probe
 }
 
-func (pr *probeImpl) dialerConnSetup(ctx context.Context, network string, address string, c syscall.RawConn) error {
+// dialerConnSetupDSRviaIPIP is a custom dialer which interacts with Cilium's bpf_sock
+// BPF program to mark the socket as "special" for health probes. It will first bind()
+// to the targeted backend and then connect(). bind() records the targeted backend via
+// socket cookie, and connect() skips any translation, so that this later is sent as
+// original packet via IPIP tunnel with the backend (T2 node) as destination address in
+// the outer packet.
+func (pr *probeImpl) dialerConnSetupDSRviaIPIP(ctx context.Context, network string, address string, c syscall.RawConn) error {
 	var errCB error
 	var fn func(uintptr)
 
@@ -553,7 +559,7 @@ func (pr *probeImpl) dialerConnSetup(ctx context.Context, network string, addres
 	backend := ctx.Value(backendAddrKey{}).(string)
 
 	pr.logger.
-		Debug("dialerConnSetup",
+		Debug("dialerConnSetupDSRviaIPIP",
 			"network", network,
 			"address", address,
 			"backend", backend,
@@ -625,11 +631,14 @@ func (pr *probeImpl) dialerConnSetup(ctx context.Context, network string, addres
 
 func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, probeOut chan ProbeData) {
 	d := net.Dialer{
-		Timeout:        config.ProbeTimeout,
-		ControlContext: pr.dialerConnSetup,
+		Timeout: config.ProbeTimeout,
 	}
-	connAddr := getAddrStr(svcAddr)
-	if !pr.datapathLbOnly || !option.Config.EnableHealthDatapath {
+	connAddr := ""
+	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
+	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+		connAddr = getAddrStr(svcAddr)
+		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
+	} else {
 		connAddr = getAddrStr(beAddr)
 	}
 	ctx := context.WithValue(context.Background(), backendAddrKey{}, getAddrStr(beAddr))
@@ -653,11 +662,13 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 }
 
 func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, probeOut chan ProbeData) {
-	d := net.Dialer{
-		ControlContext: pr.dialerConnSetup,
-	}
-	connAddr := getAddrStr(svcAddr)
-	if !pr.datapathLbOnly || !option.Config.EnableHealthDatapath {
+	d := net.Dialer{}
+	connAddr := ""
+	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
+	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+		connAddr = getAddrStr(svcAddr)
+		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
+	} else {
 		connAddr = getAddrStr(beAddr)
 	}
 	ctx := context.WithValue(context.Background(), backendAddrKey{}, getAddrStr(beAddr))

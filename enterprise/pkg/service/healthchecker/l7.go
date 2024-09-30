@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"strings"
 
-	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -32,9 +31,7 @@ const (
 
 func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, probeOut chan ProbeData) {
 	// create a client with proper timeout and TLS config in case of HTTPS
-	d := &net.Dialer{
-		ControlContext: pr.dialerConnSetup,
-	}
+	d := &net.Dialer{}
 	tr := &http.Transport{
 		DialContext: d.DialContext,
 	}
@@ -49,10 +46,12 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 		}
 		tr.TLSClientConfig = tls
 	}
-
-	url := getConnURL(config, svcAddr)
-	if option.Config.DatapathMode != datapathOpt.DatapathModeLBOnly ||
-		!option.Config.EnableHealthDatapath {
+	url := ""
+	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
+	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+		url = getConnURL(config, svcAddr)
+		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
+	} else {
 		url = getConnURL(config, beAddr)
 	}
 	method := getSvcHTTPMethod(config)
