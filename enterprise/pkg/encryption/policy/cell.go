@@ -55,7 +55,10 @@ var Cell = cell.Module(
 
 	// Provide BPF datapath configuration, BPF map pressure metrics and BPF map reconciler
 	cell.Provide(newNodeConfig),
-	cell.ProvidePrivate(startEncryptionPolicyReconciler),
+	cell.ProvidePrivate(
+		newReconcilerMetricsTracker,
+		startEncryptionPolicyReconciler,
+	),
 
 	// Start the encryption policy subsystem
 	cell.Invoke(newSelectiveEncryptionEngine),
@@ -99,9 +102,10 @@ type engineParams struct {
 	DaemonConfig    *option.DaemonConfig
 	ICEPResource    resource.Resource[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy]
 
-	StateDB     *statedb.DB
-	PolicyTable statedb.RWTable[*EncryptionPolicyEntry]
-	Reconciler  reconciler.Reconciler[*EncryptionPolicyEntry]
+	StateDB           *statedb.DB
+	PolicyTable       statedb.RWTable[*EncryptionPolicyEntry]
+	Reconciler        reconciler.Reconciler[*EncryptionPolicyEntry]
+	ReconcilerTracker *reconcilerMetrics
 
 	Metrics *encryptionPolicyMetrics
 }
@@ -130,9 +134,10 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		log:           params.Log,
 		selectorCache: networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
 
-		db:          params.StateDB,
-		policyTable: params.PolicyTable,
-		reconciler:  params.Reconciler,
+		db:                params.StateDB,
+		policyTable:       params.PolicyTable,
+		reconciler:        params.Reconciler,
+		reconcilerTracker: params.ReconcilerTracker,
 
 		policyInitializer:   policyInitializer,
 		identityInitializer: identityInitializer,
@@ -197,7 +202,9 @@ type Engine struct {
 	policyTable       statedb.RWTable[*EncryptionPolicyEntry]
 	identityChangeTxn atomic.Pointer[statedb.WriteTxn]
 
-	reconciler          reconciler.Reconciler[*EncryptionPolicyEntry]
+	reconciler        reconciler.Reconciler[*EncryptionPolicyEntry]
+	reconcilerTracker reconcilerMetricsTracker
+
 	policyInitializer   func(txn statedb.WriteTxn)
 	identityInitializer func(txn statedb.WriteTxn)
 
@@ -261,6 +268,10 @@ func (e *Engine) handleIdentityChange(ctx context.Context, events []cache.Identi
 	var identitiesSynced bool
 	defer func() {
 		wg.Wait()
+		// Measure time it takes to reconcile
+		e.reconcilerTracker.measureReconciliationTime(reasonIdentityUpdate, e.policyTable.Revision(txn))
+
+		// Clear current transaction and commit
 		e.identityChangeTxn.Store(nil)
 		txn.Commit()
 		// Finish initializer after the identity transaction is committed

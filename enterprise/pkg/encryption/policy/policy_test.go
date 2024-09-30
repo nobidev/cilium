@@ -37,6 +37,10 @@ type mockReconciler struct{}
 
 func (m *mockReconciler) Prune() {}
 
+type mockReconcilerMetrics struct{}
+
+func (m *mockReconcilerMetrics) measureReconciliationTime(reason string, rev statedb.Revision) {}
+
 func newTestEngine(t testing.TB) (
 	m *Engine,
 	tbl statedb.RWTable[*EncryptionPolicyEntry],
@@ -66,6 +70,7 @@ func newTestEngine(t testing.TB) (
 		db:                  db,
 		policyTable:         tbl,
 		reconciler:          &mockReconciler{},
+		reconcilerTracker:   &mockReconcilerMetrics{},
 		policyInitializer:   func(txn statedb.WriteTxn) {},
 		identityInitializer: func(txn statedb.WriteTxn) {},
 		metrics:             newEncryptionPolicyMetrics(),

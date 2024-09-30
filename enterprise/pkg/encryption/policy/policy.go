@@ -245,6 +245,7 @@ func (e *Engine) upsertEncryptionPolicy(resourceKey resource.Key, spec iso_v1alp
 		e.deleteTuplesForRule(txn, oldRule)
 	}
 
+	e.reconcilerTracker.measureReconciliationTime(reasonPolicyUpdate, e.policyTable.Revision(txn))
 	return nil
 }
 
@@ -259,6 +260,7 @@ func (e *Engine) deleteEncryptionPolicy(resourceKey resource.Key) error {
 		e.deleteTuplesForRule(txn, oldRule)
 	}
 
+	e.reconcilerTracker.measureReconciliationTime(reasonPolicyUpdate, e.policyTable.Revision(txn))
 	return nil
 }
 

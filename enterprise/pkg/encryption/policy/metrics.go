@@ -20,11 +20,17 @@ type encryptionPolicyMetrics struct {
 	EncryptionPolicyRules     metric.Gauge
 	PolicyComputationRuns     metric.Vec[metric.Counter]
 	PolicyComputationDuration metric.Vec[metric.Observer]
+	BPFReconciliationDuration metric.Vec[metric.Observer]
+	BPFReconciliationErrors   metric.Vec[metric.Counter]
 }
 
 const (
 	reasonPolicyUpdate   = "policy-update"
 	reasonIdentityUpdate = "identity-update"
+
+	operationUpdate = "update"
+	operationDelete = "delete"
+	operationPrune  = "prune"
 )
 
 func newEncryptionPolicyMetrics() *encryptionPolicyMetrics {
@@ -47,6 +53,18 @@ func newEncryptionPolicyMetrics() *encryptionPolicyMetrics {
 			Name:      "computation_runs_duration_seconds",
 			Help:      "Histogram of per-operation duration during encryption policy computation",
 		}, []string{"reason"}),
+		BPFReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "encryption_policy",
+			Name:      "bpf_reconciliation_duration_seconds",
+			Help:      "Histogram of how long it takes to reconcile the BPF map with computed changes",
+		}, []string{"reason"}),
+		BPFReconciliationErrors: metric.NewCounterVec(metric.CounterOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "encryption_policy",
+			Name:      "bpf_reconciliation_errors_total",
+			Help:      "Number errors observed during BPF map reconciliation",
+		}, []string{"operation"}),
 	}
 }
 
