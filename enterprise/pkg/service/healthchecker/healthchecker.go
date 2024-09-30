@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -788,6 +789,11 @@ func getAnnotationHealthCheckConfig(svcAnnotations map[string]string) HealthChec
 			hc.HTTPScheme = HealthCheckSchemeHTTPS
 		case HealthCheckSchemeHTTPString:
 			hc.HTTPScheme = HealthCheckSchemeHTTP
+		}
+	}
+	if value, ok := svcAnnotations[ossannotation.ServiceForwardingMode]; ok {
+		if lb.SVCForwardingMode(strings.ToLower(value)) == lb.SVCForwardingModeDSR {
+			hc.DSR = true
 		}
 	}
 

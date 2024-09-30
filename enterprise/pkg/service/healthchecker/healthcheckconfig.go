@@ -65,6 +65,7 @@ type HealthCheckConfig struct {
 	HTTPMethod         HealthCheckMethod
 	HTTPPath           string
 	HTTPHost           string
+	DSR                bool
 }
 
 func defaultHealthCheckConfig() HealthCheckConfig {
@@ -91,7 +92,8 @@ func (hc *HealthCheckConfig) DeepEqual(other *HealthCheckConfig) bool {
 		hc.HTTPScheme == other.HTTPScheme &&
 		hc.HTTPMethod == other.HTTPMethod &&
 		hc.HTTPPath == other.HTTPPath &&
-		hc.HTTPHost == other.HTTPHost
+		hc.HTTPHost == other.HTTPHost &&
+		hc.DSR == other.DSR
 }
 
 func (hc HealthCheckConfig) String() string {
@@ -109,9 +111,8 @@ func (hc HealthCheckConfig) String() string {
 		method = HealthCheckMethodHeadString
 	}
 
-	return fmt.Sprintf("[ state:%d l7:%t probe-interval:%s probe-timeout:%s quarantine-timeout:%s threshold-healthy:%d threshold-unhealthy:%d http-path:%s http-method:%s http-host:%s http-scheme:%s ]",
-		int(hc.State), hc.L7, hc.ProbeInterval, hc.ProbeTimeout,
+	return fmt.Sprintf("[ state:%d dsr:%t l7:%t probe-interval:%s probe-timeout:%s quarantine-timeout:%s threshold-healthy:%d threshold-unhealthy:%d http-path:%s http-method:%s http-host:%s http-scheme:%s ]",
+		int(hc.State), hc.DSR, hc.L7, hc.ProbeInterval, hc.ProbeTimeout,
 		hc.QuarantineTimeout, int(hc.ThresholdHealthy),
-		int(hc.ThresholdUnhealthy), hc.HTTPPath, method,
-		hc.HTTPHost, scheme)
+		int(hc.ThresholdUnhealthy), hc.HTTPPath, method, hc.HTTPHost, scheme)
 }
