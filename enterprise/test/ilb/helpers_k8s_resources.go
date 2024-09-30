@@ -64,38 +64,6 @@ func lbServiceApplicationsTLSPassthrough(routes []isovalentv1alpha1.LBServiceTLS
 	}
 }
 
-func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, opts ...httpsApplicationOption) isovalentv1alpha1.LBServiceApplications {
-	obj := isovalentv1alpha1.LBServiceApplications{
-		HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
-				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
-					{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
-				},
-			},
-			HTTPConfig: &isovalentv1alpha1.LBServiceHTTPConfig{
-				EnableHTTP11: ptr.To(true),
-				EnableHTTP2:  ptr.To(true),
-			},
-			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
-				{
-					BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
-					Match: &isovalentv1alpha1.LBServiceHTTPRouteMatch{
-						HostNames: []isovalentv1alpha1.LBServiceHostName{
-							isovalentv1alpha1.LBServiceHostName(hostName),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, o := range opts {
-		o(obj.HTTPSProxy)
-	}
-
-	return obj
-}
-
 type httpApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy)
 
 func withHttpRoute(backendRef string, opts ...httpApplicationRouteOption) httpApplicationOption {
@@ -332,6 +300,23 @@ func withHTTPProxyApplication(opts ...httpApplicationOption) serviceOption {
 
 type httpsApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy)
 
+func withHttpsRoute(backendRef string, opts ...httpApplicationRouteOption) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		route := &isovalentv1alpha1.LBServiceHTTPRoute{
+			Match: &isovalentv1alpha1.LBServiceHTTPRouteMatch{},
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
+				Name: backendRef,
+			},
+		}
+
+		for _, opt := range opts {
+			opt(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
+	}
+}
+
 func withHTTPSH2(h2Enabled bool) httpsApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
 		o.HTTPConfig.EnableHTTP2 = &h2Enabled
@@ -344,9 +329,28 @@ func withHTTPSH11(h11Enabled bool) httpsApplicationOption {
 	}
 }
 
-func withHTTPSProxyApplication(backendRef, secretName, hostName string, opts ...httpsApplicationOption) serviceOption {
+func withHTTPSProxyApplication(secretName string, opts ...httpsApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
-		o.Spec.Applications = lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName, opts...)
+		obj := isovalentv1alpha1.LBServiceApplications{
+			HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
+				TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+						{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
+					},
+				},
+				HTTPConfig: &isovalentv1alpha1.LBServiceHTTPConfig{
+					EnableHTTP11: ptr.To(true),
+					EnableHTTP2:  ptr.To(true),
+				},
+				Routes: []isovalentv1alpha1.LBServiceHTTPRoute{},
+			},
+		}
+
+		for _, o := range opts {
+			o(obj.HTTPSProxy)
+		}
+
+		o.Spec.Applications = obj
 	}
 }
 

@@ -50,7 +50,7 @@ func TestHTTPS(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, testName, hostName))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, withHttpsRoute(testName, withHttpHostname(hostName))))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -99,7 +99,7 @@ func TestHTTP2S(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, testName, hostName, withHTTPSH2(true), withHTTPSH11(true)))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, withHttpsRoute(testName, withHttpHostname(hostName)), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
