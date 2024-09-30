@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestHTTPAndT2HealthChecks(t *testing.T) {
@@ -217,5 +218,72 @@ func TestHTTPPath(t *testing.T) {
 		if err == nil {
 			t.Fatalf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
+	}
+}
+
+func TestHTTPRoutes(t *testing.T) {
+	ctx := context.Background()
+	testName := "http-routes"
+	testK8sNamespace := "default"
+
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+
+	t.Logf("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	serviceBackendMappings := map[string]struct {
+		hostname         string
+		testCallHostname string
+		path             string
+	}{
+		"-0": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
+		"-1": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
+		"-2": {hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
+		"-3": {hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
+	}
+
+	t.Logf("Creating LB BackendPool resources...")
+	// one backendpool per backend app
+	for postfix := range serviceBackendMappings {
+		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withBackend(scenario.backendApps[testName+"-app"+postfix].ip, 8080)))
+	}
+
+	t.Logf("Creating LB Service resources...")
+	// one route per backendpool (backend app)
+	routes := []httpApplicationOption{}
+	for postfix, rhost := range serviceBackendMappings {
+		routes = append(routes, withHttpRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
+	}
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(routes...))
+	scenario.createLBService(ctx, service)
+
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	// calling each route once
+	for _, rhost := range serviceBackendMappings {
+		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		t.Logf("Testing %q...", testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
+		if err != nil {
+			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+	}
+
+	t.Log("Check that requests are handled by the correct backend")
+	// checking on each backend
+	for postfix, rhost := range serviceBackendMappings {
+		eventually(t, logContains(ctx, dockerCli, scenario.backendApps[testName+"-app"+postfix].dockerContainer, fmt.Sprintf("Service request request.path=/%s", rhost.path)), 10*time.Second, 1*time.Second)
 	}
 }
