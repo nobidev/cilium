@@ -2,13 +2,13 @@ apiVersion: isovalent.com/v1alpha1
 kind: LBBackendPool
 metadata:
   namespace: default
-  name: lb-3
+  name: lb-1
 spec:
-  backendType: IP
+  backendType: Hostname
   backends:
-    - ip: 172.18.0.9
+    - host: foo.example.com
       port: 8080
-    - ip: 172.18.0.10
+    - host: bar.example.com
       port: 8080
   healthCheck:
     intervalSeconds: 30

@@ -32,6 +32,7 @@ import (
 	envoy_extensions_filters_network_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_extensions_network_dns_resolver_cares_v3 "github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3"
 	envoy_extensions_transportsockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
@@ -101,10 +102,10 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		envoyResources = append(envoyResources, clusterXdsResource)
 	}
 
-	endpoints := r.desiredEnvoyEndpoints(model)
+	loadAssignments := r.desiredEnvoyClusterLoadAssignments(model)
 
-	for _, e := range endpoints {
-		endpointXdsResource, err := r.toXdsResource(e, envoy.EndpointTypeURL)
+	for _, la := range loadAssignments {
+		endpointXdsResource, err := r.toXdsResource(la, envoy.EndpointTypeURL)
 		if err != nil {
 			return nil, err
 		}
@@ -1013,7 +1014,7 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-			Type: envoy_config_cluster_v3.Cluster_EDS,
+			Type: r.mapClusterType(b.typ),
 		},
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
@@ -1038,6 +1039,22 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 		cluster.LbConfig = r.toLbConfigLeastRequest()
 	case envoy_config_cluster_v3.Cluster_MAGLEV:
 		cluster.LbConfig = r.toLbConfigMaglev(b.lbAlgorithm)
+	}
+
+	if b.typ == lbBackendTypeHostname {
+		// For STRICT_DNS cluster, we must specify endpoint inline in the cluster
+		cluster.LoadAssignment = r.desiredEnvoyClusterLoadAssignment(name, b)
+
+		// Some additional settings for DNS resolver
+		cluster.TypedDnsResolverConfig = &envoy_config_core_v3.TypedExtensionConfig{
+			Name: "envoy.network.dns_resolver.cares",
+			TypedConfig: toAny(&envoy_extensions_network_dns_resolver_cares_v3.CaresDnsResolverConfig{
+				DnsResolverOptions: &envoy_config_core_v3.DnsResolverOptions{
+					// For the sake of simplicity, we disable default search domain for now
+					NoDefaultSearchDomain: true,
+				},
+			}),
+		}
 	}
 
 	return cluster
@@ -1161,30 +1178,33 @@ func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(_ lbBackendHealthCheck
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyEndpoints(model *lbService) []*envoy_config_endpoint_v3.ClusterLoadAssignment {
-	endpoints := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
+func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignments(model *lbService) []*envoy_config_endpoint_v3.ClusterLoadAssignment {
+	loadAssignments := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
 
 	refBackendNamesSorted := maps.Keys(model.referencedBackends)
 	slices.Sort(refBackendNamesSorted)
 
 	for _, bn := range refBackendNamesSorted {
-		endpoints = append(endpoints, r.desiredEnvoyEndpoint(r.getClusterName(bn), model.referencedBackends[bn]))
+		// For STRICT_DNS cluster, we must specify endpoint inline in the cluster
+		if b := model.referencedBackends[bn]; b.typ != lbBackendTypeHostname {
+			loadAssignments = append(loadAssignments, r.desiredEnvoyClusterLoadAssignment(r.getClusterName(bn), b))
+		}
 	}
 
-	return endpoints
+	return loadAssignments
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyEndpoint(name string, b backend) *envoy_config_endpoint_v3.ClusterLoadAssignment {
-	lbEndpoints := make([]*envoy_config_endpoint_v3.LbEndpoint, 0, len(b.ips))
+func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignment(name string, b backend) *envoy_config_endpoint_v3.ClusterLoadAssignment {
+	lbEndpoints := []*envoy_config_endpoint_v3.LbEndpoint{}
 
-	for _, ipBackends := range b.ips {
+	for _, lbBackend := range b.lbBackends {
 		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
-			LoadBalancingWeight: wrapperspb.UInt32(ipBackends.weight),
-			HealthStatus:        r.toHealthStatus(ipBackends.status),
+			LoadBalancingWeight: wrapperspb.UInt32(lbBackend.weight),
+			HealthStatus:        r.toHealthStatus(lbBackend.status),
 			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
 				Address: &envoy_config_core_v3.Address{Address: &envoy_config_core_v3.Address_SocketAddress{SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Address:       ipBackends.address,
-					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(ipBackends.port)},
+					Address:       lbBackend.address,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(lbBackend.port)},
 				}}},
 			}},
 		})
@@ -1271,6 +1291,19 @@ func (r *lbServiceT2Translator) toTCPProxyHashpolicy(persistentBackendConfig *lb
 	}
 
 	return hashPolicy
+}
+
+func (r *lbServiceT2Translator) mapClusterType(lbBackendType lbBackendType) envoy_config_cluster_v3.Cluster_DiscoveryType {
+	switch lbBackendType {
+	case lbBackendTypeIP:
+		return envoy_config_cluster_v3.Cluster_EDS
+	case lbBackendTypeHostname:
+		return envoy_config_cluster_v3.Cluster_STRICT_DNS
+	default:
+		// This shouldn't happen as we should already check in the
+		// validation step
+		return envoy_config_cluster_v3.Cluster_EDS
+	}
 }
 
 func (r *lbServiceT2Translator) mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

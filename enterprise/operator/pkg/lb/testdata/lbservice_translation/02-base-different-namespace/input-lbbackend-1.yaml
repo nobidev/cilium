@@ -4,6 +4,7 @@ metadata:
   namespace: special-namespace
   name: lb-1
 spec:
+  backendType: IP
   backends:
     - ip: 172.18.0.5
       port: 8080

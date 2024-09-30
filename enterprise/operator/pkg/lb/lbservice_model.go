@@ -304,14 +304,21 @@ type backendRef struct {
 
 type backend struct {
 	name              string
-	ips               []lbBackend
-	hostnames         []lbBackend
+	typ               lbBackendType
+	lbBackends        []lbBackend
 	lbAlgorithm       lbBackendLBAlgorithm
 	healthCheckConfig lbBackendHealthCheckConfig
 	tcpConfig         *lbBackendTCPConfig
 	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
 }
+
+type lbBackendType int
+
+const (
+	lbBackendTypeIP lbBackendType = iota
+	lbBackendTypeHostname
+)
 
 type lbBackend struct {
 	address string

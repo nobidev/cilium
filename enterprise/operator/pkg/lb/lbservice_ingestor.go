@@ -121,8 +121,8 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 	for _, b := range backends {
 		referencedBackends[b.Name] = backend{
 			name:        b.Name,
-			ips:         r.toIPBackends(b.Spec.Backends),
-			hostnames:   []lbBackend{},
+			typ:         r.toBackendType(b.Spec.BackendType),
+			lbBackends:  r.toBackends(b.Spec.BackendType, b.Spec.Backends),
 			lbAlgorithm: r.toLBBackendAlgorithm(b.Spec.Loadbalancing),
 			healthCheckConfig: lbBackendHealthCheckConfig{
 				http:                         r.toHTTPHealthCheck(&b.Spec.HealthCheck),
@@ -343,28 +343,50 @@ func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacken
 	return &lbBackendHealthCheckTCPConfig{}
 }
 
-func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBackend {
-	ipBackends := []lbBackend{}
-	for _, ipAddress := range addresses {
+func (r *ingestor) toBackendType(backendType isovalentv1alpha1.BackendType) lbBackendType {
+	switch backendType {
+	case isovalentv1alpha1.BackendTypeIP:
+		return lbBackendTypeIP
+	case isovalentv1alpha1.BackendTypeHostname:
+		return lbBackendTypeHostname
+	default:
+		return lbBackendTypeIP
+	}
+}
+
+func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isovalentv1alpha1.Backend) []lbBackend {
+	ret := []lbBackend{}
+
+	for _, backend := range backends {
 		weight := uint32(1)
-		if ipAddress.Weight != nil {
-			weight = *ipAddress.Weight
+		if backend.Weight != nil {
+			weight = *backend.Weight
 		}
 
 		status := lbBackendStatusHealthChecking
-		if ipAddress.Status != nil && *ipAddress.Status == isovalentv1alpha1.BackendStatusDraining {
+		if backend.Status != nil && *backend.Status == isovalentv1alpha1.BackendStatusDraining {
 			status = lbBackendStatusDraining
 		}
 
-		ipBackends = append(ipBackends, lbBackend{
-			address: *ipAddress.IP,
-			port:    uint32(ipAddress.Port),
+		var address string
+		switch typ {
+		case isovalentv1alpha1.BackendTypeIP:
+			address = *backend.IP
+		case isovalentv1alpha1.BackendTypeHostname:
+			address = *backend.Host
+		default:
+			address = *backend.IP
+		}
+
+		ret = append(ret, lbBackend{
+			address: address,
+			port:    uint32(backend.Port),
 			weight:  weight,
 			status:  status,
 		})
 	}
 
-	return ipBackends
+	return ret
 }
 
 func (r *ingestor) toLBBackendAlgorithm(loadbalancing *isovalentv1alpha1.Loadbalancing) lbBackendLBAlgorithm {
