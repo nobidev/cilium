@@ -317,6 +317,14 @@ func withHttpsRoute(backendRef string, opts ...httpApplicationRouteOption) https
 	}
 }
 
+func withCertificate(secretRefName string) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.TLSConfig.Certificates = append(o.TLSConfig.Certificates, isovalentv1alpha1.LBServiceTLSCertificate{
+			SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretRefName},
+		})
+	}
+}
+
 func withHTTPSH2(h2Enabled bool) httpsApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
 		o.HTTPConfig.EnableHTTP2 = &h2Enabled
@@ -329,14 +337,12 @@ func withHTTPSH11(h11Enabled bool) httpsApplicationOption {
 	}
 }
 
-func withHTTPSProxyApplication(secretName string, opts ...httpsApplicationOption) serviceOption {
+func withHTTPSProxyApplication(opts ...httpsApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		obj := isovalentv1alpha1.LBServiceApplications{
 			HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
 				TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
-					Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
-						{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
-					},
+					Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{},
 				},
 				HTTPConfig: &isovalentv1alpha1.LBServiceHTTPConfig{
 					EnableHTTP11: ptr.To(true),

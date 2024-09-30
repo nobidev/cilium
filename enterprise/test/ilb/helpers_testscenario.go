@@ -258,16 +258,16 @@ func (r *lbTestScenario) createLBService(ctx context.Context, svc *isovalentv1al
 //
 // Note: Certificates need to be created before creating any FRR client that references the cert.
 // Otherwise loading the cert into the corresponding docker container fails.
-func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName string) {
+func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, secretName string, hostName string) {
 	key, cert, err := genSelfSignedX509(hostName)
 	if err != nil {
 		r.t.Fatalf("failed to gen x509: %s", err)
 	}
 
-	sec := tlsSecret(r.k8sNamespace, r.testName, key.Bytes(), cert.Bytes())
+	sec := tlsSecret(r.k8sNamespace, secretName, key.Bytes(), cert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+			r.t.Fatalf("failed to create secret (%s): %s", secretName, err)
 		}
 	}
 
@@ -281,7 +281,7 @@ func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, hostName
 	}
 
 	maybeCleanupT(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, r.testName, metav1.DeleteOptions{})
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, secretName, metav1.DeleteOptions{})
 	}, r.t)
 }
 

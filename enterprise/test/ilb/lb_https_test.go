@@ -29,7 +29,7 @@ func TestHTTPS(t *testing.T) {
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
-	scenario.createLBServerCertificate(ctx, hostName)
+	scenario.createLBServerCertificate(ctx, testName, hostName)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -50,7 +50,7 @@ func TestHTTPS(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, withHttpsRoute(testName, withHttpHostname(hostName))))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -65,7 +65,7 @@ func TestHTTPS(t *testing.T) {
 	}
 }
 
-func TestHTTP2S(t *testing.T) {
+func TestHTTPS_H2(t *testing.T) {
 	ctx := context.Background()
 	testName := "http2s-1"
 	testK8sNamespace := "default"
@@ -78,7 +78,7 @@ func TestHTTP2S(t *testing.T) {
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
-	scenario.createLBServerCertificate(ctx, hostName)
+	scenario.createLBServerCertificate(ctx, testName, hostName)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
@@ -99,7 +99,7 @@ func TestHTTP2S(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(testName, withHttpsRoute(testName, withHttpHostname(hostName)), withHTTPSH2(true), withHTTPSH11(true)))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

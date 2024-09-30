@@ -37,7 +37,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	t.Log("Creating cert and secret...")
 
-	scenario.createLBServerCertificate(ctx, serviceHostName)
+	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
 	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
 	t.Logf("Creating LB VIP resources...")
@@ -134,7 +134,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	t.Log("Creating cert and secret...")
 
-	scenario.createLBServerCertificate(ctx, serviceHostName)
+	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
 	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
 	t.Logf("Creating LB VIP resources...")
