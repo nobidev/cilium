@@ -11,7 +11,7 @@ spec:
     datapath-mode: lb-only
     bpf-lb-acceleration: native
     bpf-lb-algorithm: maglev
-    bpf-lb-mode: dsr
+    bpf-lb-mode: annotation
     bpf-lb-dsr-dispatch: ipip
     enable-ipip-termination: "false"
     enable-envoy-config: "false"
