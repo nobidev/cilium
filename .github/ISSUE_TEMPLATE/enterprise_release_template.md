@@ -81,6 +81,10 @@ _If you need help: ask in #enterprise-release._
   - [ ] Go to https://github.com/isovalent/cilium/actions/workflows/enterprise-build-images-tiered-releases.yaml and run workflow with `vX.Y.Z-cee.1` in `Tag to release tiered images for` field.
   - [ ] Click on the started action and approve deployment (it should be approvable by `release-manager` team)
   - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.
+- [ ] Generate FIPs images
+  - [ ] Go to https://github.com/isovalent/cilium/actions/workflows/enterprise-build-images-releases-fips.yaml. You should see the commit title for the tag.
+  - [ ] Click on the action and approve deployment (it should be approvable by `release-manager` team)
+  - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.  
 
 ## Prepare Helm & documentation
 
@@ -105,6 +109,7 @@ _Handy tip: If you ever feel unsure, you can always look at how the previous rel
 - [ ] Update the version in the cilium enterprise docs.
   - If you are releasing the very first (non-beta) enterprise release for a minor version, you will have to create a new branch in the enterprise docs repo. The enterprise docs are structured so that the latest version is on the `master` branch, and older releases on `x.y` branches. Example: If `1.12.3` is the latest OSS version, and so far only 1.12.2-cee.beta1 has been released, you'll have to create a branch `1.12` off `master` to release `1.12.3-cee.1`.
   - [ ] Create a PR which updates the toplevel `CILIUM_VERSION` and `CILIUM_UMBRELLA_VERSION` (and `DNS_PROXY_VERSION` for `>=1.15-ce`) files to your newly released version. Target the PR at the `X.Y` branch. If there is no such branch, and you are releasing the latest minor, target `main`. Update the version compatibility matrix CSV files (`docs/operations-guide/releases/X.Y-versions.csv`) with the proper supported software versions (ex: what version of Hubble-Enterprise works with this version of Cilium)
+  - [ ] Make sure the release notes in the PR has a FIPs Overrides section (it should look [like this](https://github.com/isovalent/cilium-enterprise-docs/pull/2121/files#diff-97faa5376967d2d185eb03fb5f7a8c0498e950a5f5764f5c62e37182104e1d9cR27-R81)). This checklist item can be removed when [this PR](https://github.com/isovalent/cilium-enterprise-docs/pull/2047) has been merged.
 - [ ] If this is a new minor release version, check for a staging documentation branch.
   - [ ] Check if there is a `cilium/x.y-ce` branch in the cilium-enterprise-docs repository that needs to be merged. ([v1.16-ce example](https://github.com/isovalent/cilium-enterprise-docs/tree/cilium/v1.16-ce)). Open a PR to merge that branch into the `main` branch. This branch will contain documentation for new Cilium Enterprise features being released with the new minor version.
   - Make sure you merge this branch _after_ the previous minor version branch has been created. For example, before merging the `cilium/v1.16-ce` branch, make sure you have already created and pushed the v1.15 branch in the steps prior.
