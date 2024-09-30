@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/operator/pkg/model"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -385,7 +384,7 @@ func withBackend(ip string, port int32) backendPoolOption {
 		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
 			IP:     ip,
 			Port:   port,
-			Weight: model.AddressOf[uint32](1),
+			Weight: ptr.To[uint32](1),
 		})
 	}
 }
@@ -404,9 +403,9 @@ func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *is
 		},
 		Spec: isovalentv1alpha1.LBBackendPoolSpec{
 			HealthCheck: isovalentv1alpha1.HealthCheck{
-				IntervalSeconds: model.AddressOf[int32](5),
+				IntervalSeconds: ptr.To[int32](5),
 				HTTP: &isovalentv1alpha1.HealthCheckHTTP{
-					Path: model.AddressOf("/health"),
+					Path: ptr.To("/health"),
 				},
 			},
 			Backends: []isovalentv1alpha1.Backend{},
