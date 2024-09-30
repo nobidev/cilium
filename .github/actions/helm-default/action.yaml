@@ -35,7 +35,7 @@ runs:
           --helm-set=hubble.relay.retryTimeout=5s"
 
         # Enterprise specific defaults
-        CILIUM_INSTALL_DEFAULTS+=" --helm-set='enterprise.featureGates={AllAlphaFeatures,AllBetaFeatures,AllLimitedFeatures}'"
+        CILIUM_INSTALL_DEFAULTS+=" --helm-set='enterprise.featureGate.strict=false'"
 
         # only add SHA to the image tags if it was set
         if [ -n "${SHA}" ]; then

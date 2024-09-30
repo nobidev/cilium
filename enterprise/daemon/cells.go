@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/api/v1/server"
+	"github.com/cilium/cilium/enterprise/features"
 	"github.com/cilium/cilium/enterprise/pkg/api"
 	"github.com/cilium/cilium/enterprise/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1"
@@ -52,6 +53,9 @@ var (
 		// enterprise-only cells here
 		ControlPlane,
 		Datapath,
+
+		// Features implements feature gating
+		features.Cell,
 	)
 
 	ControlPlane = cell.Module(

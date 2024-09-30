@@ -20,3 +20,4 @@
 Your release version is {{ .Chart.Version }}.
 
 For any further help, visit https://docs.isovalent.com/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}
+{{ template "enterprise.validateFeatures" .Values }}

@@ -147,7 +147,6 @@ jobs:
             --wait \
             --helm-set=debug.enabled=true \
             --helm-set-string=extraConfig.external-dns-proxy=true \
-            --helm-set='enterprise.featureGates={AllAlphaFeatures,AllBetaFeatures,AllLimitedFeatures}' \
             --helm-set=image.useDigest=false \
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.useDigest=false \
@@ -164,9 +163,10 @@ jobs:
           CILIUM_NEWEST_INSTALL=" \
             ${CILIUM_BASE_INSTALL} \
             --chart-directory=./untrusted/cilium-newest/install/kubernetes/cilium \
+            --helm-set=enterprise.featureGate.strict=true \
+            --helm-set='enterprise.featureGate.approved={DNSProxyHA}' \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.tag=${SHA} \
-            --helm-set='enterprise.featureGates={AllAlphaFeatures,AllBetaFeatures,AllLimitedFeatures}' \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \

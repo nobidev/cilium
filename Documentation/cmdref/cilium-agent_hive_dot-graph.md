@@ -82,7 +82,9 @@ cilium-agent hive dot-graph [flags]
       --envoy-secrets-namespace string                               EnvoySecretsNamespace is the namespace having secrets used by CEC
       --external-dns-proxy                                           Enable Cilium agent to use an external DNS proxy
       --fallback-routing-mode string                                 Enable fallback routing mode, used in case of mismatch between source and destination node (supported: tunnel)
-      --feature-gates strings                                        Slice of alpha features to enable, passing AllAlpha, AllBeta, AllLimited enables all alpha, beta and limited features (respectively).
+      --feature-gates-approved strings                               Features approved to be enabled regardless of maturity level
+      --feature-gates-minimum-maturity string                        Minimum feature maturity level to approve a feature (default "Stable")
+      --feature-gates-strict                                         If enabled agent will refuse to start if feature gates do not pass
       --force-device-detection                                       Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                         GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                             Port for gops server to listen on (default 9890)

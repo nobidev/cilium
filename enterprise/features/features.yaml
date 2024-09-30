@@ -1,0 +1,378 @@
+# This file provides a declaration of features (both OSS and Enterprise) as they
+# are currently supported in Cilium for CE customers.
+# Note: This may differ from maturity of features in open source Cilium.
+#
+# The source of truth for the format of this file is in "yaml_feature.go."
+#
+# If you change this file you can validate your changes and update the helm template
+# with:
+#
+#   go test ./enterprise/features/...
+#   make -C install/kubernetes cilium/templates/enterprise_features_validate.yaml
+# 
+
+
+#
+# Maturity levels in order. A minimum level will include all levels
+# above it, e.g. if featureGates.minimum is set to Beta then Limited
+# and Stable are included (according to the order below).
+# 
+# The first maturity level (Stable) is always explicitly approved.
+maturity:
+- name: Stable
+  description: |
+    Stable maturity is appropriate for production use in a variety of supported
+    configurations due to significant hardening from testing and use.
+
+- name: Limited
+  description: |
+    Limited maturity is appropriate for production use in a limited set of
+    of environments and configurations.
+
+- name: Beta
+  description: |
+    Beta maturity features are generally complete but not production ready.
+    Beta features require more testing and hardening under various conditions before
+    they can be promoted to limited/stable.
+
+- name: Alpha
+  description: |
+    Alpha maturity features are either under active development or lack sufficient 
+    testing for production use. Alpha features are not supported for any level of 
+    use for Cilium Enterprise.
+  
+#
+# Feature declarations
+#
+      
+features:
+  ##########################################
+  # Enterprise features
+  ##########################################
+
+  SRv6:
+    maturity: Beta
+    description: Enable SRv6 support
+    flags:
+      enable-srv6: true
+    helm: 
+      enterprise.srv6.enabled: true
+
+  MultiNetwork:
+    maturity: Beta
+    description: |
+      Provides functionality for attaching multiple network interfaces to Pods
+    flags:
+      enable-multi-network: true
+    helm:
+      enterprise.multiNetwork.enabled: true
+
+  DNSProxyHA:
+    maturity: Limited
+    description:
+      Enables external DNS proxy for high availability
+    flags:
+      external-dns-proxy: true
+    helm-check: "get .extraConfig \"external-dns-proxy\""
+
+  EgressGatewayHA:
+    maturity: Limited
+    description: |
+      Egress Gateway High Availability, enabled by having egress-gateway-ha set to true
+    flags:
+      enable-ipv4-egress-gateway-ha: true
+    helm: 
+      enterprise.egressGatewayHA.enabled: true
+
+  EnterpriseBGPControlPlane:
+    maturity: Beta
+    description: |
+      Enables the enterprise BGP control-plane for Cilium Enterprise
+    flags:
+      enable-enterprise-bgp-control-plane: true
+    helm: 
+      enterprise.bgpControlPlane.enabled: true
+
+  ##########################################
+  # OSS features
+  ##########################################
+  
+  ### Datapath
+
+  DatapathHostFirewall:
+    maturity: Limited
+    description: Enable host firewall functionality
+    flags:
+      enable-host-firewall: true
+    helm: 
+      hostFirewall.enabled: true
+
+  DatapathModeVETH:
+    maturity: Stable
+    description: Enable veth datapath mode
+    flags:
+      datapath-mode: "veth"
+    helm: 
+      bpf.datapathMode: "veth"
+
+  DatapathModeLBOnly:
+    maturity: Stable
+    description: |
+      LB Only datapath mode, enabled by having datapath-mode set to lb-only.
+    flags:
+      datapath-mode: "lb-only"
+    helm: 
+      bpf.datapathMode: "lb-only"
+
+  DatapathIPModeDualStack:
+    maturity: Beta
+    description: |
+      Enable dual-stack IPv4+IPv6 datapath, enabled by having both ipv4-enabled and ipv6-enabled set to true
+    flags:
+      enable-ipv4: true
+      enable-ipv6: true
+    helm: 
+      ipv4.enabled: true
+      ipv6.enabled: true
+
+  DatapathIPModeIPv4:
+    maturity: Stable
+    description: |
+      IPv4-only datapath, enabled by having ipv6-enabled set to true and ipv4-enabled set to false
+    flags:
+      enable-ipv4: true
+      enable-ipv6: false
+    helm: 
+      ipv4.enabled: true
+      ipv6.enabled: false
+
+  DatapathIPModeIPv6:
+    maturity: Beta
+    description: |
+      IPv6-only datapath, enabled by having ipv6-enabled set to true and ipv4-enabled set to false
+    flags:
+      enable-ipv4: false
+      enable-ipv6: true
+    helm:
+      ipv4.enabled: false
+      ipv6.enabled: true
+
+  DatapathBandwidthManager:
+    maturity: Beta
+    description: |
+      Enable bandwidth manager functionality
+    flags:
+      enable-bandwidth-manager: true
+    helm: 
+      bandwidthManager.enabled: true
+
+  DatapathTunnelModeVXLAN:
+    maturity: Stable
+    description: |
+      Overlay networking is done using the VXLAN protocol
+    flags:
+      routing-mode: tunnel
+      tunnel-protocol: vxlan
+    # NOTE: The tunnel-protocol gets set to "vxlan" indirectly in some cases (e.g. when aksbyocni.enabled)
+    # This might thus not cover all the ground and thus might pass helm validation and fail in the agent start.
+    helm: 
+      routingMode: tunnel
+      tunnelProtocol: vxlan
+
+  DatapathTunnelModeGeneve:
+    maturity: Stable
+    description: |
+      Overlay networking is done using the Geneve protocol
+    flags:
+      routing-mode: tunnel
+      tunnel-protocol: geneve
+    helm: 
+      routingMode: tunnel
+      tunnelProtocol: geneve
+
+  ### Egress gateway features 
+
+  EgressGatewayIPv4:
+    maturity: Limited
+    description: |
+      Egress Gateway running in IPv4 mode, enabled with egress-gateway-ipv4=true
+    flags: 
+      enable-ipv4-egress-gateway: true
+    helm:
+      egressGateway.enabled: true
+
+  ### Encryption
+
+  EncryptionIPSec:
+    maturity: Limited
+    description: |
+      Transparent IPSec encryption for all traffic between Cilium endpoints
+    flags:
+      enable-ipsec: true
+    helm: 
+      encryption.enabled: true
+      encryption.type: ipsec
+
+  EncryptionWireguard:
+    maturity: Limited
+    description: |
+      Transparent Wireguard encryption for all traffic between Cilium endpoints
+    flags:
+      enable-wireguard: true
+    helm:
+      encryption.enabled: true
+      encryption.type: wireguard
+
+  EncryptionWireguardNodeToNode:
+    maturity: Beta
+    description: |
+      Transparent Wireguard encryption for node-to-node traffic
+    flags:
+      enable-wireguard: true
+      encrypt-node: true
+    helm:
+      # not enabling encryption so this does not trigger EncryptionWireguard,
+      # which would fail the "helm-gen validate" test.
+      encryption.type: wireguard
+      encryption.nodeEncryption: true
+
+  ### CNI
+
+  CNIChainingMode:
+    maturity: Limited
+    description: |
+      CNI Chaining Mode allows Cilium to chain with multiple CNI plugins.
+      This feature includes all CNI chaining modes, including aws-vpc-cni, Calico and Flannel.
+      Note: CNI Chaining mode is considered disabled if the chaining mode is set to 'none'.
+    flags:
+      cni-chaining-mode: "!none"
+    helm-check: "not (or (kindIs \"invalid\" .cni.chainingMode) (eq .cni.chainingMode \"none\"))"
+
+  ### Load-balancing
+
+  LocalRedirectPolicy:
+    maturity: Beta
+    description: |
+      Enables local traffic redirection policy functionality.
+    flags:
+      enable-local-redirect-policy: true
+    helm:
+      localRedirectPolicy: true
+
+  ### Mutual auth
+
+  MutualAuthSpire:
+    maturity: Beta
+    description: |
+      Provides Ciliums mutual authentication feature using SPIRE
+    flags:
+      mesh-auth-mutual-enabled: true
+    helm:
+      authentication.mutual.spire.enabled: true
+      
+  ### External workloads
+  
+  ExternalWorkloads:
+    maturity: Beta
+    description: |
+      Enable support for external workloads.
+    flags: # No flags in the agent, this is a clustermesh-apiserver flag.
+    helm: 
+      externalWorkloads.enabled: true
+
+  ### IPAM
+
+  IPAMMultiPool:
+    maturity: Beta
+    description: |
+      Multi Pool IPAM allows Cilium to allocate IP addresses from multiple pools of addresses
+    flags:
+      ipam: multi-pool
+    helm: 
+      ipam.mode: multi-pool
+      
+  IPAMClusterPool:
+    maturity: Stable
+    description: |
+      Cluster Pool IPAM allows Cilium to allocate IP addresses from a pool of addresses
+    flags:
+      ipam: cluster-pool
+    helm: 
+      ipam.mode: cluster-pool
+
+  IPAMAzure:
+    maturity: Limited
+    description: |
+      Azure-based IPAM
+    flags:
+      ipam: azure
+    helm: 
+      ipam.mode: azure
+
+  IPAMENI:
+    maturity: Stable
+    description: |
+      AWS ENI based IPAM
+    flags:
+      ipam: eni
+    helm: 
+      ipam.mode: eni
+
+  ### Identity (allocation modes)
+
+  IdentityKVStore:
+    maturity: Stable
+    description: |
+      Identities are stored in kvstore.
+    flags:
+      kvstore: etcd
+    helm: 
+      identityAllocationMode: kvstore
+
+  IdentityCRD:
+    maturity: Stable
+    description: |
+      Identities are stored in CiliumIdentity CRD.
+    flags:
+      identity-allocation-mode: crd
+    helm:
+      identityAllocationMode: crd
+
+  ### BGP
+
+  BGPControlPlane:
+    maturity: Limited
+    description: |
+      Enables the BGP control-plane for Cilium Enterprise
+    flags:
+      enable-bgp-control-plane: true
+    helm: 
+      bgpControlPlane.enabled: true
+
+  #######################################################
+  # Example feature (this will be ignored by the parser)
+  Example: # The unique id, referenced by enterprise.featureGate.approved
+
+    # The maturity level, e.g. one of the ones listed under 'maturity:'.
+    maturity: Limited 
+
+    description: |
+      Optional long-form multi-line description of the feature.
+      This will be used to generate documentation.
+
+    # The configuration flags, e.g. the configmap key / command-line argument.
+    # Full list can be found from https://docs.cilium.io/en/stable/cmdref/cilium-agent/#options
+    # The mapping from helm to flags can be found from:
+    # https://github.com/cilium/cilium/blob/main/install/kubernetes/cilium/templates/cilium-configmap.yaml
+    # Note that the value must be a string and thus quoted.
+    flags: 
+      enable-example: true
+      foo-mode: "!bar" # !bar means anything but "bar"
+
+    # Helm option(s) that enable the feature.
+    helm:
+      example.enabled: true
+
+    # Optional helm expression to replace what is generated from 'helm'.
+    # Only specify if strictly necessary.
+    helm-check: and example.enabled (eq example.mode "foo")

@@ -366,7 +366,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
 | enterprise.encryption | object | `{"policy":{"enabled":false}}` | Transparent encryption |
 | enterprise.encryption.policy.enabled | bool | `false` | Enables support for encryption policies |
-| enterprise.featureGates | list | `[]` |  |
+| enterprise.featureGate.approved | list | `[]` | List of features that are approved. |
+| enterprise.featureGate.strict | bool | `false` | Enable strict feature gate validation. Will cause agent and/or operator to not start if non-approved features are enabled. In non-strict mode failure will be logged as a warning. |
 | enterprise.loadbalancer.enabled | bool | `false` | Enables Loadbalancer mode (Control Plane) |
 | enterprise.multiNetwork | object | `{"autoCreateDefaultPodNetwork":true,"autoDirectNodeRoutes":true,"enabled":false}` | Multi-network support (preview feature) |
 | enterprise.multiNetwork.autoCreateDefaultPodNetwork | bool | `true` | Automatically creates a "default" IsovalentPodNetwork on operator startup |

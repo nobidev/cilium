@@ -1867,9 +1867,17 @@
           },
           "type": "object"
         },
-        "featureGates": {
-          "items": {},
-          "type": "array"
+        "featureGate": {
+          "properties": {
+            "approved": {
+              "items": {},
+              "type": "array"
+            },
+            "strict": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         },
         "loadbalancer": {
           "properties": {

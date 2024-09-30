@@ -1,6 +1,7 @@
 {{/*
 Enterprise-only cilium-config entries
 */}}
+
 {{- define "enterprise.cilium-config" }}
 
 # Configuration options to enable overlapping PodCIDR support for clustermesh
@@ -49,8 +50,9 @@ egress-gateway-ha-healthcheck-timeout: {{ .Values.egressGateway.healthcheckTimeo
 fallback-routing-mode: tunnel
 {{- end }}
 
-# Allows Cilium to enable features marked as alpha.
-feature-gates: {{ .Values.enterprise.featureGates | join "," | quote }}
+
+feature-gates-approved: {{ .Values.enterprise.featureGate.approved | join "," | quote }}
+feature-gates-strict: {{ .Values.enterprise.featureGate.strict | quote }}
 
 {{- if .Values.enterprise.multiNetwork.enabled }}
 # Multi-network support

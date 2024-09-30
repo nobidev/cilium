@@ -225,7 +225,9 @@ cilium-agent [flags]
       --external-dns-proxy                                           Enable Cilium agent to use an external DNS proxy
       --external-envoy-proxy                                         whether the Envoy is deployed externally in form of a DaemonSet or not
       --fallback-routing-mode string                                 Enable fallback routing mode, used in case of mismatch between source and destination node (supported: tunnel)
-      --feature-gates strings                                        Slice of alpha features to enable, passing AllAlpha, AllBeta, AllLimited enables all alpha, beta and limited features (respectively).
+      --feature-gates-approved strings                               Features approved to be enabled regardless of maturity level
+      --feature-gates-minimum-maturity string                        Minimum feature maturity level to approve a feature (default "Stable")
+      --feature-gates-strict                                         If enabled agent will refuse to start if feature gates do not pass
       --fixed-identity-mapping map                                   Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --force-device-detection                                       Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                         GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API

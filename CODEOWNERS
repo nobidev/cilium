@@ -790,6 +790,7 @@ Makefile* @cilium/build
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
 /enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
+/enterprise/features/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
 /enterprise/grafana/loadbalancer/ @isovalent/isovalent-loadbalancer

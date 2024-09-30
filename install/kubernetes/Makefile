@@ -41,7 +41,12 @@ echo -e "# This file is based on $(RELATIVE_DIR)/cilium/$(VALUES_TMPL_FILE_NAME)
 $(YQ) ea '. as $$item ireduce ({}; . * $$item )' $(1) | envsubst >> $(2)
 endef
 
-all: update-versions check-values-yaml docs lint
+all: update-versions check-values-yaml docs lint extra_all
+
+# Add the ability to override variables and add more targets.
+-include Makefile.override
+
+extra_all: $(EXTRA_ALL)
 
 update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
 	$(ECHO_GEN)cilium/Chart.yaml
