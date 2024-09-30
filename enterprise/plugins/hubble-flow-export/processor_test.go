@@ -160,7 +160,7 @@ func Test_export_OnDecodedFlow(t *testing.T) {
 			}
 			promRegistry := prometheus.NewRegistry()
 			metricsHandler := exportPlugin.NewHandler()
-			metricsHandler.Init(promRegistry, api.Options{})
+			metricsHandler.Init(promRegistry, []*api.ContextOptionConfig{})
 
 			labelNames := exportPlugin.metricsHandler.getLabelNames()
 			labelValues, err := exportPlugin.metricsHandler.getLabelValues(&flow.Flow{})

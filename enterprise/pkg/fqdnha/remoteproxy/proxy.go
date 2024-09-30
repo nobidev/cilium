@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -113,7 +114,9 @@ func ruleToMsg(endpointID uint64, destPortProto restore.PortProto, newRules poli
 	}
 	for selector, l7rules := range newRules {
 		msg.Rules.SelectorRegexMapping[selector.String()] = dnsproxy.GeneratePattern(l7rules)
-		nids := selector.GetSelections()
+		// returned nids are not "transactional", i.e., a concurrently added identity may be missing from
+		// the selections of one selector, but appear on the selections of another
+		nids := selector.GetSelections(versioned.Latest())
 		ids := make([]uint32, len(nids))
 		for i, nid := range nids {
 			ids[i] = uint32(nid)

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/remoteproxy"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -86,8 +87,8 @@ func (dp *DoubleProxy) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (dp *DoubleProxy) GetRules(u uint16) (restore.DNSRules, error) {
-	return dp.LocalProxy.GetRules(u)
+func (dp *DoubleProxy) GetRules(v *versioned.VersionHandle, u uint16) (restore.DNSRules, error) {
+	return dp.LocalProxy.GetRules(v, u)
 }
 
 func (dp *DoubleProxy) RemoveRestoredRules(u uint16) {

@@ -50,7 +50,7 @@ type metricsHandler struct {
 	context                 *metricsAPI.ContextOptions
 }
 
-func (h *metricsHandler) Init(registry *prometheus.Registry, options metricsAPI.Options) error {
+func (h *metricsHandler) Init(registry *prometheus.Registry, options []*metricsAPI.ContextOptionConfig) error {
 	c, err := metricsAPI.ParseContextOptions(options)
 	if err != nil {
 		return err

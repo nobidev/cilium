@@ -46,6 +46,7 @@ import (
 	_ "github.com/cilium/cilium/enterprise/fips"
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -734,7 +735,7 @@ func (s *FQDNProxyServer) RemoveRestoredRules(ctx context.Context, endpointIDMsg
 }
 
 func (s *FQDNProxyServer) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
-	rules, err := s.proxy.GetRules(uint16(endpointIDMsg.EndpointID))
+	rules, err := s.proxy.GetRules(versioned.Latest(), uint16(endpointIDMsg.EndpointID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rules for endpoint: %w", err)
 	}
@@ -791,11 +792,11 @@ type SimpleSelector struct {
 	name       string
 }
 
-func (s *SimpleSelector) GetSelections() identity.NumericIdentitySlice {
+func (s *SimpleSelector) GetSelections(v *versioned.VersionHandle) identity.NumericIdentitySlice {
 	return s.identities
 }
 
-func (s *SimpleSelector) Selects(nid identity.NumericIdentity) bool {
+func (s *SimpleSelector) Selects(v *versioned.VersionHandle, nid identity.NumericIdentity) bool {
 	for _, id := range s.identities {
 		if id == nid {
 			return true
