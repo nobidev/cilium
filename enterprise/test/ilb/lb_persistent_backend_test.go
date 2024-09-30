@@ -48,7 +48,7 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
@@ -121,7 +121,7 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{

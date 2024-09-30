@@ -357,7 +357,7 @@ func (r *ingestor) toIPBackends(addresses []isovalentv1alpha1.Backend) []lbBacke
 		}
 
 		ipBackends = append(ipBackends, lbBackend{
-			address: ipAddress.IP,
+			address: *ipAddress.IP,
 			port:    uint32(ipAddress.Port),
 			weight:  weight,
 			status:  status,

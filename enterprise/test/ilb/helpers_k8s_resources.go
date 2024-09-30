@@ -396,10 +396,11 @@ func lbService(namespace string, name string, opts ...serviceOption) *isovalentv
 
 type backendPoolOption func(o *isovalentv1alpha1.LBBackendPool)
 
-func withBackend(ip string, port uint32) backendPoolOption {
+func withIPBackend(ip string, port uint32) backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.BackendType = isovalentv1alpha1.BackendTypeIP
 		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
-			IP:     ip,
+			IP:     ptr.To(ip),
 			Port:   int32(port),
 			Weight: ptr.To[uint32](1),
 		})

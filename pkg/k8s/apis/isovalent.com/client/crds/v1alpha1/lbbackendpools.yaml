@@ -50,10 +50,23 @@ spec:
             type: object
           spec:
             properties:
+              backendType:
+                description: Type of the backends. Either IP or Hostname. If IP is
+                  specified, backends must be specified by IP address. If Hostname
+                  is specified, backends must be specified by host name.
+                enum:
+                - IP
+                - Hostname
+                type: string
               backends:
                 description: The list of backends included in the pool.
                 items:
                   properties:
+                    host:
+                      description: The hostname of the backend. It must be a valid
+                        hostname.
+                      format: hostname
+                      type: string
                     ip:
                       description: The IP address of the backend.
                       format: ip
@@ -85,7 +98,6 @@ spec:
                       minimum: 1
                       type: integer
                   required:
-                  - ip
                   - port
                   type: object
                 type: array
@@ -267,9 +279,17 @@ spec:
                     type: string
                 type: object
             required:
+            - backendType
             - backends
             - healthCheck
             type: object
+            x-kubernetes-validations:
+            - message: Backend format must match to the backendType and exactly one
+                of ip or host must be specified
+              rule: ((self.backendType == 'IP' && self.backends.all(b, has(b.ip)))
+                || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host))))
+                && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b,
+                !has(b.ip) && !has(b.host))))
           status:
             properties:
               conditions:

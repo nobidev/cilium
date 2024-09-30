@@ -45,7 +45,7 @@ func TestHTTPS(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
@@ -116,7 +116,7 @@ func TestHTTPSRoutes(t *testing.T) {
 	// one backendpool per backend app
 	for postfix := range serviceBackendMappings {
 		backend := scenario.backendApps[testName+"-app"+postfix]
-		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withBackend(backend.ip, backend.port)))
+		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
 	}
 
 	t.Logf("Creating LB Service resources...")
@@ -180,7 +180,7 @@ func TestHTTPS_H2(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)

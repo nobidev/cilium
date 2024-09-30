@@ -4,6 +4,7 @@ metadata:
   namespace: default
   name: lb-1
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -24,6 +25,7 @@ metadata:
   namespace: default
   name: lb-2
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -41,6 +43,7 @@ metadata:
   namespace: default
   name: lb-3
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -59,6 +62,7 @@ metadata:
   namespace: default
   name: lb-4
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -76,6 +80,7 @@ metadata:
   namespace: default
   name: lb-5
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -96,6 +101,7 @@ metadata:
   namespace: default
   name: lb-6
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -112,6 +118,7 @@ metadata:
   namespace: default
   name: lb-7
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
@@ -128,6 +135,7 @@ metadata:
   namespace: default
   name: lb-8
 spec:
+  backendType: IP
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2

@@ -890,7 +890,15 @@ type LBBackendPool struct {
 	Status LBBackendPoolStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:message="Backend format must match to the backendType and exactly one of ip or host must be specified",rule="((self.backendType == 'IP' && self.backends.all(b, has(b.ip))) || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host)))) && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b, !has(b.ip) && !has(b.host))))"
 type LBBackendPoolSpec struct {
+	// Type of the backends. Either IP or Hostname. If IP is specified, backends
+	// must be specified by IP address. If Hostname is specified, backends must be
+	// specified by host name.
+	//
+	// +kubebuilder:validation:Required
+	BackendType BackendType `json:"backendType"`
+
 	// The list of backends included in the pool.
 	//
 	// +kubebuilder:validation:Required
@@ -921,6 +929,14 @@ type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Optional
 	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=IP;Hostname
+type BackendType string
+
+const (
+	BackendTypeIP       BackendType = "IP"
+	BackendTypeHostname BackendType = "Hostname"
+)
 
 type LBBackendTCPConfig struct {
 	// The connect timeout for the connections.
@@ -972,9 +988,15 @@ type LBBackendHTTPConfig struct {
 type Backend struct {
 	// The IP address of the backend.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=ip
-	IP string `json:"ip"`
+	IP *string `json:"ip,omitempty"`
+
+	// The hostname of the backend. It must be a valid hostname.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=hostname
+	Host *string `json:"host,omitempty"`
 
 	// The port that the backend listens on.
 	//

@@ -380,9 +380,22 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 		return false
 	}
 
-	if in.IP != other.IP {
+	if (in.IP == nil) != (other.IP == nil) {
 		return false
+	} else if in.IP != nil {
+		if *in.IP != *other.IP {
+			return false
+		}
 	}
+
+	if (in.Host == nil) != (other.Host == nil) {
+		return false
+	} else if in.Host != nil {
+		if *in.Host != *other.Host {
+			return false
+		}
+	}
+
 	if in.Port != other.Port {
 		return false
 	}
@@ -1968,6 +1981,9 @@ func (in *LBBackendPoolSpec) DeepEqual(other *LBBackendPoolSpec) bool {
 		return false
 	}
 
+	if in.BackendType != other.BackendType {
+		return false
+	}
 	if ((in.Backends != nil) && (other.Backends != nil)) || ((in.Backends == nil) != (other.Backends == nil)) {
 		in, other := &in.Backends, &other.Backends
 		if other == nil {
