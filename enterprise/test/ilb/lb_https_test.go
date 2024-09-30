@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestHTTPS(t *testing.T) {
@@ -62,6 +63,93 @@ func TestHTTPS(t *testing.T) {
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
 		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+}
+
+func TestHTTPSRoutes(t *testing.T) {
+	ctx := context.Background()
+	testName := "https-routes"
+	testK8sNamespace := "default"
+
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
+	serviceBackendMappings := map[string]struct {
+		hostname         string
+		testCallHostname string
+		path             string
+	}{
+		"-0": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
+		"-1": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
+		"-2": {hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
+		"-3": {hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
+	}
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating cert and secret...")
+	// create a secret per hostname (filtering out multiple routes for the same hostname)
+	alreadyCoveredHostnames := map[string]string{}
+	for postfix, rhost := range serviceBackendMappings {
+		if _, ok := alreadyCoveredHostnames[rhost.hostname]; !ok {
+			scenario.createLBServerCertificate(ctx, testName+postfix, rhost.hostname)
+			alreadyCoveredHostnames[rhost.hostname] = postfix
+		}
+	}
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	hostnames := []string{}
+	for _, rhost := range serviceBackendMappings {
+		hostnames = append(hostnames, rhost.hostname)
+	}
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: hostnames})[0]
+
+	t.Logf("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	t.Logf("Creating LB BackendPool resources...")
+	// one backendpool per backend app
+	for postfix := range serviceBackendMappings {
+		backend := scenario.backendApps[testName+"-app"+postfix]
+		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withBackend(backend.ip, backend.port)))
+	}
+
+	t.Logf("Creating LB Service resources...")
+	// one route per backendpool (backend app)
+	routesAndCertificates := []httpsApplicationOption{}
+	for postfix, rhost := range serviceBackendMappings {
+		routesAndCertificates = append(routesAndCertificates, withHttpsRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
+
+		// only use the reference it the TLS secret was created for this route
+		if alreadyCoveredHostnames[rhost.hostname] == postfix {
+			routesAndCertificates = append(routesAndCertificates, withCertificate(testName+postfix))
+		}
+	}
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
+	scenario.createLBService(ctx, service)
+
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	// calling each route once
+	for _, rhost := range serviceBackendMappings {
+		testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+rhost.hostname+".crt --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		t.Logf("Testing %q...", testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
+		if err != nil {
+			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+	}
+
+	t.Log("Check that requests are handled by the correct backend")
+	// checking on each backend
+	for postfix, rhost := range serviceBackendMappings {
+		eventually(t, logContains(ctx, dockerCli, scenario.backendApps[testName+"-app"+postfix].dockerContainer, fmt.Sprintf("Service request request.path=/%s", rhost.path)), 30*time.Second, 1*time.Second)
 	}
 }
 
