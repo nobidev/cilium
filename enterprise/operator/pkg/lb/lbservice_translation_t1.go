@@ -60,6 +60,9 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
 
+	// T1 -> T2 forwarding method
+	annotations[ossannotation.ServiceForwardingMode] = "dsr"
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   model.namespace,
