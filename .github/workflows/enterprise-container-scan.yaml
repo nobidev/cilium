@@ -10,7 +10,7 @@ permissions:
 jobs:
   container-scan:
     name: scan-container
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     outputs:
       scan_result: ${{ steps.failure-flag.outputs.scan_result }}
@@ -84,7 +84,7 @@ jobs:
       # Fails the entire workflow if any scanning job run has failed, despite the
       # use of `continue-on-error` in the previous job.
       name: Check Scan Results
-      runs-on: ubuntu-22.04
+      runs-on: ubuntu-24.04
       needs: container-scan
       steps:
         - name: Check if any scans failed
