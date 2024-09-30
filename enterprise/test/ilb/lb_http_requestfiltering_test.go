@@ -19,12 +19,12 @@ import (
 func TestHTTPRequestFiltering(t *testing.T) {
 	testCases := []struct {
 		desc      string
-		appOpt    func(clients []*frrContainer) httpApplicationOption
+		appOpt    func(clients []*frrContainer) httpApplicationRouteOption
 		testCalls []testCall
 	}{
 		{
 			desc: "deny-by-exact-path",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyByExactPath("/admin")
 			},
 			testCalls: []testCall{
@@ -50,7 +50,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "deny-by-prefix-path",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyByPrefixPath("/admin")
 			},
 			testCalls: []testCall{
@@ -76,7 +76,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "deny-by-exact-hostname",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyByExactHostname("insecure2.acme.io")
 			},
 			testCalls: []testCall{
@@ -102,7 +102,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "deny-by-suffix-hostname",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyBySuffixHostname("insecure.acme.io")
 			},
 			testCalls: []testCall{
@@ -128,7 +128,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "deny-by-sourceip",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyBySourceIP(clients[1].ip + "/32")
 			},
 			testCalls: []testCall{
@@ -148,7 +148,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "deny-by-sourceip-exact-hostname-exact-path",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "insecure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
@@ -192,7 +192,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 		},
 		{
 			desc: "allow-by-sourceip-exact-hostname-exact-path",
-			appOpt: func(clients []*frrContainer) httpApplicationOption {
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "insecure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
@@ -250,7 +250,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 			scenario.createLBBackendPool(ctx, backendPool)
 
 			t.Logf("Creating LB Service resources...")
-			service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, tC.appOpt(clients)))
+			service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, tC.appOpt(clients))))
 			scenario.createLBService(ctx, service)
 
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)

@@ -96,7 +96,10 @@ func TestHTTPConnectionFiltering(t *testing.T) {
 			scenario.createLBBackendPool(ctx, backendPool)
 
 			t.Logf("Creating LB Service resources...")
-			service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, tC.appOpt(clients)))
+			opts := []httpApplicationOption{}
+			opts = append(opts, withHttpRoute(testName))
+			opts = append(opts, tC.appOpt(clients))
+			service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
 			scenario.createLBService(ctx, service)
 
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)

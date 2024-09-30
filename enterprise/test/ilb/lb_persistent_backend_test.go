@@ -59,7 +59,7 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpBackendPersistenceByCookie("session")))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceByCookie("session"))))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -132,7 +132,7 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpBackendPersistenceBySourceIP()))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceBySourceIP())))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

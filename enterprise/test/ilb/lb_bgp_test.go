@@ -42,7 +42,7 @@ func TestBGPHealthCheck(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

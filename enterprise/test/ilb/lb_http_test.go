@@ -46,7 +46,9 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(81), withHTTPProxyApplication(testName))
+	service := lbService(testK8sNamespace, testName, withPort(81), withHTTPProxyApplication(
+		withHttpRoute(testName),
+	))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -136,7 +138,9 @@ func TestHTTP2(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpHostname(hostName)))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+		withHttpRoute(testName, withHttpHostname(hostName)),
+	))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
@@ -188,7 +192,9 @@ func TestHTTPPath(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName, withHttpHostname(hostName), withHttpPath(path)))
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+		withHttpRoute(testName, withHttpHostname(hostName), withHttpPath(path)),
+	))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)

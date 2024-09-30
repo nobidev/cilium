@@ -98,33 +98,50 @@ func lbServiceApplicationsHTTPSProxy(backendRef, secretName, hostName string, op
 
 type httpApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy)
 
-func withHttpHostname(hostname string) httpApplicationOption {
+func withHttpRoute(backendRef string, opts ...httpApplicationRouteOption) httpApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].Match = &isovalentv1alpha1.LBServiceHTTPRouteMatch{
-			HostNames: []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostname)},
+		route := &isovalentv1alpha1.LBServiceHTTPRoute{
+			Match: &isovalentv1alpha1.LBServiceHTTPRouteMatch{},
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
+				Name: backendRef,
+			},
 		}
+
+		for _, opt := range opts {
+			opt(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
 	}
 }
 
-func withHttpPath(path string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].Match.Path = &isovalentv1alpha1.LBServiceHTTPPath{
+type httpApplicationRouteOption func(o *isovalentv1alpha1.LBServiceHTTPRoute)
+
+func withHttpHostname(hostname string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.Match.HostNames = []isovalentv1alpha1.LBServiceHostName{isovalentv1alpha1.LBServiceHostName(hostname)}
+	}
+}
+
+func withHttpPath(path string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.Match.Path = &isovalentv1alpha1.LBServiceHTTPPath{
 			Exact: &path,
 		}
 	}
 }
 
-func withHttpBackendPersistenceBySourceIP() httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
+func withHttpBackendPersistenceBySourceIP() httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
 			SourceIP: ptr.To(true),
 		}
 	}
 }
 
-func withHttpBackendPersistenceByCookie(cookieName string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
+func withHttpBackendPersistenceByCookie(cookieName string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.PersistentBackend = &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{
 			Cookies: []isovalentv1alpha1.LBServiceHTTPRoutePersistentBackendCookie{
 				{
 					Name: cookieName,
@@ -164,9 +181,9 @@ func withHttpConnectionFilteringAllowBySourceIP(sourceCIDR string) httpApplicati
 	}
 }
 
-func withHttpRequestFilteringDenyByExactPath(path string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyByExactPath(path string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -179,9 +196,9 @@ func withHttpRequestFilteringDenyByExactPath(path string) httpApplicationOption 
 	}
 }
 
-func withHttpRequestFilteringDenyByPrefixPath(path string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyByPrefixPath(path string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -194,9 +211,9 @@ func withHttpRequestFilteringDenyByPrefixPath(path string) httpApplicationOption
 	}
 }
 
-func withHttpRequestFilteringDenyByExactHostname(hostname string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyByExactHostname(hostname string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -209,9 +226,9 @@ func withHttpRequestFilteringDenyByExactHostname(hostname string) httpApplicatio
 	}
 }
 
-func withHttpRequestFilteringDenyBySuffixHostname(hostname string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyBySuffixHostname(hostname string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -224,9 +241,9 @@ func withHttpRequestFilteringDenyBySuffixHostname(hostname string) httpApplicati
 	}
 }
 
-func withHttpRequestFilteringDenyBySourceIP(sourceCIDR string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyBySourceIP(sourceCIDR string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -239,9 +256,9 @@ func withHttpRequestFilteringDenyBySourceIP(sourceCIDR string) httpApplicationOp
 	}
 }
 
-func withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(sourceCIDR string, hostname string, path string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(sourceCIDR string, hostname string, path string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -260,9 +277,9 @@ func withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(sourceCIDR str
 	}
 }
 
-func withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(sourceCIDR string, hostname string, path string) httpApplicationOption {
-	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
-		o.Routes[0].RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+func withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(sourceCIDR string, hostname string, path string) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
 			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
 			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
 				{
@@ -281,26 +298,6 @@ func withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(sourceCIDR st
 	}
 }
 
-func lbServiceApplicationsHTTPProxy(backendRef string, opts ...httpApplicationOption) isovalentv1alpha1.LBServiceApplications {
-	obj := isovalentv1alpha1.LBServiceApplications{
-		HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
-			Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
-				{
-					BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-						Name: backendRef,
-					},
-				},
-			},
-		},
-	}
-
-	for _, o := range opts {
-		o(obj.HTTPProxy)
-	}
-
-	return obj
-}
-
 type serviceOption func(o *isovalentv1alpha1.LBService)
 
 func withVIPRef(vipName string) serviceOption {
@@ -317,9 +314,19 @@ func withPort(port int32) serviceOption {
 	}
 }
 
-func withHTTPProxyApplication(backendRef string, opts ...httpApplicationOption) serviceOption {
+func withHTTPProxyApplication(opts ...httpApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
-		o.Spec.Applications = lbServiceApplicationsHTTPProxy(backendRef, opts...)
+		obj := isovalentv1alpha1.LBServiceApplications{
+			HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+				Routes: []isovalentv1alpha1.LBServiceHTTPRoute{},
+			},
+		}
+
+		for _, o := range opts {
+			o(obj.HTTPProxy)
+		}
+
+		o.Spec.Applications = obj
 	}
 }
 

@@ -47,10 +47,10 @@ func TestSharedVIP(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service1 := lbService(testK8sNamespace, testName+"-1", withVIPRef(sharedVIPName), withPort(80), withHTTPProxyApplication(testName))
+	service1 := lbService(testK8sNamespace, testName+"-1", withVIPRef(sharedVIPName), withPort(80), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service1)
 
-	service2 := lbService(testK8sNamespace, testName+"-2", withVIPRef(sharedVIPName), withPort(81), withHTTPProxyApplication(testName))
+	service2 := lbService(testK8sNamespace, testName+"-2", withVIPRef(sharedVIPName), withPort(81), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service2)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", sharedVIPName)
@@ -107,7 +107,7 @@ func TestRequestedVIP(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")
-	service1 := lbService(testK8sNamespace, testName, withHTTPProxyApplication(testName))
+	service1 := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service1)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
