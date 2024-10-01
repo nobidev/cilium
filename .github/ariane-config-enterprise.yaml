@@ -48,6 +48,9 @@ triggers:
   /ci-lb:
     workflows:
     - enterprise-lb.yaml
+  /scale-encryption-policy:
+    workflows:
+    - enterprise-scale-encryption-policy.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:

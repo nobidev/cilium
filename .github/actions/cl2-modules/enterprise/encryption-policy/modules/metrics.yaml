@@ -1,0 +1,47 @@
+{{$action := .action}}
+
+steps:
+  - name: {{$action}} Cilium Agent Encryption Policy Control-Plane Latency
+    measurements:
+    - Identifier: EncryptionPolicyComputation
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Encryption Policy Computation Latency
+        metricVersion: v1
+        unit: s
+        queries:
+        - name: Perc99
+          query: histogram_quantile(0.99, sum(rate(cilium_encryption_policy_computation_runs_duration_seconds_bucket[%v])) by (le))
+        - name: Perc90
+          query: histogram_quantile(0.90, sum(rate(cilium_encryption_policy_computation_runs_duration_seconds_bucket[%v])) by (le))
+        - name: Perc50
+          query: histogram_quantile(0.50, sum(rate(cilium_encryption_policy_computation_runs_duration_seconds_bucket[%v])) by (le))
+
+    - Identifier: EncryptionPolicyBPFReconciliation
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Encryption Policy BPF Reconciliation Latency
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: Perc99
+            query: histogram_quantile(0.99, sum(rate(cilium_encryption_policy_bpf_reconciliation_duration_seconds_bucket[%v])) by (le))
+          - name: Perc90
+            query: histogram_quantile(0.90, sum(rate(cilium_encryption_policy_bpf_reconciliation_duration_seconds_bucket[%v])) by (le))
+          - name: Perc50
+            query: histogram_quantile(0.50, sum(rate(cilium_encryption_policy_bpf_reconciliation_duration_seconds_bucket[%v])) by (le))
+
+    - Identifier: EncryptionPolicyCounters
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Encryption Policy Counters
+        metricVersion: v1
+        unit: count
+        queries:
+          - name: Policy Computation Count
+            query: sum(increase(cilium_encryption_policy_computation_runs_total[%v]))
+          - name: BPF Reconciliation Error Count
+            query: sum(increase(cilium_encryption_bpf_reconciliation_errors_total[%v]))

@@ -1,0 +1,68 @@
+{{$PODS_PER_NODE := 30}}
+{{$PODS_PER_DEPLOYMENT := 3}}
+{{$TOTAL_POLICIES := MultiplyInt .Nodes 25}}
+{{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
+{{$namespacePrefix := "scale-test" }}
+{{$QPS := DefaultParam .CL2_QPS 10}}
+{{$TimeToLoad := MultiplyInt $namespaces 6}}
+# The total number of deployments is #pods-per-node * #nodes / #pods-per-deployment
+# for 1 node -> 10 deployments x 1 namespace
+# for 100 nodes -> 1000 deployments x 1 namespace
+# for 300 nodes -> 1000 deployments x 3 namespaces
+# for 1000 nodes -> 1000 deployments x 10 namespaces
+
+# There are $TOTAL_POLICIES IsovalentClusterwideEncryptionPolicies deployed.
+# Policies are evenly distributed across namespaces, and within a namespace,
+# a subject deployment and peer deployment are chosen next to each other.
+
+# QPS says how fast deployments and policies are created (counts towards both)
+{{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
+{{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
+{{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
+
+name: load
+namespace:
+  number: {{$namespaces}}
+  prefix: {{$namespacePrefix}}
+  deleteAutomanagedNamespaces: false
+tuningSets:
+- name: default
+  globalQPSLoad:
+    qps: {{$QPS}}
+    burst: 1
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$TimeToLoad}}m
+
+steps:
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+
+- module:
+    path: ../../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      namespacePrefix: {{$namespacePrefix}}
+      tuningSet: RandomizedSaturationTimeLimited
+      operationTimeout: 15m
+      replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      totalPolicies: {{$TOTAL_POLICIES}}
+
+- module:
+    path: ../../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather

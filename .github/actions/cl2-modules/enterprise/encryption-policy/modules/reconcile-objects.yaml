@@ -1,0 +1,55 @@
+{{$actionName := printf "%s objects" .actionName}}
+{{$namespaces := .namespaces}}
+{{$namespacePrefix := .namespacePrefix}}
+{{$tuningSet := .tuningSet}}
+{{$operationTimeout := .operationTimeout}}
+{{$deploymentsPerNamespace := .deploymentsPerNamespace}}
+{{$replicasPerDeployment := .replicasPerDeployment}}
+{{$totalPolicies := .totalPolicies }}
+
+
+steps:
+- name: Starting measurement for '{{$actionName}}'
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = load
+      operationTimeout: {{$operationTimeout}}
+
+- name: {{$actionName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicasPerDeployment}}
+  - replicasPerNamespace: {{$totalPolicies}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: encrypt-small-deployment
+      objectTemplatePath: isovalentclusterwideencryptionpolicy.yaml
+      templateFillMap:
+        namespaces: {{$namespaces}}
+        namespacePrefix: {{$namespacePrefix}}
+        deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+        totalPolicies: {{$totalPolicies}}
+
+- name: Waiting for '{{$actionName}}' to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather

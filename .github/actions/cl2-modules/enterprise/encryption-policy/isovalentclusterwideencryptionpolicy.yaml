@@ -1,0 +1,35 @@
+{{$namespaces := .namespaces}}
+{{$namespacePrefix := .namespacePrefix}}
+{{$deploymentsPerNamespace := .deploymentsPerNamespace}}
+{{$policiesPerDeployment := .policiesPerDeployment}}
+{{$totalPolicies := .totalPolicies}}
+
+# Because IsovalentClusterwideEncryptionPolicy is non-namespaced, .Index is
+# between 0 and $totalPolicies.
+{{$selectedNamespaceIndex := AddInt (Mod .Index $namespaces) 1 }}
+{{$selectedDeployment := Mod .Index $deploymentsPerNamespace }}
+{{$selectedPeer := Mod (AddInt .Index 1) $deploymentsPerNamespace }}
+
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentClusterwideEncryptionPolicy
+metadata:
+  name: {{.Name}}
+spec:
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{$namespacePrefix}}-{{$selectedNamespaceIndex}}
+  podSelector:
+    matchLabels:
+      group: load
+      indexing: id-{{$selectedDeployment}}
+  peers:
+    - podSelector:
+        matchLabels:
+          group: load
+          indexing: id-{{$selectedPeer}}
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{$namespacePrefix}}-{{$selectedNamespaceIndex}}
+      ports:
+        - protocol: TCP
+          port: 8080
