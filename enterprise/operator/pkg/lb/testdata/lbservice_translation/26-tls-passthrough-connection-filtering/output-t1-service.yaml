@@ -3,6 +3,7 @@ kind: Service
 metadata:
   annotations:
     lbipam.cilium.io/ips: 100.64.0.100
+    service.cilium.io/forwarding-mode: dsr
     lbipam.cilium.io/sharing-key: lb-1
     service.cilium.io/health-check-bgp-advertise-threshold: "1"
     service.cilium.io/health-check-http-method: GET
