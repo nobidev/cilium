@@ -38,7 +38,7 @@ func TestBGPHealthCheck(t *testing.T) {
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backendPool := lbBackendPool(testK8sNamespace, testName, withBackend(backend.ip, 8080))
+	backendPool := lbBackendPool(testK8sNamespace, testName, withBackend(backend.ip, backend.port))
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Logf("Creating LB Service resources...")

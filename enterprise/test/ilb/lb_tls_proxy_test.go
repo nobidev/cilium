@@ -58,7 +58,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, 8080))
+	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Log("Creating LB Service resources...")
@@ -161,7 +161,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, 8080), withBackendTLS())
+	backendPool := lbBackendPool(ns, testName, withBackend(backends[0].ip, backends[0].port), withBackendTLS())
 	scenario.createLBBackendPool(ctx, backendPool)
 
 	t.Log("Creating LB Service resources...")

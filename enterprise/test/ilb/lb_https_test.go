@@ -44,7 +44,7 @@ func TestHTTPS(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, 8080))
+		backends = append(backends, withBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
@@ -93,7 +93,7 @@ func TestHTTP2S(t *testing.T) {
 	t.Logf("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withBackend(b.ip, 8080))
+		backends = append(backends, withBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)

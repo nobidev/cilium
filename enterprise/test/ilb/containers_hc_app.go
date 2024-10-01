@@ -24,7 +24,7 @@ type hcAppContainer struct {
 type backendApplicationConfig struct {
 	h2cEnabled      bool
 	tlsCertHostname string
-	listenPort      int
+	listenPort      uint32
 }
 
 type hcState string
@@ -45,8 +45,8 @@ func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
 
 	stdout, stderr, err := c.Exec(ctx,
 		fmt.Sprintf(
-			"curl %s %s://127.0.0.1:8080/control/healthcheck/"+string(hc),
-			options, scheme,
+			"curl %s %s://127.0.0.1:%d/control/healthcheck/"+string(hc),
+			options, scheme, c.port,
 		),
 	)
 	if err != nil {

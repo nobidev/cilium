@@ -93,12 +93,6 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		if isSingleNode() {
-			// On the single node all containers are deployed in the host
-			// netns. To avoid port collisions, we keep +1 for each instance.
-			config.listenPort++
-		}
-
 		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, envVars, containerNetwork, false)
 		if err != nil {
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
@@ -109,6 +103,7 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 				t:         r.t,
 				id:        id,
 				ip:        ip,
+				port:      config.listenPort,
 				dockerCli: r.dockerCli,
 			},
 			config: config,
@@ -117,6 +112,12 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		r.backendApps[appName] = container
 
 		containers = append(containers, container)
+
+		if isSingleNode() {
+			// On the single node all containers are deployed in the host
+			// netns. To avoid port collisions, we keep +1 for each instance.
+			config.listenPort++
+		}
 
 		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
 	}

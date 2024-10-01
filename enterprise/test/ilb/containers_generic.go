@@ -19,6 +19,7 @@ type dockerContainer struct {
 	t         *testing.T
 	id        string
 	ip        string
+	port      uint32
 	dockerCli *dockerCli
 }
 
