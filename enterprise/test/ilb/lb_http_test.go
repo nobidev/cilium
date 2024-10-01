@@ -229,11 +229,25 @@ func TestHTTPRoutes(t *testing.T) {
 	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 	dockerCli := newDockerCli(t)
 
+	serviceBackendMappings := map[string]struct {
+		listenPort       int
+		hostname         string
+		testCallHostname string
+		path             string
+	}{
+		"-0": {listenPort: 8080, hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
+		"-1": {listenPort: 8081, hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
+		"-2": {listenPort: 8082, hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
+		"-3": {listenPort: 8083, hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
+	}
+
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
+	for _, rhost := range serviceBackendMappings {
+		scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true, listenPort: rhost.listenPort})
+	}
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
@@ -242,21 +256,10 @@ func TestHTTPRoutes(t *testing.T) {
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	serviceBackendMappings := map[string]struct {
-		hostname         string
-		testCallHostname string
-		path             string
-	}{
-		"-0": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
-		"-1": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
-		"-2": {hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
-		"-3": {hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
-	}
-
 	t.Logf("Creating LB BackendPool resources...")
 	// one backendpool per backend app
-	for postfix := range serviceBackendMappings {
-		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withBackend(scenario.backendApps[testName+"-app"+postfix].ip, 8080)))
+	for postfix, rhost := range serviceBackendMappings {
+		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withBackend(scenario.backendApps[testName+"-app"+postfix].ip, int32(rhost.listenPort))))
 	}
 
 	t.Logf("Creating LB Service resources...")
