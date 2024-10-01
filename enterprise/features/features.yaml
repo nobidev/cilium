@@ -241,6 +241,17 @@ features:
       encryption.type: wireguard
       encryption.nodeEncryption: true
 
+  EncryptionPolicy:
+    maturity: Limited
+    description: |
+      Selectively encrypt traffic based on encryption policies
+    flags:
+      enable-encryption-policy: true
+    skip-flag-check: true
+    helm:
+      enterprise.encryption.policy.enabled: true
+
+
   ### CNI
 
   CNIChainingMode:
