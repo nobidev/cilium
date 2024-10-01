@@ -13,8 +13,8 @@ package ilb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
-	"time"
 )
 
 func TestHTTPS(t *testing.T) {
@@ -137,19 +137,18 @@ func TestHTTPSRoutes(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// calling each route once
-	for _, rhost := range serviceBackendMappings {
+	for postfix, rhost := range serviceBackendMappings {
 		testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+rhost.hostname+".crt --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
-	}
 
-	t.Log("Check that requests are handled by the correct backend")
-	// checking on each backend
-	for postfix, rhost := range serviceBackendMappings {
-		eventually(t, logContains(ctx, dockerCli, scenario.backendApps[testName+"-app"+postfix].dockerContainer, fmt.Sprintf("Service request request.path=/%s", rhost.path)), 30*time.Second, 1*time.Second)
+		t.Log("Check that request is handled by the correct backend")
+		if !strings.Contains(stdout, testName+"-app"+postfix) {
+			t.Fatalf("request not handled by the expected backend (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
 	}
 }
 
