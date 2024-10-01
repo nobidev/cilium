@@ -28,7 +28,7 @@ const (
 
 const (
 	shortTimeout     = 30 * time.Second
-	longTimeout      = 60 * time.Second
+	longTimeout      = 120 * time.Second
 	pollInterval     = 1 * time.Second
 	longPollInterval = 5 * time.Second
 )
