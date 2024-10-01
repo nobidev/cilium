@@ -19,4 +19,4 @@
 
 Your release version is {{ .Chart.Version }}.
 
-For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}/gettinghelp
+For any further help, visit https://docs.isovalent.com/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}
