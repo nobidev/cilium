@@ -407,6 +407,17 @@ func withIPBackend(ip string, port uint32) backendPoolOption {
 	}
 }
 
+func withHostnameBackend(hostname string, port int32) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.BackendType = isovalentv1alpha1.BackendTypeHostname
+		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
+			Host:   ptr.To(hostname),
+			Port:   port,
+			Weight: ptr.To[uint32](1),
+		})
+	}
+}
+
 func withBackendTLS() backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
 		o.Spec.TLSConfig = &isovalentv1alpha1.LBBackendTLSConfig{}
