@@ -230,24 +230,21 @@ func TestHTTPRoutes(t *testing.T) {
 	dockerCli := newDockerCli(t)
 
 	serviceBackendMappings := map[string]struct {
-		listenPort       uint32
 		hostname         string
 		testCallHostname string
 		path             string
 	}{
-		"-0": {listenPort: 8080, hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
-		"-1": {listenPort: 8081, hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
-		"-2": {listenPort: 8082, hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
-		"-3": {listenPort: 8083, hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
+		"-0": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
+		"-1": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
+		"-2": {hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
+		"-3": {hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	for _, rhost := range serviceBackendMappings {
-		scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true, listenPort: rhost.listenPort})
-	}
+	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
