@@ -37,8 +37,8 @@ const (
 )
 
 var Cell = cell.Module(
-	"lbmetrics",
-	"LB Metrics",
+	"loadbalancer-metrics",
+	"LoadBalancer metrics",
 
 	cell.Invoke(RegisterCollector),
 )
