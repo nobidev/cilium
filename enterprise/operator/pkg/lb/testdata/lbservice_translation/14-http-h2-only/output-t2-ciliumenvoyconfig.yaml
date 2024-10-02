@@ -149,6 +149,8 @@ spec:
           interval: 30s
           noTrafficInterval: 30s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
@@ -163,6 +165,18 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
@@ -176,6 +190,8 @@ spec:
           interval: 20s
           noTrafficInterval: 20s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 20s
           unhealthyInterval: 20s
           unhealthyThreshold: 1
@@ -190,6 +206,18 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_lb-1

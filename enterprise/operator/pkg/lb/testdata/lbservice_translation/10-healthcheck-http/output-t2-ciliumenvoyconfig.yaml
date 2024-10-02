@@ -40,6 +40,8 @@ spec:
                       clusterMinHealthyPercentages:
                         backend_cluster_lb-1:
                           value: 30
+                        backend_cluster_lb-2:
+                          value: 30
                       headers:
                         - name: :path
                           stringMatch:
@@ -120,6 +122,20 @@ spec:
                 prefix: /
               route:
                 cluster: backend_cluster_lb-1
+        - domains:
+            - "foo.acme.io"
+          name: frontend_virtualhost_http_foo_acme_io
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_lb-2
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -132,6 +148,8 @@ spec:
           interval: 15s
           noTrafficInterval: 15s
           timeout: 2s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 15s
           unhealthyInterval: 15s
           unhealthyThreshold: 2
@@ -146,7 +164,84 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       ignoreHealthOnHostRemoval: true
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 2
+          httpHealthCheck:
+            host: my-hostname
+            path: /health-endpoint
+          interval: 15s
+          noTrafficInterval: 15s
+          timeout: 2s
+          transportSocketMatchCriteria:
+            type: healthcheck
+          unhealthyEdgeInterval: 15s
+          unhealthyInterval: 15s
+          unhealthyThreshold: 2
+      ignoreHealthOnHostRemoval: true
+      name: backend_cluster_lb-2
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            tlsParams: {}
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+              commonTlsContext:
+                tlsParams:
+                  cipherSuites:
+                    - "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]"
+                    - "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]"
+                    - ECDHE-ECDSA-AES256-GCM-SHA384
+                    - ECDHE-RSA-AES256-GCM-SHA384
+                  ecdhCurves:
+                    - X25519
+                    - P-256
+                  signatureAlgorithms:
+                    - ecdsa_secp256r1_sha256
+                    - rsa_pss_rsae_sha256
+                    - rsa_pkcs1_sha256
+                    - ecdsa_secp384r1_sha384
+                    - rsa_pss_rsae_sha384
+                    - rsa_pkcs1_sha384
+                    - rsa_pss_rsae_sha512
+                    - rsa_pkcs1_sha512
+                    - rsa_pkcs1_sha1
+                  tlsMaximumProtocolVersion: TLSv1_2
+                  tlsMinimumProtocolVersion: TLSv1_2
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_lb-1
       endpoints:
@@ -161,5 +256,21 @@ spec:
                 address:
                   socketAddress:
                     address: 172.18.0.6
+                    portValue: 8080
+              loadBalancingWeight: 1
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_lb-2
+      endpoints:
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.7
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.8
                     portValue: 8080
               loadBalancingWeight: 1

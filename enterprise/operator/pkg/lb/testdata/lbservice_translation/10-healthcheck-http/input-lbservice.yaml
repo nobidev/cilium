@@ -15,3 +15,8 @@ spec:
               - "bla.acme.io"
           backendRef:
             name: lb-1
+        - match:
+            hostNames:
+              - "foo.acme.io"
+          backendRef:
+            name: lb-2

@@ -139,6 +139,7 @@ spec:
   healthCheck:
     intervalSeconds: 2
     timeoutSeconds: 2
+    tlsConfig: {}
     http:
       path: "/health"
   backends:

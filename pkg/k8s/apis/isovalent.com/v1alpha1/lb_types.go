@@ -1067,15 +1067,10 @@ type HealthCheck struct {
 
 	// The health check TLS configuration.
 	//
-	// This provides the possibility to configure TLS
-	// for the health checks even though the backend itself
-	// is configured to not use TLS.
-	//
-	// If not defined, TLS is used if TLS is enabled on the
-	// LBBackendPool.
+	// If not defined, no TLS is used for health checking.
 	//
 	// +kubebuilder:validation:Optional
-	TLSConfig *HealthCheckTLSConfig `json:"tlsConfig,omitempty"`
+	TLSConfig *LBBackendTLSConfig `json:"tlsConfig,omitempty"`
 
 	// The HTTP health check configuration. Exactly one of http or tcp must
 	// be specified.
@@ -1107,8 +1102,6 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:validation:MinLength=1
 	Path *string `json:"path,omitempty"`
 }
-
-type HealthCheckTLSConfig struct{}
 
 type HealthCheckTCP struct{}
 

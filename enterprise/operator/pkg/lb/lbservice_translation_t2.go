@@ -33,6 +33,7 @@ import (
 	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_network_dns_resolver_cares_v3 "github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3"
+	envoy_extensions_transportsockets_rawbuffer_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/raw_buffer/v3"
 	envoy_extensions_transportsockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
@@ -975,37 +976,24 @@ func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_
 	return clusters
 }
 
-func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(backend backend) []*envoy_config_cluster_v3.Cluster_TransportSocketMatch {
-	if !backend.healthCheckConfig.useTLS {
-		return nil
-	}
-
+func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(healthCheckConfig lbBackendHealthCheckConfig) []*envoy_config_cluster_v3.Cluster_TransportSocketMatch {
 	return []*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
 		{
-			Name: "healthcheck_tls",
+			Name: "healthcheck",
 			Match: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"type": structpb.NewStringValue("tls"),
+					"type": structpb.NewStringValue("healthcheck"),
 				},
 			},
-			TransportSocket: &envoy_config_core_v3.TransportSocket{
-				Name: "envoy.transport_sockets.tls",
-				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{}),
-				},
-			},
+			TransportSocket: r.toTransportSocket(healthCheckConfig.tlsConfig),
 		},
 	}
 }
 
 func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatchCriteria(backend backend) *structpb.Struct {
-	if !backend.healthCheckConfig.useTLS {
-		return nil
-	}
-
 	return &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"type": structpb.NewStringValue("tls"),
+			"type": structpb.NewStringValue("healthcheck"),
 		},
 	}
 }
@@ -1021,14 +1009,14 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
 		},
 		ConnectTimeout:         &durationpb.Duration{Seconds: int64(b.tcpConfig.connectTimeoutSeconds)},
-		TransportSocketMatches: r.toHealthCheckTransportSocketMatches(b),
+		TransportSocketMatches: r.toHealthCheckTransportSocketMatches(b.healthCheckConfig),
 		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, r.toHealthCheckTransportSocketMatchCriteria(b)),
 		LbPolicy:               r.mapLbPolicy(b.lbAlgorithm.algorithm),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
-		TransportSocket:               r.toTLSTransportSocket(b.tlsConfig),
+		TransportSocket:               r.toTransportSocket(b.tlsConfig),
 		IgnoreHealthOnHostRemoval:     true,
 	}
 
@@ -1080,9 +1068,18 @@ func (r *lbServiceT2Translator) toLbConfigMaglev(algorithmConfig lbBackendLBAlgo
 	}
 }
 
-func (r *lbServiceT2Translator) toTLSTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_config_core_v3.TransportSocket {
+func (r *lbServiceT2Translator) rawTransportSocket() *envoy_config_core_v3.TransportSocket {
+	return &envoy_config_core_v3.TransportSocket{
+		Name: "envoy.transport_sockets.raw_buffer",
+		ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_transportsockets_rawbuffer_v3.RawBuffer{}),
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_config_core_v3.TransportSocket {
 	if tlsConfig == nil {
-		return nil
+		return r.rawTransportSocket()
 	}
 
 	return &envoy_config_core_v3.TransportSocket{

@@ -150,10 +150,44 @@ spec:
                     minimum: 1
                     type: integer
                   tlsConfig:
-                    description: "The health check TLS configuration. \n This provides
-                      the possibility to configure TLS for the health checks even
-                      though the backend itself is configured to not use TLS. \n If
-                      not defined, TLS is used if TLS is enabled on the LBBackendPool."
+                    description: "The health check TLS configuration. \n If not defined,
+                      no TLS is used for health checking."
+                    properties:
+                      allowedCipherSuites:
+                        description: Allowed TLS cipher suites.
+                        items:
+                          minLength: 1
+                          type: string
+                        type: array
+                      allowedECDHCurves:
+                        description: Allowed ECDH Curves.
+                        items:
+                          minLength: 1
+                          type: string
+                        type: array
+                      allowedSignatureAlgorithms:
+                        description: Allowed signature algorithms. The list is ordered
+                          by preference.
+                        items:
+                          minLength: 1
+                          type: string
+                        type: array
+                      maxTLSVersion:
+                        description: Maximum TLS version.
+                        enum:
+                        - TLSv1_0
+                        - TLSv1_1
+                        - TLSv1_2
+                        - TLSv1_3
+                        type: string
+                      minTLSVersion:
+                        description: Minimum TLS version.
+                        enum:
+                        - TLSv1_0
+                        - TLSv1_1
+                        - TLSv1_2
+                        - TLSv1_3
+                        type: string
                     type: object
                   unhealthyThreshold:
                     default: 2

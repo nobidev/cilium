@@ -184,6 +184,8 @@ spec:
           interval: 30s
           noTrafficInterval: 30s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
@@ -191,6 +193,14 @@ spec:
       name: backend_cluster_lb-1
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       transportSocket:
         name: envoy.transport_sockets.tls
         typedConfig:
@@ -237,6 +247,8 @@ spec:
           interval: 30s
           noTrafficInterval: 30s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
@@ -244,6 +256,18 @@ spec:
       name: backend_cluster_lb-2
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:

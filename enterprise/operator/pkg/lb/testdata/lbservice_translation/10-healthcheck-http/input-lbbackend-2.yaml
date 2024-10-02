@@ -1,0 +1,42 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBBackendPool
+metadata:
+  namespace: default
+  name: lb-2
+spec:
+  backends:
+    - ip: 172.18.0.7
+      port: 8080
+    - ip: 172.18.0.8
+      port: 8080
+  tlsConfig: {}
+  healthCheck:
+    intervalSeconds: 15
+    timeoutSeconds: 2
+    healthyThreshold: 2
+    unhealthyThreshold: 2
+    minHealthyPercentage: 30
+    tlsConfig:
+      minTLSVersion: TLSv1_2
+      maxTLSVersion: TLSv1_2
+      allowedCipherSuites:
+        - "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]"
+        - "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]"
+        - ECDHE-ECDSA-AES256-GCM-SHA384
+        - ECDHE-RSA-AES256-GCM-SHA384
+      allowedECDHCurves:
+        - X25519
+        - P-256
+      allowedSignatureAlgorithms:
+        - ecdsa_secp256r1_sha256
+        - rsa_pss_rsae_sha256
+        - rsa_pkcs1_sha256
+        - ecdsa_secp384r1_sha384
+        - rsa_pss_rsae_sha384
+        - rsa_pkcs1_sha384
+        - rsa_pss_rsae_sha512
+        - rsa_pkcs1_sha512
+        - rsa_pkcs1_sha1
+    http:
+      host: my-hostname
+      path: /health-endpoint

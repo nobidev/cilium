@@ -127,7 +127,7 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 			healthCheckConfig: lbBackendHealthCheckConfig{
 				http:                         r.toHTTPHealthCheck(&b.Spec.HealthCheck),
 				tcp:                          r.toTCPHealthCheck(&b.Spec.HealthCheck),
-				useTLS:                       b.Spec.HealthCheck.TLSConfig != nil,
+				tlsConfig:                    r.toBackendTLSConfig(b.Spec.HealthCheck.TLSConfig),
 				intervalSeconds:              int(*b.Spec.HealthCheck.IntervalSeconds),
 				timeoutSeconds:               int(*b.Spec.HealthCheck.TimeoutSeconds),
 				healthyThreshold:             int(*b.Spec.HealthCheck.HealthyThreshold),

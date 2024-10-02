@@ -424,9 +424,9 @@ func withBackendTLS() backendPoolOption {
 	}
 }
 
-func withHealthCheckTLSEnabled() backendPoolOption {
+func withHealthCheckTLS() backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
-		o.Spec.HealthCheck.TLSConfig = &isovalentv1alpha1.HealthCheckTLSConfig{}
+		o.Spec.HealthCheck.TLSConfig = &isovalentv1alpha1.LBBackendTLSConfig{}
 	}
 }
 

@@ -354,7 +354,7 @@ const (
 type lbBackendHealthCheckConfig struct {
 	http                         *lbBackendHealthCheckHTTPConfig
 	tcp                          *lbBackendHealthCheckTCPConfig
-	useTLS                       bool
+	tlsConfig                    *lbBackendTLSConfig
 	intervalSeconds              int
 	timeoutSeconds               int
 	healthyThreshold             int

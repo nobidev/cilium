@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
 func backendDeployment(t *testing.T, name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
@@ -306,7 +306,7 @@ func TestHeadlessService(t *testing.T) {
 			if tt.backendTLS {
 				backendPool = lbBackendPool(testK8sNamespace, resourceName,
 					withHostnameBackend(tlsBackendHostName, 8080),
-					withHealthCheckTLSEnabled(),
+					withHealthCheckTLS(),
 				)
 			} else {
 				backendPool = lbBackendPool(testK8sNamespace, resourceName,

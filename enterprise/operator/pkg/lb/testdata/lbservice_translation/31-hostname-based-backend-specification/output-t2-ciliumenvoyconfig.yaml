@@ -134,6 +134,8 @@ spec:
           interval: 30s
           noTrafficInterval: 30s
           timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
@@ -143,7 +145,7 @@ spec:
       typedDnsResolverConfig:
         name: envoy.network.dns_resolver.cares
         typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+          "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
           dnsResolverOptions:
             noDefaultSearchDomain: true
       typedExtensionProtocolOptions:
@@ -155,6 +157,18 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       loadAssignment:
         clusterName: backend_cluster_lb-1
         endpoints:
