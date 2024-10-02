@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -47,6 +48,7 @@ type Params struct {
 	cell.In
 	Lifecycle cell.Lifecycle
 
+	JobGroup job.Group
 	Services resource.Resource[*slim_corev1.Service]
 }
 
@@ -96,6 +98,8 @@ type serviceCacheEntry struct {
 type lbMetricsCollector struct {
 	// lbServiceCache maps LB frontend addresses (ip:port/proto) to the related service's name and RevNAT ID
 	lbServiceCache map[string]serviceCacheEntry
+	serviceSync    chan struct{}
+
 	// prevLbCtEntries stores a snapshot of the LB CT entries
 	prevLbCtEntries map[*ctmap.CtKey4Global]*ctmap.CtEntry
 
@@ -121,6 +125,7 @@ type lbMetricsCollector struct {
 func newLBMetricsCollector(params Params) *lbMetricsCollector {
 	return &lbMetricsCollector{
 		lbServiceCache: make(map[string]serviceCacheEntry),
+		serviceSync:    make(chan struct{}),
 
 		lbBytes:             make(map[string]map[string]uint64),
 		lbPackets:           make(map[string]map[string]uint64),
@@ -188,10 +193,9 @@ func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 func metricsLoop(ctx context.Context, mc *lbMetricsCollector, params Params) {
 	ct4Maps := ctmap.GlobalMaps(true, false)
 	ticker := time.NewTicker(collectionInterval)
-	serviceSync := make(chan struct{})
 
-	go lbServiceCacheUpdater(ctx, mc, serviceSync)
-	<-serviceSync
+	params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
+	<-mc.serviceSync
 
 	for {
 		select {
@@ -205,46 +209,38 @@ func metricsLoop(ctx context.Context, mc *lbMetricsCollector, params Params) {
 }
 
 // lbServiceCacheUpdater listens to service events and updates the LB service cache accordingly
-func lbServiceCacheUpdater(ctx context.Context, mc *lbMetricsCollector, serviceSync chan struct{}) {
-	serviceEvents := mc.services.Events(ctx)
+func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event resource.Event[*slim_corev1.Service]) error {
+	service := event.Object
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case event := <-serviceEvents:
-			service := event.Object
+	if event.Kind == resource.Sync {
+		close(mc.serviceSync)
+		event.Done(nil)
+		return nil
+	}
 
-			if event.Kind == resource.Sync {
-				close(serviceSync)
-				event.Done(nil)
-				continue
+	// only add T1 services to the cache
+	if service.Annotations[annotation.ServiceNodeExposure] != "t1" {
+		event.Done(nil)
+		return nil
+	}
+
+	mc.Lock()
+	for _, frontendIP := range service.Status.LoadBalancer.Ingress {
+		for _, frontendPort := range service.Spec.Ports {
+			frontendAddr := formatFrontendAddr(frontendIP.IP, uint16(frontendPort.Port), string(frontendPort.Protocol))
+
+			switch event.Kind {
+			case resource.Upsert:
+				mc.lbServiceCache[frontendAddr] = serviceCacheEntry{name: service.Name}
+			case resource.Delete:
+				delete(mc.lbServiceCache, frontendAddr)
 			}
-
-			// only add T1 services to the cache
-			if service.Annotations[annotation.ServiceNodeExposure] != "t1" {
-				event.Done(nil)
-				continue
-			}
-
-			mc.Lock()
-			for _, frontendIP := range service.Status.LoadBalancer.Ingress {
-				for _, frontendPort := range service.Spec.Ports {
-					frontendAddr := formatFrontendAddr(frontendIP.IP, uint16(frontendPort.Port), string(frontendPort.Protocol))
-
-					switch event.Kind {
-					case resource.Upsert:
-						mc.lbServiceCache[frontendAddr] = serviceCacheEntry{name: service.Name}
-					case resource.Delete:
-						delete(mc.lbServiceCache, frontendAddr)
-					}
-				}
-			}
-			mc.Unlock()
-
-			event.Done(nil)
 		}
 	}
+	mc.Unlock()
+
+	event.Done(nil)
+	return nil
 }
 
 func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.Map) {
