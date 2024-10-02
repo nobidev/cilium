@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
@@ -70,9 +69,6 @@ const (
 
 	policyUpdateObserver   = "encryption-policy-resource-events"
 	identityUpdateObserver = "encryption-policy-identity-events"
-
-	identityBatchTimeout = 100 * time.Millisecond
-	identityBatchSize    = 1000
 )
 
 var defaultConfig = types.Config{
@@ -148,10 +144,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 	}
 
 	// Batches identity changes
-	identityChanges := stream.Buffer(params.IdentityChanges, identityBatchSize, identityBatchTimeout,
-		func(buf []cache.IdentityChange, c cache.IdentityChange) []cache.IdentityChange {
-			return append(buf, c)
-		})
+	identityChanges := bufferIdentityUpdates(params.IdentityChanges)
 
 	// Custom job group to obtain runtime metrics
 	jobGroup := params.Registry.NewGroup(params.Health,
