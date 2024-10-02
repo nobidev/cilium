@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -50,6 +51,10 @@ type Params struct {
 }
 
 func RegisterCollector(params Params) {
+	if !option.Config.EnableIPv4 {
+		return
+	}
+
 	mc := newLBMetricsCollector(params)
 	if err := metrics.Register(mc); err != nil {
 		log.WithError(err).
