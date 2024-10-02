@@ -96,17 +96,13 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SHA="${{ inputs.SHA }}"
             CONTEXT_REF="${{ inputs.context-ref }}"
-            OWNER="${{ inputs.PR-number }}"
           else
             SHA="${{ github.sha }}"
             CONTEXT_REF="${{ github.sha }}"
-            OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER/./-}"
           fi
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo context-ref=${CONTEXT_REF} >> $GITHUB_OUTPUT
-          echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Notes:
           #  - Multi-network only supports direct routing, thus we disable
