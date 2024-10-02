@@ -13,7 +13,6 @@ package lb
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -64,26 +63,14 @@ func RegisterCollector(params Params) {
 		return
 	}
 
-	var (
-		wg          sync.WaitGroup
-		ctx, cancel = context.WithCancel(context.Background())
-	)
-
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-				metricsLoop(ctx, mc, params)
-			}()
+			params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
+			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, collectionInterval))
 
 			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
-			cancel()
-
-			wg.Wait()
 			return nil
 		},
 	})
@@ -115,6 +102,7 @@ type lbMetricsCollector struct {
 	lock.Mutex
 
 	services resource.Resource[*slim_corev1.Service]
+	ct4Maps  []*ctmap.Map
 
 	lbBytesDesc             *prometheus.Desc
 	lbPacketsDesc           *prometheus.Desc
@@ -123,6 +111,8 @@ type lbMetricsCollector struct {
 }
 
 func newLBMetricsCollector(params Params) *lbMetricsCollector {
+	ct4Maps := ctmap.GlobalMaps(true, false)
+
 	return &lbMetricsCollector{
 		lbServiceCache: make(map[string]serviceCacheEntry),
 		serviceSync:    make(chan struct{}),
@@ -133,6 +123,7 @@ func newLBMetricsCollector(params Params) *lbMetricsCollector {
 		lbHealthcheckStatus: make(map[string]map[string]bool),
 
 		services: params.Services,
+		ct4Maps:  ct4Maps,
 
 		lbBytesDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "lb_bytes_total"),
@@ -190,24 +181,6 @@ func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func metricsLoop(ctx context.Context, mc *lbMetricsCollector, params Params) {
-	ct4Maps := ctmap.GlobalMaps(true, false)
-	ticker := time.NewTicker(collectionInterval)
-
-	params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
-	<-mc.serviceSync
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			fetchMetrics(ctx, mc, ct4Maps)
-		}
-	}
-}
-
 // lbServiceCacheUpdater listens to service events and updates the LB service cache accordingly
 func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event resource.Event[*slim_corev1.Service]) error {
 	service := event.Object
@@ -243,7 +216,13 @@ func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event r
 	return nil
 }
 
-func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.Map) {
+func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
+	select {
+	case <-mc.serviceSync:
+	default:
+		return nil
+	}
+
 	mc.Lock()
 	defer mc.Unlock()
 
@@ -260,7 +239,7 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 	}
 	if err := lbmap.Backend4MapV3.DumpWithCallback(backendsCallback); err != nil {
 		log.WithError(err).Error("Cannot dump backend map, LB metrics may be incomplete")
-		return
+		return err
 	}
 
 	// Iterate the service map to collect the health status of all LB services
@@ -299,7 +278,7 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 	}
 	if err := lbmap.Service4MapV2.DumpWithCallback(serviceCallback); err != nil {
 		log.WithError(err).Error("Cannot dump service map, LB metrics may be incomplete")
-		return
+		return err
 	}
 
 	// lbCtEntries collects all the LB related CT entries
@@ -357,14 +336,16 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 
 		mc.lbOpenConnections += 1
 	}
-	for _, ctMap := range ct4Maps {
+	for _, ctMap := range mc.ct4Maps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
 			log.WithError(err).Error("Cannot dump CT map, LB metrics may be incomplete")
-			return
+			return err
 		}
 	}
 
 	mc.prevLbCtEntries = lbCtEntries
+
+	return nil
 }
 
 func formatFrontendAddr(ip string, port uint16, protocol string) string {
