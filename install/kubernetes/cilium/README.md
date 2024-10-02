@@ -320,7 +320,7 @@ contributors across the globe, there is almost always someone available to help.
 | enableK8sTerminatingEndpoint | bool | `true` | Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination. |
 | enableLBIPAM | bool | `true` | Enable LoadBalancer IP Address Management |
 | enableMasqueradeRouteSource | bool | `false` | Enables masquerading to the source of the route for traffic leaving the node from endpoints. |
-| enableNonDefaultDenyPolicies | bool | `true` | Enable Non-Default-Deny policies |
+| enableNonDefaultDenyPolicies | bool | `false` | Enable Non-Default-Deny policies |
 | enableRuntimeDeviceDetection | bool | `true` | Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op. |
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
@@ -361,7 +361,7 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.ciliummesh.enabled | bool | `false` | Enables Cilium Mesh |
 | enterprise.clustermesh.enableOverlappingPodCIDRSupport | bool | `false` | Enable overlapping PodCIDR support |
 | enterprise.clustermesh.mixedRoutingMode.enabled | bool | `false` | Enable meshing clusters configured with a different primary routing mode. Inter-cluster traffic is forwarded according to the locally configured mode when matching that of the target cluster, native routing if both clusters use native routing, tunnel if both clusters use tunnel, and defaults to tunnel in the case of a mismatch. The tunnel protocol must be configured to the same value in all clusters. Limited to Cluster Scope or Kubernetes Host Scope IPAM modes. Incompatible with the Direct Server Return (DSR) LB mode. |
-| enterprise.clustermesh.phantomServices.enabled | bool | `true` | Enable Phantom Services support |
+| enterprise.clustermesh.phantomServices.enabled | bool | `false` | Enable Phantom Services support |
 | enterprise.egressGatewayHA | object | `{"enabled":false,"reconciliationTriggerInterval":"1s"}` | Enables egress gateway HA |
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
 | enterprise.encryption | object | `{"policy":{"enabled":false}}` | Transparent encryption |

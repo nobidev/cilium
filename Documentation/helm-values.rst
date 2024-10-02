@@ -1083,7 +1083,7 @@
    * - :spelling:ignore:`enableNonDefaultDenyPolicies`
      - Enable Non-Default-Deny policies
      - bool
-     - ``true``
+     - ``false``
    * - :spelling:ignore:`enableRuntimeDeviceDetection`
      - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
      - bool
@@ -1247,7 +1247,7 @@
    * - :spelling:ignore:`enterprise.clustermesh.phantomServices.enabled`
      - Enable Phantom Services support
      - bool
-     - ``true``
+     - ``false``
    * - :spelling:ignore:`enterprise.egressGatewayHA`
      - Enables egress gateway HA
      - object

@@ -3560,7 +3560,7 @@ sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
 # -- Enable Non-Default-Deny policies
-enableNonDefaultDenyPolicies: true
+enableNonDefaultDenyPolicies: false
 # Configuration for types of authentication for Cilium (beta)
 authentication:
   # -- Enable authentication processing and garbage collection.
@@ -3782,7 +3782,7 @@ enterprise:
       enabled: false
     phantomServices:
       # -- Enable Phantom Services support
-      enabled: true
+      enabled: false
   # -- Enables egress gateway HA
   egressGatewayHA:
     enabled: false
