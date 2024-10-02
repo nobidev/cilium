@@ -43,6 +43,9 @@ var clientEgressL7HTTPAnywhereYAML string
 //go:embed manifests/client-egress-only-dns.yaml
 var clientEgressOnlyDNSPolicyYAML string
 
+//go:embed manifests/encrypt-client-to-echo-8080.yaml
+var encryptClientToEchoYAML string
+
 type EnterpriseConnectivity struct {
 	externalCiliumDNSProxyPods map[string]check.Pod
 	mixedRoutingScenario       check.Scenario
@@ -76,6 +79,10 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 	}
 
 	if err := ec.addBFDTests(cts[0]); err != nil {
+		return err
+	}
+
+	if err := ec.addEncryptionPolicyTests(cts...); err != nil {
 		return err
 	}
 
@@ -270,6 +277,52 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			}).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(enterpriseTests.EgressGatewayHAIPAMMultipleGateways())
+	}
+
+	return nil
+}
+
+func (ec *EnterpriseConnectivity) addEncryptionPolicyTests(cts ...*check.ConnectivityTest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
+	// Regular encryption related tests cannot be run (neither in sanity nor assert mode) if
+	// encryption policies are enabled, as not all traffic in the cluster will be encrypted.
+	mustGetTest("pod-to-pod-encryption", cts...).WithFeatureRequirements(
+		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
+		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
+	)
+	mustGetTest("pod-to-pod-with-l7-policy-encryption", cts...).WithFeatureRequirements(
+		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
+		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
+	)
+	mustGetTest("node-to-node-encryption", cts...).WithFeatureRequirements(
+		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
+		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
+	)
+
+	newTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {
+		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
+			NewEnterpriseTest(name).
+			WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.EncryptionPolicy)).
+			WithCondition(func() bool {
+				if ct.Params().MultiCluster != "" {
+					if ok, _ := ct.Features.MatchRequirements(features.RequireEnabled(enterpriseFeatures.RemoteEncryptionPolicy)); !ok {
+						return false
+					}
+				}
+				return true
+			}).
+			WithCondition(func() bool { return !ct.Params().SingleNode })
+	}
+
+	if versioncheck.MustCompile(">=1.16.0")(cts[0].CiliumVersion) {
+		newTest(cts[0], "pod-to-pod-encryption-policy").
+			WithIsovalentClusterwideEncryptionPolicy(encryptClientToEchoYAML).
+			WithScenarios(enterpriseTests.PodToPodEncryptionPolicy())
 	}
 
 	return nil

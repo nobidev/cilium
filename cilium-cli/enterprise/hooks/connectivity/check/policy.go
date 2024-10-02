@@ -146,9 +146,15 @@ func (t *EnterpriseTest) addIMGs(imgs ...*isovalentv1alpha1.IsovalentMulticastGr
 	return nil
 }
 
+// addICEPs adds one or more IsovalentClusterwideEncryptionPolicy resources to the Test.
+func (t *EnterpriseTest) addICEPs(iceps ...*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy) (err error) {
+	t.iceps, err = check.RegisterPolicy(t.iceps, iceps...)
+	return err
+}
+
 // applyPolicies applies all the Test's registered network policies.
 func (t *EnterpriseTest) applyPolicies(ctx context.Context) error {
-	if len(t.iegps) == 0 && len(t.imgs) == 0 {
+	if len(t.iegps) == 0 && len(t.imgs) == 0 && len(t.iceps) == 0 {
 		return nil
 	}
 
@@ -168,6 +174,16 @@ func (t *EnterpriseTest) applyPolicies(ctx context.Context) error {
 			t.Infof("📜 Applying IsovalentMulticastGroup '%s' to namespace '%s'..", img.Name, img.Namespace)
 			if err := createOrUpdateIMG(ctx, client, img); err != nil {
 				return fmt.Errorf("policy application failed: %w", err)
+			}
+		}
+	}
+
+	// Delete all the Test's iceps from all Clients.
+	for _, icep := range t.iceps {
+		t.Infof("📜 Applying IsovalentClusterwideEncryptionPolicy '%s'..", icep.Name)
+		for _, client := range t.Context().clients.clients() {
+			if _, err := client.ApplyGeneric(ctx, icep); err != nil {
+				return fmt.Errorf("applying IsovalentClusterwideEncryptionPolicy failed: %w", err)
 			}
 		}
 	}
@@ -195,12 +211,16 @@ func (t *EnterpriseTest) applyPolicies(ctx context.Context) error {
 		t.Debugf("📜 Successfully applied %d IsovalentMulticastGroups", len(t.imgs))
 	}
 
+	if len(t.iceps) > 0 {
+		t.Debugf("📜 Successfully applied %d IsovalentClusterwideEncryptionPolicies", len(t.iceps))
+	}
+
 	return nil
 }
 
 // deletePolicies deletes a given set of network policies from the cluster.
 func (t *EnterpriseTest) deletePolicies(ctx context.Context) error {
-	if len(t.iegps) == 0 && len(t.imgs) == 0 {
+	if len(t.iegps) == 0 && len(t.imgs) == 0 && len(t.iceps) == 0 {
 		return nil
 	}
 
@@ -224,12 +244,26 @@ func (t *EnterpriseTest) deletePolicies(ctx context.Context) error {
 		}
 	}
 
+	// Delete all the Test's iceps from all Clients.
+	for _, icep := range t.iceps {
+		t.Infof("📜 Deleting IsovalentClusterwideEncryptionPolicy '%s'..", icep.Name)
+		for _, client := range t.Context().clients.clients() {
+			if err := client.DeleteGeneric(ctx, icep); err != nil {
+				return fmt.Errorf("deleting IsovalentClusterwideEncryptionPolicy : %w", err)
+			}
+		}
+	}
+
 	if len(t.iegps) > 0 {
 		t.Debugf("📜 Successfully deleted %d IsovalentEgressGatewayPolicies", len(t.iegps))
 	}
 
 	if len(t.imgs) > 0 {
 		t.Debugf("📜 Successfully deleted %d IsovalentMulticastGroups", len(t.imgs))
+	}
+
+	if len(t.iceps) > 0 {
+		t.Debugf("📜 Successfully deleted %d IsovalentClusterwideEncryptionPolicies", len(t.iceps))
 	}
 
 	return nil

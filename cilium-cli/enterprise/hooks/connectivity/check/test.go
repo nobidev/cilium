@@ -52,6 +52,9 @@ type EnterpriseTest struct {
 
 	// multicast deployments active during this test
 	mcastDeploys map[string]*appsv1.Deployment
+
+	// Isovalent Clusterwide Encryption Policies active during this test.
+	iceps map[string]*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy
 }
 
 func (t *EnterpriseTest) Context() *EnterpriseConnectivityTest {
@@ -295,6 +298,30 @@ func (t *EnterpriseTest) WithMulticastDeployment(params MulticastDeploymentParam
 	}
 
 	t.WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.Multicast))
+	return t
+}
+
+// WithIsovalentClusterwideEncryptionPolicy takes a string containing a YAML policy
+// document and adds the isovalent clusterwide encryption polic(y)(ies) to the scope of the
+// Test, to be applied when the test starts running.
+func (t *EnterpriseTest) WithIsovalentClusterwideEncryptionPolicy(policy string) *EnterpriseTest {
+	pl, err := ParsePolicyYAML[*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy](policy, scheme.Scheme)
+	if err != nil {
+		t.Fatalf("Parsing encryption policy YAML: %s", err)
+	}
+
+	// Ensure the correct test namespace is applied to all subjects and peers of the respective policy
+	for i := range pl {
+		pl[i].Spec.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+		for _, p := range pl[i].Spec.Peers {
+			p.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+		}
+	}
+
+	if err := t.addICEPs(pl...); err != nil {
+		t.Fatalf("Adding ICEPs to cilium encryption policy context: %s", err)
+	}
+
 	return t
 }
 

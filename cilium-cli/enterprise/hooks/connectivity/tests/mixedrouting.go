@@ -119,7 +119,9 @@ func (mr *mixedRouting) Run(ctx context.Context, t *check.Test) {
 
 func (mr *mixedRouting) getIface(ctx context.Context, ct *check.ConnectivityTest, hp *check.Pod) (string, error) {
 	encryption := ct.Features[features.EncryptionPod]
-	if encryption.Enabled && encryption.Mode == "wireguard" {
+	encryptionPolicy := ct.Features[enterpriseFeatures.EncryptionPolicy]
+
+	if encryption.Enabled && encryption.Mode == "wireguard" && !encryptionPolicy.Enabled {
 		return wgtypes.IfaceName, nil
 	}
 

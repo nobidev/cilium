@@ -46,6 +46,10 @@ const (
 	MixedRoutingMode features.Feature = "mixed-routing-mode"
 
 	PhantomServices features.Feature = "enable-phantom-services"
+	// EncryptionPolicy: whether encryption policies are enabled in the local cluster
+	EncryptionPolicy features.Feature = "enable-encryption-policy"
+	// RemoteEncryptionPolicy: whether encryption policies are enabled in the remote cluster
+	RemoteEncryptionPolicy features.Feature = "remote-encryption-policy"
 )
 
 func Detect(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -129,6 +133,10 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 		Enabled: phantomServicesEnabled(cm.Data, ct.CiliumVersion),
 	}
 
+	ct.Features[EncryptionPolicy] = features.Status{
+		Enabled: cm.Data[string(EncryptionPolicy)] == "true",
+	}
+
 	return nil
 }
 
@@ -154,6 +162,7 @@ func extractFromRemoteConfigMap(ctx context.Context, ct *check.ConnectivityTest)
 		Enabled: ct.Features[PhantomServices].Enabled && phantomServicesEnabled(cm.Data, ct.CiliumVersion),
 	}
 
+	ct.Features[RemoteEncryptionPolicy] = features.Status{Enabled: cm.Data[string(EncryptionPolicy)] == "true"}
 	return nil
 }
 

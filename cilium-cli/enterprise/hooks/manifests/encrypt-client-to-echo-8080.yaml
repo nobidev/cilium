@@ -1,0 +1,21 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentClusterwideEncryptionPolicy
+metadata:
+  name: encrypt-client-to-echo-8080
+spec:
+   namespaceSelector:
+     matchLabels:
+       kubernetes.io/metadata.name: cilium-test-1
+   podSelector:
+     matchLabels:
+       name: client
+   peers:
+   - podSelector:
+       matchLabels:
+         kind: echo
+     namespaceSelector:
+       matchLabels:
+         kubernetes.io/metadata.name: cilium-test-1
+     ports:
+     - protocol: TCP
+       port: 8080

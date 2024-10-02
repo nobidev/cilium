@@ -69,6 +69,12 @@ func (ect *EnterpriseTest) WithFeatureRequirements(reqs ...features.Requirement)
 }
 
 //nolint:misspell
+func (ect *EnterpriseTest) WithCondition(fn func() bool) *EnterpriseTest {
+	ect.Test.WithCondition(fn)
+	return ect
+}
+
+//nolint:misspell
 func (ect *EnterpriseConnectivityTest) EntClients() []*enterpriseK8s.EnterpriseClient {
 	return ect.clients.clients()
 }
@@ -83,6 +89,7 @@ func (ect *EnterpriseConnectivityTest) newEnterpriseTest(name string) *Enterpris
 		iegps:        make(map[string]*isovalentv1.IsovalentEgressGatewayPolicy),
 		imgs:         make(map[string]*isovalentv1alpha1.IsovalentMulticastGroup),
 		mcastDeploys: make(map[string]*appsv1.Deployment),
+		iceps:        make(map[string]*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy),
 	}
 
 	return &et
