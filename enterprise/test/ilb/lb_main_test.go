@@ -75,12 +75,12 @@ func TestMain(m *testing.M) {
 		return ciliumCli.DeleteLBIPPool(context.Background(), lbIPPoolName, metav1.DeleteOptions{})
 	})
 
-	// Create CiliumBGPPeeringPolicy and BFD (each test case will append its peer to it)
-	if err := ciliumCli.ensureBGPAndBFDConfig(context.Background()); err != nil {
+	// Create IsovalentBGPClusterConfig (each test case will append its peer to it)
+	if err := ciliumCli.ensureBGPClusterConfig(context.Background()); err != nil {
 		panic(fmt.Sprintf("Failed to install BGP peering: %s", err))
 	}
 	defer maybeCleanup(func() error {
-		return ciliumCli.deleteBGPAndBFDConfig(context.Background())
+		return ciliumCli.deleteBGPClusterConfig(context.Background())
 	})
 
 	// Run tests

@@ -483,7 +483,7 @@ func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig 
 	return obj
 }
 
-func bgpPeerConfig(name, bfdProfileName string) *isovalentv1alpha1.IsovalentBGPPeerConfig {
+func bgpPeerConfig(name string) *isovalentv1alpha1.IsovalentBGPPeerConfig {
 	obj := &isovalentv1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -498,7 +498,7 @@ func bgpPeerConfig(name, bfdProfileName string) *isovalentv1alpha1.IsovalentBGPP
 						},
 						Advertisements: &slimv1.LabelSelector{
 							MatchLabels: map[string]slimv1.MatchLabelsValue{
-								"advertise": "bgp",
+								"advertise": "bgp-" + name,
 							},
 						},
 					},
@@ -507,19 +507,19 @@ func bgpPeerConfig(name, bfdProfileName string) *isovalentv1alpha1.IsovalentBGPP
 					ConnectRetryTimeSeconds: ptr.To(int32(1)),
 				},
 			},
-			BFDProfileRef: &bfdProfileName,
+			BFDProfileRef: &name,
 		},
 	}
 
 	return obj
 }
 
-func bgpAdvertisement(name string) *isovalentv1alpha1.IsovalentBGPAdvertisement {
+func bgpAdvertisement(name string, vips []string) *isovalentv1alpha1.IsovalentBGPAdvertisement {
 	obj := &isovalentv1alpha1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"advertise": "bgp",
+				"advertise": "bgp-" + name,
 			},
 		},
 		Spec: isovalentv1alpha1.IsovalentBGPAdvertisementSpec{
@@ -534,9 +534,9 @@ func bgpAdvertisement(name string) *isovalentv1alpha1.IsovalentBGPAdvertisement 
 					Selector: &slimv1.LabelSelector{
 						MatchExpressions: []slimv1.LabelSelectorRequirement{
 							{
-								Key:      "somekey",
-								Operator: slimv1.LabelSelectorOpNotIn,
-								Values:   []string{"never-used-value"},
+								Key:      "loadbalancer.isovalent.com/vip-name",
+								Operator: slimv1.LabelSelectorOpIn,
+								Values:   vips,
 							},
 						},
 					},

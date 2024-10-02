@@ -23,8 +23,8 @@ const (
 )
 
 const (
-	lbIPPoolName     = "lb-pool"
-	bgpResourcesName = "ilb-test"
+	lbIPPoolName               = "lb-pool"
+	globalBGPClusterConfigName = "ilb-test"
 )
 
 const (

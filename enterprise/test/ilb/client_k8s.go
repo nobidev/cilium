@@ -129,62 +129,29 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	}
 }
 
-func (c *ciliumCli) ensureBGPAndBFDConfig(ctx context.Context) error {
-	bfd := bfdProfile(bgpResourcesName)
-	if _, err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
-		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BFD profile (%s): %w", bgpResourcesName, err)
-		}
-	}
-
-	cc := bgpClusterConfig(bgpResourcesName)
+func (c *ciliumCli) ensureBGPClusterConfig(ctx context.Context) error {
+	cc := bgpClusterConfig(globalBGPClusterConfigName)
 	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Create(ctx, cc, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BGP cluster config (%s): %w", bgpResourcesName, err)
-		}
-	}
-
-	pc := bgpPeerConfig(bgpResourcesName, bfd.Name)
-	if _, err := c.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(ctx, pc, metav1.CreateOptions{}); err != nil {
-		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BGP peer config (%s): %w", bgpResourcesName, err)
-		}
-	}
-
-	advert := bgpAdvertisement(bgpResourcesName)
-	if _, err := c.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, advert, metav1.CreateOptions{}); err != nil {
-		if !k8s_errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create BGP advertisement (%s): %w", bgpResourcesName, err)
+			return fmt.Errorf("failed to create BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
 	}
 
 	return nil
 }
 
-func (c *ciliumCli) deleteBGPAndBFDConfig(ctx context.Context) error {
-	if err := c.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BFD profile (%s): %w", bgpResourcesName, err)
-	}
-
-	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", bgpResourcesName, err)
-	}
-
-	if err := c.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BGP peer config (%s): %w", bgpResourcesName, err)
-	}
-
-	if err := c.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, bgpResourcesName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete BGP advertisement (%s): %w", bgpResourcesName, err)
+func (c *ciliumCli) deleteBGPClusterConfig(ctx context.Context) error {
+	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, globalBGPClusterConfigName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 
 	return nil
 }
 
-func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, bgpResourcesName, metav1.GetOptions{})
+func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, name string, clientIP string) error {
+	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", bgpResourcesName, err)
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 
 	cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
@@ -193,22 +160,22 @@ func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, clientIP string) 
 			PeerAddress: &clientIP,
 			PeerASN:     ptr.To[int64](64512),
 			PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
-				Name: bgpResourcesName,
+				Name: name,
 			},
 		})
 
 	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", bgpResourcesName, err)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 
 	return nil
 }
 
 func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, bgpResourcesName, metav1.GetOptions{})
+	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", bgpResourcesName, err)
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 
 	peers := cc.Spec.BGPInstances[0].Peers
@@ -223,7 +190,7 @@ func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string
 	cc.Spec.BGPInstances[0].Peers = updatedPeers
 	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", bgpResourcesName, err)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 
 	return nil

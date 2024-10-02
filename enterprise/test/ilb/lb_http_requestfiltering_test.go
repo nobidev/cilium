@@ -147,7 +147,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 			},
 		},
 		{
-			desc: "deny-by-sourceip-exact-hostname-exact-path",
+			desc: "deny-by-sourceip-hostname-path",
 			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "insecure2.acme.io", "/admin")
 			},
@@ -191,7 +191,7 @@ func TestHTTPRequestFiltering(t *testing.T) {
 			},
 		},
 		{
-			desc: "allow-by-sourceip-exact-hostname-exact-path",
+			desc: "allow-by-sourceip-hostname-path",
 			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
 				return withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "insecure2.acme.io", "/admin")
 			},
