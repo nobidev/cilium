@@ -2796,6 +2796,12 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		}
 	}
 
+	if fi, err := os.Stat(repo); err == nil && fi.IsDir() {
+		if res := kub.ExecMiddle("helm dependency update " + repo); !res.WasSuccessful() {
+			return res, nil
+		}
+	}
+
 	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
 		"--version=%s "+
 		"--namespace=%s "+
@@ -4350,7 +4356,11 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		}
 	}
 
-	return kub.ExecMiddle("helm template --validate " +
+	if res := kub.ExecMiddle("helm dependency update " + chartDir); !res.WasSuccessful() {
+		return res
+	}
+
+	return kub.ExecMiddle("helm template --dependency-update --validate " +
 		chartDir + " " +
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }

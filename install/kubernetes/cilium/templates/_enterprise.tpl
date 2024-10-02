@@ -68,7 +68,11 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
     # If user did not provide any extraConfig or didn't provide export-file-path, use the default value
     {{- $defaultExportFilePath := "/var/run/cilium/hubble/hubble.log"}}
-    {{- if semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility)}}
+    {{- if
+      and
+      (semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility))
+      (not .Values.hubble.timescape.enabled)
+    }}
         {{- $defaultExportFilePath = "" }}
     {{- end }}
 export-file-path: {{ $defaultExportFilePath | quote }}

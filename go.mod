@@ -23,6 +23,7 @@ require (
 	github.com/cilium/ebpf v0.16.0
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
+	github.com/cilium/fake/flow v0.6.1
 	github.com/cilium/hive v0.0.0-20241021113747-bb8f3c0bede4
 	github.com/cilium/linters v0.0.0-20241008062613-dfa317e9f337
 	github.com/cilium/lumberjack/v2 v2.3.0

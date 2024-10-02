@@ -824,8 +824,10 @@ Makefile* @cilium/build
 /enterprise/plugins/ @isovalent/hubble
 /enterprise/plugins/hubble-flow-aggregation/api @isovalent/hubble-api
 /enterprise/test/srv6/ @isovalent/traffic-engineering
+/enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
 /enterprise/test/ilb/ @isovalent/isovalent-loadbalancer
+/enterprise/test/integrated-timescape/ @isovalent/hubble
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /hubble/Makefile.override @isovalent/hubble
 /hubble/enterprise/ @isovalent/hubble
@@ -838,6 +840,7 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/_rbac_helpers.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
+/install/kubernetes/cilium/templates/hubble-timescape/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /pkg/bgpv1/**/*enterprise* @isovalent/traffic-engineering
 /pkg/clustermesh/enterprise_* @isovalent/clustermesh
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
