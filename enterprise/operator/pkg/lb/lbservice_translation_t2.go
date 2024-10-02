@@ -674,7 +674,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
-						Cluster: fmt.Sprintf("backend_cluster_tlspt_%d", i),
+						Cluster: r.getClusterName(tr.backendRef.name),
 					},
 				}),
 			},
@@ -721,7 +721,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
-						Cluster: fmt.Sprintf("backend_cluster_tls_proxy_%d", i),
+						Cluster: r.getClusterName(tr.backendRef.name),
 					},
 				}),
 			},
@@ -845,7 +845,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 					Route: &envoy_config_route_v3.RouteAction{
 						HashPolicy: r.toHTTPRouteHashpolicy(route.persistentBackend),
 						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-							Cluster: fmt.Sprintf("backend_cluster_%s_%d", httpType, route.backend.routeIndex),
+							Cluster: r.getClusterName(route.backendRef.name),
 						},
 					},
 				},
@@ -914,25 +914,11 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 		minHealthyBackendPercentage = 100
 	}
 
-	if model.applications.httpProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
-		}
-	}
-	if model.applications.httpsProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
-		}
-	}
-	if model.applications.tlsPassthrough != nil {
-		for _, route := range model.applications.tlsPassthrough.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tlspt_%d", route.backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
-		}
-	}
-	if model.applications.tlsProxy != nil {
-		for _, route := range model.applications.tlsProxy.routes {
-			healthCheckFilterClusters[fmt.Sprintf("backend_cluster_tls_proxy_%d", route.backend.routeIndex)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
-		}
+	refBackendNamesSorted := maps.Keys(model.referencedBackends)
+	slices.Sort(refBackendNamesSorted)
+
+	for _, bn := range refBackendNamesSorted {
+		healthCheckFilterClusters[r.getClusterName(bn)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
 	}
 
 	healthCheckFilter := &envoy_extensions_filters_http_healthcheck_v3.HealthCheck{
@@ -978,76 +964,52 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
-	if model.applications.httpProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex), backend, nil, nil))
-		}
-	}
+	refBackendNamesSorted := maps.Keys(model.referencedBackends)
+	slices.Sort(refBackendNamesSorted)
 
-	if model.applications.httpsProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex), backend, nil, nil))
-		}
-	}
-
-	if model.applications.tlsPassthrough != nil {
-		for _, lrh := range model.applications.tlsPassthrough.routes {
-			clusters = append(clusters, r.desiredEnvoyCluster(
-				fmt.Sprintf("backend_cluster_tlspt_%d", lrh.backend.routeIndex),
-				lrh.backend,
-				[]*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
-					{
-						Name: "healthcheck_tls",
-						Match: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"type": structpb.NewStringValue("tls"),
-							},
-						},
-						TransportSocket: &envoy_config_core_v3.TransportSocket{
-							Name: "envoy.transport_sockets.tls",
-							ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
-								TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{}),
-							},
-						},
-					},
-				},
-				&structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"type": structpb.NewStringValue("tls"),
-					},
-				},
-			))
-		}
-	}
-	if model.applications.tlsProxy != nil {
-		for _, lrh := range model.applications.tlsProxy.routes {
-			clusters = append(clusters, r.desiredEnvoyCluster(fmt.Sprintf("backend_cluster_tls_proxy_%d", lrh.backend.routeIndex), lrh.backend, nil, nil))
-		}
+	for _, bn := range refBackendNamesSorted {
+		clusters = append(clusters, r.desiredEnvoyCluster(r.getClusterName(bn), model.referencedBackends[bn]))
 	}
 
 	return clusters
 }
 
-func (r *lbServiceT2Translator) getHTTPBackendsOrdered(modelRoutes map[string][]lbRouteHTTP) []backend {
-	backendClusters := map[int]backend{}
-	for _, routes := range modelRoutes {
-		for _, route := range routes {
-			backendClusters[route.backend.routeIndex] = route.backend
-		}
+func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(backend backend) []*envoy_config_cluster_v3.Cluster_TransportSocketMatch {
+	if !backend.healthCheckConfig.useTLS {
+		return nil
 	}
 
-	backendIDs := maps.Keys(backendClusters)
-	slices.Sort(backendIDs)
-
-	backends := []backend{}
-	for _, bid := range backendIDs {
-		backends = append(backends, backendClusters[bid])
+	return []*envoy_config_cluster_v3.Cluster_TransportSocketMatch{
+		{
+			Name: "healthcheck_tls",
+			Match: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"type": structpb.NewStringValue("tls"),
+				},
+			},
+			TransportSocket: &envoy_config_core_v3.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{}),
+				},
+			},
+		},
 	}
-
-	return backends
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend, transportSocketMatches []*envoy_config_cluster_v3.Cluster_TransportSocketMatch, hcTransportSocketMatchCriteria *structpb.Struct) *envoy_config_cluster_v3.Cluster {
+func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatchCriteria(backend backend) *structpb.Struct {
+	if !backend.healthCheckConfig.useTLS {
+		return nil
+	}
+
+	return &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"type": structpb.NewStringValue("tls"),
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *envoy_config_cluster_v3.Cluster {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
@@ -1058,8 +1020,8 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend, tran
 			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
 		},
 		ConnectTimeout:         &durationpb.Duration{Seconds: int64(b.tcpConfig.connectTimeoutSeconds)},
-		TransportSocketMatches: transportSocketMatches,
-		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, hcTransportSocketMatchCriteria),
+		TransportSocketMatches: r.toHealthCheckTransportSocketMatches(b),
+		HealthChecks:           r.toClusterHealthChecks(b.healthCheckConfig, r.toHealthCheckTransportSocketMatchCriteria(b)),
 		LbPolicy:               r.mapLbPolicy(b.lbAlgorithm.algorithm),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
@@ -1202,25 +1164,11 @@ func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(_ lbBackendHealthCheck
 func (r *lbServiceT2Translator) desiredEnvoyEndpoints(model *lbService) []*envoy_config_endpoint_v3.ClusterLoadAssignment {
 	endpoints := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
 
-	if model.applications.httpProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpProxy.routes) {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_http_%d", backend.routeIndex), backend))
-		}
-	}
-	if model.applications.httpsProxy != nil {
-		for _, backend := range r.getHTTPBackendsOrdered(model.applications.httpsProxy.routes) {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_https_%d", backend.routeIndex), backend))
-		}
-	}
-	if model.applications.tlsPassthrough != nil {
-		for _, lrh := range model.applications.tlsPassthrough.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tlspt_%d", lrh.backend.routeIndex), lrh.backend))
-		}
-	}
-	if model.applications.tlsProxy != nil {
-		for _, lrh := range model.applications.tlsProxy.routes {
-			endpoints = append(endpoints, r.desiredEnvoyEndpoint(fmt.Sprintf("backend_cluster_tls_proxy_%d", lrh.backend.routeIndex), lrh.backend))
-		}
+	refBackendNamesSorted := maps.Keys(model.referencedBackends)
+	slices.Sort(refBackendNamesSorted)
+
+	for _, bn := range refBackendNamesSorted {
+		endpoints = append(endpoints, r.desiredEnvoyEndpoint(r.getClusterName(bn), model.referencedBackends[bn]))
 	}
 
 	return endpoints
@@ -1591,6 +1539,10 @@ func (r *lbServiceT2Translator) toRBACAction(ruleType ruleTypeType) envoy_config
 	default:
 		return envoy_config_rbac_v3.RBAC_DENY
 	}
+}
+
+func (r *lbServiceT2Translator) getClusterName(backendName string) string {
+	return fmt.Sprintf("backend_cluster_%s", backendName)
 }
 
 func (r *lbServiceT2Translator) toXdsResource(m proto.Message, typeUrl string) (ciliumv2.XDSResource, error) {

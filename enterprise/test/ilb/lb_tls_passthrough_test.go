@@ -47,10 +47,10 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario.createLBVIP(ctx, vip)
 
 	t.Logf("Creating LB BackendPool resources...")
-	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withBackend(scenario.backendApps[testName+"-app-0"].ip, 8080))
+	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withBackend(scenario.backendApps[testName+"-app-0"].ip, 8080), withHealthCheckTLSEnabled())
 	scenario.createLBBackendPool(ctx, backendPool1)
 
-	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withBackend(scenario.backendApps[testName+"-app-1"].ip, 8081))
+	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withBackend(scenario.backendApps[testName+"-app-1"].ip, 8081), withHealthCheckTLSEnabled())
 	scenario.createLBBackendPool(ctx, backendPool2)
 
 	t.Logf("Creating LB Service resources...")

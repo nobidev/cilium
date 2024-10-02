@@ -38,7 +38,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_https_0:
+                        backend_cluster_lb-1:
                           value: 20
                       headers:
                         - name: :path
@@ -132,7 +132,7 @@ spec:
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_https_0
+                cluster: backend_cluster_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -148,7 +148,7 @@ spec:
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
-      name: backend_cluster_https_0
+      name: backend_cluster_lb-1
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -161,7 +161,7 @@ spec:
       roundRobinLbConfig: {}
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_0
+      clusterName: backend_cluster_lb-1
       endpoints:
         - lbEndpoints:
             - endpoint:

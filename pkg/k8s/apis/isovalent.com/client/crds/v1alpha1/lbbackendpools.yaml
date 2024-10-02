@@ -137,6 +137,12 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  tlsConfig:
+                    description: "The health check TLS configuration. \n This provides
+                      the possibility to configure TLS for the health checks even
+                      though the backend itself is configured to not use TLS. \n If
+                      not defined, TLS is used if TLS is enabled on the LBBackendPool."
+                    type: object
                   unhealthyThreshold:
                     default: 2
                     description: |-

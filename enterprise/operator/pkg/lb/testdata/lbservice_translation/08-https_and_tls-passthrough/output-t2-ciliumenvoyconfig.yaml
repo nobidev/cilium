@@ -38,9 +38,7 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_https_0:
-                          value: 20
-                        backend_cluster_tlspt_0:
+                        backend_cluster_lb-1:
                           value: 20
                       headers:
                         - name: :path
@@ -124,7 +122,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                cluster: backend_cluster_tlspt_0
+                cluster: backend_cluster_lb-1
                 statPrefix: frontend_listener_tls_passthrough_0
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
@@ -151,7 +149,7 @@ spec:
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_https_0
+                cluster: backend_cluster_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -167,44 +165,7 @@ spec:
           unhealthyEdgeInterval: 30s
           unhealthyInterval: 30s
           unhealthyThreshold: 1
-      name: backend_cluster_https_0
-      type: EDS
-      typedExtensionProtocolOptions:
-        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          commonHttpProtocolOptions:
-            maxConnectionDuration: 3600s
-          explicitHttpConfig:
-            httpProtocolOptions: {}
-      perConnectionBufferLimitBytes: 32768
-      roundRobinLbConfig: {}
-      ignoreHealthOnHostRemoval: true
-    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      commonLbConfig:
-        healthyPanicThreshold: {}
-      connectTimeout: 5s
-      healthChecks:
-        - healthyThreshold: 1
-          httpHealthCheck:
-            host: lb
-            path: /healthz
-          interval: 30s
-          noTrafficInterval: 30s
-          timeout: 5s
-          transportSocketMatchCriteria:
-            type: tls
-          unhealthyEdgeInterval: 30s
-          unhealthyInterval: 30s
-          unhealthyThreshold: 1
-      name: backend_cluster_tlspt_0
-      transportSocketMatches:
-        - match:
-            type: tls
-          name: healthcheck_tls
-          transportSocket:
-            name: envoy.transport_sockets.tls
-            typedConfig:
-              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+      name: backend_cluster_lb-1
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -217,23 +178,7 @@ spec:
       roundRobinLbConfig: {}
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_0
-      endpoints:
-        - lbEndpoints:
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.5
-                    portValue: 8080
-              loadBalancingWeight: 1
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.6
-                    portValue: 8080
-              loadBalancingWeight: 1
-    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_tlspt_0
+      clusterName: backend_cluster_lb-1
       endpoints:
         - lbEndpoints:
             - endpoint:

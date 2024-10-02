@@ -1043,6 +1043,18 @@ type HealthCheck struct {
 	// +kubebuilder:validation:Minimum=1
 	UnhealthyThreshold *int32 `json:"unhealthyThreshold,omitempty"`
 
+	// The health check TLS configuration.
+	//
+	// This provides the possibility to configure TLS
+	// for the health checks even though the backend itself
+	// is configured to not use TLS.
+	//
+	// If not defined, TLS is used if TLS is enabled on the
+	// LBBackendPool.
+	//
+	// +kubebuilder:validation:Optional
+	TLSConfig *HealthCheckTLSConfig `json:"tlsConfig,omitempty"`
+
 	// The HTTP health check configuration. Exactly one of http or tcp must
 	// be specified.
 	//
@@ -1073,6 +1085,8 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:validation:MinLength=1
 	Path *string `json:"path,omitempty"`
 }
+
+type HealthCheckTLSConfig struct{}
 
 type HealthCheckTCP struct{}
 

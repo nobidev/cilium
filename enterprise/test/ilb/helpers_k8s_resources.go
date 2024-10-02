@@ -412,6 +412,12 @@ func withBackendTLS() backendPoolOption {
 	}
 }
 
+func withHealthCheckTLSEnabled() backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.HealthCheck.TLSConfig = &isovalentv1alpha1.HealthCheckTLSConfig{}
+	}
+}
+
 func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *isovalentv1alpha1.LBBackendPool {
 	pool := &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{

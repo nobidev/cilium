@@ -19,13 +19,14 @@ import (
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
 type lbService struct {
-	namespace    string
-	name         string
-	vip          lbVIP
-	port         int32
-	applications lbApplications
-	t1NodeIPs    []string
-	t2NodeIPs    []string
+	namespace          string
+	name               string
+	vip                lbVIP
+	port               int32
+	applications       lbApplications
+	referencedBackends map[string]backend
+	t1NodeIPs          []string
+	t2NodeIPs          []string
 }
 
 type lbVIP struct {
@@ -126,48 +127,6 @@ func (r lbService) usesHTTPSRequestFiltering() bool {
 	return false
 }
 
-func (r lbApplications) getHTTPProxyRoutes() []lbRouteHTTP {
-	if r.httpProxy == nil {
-		return nil
-	}
-
-	lrh := []lbRouteHTTP{}
-	for _, routes := range r.httpProxy.routes {
-		lrh = append(lrh, routes...)
-	}
-
-	return lrh
-}
-
-func (r lbApplications) getHTTPSProxyRoutes() []lbRouteHTTP {
-	if r.httpsProxy == nil {
-		return nil
-	}
-
-	lrh := []lbRouteHTTP{}
-	for _, routes := range r.httpsProxy.routes {
-		lrh = append(lrh, routes...)
-	}
-
-	return lrh
-}
-
-func (r lbApplications) getTLSPassthroughRoutes() []lbRouteTLSPassthrough {
-	if r.tlsPassthrough == nil {
-		return nil
-	}
-
-	return r.tlsPassthrough.routes
-}
-
-func (r lbApplications) getTLSProxyRoutes() []lbRouteTLSProxy {
-	if r.tlsProxy == nil {
-		return nil
-	}
-
-	return r.tlsProxy.routes
-}
-
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
@@ -224,7 +183,7 @@ type lbApplicationTLSProxy struct {
 
 type lbRouteHTTP struct {
 	match             lbRouteHTTPMatch
-	backend           backend
+	backendRef        backendRef
 	persistentBackend *lbRouteHTTPPersistentBackend
 	requestFiltering  *lbRouteHTTPRequestFiltering
 }
@@ -305,7 +264,7 @@ const (
 
 type lbRouteTLSPassthrough struct {
 	match               lbRouteTLSPassthroughMatch
-	backend             backend
+	backendRef          backendRef
 	persistentBackend   *lbRouteTLSPersistentBackend
 	connectionFiltering *lbRouteTLSConnectionFiltering
 }
@@ -330,7 +289,7 @@ type lbRouteTLSConnectionFilteringRule struct {
 
 type lbRouteTLSProxy struct {
 	match               lbRouteTLSProxyMatch
-	backend             backend
+	backendRef          backendRef
 	persistentBackend   *lbRouteTLSPersistentBackend
 	connectionFiltering *lbRouteTLSConnectionFiltering
 }
@@ -339,8 +298,12 @@ type lbRouteTLSProxyMatch struct {
 	hostNames []string
 }
 
+type backendRef struct {
+	name string
+}
+
 type backend struct {
-	routeIndex        int
+	name              string
 	ips               []lbBackend
 	hostnames         []lbBackend
 	lbAlgorithm       lbBackendLBAlgorithm
@@ -384,6 +347,7 @@ const (
 type lbBackendHealthCheckConfig struct {
 	http                         *lbBackendHealthCheckHTTPConfig
 	tcp                          *lbBackendHealthCheckTCPConfig
+	useTLS                       bool
 	intervalSeconds              int
 	timeoutSeconds               int
 	healthyThreshold             int

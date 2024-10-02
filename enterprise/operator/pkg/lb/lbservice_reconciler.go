@@ -237,10 +237,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs)
-	if err != nil {
-		return fmt.Errorf("failed to ingest LBService into model: %w", err)
-	}
+	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs)
 
 	r.updateAssignedIpInStatus(model, lbsvc)
 	// Stop reconciliation if assigned IP is not available yet. Also, we

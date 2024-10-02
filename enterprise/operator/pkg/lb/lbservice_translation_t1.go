@@ -89,27 +89,9 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) int {
 	shortestInterval := 0
 
-	for _, r := range model.applications.getHTTPProxyRoutes() {
-		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
-			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
-		}
-	}
-
-	for _, r := range model.applications.getHTTPSProxyRoutes() {
-		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
-			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
-		}
-	}
-
-	for _, r := range model.applications.getTLSPassthroughRoutes() {
-		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
-			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
-		}
-	}
-
-	for _, r := range model.applications.getTLSProxyRoutes() {
-		if shortestInterval == 0 || r.backend.healthCheckConfig.intervalSeconds < shortestInterval {
-			shortestInterval = r.backend.healthCheckConfig.intervalSeconds
+	for _, b := range model.referencedBackends {
+		if shortestInterval == 0 || b.healthCheckConfig.intervalSeconds < shortestInterval {
+			shortestInterval = b.healthCheckConfig.intervalSeconds
 		}
 	}
 

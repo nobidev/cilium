@@ -38,13 +38,11 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_https_0:
+                        backend_cluster_lb-1:
                           value: 20
-                        backend_cluster_https_1:
+                        backend_cluster_lb-2:
                           value: 20
-                        backend_cluster_https_2:
-                          value: 20
-                        backend_cluster_https_3:
+                        backend_cluster_lb-3:
                           value: 20
                       headers:
                         - name: :path
@@ -142,7 +140,7 @@ spec:
             - match:
                 path: /bar
               route:
-                cluster: backend_cluster_https_3
+                cluster: backend_cluster_lb-3
         - domains:
             - "bar.acme.io"
           name: frontend_virtualhost_https_bar_acme_io
@@ -156,7 +154,7 @@ spec:
             - match:
                 path: /api/test
               route:
-                cluster: backend_cluster_https_2
+                cluster: backend_cluster_lb-2
         - domains:
             - "foo.acme.io"
           name: frontend_virtualhost_https_foo_acme_io
@@ -170,11 +168,11 @@ spec:
             - match:
                 path: /foo
               route:
-                cluster: backend_cluster_https_0
+                cluster: backend_cluster_lb-3
             - match:
                 prefix: /
               route:
-                cluster: backend_cluster_https_1
+                cluster: backend_cluster_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
@@ -191,7 +189,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       ignoreHealthOnHostRemoval: true
-      name: backend_cluster_https_0
+      name: backend_cluster_lb-1
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -218,7 +216,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       ignoreHealthOnHostRemoval: true
-      name: backend_cluster_https_1
+      name: backend_cluster_lb-2
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -245,34 +243,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       ignoreHealthOnHostRemoval: true
-      name: backend_cluster_https_2
-      type: EDS
-      typedExtensionProtocolOptions:
-        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          commonHttpProtocolOptions:
-            maxConnectionDuration: 3600s
-          explicitHttpConfig:
-            httpProtocolOptions: {}
-      perConnectionBufferLimitBytes: 32768
-      roundRobinLbConfig: {}
-    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      commonLbConfig:
-        healthyPanicThreshold: {}
-      connectTimeout: 5s
-      healthChecks:
-        - healthyThreshold: 1
-          httpHealthCheck:
-            host: lb
-            path: /healthz
-          interval: 30s
-          noTrafficInterval: 30s
-          timeout: 5s
-          unhealthyEdgeInterval: 30s
-          unhealthyInterval: 30s
-          unhealthyThreshold: 1
-      ignoreHealthOnHostRemoval: true
-      name: backend_cluster_https_3
+      name: backend_cluster_lb-3
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -284,23 +255,7 @@ spec:
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_0
-      endpoints:
-        - lbEndpoints:
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.9
-                    portValue: 8080
-              loadBalancingWeight: 1
-            - endpoint:
-                address:
-                  socketAddress:
-                    address: 172.18.0.10
-                    portValue: 8080
-              loadBalancingWeight: 1
-    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_1
+      clusterName: backend_cluster_lb-1
       endpoints:
         - lbEndpoints:
             - endpoint:
@@ -316,7 +271,7 @@ spec:
                     portValue: 8080
               loadBalancingWeight: 1
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_2
+      clusterName: backend_cluster_lb-2
       endpoints:
         - lbEndpoints:
             - endpoint:
@@ -332,7 +287,7 @@ spec:
                     portValue: 8080
               loadBalancingWeight: 1
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_https_3
+      clusterName: backend_cluster_lb-3
       endpoints:
         - lbEndpoints:
             - endpoint:

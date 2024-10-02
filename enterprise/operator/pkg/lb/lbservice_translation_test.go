@@ -101,8 +101,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model, err := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs)
-		require.NoError(t, err)
+		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs)
 
 		// Input Config
 		config := reconcilerConfig{}

@@ -38,9 +38,9 @@ spec:
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
                       clusterMinHealthyPercentages:
-                        backend_cluster_tls_proxy_0:
+                        backend_cluster_lb-1:
                           value: 20
-                        backend_cluster_tls_proxy_1:
+                        backend_cluster_lb-2:
                           value: 20
                       headers:
                         - name: :path
@@ -79,7 +79,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                cluster: backend_cluster_tls_proxy_0
+                cluster: backend_cluster_lb-1
                 statPrefix: frontend_listener_tls_proxy_0
           transportSocket:
             name: envoy.transport_sockets.tls
@@ -113,7 +113,7 @@ spec:
                       logFormat:
                         textFormatSource:
                           inlineString: "\n"
-                cluster: backend_cluster_tls_proxy_1
+                cluster: backend_cluster_lb-2
                 statPrefix: frontend_listener_tls_proxy_1
           transportSocket:
             name: envoy.transport_sockets.tls
@@ -157,7 +157,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       ignoreHealthOnHostRemoval: true
-      name: backend_cluster_tls_proxy_0
+      name: backend_cluster_lb-1
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
       type: EDS
@@ -184,7 +184,7 @@ spec:
           unhealthyInterval: 30s
           unhealthyThreshold: 1
       ignoreHealthOnHostRemoval: true
-      name: backend_cluster_tls_proxy_1
+      name: backend_cluster_lb-2
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
       transportSocket:
@@ -202,7 +202,7 @@ spec:
           explicitHttpConfig:
             httpProtocolOptions: {}
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_tls_proxy_0
+      clusterName: backend_cluster_lb-1
       endpoints:
         - lbEndpoints:
             - endpoint:
@@ -218,7 +218,7 @@ spec:
                     portValue: 8080
               loadBalancingWeight: 1
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
-      clusterName: backend_cluster_tls_proxy_1
+      clusterName: backend_cluster_lb-2
       endpoints:
         - lbEndpoints:
             - endpoint:

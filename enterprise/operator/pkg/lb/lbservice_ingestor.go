@@ -11,7 +11,6 @@
 package lb
 
 import (
-	"fmt"
 	"math/big"
 	"net"
 
@@ -23,11 +22,8 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string) (*lbService, error) {
-	applications, err := r.toApplications(lbsvc, backends)
-	if err != nil {
-		return nil, fmt.Errorf("failed to ingest applications: %w", err)
-	}
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string) *lbService {
+	referencedBackends := r.toReferencedBackends(backends)
 
 	return &lbService{
 		namespace: lbsvc.Namespace,
@@ -37,11 +33,12 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 			assignedIPv4: getAssignedIP(vip),
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
-		port:         lbsvc.Spec.Port,
-		applications: applications,
-		t1NodeIPs:    t1NodeIPs,
-		t2NodeIPs:    t2NodeIPs,
-	}, nil
+		port:               lbsvc.Spec.Port,
+		applications:       r.toApplications(lbsvc, referencedBackends),
+		referencedBackends: referencedBackends,
+		t1NodeIPs:          t1NodeIPs,
+		t2NodeIPs:          t2NodeIPs,
+	}
 }
 
 func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbServiceHTTPConfig {
@@ -118,30 +115,53 @@ func (*ingestor) toTLSConfig(tlsConfig *isovalentv1alpha1.LBServiceTLSConfig) *l
 	}
 }
 
-func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) (lbApplications, error) {
-	return lbApplications{
-		httpProxy:      r.toApplicationHTTP(lbsvc, backends),
-		httpsProxy:     r.toApplicationHTTPS(lbsvc, backends),
-		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, backends),
-		tlsProxy:       r.toApplicationTLSProxy(lbsvc, backends),
-	}, nil
+func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendPool) map[string]backend {
+	referencedBackends := map[string]backend{}
+
+	for _, b := range backends {
+		referencedBackends[b.Name] = backend{
+			name:        b.Name,
+			ips:         r.toIPBackends(b.Spec.Backends),
+			hostnames:   []lbBackend{},
+			lbAlgorithm: r.toLBBackendAlgorithm(b.Spec.Loadbalancing),
+			healthCheckConfig: lbBackendHealthCheckConfig{
+				http:                         r.toHTTPHealthCheck(&b.Spec.HealthCheck),
+				tcp:                          r.toTCPHealthCheck(&b.Spec.HealthCheck),
+				useTLS:                       b.Spec.HealthCheck.TLSConfig != nil,
+				intervalSeconds:              int(*b.Spec.HealthCheck.IntervalSeconds),
+				timeoutSeconds:               int(*b.Spec.HealthCheck.TimeoutSeconds),
+				healthyThreshold:             int(*b.Spec.HealthCheck.HealthyThreshold),
+				unhealthyThreshold:           int(*b.Spec.HealthCheck.UnhealthyThreshold),
+				unhealthyEdgeIntervalSeconds: int(*b.Spec.HealthCheck.IntervalSeconds),
+				unhealthyIntervalSeconds:     int(*b.Spec.HealthCheck.IntervalSeconds),
+			},
+			tcpConfig:  r.toBackendTCPConfig(b.Spec.TCPConfig),
+			tlsConfig:  r.toBackendTLSConfig(b.Spec.TLSConfig),
+			httpConfig: r.toBackendHTTPConfig(b.Spec.HTTPConfig),
+		}
+	}
+
+	return referencedBackends
 }
 
-func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPProxy {
+func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) lbApplications {
+	return lbApplications{
+		httpProxy:      r.toApplicationHTTP(lbsvc, referencedBackends),
+		httpsProxy:     r.toApplicationHTTPS(lbsvc, referencedBackends),
+		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, referencedBackends),
+		tlsProxy:       r.toApplicationTLSProxy(lbsvc, referencedBackends),
+	}
+}
+
+func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationHTTPProxy {
 	if lbsvc.Spec.Applications.HTTPProxy == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
-	for _, b := range backends {
-		backendIndex[b.Name] = b
-	}
-
 	routes := map[string][]lbRouteHTTP{}
 
-	for i, lr := range lbsvc.Spec.Applications.HTTPProxy.Routes {
-		routeBackend, ok := backendIndex[lr.BackendRef.Name]
-		if !ok {
+	for _, lr := range lbsvc.Spec.Applications.HTTPProxy.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
 			// backend not present yet
 			continue
 		}
@@ -153,25 +173,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 				pathType: pathType,
 				path:     path,
 			},
-			backend: backend{
-				routeIndex:  i,
-				ips:         r.toIPBackends(routeBackend.Spec.Backends),
-				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
-				healthCheckConfig: lbBackendHealthCheckConfig{
-					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
-					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
-					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
-					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
-					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-				},
-				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
-				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
-				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
-			},
+			backendRef:        backendRef{name: lr.BackendRef.Name},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 		}
@@ -194,21 +196,15 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, backend
 	}
 }
 
-func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationHTTPSProxy {
+func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationHTTPSProxy {
 	if lbsvc.Spec.Applications.HTTPSProxy == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
-	for _, b := range backends {
-		backendIndex[b.Name] = b
-	}
-
 	routes := map[string][]lbRouteHTTP{}
 
-	for i, lr := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
-		routeBackend, ok := backendIndex[lr.BackendRef.Name]
-		if !ok {
+	for _, lr := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
 			// backend not present yet
 			continue
 		}
@@ -220,25 +216,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, backen
 				pathType: pathType,
 				path:     path,
 			},
-			backend: backend{
-				routeIndex:  i,
-				ips:         r.toIPBackends(routeBackend.Spec.Backends),
-				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
-				healthCheckConfig: lbBackendHealthCheckConfig{
-					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
-					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
-					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
-					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
-					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-				},
-				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
-				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
-				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
-			},
+			backendRef:        backendRef{name: lr.BackendRef.Name},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 		}
@@ -284,21 +262,15 @@ func toPath(match *isovalentv1alpha1.LBServiceHTTPRouteMatch) (routePathTypeType
 	return pathType, path
 }
 
-func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSPassthrough {
+func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationTLSPassthrough {
 	if lbsvc.Spec.Applications.TLSPassthrough == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
-	for _, b := range backends {
-		backendIndex[b.Name] = b
-	}
-
 	routes := []lbRouteTLSPassthrough{}
 
-	for i, lr := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
-		routeBackend, ok := backendIndex[lr.BackendRef.Name]
-		if !ok {
+	for _, lr := range lbsvc.Spec.Applications.TLSPassthrough.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
 			// backend not present yet
 			continue
 		}
@@ -307,25 +279,7 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 			match: lbRouteTLSPassthroughMatch{
 				hostNames: r.toTLSPassthroughHostNames(lr.Match),
 			},
-			backend: backend{
-				routeIndex:  i,
-				ips:         r.toIPBackends(routeBackend.Spec.Backends),
-				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
-				healthCheckConfig: lbBackendHealthCheckConfig{
-					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
-					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
-					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
-					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
-					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-				},
-				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
-				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
-				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
-			},
+			backendRef:          backendRef{name: lr.BackendRef.Name},
 			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
 			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
 		})
@@ -336,21 +290,15 @@ func (r *ingestor) toApplicationTLSPassthrough(lbsvc *isovalentv1alpha1.LBServic
 	}
 }
 
-func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) *lbApplicationTLSProxy {
+func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationTLSProxy {
 	app := lbsvc.Spec.Applications.TLSProxy
 	if app == nil {
 		return nil
 	}
 
-	backendIndex := map[string]*isovalentv1alpha1.LBBackendPool{}
-	for _, b := range backends {
-		backendIndex[b.Name] = b
-	}
-
 	routes := []lbRouteTLSProxy{}
-	for i, lr := range app.Routes {
-		routeBackend, ok := backendIndex[lr.BackendRef.Name]
-		if !ok {
+	for _, lr := range app.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
 			// backend not present yet
 			continue
 		}
@@ -359,25 +307,7 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, bac
 			match: lbRouteTLSProxyMatch{
 				hostNames: r.toTLSProxyHostNames(lr.Match),
 			},
-			backend: backend{
-				routeIndex:  i,
-				ips:         r.toIPBackends(routeBackend.Spec.Backends),
-				hostnames:   []lbBackend{},
-				lbAlgorithm: r.toLBBackendAlgorithm(routeBackend.Spec.Loadbalancing),
-				healthCheckConfig: lbBackendHealthCheckConfig{
-					http:                         r.toHTTPHealthCheck(&routeBackend.Spec.HealthCheck),
-					tcp:                          r.toTCPHealthCheck(&routeBackend.Spec.HealthCheck),
-					intervalSeconds:              int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					timeoutSeconds:               int(*routeBackend.Spec.HealthCheck.TimeoutSeconds),
-					healthyThreshold:             int(*routeBackend.Spec.HealthCheck.HealthyThreshold),
-					unhealthyThreshold:           int(*routeBackend.Spec.HealthCheck.UnhealthyThreshold),
-					unhealthyEdgeIntervalSeconds: int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-					unhealthyIntervalSeconds:     int(*routeBackend.Spec.HealthCheck.IntervalSeconds),
-				},
-				tcpConfig:  r.toBackendTCPConfig(routeBackend.Spec.TCPConfig),
-				tlsConfig:  r.toBackendTLSConfig(routeBackend.Spec.TLSConfig),
-				httpConfig: r.toBackendHTTPConfig(routeBackend.Spec.HTTPConfig),
-			},
+			backendRef:          backendRef{name: lr.BackendRef.Name},
 			persistentBackend:   r.toTLSPersistentBackendConfig(lr.PersistentBackend),
 			connectionFiltering: r.toTLSRequestFilteringConfig(lr.ConnectionFiltering),
 		})
