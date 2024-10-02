@@ -353,6 +353,8 @@ jobs:
         run: |
           helm upgrade --install ${{ steps.vars.outputs.dnsproxy_newest_install }}
           kubectl rollout status -n kube-system ds/cilium-dnsproxy --timeout 5m --watch
+          # TODO: this should instead wait for the correct policy revision in Cilium DNS proxy. For now, just wait long enough.
+          sleep 30
 
       - name: 3. Run FQDN connectivity tests
         if: ${{ steps.vars.outputs.stable_version != '' }}
