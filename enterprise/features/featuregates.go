@@ -138,7 +138,7 @@ func validateFeatureGates(log *slog.Logger, cfg FeatureGatesConfig, settings cel
 	if len(gateErrors) > 0 {
 		err = fmt.Errorf("%w: %s. %s",
 			ErrUnsupportedFeatures, strings.Join(gateErrors, ", "), pleaseContactSupport)
-		gc.log.Warn("TAINTED: " + err.Error())
+		gc.log.Warn(err.Error())
 	}
 
 	if cfg.StrictFeatureGates {
