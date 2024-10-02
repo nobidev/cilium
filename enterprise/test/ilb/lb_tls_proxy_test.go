@@ -40,11 +40,6 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
 	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
-	t.Logf("Creating LB VIP resources...")
-
-	vip := lbVIP(ns, testName)
-	scenario.createLBVIP(ctx, vip)
-
 	t.Log("Creating backend app...")
 
 	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
@@ -52,6 +47,11 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 	t.Log("Creating client and add BGP peering...")
 
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
+
+	t.Logf("Creating LB VIP resources...")
+
+	vip := lbVIP(ns, testName)
+	scenario.createLBVIP(ctx, vip)
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
 	clientCASecretName := testName + "-client-ca"
@@ -137,24 +137,23 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
 	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
+	t.Log("Creating client and add BGP peering...")
+
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
+
 	t.Logf("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	backendHostName := "secure-backend.acme.io"
-
 	t.Log("Creating backend certificate...")
 
+	backendHostName := "secure-backend.acme.io"
 	scenario.createBackendServerCertificate(ctx, backendHostName)
 
 	t.Log("Creating backend app...")
 
 	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: backendHostName})
-
-	t.Log("Creating client and add BGP peering...")
-
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
 	caCertSecretName := testName + "-client-ca"
