@@ -221,12 +221,12 @@ WARNING: A Beta feature IPAMMultiPool was enabled, but it is not an approved fea
 {{- end -}}
 {{- if (eq "true" (print .localRedirectPolicy))  -}}
   {{- if $strictFeatureGates -}}
-    {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "LocalRedirectPolicy" .enterprise.featureGate.approved))) -}}
-      {{- fail "\nBeta feature: LocalRedirectPolicy was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
+    {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "LocalRedirectPolicy" .enterprise.featureGate.approved))) -}}
+      {{- fail "\nLimited feature: LocalRedirectPolicy was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
     {{- end -}}
   {{- else -}}
     {{ $fails = true }}
-WARNING: A Beta feature LocalRedirectPolicy was enabled, but it is not an approved feature.
+WARNING: A Limited feature LocalRedirectPolicy was enabled, but it is not an approved feature.
   {{- end -}}
 {{- end -}}
 {{- if (eq "true" (print .enterprise.multiNetwork.enabled))  -}}

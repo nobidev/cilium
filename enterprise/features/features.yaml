@@ -317,7 +317,7 @@ features:
   ### Load-balancing
 
   LocalRedirectPolicy:
-    maturity: Beta
+    maturity: Limited
     description: |
       Enables local traffic redirection policy functionality.
     flags:
