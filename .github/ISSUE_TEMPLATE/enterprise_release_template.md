@@ -84,7 +84,7 @@ _If you need help: ask in #enterprise-release._
 - [ ] Generate FIPs images
   - [ ] Go to https://github.com/isovalent/cilium/actions/workflows/enterprise-build-images-releases-fips.yaml. You should see the commit title for the tag.
   - [ ] Click on the action and approve deployment (it should be approvable by `release-manager` team)
-  - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.  
+  - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.
 
 ## Prepare Helm & documentation
 
