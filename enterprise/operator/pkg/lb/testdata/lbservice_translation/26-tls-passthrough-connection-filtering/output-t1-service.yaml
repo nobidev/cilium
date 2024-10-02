@@ -15,6 +15,8 @@ metadata:
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/node: t1
     service.cilium.io/type: "LoadBalancer"
+  labels:
+    loadbalancer.isovalent.com/vip-name: lb-1
   namespace: default
   name: lbfe-lb-1
 spec:

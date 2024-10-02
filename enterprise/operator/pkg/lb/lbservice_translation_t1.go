@@ -65,9 +65,11 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   model.namespace,
-			Name:        model.getOwningResourceName(),
-			Labels:      map[string]string{},
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceName(),
+			Labels: map[string]string{
+				"loadbalancer.isovalent.com/vip-name": model.vip.name,
+			},
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
