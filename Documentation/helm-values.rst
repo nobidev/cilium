@@ -1271,11 +1271,15 @@
    * - :spelling:ignore:`enterprise.encryption`
      - Transparent encryption
      - object
-     - ``{"policy":{"enabled":false}}``
+     - ``{"policy":{"enabled":false,"fallbackBehavior":null}}``
    * - :spelling:ignore:`enterprise.encryption.policy.enabled`
      - Enables support for encryption policies
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.encryption.policy.fallbackBehavior`
+     - Defines the behavior for traffic which is not selected by an encryption policy. Currently the only supported value is "plaintext", which also needs to be explicitly provided for forward-compatibility with future Cilium versions (as future versions might implement a different default fallback behavior). @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`enterprise.featureGate.approved`
      - List of features that are approved.
      - list

@@ -1872,6 +1872,12 @@
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "fallbackBehavior": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"

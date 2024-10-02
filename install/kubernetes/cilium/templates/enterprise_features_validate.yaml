@@ -189,7 +189,7 @@ WARNING: A Limited feature EgressGatewayIPv4 was enabled, but it is not an appro
 WARNING: A Limited feature EncryptionIPSec was enabled, but it is not an approved feature.
   {{- end -}}
 {{- end -}}
-{{- if (eq "true" (print .enterprise.encryption.policy.enabled))  -}}
+{{- if (and (eq "true" (print .enterprise.encryption.policy.enabled)) (eq "plaintext" (print .enterprise.encryption.policy.fallbackBehavior)) ) -}}
   {{- if $strictFeatureGates -}}
     {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "EncryptionPolicy" .enterprise.featureGate.approved))) -}}
       {{- fail "\nLimited feature: EncryptionPolicy was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
