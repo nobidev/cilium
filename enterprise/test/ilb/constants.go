@@ -19,6 +19,7 @@ const (
 const (
 	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6"
 	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.2"
+	utilsImage  = "busybox:1.37.0-musl"
 )
 
 const (

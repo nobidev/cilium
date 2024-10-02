@@ -104,7 +104,7 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	return nil
 }
 
-func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool) (string, string, error) {
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool, cmd []string) (string, string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
 	hostCfg := &container.HostConfig{
@@ -129,6 +129,7 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		&container.Config{
 			Image: img,
 			Env:   env,
+			Cmd:   cmd,
 		},
 		hostCfg,
 		networkCfg,

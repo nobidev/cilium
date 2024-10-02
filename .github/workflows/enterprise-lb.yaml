@@ -213,7 +213,7 @@ jobs:
           PARAMS=""
           if [ "${{ matrix.mode }}" == "single-node" ]; then
             export DOCKER_HOST="tcp://127.0.0.1:22376"
-            PARAMS="--mode=single-node --single-node-ip=${{ steps.single-node.outputs.ip }}"
+            PARAMS="--mode=single-node"
           else
             export DOCKER_HOST="tcp://127.0.0.1:22375"
             # Ideally, we want to replicate real world use cases as much as possible in the tests.

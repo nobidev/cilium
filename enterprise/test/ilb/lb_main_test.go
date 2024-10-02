@@ -49,16 +49,19 @@ func TestMain(m *testing.M) {
 	if *flagMode != "single-node" && *flagMode != "multi-node" {
 		pf.Fatalf("invalid --mode: %s", *flagMode)
 	}
-	if *flagMode == "single-mode" && *flagSingleNodeIPAddr == "" {
-		pf.Fatalf("--single-node-ip must be set when --single-node=true")
-	}
 
-	ciliumCli, _ := newCiliumAndK8sCli(pf)
+	ciliumCli, k8sCli := newCiliumAndK8sCli(pf)
 	dockerCli := newDockerCli(pf)
 
 	for _, img := range []string{appImage, clientImage} {
 		if err := dockerCli.ensureImage(context.Background(), img); err != nil {
-			panic(fmt.Sprintf("Failed to ensure Docker image %s: %s", img, err))
+			pf.Fatalf("failed to ensure Docker image %s: %s", img, err)
+		}
+	}
+
+	if isSingleNode() {
+		if err := setupSingleNodeMode(dockerCli, k8sCli); err != nil {
+			pf.Fatalf("failed to set up single-node mode: %s", err)
 		}
 	}
 
