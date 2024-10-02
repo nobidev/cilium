@@ -139,6 +139,7 @@ jobs:
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
           kubectl label node kind-control-plane service.cilium.io/node=t1
+          kubectl taint node kind-control-plane service.cilium.io/node=t1:NoSchedule
           kubectl label node kind-worker service.cilium.io/node=t2
           kubectl label node kind-worker2 service.cilium.io/node=t2
 
