@@ -31,22 +31,30 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	collectionInterval = 5 * time.Second
+	"github.com/spf13/pflag"
 )
 
 var Cell = cell.Module(
 	"loadbalancer-metrics",
 	"LoadBalancer metrics",
 
+	//exhaustruct:ignore
+	cell.Config(Config{}),
 	cell.Invoke(RegisterCollector),
 )
+
+type Config struct {
+	LoadBalancerMetricsCollectionInterval time.Duration
+}
+
+func (cfg Config) Flags(flags *pflag.FlagSet) {
+	flags.Duration("loadbalancer-metrics-collection-interval", 5*time.Second, "Refresh interval for LoadBalancer metrics.")
+}
 
 type Params struct {
 	cell.In
 
+	Config    Config
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
@@ -69,7 +77,7 @@ func RegisterCollector(params Params) {
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
-			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, collectionInterval))
+			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, params.Config.LoadBalancerMetricsCollectionInterval))
 
 			return nil
 		},
