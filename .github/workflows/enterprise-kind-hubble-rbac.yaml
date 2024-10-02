@@ -95,7 +95,7 @@ jobs:
           until helm pull ${{ env.helm_chart_repo }} --version ${{ steps.vars.outputs.version }}; do sleep 30s; done
 
       - name: Setup
-        if: ${{ always() }}
+        timeout-minutes: 10
         run: |
           ./enterprise/test/hubble-rbac/setup.sh
         shell: bash
