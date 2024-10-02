@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -45,9 +46,11 @@ var Cell = cell.Module(
 
 type Params struct {
 	cell.In
-	Lifecycle cell.Lifecycle
 
-	JobGroup job.Group
+	JobGroup  job.Group
+	Lifecycle cell.Lifecycle
+	Logger    logrus.FieldLogger
+
 	Services resource.Resource[*slim_corev1.Service]
 }
 
@@ -58,7 +61,7 @@ func RegisterCollector(params Params) {
 
 	mc := newLBMetricsCollector(params)
 	if err := metrics.Register(mc); err != nil {
-		log.WithError(err).
+		params.Logger.WithError(err).
 			Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected")
 		return
 	}
@@ -108,6 +111,8 @@ type lbMetricsCollector struct {
 	lbPacketsDesc           *prometheus.Desc
 	lbOpenConnectionsDesc   *prometheus.Desc
 	lbHealthcheckStatusDesc *prometheus.Desc
+
+	logger logrus.FieldLogger
 }
 
 func newLBMetricsCollector(params Params) *lbMetricsCollector {
@@ -145,6 +150,8 @@ func newLBMetricsCollector(params Params) *lbMetricsCollector {
 			"Healthcheck status for a given service and backend tuple",
 			[]string{"service", "backend"}, nil,
 		),
+
+		logger: params.Logger,
 	}
 }
 
@@ -238,7 +245,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		backends[backendKey.ID] = backendVal
 	}
 	if err := lbmap.Backend4MapV3.DumpWithCallback(backendsCallback); err != nil {
-		log.WithError(err).Error("Cannot dump backend map, LB metrics may be incomplete")
+		mc.logger.WithError(err).Error("Cannot dump backend map, LB metrics may be incomplete")
 		return err
 	}
 
@@ -277,7 +284,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		mc.lbHealthcheckStatus[frontendNameAndAddr] = serviceBackends
 	}
 	if err := lbmap.Service4MapV2.DumpWithCallback(serviceCallback); err != nil {
-		log.WithError(err).Error("Cannot dump service map, LB metrics may be incomplete")
+		mc.logger.WithError(err).Error("Cannot dump service map, LB metrics may be incomplete")
 		return err
 	}
 
@@ -338,7 +345,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	}
 	for _, ctMap := range mc.ct4Maps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
-			log.WithError(err).Error("Cannot dump CT map, LB metrics may be incomplete")
+			mc.logger.WithError(err).Error("Cannot dump CT map, LB metrics may be incomplete")
 			return err
 		}
 	}
