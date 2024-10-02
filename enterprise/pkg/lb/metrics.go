@@ -87,10 +87,15 @@ func RegisterCollector(params Params) {
 	})
 }
 
+type serviceCacheEntry struct {
+	name   string
+	revNat uint16
+}
+
 // lbMetricsCollector implements Prometheus Collector interface and store the state of the metrics collector
 type lbMetricsCollector struct {
-	// lbServiceCache maps LB frontend addresses (ip:port/proto) to the related service's name
-	lbServiceCache map[string]string
+	// lbServiceCache maps LB frontend addresses (ip:port/proto) to the related service's name and RevNAT ID
+	lbServiceCache map[string]serviceCacheEntry
 	// prevLbCtEntries stores a snapshot of the LB CT entries
 	prevLbCtEntries map[*ctmap.CtKey4Global]*ctmap.CtEntry
 
@@ -115,7 +120,7 @@ type lbMetricsCollector struct {
 
 func newLBMetricsCollector(params Params) *lbMetricsCollector {
 	return &lbMetricsCollector{
-		lbServiceCache: make(map[string]string),
+		lbServiceCache: make(map[string]serviceCacheEntry),
 
 		lbBytes:             make(map[string]map[string]uint64),
 		lbPackets:           make(map[string]map[string]uint64),
@@ -229,7 +234,7 @@ func lbServiceCacheUpdater(ctx context.Context, mc *lbMetricsCollector, serviceS
 
 					switch event.Kind {
 					case resource.Upsert:
-						mc.lbServiceCache[frontendAddr] = service.Name
+						mc.lbServiceCache[frontendAddr] = serviceCacheEntry{name: service.Name}
 					case resource.Delete:
 						delete(mc.lbServiceCache, frontendAddr)
 					}
@@ -272,10 +277,13 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 		frontendAddr := formatFrontendAddr(serviceKey.Address.String(), serviceKey.Port, u8proto.U8proto(serviceKey.Proto).String())
 
 		// ignore non LB services
-		name, ok := mc.lbServiceCache[frontendAddr]
+		service, ok := mc.lbServiceCache[frontendAddr]
 		if !ok {
 			return
 		}
+
+		service.revNat = serviceVal.RevNat
+		mc.lbServiceCache[frontendAddr] = service
 
 		// lookup the service's backend from the cache
 		serviceBackend, ok := backends[loadbalancer.BackendID(serviceVal.BackendID)]
@@ -283,7 +291,7 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 			return
 		}
 
-		frontendNameAndAddr := fmt.Sprintf("%s (%s)", name, frontendAddr)
+		frontendNameAndAddr := fmt.Sprintf("%s (%s)", service.name, frontendAddr)
 
 		// and update the health status of the service's backend
 		serviceBackends, ok := mc.lbHealthcheckStatus[frontendNameAndAddr]
@@ -308,8 +316,12 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 		frontendAddr := formatFrontendAddr(ctKey.DestAddr.String(), ctKey.SourcePort, ctKey.NextHeader.String())
 
 		// skip entry if it's not related to an LB service
-		name, ok := mc.lbServiceCache[frontendAddr]
+		service, ok := mc.lbServiceCache[frontendAddr]
 		if !ok {
+			return
+		}
+
+		if ctValue.RevNAT != service.revNat {
 			return
 		}
 
@@ -329,7 +341,7 @@ func fetchMetrics(ctx context.Context, mc *lbMetricsCollector, ct4Maps []*ctmap.
 			deltaPackets -= prevCtValue.Packets
 		}
 
-		frontendNameAndAddr := fmt.Sprintf("%s (%s)", name, frontendAddr)
+		frontendNameAndAddr := fmt.Sprintf("%s (%s)", service.name, frontendAddr)
 		backendAddr := backend.Address.String()
 
 		// and increment the bytes and packets counters by the related deltas
