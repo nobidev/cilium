@@ -22,6 +22,7 @@ import (
 
 	dnsproxypb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -222,11 +223,13 @@ func CheckUpdate(t *testing.T, expected fqdnRuleKey, got fqdnRuleKey) error {
 
 type mockCachedSelector string
 
-func (m mockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+func (m mockCachedSelector) GetSelections(v *versioned.VersionHandle) identity.NumericIdentitySlice {
 	return []identity.NumericIdentity{1, 2, 3}
 }
-func (m mockCachedSelector) GetMetadataLabels() labels.LabelArray    { panic("not impl") }
-func (m mockCachedSelector) Selects(_ identity.NumericIdentity) bool { panic("not impl") }
-func (m mockCachedSelector) IsWildcard() bool                        { panic("not impl") }
-func (m mockCachedSelector) IsNone() bool                            { panic("not impl") }
-func (m mockCachedSelector) String() string                          { return string(m) }
+func (m mockCachedSelector) GetMetadataLabels() labels.LabelArray { panic("not impl") }
+func (m mockCachedSelector) Selects(v *versioned.VersionHandle, _ identity.NumericIdentity) bool {
+	panic("not impl")
+}
+func (m mockCachedSelector) IsWildcard() bool { panic("not impl") }
+func (m mockCachedSelector) IsNone() bool     { panic("not impl") }
+func (m mockCachedSelector) String() string   { return string(m) }

@@ -13,6 +13,7 @@
 package dnsproxy
 
 import (
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -23,7 +24,9 @@ func (p *DNSProxy) GetAllRules() (map[uint64]restore.DNSRules, error) {
 	result := make(map[uint64]restore.DNSRules, len(p.allowed))
 
 	for epID := range p.allowed {
-		rules, err := p.GetRules(uint16(epID))
+		// returned nids are not "transactional", i.e., a concurrently added identity may be missing from
+		// the selections of one selector, but appear on the selections of another
+		rules, err := p.GetRules(versioned.Latest(), uint16(epID))
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +86,10 @@ func (p *DNSProxy) DumpRules() []*fqdnpb.FQDNRules {
 				r.Rules.SelectorRegexMapping[selector.String()] = dnsRE.String()
 
 				// []u64 -> []u32 :-)
-				selections := selector.GetSelections()
+				//
+				// returned nids are not "transactional", i.e., a concurrently added identity may be missing from
+				// the selections of one selector, but appear on the selections of another
+				selections := selector.GetSelections(versioned.Latest())
 				idList := make([]uint32, 0, len(selections))
 				for _, nid := range selections {
 					idList = append(idList, uint32(nid))

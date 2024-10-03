@@ -30,7 +30,11 @@ func main() {
 		log.Fatalf("failed to initialize plugins: %v", err)
 	}
 
-	agentCmd := cmd.NewAgentCmd(agentHive)
+	hiveFn := func() *hive.Hive {
+		return agentHive
+	}
+
+	agentCmd := cmd.NewAgentCmd(hiveFn)
 	if err := daemonplugins.AddFlags(vp, agentCmd, list); err != nil {
 		log.Fatalf("unable to apply cilium CLI options: %v", err)
 	}
