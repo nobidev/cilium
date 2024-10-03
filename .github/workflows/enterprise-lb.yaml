@@ -225,7 +225,11 @@ jobs:
             PARAMS="--cleanup=false"
           fi
 
-          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -test.v ./enterprise/test/ilb $PARAMS
+          # Using rakyll/gotest to colorize the "go test" output.
+          # It's also possible to use plain "go test" to execute the LB E2E tests.
+          go install github.com/rakyll/gotest@latest
+
+          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotest -test.v ./enterprise/test/ilb $PARAMS
 
       - name: Run "cilium lb status"
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
