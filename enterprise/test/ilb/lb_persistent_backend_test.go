@@ -12,16 +12,10 @@ package ilb
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/safeio"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestPersistentBackendWithCookie(t *testing.T) {
@@ -67,32 +61,36 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 
 	// 1. Test persistent backend selection with cookie
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=123' http://%s:80/test1", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
+		previousServiceName := ""
 		for i := 0; i < 100; i++ {
 			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
+
+			resp := toTestAppResponse(t, stdout)
+			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+			previousServiceName = resp.ServiceName
 		}
 	}
-
-	t.Log("Check backend persistence")
-	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test1"), 10*time.Second, 1*time.Second)
 
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 --cookie 'session=234' http://%s:80/test2", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
+		previousServiceName := ""
 		for i := 0; i < 100; i++ {
 			stdout, stderr, err := client.Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
+
+			resp := toTestAppResponse(t, stdout)
+			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+			previousServiceName = resp.ServiceName
 		}
 	}
-
-	t.Log("Check backend persistence")
-	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test2"), 10*time.Second, 1*time.Second)
 }
 
 func TestPersistentBackendWithSourceIP(t *testing.T) {
@@ -140,68 +138,43 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 
 	// 1. Test persistent backend selection with source IP
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test1", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
+		previousServiceName := ""
 		for i := 0; i < 100; i++ {
 			stdout, stderr, err := clients[0].Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
+
+			resp := toTestAppResponse(t, stdout)
+			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+			previousServiceName = resp.ServiceName
 		}
 	}
 
-	t.Log("Check backend persistence")
-	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test1"), 10*time.Second, 1*time.Second)
-
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:80/test2", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
 		t.Logf("Testing 100 requests: %q...", testCmd)
+		previousServiceName := ""
 		for i := 0; i < 100; i++ {
 			stdout, stderr, err := clients[1].Exec(ctx, testCmd)
 			if err != nil {
 				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 			}
+
+			resp := toTestAppResponse(t, stdout)
+			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+			previousServiceName = resp.ServiceName
 		}
 	}
-
-	t.Log("Check backend persistence")
-	eventually(t, checkForPersistentBackend(ctx, dockerCli, scenario, "test2"), 10*time.Second, 1*time.Second)
 }
 
-func checkForPersistentBackend(ctx context.Context, dockerCli *dockerCli, scenario *lbTestScenario, path string) func() error {
-	return func() error {
-		allRequestsServedByOneBackend := false
-		totalHandledRequests := 0
-
-		for _, b := range scenario.backendApps {
-			rc, err := dockerCli.ContainerLogs(ctx, b.id, container.LogsOptions{ShowStdout: true, ShowStderr: true})
-			if err != nil {
-				return fmt.Errorf("failed to get backend container logs: %w", err)
-			}
-			defer rc.Close()
-
-			log, err := safeio.ReadAllLimit(rc, safeio.GB)
-			if err != nil {
-				return fmt.Errorf("failed to read backend container logs: %w", err)
-			}
-
-			handledRequests := strings.Count(string(log), fmt.Sprintf("Service request request.path=/%s", path))
-
-			if handledRequests == 100 {
-				allRequestsServedByOneBackend = true
-			}
-
-			totalHandledRequests += handledRequests
-		}
-
-		if totalHandledRequests != 100 {
-			return fmt.Errorf("unexpected total number of handled requests: %d", totalHandledRequests)
-		}
-
-		if !allRequestsServedByOneBackend {
-			return errors.New("no backend served all requests")
-		}
-
-		return nil
+func assertPersistentBackend(t *testing.T, previousServiceName string, currentServiceName string) {
+	if currentServiceName == "" {
+		t.Fatalf("no service name provided")
+	}
+	if previousServiceName != "" && previousServiceName != currentServiceName {
+		t.Fatalf("request serviced by different backend %s != %s", previousServiceName, currentServiceName)
 	}
 }

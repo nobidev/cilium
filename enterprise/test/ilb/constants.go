@@ -15,13 +15,15 @@ import (
 	"time"
 )
 
+var (
+	flagAppImage    = flag.String("app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.7", "app container image name")
+	flagClientImage = flag.String("client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.2", "client container image name")
+	flagUtilsImage  = flag.String("utils-image", "busybox:1.37.0-musl", "utils container image name")
+)
+
 const (
 	containerNetwork = "kind-cilium"
 )
-
-var flagAppImage = flag.String("app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6", "app container image name")
-var flagClientImage = flag.String("client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.2", "client container image name")
-var flagUtilsImage = flag.String("utils-image", "busybox:1.37.0-musl", "utils container image name")
 
 const (
 	lbIPPoolName               = "lb-pool"
