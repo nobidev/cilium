@@ -28,9 +28,16 @@ import (
 //
 // Flags:
 //
-// -cleanup         Cleanup created resources after each test case run (default: true)
-// -mode            Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default: "multi-mode")
-// -single-node-ip  The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.
+//  -app-image string
+//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6")
+//  -cleanup
+//        Cleanup created resources after each test case run (default true)
+//  -client-image string
+//        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.2")
+//  -mode string
+//        Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default "multi-node")
+//  -single-node-ip string
+//        The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.
 //
 // One can run in the --mode=single-node using a remote node for deploying client
 // and LB app containers, and then running test requests from them. To do so,
@@ -53,7 +60,7 @@ func TestMain(m *testing.M) {
 	ciliumCli, k8sCli := newCiliumAndK8sCli(pf)
 	dockerCli := newDockerCli(pf)
 
-	for _, img := range []string{appImage, clientImage} {
+	for _, img := range []string{*flagAppImage, *flagClientImage} {
 		if err := dockerCli.ensureImage(context.Background(), img); err != nil {
 			pf.Fatalf("failed to ensure Docker image %s: %s", img, err)
 		}

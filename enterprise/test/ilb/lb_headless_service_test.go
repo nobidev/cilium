@@ -98,7 +98,7 @@ func backendDeployment(t *testing.T, name string, replicas int32, config backend
 					Containers: []corev1.Container{
 						{
 							Name:  "healthcheck",
-							Image: appImage,
+							Image: *flagAppImage,
 							Env:   envs,
 						},
 					},

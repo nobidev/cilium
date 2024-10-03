@@ -43,8 +43,8 @@ func setupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
 		return nil
 	}
 
-	if err := dockerCli.ensureImage(context.Background(), utilsImage); err != nil {
-		return fmt.Errorf("failed to ensure %s image: %w", utilsImage, err)
+	if err := dockerCli.ensureImage(context.Background(), *flagUtilsImage); err != nil {
+		return fmt.Errorf("failed to ensure %s image: %w", *flagUtilsImage, err)
 	}
 
 	ips, err := getT1NodeIPs(k8sCli)
@@ -65,7 +65,7 @@ func deriveSingleNodeIP(dockerCli *dockerCli, t1NodeIPAddr string) error {
 	name := "single-node-ip"
 
 	// It will run in the single-node's host netns
-	_, _, err := dockerCli.createContainer(context.Background(), name, utilsImage, nil, "", false, []string{"sleep", "infinity"})
+	_, _, err := dockerCli.createContainer(context.Background(), name, *flagUtilsImage, nil, "", false, []string{"sleep", "infinity"})
 	if err != nil {
 		return fmt.Errorf("failed to start %s: %w", name, err)
 	}

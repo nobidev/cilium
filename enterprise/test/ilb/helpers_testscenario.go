@@ -94,7 +94,7 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(ctx, appName, appImage, envVars, containerNetwork, false, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, appName, *flagAppImage, envVars, containerNetwork, false, nil)
 		if err != nil {
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
@@ -164,7 +164,7 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
-		id, ip, err := r.dockerCli.createContainer(ctx, clientName, clientImage, env, containerNetwork, true, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, clientName, *flagClientImage, env, containerNetwork, true, nil)
 		if err != nil {
 			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}

@@ -10,17 +10,18 @@
 
 package ilb
 
-import "time"
+import (
+	"flag"
+	"time"
+)
 
 const (
 	containerNetwork = "kind-cilium"
 )
 
-const (
-	appImage    = "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6"
-	clientImage = "quay.io/isovalent-dev/lb-frr-client:v0.0.2"
-	utilsImage  = "busybox:1.37.0-musl"
-)
+var flagAppImage = flag.String("app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6", "app container image name")
+var flagClientImage = flag.String("client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.2", "client container image name")
+var flagUtilsImage = flag.String("utils-image", "busybox:1.37.0-musl", "utils container image name")
 
 const (
 	lbIPPoolName               = "lb-pool"
