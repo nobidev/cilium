@@ -44,10 +44,12 @@ var Cell = cell.Module(
 )
 
 type Config struct {
+	LoadBalancerMetricsEnabled            bool
 	LoadBalancerMetricsCollectionInterval time.Duration
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("loadbalancer-metrics-enabled", false, "Whether or not LoadBalancer metrics collection is enabled.")
 	flags.Duration("loadbalancer-metrics-collection-interval", 5*time.Second, "Refresh interval for LoadBalancer metrics.")
 }
 
@@ -64,6 +66,10 @@ type Params struct {
 
 func RegisterCollector(params Params) {
 	if !option.Config.EnableIPv4 {
+		return
+	}
+
+	if !params.Config.LoadBalancerMetricsEnabled {
 		return
 	}
 
