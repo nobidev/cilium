@@ -566,7 +566,7 @@ func bgpAdvertisement(name string, vips []string) *isovalentv1alpha1.IsovalentBG
 			Advertisements: []isovalentv1alpha1.BGPAdvertisement{
 				{
 					AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
-					Service: &ciliumv2alpha1.BGPServiceOptions{
+					Service: &isovalentv1alpha1.BGPServiceOptions{
 						Addresses: []ciliumv2alpha1.BGPServiceAddressType{
 							ciliumv2alpha1.BGPLoadBalancerIPAddr,
 						},
