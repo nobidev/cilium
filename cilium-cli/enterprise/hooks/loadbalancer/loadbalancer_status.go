@@ -120,6 +120,8 @@ func (s *LoadbalancerClient) getType(service isovalentv1alpha1.LBService) string
 		return "TLS Passthrough"
 	case service.Spec.Applications.TLSProxy != nil:
 		return "TLS Proxy"
+	case service.Spec.Applications.TCPProxy != nil:
+		return "TCP Proxy"
 	}
 
 	return "N/A"
