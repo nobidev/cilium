@@ -1068,6 +1068,7 @@ type LBBackendPool struct {
 }
 
 // +kubebuilder:validation:XValidation:message="Backend format must match to the backendType and exactly one of ip or host must be specified",rule="((self.backendType == 'IP' && self.backends.all(b, has(b.ip))) || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host)))) && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b, !has(b.ip) && !has(b.host))))"
+// +kubebuilder:validation:XValidation:message="Custom resolver configuration is only valid when backendType is Hostname",rule="(self.backendType == 'Hostname' || (self.backendType == 'IP' && !has(self.dnsResolverConfig)))"
 type LBBackendPoolSpec struct {
 	// Type of the backends. Either IP or Hostname. If IP is specified, backends
 	// must be specified by IP address. If Hostname is specified, backends must be
@@ -1080,6 +1081,12 @@ type LBBackendPoolSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	Backends []Backend `json:"backends"`
+
+	// The custom DNS resolver configuration. Only valid when the
+	// backendType is Hostname.
+	//
+	// +kubebuilder:validation:Optional
+	DNSResolverConfig *DNSResolverConfig `json:"dnsResolverConfig,omitempty"`
 
 	// The pool-wide health check configuration.
 	//
@@ -1114,6 +1121,34 @@ const (
 	BackendTypeIP       BackendType = "IP"
 	BackendTypeHostname BackendType = "Hostname"
 )
+
+type DNSResolverConfig struct {
+	// DNS resolvers to use for resolving host names. At least one resolver
+	// must be specified. When specified, the LB uses the specified
+	// resolvers and the default system resolvers are not used.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=ip
+	// +listMapKey=port
+	Resolvers []DNSResolver `json:"resolvers"`
+}
+
+type DNSResolver struct {
+	// The IP address of the DNS resolver.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ip
+	IP string `json:"ip"`
+
+	// The port of the DNS resolver.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port uint32 `json:"port,omitempty"`
+}
 
 type LBBackendTCPConfig struct {
 	// The connect timeout for the connections.

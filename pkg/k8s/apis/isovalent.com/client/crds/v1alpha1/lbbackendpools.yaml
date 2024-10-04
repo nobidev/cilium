@@ -102,6 +102,41 @@ spec:
                   - port
                   type: object
                 type: array
+              dnsResolverConfig:
+                description: |-
+                  The custom DNS resolver configuration. Only valid when the
+                  backendType is Hostname.
+                properties:
+                  resolvers:
+                    description: |-
+                      DNS resolvers to use for resolving host names. At least one resolver
+                      must be specified. When specified, the LB uses the specified
+                      resolvers and the default system resolvers are not used.
+                    items:
+                      properties:
+                        ip:
+                          description: The IP address of the DNS resolver.
+                          format: ip
+                          type: string
+                        port:
+                          description: The port of the DNS resolver.
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                      required:
+                      - ip
+                      - port
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - ip
+                    - port
+                    x-kubernetes-list-type: map
+                required:
+                - resolvers
+                type: object
               healthCheck:
                 description: The pool-wide health check configuration.
                 properties:
@@ -327,6 +362,10 @@ spec:
                 || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host))))
                 && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b,
                 !has(b.ip) && !has(b.host))))
+            - message: Custom resolver configuration is only valid when backendType
+                is Hostname
+              rule: (self.backendType == 'Hostname' || (self.backendType == 'IP' &&
+                !has(self.dnsResolverConfig)))
           status:
             properties:
               conditions:
