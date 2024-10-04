@@ -15,7 +15,6 @@ import (
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
 	"github.com/cilium/cilium/cilium-cli/status"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 const (
@@ -119,27 +118,6 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 	cmd.Flags().StringVarP(&relationOutput, "relationOutput", "r", relationOutputNumbers, "Relation output format. One of: numbers, percentage")
 
 	return cmd
-}
-
-func getType(lbsvc isovalentv1alpha1.LBService) string {
-	switch {
-	case lbsvc.Spec.Applications.HTTPProxy != nil:
-		return "HTTP Proxy"
-	case lbsvc.Spec.Applications.HTTPSProxy != nil:
-		return "HTTPS Proxy"
-	case lbsvc.Spec.Applications.TLSPassthrough != nil:
-		return "TLS Passthrough"
-	}
-
-	return "N/A"
-}
-
-func getVIP(lbsvc isovalentv1alpha1.LBService) string {
-	if lbsvc.Status.Addresses.IPv4 != nil {
-		return *lbsvc.Status.Addresses.IPv4
-	}
-
-	return "N/A"
 }
 
 func printSimpleStatusCell(status loadbalancer.LoadbalancerStatusModelSimpleStatus) string {
