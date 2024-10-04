@@ -13,6 +13,7 @@ package lb
 import (
 	"math/big"
 	"net"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -380,6 +381,14 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			address = *backend.IP
 		case isovalentv1alpha1.BackendTypeHostname:
 			address = *backend.Host
+			// FIXME: This is a workaround for the issue that no_default_search_domain
+			// of Envoy is broken (https://github.com/envoyproxy/envoy/issues/33138).
+			// This leads to the situation that the default search domain is mistakenly
+			// appended to the hostname. This workaround is to append a dot to the hostname
+			// make it fully qualified.
+			if !strings.HasSuffix(address, ".") {
+				address = address + "."
+			}
 		default:
 			address = *backend.IP
 		}

@@ -8,7 +8,7 @@ spec:
   backends:
     - host: foo.example.com
       port: 8080
-    - host: bar.example.com
+    - host: bar.example.com.
       port: 8080
   healthCheck:
     intervalSeconds: 30

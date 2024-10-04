@@ -176,12 +176,12 @@ spec:
               - endpoint:
                   address:
                     socketAddress:
-                      address: foo.example.com
+                      address: foo.example.com.
                       portValue: 8080
                 loadBalancingWeight: 1
               - endpoint:
                   address:
                     socketAddress:
-                      address: bar.example.com
+                      address: bar.example.com.
                       portValue: 8080
                 loadBalancingWeight: 1
