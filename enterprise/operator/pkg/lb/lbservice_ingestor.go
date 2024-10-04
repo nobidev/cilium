@@ -151,6 +151,7 @@ func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referenced
 		httpsProxy:     r.toApplicationHTTPS(lbsvc, referencedBackends),
 		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, referencedBackends),
 		tlsProxy:       r.toApplicationTLSProxy(lbsvc, referencedBackends),
+		tcpProxy:       r.toApplicationTCPProxy(lbsvc, referencedBackends),
 	}
 }
 
@@ -328,6 +329,37 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, ref
 	return &lbApplicationTLSProxy{
 		tlsConfig: tlsConfig,
 		routes:    routes,
+	}
+}
+
+func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationTCPProxy {
+	app := lbsvc.Spec.Applications.TCPProxy
+	if app == nil {
+		return nil
+	}
+
+	if len(app.Routes) != 1 {
+		// ! should have been checked already
+		return nil
+	}
+
+	routes := []lbRouteTCPProxy{}
+	for _, lr := range app.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
+			// backend not present yet
+			continue
+		}
+
+		routes = append(routes, lbRouteTCPProxy{
+			backendRef:          backendRef{name: lr.BackendRef.Name},
+			persistentBackend:   r.toTCPPersistentBackendConfig(lr.PersistentBackend),
+			connectionFiltering: r.toTCPRequestFilteringConfig(lr.ConnectionFiltering),
+		})
+	}
+
+	return &lbApplicationTCPProxy{
+		tierMode: r.mapTCPProxyTierMode(app),
+		routes:   routes,
 	}
 }
 
@@ -660,6 +692,46 @@ func (r *ingestor) toHTTPConnectionFilteringConfig(config *isovalentv1alpha1.LBS
 	}
 }
 
+func (*ingestor) toTCPPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceTCPRoutePersistentBackend) *lbRouteTCPPersistentBackend {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	sourceIP := false
+	if persistentBackendConfig.SourceIP != nil {
+		sourceIP = *persistentBackendConfig.SourceIP
+	}
+
+	return &lbRouteTCPPersistentBackend{
+		sourceIP: sourceIP,
+	}
+}
+
+func (r *ingestor) toTCPRequestFilteringConfig(config *isovalentv1alpha1.LBServiceTCPRouteConnectionFiltering) *lbRouteTCPConnectionFiltering {
+	if config == nil {
+		return nil
+	}
+
+	rules := []lbRouteTCPConnectionFilteringRule{}
+
+	for _, ir := range config.Rules {
+		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
+
+		if ir.SourceCIDR != nil {
+			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
+		}
+
+		rules = append(rules, lbRouteTCPConnectionFilteringRule{
+			sourceCIDR: sourceCIDR,
+		})
+	}
+
+	return &lbRouteTCPConnectionFiltering{
+		ruleType: r.mapRuleType(config.RuleType),
+		rules:    rules,
+	}
+}
+
 func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering) *lbRouteHTTPRequestFiltering {
 	if config == nil {
 		return nil
@@ -833,5 +905,24 @@ func (*ingestor) toTLSRateLimits(rateLimits *isovalentv1alpha1.LBServiceTLSRoute
 			limit:             rateLimits.Connections.Limit,
 			timePeriodSeconds: rateLimits.Connections.TimePeriodSeconds,
 		},
+	}
+}
+
+func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
+	forceMode := isovalentv1alpha1.LBTCPProxyForceModeAuto
+
+	if app.ForceMode != nil {
+		forceMode = *app.ForceMode
+	}
+
+	switch forceMode {
+	case isovalentv1alpha1.LBTCPProxyForceModeAuto:
+		return tierModeT1
+	case isovalentv1alpha1.LBTCPProxyForceModeT1:
+		return tierModeT1
+	case isovalentv1alpha1.LBTCPProxyForceModeT2:
+		return tierModeT2
+	default:
+		return tierModeT2
 	}
 }

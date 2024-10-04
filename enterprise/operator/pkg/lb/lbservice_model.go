@@ -77,6 +77,7 @@ type lbApplications struct {
 	httpsProxy     *lbApplicationHTTPSProxy
 	tlsPassthrough *lbApplicationTLSPassthrough
 	tlsProxy       *lbApplicationTLSProxy
+	tcpProxy       *lbApplicationTCPProxy
 }
 
 func (r lbApplications) isHTTPProxyConfigured() bool {
@@ -231,6 +232,18 @@ type lbApplicationTLSProxy struct {
 	routes    []lbRouteTLSProxy
 }
 
+type tierModeType int
+
+const (
+	tierModeT1 tierModeType = iota
+	tierModeT2
+)
+
+type lbApplicationTCPProxy struct {
+	tierMode tierModeType
+	routes   []lbRouteTCPProxy
+}
+
 type lbRouteHTTP struct {
 	match             lbRouteHTTPMatch
 	backendRef        backendRef
@@ -366,6 +379,25 @@ type lbServiceConnectionRateLimit struct {
 type lbServiceRateLimit struct {
 	limit             uint
 	timePeriodSeconds uint
+}
+
+type lbRouteTCPProxy struct {
+	backendRef          backendRef
+	persistentBackend   *lbRouteTCPPersistentBackend
+	connectionFiltering *lbRouteTCPConnectionFiltering
+}
+
+type lbRouteTCPPersistentBackend struct {
+	sourceIP bool
+}
+
+type lbRouteTCPConnectionFiltering struct {
+	ruleType ruleTypeType
+	rules    []lbRouteTCPConnectionFilteringRule
+}
+
+type lbRouteTCPConnectionFilteringRule struct {
+	sourceCIDR *lbRouteRequestFilteringSourceCIDR
 }
 
 type backend struct {
