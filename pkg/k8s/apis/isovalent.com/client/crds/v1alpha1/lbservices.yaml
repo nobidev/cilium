@@ -806,6 +806,125 @@ spec:
                     required:
                     - routes
                     type: object
+                  tcpProxy:
+                    description: |-
+                      Defining this stanza enables TCPProxy application that proxies the
+                      TCP traffic to the backends by terminating the TCP.
+                    properties:
+                      forceMode:
+                        description: |-
+                          Enforces specific implementation to be used to realize
+                          TCPProxy application. This configuration should be used
+                          only when there's a performance issue or bugs in the
+                          implementation chosen by the default "auto" option.
+
+                          Following options are available:
+
+                          auto    : The LB controller automatically chooses the most
+                                    efficient implementation for given configuration.
+
+                          t1-only : Enforces TCPProxy to be realized in T1 nodes only.
+                                    If there is any LBService or LBBackendPool configuration
+                                    incompatible with T1 capability, an error will be
+                                    reported.
+
+                          force-t2: Enforces TCPProxy to be realized in T1 and T2 nodes
+                                    even if it can be fully realized in T1 nodes only.
+
+                          Optional, Default: auto
+                        enum:
+                        - auto
+                        - t1-only
+                        - force-t2
+                        type: string
+                      routes:
+                        description: The TCP proxy routing configuration.
+                        items:
+                          properties:
+                            backendRef:
+                              description: |-
+                                The reference to the LBBackendPool resource that this route should
+                                forward the traffic to when the route is matched. The referred
+                                LBBackendPool must exist in the same namespace as the LBService.
+                              properties:
+                                name:
+                                  description: The name of the LBBackendPool resource.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            connectionFiltering:
+                              description: |-
+                                The optional connection filtering configuration for this TCP route.
+                                It defines the connection attributes that should be obtained to decide
+                                whether connections should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: |-
+                                    Configure the rules that should be used for the TCP route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
+                              type: object
+                            persistentBackend:
+                              description: |-
+                                The optional persistent backend configuration for this TCP route.
+                                It defines the request attributes that should be obtained to decide
+                                whether requests should be sent to persistently the same backend.
+                                The attributes are logically ANDed.
+
+                                Note: Persistent backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`.
+                              properties:
+                                sourceIP:
+                                  description: |-
+                                    Whether requests from the same source IP should be sent to
+                                    the same backend.
+                                  type: boolean
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceIP))
+                          required:
+                          - backendRef
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - routes
+                    type: object
                   tlsPassthrough:
                     description: |-
                       Defining this stanza enables TLSPassthrough application that proxies
@@ -1245,11 +1364,14 @@ spec:
                 x-kubernetes-validations:
                 - message: Exactly one application must be specified
                   rule: (has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy)) || (!has(self.httpProxy) && has(self.httpsProxy)
-                    && !has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy)
-                    && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy))
+                    && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy)
+                    && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)
+                    && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy)
+                    && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy))
                     || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && has(self.tlsProxy))
+                    && has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy)
+                    && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)
+                    && has(self.tcpProxy))
               port:
                 description: The port that this service should listen on.
                 format: int32

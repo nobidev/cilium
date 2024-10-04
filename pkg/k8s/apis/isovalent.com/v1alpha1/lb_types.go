@@ -58,7 +58,7 @@ type LBServiceSpec struct {
 	Applications LBServiceApplications `json:"applications"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy))"
+// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && has(self.tcpProxy))"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
@@ -83,6 +83,12 @@ type LBServiceApplications struct {
 	//
 	// +kubebuilder:validation:Optional
 	TLSProxy *LBServiceApplicationTLSProxy `json:"tlsProxy,omitempty"`
+
+	// Defining this stanza enables TCPProxy application that proxies the
+	// TCP traffic to the backends by terminating the TCP.
+	//
+	// +kubebuilder:validation:Optional
+	TCPProxy *LBServiceApplicationTCPProxy `json:"tcpProxy,omitempty"`
 }
 
 type LBServiceApplicationHTTPProxy struct {
@@ -256,6 +262,105 @@ type LBServiceSecretRef struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 }
+
+type LBServiceApplicationTCPProxy struct {
+	// Enforces specific implementation to be used to realize
+	// TCPProxy application. This configuration should be used
+	// only when there's a performance issue or bugs in the
+	// implementation chosen by the default "auto" option.
+	//
+	// Following options are available:
+	//
+	// auto    : The LB controller automatically chooses the most
+	//           efficient implementation for given configuration.
+	//
+	// t1-only : Enforces TCPProxy to be realized in T1 nodes only.
+	//           If there is any LBService or LBBackendPool configuration
+	//           incompatible with T1 capability, an error will be
+	//           reported.
+	//
+	// force-t2: Enforces TCPProxy to be realized in T1 and T2 nodes
+	//           even if it can be fully realized in T1 nodes only.
+	//
+	// Optional, Default: auto
+	//
+	// +kubebuilder:validation:Optional
+	ForceMode *LBTCPProxyForceModeType `json:"forceMode,omitempty"`
+
+	// The TCP proxy routing configuration.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Routes []LBServiceTCPRoute `json:"routes"`
+}
+
+type LBServiceTCPRoute struct {
+	// The reference to the LBBackendPool resource that this route should
+	// forward the traffic to when the route is matched. The referred
+	// LBBackendPool must exist in the same namespace as the LBService.
+	//
+	// +kubebuilder:validation:Required
+	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional persistent backend configuration for this TCP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceTCPRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
+	// The optional connection filtering configuration for this TCP route.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceTCPRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
+type LBServiceTCPRoutePersistentBackend struct {
+	// Whether requests from the same source IP should be sent to
+	// the same backend.
+	//
+	// +kubebuilder:validation:Optional
+	SourceIP *bool `json:"sourceIP,omitempty"`
+}
+
+type LBServiceTCPRouteConnectionFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the TCP route.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceTCPRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
+type LBServiceTCPRouteRequestFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=auto;t1-only;force-t2
+type LBTCPProxyForceModeType string
+
+const (
+	LBTCPProxyForceModeAuto LBTCPProxyForceModeType = "auto"
+	LBTCPProxyForceModeT1   LBTCPProxyForceModeType = "t1-only"
+	LBTCPProxyForceModeT2   LBTCPProxyForceModeType = "force-t2"
+)
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
 type LBTLSProtocolVersion string
@@ -860,6 +965,11 @@ func (r *LBService) AllReferencedBackendNames() []string {
 	}
 	if r.Spec.Applications.TLSProxy != nil {
 		for _, lr := range r.Spec.Applications.TLSProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if r.Spec.Applications.TCPProxy != nil {
+		for _, lr := range r.Spec.Applications.TCPProxy.Routes {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
