@@ -39,7 +39,8 @@ const (
 func GetFormatString(alType AccessLogType) string {
 	formatString := getFormatString(alType)
 
-	formatString = strings.ReplaceAll(formatString, "\n", "")
+	formatString = strings.ReplaceAll(formatString, "\n", " ")
+	formatString = strings.TrimSpace(formatString)
 
 	return formatString
 }
