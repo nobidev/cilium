@@ -90,7 +90,28 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 	return stdout.String(), stderr.String(), err
 }
 
+func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {
+	images, err := c.ImageList(context.Background(), image.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("list images: %w", err)
+	}
+
+	for _, image := range images {
+		for _, tag := range image.RepoTags {
+			if tag == img {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
+	if exists, err := c.imageExists(ctx, img); err != nil || exists {
+		return err
+	}
+
 	reader, err := c.ImagePull(ctx, img, image.PullOptions{})
 	if err != nil {
 		return err
