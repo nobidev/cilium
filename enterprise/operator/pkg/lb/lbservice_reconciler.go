@@ -291,13 +291,13 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// T2
 	//
 
-	// Stop reconciliation if T1 service is not available yet or is not able to bind
+	// Stop reconciliation if T1-only, T1 service is not available yet or is not able to bind
 	// to the VIP (e.g. due to port clash with another service on the same VIP).
 	// In this case any existing CEC gets deleted too. We don't delete Services & Endpoints
 	// as this would result in a loop when the same services is created in the next
 	// reconciliation.
 	// Creating/Updating the T1 Service will trigger an additional reconciliation.
-	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful {
+	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() {
 		if err = r.ensureCECDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
 		}
@@ -727,6 +727,12 @@ func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *
 		}
 	case lbsvc.Spec.Applications.TLSProxy != nil:
 		for _, r := range lbsvc.Spec.Applications.TLSProxy.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
+	case lbsvc.Spec.Applications.TCPProxy != nil:
+		for _, r := range lbsvc.Spec.Applications.TCPProxy.Routes {
 			if r.PersistentBackend != nil {
 				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
 			}

@@ -51,9 +51,18 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
 
-	// T1 -> T2 health checking
-	annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
-	annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
+	// T1 -> {T2 | Backend} health checking
+	if !model.isTCPProxyT1OnlyMode() {
+		// The presence of these annotations will enable HTTP-based
+		// health checking from T1 to T2 nodes (or T1->Backend, if
+		// enabled for T1-only services)
+		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
+		annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
+	} else {
+		// For T1-only frontends, L4 healthchecks will be enabled
+		// (connect for TCP, ICMP/Payload-based for UDP)
+	}
+
 	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
 	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
@@ -61,7 +70,10 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
 
 	// T1 -> T2 forwarding method
-	annotations[ossannotation.ServiceForwardingMode] = "dsr"
+	forwardingMode := r.getServiceForwardingMode(model)
+	if forwardingMode != "" {
+		annotations[ossannotation.ServiceForwardingMode] = forwardingMode
+	}
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -104,14 +116,40 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	return hcInterval
 }
 
+func (r *lbServiceT1Translator) endpointAddressesFromT2Nodes(model *lbService) []corev1.EndpointAddress {
+	epAddresses := []corev1.EndpointAddress{}
+	for _, addr := range model.t2NodeIPs {
+		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
+	}
+	return epAddresses
+}
+
+func (r *lbServiceT1Translator) endpointAddressesFromBackends(model *lbService) []corev1.EndpointAddress {
+	epAddresses := []corev1.EndpointAddress{}
+
+	routes := model.applications.tcpProxy.routes
+	if len(routes) == 1 {
+		backend, ok := model.referencedBackends[model.applications.tcpProxy.routes[0].backendRef.name]
+		if ok {
+			for _, b := range backend.lbBackends {
+				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
+			}
+		}
+	}
+
+	return epAddresses
+}
+
 func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endpoints, error) {
 	if model.vip.assignedIPv4 == nil {
 		return nil, nil
 	}
 
-	epAddresses := []corev1.EndpointAddress{}
-	for _, addr := range model.t2NodeIPs {
-		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
+	var epAddresses []corev1.EndpointAddress
+	if model.applications.tcpProxy == nil || model.applications.tcpProxy.tierMode == tierModeT2 {
+		epAddresses = r.endpointAddressesFromT2Nodes(model)
+	} else {
+		epAddresses = r.endpointAddressesFromBackends(model)
 	}
 
 	return &corev1.Endpoints{
@@ -132,4 +170,12 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 			},
 		},
 	}, nil
+}
+
+func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
+	if model.applications.tcpProxy == nil || model.applications.tcpProxy.tierMode == tierModeT2 {
+		return "dsr"
+	}
+
+	return ""
 }

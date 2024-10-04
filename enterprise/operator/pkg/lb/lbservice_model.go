@@ -244,6 +244,10 @@ type lbApplicationTCPProxy struct {
 	routes   []lbRouteTCPProxy
 }
 
+func (r lbService) isTCPProxyT1OnlyMode() bool {
+	return r.applications.tcpProxy != nil && r.applications.tcpProxy.tierMode == tierModeT1
+}
+
 type lbRouteHTTP struct {
 	match             lbRouteHTTPMatch
 	backendRef        backendRef
