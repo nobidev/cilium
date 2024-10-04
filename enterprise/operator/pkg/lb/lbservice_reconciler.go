@@ -66,8 +66,8 @@ type reconcilerAccesslogConfig struct {
 	EnableTCP  bool
 	FormatHC   string
 	FormatTCP  string
-	FormatHTTP string
 	FormatTLS  string
+	FormatHTTP string
 }
 
 type reconcilerRequestIDConfig struct {
