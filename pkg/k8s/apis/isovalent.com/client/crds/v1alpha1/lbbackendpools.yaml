@@ -51,9 +51,10 @@ spec:
           spec:
             properties:
               backendType:
-                description: Type of the backends. Either IP or Hostname. If IP is
-                  specified, backends must be specified by IP address. If Hostname
-                  is specified, backends must be specified by host name.
+                description: |-
+                  Type of the backends. Either IP or Hostname. If IP is specified, backends
+                  must be specified by IP address. If Hostname is specified, backends must be
+                  specified by host name.
                 enum:
                 - IP
                 - Hostname
@@ -150,8 +151,10 @@ spec:
                     minimum: 1
                     type: integer
                   tlsConfig:
-                    description: "The health check TLS configuration. \n If not defined,
-                      no TLS is used for health checking."
+                    description: |-
+                      The health check TLS configuration.
+
+                      If not defined, no TLS is used for health checking.
                     properties:
                       allowedCipherSuites:
                         description: Allowed TLS cipher suites.

@@ -129,13 +129,14 @@ spec:
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
                       rateLimits:
-                        description: Optional global rate limit configuration for
-                          the HTTP proxy application. Currently, this is only a local
-                          rate limit (enforced on each LB node individually).
+                        description: |-
+                          Optional global rate limit configuration for the HTTP proxy application.
+                          Currently, this is only a local rate limit (enforced on each LB node individually).
                         properties:
                           connections:
-                            description: Rate limiting on connection basis. It is
-                              applied and enforced when the connection is established.
+                            description: |-
+                              Rate limiting on connection basis.
+                              It is applied and enforced when the connection is established.
                             properties:
                               limit:
                                 minimum: 1
@@ -260,14 +261,14 @@ spec:
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
                             rateLimits:
-                              description: Optional per-route rate limit configuration.
-                                Currently, this is only a local rate limit (enforced
-                                on each LB node individually).
+                              description: |-
+                                Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced on each LB node individually).
                               properties:
                                 requests:
-                                  description: Configure max allowed requests for
-                                    the HTTP route. It is applied and enforced before
-                                    routing the HTTP request.
+                                  description: |-
+                                    Configure max allowed requests for the HTTP route.
+                                    It is applied and enforced before routing the HTTP request.
                                   properties:
                                     limit:
                                       minimum: 1
@@ -440,13 +441,14 @@ spec:
                           rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
                             && self.enableHTTP2)
                       rateLimits:
-                        description: Optional global rate limit configuration for
-                          the HTTPS proxy application. Currently, this is only a local
-                          rate limit (enforced on each LB node individually).
+                        description: |-
+                          Optional global rate limit configuration for the HTTPS proxy application.
+                          Currently, this is only a local rate limit (enforced on each LB node individually).
                         properties:
                           connections:
-                            description: Rate limiting on connection basis. It is
-                              applied and enforced when the connection is established.
+                            description: |-
+                              Rate limiting on connection basis.
+                              It is applied and enforced when the connection is established.
                             properties:
                               limit:
                                 minimum: 1
@@ -571,14 +573,14 @@ spec:
                                 rule: (has(self.sourceIP) || size(self.cookies) >
                                   0 || size(self.headers) > 0)
                             rateLimits:
-                              description: Optional per-route rate limit configuration.
-                                Currently, this is only a local rate limit (enforced
-                                on each LB node individually).
+                              description: |-
+                                Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced on each LB node individually).
                               properties:
                                 requests:
-                                  description: Configure max allowed requests for
-                                    the HTTP route. It is applied and enforced before
-                                    routing the HTTP request.
+                                  description: |-
+                                    Configure max allowed requests for the HTTP route.
+                                    It is applied and enforced before routing the HTTP request.
                                   properties:
                                     limit:
                                       minimum: 1
@@ -932,14 +934,14 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP))
                             rateLimits:
-                              description: Optional per-route rate limit configuration.
-                                Currently, this is only a local rate limit (enforced
-                                on each LB node individually).
+                              description: |-
+                                Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced on each LB node individually).
                               properties:
                                 connections:
-                                  description: Configure max allowed connections for
-                                    the TLS route. It is applied and enforced when
-                                    the connection is established.
+                                  description: |-
+                                    Configure max allowed connections for the TLS route.
+                                    It is applied and enforced when the connection is established.
                                   properties:
                                     limit:
                                       minimum: 1
@@ -1091,14 +1093,14 @@ spec:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP))
                             rateLimits:
-                              description: Optional per-route rate limit configuration.
-                                Currently, this is only a local rate limit (enforced
-                                on each LB node individually).
+                              description: |-
+                                Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced on each LB node individually).
                               properties:
                                 connections:
-                                  description: Configure max allowed connections for
-                                    the TLS route. It is applied and enforced when
-                                    the connection is established.
+                                  description: |-
+                                    Configure max allowed connections for the TLS route.
+                                    It is applied and enforced when the connection is established.
                                   properties:
                                     limit:
                                       minimum: 1
