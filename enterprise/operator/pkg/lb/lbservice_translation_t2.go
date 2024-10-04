@@ -1111,17 +1111,38 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 
 		// Some additional settings for DNS resolver
 		cluster.TypedDnsResolverConfig = &envoy_config_core_v3.TypedExtensionConfig{
-			Name: "envoy.network.dns_resolver.cares",
-			TypedConfig: toAny(&envoy_extensions_network_dns_resolver_cares_v3.CaresDnsResolverConfig{
-				DnsResolverOptions: &envoy_config_core_v3.DnsResolverOptions{
-					// For the sake of simplicity, we disable default search domain for now
-					NoDefaultSearchDomain: true,
-				},
-			}),
+			Name:        "envoy.network.dns_resolver.cares",
+			TypedConfig: toAny(r.toDNSResolverConfig(b)),
 		}
 	}
 
 	return cluster
+}
+
+func (r *lbServiceT2Translator) toDNSResolverConfig(b backend) *envoy_extensions_network_dns_resolver_cares_v3.CaresDnsResolverConfig {
+	resolverConfig := &envoy_extensions_network_dns_resolver_cares_v3.CaresDnsResolverConfig{
+		DnsResolverOptions: &envoy_config_core_v3.DnsResolverOptions{
+			// For the sake of simplicity, we disable default search domain for now
+			NoDefaultSearchDomain: true,
+		},
+	}
+
+	if b.dnsResolverConfig != nil {
+		for _, resolver := range b.dnsResolverConfig.resolvers {
+			resolverConfig.Resolvers = append(resolverConfig.Resolvers, &envoy_config_core_v3.Address{
+				Address: &envoy_config_core_v3.Address_SocketAddress{
+					SocketAddress: &envoy_config_core_v3.SocketAddress{
+						Address: resolver.ip,
+						PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+							PortValue: resolver.port,
+						},
+					},
+				},
+			})
+		}
+	}
+
+	return resolverConfig
 }
 
 func (r *lbServiceT2Translator) toLbConfigRoundRobin() *envoy_config_cluster_v3.Cluster_RoundRobinLbConfig_ {

@@ -413,6 +413,7 @@ type backend struct {
 	tcpConfig         *lbBackendTCPConfig
 	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
+	dnsResolverConfig *lbBackendDNSResolverConfig
 }
 
 type lbBackendType int
@@ -487,4 +488,13 @@ type lbBackendTLSConfig struct {
 type lbBackendHTTPConfig struct {
 	enableHTTP11 bool
 	enableHTTP2  bool
+}
+
+type lbBackendDNSResolverConfig struct {
+	resolvers []lbBackendDNSResolver
+}
+
+type lbBackendDNSResolver struct {
+	ip   string
+	port uint32
 }

@@ -136,9 +136,10 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 				unhealthyEdgeIntervalSeconds: int(*b.Spec.HealthCheck.IntervalSeconds),
 				unhealthyIntervalSeconds:     int(*b.Spec.HealthCheck.IntervalSeconds),
 			},
-			tcpConfig:  r.toBackendTCPConfig(b.Spec.TCPConfig),
-			tlsConfig:  r.toBackendTLSConfig(b.Spec.TLSConfig),
-			httpConfig: r.toBackendHTTPConfig(b.Spec.HTTPConfig),
+			tcpConfig:         r.toBackendTCPConfig(b.Spec.TCPConfig),
+			tlsConfig:         r.toBackendTLSConfig(b.Spec.TLSConfig),
+			httpConfig:        r.toBackendHTTPConfig(b.Spec.HTTPConfig),
+			dnsResolverConfig: r.toDNSResolverConfig(b.Spec.DNSResolverConfig),
 		}
 	}
 
@@ -925,4 +926,23 @@ func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 	default:
 		return tierModeT2
 	}
+}
+
+func (r *ingestor) toDNSResolverConfig(config *isovalentv1alpha1.DNSResolverConfig) *lbBackendDNSResolverConfig {
+	if config == nil {
+		return nil
+	}
+
+	ret := &lbBackendDNSResolverConfig{
+		resolvers: []lbBackendDNSResolver{},
+	}
+
+	for _, resolver := range config.Resolvers {
+		ret.resolvers = append(ret.resolvers, lbBackendDNSResolver{
+			ip:   resolver.IP,
+			port: resolver.Port,
+		})
+	}
+
+	return ret
 }
