@@ -62,7 +62,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-accesslog-format-tcp", accesslog.GetFormatString(accesslog.AccessLogTypeTCP), "Envoy Access Log format for the TCP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tls", accesslog.GetFormatString(accesslog.AccessLogTypeTLS), "Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-http", accesslog.GetFormatString(accesslog.AccessLogTypeHTTP), "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
-	flags.Bool("loadbalancer-cp-requestid-generate", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header")
+	flags.Bool("loadbalancer-cp-requestid-generate", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header")
 	flags.Bool("loadbalancer-cp-requestid-preserve", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header")
 	flags.Bool("loadbalancer-cp-requestid-response", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response")
 	flags.String("loadbalancer-cp-http-server-name", "ilb", "Server name that is used when writing the server header in T2 HTTP responses")

@@ -33,6 +33,7 @@ ipv6:
   enabled: false
 extraConfig:
   enable-ipip-termination: "true"
+  loadbalancer-cp-requestid-generate: "true"
   loadbalancer-cp-requestid-response: "true"
   loadbalancer-cp-accesslog-enable-tcp: "true"
   loadbalancer-cp-accesslog-enable-hc: "true"
