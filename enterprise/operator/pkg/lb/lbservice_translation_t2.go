@@ -1109,6 +1109,17 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 		// For STRICT_DNS cluster, we must specify endpoint inline in the cluster
 		cluster.LoadAssignment = r.desiredEnvoyClusterLoadAssignment(name, b)
 
+		// Some fine tuning for DNS resolver. We can expose these settings as needed
+		cluster.DnsRefreshRate = &durationpb.Duration{Seconds: 10}
+		cluster.DnsFailureRefreshRate = &envoy_config_cluster_v3.Cluster_RefreshRate{
+			BaseInterval: &durationpb.Duration{Seconds: 10},
+			MaxInterval:  &durationpb.Duration{Seconds: 100},
+		}
+		cluster.RespectDnsTtl = true
+
+		// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
+		cluster.DnsLookupFamily = envoy_config_cluster_v3.Cluster_V4_ONLY
+
 		// Some additional settings for DNS resolver
 		cluster.TypedDnsResolverConfig = &envoy_config_core_v3.TypedExtensionConfig{
 			Name:        "envoy.network.dns_resolver.cares",

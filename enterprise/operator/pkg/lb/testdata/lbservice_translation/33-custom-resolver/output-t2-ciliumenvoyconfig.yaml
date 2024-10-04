@@ -139,6 +139,12 @@ spec:
           unhealthyThreshold: 1
           transportSocketMatchCriteria:
             type: healthcheck
+      dnsFailureRefreshRate:
+        baseInterval: 10s
+        maxInterval: 100s
+      dnsLookupFamily: V4_ONLY
+      dnsRefreshRate: 10s
+      respectDnsTtl: true
       ignoreHealthOnHostRemoval: true
       name: backend_cluster_lb-1
       type: STRICT_DNS
