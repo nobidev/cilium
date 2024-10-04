@@ -12,5 +12,5 @@ yq_version=4.31.1
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 yq_run() {
-  docker run -v "${script_dir}":"${script_dir}" --rm -i mikefarah/yq:${yq_version} "$@"
+  docker run -v "${script_dir}":"${script_dir}" --rm -i --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} "$@"
 }
