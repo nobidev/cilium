@@ -213,7 +213,7 @@ func (p *loginPlugin) getLoginCMD(vp *viper.Viper) (*cobra.Command, error) {
 	fs.StringSlice("scopes", []string{}, "Additional OAuth2 scopes to set when logging in.")
 	fs.Bool("refresh", false, "Refresh existing tokens using a refresh token if possible. Set to true to refresh credentials manually and set to false to relogin (if scopes or user changed).")
 	fs.String("password-file", "", "Path to a file that contains the users password.")
-	fs.Int("local-server-port", 8080, "Specify the port to listen on for the local web server when doing redirect based OAuth2 flows.")
+	fs.Int("local-server-port", 8000, "Specify the port to listen on for the local web server when doing redirect based OAuth2 flows.")
 	loginCmd.Flags().AddFlagSet(fs)
 	vp.BindPFlags(fs)
 	template.RegisterFlagSets(loginCmd, fs)
