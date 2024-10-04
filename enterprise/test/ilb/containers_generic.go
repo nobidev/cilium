@@ -38,3 +38,7 @@ func (c *dockerContainer) Exec(ctx context.Context, cmd string) (string, string,
 func (c *dockerContainer) Copy(ctx context.Context, content []byte, dstFile, dstDir string) error {
 	return c.dockerCli.copyToContainer(ctx, c.id, content, dstFile, dstDir)
 }
+
+func (c *dockerContainer) Kill(ctx context.Context, sig string) error {
+	return c.dockerCli.ContainerKill(ctx, c.id, sig)
+}

@@ -39,6 +39,8 @@ type lbTestScenario struct {
 	k8sCli    *k8s.Clientset
 	dockerCli *dockerCli
 
+	coreDNSContainer *coreDNSContainer
+
 	backendApps         map[string]*hcAppContainer
 	frrClients          map[string]*frrContainer
 	serverCertificates  map[string]*tlsCertificate
@@ -61,6 +63,7 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 		ciliumCli:           ciliumCli,
 		k8sCli:              k8sCli,
 		dockerCli:           dockerCli,
+		coreDNSContainer:    nil,
 		backendApps:         map[string]*hcAppContainer{},
 		frrClients:          map[string]*frrContainer{},
 		serverCertificates:  map[string]*tlsCertificate{},
@@ -84,6 +87,42 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 	return ip
 }
 
+func (r *lbTestScenario) enableCoreDNS(ctx context.Context) *coreDNSContainer {
+	if r.coreDNSContainer != nil {
+		return r.coreDNSContainer
+	}
+
+	name := fmt.Sprintf("%s-coredns", r.testName)
+
+	// We must create an initial file before starting the container. Otherwise,
+	// CoreDNS uses on-memory default configuration and we cannot update it later.
+	preStart := func(c *dockerCli, id string) error {
+		return c.copyToContainer(ctx, id, []byte(". {}"), "Corefile", "/tmp")
+	}
+
+	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile"}, preStart)
+	if err != nil {
+		r.t.Fatalf("cannot create CoreDNS container: %s", err)
+	}
+
+	container := &coreDNSContainer{
+		dockerContainer: dockerContainer{
+			t:         r.t,
+			id:        id,
+			ip:        ip,
+			dockerCli: r.dockerCli,
+		},
+		// All the records will be under <testName>.local domain
+		Domain: r.testName + ".local",
+	}
+
+	r.coreDNSContainer = container
+
+	maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+
+	return container
+}
+
 func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBackends int, config backendApplicationConfig) []*hcAppContainer {
 	containers := []*hcAppContainer{}
 	startIndex := len(r.backendApps)
@@ -96,7 +135,7 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(ctx, appName, *flagAppImage, envVars, containerNetwork, false, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, appName, *flagAppImage, envVars, containerNetwork, false, nil, nil)
 		if err != nil {
 			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
 		}
@@ -172,7 +211,7 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
-		id, ip, err := r.dockerCli.createContainer(ctx, clientName, *flagClientImage, env, containerNetwork, true, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, clientName, *flagClientImage, env, containerNetwork, true, nil, nil)
 		if err != nil {
 			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}

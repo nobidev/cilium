@@ -125,7 +125,7 @@ func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
 	return nil
 }
 
-func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool, cmd []string) (string, string, error) {
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool, cmd []string, preStart func(*dockerCli, string) error) (string, string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
 	hostCfg := &container.HostConfig{
@@ -159,6 +159,12 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 	)
 	if err != nil {
 		return "", "", err
+	}
+
+	if preStart != nil {
+		if err := preStart(c, resp.ID); err != nil {
+			return "", "", fmt.Errorf("preStart failed: %w", err)
+		}
 	}
 
 	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -198,7 +204,7 @@ func createTAR(content []byte, path string) (io.Reader, error) {
 	tw := tar.NewWriter(&buf)
 	hdr := &tar.Header{
 		Name: filepath.Base(path),
-		Mode: 0600,
+		Mode: 0644,
 		Size: int64(len(content)),
 	}
 	if err := tw.WriteHeader(hdr); err != nil {
