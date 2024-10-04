@@ -13,7 +13,6 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -138,7 +137,7 @@ func TestHTTPSRoutes(t *testing.T) {
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {
-		testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+rhost.hostname+".crt --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		testCmd := curlCmd(fmt.Sprintf("--cacert /tmp/"+rhost.hostname+".crt -H 'Content-Type: application/json' --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
@@ -146,8 +145,9 @@ func TestHTTPSRoutes(t *testing.T) {
 		}
 
 		t.Log("Check that request is handled by the correct backend")
-		if !strings.Contains(stdout, testName+"-app"+postfix) {
-			t.Fatalf("request not handled by the expected backend (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		appResponse := toTestAppResponse(t, stdout)
+		if appResponse.ServiceName != testName+"-app"+postfix {
+			t.Fatalf("request not handled by the expected backend %s != %s (cmd: %q, stdout: %q, stderr: %q): %s", appResponse.ServiceName, testName+"-app"+postfix, testCmd, stdout, stderr, err)
 		}
 	}
 }

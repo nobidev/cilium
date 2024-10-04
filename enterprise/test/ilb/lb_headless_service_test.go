@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -330,9 +329,9 @@ func TestHeadlessService(t *testing.T) {
 
 			var testCmd string
 			if tt.serviceTLS {
-				testCmd = curlCmd(fmt.Sprintf("-k -m 5 --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+				testCmd = curlCmd(fmt.Sprintf("-k -m 5 -H 'Content-Type: application/json' --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
 			} else {
-				testCmd = curlCmd(fmt.Sprintf("-m 5 --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+				testCmd = curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
 			}
 
 			t.Logf("Testing %q until observing response from all backends bound to %s", testCmd, tt.backendHost)
@@ -345,8 +344,10 @@ func TestHeadlessService(t *testing.T) {
 				}
 
 				// Response from the health check server contains instance name (Pod name in this case)
+				appResponse := toTestAppResponse(t, stdout)
+
 				for _, pod := range tt.desiredBackends.Items {
-					if strings.Contains(stdout, pod.Name) {
+					if appResponse.InstanceName == pod.Name {
 						observedBackends[pod.Name] = struct{}{}
 					}
 				}
