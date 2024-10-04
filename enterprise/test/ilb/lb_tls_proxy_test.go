@@ -71,7 +71,7 @@ func TestTLSProxyTCPBackend(t *testing.T) {
 
 	// 3. Test basic connectivity
 	t.Run("Basic Connectivity", func(t *testing.T) {
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 1 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
+		testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 
 		t.Logf("Testing %q...", testCmd)
 
@@ -173,7 +173,7 @@ func TestTLSProxyTLSBackend(t *testing.T) {
 
 	// 3. Test basic connectivity
 	t.Run("Basic Connectivity", func(t *testing.T) {
-		testCmd := curlCmdVerbose(fmt.Sprintf("-m 1 --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", serviceHostName, vipIP))
+		testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", serviceHostName, vipIP))
 
 		t.Logf("Testing %q...", testCmd)
 

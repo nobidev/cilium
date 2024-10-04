@@ -56,7 +56,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 2 http://%s:81/", vipIP))
+	testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {

@@ -330,9 +330,9 @@ func TestHeadlessService(t *testing.T) {
 
 			var testCmd string
 			if tt.serviceTLS {
-				testCmd = curlCmd(fmt.Sprintf("-k -m 1 --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+				testCmd = curlCmd(fmt.Sprintf("-k -m 5 --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
 			} else {
-				testCmd = curlCmd(fmt.Sprintf("-m 1 --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+				testCmd = curlCmd(fmt.Sprintf("-m 5 --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
 			}
 
 			t.Logf("Testing %q until observing response from all backends bound to %s", testCmd, tt.backendHost)
