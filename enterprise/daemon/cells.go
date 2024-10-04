@@ -26,7 +26,7 @@ import (
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 	"github.com/cilium/cilium/enterprise/pkg/features"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
-	"github.com/cilium/cilium/enterprise/pkg/lb"
+	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/mixedrouting"
@@ -96,7 +96,7 @@ var (
 
 		config.Cell,
 
-		lb.Cell,
+		lbMetrics.Cell,
 	)
 
 	Datapath = cell.Module(

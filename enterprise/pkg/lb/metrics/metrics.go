@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package lb
+package metrics
 
 import (
 	"context"
@@ -23,75 +23,11 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 )
-
-var Cell = cell.Module(
-	"loadbalancer-metrics",
-	"LoadBalancer metrics",
-
-	//exhaustruct:ignore
-	cell.Config(Config{}),
-	cell.Invoke(RegisterCollector),
-)
-
-type Config struct {
-	LoadBalancerMetricsEnabled            bool
-	LoadBalancerMetricsCollectionInterval time.Duration
-}
-
-func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("loadbalancer-metrics-enabled", false, "Whether or not LoadBalancer metrics collection is enabled.")
-	flags.Duration("loadbalancer-metrics-collection-interval", 5*time.Second, "Refresh interval for LoadBalancer metrics.")
-}
-
-type Params struct {
-	cell.In
-
-	Config    Config
-	JobGroup  job.Group
-	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
-
-	Services resource.Resource[*slim_corev1.Service]
-}
-
-func RegisterCollector(params Params) {
-	if !option.Config.EnableIPv4 {
-		return
-	}
-
-	if !params.Config.LoadBalancerMetricsEnabled {
-		return
-	}
-
-	mc := newLBMetricsCollector(params)
-	if err := metrics.Register(mc); err != nil {
-		params.Logger.WithError(err).
-			Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected")
-		return
-	}
-
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(hc cell.HookContext) error {
-			params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
-			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, params.Config.LoadBalancerMetricsCollectionInterval))
-
-			return nil
-		},
-		OnStop: func(hc cell.HookContext) error {
-			return nil
-		},
-	})
-}
 
 type serviceCacheEntry struct {
 	name   string
@@ -129,7 +65,7 @@ type lbMetricsCollector struct {
 	logger logrus.FieldLogger
 }
 
-func newLBMetricsCollector(params Params) *lbMetricsCollector {
+func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
 	ct4Maps := ctmap.GlobalMaps(true, false)
 
 	return &lbMetricsCollector{
