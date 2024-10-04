@@ -87,7 +87,7 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName
 	return ip
 }
 
-func (r *lbTestScenario) enableCoreDNS(ctx context.Context) *coreDNSContainer {
+func (r *lbTestScenario) addCoreDNS(ctx context.Context) *coreDNSContainer {
 	if r.coreDNSContainer != nil {
 		return r.coreDNSContainer
 	}
@@ -100,7 +100,8 @@ func (r *lbTestScenario) enableCoreDNS(ctx context.Context) *coreDNSContainer {
 		return c.copyToContainer(ctx, id, []byte(". {}"), "Corefile", "/tmp")
 	}
 
-	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile"}, preStart)
+	// Override the default port to avoid colliding with the rest of the system
+	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
 	if err != nil {
 		r.t.Fatalf("cannot create CoreDNS container: %s", err)
 	}
@@ -110,6 +111,7 @@ func (r *lbTestScenario) enableCoreDNS(ctx context.Context) *coreDNSContainer {
 			t:         r.t,
 			id:        id,
 			ip:        ip,
+			port:      10053,
 			dockerCli: r.dockerCli,
 		},
 		// All the records will be under <testName>.local domain

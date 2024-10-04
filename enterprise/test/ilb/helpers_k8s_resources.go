@@ -528,6 +528,20 @@ func withHostnameBackend(hostname string, port int32) backendPoolOption {
 	}
 }
 
+func withDNSResolver(ip string, port uint32) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		if o.Spec.DNSResolverConfig == nil {
+			o.Spec.DNSResolverConfig = &isovalentv1alpha1.DNSResolverConfig{
+				Resolvers: []isovalentv1alpha1.DNSResolver{},
+			}
+		}
+		o.Spec.DNSResolverConfig.Resolvers = append(o.Spec.DNSResolverConfig.Resolvers, isovalentv1alpha1.DNSResolver{
+			IP:   ip,
+			Port: port,
+		})
+	}
+}
+
 func withBackendTLS() backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
 		o.Spec.TLSConfig = &isovalentv1alpha1.LBBackendTLSConfig{}
