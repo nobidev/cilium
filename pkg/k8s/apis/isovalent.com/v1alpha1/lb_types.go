@@ -58,7 +58,7 @@ type LBServiceSpec struct {
 	Applications LBServiceApplications `json:"applications"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application (httpProxy, httpsProxy or tlsPassthrough) must be specified", rule="(has(self.httpProxy) || has(self.httpsProxy) || has(self.tlsPassthrough) || has(self.tlsProxy)) && !(has(self.httpProxy) && has(self.httpsProxy)) && !(has(self.httpProxy) && has(self.tlsPassthrough)) && !(has(self.httpProxy) && has(self.tlsProxy)) && !(has(self.httpsProxy) && has(self.tlsPassthrough)) && !(has(self.httpsProxy) && has(self.tlsProxy)) && !(has(self.tlsPassthrough) && has(self.tlsProxy))"
+// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy))"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
