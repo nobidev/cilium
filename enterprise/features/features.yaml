@@ -128,6 +128,18 @@ features:
     helm:
       enterprise.clustermesh.phantomServices.enabled: true
 
+  ClusterMeshOverlappingPodCIDR:
+    maturity: Beta
+    description: |
+      Allows Pods on two or more clusters with an overlapping PodCIDR range
+    # no flag since there is no corresponding entry in cilium-config
+    skip-flag-check: true
+    flags:
+      enable-cluster-aware-addressing: true
+      enable-inter-cluster-snat: true
+    helm:
+      enterprise.clustermesh.enableOverlappingPodCIDRSupport: true
+
   ##########################################
   # OSS features
   ##########################################
@@ -149,6 +161,14 @@ features:
       datapath-mode: "veth"
     helm: 
       bpf.datapathMode: "veth"
+
+  DatapathModeNetkit:
+    maturity: Beta
+    description: Enable netkit datapath mode
+    flags:
+      datapath-mode: "netkit"
+    helm:
+      bpf.datapathMode: "netkit"
 
   DatapathModeLBOnly:
     maturity: Stable
@@ -225,15 +245,27 @@ features:
       routingMode: tunnel
       tunnelProtocol: geneve
 
-  #DatapathNonDefaultDenyPolicies:
-  #  name: Non-default-deny mode
-  #  maturity: Limited
-  #  description: |
-  #    Policies using non-default-deny mode
-  #  flags:
-  #    enable-non-default-deny-policies: true
-  #  helm:
-  #    enableNonDefaultDenyPolicies: true
+  ### Policy
+
+  NonDefaultDenyPolicies:
+    name: Non-default-deny mode
+    maturity: Limited
+    description: |
+      Policies using non-default-deny mode
+    flags:
+      enable-non-default-deny-policies: true
+    helm:
+      enableNonDefaultDenyPolicies: true
+
+  CIDRMatchModePolicies:
+    name: Policy CIDR match "nodes" mode
+    maturity: Limited
+    description: |
+      Selecting nodes with CIDR / ipBlock
+    flags:
+      policy-cidr-match-mode: nodes
+    helm:
+      policyCIDRMatchMode: nodes
 
   ### Egress gateway features 
 
@@ -294,13 +326,31 @@ features:
   ### Envoy
 
   EnvoyDaemonSet:
-    maturity: Beta
+    maturity: Limited
     description: |
       Envoy Proxy in standalone DaemonSet.
     flags:
       external-envoy-proxy: true
     helm:
       envoy.enabled: true
+
+  IngressController:
+    maturity: Limited
+    description: |
+      Enables Cilium Ingress Controller.
+    flags:
+      enable-ingress-controller: true
+    helm:
+      ingressController.enabled: true
+
+  GatewayAPI:
+    maturity: Limited
+    description: |
+      Enables Cilium GatewayAPI Controller.
+    flags:
+      enable-gateway-api: true
+    helm:
+      gatewayAPI.enabled: true
 
   ### CNI
 
@@ -325,6 +375,15 @@ features:
     helm:
       localRedirectPolicy: true
 
+  L2Announcement:
+    maturity: Beta
+    description: |
+      Enables L2 announcement for ExternalIPs and/or LoadBalancer IPs.
+    flags:
+      enable-l2-announcements: true
+    helm:
+      l2announcements.enabled: true
+
   ### Mutual auth
 
   MutualAuthSpire:
@@ -345,6 +404,15 @@ features:
     flags: # No flags in the agent, this is a clustermesh-apiserver flag.
     helm: 
       externalWorkloads.enabled: true
+
+  VTEPIntegration:
+    maturity: Beta
+    description: |
+      Enables communication with 3rd party VTEP devices
+    flags:
+      enable-vtep: true
+    helm:
+      vtep.enabled: true
 
   ### IPAM
 
@@ -433,6 +501,15 @@ features:
     helm:
       clustermesh.useAPIServer: true
       clustermesh.apiserver.kvstoremesh.enabled: true
+
+  CiliumEndpointSlice:
+    maturity: Limited
+    description: |
+      Enables batching of CiliumEndpoint objects for better scalability
+    flags:
+      enable-cilium-endpoint-slice: true
+    helm:
+      ciliumEndpointSlice.enabled: true
 
   ### L7
 
