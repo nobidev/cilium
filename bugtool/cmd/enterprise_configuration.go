@@ -18,6 +18,7 @@ func enterpriseCommands(confDir string, _ string) []string {
 	bpfMapsPath := []string{
 		"tc/globals/cilium_egress_gw_ha_policy_v4",
 		"tc/globals/cilium_egress_gw_ha_ct_v4",
+		"tc/globals/cilium_encryption_policy_map",
 	}
 	bpfCommands := bpfMapDumpCommands(bpfMapsPath)
 
