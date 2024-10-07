@@ -424,34 +424,16 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p EnterpriseR
 func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, desiredSvcPaths ossreconcilerv2.ResourceAFPathsMap) error {
 	var err error
 	metadata := r.getMetadata(p.BGPInstance)
-	for svc, desiredAFPaths := range desiredSvcPaths {
-		// check if service exists
-		currentAFPaths, exists := metadata.ServicePaths[svc]
-		if !exists && len(desiredAFPaths) == 0 {
-			// service does not exist in our local state, and there is nothing to advertise
-			continue
-		}
 
-		// reconcile service paths
-		updatedAFPaths, rErr := ossreconcilerv2.ReconcileAFPaths(&ossreconcilerv2.ReconcileAFPathsParams{
-			Logger:       r.logger.WithField(bgptypes.InstanceLogField, p.DesiredConfig.Name),
-			Ctx:          ctx,
-			Router:       p.BGPInstance.Router,
-			DesiredPaths: desiredAFPaths,
-			CurrentPaths: currentAFPaths,
-		})
+	metadata.ServicePaths, err = ossreconcilerv2.ReconcileResourceAFPaths(ossreconcilerv2.ReconcileResourceAFPathsParams{
+		Logger:                 r.logger.WithField(bgptypes.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:                    ctx,
+		Router:                 p.BGPInstance.Router,
+		DesiredResourceAFPaths: desiredSvcPaths,
+		CurrentResourceAFPaths: metadata.ServicePaths,
+	})
 
-		if rErr == nil && len(desiredAFPaths) == 0 {
-			// no error is reported and desiredAFPaths is empty, we should delete the service
-			delete(metadata.ServicePaths, svc)
-		} else {
-			// update service paths with returned updatedAFPaths even if there was an error.
-			metadata.ServicePaths[svc] = updatedAFPaths
-		}
-		err = errors.Join(err, rErr)
-	}
 	r.setMetadata(p.BGPInstance, metadata)
-
 	return err
 }
 
