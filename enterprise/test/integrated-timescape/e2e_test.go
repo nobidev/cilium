@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -31,12 +32,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func hubbleObserve(t *testing.T, ctx context.Context, extraArgs ...string) string {
+	t.Helper()
+	args := append(
+		[]string{"observe", "-o", "json"},
+		extraArgs...,
+	)
+	if strings.ToLower(os.Getenv("TEST_HUBBLE_OBSERVE_TLS")) == "true" {
+		args = append(args, "--tls", "--tls-allow-insecure")
+	}
+	out, err := enthelpers.HubbleCLI(ctx, args...)
+	require.NoError(t, err)
+	return out
+}
+
 func TestHubbleObserve(t *testing.T) {
 	ctx := context.Background()
 
-	out, err := enthelpers.HubbleCLI(ctx, "observe", "-o", "json")
-	require.NoError(t, err)
-
+	out := hubbleObserve(t, ctx)
 	flows := enthelpers.GetFlowsResponseFromReader(t, strings.NewReader(out))
 	require.NotEmpty(t, flows, "expected flows to be returned")
 }
@@ -61,9 +74,7 @@ func TestPushFlows(t *testing.T) {
 	require.Equal(t, http.StatusOK, res.StatusCode, "Should succeed pushing flows to timescape push API")
 
 	// Query the flows back so we can verify they have been stored
-	out, err := enthelpers.HubbleCLI(ctx, "observe", "-o", "json", "--node-name", nodeName)
-	require.NoError(t, err)
-
+	out := hubbleObserve(t, ctx, "--node-name", nodeName)
 	gotFlows := enthelpers.GetFlowsResponseFromReader(t, strings.NewReader(out))
 	helpers.AssertProtoEqual(t, inputFlows, gotFlows)
 

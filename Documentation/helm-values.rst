@@ -2151,7 +2151,19 @@
    * - :spelling:ignore:`hubble.timescape`
      - Enables experimental support for using integrated Hubble Timescape.
      - object
-     - ``{"clickhouse":{"image":{"digest":"sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.4.13-alpine","useDigest":true}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.5.0-rc.0","useDigest":false},"podSecurityContext":{"fsGroup":65532},"priorityClassName":null,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"ttl":"24h"}``
+     - ``{"clickhouse":{"image":{"digest":"sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.4.13-alpine","useDigest":true}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.5.0-rc.0","useDigest":false},"podSecurityContext":{"fsGroup":65532},"priorityClassName":null,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"ttl":"24h"}``
+   * - :spelling:ignore:`hubble.timescape.tls.server.existingSecret`
+     - Name of the Secret containing the certificate and key for the Hubble metrics server. If specified, cert and key are ignored.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.timescape.tls.server.extraDnsNames`
+     - Extra DNS names added to certificate when it's auto generated
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.timescape.tls.server.extraIpAddresses`
+     - Extra IP addresses added to certificate when it's auto generated
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object

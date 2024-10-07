@@ -1887,6 +1887,21 @@ hubble:
       capabilities:
         drop:
           - ALL
+    tls:
+      # Enable hubble timescape server TLS. Defaults to true if hubble.tls.enabled is true.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      enabled: ~
+      # Configure hubble timescape server TLS.
+      server:
+        # -- Name of the Secret containing the certificate and key for the Hubble metrics server.
+        # If specified, cert and key are ignored.
+        existingSecret: ""
+        # -- Extra DNS names added to certificate when it's auto generated
+        extraDnsNames: []
+        # -- Extra IP addresses added to certificate when it's auto generated
+        extraIpAddresses: []
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:

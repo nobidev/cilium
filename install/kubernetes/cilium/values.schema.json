@@ -3560,6 +3560,33 @@
               },
               "type": "object"
             },
+            "tls": {
+              "properties": {
+                "enabled": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "server": {
+                  "properties": {
+                    "existingSecret": {
+                      "type": "string"
+                    },
+                    "extraDnsNames": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "extraIpAddresses": {
+                      "items": {},
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
             "ttl": {
               "type": "string"
             }
