@@ -54,8 +54,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// T1 -> {T2 | Backend} health checking
 	if !model.isTCPProxyT1OnlyMode() {
 		// The presence of these annotations will enable HTTP-based
-		// health checking from T1 to T2 nodes (or T1->Backend, if
-		// enabled for T1-only services)
+		// health checking from T1 to T2 nodes
 		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
 		annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
 	} else {
@@ -69,11 +68,8 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
 
-	// T1 -> T2 forwarding method
-	forwardingMode := r.getServiceForwardingMode(model)
-	if forwardingMode != "" {
-		annotations[ossannotation.ServiceForwardingMode] = forwardingMode
-	}
+	// T1 -> {T2 | Backend} forwarding mode
+	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -173,9 +169,9 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 }
 
 func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
-	if model.applications.tcpProxy == nil || model.applications.tcpProxy.tierMode == tierModeT2 {
-		return "dsr"
+	if model.isTCPProxyT1OnlyMode() {
+		return "snat"
 	}
 
-	return ""
+	return "dsr"
 }
