@@ -676,6 +676,10 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 		addEnterpriseBFDSysdumpTasks(collector)
 	}
 
+	if collector.FeatureSet[enterpriseFeatures.EncryptionPolicy].Enabled {
+		addEnterpriseEncryptionPolicySysdumpTasks(collector)
+	}
+
 	return nil
 }
 
@@ -751,6 +755,12 @@ func addEnterpriseBFDSysdumpTasks(collector *sysdump.Collector) {
 		collectIsovalentV1Alpha1Resource(collector, "IsovalentBFDProfile", "isovalentbfdprofiles"),
 		collectIsovalentV1Alpha1Resource(collector, "IsovalentBFDNodeConfig", "isovalentbfdnodeconfigs"),
 		collectIsovalentV1Alpha1Resource(collector, "IsovalentBFDNodeConfigOverride", "isovalentbfdnodeconfigoverrides"),
+	})
+}
+
+func addEnterpriseEncryptionPolicySysdumpTasks(collector *sysdump.Collector) {
+	collector.AddTasks([]sysdump.Task{
+		collectIsovalentV1Alpha1Resource(collector, "IsovalentClusterwideEncryptionPolicy", "isovalentclusterwideencryptionpolicies"),
 	})
 }
 

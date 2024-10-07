@@ -185,6 +185,10 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 		Enabled: cm != nil && cm.Data[string(BFD)] == "true",
 	}
 
+	collector.FeatureSet[EncryptionPolicy] = features.Status{
+		Enabled: cm != nil && cm.Data[string(EncryptionPolicy)] == "true",
+	}
+
 	return nil
 }
 
