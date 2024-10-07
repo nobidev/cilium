@@ -6,6 +6,8 @@ enterprise:
     enableServiceHealthChecking: true
   bfd:
     enabled: true
+  featureGates:
+  - "BGPControlPlane"
 debug:
   enabled: true
   verbose: "envoy datapath"
