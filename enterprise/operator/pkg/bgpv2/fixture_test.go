@@ -65,6 +65,7 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	}
 
 	var resourceWatch = map[string]*watchSync{
+		cilium_v2.CNPluralName:                            {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
