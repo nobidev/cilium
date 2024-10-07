@@ -652,12 +652,21 @@ are exposed by default via SNAT, and on-demand as DSR:
     name: example-service
     annotations:
       service.cilium.io/type: LoadBalancer
-      service.cilium.io/mode: dsr
+      service.cilium.io/forwarding-mode: dsr
   spec:
     ports:
       - port: 80
         targetPort: 80
     type: LoadBalancer
+
+Note that the ``forwarding-mode`` annotation must be set at service creation time
+and should not be changed during the lifetime of that service. Changing the value
+of the annotation or removing the annotation while the service is installed breaks
+connections.
+
+The above example installs the Kubernetes service only as type ``LoadBalancer``,
+that is, without the corresponding ``NodePort`` and ``ClusterIP`` services, and
+uses the configured DSR method to forward the packets instead of default SNAT.
 
 A Helm example configuration in a kube-proxy-free environment with DSR enabled in
 annotation mode would look as follows:
@@ -1704,16 +1713,10 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
-    * When Cilium's kube-proxy replacement is used with Kubernetes versions(< 1.19) that have
-      support for ``EndpointSlices``, ``Services`` without selectors and backing ``Endpoints``
-      don't work. The reason is that Cilium only monitors changes made to ``EndpointSlices``
-      objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
-      release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
-      resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
-      to work. For a more detailed discussion see :gh-issue:`12438`.
-    * When deployed on kernels older than 5.7, Cilium is unable to distinguish between host and
-      pod namespaces due to the lack of kernel support for network namespace cookies. As a result,
-      Kubernetes services are reachable from all pods via the loopback address.
+    * When using the Socket-LB feature and deployed on kernels older than 5.7, Cilium is unable
+      to distinguish between host and pod namespaces due to the lack of kernel support for
+      network namespace cookies. As a result, Kubernetes services are reachable from all pods via
+      the loopback address.
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.

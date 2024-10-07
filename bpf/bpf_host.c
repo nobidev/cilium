@@ -1681,8 +1681,6 @@ skip_ipsec_nodeport_revdnat:
 		goto out;
 	}
 
-	policy_clear_mark(ctx);
-
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):

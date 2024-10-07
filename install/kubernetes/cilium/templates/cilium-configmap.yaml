@@ -413,7 +413,7 @@ data:
 {{- end }}
 {{- end }}
 {{- if .Values.bpf.ctAccounting }}
-  bpf-conntrack-accounting-enabled: "{{ .Values.bpf.ctAccounting }}"
+  bpf-conntrack-accounting: "{{ .Values.bpf.ctAccounting }}"
 {{- end }}
 {{- if .Values.bpf.natMax }}
   # bpf-nat-global-max specified the maximum number of entries in the
@@ -1070,9 +1070,7 @@ data:
   enable-node-ipam: "true"
 {{- end }}
 
-{{- if .Values.LBIPAM.requireLBClass }}
-  lbipam-require-lb-class: "true"
-{{- end }}
+  default-lb-service-ipam: "{{ .Values.defaultLBServiceIPAM }}"
 
 {{- if .Values.apiRateLimit }}
   api-rate-limit: {{ .Values.apiRateLimit | quote }}

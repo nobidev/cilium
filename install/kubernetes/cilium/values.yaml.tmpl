@@ -189,6 +189,19 @@ image:
   # cilium-digest
   digest: ${CILIUM_DIGEST}
   useDigest: ${USE_DIGESTS}
+# -- Scheduling configurations for cilium pods
+scheduling:
+  # @schema
+  # enum: ["anti-affinity", "kube-scheduler"]
+  # @schema
+  # -- Mode specifies how Cilium daemonset pods should be scheduled to Nodes.
+  # `anti-affinity` mode applies a pod anti-affinity rule to the cilium daemonset.
+  # Pod anti-affinity may significantly impact scheduling throughput for large clusters.
+  # See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+  # `kube-scheduler` mode forgoes the anti-affinity rule for full scheduling throughput.
+  # Kube-scheduler avoids host port conflict when scheduling pods.
+  # @default -- Defaults to apply a pod anti-affinity rule to the agent pod - `anti-affinity`
+  mode: anti-affinity
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
@@ -1460,7 +1473,7 @@ hubble:
           - ALL
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+      # --- The type of service used for Hubble Relay access, either ClusterIP, NodePort or LoadBalancer.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -1884,14 +1897,16 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
+# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
+# @schema
+# type: [string]
+# @schema
+defaultLBServiceIPAM: lbipam
 nodeIPAM:
   # -- Configure Node IPAM
   # ref: https://docs.cilium.io/en/stable/network/node-ipam/
   enabled: false
-LBIPAM:
-  # -- requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class.
-  # ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
-  requireLBClass: false
 # @schema
 # type: [null, string]
 # @schema
@@ -2053,7 +2068,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid
+  # e.g. snat, dsr, hybrid, annotation
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP

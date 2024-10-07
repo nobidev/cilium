@@ -212,6 +212,7 @@ cassandraparser
 cep
 certgen
 certmanager
+cfg
 cgroup
 cgroups
 chainingTarget
@@ -281,6 +282,7 @@ decrypted
 deepcopy
 deletetopic
 demux
+defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -468,6 +470,7 @@ kvstoremesh
 kvstores
 lan
 latencies
+lbipam
 leia
 len
 libbpf
@@ -532,8 +535,10 @@ modularizing
 mountPath
 mov
 mtk
+mtu
 mul
 multicast
+multicluster
 multicore
 multihoming
 musl
@@ -574,6 +579,7 @@ nodeX
 nodegroup
 nodeid
 nodeinit
+nodeipam
 observability
 onData
 onwards
@@ -656,7 +662,6 @@ repo
 repos
 reproducibility
 requireIPv
-requireLBClass
 resync
 retpoline
 retransmission
