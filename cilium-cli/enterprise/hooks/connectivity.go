@@ -15,7 +15,6 @@ import (
 	_ "embed"
 	"fmt"
 
-	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -113,8 +112,11 @@ func (ec *EnterpriseConnectivity) addExternalCiliumDNSProxyTests(ct *check.Conne
 }
 
 func (ec *EnterpriseConnectivity) addPhantomServiceTests(cts ...*check.ConnectivityTest) (err error) {
-	// Phantom service support has been introduced in Isovalent Enterprise for Cilium v1.13.2
-	if cts[0].Params().MultiCluster == "" || cts[0].CiliumVersion.LT(semver.MustParse("1.13.2")) {
+	if cts[0].Params().MultiCluster == "" {
+		return nil
+	}
+
+	if ok, _ := cts[0].Features.MatchRequirements(features.RequireEnabled(enterpriseFeatures.PhantomServices)); !ok {
 		return nil
 	}
 

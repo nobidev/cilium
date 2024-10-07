@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/blang/semver/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -43,6 +44,8 @@ const (
 	FallbackRoutingMode features.Feature = "fallback-routing-mode"
 	// MixedRoutingMode: whether local and remote clusters have different routing modes.
 	MixedRoutingMode features.Feature = "mixed-routing-mode"
+
+	PhantomServices features.Feature = "enable-phantom-services"
 )
 
 func Detect(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -122,6 +125,10 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 		Enabled: cm.Data[string(BFD)] == "true",
 	}
 
+	ct.Features[PhantomServices] = features.Status{
+		Enabled: phantomServicesEnabled(cm.Data, ct.CiliumVersion),
+	}
+
 	return nil
 }
 
@@ -141,6 +148,12 @@ func extractFromRemoteConfigMap(ctx context.Context, ct *check.ConnectivityTest)
 
 	ct.Features[RemoteClusterTunnel] = features.ExtractTunnelFeatureFromVersionedConfigMap(ct.CiliumVersion, cm)
 	ct.Features[MixedRoutingMode] = features.Status{Enabled: ct.Features[features.Tunnel].Enabled != ct.Features[RemoteClusterTunnel].Enabled}
+
+	// PhantomServices must be enabled in both clusters to be considered enabled.
+	ct.Features[PhantomServices] = features.Status{
+		Enabled: ct.Features[PhantomServices].Enabled && phantomServicesEnabled(cm.Data, ct.CiliumVersion),
+	}
+
 	return nil
 }
 
@@ -164,4 +177,24 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 	}
 
 	return nil
+}
+
+func phantomServicesEnabled(cfg map[string]string, ciliumVersion semver.Version) bool {
+	// Phantom service support has been introduced in Isovalent Enterprise for Cilium v1.13.2
+	if ciliumVersion.LT(semver.MustParse("1.13.2")) {
+		return false
+	}
+
+	value, ok := cfg[string(PhantomServices)]
+
+	// Until Cilium v1.16-ce, the phantom service support was not guarded by a feature
+	// flag, and was always enabled. However, we are conservative and consider it to be
+	// enabled only if the the feature flag is not specified, to always respect the
+	// setting in case of mixed version clusters (given that ciliumVersion is the
+	// minimum version across all agents).
+	if !ok && ciliumVersion.LT(semver.MustParse("1.16.0")) {
+		return true
+	}
+
+	return value == "true"
 }
