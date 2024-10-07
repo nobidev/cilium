@@ -1124,7 +1124,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "node_load5{job=\"node-exporter\"} *  on (instance) group_left(node) (label_replace(kube_node_status_addresses{type=\"InternalIP\", node=~\"$T1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"))\n* on (node) group_left() (\n  kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n)",
+          "expr": "node_load5{job=\"node-exporter\"} \n* on (instance) group_left(node) (\n    label_replace(kube_node_status_addresses{node=~\"^${t1}$\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) * on (node) group_left() (\n  kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n)",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{node}}, 5m",
@@ -1136,7 +1136,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "node_load15{job=\"node-exporter\"} *  on (instance) group_left(node) (label_replace(kube_node_status_addresses{type=\"InternalIP\", node=~\"$T1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"))\n* on (node) group_left() (\n  kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n)",
+          "expr": "node_load15{job=\"node-exporter\"} \n* on (instance) group_left(node) (\n    label_replace(kube_node_status_addresses{node=~\"^${t1}$\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) * on (node) group_left() (\n  kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n)",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{node}}, 15m",
