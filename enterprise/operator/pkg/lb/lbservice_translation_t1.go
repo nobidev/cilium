@@ -121,16 +121,26 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	return hcInterval
 }
 
-func (r *lbServiceT1Translator) endpointAddressesFromT2Nodes(model *lbService) []corev1.EndpointAddress {
+func (r *lbServiceT1Translator) endpointAddressesFromT2Nodes(model *lbService) ([]corev1.EndpointAddress, []corev1.EndpointPort) {
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range model.t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
 	}
-	return epAddresses
+
+	epPorts := []corev1.EndpointPort{
+		{
+			Name:     strings.ToLower(string(corev1.ProtocolTCP)),
+			Protocol: corev1.ProtocolTCP,
+			Port:     model.port,
+		},
+	}
+
+	return epAddresses, epPorts
 }
 
-func (r *lbServiceT1Translator) endpointAddressesFromBackends(model *lbService) []corev1.EndpointAddress {
+func (r *lbServiceT1Translator) endpointAddressesFromBackends(model *lbService) ([]corev1.EndpointAddress, []corev1.EndpointPort) {
 	epAddresses := []corev1.EndpointAddress{}
+	epPorts := []corev1.EndpointPort{}
 
 	routes := model.applications.tcpProxy.routes
 	if len(routes) == 1 {
@@ -138,11 +148,18 @@ func (r *lbServiceT1Translator) endpointAddressesFromBackends(model *lbService) 
 		if ok {
 			for _, b := range backend.lbBackends {
 				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
+				epPorts = append(epPorts,
+					corev1.EndpointPort{
+						Name:     strings.ToLower(string(corev1.ProtocolTCP)),
+						Protocol: corev1.ProtocolTCP,
+						Port:     int32(b.port),
+					})
+
 			}
 		}
 	}
 
-	return epAddresses
+	return epAddresses, epPorts
 }
 
 func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endpoints, error) {
@@ -151,10 +168,11 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 	}
 
 	var epAddresses []corev1.EndpointAddress
+	var epPorts []corev1.EndpointPort
 	if model.applications.tcpProxy == nil || model.applications.tcpProxy.tierMode == tierModeT2 {
-		epAddresses = r.endpointAddressesFromT2Nodes(model)
+		epAddresses, epPorts = r.endpointAddressesFromT2Nodes(model)
 	} else {
-		epAddresses = r.endpointAddressesFromBackends(model)
+		epAddresses, epPorts = r.endpointAddressesFromBackends(model)
 	}
 
 	return &corev1.Endpoints{
@@ -165,13 +183,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 		Subsets: []corev1.EndpointSubset{
 			{
 				Addresses: epAddresses,
-				Ports: []corev1.EndpointPort{
-					{
-						Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-						Protocol: corev1.ProtocolTCP,
-						Port:     model.port,
-					},
-				},
+				Ports:     epPorts,
 			},
 		},
 	}, nil

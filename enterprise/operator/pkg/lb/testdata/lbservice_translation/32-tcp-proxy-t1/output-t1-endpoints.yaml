@@ -9,5 +9,5 @@ subsets:
       - ip: 172.18.0.6
     ports:
       - name: tcp
-        port: 80
+        port: 8080
         protocol: TCP
