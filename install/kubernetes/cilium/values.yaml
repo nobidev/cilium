@@ -189,6 +189,19 @@ image:
   # cilium-digest
   digest: ""
   useDigest: false
+# -- Scheduling configurations for cilium pods
+scheduling:
+  # @schema
+  # enum: ["anti-affinity", "kube-scheduler"]
+  # @schema
+  # -- Mode specifies how Cilium daemonset pods should be scheduled to Nodes.
+  # `anti-affinity` mode applies a pod anti-affinity rule to the cilium daemonset.
+  # Pod anti-affinity may significantly impact scheduling throughput for large clusters.
+  # See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+  # `kube-scheduler` mode forgoes the anti-affinity rule for full scheduling throughput.
+  # Kube-scheduler avoids host port conflict when scheduling pods.
+  # @default -- Defaults to apply a pod anti-affinity rule to the agent pod - `anti-affinity`
+  mode: anti-affinity
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
@@ -1452,7 +1465,7 @@ hubble:
           - ALL
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+      # --- The type of service used for Hubble Relay access, either ClusterIP, NodePort or LoadBalancer.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -1949,14 +1962,16 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
+# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
+# @schema
+# type: [string]
+# @schema
+defaultLBServiceIPAM: lbipam
 nodeIPAM:
   # -- Configure Node IPAM
   # ref: https://docs.cilium.io/en/stable/network/node-ipam/
   enabled: false
-LBIPAM:
-  # -- requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class.
-  # ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
-  requireLBClass: false
 # @schema
 # type: [null, string]
 # @schema
@@ -2116,7 +2131,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid
+  # e.g. snat, dsr, hybrid, annotation
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP
@@ -2311,9 +2326,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.30.6-1727272964-5b1b38fcf3a622891ff40a9f1f1daa9e4eb1d795"
+    tag: "v1.30.6-1728126854-d4a8ad394cddacd70edee2af6ea1b9dcce3c7e52"
     pullPolicy: "Always"
-    digest: "sha256:b95adfb84570d99afa65fe78a3979ed2784a87862e90485b83fbc6b9d44560e2"
+    digest: "sha256:0daf2073092b333d7522c2c8044deaa9882b8afcd422b68d4f010ce56a99f9a7"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -3568,8 +3583,8 @@ authentication:
           # @schema
           override: ~
           repository: "docker.io/library/busybox"
-          tag: "1.36.1"
-          digest: "sha256:c230832bd3b0be59a6c47ed64294f9ce71e91b327957920b6929a0caa8353140"
+          tag: "1.37.0"
+          digest: "sha256:768e5c6f5cb6db0794eec98dc7a967f40631746c32232b78a3105fb946f3ab83"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration

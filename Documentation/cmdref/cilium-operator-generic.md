@@ -38,6 +38,7 @@ cilium-operator-generic [flags]
       --config-dir string                                            Configuration directory that contains a file for each option
       --controller-group-metrics strings                             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                                        Enable debugging mode
+      --default-lb-service-ipam string                               Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --dns-server-addresses strings                                 A list of DNS server addresses to be used by the operator DNS client for resolution of FQDNs in IsovalentFQDNGroup CRDs. Each address should be in the form "<ip>:<port>". When resolving an FQDN, the operator will try to query the first server. If it fails, it will try the next one and so on, following the order specified by the user.
       --double-write-metric-reporter-interval duration               Refresh interval for the Double Write Metric Reporter (default 1m0s)
       --egress-gateway-ha-healthcheck-timeout duration               Healthcheck timeout after which an egress gateway is marked not healthy. This also configures the frequency of probes to a value of healthcheckTimeout / 2 (default 2s)
@@ -101,7 +102,6 @@ cilium-operator-generic [flags]
       --kube-proxy-replacement string                                Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                               Key-value store type
       --kvstore-opt map                                              Key-value store options e.g. etcd.address=127.0.0.1:4001
-      --lbipam-require-lb-class                                      Require the LoadBalancerClass field to be set on services for LB-IPAM to start assigning IPs
       --leader-election-lease-duration duration                      Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration                      Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration                        Duration that LeaderElector clients should wait between retries of the actions (default 2s)

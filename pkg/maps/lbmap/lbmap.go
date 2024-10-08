@@ -135,7 +135,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	}
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
-		p.Type, p.Mode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
+		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
 		p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
@@ -453,6 +453,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
+	revNatValueMap := map[uint16]RevNatValue{}
+	inconsistentServiceKeys := []ServiceKey{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -460,9 +462,29 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
+	parseRevNatEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		revNatKey := key.(RevNatKey).ToHost()
+		revNatValue := value.(RevNatValue).ToHost()
+		revNatValueMap[revNatKey.GetKey()] = revNatValue
+	}
+
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey).ToHost()
 		svcValue := value.(ServiceValue).ToHost()
+
+		serviceID := svcValue.RevNatKey().GetKey()
+		revNatValue := svcKey.RevNatValue().String()
+		val, found := revNatValueMap[serviceID]
+		if !found {
+			errors = append(errors, fmt.Errorf("revNat %d not found", serviceID))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		} else if valueStr := val.String(); valueStr != revNatValue {
+			errors = append(errors, fmt.Errorf("inconsistent service %s and revNat %s found",
+				svcKey, valueStr))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		}
 
 		fe := svcFrontend(svcKey, svcValue)
 
@@ -494,6 +516,10 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat4Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service4MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -506,9 +532,22 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat6Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service6MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
+		}
+	}
+
+	for _, svcKey := range inconsistentServiceKeys {
+		log.WithField(logfields.ServiceKey, svcKey).
+			Warn("Deleting service with inconsistent revNat")
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithField(logfields.ServiceKey, svcKey).
+				WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
 
@@ -577,7 +616,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 }
 
 func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
-	svcType loadbalancer.SVCType, svcMode loadbalancer.SVCMode, svcExtLocal, svcIntLocal bool,
+	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
 	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
@@ -591,7 +630,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
-		SvcModeFlip:      svcMode == loadbalancer.SVCModeDSR,
+		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
 		SvcExtLocal:      svcExtLocal,
 		SvcIntLocal:      svcIntLocal,
 		SvcNatPolicy:     svcNatPolicy,
