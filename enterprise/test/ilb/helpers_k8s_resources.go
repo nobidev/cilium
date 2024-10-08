@@ -466,6 +466,22 @@ func withTLSProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tlsR
 	}
 }
 
+func withTCPProxyApplication(backendRef string) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
+			TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+				Routes: []isovalentv1alpha1.LBServiceTCPRoute{
+					{
+						BackendRef: isovalentv1alpha1.LBServiceBackendRef{
+							Name: backendRef,
+						},
+					},
+				},
+			},
+		}
+	}
+}
+
 func lbService(namespace string, name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
 	svc := &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
