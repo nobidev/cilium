@@ -12,6 +12,7 @@ package lb
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,21 +56,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
 	// T1 -> {T2 | Backend} health checking
-	if !model.isTCPProxyT1OnlyMode() {
-		// The presence of these annotations will enable HTTP-based
-		// health checking from T1 to T2 nodes
-		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
-		annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
-	} else {
-		// For T1-only frontends, L4 healthchecks will be enabled
-		// (connect for TCP, ICMP/Payload-based for UDP)
-	}
-
-	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
-	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
-	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
-	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
-	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+	maps.Copy(annotations, r.getHealthCheckAnnotations(model))
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,6 +79,28 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			},
 		},
 	}
+}
+
+func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[string]string {
+	annotations := map[string]string{}
+
+	if !model.isTCPProxyT1OnlyMode() {
+		// The presence of these annotations will enable HTTP-based
+		// health checking from T1 to T2 nodes
+		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
+		annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
+	} else {
+		// For T1-only frontends, L4 healthchecks will be enabled
+		// (connect for TCP, ICMP/Payload-based for UDP)
+	}
+
+	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
+	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
+	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
+	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
+	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+
+	return annotations
 }
 
 func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) int {
