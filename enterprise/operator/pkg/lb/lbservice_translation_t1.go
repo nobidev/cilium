@@ -39,7 +39,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
 
 	// Expose only LoadBalancer service
-	annotations[ossannotation.ServiceTypeExposure] = "LoadBalancer"
+	annotations[ossannotation.ServiceTypeExposure] = string(corev1.ServiceTypeLoadBalancer)
 
 	// Set the assigned IP address of the LBVIP as LB IPAM annotation.
 	// This way we treat the Service of the LBVIP as the main leader from an
