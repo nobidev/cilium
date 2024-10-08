@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type lbServiceT1Translator struct {
@@ -170,8 +171,8 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 
 func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
 	if model.isTCPProxyT1OnlyMode() {
-		return "snat"
+		return string(loadbalancer.SVCForwardingModeSNAT)
 	}
 
-	return "dsr"
+	return string(loadbalancer.SVCForwardingModeDSR)
 }
