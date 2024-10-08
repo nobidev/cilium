@@ -4,17 +4,17 @@
 
 ```sh
 make kind-loadbalancer && \
-make kind-ready && \
-make kind-build-image-agent && \
-make kind-build-image-operator && \
-kind load docker-image localhost:5000/cilium/cilium-dev:local -n kind --nodes kind-control-plane,kind-worker && \
-kind load docker-image localhost:5000/cilium/cilium-dev:local -n kind --nodes kind-worker2,kind-worker3,kind-worker4 && \
-kind load docker-image localhost:5000/cilium/operator-generic:local -n kind --nodes kind-control-plane,kind-worker && \
-kind load docker-image localhost:5000/cilium/operator-generic:local -n kind --nodes kind-worker2,kind-worker3,kind-worker4 && \
 kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
-ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-install-cilium && \
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-install-cilium-fast && \
+make kind-image-enterprise-fast && \
 ./examples/kubernetes/loadbalancer/lb_configure.sh && \
 ./examples/kubernetes/loadbalancer/deploy_prometheus.sh
+```
+
+to recompile and deploy Cilium with the local changes:
+
+```sh
+make kind-image-enterprise-fast
 ```
 
 ## Deploy & Test LoadBalancer example
