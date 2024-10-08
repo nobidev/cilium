@@ -150,31 +150,14 @@ func (r *PodCIDRVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	}
 
 	metadata := r.getMetadata(p.BGPInstance)
-	for vrfKey, desiredVRFPodCIDRAFPaths := range allVRFsPodCIDRAFPaths {
-		currentVRFPodCIDRAFPaths, exists := metadata.VRFAFPaths[vrfKey]
-		if !exists && len(desiredVRFPodCIDRAFPaths) == 0 {
-			// no paths to reconcile for this VRF
-			continue
-		}
 
-		updatedVRFAfPaths, rErr := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-			Logger: r.Logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField: p.DesiredConfig.Name,
-					entTypes.VRFLogField:   vrfKey,
-				}),
-			Ctx:          ctx,
-			Router:       p.BGPInstance.Router,
-			DesiredPaths: desiredVRFPodCIDRAFPaths,
-			CurrentPaths: currentVRFPodCIDRAFPaths,
-		})
-		if rErr == nil && len(desiredVRFPodCIDRAFPaths) == 0 {
-			delete(metadata.VRFAFPaths, vrfKey)
-		} else {
-			metadata.VRFAFPaths[vrfKey] = updatedVRFAfPaths
-		}
-		err = errors.Join(err, rErr)
-	}
+	metadata.VRFAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+		Logger:                 r.Logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:                    ctx,
+		Router:                 p.BGPInstance.Router,
+		DesiredResourceAFPaths: allVRFsPodCIDRAFPaths,
+		CurrentResourceAFPaths: metadata.VRFAFPaths,
+	})
 
 	r.setMetadata(p.BGPInstance, metadata)
 

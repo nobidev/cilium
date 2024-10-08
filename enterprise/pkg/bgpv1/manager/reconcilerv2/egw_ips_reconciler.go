@@ -130,30 +130,13 @@ func (r *EgressGatewayIPsReconciler) reconcilePaths(ctx context.Context, params 
 		}
 	}
 
-	for key, paths := range egwAFPaths {
-		currentPaths, exists := metadata.EGWAFPaths[key]
-		if !exists && len(paths) == 0 {
-			continue
-		}
-
-		updatedAFPaths, rErr := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:         params.DesiredConfig.Name,
-					entTypes.EgressGatewayLogField: key,
-				}),
-			Ctx:          ctx,
-			Router:       params.BGPInstance.Router,
-			DesiredPaths: paths,
-			CurrentPaths: currentPaths,
-		})
-		if rErr == nil && len(paths) == 0 {
-			delete(metadata.EGWAFPaths, key)
-		} else {
-			metadata.EGWAFPaths[key] = updatedAFPaths
-		}
-		err = errors.Join(err, rErr)
-	}
+	metadata.EGWAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+		Logger:                 r.logger.WithField(types.InstanceLogField, params.DesiredConfig.Name),
+		Ctx:                    ctx,
+		Router:                 params.BGPInstance.Router,
+		DesiredResourceAFPaths: egwAFPaths,
+		CurrentResourceAFPaths: metadata.EGWAFPaths,
+	})
 
 	r.setMetadata(params.BGPInstance, metadata)
 	return err

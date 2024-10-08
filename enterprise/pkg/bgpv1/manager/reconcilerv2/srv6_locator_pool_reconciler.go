@@ -198,30 +198,13 @@ func (r *LocatorPoolReconciler) reconcilePaths(ctx context.Context, params Enter
 		}
 	}
 
-	for key, paths := range desiredAFPaths {
-		currentPaths, exists := metadata.AFPaths[key]
-		if !exists && len(paths) == 0 {
-			continue
-		}
-
-		updatedAFPaths, rErr := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:       params.DesiredConfig.Name,
-					entTypes.LocatorPoolLogField: key,
-				}),
-			Ctx:          ctx,
-			Router:       params.BGPInstance.Router,
-			DesiredPaths: paths,
-			CurrentPaths: currentPaths,
-		})
-		if rErr == nil && len(paths) == 0 {
-			delete(metadata.AFPaths, key)
-		} else {
-			metadata.AFPaths[key] = updatedAFPaths
-		}
-		err = errors.Join(err, rErr)
-	}
+	metadata.AFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+		Logger:                 r.logger.WithField(types.InstanceLogField, params.DesiredConfig.Name),
+		Ctx:                    ctx,
+		Router:                 params.BGPInstance.Router,
+		DesiredResourceAFPaths: desiredAFPaths,
+		CurrentResourceAFPaths: metadata.AFPaths,
+	})
 
 	r.setMetadata(params.BGPInstance, metadata)
 	return err

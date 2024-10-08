@@ -288,60 +288,31 @@ func (r *ServiceVRFReconciler) reconcileVRFs(ctx context.Context, p EnterpriseRe
 }
 
 func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, vrfName string, currentSvcPaths, desiredSvcPaths reconcilerv2.ResourceAFPathsMap) (reconcilerv2.ResourceAFPathsMap, error) {
-	var err error
-	updatedSvcPaths := make(reconcilerv2.ResourceAFPathsMap)
+	if currentSvcPaths == nil {
+		currentSvcPaths = make(reconcilerv2.ResourceAFPathsMap)
+	}
+	if desiredSvcPaths == nil {
+		desiredSvcPaths = make(reconcilerv2.ResourceAFPathsMap)
+	}
 
 	if len(desiredSvcPaths) == 0 {
-		// cleanup current services
-		for svcKey, currentAFPaths := range currentSvcPaths {
-			// reconcile service paths
-			updatedAFPaths, rErr := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-				Logger: r.logger.WithFields(logrus.Fields{
-					types.InstanceLogField: p.DesiredConfig.Name,
-					entTypes.VRFLogField:   vrfName,
-				}),
-				Ctx:          ctx,
-				Router:       p.BGPInstance.Router,
-				DesiredPaths: nil,
-				CurrentPaths: currentAFPaths,
-			})
-			if rErr != nil {
-				// Since there is some error condition, keep svc in updatedSvcPaths.
-				// Under no error condition svc will not be present in updatedSvcPaths map and caller
-				// can cleanup this service.
-				updatedSvcPaths[svcKey] = updatedAFPaths
-				err = errors.Join(err, rErr)
-			}
+		// cleanup all current services
+		for svcKey := range currentSvcPaths {
+			desiredSvcPaths[svcKey] = nil // mark svc for deletion
 		}
-		return updatedSvcPaths, err
 	}
 
-	for svcKey, desiredAFPaths := range desiredSvcPaths {
-		currentAFPaths, exists := currentSvcPaths[svcKey]
-		if !exists && len(desiredAFPaths) == 0 {
-			// nothing to do
-			continue
-		}
+	updatedSvcPaths, err := reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+		Logger: r.logger.WithFields(logrus.Fields{
+			types.InstanceLogField: p.DesiredConfig.Name,
+			entTypes.VRFLogField:   vrfName,
+		}),
+		Ctx:                    ctx,
+		Router:                 p.BGPInstance.Router,
+		DesiredResourceAFPaths: desiredSvcPaths,
+		CurrentResourceAFPaths: currentSvcPaths,
+	})
 
-		// reconcile service paths
-		updatedAFPaths, rErr := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-			Logger: r.logger.WithFields(logrus.Fields{
-				types.InstanceLogField: p.DesiredConfig.Name,
-				entTypes.VRFLogField:   vrfName,
-			}),
-			Ctx:          ctx,
-			Router:       p.BGPInstance.Router,
-			DesiredPaths: desiredAFPaths,
-			CurrentPaths: currentAFPaths,
-		})
-		if rErr == nil && len(updatedAFPaths) == 0 {
-			// do not add this service to updatedSvcPaths, since we removed all AFPaths for this service.
-			// caller can cleanup this service.
-			continue
-		}
-		updatedSvcPaths[svcKey] = updatedAFPaths
-		err = errors.Join(err, rErr)
-	}
 	return updatedSvcPaths, err
 }
 
