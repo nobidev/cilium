@@ -8,6 +8,7 @@ enterprise:
     enabled: true
   featureGates:
   - "BGPControlPlane"
+  - "ArchARM64"
 debug:
   enabled: true
   verbose: "envoy datapath"
