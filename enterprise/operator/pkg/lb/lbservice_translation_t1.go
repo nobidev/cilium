@@ -45,8 +45,6 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
 
-	// TODO: should the following config be part of the lbService model? (infra?)
-
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
 
