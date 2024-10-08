@@ -12,6 +12,7 @@ package lb
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +87,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			AllocateLoadBalancerNodePorts: ptr.To(false),
 			Ports: []corev1.ServicePort{
 				{
-					Name:     "http",
+					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
 					Protocol: corev1.ProtocolTCP,
 					Port:     model.port,
 				},
@@ -159,7 +160,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 				Addresses: epAddresses,
 				Ports: []corev1.EndpointPort{
 					{
-						Name:     "http",
+						Name:     strings.ToLower(string(corev1.ProtocolTCP)),
 						Protocol: corev1.ProtocolTCP,
 						Port:     model.port,
 					},

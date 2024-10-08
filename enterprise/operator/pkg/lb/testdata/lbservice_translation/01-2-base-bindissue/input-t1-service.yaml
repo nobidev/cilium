@@ -5,7 +5,7 @@ metadata:
   name: lb-1
 spec:
   ports:
-    - name: http
+    - name: tcp
       port: 80
       protocol: TCP
   type: LoadBalancer
