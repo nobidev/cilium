@@ -16,7 +16,6 @@ to recompile and deploy Cilium with the local changes:
 ```sh
 make kind-image-enterprise-fast
 ```
-
 ## Deploy & Test LoadBalancer example
 
 ```sh
@@ -25,7 +24,15 @@ make kind-image-enterprise-fast
 ```
 ## Observability
 
-Prometheus and Grafana are deployed to the ILB cluster for observability. For more details and instructions see https://github.com/isovalent/isovalent-loadbalancer-images/blob/main/README.md#observability
+Prometheus and Grafana are deployed to the ILB cluster for observability.
+
+To expose the Grafana dashboard:
+
+```sh
+kubectl -n monitoring port-forward deployment/prometheus-grafana 3000:3000
+```
+
+For more details and instructions see https://github.com/isovalent/isovalent-loadbalancer-images/blob/main/README.md#observability
 
 ## Delete LoadBalancer Kind Cluster & example Docker Containers
 
