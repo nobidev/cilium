@@ -36,22 +36,25 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 		ossannotation.ServiceNodeExposure: lbNodeTypeT1,
 	}
 
-	// Set the sharing key (LBVIP name)
-	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
-
-	// Expose only LoadBalancer service
-	annotations[ossannotation.ServiceTypeExposure] = string(corev1.ServiceTypeLoadBalancer)
-
 	// Set the assigned IP address of the LBVIP as LB IPAM annotation.
 	// This way we treat the Service of the LBVIP as the main leader from an
 	// LB IPAM perspective. This way, when switching the LBVIP, the IP gets changed
 	// correctly
 	annotations[ossannotation.LBIPAMIPsKey] = *model.vip.assignedIPv4
 
+	// Set the sharing key (LBVIP name)
+	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
+
 	// TODO: should the following config be part of the lbService model? (infra?)
 
 	// BGP
 	annotations[annotation.ServiceHealthBGPAdvertiseThreshold] = "1"
+
+	// Expose only LoadBalancer service
+	annotations[ossannotation.ServiceTypeExposure] = string(corev1.ServiceTypeLoadBalancer)
+
+	// T1 -> {T2 | Backend} forwarding mode
+	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
 	// T1 -> {T2 | Backend} health checking
 	if !model.isTCPProxyT1OnlyMode() {
@@ -69,9 +72,6 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
 	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
 	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
-
-	// T1 -> {T2 | Backend} forwarding mode
-	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
