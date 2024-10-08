@@ -20,6 +20,13 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 
+ifneq ($(FIPS),)
+export GOEXPERIMENT = boringcrypto
+GO_TAGS_FLAGS += fips
+GO_BUILD = $(GO_BUILD_WITH_CGO)
+GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
+endif
+
 .PHONY: build-enterprise-cli
 build-enterprise-cli: ## Build cilium-dbg daemon binary
 	$(QUIET)$(MAKE) -C enterprise/cilium-dbg
