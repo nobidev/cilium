@@ -110,6 +110,11 @@ type LBServiceApplicationHTTPProxy struct {
 	// +kubebuilder:validation:Optional
 	RateLimits *LBServiceHTTPRateLimits `json:"rateLimits,omitempty"`
 
+	// Optional HTTP authN/authZ configuration for the HTTP proxy application.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *LBServiceHTTPAuth `json:"auth,omitempty"`
+
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
@@ -159,6 +164,45 @@ type LBServiceHTTPConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="has(self.basic)"
+type LBServiceHTTPAuth struct {
+	// The basic authentication configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Basic *LBServiceHTTPBasicAuth `json:"basic,omitempty"`
+}
+
+type LBServiceHTTPRouteAuth struct {
+	// The per-route basic authentication configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Basic *LBServiceHTTPRouteBasicAuth `json:"basic,omitempty"`
+}
+
+type LBServiceHTTPBasicAuth struct {
+	// Users for the basic authentication.
+	//
+	// +kubebuilder:validation:Required
+	Users LBServiceHTTPBasicAuthUser `json:"users"`
+}
+
+type LBServiceHTTPRouteBasicAuth struct {
+	// Disables the basic authentication for this route.
+	//
+	// +kubebuilder:validation:Required
+	Disabled bool `json:"disabled"`
+}
+
+type LBServiceHTTPBasicAuthUser struct {
+	// The reference to the k8s secret that contains the username and
+	// password for the basic authentication. This must be a k8s secret of
+	// type Opaque with the username as a key and the password as a value.
+	// A single secret can contain multiple username-password pairs.
+	//
+	// +kubebuilder:validation:Required
+	SecretRef LBServiceSecretRef `json:"secretRef"`
 }
 
 type LBServiceApplicationTLSPassthrough struct {
@@ -428,6 +472,11 @@ type LBServiceHTTPRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	RateLimits *LBServiceHTTPRouteRateLimits `json:"rateLimits,omitempty"`
+
+	// Optional per-route authN/authZ configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *LBServiceHTTPRouteAuth `json:"auth,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP) || size(self.cookies) > 0 || size(self.headers) > 0)"
