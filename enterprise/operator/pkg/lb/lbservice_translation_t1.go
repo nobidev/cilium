@@ -87,7 +87,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
-					Protocol: "TCP",
+					Protocol: corev1.ProtocolTCP,
 					Port:     model.port,
 				},
 			},
@@ -160,7 +160,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 				Ports: []corev1.EndpointPort{
 					{
 						Name:     "http",
-						Protocol: "TCP",
+						Protocol: corev1.ProtocolTCP,
 						Port:     model.port,
 					},
 				},
