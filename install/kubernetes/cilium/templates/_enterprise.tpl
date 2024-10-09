@@ -37,7 +37,7 @@ enable-ipv4-egress-gateway-ha: "true"
 egress-gateway-ha-reconciliation-trigger-interval: {{ .Values.enterprise.egressGatewayHA.reconciliationTriggerInterval | quote }}
 {{- end }}
 {{- if .Values.enterprise.egressGatewayHA.maxPolicyEntries }}
-egress-gateway-ha-policy-map-max: {{ .Values.enterprise.egressGatewayHA.maxPolicyEntries }}
+egress-gateway-ha-policy-map-max: {{ .Values.enterprise.egressGatewayHA.maxPolicyEntries | quote }}
 {{- end }}
 {{- if hasKey .Values.enterprise.egressGatewayHA "healthcheckTimeout" }}
 egress-gateway-ha-healthcheck-timeout: {{ .Values.enterprise.egressGatewayHA.healthcheckTimeout | quote }}
