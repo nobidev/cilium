@@ -17,9 +17,10 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"maps"
+	"slices"
 	"testing"
 
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -229,7 +230,7 @@ func (r *lbTestScenario) createLBVIP(ctx context.Context, vip *isovalentv1alpha1
 	}, r.t)
 
 	r.t.Logf("Create BGP peering..")
-	r.doBGPPeering(ctx, r.testName, maps.Values(r.frrClients), vip.Name)
+	r.doBGPPeering(ctx, r.testName, slices.Collect(maps.Values(r.frrClients)), vip.Name)
 }
 
 func (r *lbTestScenario) createLBBackendPool(ctx context.Context, bp *isovalentv1alpha1.LBBackendPool) {

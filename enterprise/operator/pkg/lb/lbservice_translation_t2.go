@@ -12,6 +12,7 @@ package lb
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -40,7 +41,6 @@ import (
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -427,7 +427,7 @@ func (r *lbServiceT2Translator) toHTTPSServerNames(model *lbService) []string {
 	httpsDomainNames := []string{}
 
 	if model.applications.httpsProxy != nil {
-		httpsDomainNames = append(httpsDomainNames, maps.Keys(model.applications.httpsProxy.routes)...)
+		httpsDomainNames = append(httpsDomainNames, slices.Collect(maps.Keys(model.applications.httpsProxy.routes))...)
 	}
 
 	// remove duplicates and raw '*' that is not allowed by Envoy
@@ -905,8 +905,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
-	routeHostNamesOrdered := maps.Keys(modelRoutes)
-	slices.Sort(routeHostNamesOrdered)
+	routeHostNamesOrdered := slices.Sorted(maps.Keys(modelRoutes))
 
 	for _, routeHostname := range routeHostNamesOrdered {
 		envoyRoutes := []*envoy_config_route_v3.Route{}
@@ -995,8 +994,7 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 		minHealthyBackendPercentage = 100
 	}
 
-	refBackendNamesSorted := maps.Keys(model.referencedBackends)
-	slices.Sort(refBackendNamesSorted)
+	refBackendNamesSorted := slices.Sorted(maps.Keys(model.referencedBackends))
 
 	for _, bn := range refBackendNamesSorted {
 		healthCheckFilterClusters[r.getClusterName(bn)] = &envoy_type_v3.Percent{Value: float64(minHealthyBackendPercentage)}
@@ -1045,8 +1043,7 @@ func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envo
 func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_config_cluster_v3.Cluster {
 	clusters := []*envoy_config_cluster_v3.Cluster{}
 
-	refBackendNamesSorted := maps.Keys(model.referencedBackends)
-	slices.Sort(refBackendNamesSorted)
+	refBackendNamesSorted := slices.Sorted(maps.Keys(model.referencedBackends))
 
 	for _, bn := range refBackendNamesSorted {
 		clusters = append(clusters, r.desiredEnvoyCluster(r.getClusterName(bn), model.referencedBackends[bn]))
@@ -1257,8 +1254,7 @@ func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(_ lbBackendHealthCheck
 func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignments(model *lbService) []*envoy_config_endpoint_v3.ClusterLoadAssignment {
 	loadAssignments := []*envoy_config_endpoint_v3.ClusterLoadAssignment{}
 
-	refBackendNamesSorted := maps.Keys(model.referencedBackends)
-	slices.Sort(refBackendNamesSorted)
+	refBackendNamesSorted := slices.Sorted(maps.Keys(model.referencedBackends))
 
 	for _, bn := range refBackendNamesSorted {
 		// For STRICT_DNS cluster, we must specify endpoint inline in the cluster
