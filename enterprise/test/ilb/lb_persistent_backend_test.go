@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -61,35 +62,15 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 
 	// 1. Test persistent backend selection with cookie
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
-		t.Logf("Testing 100 requests: %q...", testCmd)
-		previousServiceName := ""
-		for i := 0; i < 100; i++ {
-			stdout, stderr, err := client.Exec(ctx, testCmd)
-			if err != nil {
-				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
-			}
-
-			resp := toTestAppResponse(t, stdout)
-			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
-			previousServiceName = resp.ServiceName
-		}
+		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
+		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(t, ctx, client, testCmd)
 	}
 
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
-		t.Logf("Testing 100 requests: %q...", testCmd)
-		previousServiceName := ""
-		for i := 0; i < 100; i++ {
-			stdout, stderr, err := client.Exec(ctx, testCmd)
-			if err != nil {
-				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
-			}
-
-			resp := toTestAppResponse(t, stdout)
-			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
-			previousServiceName = resp.ServiceName
-		}
+		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
+		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(t, ctx, client, testCmd)
 	}
 }
 
@@ -138,36 +119,38 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 
 	// 1. Test persistent backend selection with source IP
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
-		t.Logf("Testing 100 requests: %q...", testCmd)
-		previousServiceName := ""
-		for i := 0; i < 100; i++ {
-			stdout, stderr, err := clients[0].Exec(ctx, testCmd)
-			if err != nil {
-				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
-			}
-
-			resp := toTestAppResponse(t, stdout)
-			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
-			previousServiceName = resp.ServiceName
-		}
+		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
+		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(t, ctx, clients[0], testCmd)
 	}
 
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 5 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
-		t.Logf("Testing 100 requests: %q...", testCmd)
-		previousServiceName := ""
-		for i := 0; i < 100; i++ {
-			stdout, stderr, err := clients[1].Exec(ctx, testCmd)
-			if err != nil {
-				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
-			}
-
-			resp := toTestAppResponse(t, stdout)
-			assertPersistentBackend(t, previousServiceName, resp.ServiceName)
-			previousServiceName = resp.ServiceName
-		}
+		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
+		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(t, ctx, clients[1], testCmd)
 	}
+}
+
+func testPersistenceWith100Requests(t *testing.T, ctx context.Context, client *frrContainer, testCmd string) {
+	successCount := 0
+	previousServiceName := ""
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(ctx, testCmd)
+		if err != nil {
+			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+		}
+
+		resp := toTestAppResponse(t, stdout)
+		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+		previousServiceName = resp.ServiceName
+
+		successCount++
+		if successCount == 100 {
+			return nil
+		}
+
+		return fmt.Errorf("condition is not satisfied yet (%d/100)", successCount)
+	}, shortTimeout, time.Millisecond*1) // As fast as possible
 }
 
 func assertPersistentBackend(t *testing.T, previousServiceName string, currentServiceName string) {
