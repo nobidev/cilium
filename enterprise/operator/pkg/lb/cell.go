@@ -12,10 +12,10 @@ package lb
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -73,7 +73,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 type reconcilerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Config    Config

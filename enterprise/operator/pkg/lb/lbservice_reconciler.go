@@ -13,10 +13,10 @@ package lb
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +44,7 @@ const (
 )
 
 type lbServiceReconciler struct {
-	logger       logrus.FieldLogger
+	logger       *slog.Logger
 	client       client.Client
 	scheme       *runtime.Scheme
 	nodeSource   *ciliumNodeSource
@@ -84,7 +84,7 @@ type reconcilerT1T2HealthCheckConfig struct {
 	T2ProbeMinHealthyBackendPercentage uint
 }
 
-func newLbServiceReconciler(logger logrus.FieldLogger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {
+func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {
 	return &lbServiceReconciler{
 		logger:       logger,
 		client:       client,
@@ -138,10 +138,10 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile implements the main reconciliation loop that gets triggered whenever a LBService resource or a related resource changes.
 func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "LBService",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(
+		logfields.Controller, "LBService",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling LBService")
 	lb := &isovalentv1alpha1.LBService{}
@@ -423,10 +423,10 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 				}
 			}
 			if nodeIP == "" {
-				r.logger.
-					WithField(logfields.Resource, cn.Name).
-					WithField("nodeType", nodeType).
-					Warn("Could not find InternalIP for CiliumNode")
+				r.logger.Warn("Could not find InternalIP for CiliumNode",
+					logfields.Resource, cn.Name,
+					"nodeType", nodeType,
+				)
 				continue
 			}
 			nodeIPs = append(nodeIPs, nodeIP)
@@ -452,7 +452,10 @@ func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desired
 		return fmt.Errorf("failed to create or update Service: %w", err)
 	}
 
-	r.logger.Debugf("Service %s has been %s", client.ObjectKeyFromObject(svc), result)
+	r.logger.Debug("Service has been updated",
+		logfields.Resource, client.ObjectKeyFromObject(svc),
+		"result", result,
+	)
 
 	return nil
 }
@@ -488,7 +491,10 @@ func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desir
 			return fmt.Errorf("failed to create or update Endpoints: %w", err)
 		}
 
-		r.logger.Debugf("Endpoints %s has been %s", client.ObjectKeyFromObject(ep), result)
+		r.logger.Debug("Endpoints has been updated",
+			logfields.Resource, client.ObjectKeyFromObject(ep),
+			"result", result,
+		)
 		return nil
 	}
 
@@ -502,7 +508,9 @@ func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desir
 		return nil
 	}
 
-	r.logger.Debugf("Endpoints %s has been deleted due to not having a single address", client.ObjectKeyFromObject(desiredEndpoints))
+	r.logger.Debug("Endpoints has been deleted due to not having a single address",
+		logfields.Resource, client.ObjectKeyFromObject(desiredEndpoints),
+	)
 
 	return nil
 }
@@ -538,7 +546,10 @@ func (r *lbServiceReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Contex
 		return fmt.Errorf("failed to create or update CiliumEnvoyConfig: %w", err)
 	}
 
-	r.logger.Debugf("CiliumEnvoyConfig %s has been %s", client.ObjectKeyFromObject(cec), result)
+	r.logger.Debug("CiliumEnvoyConfig has been updated",
+		logfields.Resource, client.ObjectKeyFromObject(cec),
+		"result", result,
+	)
 
 	return nil
 }
@@ -569,7 +580,7 @@ func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName stri
 		}
 
 		if err := r.client.List(ctx, &lbList, listOps); err != nil {
-			r.logger.WithError(err).Warn("Failed to list LBServices")
+			r.logger.Warn("Failed to list LBServices", logfields.Error, err)
 			return nil
 		}
 
@@ -592,7 +603,7 @@ func (r *lbServiceReconciler) enqueueAllLBServices() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
 		if err := r.client.List(ctx, &lbList); err != nil {
-			r.logger.WithError(err).Warn("Failed to list LBServices")
+			r.logger.Warn("Failed to list LBServices", logfields.Error, err)
 			return nil
 		}
 

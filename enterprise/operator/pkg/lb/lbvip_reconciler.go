@@ -13,9 +13,9 @@ package lb
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,13 +40,13 @@ const (
 )
 
 type lbVIPReconciler struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	client client.Client
 	scheme *runtime.Scheme
 }
 
 type lbVIPReconcilerParams struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	client client.Client
 	scheme *runtime.Scheme
 }
@@ -67,10 +67,10 @@ func (r *lbVIPReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *lbVIPReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "LBVIP",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(
+		logfields.Controller, "LBVIP",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling LBVIP")
 
@@ -220,7 +220,10 @@ func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredServ
 		return fmt.Errorf("failed to create or update Service: %w", err)
 	}
 
-	r.logger.Debugf("Service %s has been %s", client.ObjectKeyFromObject(svc), result)
+	r.logger.Debug("Service has been update",
+		logfields.Resource, client.ObjectKeyFromObject(svc),
+		"result", result,
+	)
 
 	return nil
 }

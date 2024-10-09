@@ -13,10 +13,10 @@ package lb
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,11 +29,11 @@ import (
 )
 
 type lbBackendPoolReconciler struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	client client.Client
 }
 
-func newLbBackendPoolReconciler(logger logrus.FieldLogger, client client.Client) *lbBackendPoolReconciler {
+func newLbBackendPoolReconciler(logger *slog.Logger, client client.Client) *lbBackendPoolReconciler {
 	return &lbBackendPoolReconciler{
 		logger: logger,
 		client: client,
@@ -51,10 +51,10 @@ func (r *lbBackendPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile implements the main reconciliation loop that gets triggered whenever a LBBackendPool resource or a related resource changes.
 func (r *lbBackendPoolReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "LBBackendPool",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(
+		logfields.Controller, "LBBackendPool",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling LBBackendPool")
 	lb := &isovalentv1alpha1.LBBackendPool{}

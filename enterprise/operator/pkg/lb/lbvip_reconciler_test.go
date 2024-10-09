@@ -12,9 +12,9 @@ package lb
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +28,7 @@ import (
 	ceeannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestLBVIPReconciler(t *testing.T) {
@@ -76,8 +77,7 @@ func TestLBVIPReconciler(t *testing.T) {
 				WithStatusSubresource(&isovalentv1alpha1.LBVIP{}).
 				Build()
 
-			logger := logrus.New().WithField("module", "test")
-			logger.Logger.SetLevel(logrus.DebugLevel)
+			logger := slog.New(logging.SlogNopHandler)
 
 			r := newLBVIPReconciler(lbVIPReconcilerParams{
 				logger: logger,

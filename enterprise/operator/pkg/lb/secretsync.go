@@ -14,7 +14,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,12 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.EventHandler {
+func enqueueTLSSecrets(_ client.Client, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.WithFields(logrus.Fields{
-			logfields.Controller: "secrets",
-			logfields.Resource:   obj.GetName(),
-		})
+		scopedLog := logger.With(
+			logfields.Controller, "secrets",
+			logfields.Resource, obj.GetName(),
+		)
 
 		lbService, ok := obj.(*isovalentv1alpha1.LBService)
 		if !ok {
@@ -47,7 +46,7 @@ func enqueueTLSSecrets(_ client.Client, logger logrus.FieldLogger) handler.Event
 				Name:      secretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.WithField("secret", s).Debug("Enqueued secret for LBService")
+			scopedLog.Debug("Enqueued secret for LBService", "secret", s)
 		}
 
 		return reqs
