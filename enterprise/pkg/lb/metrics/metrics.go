@@ -13,6 +13,9 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -20,13 +23,11 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 )
 
 type serviceCacheEntry struct {
@@ -62,7 +63,7 @@ type lbMetricsCollector struct {
 	lbOpenConnectionsDesc   *prometheus.Desc
 	lbHealthcheckStatusDesc *prometheus.Desc
 
-	logger logrus.FieldLogger
+	logger *slog.Logger
 }
 
 func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
@@ -195,7 +196,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		backends[backendKey.ID] = backendVal
 	}
 	if err := lbmap.Backend4MapV3.DumpWithCallback(backendsCallback); err != nil {
-		mc.logger.WithError(err).Error("Cannot dump backend map, LB metrics may be incomplete")
+		mc.logger.Error("Cannot dump backend map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
 
@@ -234,7 +235,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		mc.lbHealthcheckStatus[frontendNameAndAddr] = serviceBackends
 	}
 	if err := lbmap.Service4MapV2.DumpWithCallback(serviceCallback); err != nil {
-		mc.logger.WithError(err).Error("Cannot dump service map, LB metrics may be incomplete")
+		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
 
@@ -295,7 +296,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	}
 	for _, ctMap := range mc.ct4Maps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
-			mc.logger.WithError(err).Error("Cannot dump CT map, LB metrics may be incomplete")
+			mc.logger.Error("Cannot dump CT map, LB metrics may be incomplete", logfields.Error, err)
 			return err
 		}
 	}

@@ -11,16 +11,18 @@
 package metrics
 
 import (
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
@@ -48,7 +50,7 @@ type collectorParams struct {
 	Config    Config
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 
 	Services resource.Resource[*slim_corev1.Service]
 }
@@ -64,8 +66,7 @@ func registerCollector(params collectorParams) {
 
 	mc := newLBMetricsCollector(params)
 	if err := metrics.Register(mc); err != nil {
-		params.Logger.WithError(err).
-			Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected")
+		params.Logger.Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected", logfields.Error, err)
 		return
 	}
 
