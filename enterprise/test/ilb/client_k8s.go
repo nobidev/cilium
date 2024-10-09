@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -136,7 +135,6 @@ func (c *ciliumCli) ensureBGPClusterConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to create BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
 	}
-
 	return nil
 }
 
@@ -144,55 +142,6 @@ func (c *ciliumCli) deleteBGPClusterConfig(ctx context.Context) error {
 	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, globalBGPClusterConfigName, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
-
-	return nil
-}
-
-func (c *ciliumCli) doBGPPeeringForClient(ctx context.Context, name string, clientIP string) error {
-	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
-
-	cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
-		isovalentv1alpha1.IsovalentBGPPeer{
-			Name:        "peer-" + clientIP,
-			PeerAddress: &clientIP,
-			PeerASN:     ptr.To[int64](64512),
-			PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
-				Name: name,
-			},
-		})
-
-	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
-		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
-
-	return nil
-}
-
-func (c *ciliumCli) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	cc, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
-
-	peers := cc.Spec.BGPInstances[0].Peers
-
-	updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
-	for _, peer := range peers {
-		if *peer.PeerAddress != clientIP {
-			updatedPeers = append(updatedPeers, peer)
-		}
-	}
-
-	cc.Spec.BGPInstances[0].Peers = updatedPeers
-	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
-		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
-
 	return nil
 }
 

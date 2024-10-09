@@ -17,14 +17,15 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"maps"
-	"slices"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
@@ -159,6 +160,12 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 	containers := []*frrContainer{}
 	startIndex := len(r.frrClients)
 
+	// Lazily create the per-scenario BGP-related resources here. Calling
+	// addFRRClients multiple times will not create multiple resource. The
+	// resources created in the first call will be reused.
+	r.createBGPPeerConfig(ctx)
+	r.createBFDProfile(ctx)
+
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
 		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
 		env := []string{
@@ -208,9 +215,164 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 				r.t.Fatalf("failed to copy key to client container: %s", err)
 			}
 		}
+
+		// Make BGP peering with T1 nodes
+		if err := r.doBGPPeeringForClient(ctx, clientName, ip); err != nil {
+			r.t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
+		}
+		maybeCleanupT(func() error { return r.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
 	}
 
 	return containers
+}
+
+func (r *lbTestScenario) createBGPPeerConfig(ctx context.Context) {
+	obj := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.testName,
+		},
+		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						// Assuming the advertisement will be created with the label with scenario name
+						Advertisements: &metaslimv1.LabelSelector{
+							MatchLabels: map[string]metaslimv1.MatchLabelsValue{
+								"scenario": r.testName,
+							},
+						},
+					},
+				},
+				Timers: &ciliumv2alpha1.CiliumBGPTimers{
+					ConnectRetryTimeSeconds: ptr.To(int32(1)),
+				},
+			},
+			BFDProfileRef: ptr.To(r.testName),
+		},
+	}
+	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create Peer config (%s): %s", obj.Name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, obj.Name, metav1.DeleteOptions{})
+	}, r.t)
+}
+
+func (r *lbTestScenario) createBFDProfile(ctx context.Context) {
+	obj := &isovalentv1alpha1.IsovalentBFDProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.testName,
+		},
+		Spec: isovalentv1alpha1.BFDProfileSpec{
+			DetectMultiplier:             ptr.To(int32(3)),
+			ReceiveIntervalMilliseconds:  ptr.To(int32(300)),
+			TransmitIntervalMilliseconds: ptr.To(int32(300)),
+		},
+	}
+	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create BFD profile (%s): %s", obj.Name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(context.Background(), obj.Name, metav1.DeleteOptions{})
+	}, r.t)
+}
+
+func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName string) {
+	// BGP Advertisement has a one-to-one mapping with the VIP
+	obj := &isovalentv1alpha1.IsovalentBGPAdvertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vipName,
+			// This label is referenced in the BGPPeerConfig
+			Labels: map[string]string{
+				"scenario": r.testName,
+			},
+		},
+		Spec: isovalentv1alpha1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []isovalentv1alpha1.BGPAdvertisement{
+				{
+					AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
+					Service: &isovalentv1alpha1.BGPServiceOptions{
+						Addresses: []ciliumv2alpha1.BGPServiceAddressType{
+							ciliumv2alpha1.BGPLoadBalancerIPAddr,
+						},
+					},
+					Selector: &metaslimv1.LabelSelector{
+						MatchExpressions: []metaslimv1.LabelSelectorRequirement{
+							{
+								Key:      "loadbalancer.isovalent.com/vip-name",
+								Operator: metaslimv1.LabelSelectorOpIn,
+								Values:   []string{vipName},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create BGP advertisement (%s): %s", obj.Name, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, obj.Name, metav1.DeleteOptions{})
+	}, r.t)
+}
+
+func (r *lbTestScenario) doBGPPeeringForClient(ctx context.Context, name string, clientIP string) error {
+	cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
+	}
+
+	cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
+		isovalentv1alpha1.IsovalentBGPPeer{
+			Name:        "peer-" + clientIP,
+			PeerAddress: &clientIP,
+			PeerASN:     ptr.To[int64](64512),
+			PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				Name: r.testName,
+			},
+		})
+
+	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
+	}
+
+	return nil
+}
+
+func (r *lbTestScenario) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
+	cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
+	}
+
+	peers := cc.Spec.BGPInstances[0].Peers
+
+	updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
+	for _, peer := range peers {
+		if *peer.PeerAddress != clientIP {
+			updatedPeers = append(updatedPeers, peer)
+		}
+	}
+
+	cc.Spec.BGPInstances[0].Peers = updatedPeers
+	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
+		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
+	}
+
+	return nil
 }
 
 type frrClientConfig struct {
@@ -229,8 +391,8 @@ func (r *lbTestScenario) createLBVIP(ctx context.Context, vip *isovalentv1alpha1
 		return r.ciliumCli.DeleteLBVIP(ctx, vip.Namespace, vip.Name, metav1.DeleteOptions{})
 	}, r.t)
 
-	r.t.Logf("Create BGP peering..")
-	r.doBGPPeering(ctx, r.testName, slices.Collect(maps.Values(r.frrClients)), vip.Name)
+	// Create BGPAdvertisement corresponding to the VIP
+	r.createBGPAdvertisement(ctx, vip.Name)
 }
 
 func (r *lbTestScenario) createLBBackendPool(ctx context.Context, bp *isovalentv1alpha1.LBBackendPool) {
@@ -375,52 +537,5 @@ func (r *lbTestScenario) createBackendServerCertificate(_ context.Context, hostN
 		key:        keyBytes,
 		certBase64: base64.StdEncoding.EncodeToString(certBytes),
 		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
-	}
-}
-
-func (r *lbTestScenario) doBGPPeering(ctx context.Context, name string, clients []*frrContainer, vips ...string) {
-	bfd := bfdProfile(name)
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, bfd, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create BFD profile (%s): %s", bfd.Name, err)
-		}
-	}
-
-	maybeCleanupT(func() error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, bfd.Name, metav1.DeleteOptions{})
-	}, r.t)
-
-	pc := bgpPeerConfig(name)
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(ctx, pc, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create BGP peer config (%s): %s", pc.Name, err)
-		}
-	}
-
-	maybeCleanupT(func() error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, pc.Name, metav1.DeleteOptions{})
-	}, r.t)
-
-	advert := bgpAdvertisement(name, vips)
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, advert, metav1.CreateOptions{}); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create BGP advertisement (%s): %s", advert.Name, err)
-		}
-	}
-
-	maybeCleanupT(func() error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, advert.Name, metav1.DeleteOptions{})
-	}, r.t)
-
-	clientIPs := []string{}
-	for _, fc := range clients {
-		clientIPs = append(clientIPs, fc.ip)
-	}
-
-	for _, clientIP := range clientIPs {
-		if err := r.ciliumCli.doBGPPeeringForClient(ctx, name, clientIP); err != nil {
-			r.t.Fatalf("failed to BGP peer (%s): %s", clientIP, err)
-		}
-		maybeCleanupT(func() error { return r.ciliumCli.undoBGPPeeringForClient(context.Background(), clientIP) }, r.t)
 	}
 }
