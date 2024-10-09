@@ -735,6 +735,7 @@ Makefile* @cilium/build
 /.github/enterprise/.grype.yaml @isovalent/security
 /.github/enterprise/.openvex.json @isovalent/security
 /.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
+/.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
 /.github/workflows/enterprise-container-scan.yaml @isovalent/security
 /.github/workflows/enterprise-*fqdn-ha*.yaml @isovalent/dns-proxy
