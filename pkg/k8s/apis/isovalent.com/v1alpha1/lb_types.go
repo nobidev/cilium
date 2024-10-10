@@ -951,6 +951,7 @@ func (r *LBService) AllReferencedSecretNames() []string {
 
 	secretNames = append(secretNames, r.AllReferencedTLSCertificateSecretNames()...)
 	secretNames = append(secretNames, r.AllReferencedTLSCACertValidationSecretNames()...)
+	secretNames = append(secretNames, r.AllReferencedBasicAuthSecretNames()...)
 
 	slices.Sort(secretNames)
 	return slices.Compact(secretNames)
@@ -988,6 +989,19 @@ func (r *LBService) AllReferencedTLSCACertValidationSecretNames() []string {
 		if r.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
 			secretNames = append(secretNames, r.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
 		}
+	}
+
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
+}
+
+func (r *LBService) AllReferencedBasicAuthSecretNames() []string {
+	secretNames := []string{}
+
+	if r.Spec.Applications.HTTPProxy != nil &&
+		r.Spec.Applications.HTTPProxy.Auth != nil &&
+		r.Spec.Applications.HTTPProxy.Auth.Basic != nil {
+		secretNames = append(secretNames, r.Spec.Applications.HTTPProxy.Auth.Basic.Users.SecretRef.Name)
 	}
 
 	slices.Sort(secretNames)

@@ -76,15 +76,22 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		require.NoError(t, err)
 
 		inputLBBackends := []*isovalentv1alpha1.LBBackendPool{}
+		inputSecrets := map[string]*corev1.Secret{}
 
 		for _, d := range entries {
-			if d.IsDir() || !strings.HasPrefix(d.Name(), "input-lbbackend-") {
+			if d.IsDir() {
 				continue
 			}
-
-			inputLBBackend := &isovalentv1alpha1.LBBackendPool{}
-			readInput(t, fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name()), inputLBBackend)
-			inputLBBackends = append(inputLBBackends, inputLBBackend)
+			fname := fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name())
+			if strings.HasPrefix(d.Name(), "input-lbbackend-") {
+				inputLBBackend := &isovalentv1alpha1.LBBackendPool{}
+				readInput(t, fname, inputLBBackend)
+				inputLBBackends = append(inputLBBackends, inputLBBackend)
+			} else if strings.HasPrefix(d.Name(), "input-secret-") {
+				inputSecret := &corev1.Secret{}
+				readInput(t, fname, inputSecret)
+				inputSecrets[inputSecret.Name] = inputSecret
+			}
 		}
 
 		var inputService *corev1.Service
@@ -101,7 +108,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs)
+		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs, inputSecrets)
 
 		// Input Config
 		config := reconcilerConfig{}

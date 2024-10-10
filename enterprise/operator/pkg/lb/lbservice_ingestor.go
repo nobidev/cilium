@@ -13,6 +13,7 @@ package lb
 import (
 	"math/big"
 	"net"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +24,7 @@ import (
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string) *lbService {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string, referencedSecrets map[string]*corev1.Secret) *lbService {
 	referencedBackends := r.toReferencedBackends(backends)
 
 	return &lbService{
@@ -35,7 +36,7 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
 		port:               lbsvc.Spec.Port,
-		applications:       r.toApplications(lbsvc, referencedBackends),
+		applications:       r.toApplications(lbsvc, referencedBackends, referencedSecrets),
 		referencedBackends: referencedBackends,
 		t1NodeIPs:          t1NodeIPs,
 		t2NodeIPs:          t2NodeIPs,
@@ -146,9 +147,9 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 	return referencedBackends
 }
 
-func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) lbApplications {
+func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend, referencedSecrets map[string]*corev1.Secret) lbApplications {
 	return lbApplications{
-		httpProxy:      r.toApplicationHTTP(lbsvc, referencedBackends),
+		httpProxy:      r.toApplicationHTTP(lbsvc, referencedBackends, referencedSecrets),
 		httpsProxy:     r.toApplicationHTTPS(lbsvc, referencedBackends),
 		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, referencedBackends),
 		tlsProxy:       r.toApplicationTLSProxy(lbsvc, referencedBackends),
@@ -156,7 +157,7 @@ func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referenced
 	}
 }
 
-func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationHTTPProxy {
+func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend, referencedSecrets map[string]*corev1.Secret) *lbApplicationHTTPProxy {
 	if lbsvc.Spec.Applications.HTTPProxy == nil {
 		return nil
 	}
@@ -197,6 +198,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referen
 		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPProxy.HTTPConfig),
 		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPProxy.ConnectionFiltering),
 		rateLimits:          r.toHTTPRateLimits(lbsvc.Spec.Applications.HTTPProxy.RateLimits),
+		auth:                r.toHTTPAuth(lbsvc.Spec.Applications.HTTPProxy.Auth, referencedSecrets),
 		routes:              routes,
 	}
 }
@@ -945,4 +947,43 @@ func (r *ingestor) toDNSResolverConfig(config *isovalentv1alpha1.DNSResolverConf
 	}
 
 	return ret
+}
+
+func (r *ingestor) toHTTPAuth(auth *isovalentv1alpha1.LBServiceHTTPAuth, referencedSecrets map[string]*corev1.Secret) *lbServiceHTTPAuth {
+	if auth == nil {
+		return nil
+	}
+	return &lbServiceHTTPAuth{
+		basicAuth: r.toHTTPBasicAuth(auth.Basic, referencedSecrets),
+	}
+}
+
+func (r *ingestor) toHTTPBasicAuth(basicAuth *isovalentv1alpha1.LBServiceHTTPBasicAuth, referencedSecrets map[string]*corev1.Secret) *lbServiceHTTPBasicAuth {
+	if basicAuth == nil {
+		return nil
+	}
+
+	ba := &lbServiceHTTPBasicAuth{
+		users: []lbServiceUserPassword{},
+	}
+
+	secret, ok := referencedSecrets[basicAuth.Users.SecretRef.Name]
+	if !ok {
+		return nil
+	}
+
+	// Extract clear text credentials from secret
+	for username, password := range secret.Data {
+		ba.users = append(ba.users, lbServiceUserPassword{
+			username: username,
+			password: password,
+		})
+	}
+
+	// Sort by username for deterministic output
+	slices.SortStableFunc(ba.users, func(a, b lbServiceUserPassword) int {
+		return strings.Compare(a.username, b.username)
+	})
+
+	return ba
 }

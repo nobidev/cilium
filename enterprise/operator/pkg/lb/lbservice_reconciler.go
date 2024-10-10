@@ -237,7 +237,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs)
+	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs, referencedSecrets)
 
 	r.updateAssignedIpInStatus(model, lbsvc)
 	// Stop reconciliation if assigned IP is not available yet. Also, we
@@ -363,9 +363,9 @@ func (r *lbServiceReconciler) loadBackends(ctx context.Context, lbsvc *isovalent
 	return backends, missingBackends, nil
 }
 
-func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]*corev1.Secret, []string, error) {
-	secrets := []*corev1.Secret{}
+func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (map[string]*corev1.Secret, []string, error) {
 	missingSecrets := []string{}
+	secretMap := map[string]*corev1.Secret{}
 
 	// TLS Certs
 	allReferencedSecretNames := lbsvc.AllReferencedSecretNames()
@@ -384,10 +384,10 @@ func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovale
 			continue
 		}
 
-		secrets = append(secrets, s)
+		secretMap[secretName] = s
 	}
 
-	return secrets, missingSecrets, nil
+	return secretMap, missingSecrets, nil
 }
 
 func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*corev1.Service, error) {
@@ -794,7 +794,7 @@ func (*lbServiceReconciler) updateSecretExistenceInStatus(lbsvc *isovalentv1alph
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeSecretsExist, secretsExistCondition)
 }
 
-func (r *lbServiceReconciler) updateSecretCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, secrets []*corev1.Secret) {
+func (r *lbServiceReconciler) updateSecretCompatibilityInStatus(lbsvc *isovalentv1alpha1.LBService, referencedSecrets map[string]*corev1.Secret) {
 	secretsCompatibleCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeSecretsCompatible,
 		Status:             metav1.ConditionTrue,
@@ -806,7 +806,7 @@ func (r *lbServiceReconciler) updateSecretCompatibilityInStatus(lbsvc *isovalent
 
 	incompatibleSecretMessages := []string{}
 
-	incompatibleSecretMessages = append(incompatibleSecretMessages, r.getIncompatibleSecretTypes(lbsvc, secrets)...)
+	incompatibleSecretMessages = append(incompatibleSecretMessages, r.getIncompatibleSecretTypes(lbsvc, referencedSecrets)...)
 
 	if len(incompatibleSecretMessages) > 0 {
 		secretsCompatibleCondition.Status = metav1.ConditionFalse
@@ -817,14 +817,8 @@ func (r *lbServiceReconciler) updateSecretCompatibilityInStatus(lbsvc *isovalent
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeSecretsCompatible, secretsCompatibleCondition)
 }
 
-func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha1.LBService, secrets []*corev1.Secret) []string {
+func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha1.LBService, secretMap map[string]*corev1.Secret) []string {
 	messages := []string{}
-
-	secretMap := map[string]*corev1.Secret{}
-
-	for _, s := range secrets {
-		secretMap[s.Name] = s
-	}
 
 	for _, s := range lbsvc.AllReferencedTLSCertificateSecretNames() {
 		secret, ok := secretMap[s]
@@ -850,6 +844,16 @@ func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha
 			secret.Data["ca.crt"] == nil || string(secret.Data["ca.crt"]) == "" {
 
 			messages = append(messages, fmt.Sprintf("Secret %q is incompatible: Referenced as CA Certificate but not of type Opaque and/or relevant data fields (%q) missing", s, "ca.crt"))
+		}
+	}
+
+	for _, s := range lbsvc.AllReferencedBasicAuthSecretNames() {
+		secret, ok := secretMap[s]
+		if !ok {
+			continue
+		}
+		if secret.Type != corev1.SecretTypeOpaque {
+			messages = append(messages, fmt.Sprintf("Secret %q is incompatible: Referenced as BasicAuth but not of type Opaque", s))
 		}
 	}
 

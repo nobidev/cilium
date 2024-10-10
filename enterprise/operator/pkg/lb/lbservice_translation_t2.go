@@ -11,6 +11,8 @@
 package lb
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"maps"
 	"slices"
@@ -26,6 +28,7 @@ import (
 	envoy_config_rbac_v3 "github.com/cilium/proxy/go/envoy/config/rbac/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
+	envoy_extensions_filters_http_basic_auth_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/basic_auth/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
 	envoy_extensions_filters_http_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
 	envoy_extensions_filters_http_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"
@@ -412,6 +415,21 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 		})
 	}
 
+	if model.usesHTTPBasicAuth() {
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.basic_auth",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_basic_auth_v3.BasicAuth{
+					Users: &envoy_config_core_v3.DataSource{
+						Specifier: &envoy_config_core_v3.DataSource_InlineString{
+							InlineString: r.toHTPasswdString(model.applications.httpProxy.auth.basicAuth),
+						},
+					},
+				}),
+			},
+		})
+	}
+
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
@@ -420,6 +438,17 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 	})
 
 	return httpFilters
+}
+
+func (r *lbServiceT2Translator) toHTPasswdString(auth *lbServiceHTTPBasicAuth) string {
+	htpasswd := ""
+	for _, up := range auth.users {
+		// Envoy only supports SHA1 hashed passwords as of today.
+		hashed := sha1.Sum([]byte(up.password))
+		b64Encoded := base64.StdEncoding.EncodeToString(hashed[:])
+		htpasswd += fmt.Sprintf("%s:{SHA}%s\n", up.username, b64Encoded)
+	}
+	return htpasswd
 }
 
 func (r *lbServiceT2Translator) toHTTPSServerNames(model *lbService) []string {

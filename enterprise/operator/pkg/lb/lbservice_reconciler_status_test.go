@@ -491,7 +491,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 	testCases := []struct {
 		desc             string
 		svc              *isovalentv1alpha1.LBService
-		secrets          []*corev1.Secret
+		secrets          map[string]*corev1.Secret
 		expectedMessages []string
 	}{
 		{
@@ -520,7 +520,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 			}}},
-			secrets:          []*corev1.Secret{},
+			secrets:          map[string]*corev1.Secret{},
 			expectedMessages: []string{},
 		},
 		{
@@ -549,12 +549,12 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 			}}},
-			secrets: []*corev1.Secret{
-				{
+			secrets: map[string]*corev1.Secret{
+				"tls-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
 					Type:       corev1.SecretTypeTLS,
 				},
-				{
+				"tls-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
@@ -562,11 +562,11 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
 					Type:       corev1.SecretTypeOpaque,
 				},
-				{
+				"ca-cert-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -607,8 +607,8 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 			}}},
-			secrets: []*corev1.Secret{
-				{
+			secrets: map[string]*corev1.Secret{
+				"tls-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -616,7 +616,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"tls-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -624,14 +624,14 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
 						"ca.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
@@ -656,7 +656,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 	testCases := []struct {
 		desc                    string
 		svc                     *isovalentv1alpha1.LBService
-		secrets                 []*corev1.Secret
+		secrets                 map[string]*corev1.Secret
 		expectedConditionStatus metav1.ConditionStatus
 	}{
 		{
@@ -685,7 +685,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 			}}},
-			secrets:                 []*corev1.Secret{},
+			secrets:                 map[string]*corev1.Secret{},
 			expectedConditionStatus: metav1.ConditionTrue,
 		},
 		{
@@ -714,12 +714,12 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 			}}},
-			secrets: []*corev1.Secret{
-				{
+			secrets: map[string]*corev1.Secret{
+				"tls-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
 					Type:       corev1.SecretTypeTLS,
 				},
-				{
+				"tls-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
@@ -727,11 +727,11 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
 					Type:       corev1.SecretTypeOpaque,
 				},
-				{
+				"ca-cert-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -767,8 +767,8 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 			}}},
-			secrets: []*corev1.Secret{
-				{
+			secrets: map[string]*corev1.Secret{
+				"tls-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-1"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -776,7 +776,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"tls-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-2"},
 					Type:       corev1.SecretTypeTLS,
 					Data: map[string][]byte{
@@ -784,14 +784,14 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 						"tls.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert=-1": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-1"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
 						"ca.crt": []byte("bla"),
 					},
 				},
-				{
+				"ca-cert-2": {
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cert-2"},
 					Type:       corev1.SecretTypeOpaque,
 					Data: map[string][]byte{

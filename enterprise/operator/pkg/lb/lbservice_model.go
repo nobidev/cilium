@@ -160,6 +160,12 @@ func (r lbService) usesHTTPSRequestRateLimiting() bool {
 	return false
 }
 
+func (r lbService) usesHTTPBasicAuth() bool {
+	return r.applications.httpProxy != nil &&
+		r.applications.httpProxy.auth != nil &&
+		r.applications.httpProxy.auth.basicAuth != nil
+}
+
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
@@ -212,6 +218,7 @@ type lbApplicationHTTPProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
 	rateLimits          *lbServiceConnectionRateLimit
+	auth                *lbServiceHTTPAuth
 	routes              map[string][]lbRouteHTTP
 }
 
@@ -402,6 +409,19 @@ type lbRouteTCPConnectionFiltering struct {
 
 type lbRouteTCPConnectionFilteringRule struct {
 	sourceCIDR *lbRouteRequestFilteringSourceCIDR
+}
+
+type lbServiceHTTPAuth struct {
+	basicAuth *lbServiceHTTPBasicAuth
+}
+
+type lbServiceHTTPBasicAuth struct {
+	users []lbServiceUserPassword
+}
+
+type lbServiceUserPassword struct {
+	username string
+	password []byte
 }
 
 type backend struct {
