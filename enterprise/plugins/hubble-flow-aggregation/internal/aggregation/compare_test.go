@@ -54,12 +54,12 @@ func TestAggregatorCache(t *testing.T) {
 	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(a).StateChange)
 	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
 	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
-	assert.NotEqual(t, nil, ca.Cache().Lookup(a))
-	assert.Equal(t, nil, ca.Cache().Lookup(b))
+	assert.NotNil(t, ca.Cache().Lookup(a))
+	assert.Nil(t, ca.Cache().Lookup(b))
 
 	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(b).StateChange)
 	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
 	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
-	assert.NotEqual(t, nil, ca.Cache().Lookup(b))
-	assert.NotEqual(t, nil, ca.Cache().Lookup(a))
+	assert.NotNil(t, ca.Cache().Lookup(b))
+	assert.NotNil(t, ca.Cache().Lookup(a))
 }

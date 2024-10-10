@@ -48,7 +48,7 @@ func TestAggregationChain(t *testing.T) {
 	}
 
 	assert.Equal(t, "[]", af.String())
-	assert.Equal(t, nil, af.Aggregate(&testflow.Flow{}))
+	assert.Nil(t, af.Aggregate(&testflow.Flow{}))
 
 	af.Add(&trueAggregator{})
 	assert.NotEqual(t, "[]", af.String())
