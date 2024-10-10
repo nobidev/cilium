@@ -233,7 +233,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RuleListFiltered")
-	require.Equalf(t, 0, len(rules), "rule found for egress IP %s after deletion", egressIP)
+	require.Emptyf(t, rules, "rule found for egress IP %s after deletion", egressIP)
 
 	// Routes should have been removed for Egress IP
 	routes, err = nlh.RouteListFiltered(
@@ -248,7 +248,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 0, len(routes), "route found for egress IP %s and dest %s after deletion", egressIP, updDests[0])
+	require.Emptyf(t, routes, "route found for egress IP %s and dest %s after deletion", egressIP, updDests[0])
 
 	routes, err = nlh.RouteListFiltered(
 		netlink.FAMILY_V4,
@@ -262,7 +262,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 0, len(routes), "route found for egress IP %s and dest %s after deletion", egressIP, updDests[1])
+	require.Emptyf(t, routes, "route found for egress IP %s and dest %s after deletion", egressIP, updDests[1])
 
 	// Further Delete() should not do anything
 	err = ns.Do(func() error {

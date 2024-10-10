@@ -1366,7 +1366,7 @@ func TestSIDManagerSIDRestoration(t *testing.T) {
 						return
 					}
 				} else {
-					assert.Len(t, vrfs, 0)
+					assert.Empty(t, vrfs)
 					return
 				}
 
