@@ -163,10 +163,6 @@ func (d DummyOwner) GetRealizedRedirects() map[string]uint16 {
 	}
 }
 
-func (d DummyOwner) HasBPFPolicyMap() bool {
-	return true
-}
-
 func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	return 80
 }
@@ -354,7 +350,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
@@ -464,7 +460,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
@@ -556,7 +552,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
-	require.Equal(t, 0, len(policy.policyMapChanges.synced)) // XXX why 0?
+	require.Empty(t, policy.policyMapChanges.synced) // XXX why 0?
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
@@ -571,7 +567,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngress(t *testing.T) {

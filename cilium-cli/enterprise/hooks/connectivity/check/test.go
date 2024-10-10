@@ -104,7 +104,7 @@ type IsovalentEgressGatewayPolicyParams struct {
 // note that the egress gateway enabled feature requirement is applied directly
 // here.
 func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgressGatewayPolicyParams) *EnterpriseTest {
-	pl, err := check.ParsePolicyYAML[*isovalentv1.IsovalentEgressGatewayPolicy](egressGatewayPolicyYAML, scheme.Scheme)
+	pl, err := ParsePolicyYAML[*isovalentv1.IsovalentEgressGatewayPolicy](egressGatewayPolicyYAML, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}
@@ -223,7 +223,7 @@ type IsovalentMulticastGroupParams struct {
 // note that the multicast enabled feature requirement is applied directly
 // here.
 func (t *EnterpriseTest) WithIsovalentMulticastGroup(params IsovalentMulticastGroupParams) *EnterpriseTest {
-	pl, err := check.ParsePolicyYAML[*isovalentv1alpha1.IsovalentMulticastGroup](multicastGroupYAML, scheme.Scheme)
+	pl, err := ParsePolicyYAML[*isovalentv1alpha1.IsovalentMulticastGroup](multicastGroupYAML, scheme.Scheme)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}

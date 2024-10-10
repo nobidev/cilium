@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -32,127 +33,10 @@ func egressL3OnlyKey(identity identity.NumericIdentity) Key {
 	return EgressKey().WithIdentity(identity)
 }
 
-func Test_IsSuperSetOf(t *testing.T) {
-	tests := []struct {
-		superSet Key
-		subSet   Key
-		res      int
-	}{
-		{ingressKey(0, 0, 0, 0), ingressKey(0, 0, 0, 0), 0},
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 0, 0), 1},
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 80, 0), 1},
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 0, 0, 0), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 3}, // port is the same
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 2}, // port range 64-127,80
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 3},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3},  // port ranges are the same
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 17, 80, 0), 0},   // proto is different
-		{ingressKey(2, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},    // id is different
-		{ingressKey(0, 6, 8080, 0), ingressKey(42, 6, 80, 0), 0},  // port is different
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 8080, 0), 0}, // port range is different from port
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 0, 0, 0), 0},     // same key
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 4},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 4}, // port range 64-127,80
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 0, 0), 4},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 17, 80, 0), 4},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 0, 0), 0}, // same key
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 8080, 0), 5},
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},    // same key
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0},  // same key
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 8080, 0), 0},  // different port
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 128, 10), 0}, // different port ranges
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 17, 80, 0), 0},   // different proto
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 17, 8080, 0), 0}, // different port and proto
-
-		// increasing specificity for a L3/L4 key
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 80, 0), 1},
-		{ingressKey(0, 0, 64, 10), ingressKey(42, 6, 80, 0), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 3},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},   // same key
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0}, // same key
-
-		// increasing specificity for a L3-only key
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 0, 0, 0), 1},
-		{ingressKey(0, 0, 64, 10), ingressKey(42, 0, 0, 0), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 0, 0, 0), 0},      // not a superset
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 0, 0, 0), 0},     // not a superset
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 0, 0, 0), 0},    // not a superset
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 0, 0, 0), 0},     // same key
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 0, 0, 0), 0},     // not a superset
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 0, 64, 10), 0}, // not a superset
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 0, 0, 0), 0},    // not a superset
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 0, 0, 0), 0},   // not a superset
-
-		// increasing specificity for a L3/proto key
-		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 0, 0), 1}, // wildcard
-		{ingressKey(0, 0, 64, 10), ingressKey(42, 6, 64, 10), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 3},     // ports are the same
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3}, // port ranges are the same
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 0, 0), 0},    // not a superset
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 64, 10), 0},  // not a superset
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 64, 10), 4},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 0, 0), 0},     // same key
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0}, // same key
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 0, 0), 0},    // not a superset
-		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 64, 10), 0},  // not a superset
-
-		// increasing specificity for a proto-only key
-		{ingressKey(0, 0, 0, 0), ingressKey(0, 6, 0, 0), 1},
-		{ingressKey(0, 0, 64, 10), ingressKey(0, 6, 64, 10), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(0, 6, 0, 0), 0},      // same key
-		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 64, 10), 0},  // same key
-		{ingressKey(0, 6, 80, 0), ingressKey(0, 6, 0, 0), 0},     // not a superset
-		{ingressKey(0, 6, 80, 0), ingressKey(0, 6, 64, 10), 0},   // not a superset
-		{ingressKey(42, 0, 0, 0), ingressKey(0, 6, 0, 0), 0},     // not a superset
-		{ingressKey(42, 0, 64, 10), ingressKey(0, 6, 64, 10), 0}, // not a superset
-		{ingressKey(42, 6, 0, 0), ingressKey(0, 6, 0, 0), 0},     // not a superset
-		{ingressKey(42, 6, 64, 10), ingressKey(0, 6, 64, 10), 0}, // not a superset
-		{ingressKey(42, 6, 80, 0), ingressKey(0, 6, 0, 0), 0},    // not a superset
-		{ingressKey(42, 6, 80, 0), ingressKey(0, 6, 64, 10), 0},  // not a superset
-
-		// increasing specificity for a L4-only key
-		{ingressKey(0, 0, 0, 0), ingressKey(0, 6, 80, 0), 1},
-		{ingressKey(0, 0, 64, 10), ingressKey(0, 6, 64, 10), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(0, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 80, 0), 2},
-		{ingressKey(0, 6, 80, 0), ingressKey(0, 6, 80, 0), 0},    // same key
-		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 64, 10), 0},  // same key
-		{ingressKey(42, 0, 0, 0), ingressKey(0, 6, 80, 0), 0},    // not a superset
-		{ingressKey(42, 0, 64, 10), ingressKey(0, 6, 80, 0), 0},  // not a superset
-		{ingressKey(42, 6, 0, 0), ingressKey(0, 6, 80, 0), 0},    // not a superset
-		{ingressKey(42, 6, 64, 10), ingressKey(0, 6, 80, 0), 0},  // not a superset
-		{ingressKey(42, 6, 80, 0), ingressKey(0, 6, 80, 0), 0},   // not a superset
-		{ingressKey(42, 6, 64, 10), ingressKey(0, 6, 64, 10), 0}, // not a superset
-
-	}
-	for i, tt := range tests {
-		assert.Equal(t, tt.res, IsSuperSetOf(tt.superSet, tt.subSet), fmt.Sprintf("IsSuperSetOf failed on round %d", i+1))
-		if tt.res != 0 {
-			assert.Equal(t, 0, IsSuperSetOf(tt.subSet, tt.superSet), fmt.Sprintf("Reverse IsSuperSetOf succeeded on round %d", i+1))
-		}
-	}
-}
-
 // WithOwners replaces owners of 'e' with 'owners'.
 // No owners is represented with a 'nil' map.
 func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
-	e.owners = make(map[MapStateOwner]struct{}, len(owners))
-	for _, cs := range owners {
-		e.owners[cs] = struct{}{}
-	}
+	e.owners = set.NewSet[MapStateOwner](owners...)
 	return e
 }
 
@@ -173,7 +57,7 @@ func (e MapStateEntry) WithDefaultAuthType(authType AuthType) MapStateEntry {
 // WithoutOwners empties the 'owners' of 'e'.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
-	e.owners = make(map[MapStateOwner]struct{})
+	e.owners.Clear()
 	return e
 }
 
@@ -191,10 +75,10 @@ func (e MapStateEntry) WithDependents(keys ...Key) MapStateEntry {
 func TestPolicyKeyTrafficDirection(t *testing.T) {
 	k := IngressKey()
 	require.True(t, k.IsIngress())
-	require.Equal(t, false, k.IsEgress())
+	require.False(t, k.IsEgress())
 
 	k = EgressKey()
-	require.Equal(t, false, k.IsIngress())
+	require.False(t, k.IsIngress())
 	require.True(t, k.IsEgress())
 }
 
@@ -1361,6 +1245,113 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "test-15a - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			args: args{
+				key: ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 3, 64, 10): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     MapStateMap{},
+		},
+		{
+			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: ingressKey(0, 3, 80, 0),
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(0, 3, 80, 16): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     MapStateMap{},
+		},
+		{
+			name: "test-16a - No added entry for L3 port-range allow + wildcard allow entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 3, 64, 10): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     MapStateMap{},
+		},
 	}
 	for _, tt := range tests {
 		changes := ChangeState{
@@ -1425,19 +1416,14 @@ func denyEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
 }
 
 func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStateOwner) MapStateEntry {
-	listener := ""
-	entry := MapStateEntry{
+	return MapStateEntry{
 		ProxyPort: proxyPort,
 		priority:  proxyPort,
-		Listener:  listener,
+		Listener:  "",
 		AuthType:  authType,
 		IsDeny:    deny,
+		owners:    set.NewSet(owners...),
 	}
-	entry.owners = make(map[MapStateOwner]struct{}, len(owners))
-	for _, owner := range owners {
-		entry.owners[owner] = struct{}{}
-	}
-	return entry
 }
 
 func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
@@ -1562,7 +1548,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: true,
-		name:      "test-2b - Adding Bar also selecting 42",
+		name:      "test-2b - Adding Bar also selecting 42 (and 44)",
 		args: []args{
 			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
@@ -1821,6 +1807,92 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}
 }
 
+func TestMapStateEntry(t *testing.T) {
+	csFoo := newTestCachedSelector("Foo", false)
+	csBar := newTestCachedSelector("Bar", false)
+	csWildcard := newTestCachedSelector("wildcard", true)
+
+	entry := allowEntry(0, csFoo, csBar)
+	require.True(t, entry.owners.Has(csFoo))
+	require.True(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+
+	entry.owners.Insert(csWildcard)
+	require.True(t, entry.owners.Has(csFoo))
+	require.True(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+
+	entry.owners.Remove(csBar)
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Remove(csFoo)
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Remove(csWildcard)
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 0, entry.owners.Len())
+
+	require.Equal(t, set.NewSet[MapStateOwner](), entry.owners)
+
+	entry = allowEntry(0, csFoo)
+	require.False(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Insert(nil)
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Insert(csWildcard)
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 3, entry.owners.Len())
+
+	entry.owners.Remove(csBar) // does not exist
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 3, entry.owners.Len())
+
+	entry.owners.Remove(csFoo)
+	require.True(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Remove(csWildcard)
+	require.True(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Remove(nil)
+	require.False(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 0, entry.owners.Len())
+	require.Equal(t, set.NewSet[MapStateOwner](), entry.owners)
+}
+
 func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
@@ -1871,7 +1943,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 42",
 		args: []args{
-			{cs: csBar, adds: []int{42, 44}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
 		state: testMapState(MapStateMap{
 			HttpIngressKey(42): allowEntry(0, csFoo, csBar),
@@ -2006,17 +2078,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		name:      "test-5a - auth type propagation from the most specific superset",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
-			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(MapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
 			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
-			egressKey(43, 6, 0, 0):  {},
+			egressKey(0, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 0): {},
 		},
 		deletes: Keys{},
@@ -2025,17 +2097,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		name:      "test-5b - auth type propagation from the most specific superset - reverse",
 		args: []args{
 			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
-			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
 		},
 		state: testMapState(MapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
 			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
-			egressKey(43, 6, 0, 0):  {},
+			egressKey(0, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 0): {},
 		},
 		deletes: Keys{},
@@ -2207,8 +2279,6 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		insertAasB // Proto and entry from B
 		insertBWithAProto
 		insertBWithAProtoAsDeny
-		insertAasDeny
-		insertBasDeny
 		worldIPl3only        // Do not expect L4 keys for IP covered by a subnet
 		worldIPProtoOnly     // Do not expect port keys for IP covered by a subnet
 		worldSubnetl3only    // Do not expect L4 keys for IP subnet
@@ -2239,8 +2309,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcome          action
 	}{
 		// deny-allow insertions
-		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertA | insertBasDeny},
+		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertA},
+		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertA},
 
 		{"deny-allow: b superset a|b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertBoth},
@@ -2263,8 +2333,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertA},
 
 		{"deny-allow: b superset a L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L4, b L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertBoth},
@@ -2287,8 +2357,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L3L4, b L4 without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L3L4, b L3L4 without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L3L4, b L3L4 without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertA},
 
 		{"deny-allow: b superset a L3L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertBoth},
@@ -2467,16 +2537,6 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		if tt.outcome&insertA > 0 {
 			for _, aKey := range aKeys {
 				expectedKeys.insert(aKey, aEntry)
-			}
-		}
-		if tt.outcome&insertAasDeny > 0 {
-			for _, aKey := range aKeys {
-				expectedKeys.insert(aKey, aEntry.asDeny())
-			}
-		}
-		if tt.outcome&insertBasDeny > 0 {
-			for _, bKey := range bKeys {
-				expectedKeys.insert(bKey, bEntry.asDeny())
 			}
 		}
 		if tt.outcome&insertAWithBProto > 0 {
@@ -2689,5 +2749,5 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 
 	n := epPolicy.policyMapState.Len()
 	p.Detach()
-	assert.True(t, n > 0)
+	assert.Positive(t, n)
 }
