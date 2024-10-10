@@ -427,6 +427,7 @@ func resetClient() error {
 	newConn, err := grpc.Dial("unix:///var/run/cilium/proxy-agent.sock",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
+		grpc.WithIdleTimeout(time.Duration(0)),
 	)
 	if err != nil {
 		log.Errorf("failed to reset grpc client: %v", err)
