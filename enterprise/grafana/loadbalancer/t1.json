@@ -542,14 +542,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    rate(\n        node_ethtool_received_queue_0_xdp_bytes{device=\"eth0\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"$t1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
+          "expr": "sum by (instance) (\n    rate(\n        node_ethtool_received_queue_0_xdp_bytes[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"$t1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "[ethtool] eth0 BPS (xdp)",
+      "title": "[ethtool] BPS (xdp)",
       "type": "timeseries"
     },
     {
@@ -636,14 +636,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    rate(\n        node_ethtool_received_queue_0_xdp_packets{device=\"eth0\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"$t1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
+          "expr": "sum by (instance) (\n    rate(\n        node_ethtool_received_queue_0_xdp_packets[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"$t1\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "[ethtool] eth0 PPS (xdp)",
+      "title": "[ethtool] PPS (xdp)",
       "type": "timeseries"
     },
     {
