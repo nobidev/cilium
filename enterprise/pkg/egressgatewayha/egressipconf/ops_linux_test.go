@@ -61,7 +61,7 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "LinkAdd")
 	link, err := nlh.LinkByName("dummy0")
 	require.NoError(t, err, "LinkByName")
-	require.NoError(t, err, nlh.LinkSetUp(link))
+	require.NoError(t, nlh.LinkSetUp(link))
 	ifIndex := link.Attrs().Index
 	ifName := link.Attrs().Name
 
@@ -312,7 +312,7 @@ func TestPrune(t *testing.T) {
 	require.NoError(t, err, "LinkAdd")
 	link, err := nlh.LinkByName("dummy0")
 	require.NoError(t, err, "LinkByName")
-	require.NoError(t, err, nlh.LinkSetUp(link))
+	require.NoError(t, nlh.LinkSetUp(link))
 	ifName := link.Attrs().Name
 	ifIndex := link.Attrs().Index
 
