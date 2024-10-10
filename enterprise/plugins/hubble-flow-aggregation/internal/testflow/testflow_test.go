@@ -61,10 +61,10 @@ func TestFieldAccess(t *testing.T) {
 	assert.True(t, bytes.Equal(a.L3(types.AddrTypeIdentity).Source(), a.Source.Identity))
 	assert.True(t, bytes.Equal(a.L3(types.AddrTypeIP).Destination(), a.Destination.IP))
 	assert.True(t, bytes.Equal(a.L3(types.AddrTypeIdentity).Destination(), a.Destination.Identity))
-	assert.True(t, a.L4().SourcePort() == a.Source.Port)
-	assert.True(t, a.L4().DestinationPort() == a.Destination.Port)
-	assert.True(t, a.Verdict() == a.VerdictStr)
-	assert.True(t, a.DropReasonInt() == a.DropReason)
+	assert.Equal(t, a.L4().SourcePort(), a.Source.Port)
+	assert.Equal(t, a.L4().DestinationPort(), a.Destination.Port)
+	assert.Equal(t, a.Verdict(), a.VerdictStr)
+	assert.Equal(t, a.DropReasonInt(), a.DropReason)
 	assert.False(t, a.IsReply())
 	assert.True(t, b.IsReply())
 	assert.True(t, a.State().ConnectionRequest)
@@ -87,10 +87,10 @@ func TestCompare(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	//Different flows must result in different hashes
-	assert.False(t, Hash(a) == Hash(b))
+	assert.NotEqual(t, Hash(a), Hash(b))
 
 	//Invalid type returns 0 hash
-	assert.True(t, Hash(&FlowEmbed{Flow: &Flow{}}) == 0)
+	assert.Equal(t, Hash(&FlowEmbed{Flow: &Flow{}}), types.Hash(0))
 }
 
 func TestComparePeer(t *testing.T) {

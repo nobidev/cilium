@@ -64,16 +64,16 @@ func TestPolicyMap(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.EqualValues(t, val.Size, uint32(2))
-	assert.True(t, val.EgressIP.Addr() == egressIP1)
-	assert.True(t, val.GatewayIPs[0].Addr() == gatewayIP1)
-	assert.True(t, val.GatewayIPs[1].Addr() == gatewayIP2)
+	assert.Equal(t, val.EgressIP.Addr(), egressIP1)
+	assert.Equal(t, val.GatewayIPs[0].Addr(), gatewayIP1)
+	assert.Equal(t, val.GatewayIPs[1].Addr(), gatewayIP2)
 
 	val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 	assert.NoError(t, err)
 
 	assert.EqualValues(t, val.Size, uint32(1))
-	assert.True(t, val.EgressIP.Addr() == egressIP2)
-	assert.True(t, val.GatewayIPs[0].Addr() == gatewayIP1)
+	assert.Equal(t, val.EgressIP.Addr(), egressIP2)
+	assert.Equal(t, val.GatewayIPs[0].Addr(), gatewayIP1)
 
 	// Adding a policy with too many gateways should result in an error
 	gatewayIPs := make([]netip.Addr, maxGatewayNodes+1)

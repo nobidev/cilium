@@ -165,9 +165,9 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		}
 	}, time.Second*3, time.Millisecond*100)
 
-	require.True(t,
+	require.Equal(t,
 		// Pointer equality
-		ceeParams.BGPInstance.Router == ossParams.BGPInstance.Router,
+		ceeParams.BGPInstance.Router, ossParams.BGPInstance.Router,
 		"CEE router doesn't point to the same router instance as OSS",
 	)
 
@@ -182,9 +182,9 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		"CEE Metadata must be a shallow copy of OSS Metadata (mismatched value for \"baz\")",
 	)
 
-	require.True(t,
+	require.Same(t,
 		// Pointer equality
-		ceeParams.CiliumNode == ossParams.CiliumNode,
+		ceeParams.CiliumNode, ossParams.CiliumNode,
 		"CEE CiliumNode doesn't point to the same router instance as OSS",
 	)
 }
