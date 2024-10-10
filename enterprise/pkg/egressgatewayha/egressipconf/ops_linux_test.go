@@ -106,7 +106,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RuleListFiltered")
-	require.Equalf(t, 1, len(rules), "no rule found for egress IP %s", egressIP)
+	require.Lenf(t, rules, 1, "no rule found for egress IP %s", egressIP)
 
 	// Routes should have been installed for Egress IP
 	dst_1, dst_2 := prefixToIPNet(destinations[0]), prefixToIPNet(destinations[1])
@@ -123,7 +123,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 1, len(routes), "no route found for egress IP %s and dest %s", egressIP, destinations[0])
+	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, destinations[0])
 
 	routes, err = nlh.RouteListFiltered(
 		netlink.FAMILY_V4,
@@ -137,7 +137,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 1, len(routes), "no route found for egress IP %s and dest %s", egressIP, destinations[1])
+	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, destinations[1])
 
 	// Further Update() with the same entry should not do anything
 	err = ns.Do(func() error {
@@ -175,7 +175,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 1, len(routes), "no route found for egress IP %s and dest %s", egressIP, updDests[0])
+	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, updDests[0])
 
 	routes, err = nlh.RouteListFiltered(
 		netlink.FAMILY_V4,
@@ -189,7 +189,7 @@ func TestOps(t *testing.T) {
 		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	require.NoError(t, err, "RouteListFiltered")
-	require.Equalf(t, 1, len(routes), "no route found for egress IP %s and dest %s", egressIP, updDests[1])
+	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, updDests[1])
 
 	// Non-existing devices return an error
 	err = ns.Do(func() error {
