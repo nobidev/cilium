@@ -312,7 +312,13 @@ func (r *RemoteFQDNProxy) Start(_ cell.HookContext) error {
 			log.Debug("trying to connect to remote proxy...")
 			// create a new connection from the agent to the remote fqdn proxy
 			var err error
-			connection, err := grpc.DialContext(ctx, "unix:///var/run/cilium/proxy.sock", grpc.WithInsecure(), grpc.WithBlock())
+			connection, err := grpc.DialContext(
+				ctx,
+				"unix:///var/run/cilium/proxy.sock",
+				grpc.WithInsecure(),
+				grpc.WithBlock(),
+				grpc.WithIdleTimeout(time.Duration(0)),
+			)
 			if err != nil {
 				log.WithError(err).Error("Failed to dial remote proxy server")
 			} else {
