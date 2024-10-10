@@ -258,6 +258,30 @@ func withHttpRequestRateLimiting(limit uint, timePeriodSeconds uint) httpApplica
 	}
 }
 
+func withHttpBasicAuth(secretRef string) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPAuth{
+			Basic: &isovalentv1alpha1.LBServiceHTTPBasicAuth{
+				Users: isovalentv1alpha1.LBServiceHTTPBasicAuthUser{
+					SecretRef: isovalentv1alpha1.LBServiceSecretRef{
+						Name: secretRef,
+					},
+				},
+			},
+		}
+	}
+}
+
+func withHttpRouteBasicAuth(disabled bool) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPRouteAuth{
+			Basic: &isovalentv1alpha1.LBServiceHTTPRouteBasicAuth{
+				Disabled: disabled,
+			},
+		}
+	}
+}
+
 type serviceOption func(o *isovalentv1alpha1.LBService)
 
 func withVIPRef(vipName string) serviceOption {

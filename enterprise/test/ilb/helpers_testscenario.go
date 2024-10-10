@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -579,4 +580,33 @@ func (r *lbTestScenario) createBackendServerCertificate(_ context.Context, hostN
 		certBase64: base64.StdEncoding.EncodeToString(certBytes),
 		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
 	}
+}
+
+type basicAuthCredential struct {
+	username string
+	password string
+}
+
+func (r *lbTestScenario) createBasicAuthSecret(ctx context.Context, creds []basicAuthCredential) string {
+	sec := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.testName + "-basic-auth",
+		},
+		StringData: map[string]string{},
+	}
+
+	for _, c := range creds {
+		sec.StringData[c.username] = c.password
+	}
+
+	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, &sec, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
+	}, r.t)
+
+	return sec.Name
 }
