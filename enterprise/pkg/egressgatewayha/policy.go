@@ -675,15 +675,6 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPs []netip.Addr, 
 
 	// then, back-fill as needed
 	for _, gatewayIP := range newActiveGatewayIPs {
-		if egressIP, found := prevEgressIPs[gatewayIP]; found {
-			// in case of failure, discard the error from the allocation attempt
-			// and go ahead with a further attempt using a fresh egress IP
-			if err := egressPool.allocate(egressIP); err == nil {
-				egressIPs[gatewayIP] = egressIP
-				continue
-			}
-		}
-
 		egressIP, err := egressPool.allocateNext()
 		if err != nil {
 			return egressIPs, err
