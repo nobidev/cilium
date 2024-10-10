@@ -910,7 +910,13 @@ func (r *lbServiceT2Translator) desiredEnvoyRouteConfigs(model *lbService) []*en
 func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPRequestFiltering(), model.usesHTTPRequestRateLimiting(), model.applications.httpProxy.routes, httpTypeHTTP)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(
+			model.usesHTTPRequestFiltering(),
+			model.usesHTTPRequestRateLimiting(),
+			model.usesHTTPBasicAuth(),
+			model.applications.httpProxy.routes,
+			httpTypeHTTP,
+		)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{
@@ -922,7 +928,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpsProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), model.applications.httpsProxy.routes, httpTypeHTTPS)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), false, model.applications.httpsProxy.routes, httpTypeHTTPS)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{
@@ -931,7 +937,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, usesBasicAuth bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
 	routeHostNamesOrdered := slices.Sorted(maps.Keys(modelRoutes))
@@ -946,6 +952,9 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 			}
 			if usesRateLimiting {
 				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits))
+			}
+			if usesBasicAuth && route.auth != nil && route.auth.basicAuth != nil {
+				tpfc["envoy.filters.http.basic_auth"] = toAny(r.toHTTPRouteBasicAuthFilter(route.auth.basicAuth))
 			}
 
 			envoyRoutes = append(envoyRoutes, &envoy_config_route_v3.Route{
@@ -1756,6 +1765,12 @@ func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRa
 				Denominator: envoy_type_v3.FractionalPercent_HUNDRED,
 			},
 		},
+	}
+}
+
+func (r *lbServiceT2Translator) toHTTPRouteBasicAuthFilter(config *lbRouteHTTPBasicAuth) *envoy_config_route_v3.FilterConfig {
+	return &envoy_config_route_v3.FilterConfig{
+		Disabled: config.disabled,
 	}
 }
 

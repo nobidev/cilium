@@ -261,6 +261,7 @@ type lbRouteHTTP struct {
 	persistentBackend *lbRouteHTTPPersistentBackend
 	requestFiltering  *lbRouteHTTPRequestFiltering
 	rateLimits        *lbServiceRequestRateLimit
+	auth              *lbRouteHTTPAuth
 }
 
 type lbRouteHTTPMatch struct {
@@ -422,6 +423,14 @@ type lbServiceHTTPBasicAuth struct {
 type lbServiceUserPassword struct {
 	username string
 	password []byte
+}
+
+type lbRouteHTTPAuth struct {
+	basicAuth *lbRouteHTTPBasicAuth
+}
+
+type lbRouteHTTPBasicAuth struct {
+	disabled bool
 }
 
 type backend struct {

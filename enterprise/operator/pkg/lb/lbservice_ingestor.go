@@ -181,6 +181,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referen
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 			rateLimits:        r.toHTTPRouteRateLimits(lr.RateLimits),
+			auth:              r.toHTTPRouteAuth(lr.Auth),
 		}
 
 		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
@@ -986,4 +987,23 @@ func (r *ingestor) toHTTPBasicAuth(basicAuth *isovalentv1alpha1.LBServiceHTTPBas
 	})
 
 	return ba
+}
+
+func (r *ingestor) toHTTPRouteAuth(auth *isovalentv1alpha1.LBServiceHTTPRouteAuth) *lbRouteHTTPAuth {
+	if auth == nil {
+		return nil
+	}
+
+	return &lbRouteHTTPAuth{
+		basicAuth: r.toHTTPRouteBasicAuth(auth.Basic),
+	}
+}
+
+func (r *ingestor) toHTTPRouteBasicAuth(basicAuth *isovalentv1alpha1.LBServiceHTTPRouteBasicAuth) *lbRouteHTTPBasicAuth {
+	if basicAuth == nil {
+		return nil
+	}
+	return &lbRouteHTTPBasicAuth{
+		disabled: basicAuth.Disabled,
+	}
 }

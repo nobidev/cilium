@@ -15,5 +15,8 @@ spec:
             secretRef:
               name: lb-1
       routes:
-        - backendRef:
+        - auth:
+            basic:
+              disabled: true
+          backendRef:
             name: lb-1

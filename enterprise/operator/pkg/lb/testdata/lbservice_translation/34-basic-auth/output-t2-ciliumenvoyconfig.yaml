@@ -129,6 +129,10 @@ spec:
                 prefix: /
               route:
                 cluster: backend_cluster_lb-1
+              typedPerFilterConfig:
+                envoy.filters.http.basic_auth:
+                  '@type': type.googleapis.com/envoy.config.route.v3.FilterConfig
+                  disabled: true
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
