@@ -11,6 +11,7 @@
 SUBDIRS_CILIUM_CONTAINER := enterprise/cilium-dbg enterprise/daemon cilium-health bugtool tools/mount tools/sysctlfix enterprise/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := enterprise/operator
 SUBDIR_RELAY_CONTAINER := enterprise/hubble-relay
+SUBDIR_FQDN_PROXY_CONTAINER := enterprise/fqdn-proxy
 
 BPF_SOURCE_NAMES_TO_IDS := "bpf/source_names_to_ids.h bpf/enterprise_source_names_to_ids.h"
 GO_SOURCE_NAMES_TO_IDS := "pkg/monitor/datapath_drop.go pkg/monitor/enterprise_datapath_drop.go"
@@ -114,3 +115,5 @@ kind-egressgwha-install-cilium-fast: kind-ready ## Install a local Cilium versio
 
 # Cilium Mesh specific targets
 -include Makefile.ciliummesh
+# Cilium FQDN HA proxy specific targets
+-include Makefile.fqdn-proxy

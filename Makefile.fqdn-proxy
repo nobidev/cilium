@@ -1,0 +1,77 @@
+# Copyright (C) Isovalent, Inc. - All Rights Reserved.
+#
+# NOTICE: All information contained herein is, and remains the property of
+# Isovalent Inc and its suppliers, if any. The intellectual and technical
+# concepts contained herein are proprietary to Isovalent Inc and its suppliers
+# and may be covered by U.S. and Foreign Patents, patents in process, and are
+# protected by trade secret or copyright law.  Dissemination of this information
+# or reproduction of this material is strictly forbidden unless prior written
+# permission is obtained from Isovalent Inc.
+
+.PHONY: build-enterprise-fqdn-proxy
+build-enterprise-fqdn-proxy: ## Build cilium-dnsproxy binary
+	$(QUIET)$(MAKE) -C enterprise/fqdn-proxy
+
+ENTERPRISE_FQDN_PROXY_DOCKERFILE=enterprise/fqdn-proxy/images/cilium-dnsproxy/Dockerfile
+LOCAL_IMAGE_TAG=local
+
+# We cannot use DOCKER_IMAGE_TEMPLATE here because Makefile.override and trasitively this file are
+# included before Makefile.docker where DOCKER_IMAGE_TEMPLATE is defined.
+.PHONY: docker-enterprise-fqdn-proxy-image
+docker-enterprise-fqdn-proxy-image: GIT_VERSION $(ENTERPRISE_FQDN_PROXY_DOCKERFILE) builder-info
+	$(eval IMAGE_NAME := cilium-dnsproxy)
+	$(ECHO_DOCKER)$(ENTERPRISE_FQDN_PROXY_DOCKERFILE) $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(ENTERPRISE_FQDN_PROXY_DOCKERFILE)) \
+		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
+		$(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE),) \
+		--build-arg MODIFIERS="NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} RACE=${RACE} V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} ${ADDITIONAL_MODIFIERS}" \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		--build-arg DEBUG_HOLD=$(DEBUG_HOLD) \
+		--target release \
+		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$(DOCKER_IMAGE_SUFFIX):$(DOCKER_IMAGE_TAG) .
+ifneq ($(KIND_LOAD),)
+	sleep 1
+	kind load docker-image $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$(DOCKER_IMAGE_SUFFIX):$(4)
+endif
+#
+# Template for kind environment for a target. Parameters are:
+# $(1) Makefile target name
+define KIND_FQDN_PROXY_ENV
+.PHONY: $(1)
+$(1): export DOCKER_REGISTRY=localhost:5000
+$(1): export LOCAL_FQDN_PROXY_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dnsproxy:$$(LOCAL_IMAGE_TAG)
+endef
+
+$(eval $(call KIND_FQDN_PROXY_ENV,kind-build-image-enterprise-fqdn-proxy))
+kind-build-image-enterprise-fqdn-proxy: ## Build cilium-dnsproxy docker image
+	$(QUIET)$(MAKE) docker-enterprise-fqdn-proxy-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
+$(eval $(call KIND_FQDN_PROXY_ENV,kind-image-enterprise-fqdn-proxy))
+kind-image-enterprise-fqdn-proxy: .SHELLFLAGS=-c
+kind-image-enterprise-fqdn-proxy: kind-ready kind-build-image-enterprise-fqdn-proxy ## Build cilium-dnsproxy docker image and import it into kind.
+	$(QUIET)kind load docker-image $(LOCAL_FQDN_PROXY_IMAGE) -n $(KIND_CLUSTER_NAME); \
+	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_FQDN_PROXY_IMAGE) -n $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-fqdnha-install-cilium
+kind-fqdnha-install-cilium: kind-ready ## Install a local Cilium and DNS proxy version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-set='enterprise.featureGates={AllAlphaFeatures,AllBetaFeatures,AllLimitedFeatures}' \
+                --helm-set-string=extraConfig.external-dns-proxy=true \
+		>/dev/null 2>&1 &
+	$(CILIUM_CLI) status --wait
+
+	helm upgrade --install -n kube-system cilium-dnsproxy ./enterprise/fqdn-proxy/installation \
+		--set image.override=$(LOCAL_FQDN_PROXY_IMAGE) \
+		--set metrics.enabled=true \
+		--set debug=true
+	kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch

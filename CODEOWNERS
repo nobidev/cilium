@@ -770,6 +770,7 @@ Makefile* @cilium/build
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
 /daemon/cmd/enterprise_fqdn_relay.go @isovalent/dns-proxy
 /Documentation/cmdref/
+/Makefile.fqdn-proxy @isovalent/dns-proxy
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
 /enterprise/api/extensions @isovalent/hubble-api
