@@ -14,13 +14,12 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"time"
 )
 
-func TestTLSPassthrough(t *testing.T) {
+func TestTLSPassthroughRatelimiting(t *testing.T) {
 	ctx := context.Background()
-	testName := "https-passthrough-1"
+	testName := "https-passthrough-ratelimiting"
 	testK8sNamespace := "default"
 	hostName1 := "passthrough.acme.io"
 	hostName2 := "passthrough-2.acme.io"
@@ -54,32 +53,18 @@ func TestTLSPassthrough(t *testing.T) {
 	scenario.createLBBackendPool(ctx, backendPool2)
 
 	t.Logf("Creating LB Service resources...")
-	routes := []isovalentv1alpha1.LBServiceTLSPassthroughRoute{
-		{
-			Match: &isovalentv1alpha1.LBServiceTLSPassthroughRouteMatch{
-				HostNames: []isovalentv1alpha1.LBServiceHostName{
-					isovalentv1alpha1.LBServiceHostName(hostName1),
-				},
-			},
-			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-				Name: testName + "-1",
-			},
-		},
-		{
-			BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-				Name: testName + "-2",
-			},
-		},
-	}
-	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(routes))
+	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
+		withTLSPassthroughRoute(testName+"-1", withTLSPassthroughHostname(hostName1), withTLSPassthroughConnectionRateLimiting(5, 60)),
+		withTLSPassthroughRoute(testName+"-2"),
+	))
 	scenario.createLBService(ctx, service)
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
-	testCmd1 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
-	testCmd2 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
+	testCmd1 := curlCmdVerbose(fmt.Sprintf("-m 5 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
+	testCmd2 := curlCmdVerbose(fmt.Sprintf("-m 5 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
@@ -87,4 +72,35 @@ func TestTLSPassthrough(t *testing.T) {
 			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
+
+	t.Logf("Testing %q and expecting connection rate limit eventually ...", testCmd1)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(ctx, testCmd1)
+		if err != nil {
+			if err.Error() != "cmd failed: 35" {
+				return fmt.Errorf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %w", testCmd1, stdout, stderr, err)
+			}
+
+			// due to local rate limit and T1->T2 loadbalancing, requests must start hitting the connection ratelimit eventually
+			return nil // rate limited
+		}
+
+		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q): %w", testCmd1, stdout, stderr, err)
+	}, longTimeout, pollInterval)
+
+	t.Logf("Testing %q and and not expecting connection rate limit ...", testCmd2)
+	successCount := 0
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(ctx, testCmd2)
+		if err != nil {
+			return fmt.Errorf("curl unexpectedly failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd2, stdout, stderr, err)
+		}
+
+		successCount++
+		if successCount == 100 {
+			return nil
+		}
+
+		return fmt.Errorf("condition is not satisfied yet (%d/100)", successCount)
+	}, shortTimeout, 1*time.Millisecond) // As fast as possible
 }

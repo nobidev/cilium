@@ -34,36 +34,6 @@ func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	}
 }
 
-func lbServiceApplicationsTLSProxy(backendRef, secretName, hostName string) isovalentv1alpha1.LBServiceApplications {
-	return isovalentv1alpha1.LBServiceApplications{
-		TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-			TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
-				Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
-					{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
-				},
-			},
-			Routes: []isovalentv1alpha1.LBServiceTLSRoute{
-				{
-					BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
-					Match: &isovalentv1alpha1.LBServiceTLSRouteMatch{
-						HostNames: []isovalentv1alpha1.LBServiceHostName{
-							isovalentv1alpha1.LBServiceHostName(hostName),
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func lbServiceApplicationsTLSPassthrough(routes []isovalentv1alpha1.LBServiceTLSPassthroughRoute) isovalentv1alpha1.LBServiceApplications {
-	return isovalentv1alpha1.LBServiceApplications{
-		TLSPassthrough: &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{
-			Routes: routes,
-		},
-	}
-}
-
 type httpApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy)
 
 func withHttpRoute(backendRef string, opts ...httpApplicationRouteOption) httpApplicationOption {
@@ -382,15 +352,117 @@ func withHTTPSProxyApplication(opts ...httpsApplicationOption) serviceOption {
 	}
 }
 
-func withTLSPassthroughApplication(routes []isovalentv1alpha1.LBServiceTLSPassthroughRoute) serviceOption {
+func withTLSPassthroughApplication(opts ...tlsPassthroughApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
-		o.Spec.Applications = lbServiceApplicationsTLSPassthrough(routes)
+		app := &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{}
+
+		for _, opt := range opts {
+			opt(app)
+		}
+
+		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
+			TLSPassthrough: app,
+		}
 	}
 }
 
-func withTLSProxyApplication(backendRef, secretName, hostName string) serviceOption {
+type tlsPassthroughApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationTLSPassthrough)
+
+func withTLSProxyApplication(opts ...tlsProxyApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
-		o.Spec.Applications = lbServiceApplicationsTLSProxy(backendRef, secretName, hostName)
+		app := &isovalentv1alpha1.LBServiceApplicationTLSProxy{}
+
+		for _, o := range opts {
+			o(app)
+		}
+
+		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
+			TLSProxy: app,
+		}
+	}
+}
+
+type tlsProxyApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationTLSProxy)
+
+func withTLSPassthroughRoute(backendRef string, opts ...tlsPassthroughRouteOption) tlsPassthroughApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationTLSPassthrough) {
+		route := &isovalentv1alpha1.LBServiceTLSPassthroughRoute{
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+			Match:      &isovalentv1alpha1.LBServiceTLSPassthroughRouteMatch{},
+		}
+
+		for _, o := range opts {
+			o(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
+	}
+}
+
+type tlsPassthroughRouteOption func(o *isovalentv1alpha1.LBServiceTLSPassthroughRoute)
+
+func withTLSPassthroughHostname(hostname string) tlsPassthroughRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSPassthroughRoute) {
+		o.Match.HostNames = []isovalentv1alpha1.LBServiceHostName{
+			isovalentv1alpha1.LBServiceHostName(hostname),
+		}
+	}
+}
+
+func withTLSPassthroughConnectionRateLimiting(limit uint, timePeriodSeconds uint) tlsPassthroughRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSPassthroughRoute) {
+		o.RateLimits = &isovalentv1alpha1.LBServiceTLSRouteRateLimits{
+			Connections: &isovalentv1alpha1.LBServiceRateLimit{
+				Limit:             limit,
+				TimePeriodSeconds: timePeriodSeconds,
+			},
+		}
+	}
+}
+
+func withTLSCertificate(secretName string) tlsProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationTLSProxy) {
+		o.TLSConfig = &isovalentv1alpha1.LBServiceTLSConfig{
+			Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
+				{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
+			},
+		}
+	}
+}
+
+func withTLSProxyRoute(backendRef string, opts ...tlsRouteOption) tlsProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationTLSProxy) {
+		route := &isovalentv1alpha1.LBServiceTLSRoute{
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+			Match:      &isovalentv1alpha1.LBServiceTLSRouteMatch{},
+		}
+
+		for _, o := range opts {
+			o(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
+	}
+}
+
+type tlsRouteOption func(o *isovalentv1alpha1.LBServiceTLSRoute)
+
+func withHostname(hostname string) tlsRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSRoute) {
+		o.Match.HostNames = []isovalentv1alpha1.LBServiceHostName{
+			isovalentv1alpha1.LBServiceHostName(hostname),
+		}
+	}
+}
+
+func withTLSProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tlsRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSRoute) {
+		o.RateLimits = &isovalentv1alpha1.LBServiceTLSRouteRateLimits{
+			Connections: &isovalentv1alpha1.LBServiceRateLimit{
+				Limit:             limit,
+				TimePeriodSeconds: timePeriodSeconds,
+			},
+		}
 	}
 }
 

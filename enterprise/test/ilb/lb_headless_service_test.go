@@ -261,13 +261,7 @@ func TestHeadlessService(t *testing.T) {
 			backendHost: tlsBackendHostName,
 			serviceOptions: []serviceOption{
 				withPort(443),
-				withTLSPassthroughApplication([]isovalentv1alpha1.LBServiceTLSPassthroughRoute{
-					{
-						BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-							Name: testName + "-tls-passthrough",
-						},
-					},
-				}),
+				withTLSPassthroughApplication(withTLSPassthroughRoute(testName + "-tls-passthrough")),
 			},
 			serviceTLS:      true,
 			backendTLS:      true,
@@ -280,7 +274,7 @@ func TestHeadlessService(t *testing.T) {
 			backendHost: tcpBackendHostName,
 			serviceOptions: []serviceOption{
 				withPort(443),
-				withTLSProxyApplication(testName+"-tls-proxy", testName+"-tls-proxy", "secure.acme.io"),
+				withTLSProxyApplication(withTLSCertificate(testName+"-tls-proxy"), withTLSProxyRoute(testName+"-tls-proxy", withHostname("secure.acme.io"))),
 			},
 			serviceTLS:      true,
 			desiredBackends: tcpBackends,
