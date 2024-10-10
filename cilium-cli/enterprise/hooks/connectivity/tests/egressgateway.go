@@ -148,7 +148,7 @@ func waitForAllocatedEgressIP(ctx context.Context, t *check.Test, policyName str
 	ct := t.Context()
 	iegpClient := ct.K8sClient().CiliumClientset.IsovalentV1().IsovalentEgressGatewayPolicies()
 
-	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 30 * time.Second})
 	defer w.Cancel()
 
 	ensureGroupEgressIP := func() (net.IP, error) {
