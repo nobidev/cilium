@@ -28,7 +28,13 @@ func TestTCPProxy(t *testing.T) {
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+
+	backendNum := 2
+	// TCPProxy does not support backends with different ports, so create just 1 backend.
+	if isSingleNode() {
+		backendNum = 1
+	}
+	scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]

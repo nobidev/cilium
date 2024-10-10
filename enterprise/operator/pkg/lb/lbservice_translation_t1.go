@@ -121,45 +121,58 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	return hcInterval
 }
 
-func (r *lbServiceT1Translator) endpointAddressesFromT2Nodes(model *lbService) ([]corev1.EndpointAddress, []corev1.EndpointPort) {
+func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) []corev1.EndpointSubset {
 	epAddresses := []corev1.EndpointAddress{}
 	for _, addr := range model.t2NodeIPs {
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
 	}
 
-	epPorts := []corev1.EndpointPort{
+	return []corev1.EndpointSubset{
 		{
-			Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-			Protocol: corev1.ProtocolTCP,
-			Port:     model.port,
+			Addresses: epAddresses,
+			Ports: []corev1.EndpointPort{
+				{
+					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
+					Protocol: corev1.ProtocolTCP,
+					Port:     model.port,
+				},
+			},
 		},
 	}
-
-	return epAddresses, epPorts
 }
 
-func (r *lbServiceT1Translator) endpointAddressesFromBackends(model *lbService) ([]corev1.EndpointAddress, []corev1.EndpointPort) {
+func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) ([]corev1.EndpointSubset, error) {
 	epAddresses := []corev1.EndpointAddress{}
-	epPorts := []corev1.EndpointPort{}
+	port := uint32(0)
 
 	routes := model.applications.tcpProxy.routes
 	if len(routes) == 1 {
 		backend, ok := model.referencedBackends[model.applications.tcpProxy.routes[0].backendRef.name]
 		if ok {
 			for _, b := range backend.lbBackends {
+				if port == 0 {
+					port = b.port
+				}
+				if port != b.port {
+					return nil, fmt.Errorf("T1-only service does not support backends with different ports")
+				}
 				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
-				epPorts = append(epPorts,
-					corev1.EndpointPort{
-						Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-						Protocol: corev1.ProtocolTCP,
-						Port:     int32(b.port),
-					})
-
 			}
 		}
 	}
 
-	return epAddresses, epPorts
+	return []corev1.EndpointSubset{
+		{
+			Addresses: epAddresses,
+			Ports: []corev1.EndpointPort{
+				{
+					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
+					Protocol: corev1.ProtocolTCP,
+					Port:     int32(port),
+				},
+			},
+		},
+	}, nil
 }
 
 func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endpoints, error) {
@@ -167,12 +180,18 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 		return nil, nil
 	}
 
-	var epAddresses []corev1.EndpointAddress
-	var epPorts []corev1.EndpointPort
-	if model.applications.tcpProxy == nil || model.applications.tcpProxy.tierMode == tierModeT2 {
-		epAddresses, epPorts = r.endpointAddressesFromT2Nodes(model)
+	var (
+		epSubsets []corev1.EndpointSubset
+		err       error
+	)
+
+	if model.isTCPProxyT1OnlyMode() {
+		epSubsets, err = r.endpointSubsetsFromBackends(model)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create endpoint: %w", err)
+		}
 	} else {
-		epAddresses, epPorts = r.endpointAddressesFromBackends(model)
+		epSubsets = r.endpointSubsetsFromT2Nodes(model)
 	}
 
 	return &corev1.Endpoints{
@@ -180,12 +199,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 			Namespace: model.namespace,
 			Name:      model.getOwningResourceName(),
 		},
-		Subsets: []corev1.EndpointSubset{
-			{
-				Addresses: epAddresses,
-				Ports:     epPorts,
-			},
-		},
+		Subsets: epSubsets,
 	}, nil
 }
 
