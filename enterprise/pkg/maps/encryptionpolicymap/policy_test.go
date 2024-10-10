@@ -43,7 +43,7 @@ func TestPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	bpf.CheckOrMountFS("")
-	assert.Nil(t, rlimit.RemoveMemlock())
+	assert.NoError(t, rlimit.RemoveMemlock())
 
 	encryptionPolicyMap := createPolicyMap(hivetest.Lifecycle(t), defaultEncryptionPolicyMapConfig, ebpf.PinNone)
 

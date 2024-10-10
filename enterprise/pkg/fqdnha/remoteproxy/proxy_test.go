@@ -97,7 +97,7 @@ func TestConnectionLifecycle(t *testing.T) {
 		},
 	)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	t.Cleanup(localProxy.Cleanup)
 
 	cs := mockCachedSelector("selector-string")
@@ -115,12 +115,12 @@ func TestConnectionLifecycle(t *testing.T) {
 	addRule := func(epID uint64, port uint16) {
 		t.Helper()
 		err := localProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		if remoteProxy == nil {
 			return
 		}
 		err = remoteProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}
 
 	addRule(1, 35)
@@ -184,7 +184,7 @@ func TestDumpRules(t *testing.T) {
 		},
 	)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	t.Cleanup(localProxy.Cleanup)
 
 	epID := uint64(5)
@@ -201,7 +201,7 @@ func TestDumpRules(t *testing.T) {
 		},
 	}
 	err = localProxy.UpdateAllowed(epID, portProto, allowExampleCom)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dump := localProxy.DumpRules()
 	require.Len(t, dump, 1)

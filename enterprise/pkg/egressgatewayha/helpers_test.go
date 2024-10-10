@@ -161,7 +161,7 @@ func addPolicy(tb testing.TB, fakeSet *k8sClient.FakeClientset, policies fakeRes
 		_, err := fakeSet.CiliumFakeClientset.IsovalentV1().IsovalentEgressGatewayPolicies().
 			Create(context.TODO(), policy, metav1.CreateOptions{})
 		if !k8sErrors.IsAlreadyExists(err) {
-			assert.Nil(tb, err)
+			assert.NoError(tb, err)
 		}
 	}
 
