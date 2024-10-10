@@ -19,10 +19,10 @@ import (
 )
 
 func TestConfigureAggregator(t *testing.T) {
-	assert.EqualValues(t, (&L7Flow{HTTP: &flow.HTTP{}}).Type(), L7NameHTTP)
-	assert.EqualValues(t, (&L7Flow{Kafka: &flow.Kafka{}}).Type(), L7NameKafka)
-	assert.EqualValues(t, (&L7Flow{DNS: &flow.DNS{}}).Type(), L7NameDNS)
-	assert.EqualValues(t, (&L7Flow{}).Type(), L7NameUnknown)
+	assert.EqualValues(t, L7NameHTTP, (&L7Flow{HTTP: &flow.HTTP{}}).Type())
+	assert.EqualValues(t, L7NameKafka, (&L7Flow{Kafka: &flow.Kafka{}}).Type())
+	assert.EqualValues(t, L7NameDNS, (&L7Flow{DNS: &flow.DNS{}}).Type())
+	assert.EqualValues(t, L7NameUnknown, (&L7Flow{}).Type())
 	var nilL7 *L7Flow
-	assert.EqualValues(t, nilL7.Type(), L7NameNone)
+	assert.EqualValues(t, L7NameNone, nilL7.Type())
 }

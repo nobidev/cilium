@@ -35,7 +35,7 @@ func TestIdentityggregation(t *testing.T) {
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		FlowState:   types.FlowState{ConnectionRequest: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc2"), Port: 22},
@@ -43,7 +43,7 @@ func TestIdentityggregation(t *testing.T) {
 		FlowState:   types.FlowState{ConnectionRequest: true},
 		Reply:       true,
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 
 	r = ia.Aggregate(&testflow.Flow{
@@ -51,28 +51,28 @@ func TestIdentityggregation(t *testing.T) {
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		FlowState:   types.FlowState{Error: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_first_error)
+	assert.Equal(t, aggregationpb.StateChange_first_error, r.StateChange)
 
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc1"), Port: 1000},
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		FlowState:   types.FlowState{Error: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_error)
+	assert.Equal(t, aggregationpb.StateChange_error, r.StateChange)
 
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		Destination: testflow.Peer{Identity: []byte("svc1"), Port: 1000},
 		Reply:       true,
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	// Different identity
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc3"), Port: 2222},
 		Destination: testflow.Peer{Identity: []byte("svc4"), Port: 1000},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	// Different identity reply
 	r = ia.Aggregate(&testflow.Flow{
@@ -80,7 +80,7 @@ func TestIdentityggregation(t *testing.T) {
 		Destination: testflow.Peer{Identity: []byte("svc3"), Port: 2222},
 		Reply:       true,
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 
 	// Different destination port, different flow
@@ -89,7 +89,7 @@ func TestIdentityggregation(t *testing.T) {
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 2222},
 		FlowState:   types.FlowState{ConnectionRequest: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	// Different source port, same flow
 	r = ia.Aggregate(&testflow.Flow{
@@ -97,7 +97,7 @@ func TestIdentityggregation(t *testing.T) {
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		FlowState:   types.FlowState{ConnectionRequest: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	// Different source port, same flow
 	r = ia.Aggregate(&testflow.Flow{
@@ -106,7 +106,7 @@ func TestIdentityggregation(t *testing.T) {
 		FlowState:   types.FlowState{ConnectionRequest: true},
 		Reply:       true,
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	// Different verdict -> different flow
 	r = ia.Aggregate(&testflow.Flow{
@@ -115,14 +115,14 @@ func TestIdentityggregation(t *testing.T) {
 		VerdictStr:  "20",
 		FlowState:   types.FlowState{ConnectionRequest: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc1"), Port: 1000},
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 		FlowState:   types.FlowState{CloseRequest: true},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	r = ia.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc2"), Port: 22},
@@ -130,17 +130,17 @@ func TestIdentityggregation(t *testing.T) {
 		FlowState:   types.FlowState{CloseRequest: true},
 		Reply:       true,
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	af := ia.Cache().Lookup(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc1"), Port: 1000},
 		Destination: testflow.Peer{Identity: []byte("svc2"), Port: 22},
 	})
 
-	assert.EqualValues(t, af.Stats.Forward.NumFlows, 5)
-	assert.EqualValues(t, af.Stats.Reply.NumFlows, 4)
-	assert.EqualValues(t, af.Stats.Reply.CloseRequests, 1)
-	assert.EqualValues(t, af.Stats.Forward.CloseRequests, 1)
+	assert.EqualValues(t, 5, af.Stats.Forward.NumFlows)
+	assert.EqualValues(t, 4, af.Stats.Reply.NumFlows)
+	assert.EqualValues(t, 1, af.Stats.Reply.CloseRequests)
+	assert.EqualValues(t, 1, af.Stats.Forward.CloseRequests)
 }
 
 func TestHTTPAggregation(t *testing.T) {
@@ -159,7 +159,7 @@ func TestHTTPAggregation(t *testing.T) {
 			},
 		},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	// Same HTTP request parameters, aggregation should happen
 	r = ia.Aggregate(&testflow.Flow{
@@ -172,7 +172,7 @@ func TestHTTPAggregation(t *testing.T) {
 			},
 		},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
 
 	// Different HTTP path
 	r = ia.Aggregate(&testflow.Flow{
@@ -187,7 +187,7 @@ func TestHTTPAggregation(t *testing.T) {
 		},
 	})
 
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	// Different L7 protocol on same port
 	r = ia.Aggregate(&testflow.Flow{
@@ -198,7 +198,7 @@ func TestHTTPAggregation(t *testing.T) {
 			Kafka: &flow.Kafka{},
 		},
 	})
-	assert.Equal(t, r.StateChange, aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	af := ia.Cache().Lookup(&testflow.Flow{
 		Source:      testflow.Peer{Identity: []byte("svc1"), Port: 1000},
@@ -211,8 +211,8 @@ func TestHTTPAggregation(t *testing.T) {
 		},
 	})
 
-	assert.EqualValues(t, af.Stats.Forward.NumFlows, 2)
-	assert.EqualValues(t, af.Stats.Forward.CloseRequests, 0)
+	assert.EqualValues(t, 2, af.Stats.Forward.NumFlows)
+	assert.EqualValues(t, 0, af.Stats.Forward.CloseRequests)
 }
 
 func TestExpiredFlows(t *testing.T) {

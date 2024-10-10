@@ -49,17 +49,17 @@ func TestAggregatorCache(t *testing.T) {
 	go ca.Start(ctx)
 	defer cancel()
 
-	assert.Equal(t, ca.String(), Name)
+	assert.Equal(t, Name, ca.String())
 
-	assert.Equal(t, ca.Aggregate(a).StateChange, aggregationpb.StateChange_new)
-	assert.Equal(t, ca.Aggregate(a).StateChange, aggregationpb.StateChange_unspec)
-	assert.Equal(t, ca.Aggregate(a).StateChange, aggregationpb.StateChange_unspec)
-	assert.NotEqual(t, ca.Cache().Lookup(a), nil)
-	assert.Equal(t, ca.Cache().Lookup(b), nil)
+	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(a).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
+	assert.NotEqual(t, nil, ca.Cache().Lookup(a))
+	assert.Equal(t, nil, ca.Cache().Lookup(b))
 
-	assert.Equal(t, ca.Aggregate(b).StateChange, aggregationpb.StateChange_new)
-	assert.Equal(t, ca.Aggregate(b).StateChange, aggregationpb.StateChange_unspec)
-	assert.Equal(t, ca.Aggregate(b).StateChange, aggregationpb.StateChange_unspec)
-	assert.NotEqual(t, ca.Cache().Lookup(b), nil)
-	assert.NotEqual(t, ca.Cache().Lookup(a), nil)
+	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(b).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
+	assert.NotEqual(t, nil, ca.Cache().Lookup(b))
+	assert.NotEqual(t, nil, ca.Cache().Lookup(a))
 }

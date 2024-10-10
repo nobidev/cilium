@@ -47,12 +47,12 @@ func TestAggregationChain(t *testing.T) {
 		panic("Aggregation chain is nil")
 	}
 
-	assert.Equal(t, af.String(), "[]")
-	assert.Equal(t, af.Aggregate(&testflow.Flow{}), nil)
+	assert.Equal(t, "[]", af.String())
+	assert.Equal(t, nil, af.Aggregate(&testflow.Flow{}))
 
 	af.Add(&trueAggregator{})
-	assert.NotEqual(t, af.String(), "[]")
-	assert.Equal(t, af.Aggregate(&testflow.Flow{}).StateChange, aggregationpb.StateChange_new)
+	assert.NotEqual(t, "[]", af.String())
+	assert.Equal(t, aggregationpb.StateChange_new, af.Aggregate(&testflow.Flow{}).StateChange)
 
 	af = NewAggregationChain([]types.Aggregator{
 		&trueAggregator{}, &trueAggregator{},
@@ -61,8 +61,8 @@ func TestAggregationChain(t *testing.T) {
 		panic("Aggregation chain is nil")
 	}
 
-	assert.NotEqual(t, af.String(), "[]")
-	assert.Equal(t, af.Aggregate(&testflow.Flow{}).StateChange, aggregationpb.StateChange_new)
+	assert.NotEqual(t, "[]", af.String())
+	assert.Equal(t, aggregationpb.StateChange_new, af.Aggregate(&testflow.Flow{}).StateChange)
 
 	af = NewAggregationChain([]types.Aggregator{
 		&trueAggregator{}, &falseAggregator{},
@@ -72,7 +72,7 @@ func TestAggregationChain(t *testing.T) {
 	}
 
 	// Latest result wins
-	assert.Equal(t, af.Aggregate(&testflow.Flow{}).StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, af.Aggregate(&testflow.Flow{}).StateChange)
 
 	af = NewAggregationChain([]types.Aggregator{
 		&falseAggregator{}, &falseAggregator{},
@@ -81,5 +81,5 @@ func TestAggregationChain(t *testing.T) {
 		panic("Aggregation chain is nil")
 	}
 
-	assert.Equal(t, af.Aggregate(&testflow.Flow{}).StateChange, aggregationpb.StateChange_unspec)
+	assert.Equal(t, aggregationpb.StateChange_unspec, af.Aggregate(&testflow.Flow{}).StateChange)
 }

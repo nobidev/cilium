@@ -63,7 +63,7 @@ func TestPolicyMap(t *testing.T) {
 	val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, val.Size, uint32(2))
+	assert.EqualValues(t, uint32(2), val.Size)
 	assert.Equal(t, val.EgressIP.Addr(), egressIP1)
 	assert.Equal(t, val.GatewayIPs[0].Addr(), gatewayIP1)
 	assert.Equal(t, val.GatewayIPs[1].Addr(), gatewayIP2)
@@ -71,7 +71,7 @@ func TestPolicyMap(t *testing.T) {
 	val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, val.Size, uint32(1))
+	assert.EqualValues(t, uint32(1), val.Size)
 	assert.Equal(t, val.EgressIP.Addr(), egressIP2)
 	assert.Equal(t, val.GatewayIPs[0].Addr(), gatewayIP1)
 
