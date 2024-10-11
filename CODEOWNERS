@@ -238,6 +238,7 @@
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
+/.github/workflows/enterprise-lb.yaml @isovalent/isovalent-loadbalancer
 /.github/workflows/*cilium-cli*.yaml @cilium/cli @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*clustermesh*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
@@ -425,6 +426,7 @@ Makefile* @cilium/build
 /examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
+/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
 /examples/minikube/ @cilium/sig-k8s
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
@@ -704,6 +706,8 @@ Makefile* @cilium/build
 #   or that a new API version is created for backward incompatible changes.
 # - @isovalent/infrastructure
 #   Responsible for maintaining files related to cloud infrastructures.
+# - @isovalent/isovalent-loadbalancer
+#   Responsible for maintaining the enterprise-specific Isovalent LoadBalancer
 # - @isovalent/multi-network
 #   Responsible for maintaining the Cilium-native multi-network feature
 # - @isovalent/infrastructure
@@ -757,6 +761,7 @@ Makefile* @cilium/build
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
 /bugtool/cmd/enterprise_* @isovalent/cli
 /cilium-cli/enterprise/ @isovalent/cli
+/cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
 /cilium-cli/enterprise/hooks/connectivity/tests/bfd.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/bgp.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/egressgateway.go @isovalent/egress-gateway
@@ -765,9 +770,11 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/mixedrouting.go @isovalent/clustermesh
 /cilium-cli/enterprise/hooks/connectivity/tests/multicast.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
+/cilium-cli/enterprise/hooks/loadbalancer/ @isovalent/isovalent-loadbalancer
 /cilium-dbg/cmd/enterprise_* @isovalent/cli
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
+/contrib/testing/kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
 /daemon/cmd/enterprise_fqdn_relay.go @isovalent/dns-proxy
 /Documentation/cmdref/
@@ -786,11 +793,13 @@ Makefile* @cilium/build
 /enterprise/featurelist/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
+/enterprise/grafana/loadbalancer/ @isovalent/isovalent-loadbalancer
 /enterprise/hubble-relay/ @isovalent/hubble
 /enterprise/operator/ @isovalent/cilium-agent
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/ciliummesh @isovalent/cilium-mesh
+/enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/operator/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/pkg/annotation/ @isovalent/sig-k8s
@@ -802,6 +811,7 @@ Makefile* @cilium/build
 /enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/features/ @isovalent/foundations
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
+/enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
 /enterprise/pkg/maps/egressmapha/ @isovalent/egress-gateway
@@ -809,12 +819,14 @@ Makefile* @cilium/build
 /enterprise/pkg/multicast/ @isovalent/traffic-engineering
 /enterprise/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/pkg/mixedrouting/ @isovalent/clustermesh
+/enterprise/pkg/service/healthchecker/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/nat/ @isovalent/egress-gateway
 /enterprise/plugins/ @isovalent/hubble
 /enterprise/plugins/hubble-flow-aggregation/api @isovalent/hubble-api
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/hubble-rbac/ @isovalent/hubble
+/enterprise/test/ilb/ @isovalent/isovalent-loadbalancer
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /hubble/Makefile.override @isovalent/hubble
 /hubble/enterprise/ @isovalent/hubble
@@ -836,6 +848,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentpodnetworks.yaml @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/client/crds/v1/isovalentegressgatewaypolicies.yaml @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/v1alpha1/encryption_types.go @isovalent/encryption
+/pkg/k8s/apis/isovalent.com/v1alpha1/lb_types*  @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/v1alpha1/podnetwork_types.go @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
 /pkg/k8s/enterprise_overlapping_podcidr* @isovalent/clustermesh
