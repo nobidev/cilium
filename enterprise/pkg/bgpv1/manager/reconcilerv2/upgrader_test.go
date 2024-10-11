@@ -182,6 +182,11 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		"CEE Metadata must be a shallow copy of OSS Metadata (mismatched value for \"baz\")",
 	)
 
+	require.Equal(t,
+		ceeParams.BGPInstance.Name, ossParams.BGPInstance.Name,
+		"CEE instance name doesn't match OSS instance name",
+	)
+
 	require.Same(t,
 		// Pointer equality
 		ceeParams.CiliumNode, ossParams.CiliumNode,

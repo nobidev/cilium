@@ -70,7 +70,7 @@ type ServiceReconciler struct {
 
 	// internal service health state
 	svcHealth        map[k8s.ServiceID]svcFrontendHealthMap // local cache of service health metadata
-	svcHealthChanged map[uint32]map[k8s.ServiceID]struct{}  // instance-specific tracker of services with modified health since last reconciliation
+	svcHealthChanged map[string]map[k8s.ServiceID]struct{}  // instance-specific tracker of services with modified health since last reconciliation
 }
 
 type ServiceReconcilerOut struct {
@@ -124,7 +124,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		svcDiffStore:     in.SvcDiffStore,
 		epDiffStore:      in.EPDiffStore,
 		svcHealth:        make(map[k8s.ServiceID]svcFrontendHealthMap),
-		svcHealthChanged: make(map[uint32]map[k8s.ServiceID]struct{}),
+		svcHealthChanged: make(map[string]map[k8s.ServiceID]struct{}),
 	}
 	in.Lifecycle.Append(r)
 
@@ -179,10 +179,10 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: service reconciler initialization with nil BGPInstance")
 	}
 	// initialize service health tracker map for this instance
-	r.svcHealthChanged[i.Global.ASN] = make(map[k8s.ServiceID]struct{})
+	r.svcHealthChanged[i.Name] = make(map[k8s.ServiceID]struct{})
 
-	r.svcDiffStore.InitDiff(r.diffID(i.Global.ASN))
-	r.epDiffStore.InitDiff(r.diffID(i.Global.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(i.Name))
+	r.epDiffStore.InitDiff(r.diffID(i.Name))
 	return nil
 }
 
@@ -193,10 +193,10 @@ func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 
 	if i != nil {
 		// cleanup service health tracker map for this instance
-		delete(r.svcHealthChanged, i.Global.ASN)
+		delete(r.svcHealthChanged, i.Name)
 
-		r.svcDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
-		r.epDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
+		r.svcDiffStore.CleanupDiff(r.diffID(i.Name))
+		r.epDiffStore.CleanupDiff(r.diffID(i.Name))
 	}
 }
 
@@ -414,7 +414,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p EnterpriseR
 		for _, key := range toWithdraw {
 			svcID := k8s.ServiceID{Name: key.Name, Namespace: key.Namespace}
 			delete(r.svcHealth, svcID)
-			delete(r.svcHealthChanged[p.BGPInstance.ASN], svcID)
+			delete(r.svcHealthChanged[p.BGPInstance.Name], svcID)
 		}
 	}
 
@@ -448,7 +448,7 @@ func (r *ServiceReconciler) healthModifiedServices(p EnterpriseReconcileParams) 
 	shrink := len(r.svcHealthChanged) > shrinkThreshold
 
 	// loop over services with modified health since last reconciliation
-	for svcID := range r.svcHealthChanged[p.BGPInstance.ASN] {
+	for svcID := range r.svcHealthChanged[p.BGPInstance.Name] {
 		svc, exists, err := r.getSvcByID(svcID)
 		if err != nil {
 			r.logger.WithError(err).WithField(types.ServiceIDLogField, svcID).Warn("Could not retrieve service, skipping its reconciliation")
@@ -459,13 +459,13 @@ func (r *ServiceReconciler) healthModifiedServices(p EnterpriseReconcileParams) 
 		}
 		modified = append(modified, svc)
 		if !shrink {
-			delete(r.svcHealthChanged[p.BGPInstance.ASN], svcID)
+			delete(r.svcHealthChanged[p.BGPInstance.Name], svcID)
 		}
 	}
 
 	if shrink {
 		// re-create the health tracking map
-		r.svcHealthChanged[p.BGPInstance.ASN] = make(map[k8s.ServiceID]struct{})
+		r.svcHealthChanged[p.BGPInstance.Name] = make(map[k8s.ServiceID]struct{})
 	}
 	return modified
 }
@@ -769,8 +769,8 @@ func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(iParams Enterpri
 
 func (r *ServiceReconciler) fullReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
 	// re-init diff in diffstores, so that it contains only changes since the last full reconciliation.
-	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
-	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
+	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
 
 	// check for services which are no longer present
 	serviceAFPaths := r.getMetadata(p.BGPInstance).ServicePaths
@@ -797,7 +797,7 @@ func (r *ServiceReconciler) fullReconciliationServiceList(p EnterpriseReconcileP
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
 // performing partial (diff) service reconciliation.
 func (r *ServiceReconciler) diffReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance.ASN))
+	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance.Name))
 	if err != nil {
 		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
@@ -808,7 +808,7 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p EnterpriseReconcileP
 	// We don't handle service deletion here since we only see
 	// the key, we cannot resolve associated service, so we have
 	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance.ASN))
+	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance.Name))
 	if err != nil {
 		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
 	}
@@ -1178,8 +1178,8 @@ func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_c
 	return r.svcDiffStore.GetByKey(k)
 }
 
-func (r *ServiceReconciler) diffID(asn uint32) string {
-	return fmt.Sprintf("%s-%d", r.Name(), asn)
+func (r *ServiceReconciler) diffID(instanceName string) string {
+	return fmt.Sprintf("%s-%s", r.Name(), instanceName)
 }
 
 func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v1alpha1.BGPAdvertisement) int {

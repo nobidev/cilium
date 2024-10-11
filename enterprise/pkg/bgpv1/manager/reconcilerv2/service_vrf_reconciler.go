@@ -134,20 +134,20 @@ func (r *ServiceVRFReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: service VRF reconciler initialization with nil BGPInstance")
 	}
-	r.svcDiffStore.InitDiff(r.diffID(i.ASN))
-	r.epDiffStore.InitDiff(r.diffID(i.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(i.Name))
+	r.epDiffStore.InitDiff(r.diffID(i.Name))
 	return nil
 }
 
 func (r *ServiceVRFReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
-		r.svcDiffStore.CleanupDiff(r.diffID(i.ASN))
-		r.epDiffStore.CleanupDiff(r.diffID(i.ASN))
+		r.svcDiffStore.CleanupDiff(r.diffID(i.Name))
+		r.epDiffStore.CleanupDiff(r.diffID(i.Name))
 	}
 }
 
-func (r *ServiceVRFReconciler) diffID(asn uint32) string {
-	return fmt.Sprintf("%s-%d", r.Name(), asn)
+func (r *ServiceVRFReconciler) diffID(instanceName string) string {
+	return fmt.Sprintf("%s-%s", r.Name(), instanceName)
 }
 
 func (r *ServiceVRFReconciler) Priority() int {
@@ -217,8 +217,8 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 	if r.configModified(p, desiredVRFAdverts, desiredVRFSIDInfo) {
 		r.logger.Debug("performing all services reconciliation")
 
-		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
-		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
+		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
+		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
 
 		for _, vrf := range p.DesiredConfig.VRFs {
 			// BGP configuration for service advertisement changed, we should reconcile all services.
@@ -358,7 +358,7 @@ func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, ls sets.
 }
 
 func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPInstance) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(i.ASN))
+	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(i.Name))
 	if err != nil {
 		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
@@ -369,7 +369,7 @@ func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPIns
 	// We don't handle service deletion here since we only see
 	// the key, we cannot resolve associated service, so we have
 	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(i.ASN))
+	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(i.Name))
 	if err != nil {
 		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
 	}
