@@ -60,13 +60,6 @@ type EnterpriseBGPInstance struct {
 	Name   string
 	Config *v1alpha1.IsovalentBGPNodeInstance
 	Router types.Router
-
-	// Shallow copy of the metadata from the reconcilerv2.BGPInstance. You
-	// can put enterprise-specific metadata directly into this map and it
-	// will be persisted between reconciliations. Thus, you are
-	// responsible for ensuring there's no key collision between the OSS
-	// reconcilers.
-	Metadata map[string]any
 }
 
 type paramUpgrader interface {
@@ -173,9 +166,8 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 				// config. Once we have a use case for it, we
 				// can consider storing it in the metadata and
 				// copying it here.
-				Config:   nil,
-				Router:   params.BGPInstance.Router,
-				Metadata: params.BGPInstance.Metadata,
+				Config: nil,
+				Router: params.BGPInstance.Router,
 			},
 			DesiredConfig: &nc.Spec.BGPInstances[i],
 			CiliumNode:    params.CiliumNode,
@@ -222,9 +214,8 @@ func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcil
 					// config. Once we have a use case for it, we
 					// can consider storing it in the metadata and
 					// copying it here.
-					Config:   nil,
-					Router:   params.UpdatedInstance.Router,
-					Metadata: params.UpdatedInstance.Metadata,
+					Config: nil,
+					Router: params.UpdatedInstance.Router,
 				},
 			}, nil
 		}

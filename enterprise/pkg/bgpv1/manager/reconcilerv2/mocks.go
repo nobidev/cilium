@@ -76,9 +76,8 @@ func newUpgraderMock(n *v1alpha1.IsovalentBGPNodeInstance) paramUpgrader {
 func (u *upgraderMock) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error) {
 	return EnterpriseReconcileParams{
 		BGPInstance: &EnterpriseBGPInstance{
-			Name:     params.BGPInstance.Name,
-			Router:   params.BGPInstance.Router,
-			Metadata: params.BGPInstance.Metadata,
+			Name:   params.BGPInstance.Name,
+			Router: params.BGPInstance.Router,
 		},
 		DesiredConfig: u.bgpNodeInstance, // put provided isovalentBGPNodeInstance into the desired config
 		CiliumNode:    params.CiliumNode,
@@ -89,9 +88,8 @@ func (u *upgraderMock) upgradeState(params reconcilerv2.StateReconcileParams) (E
 	return EnterpriseStateReconcileParams{
 		DesiredConfig: u.bgpNodeInstance, // put provided isovalentBGPNodeInstance into the desired config
 		UpdatedInstance: &EnterpriseBGPInstance{
-			Name:     params.UpdatedInstance.Name,
-			Router:   params.UpdatedInstance.Router,
-			Metadata: params.UpdatedInstance.Metadata,
+			Name:   params.UpdatedInstance.Name,
+			Router: params.UpdatedInstance.Router,
 		},
 	}, nil
 }

@@ -145,9 +145,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		BGPInstance: &instance.BGPInstance{
 			Config: &ossNode.Spec.BGPInstances[0],
 			Router: types.NewFakeRouter(),
-			Metadata: map[string]any{
-				"foo": "bar",
-			},
 		},
 		DesiredConfig: &ossNode.Spec.BGPInstances[0],
 		CiliumNode: &ciliumv2.CiliumNode{
@@ -169,17 +166,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		// Pointer equality
 		ceeParams.BGPInstance.Router, ossParams.BGPInstance.Router,
 		"CEE router doesn't point to the same router instance as OSS",
-	)
-
-	// Ensure the change to the metadata in CEE is visible in OSS
-	ceeParams.BGPInstance.Metadata["baz"] = "qux"
-	require.Equal(t,
-		ceeParams.BGPInstance.Metadata["foo"], ossParams.BGPInstance.Metadata["foo"],
-		"CEE Metadata must be a shallow copy of OSS Metadata (mismatched value for \"foo\")",
-	)
-	require.Equal(t,
-		ceeParams.BGPInstance.Metadata["baz"], ossParams.BGPInstance.Metadata["baz"],
-		"CEE Metadata must be a shallow copy of OSS Metadata (mismatched value for \"baz\")",
 	)
 
 	require.Equal(t,
