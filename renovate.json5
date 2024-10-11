@@ -122,7 +122,10 @@
       ],
       "allowedVersions": "<1.23",
       "matchBaseBranches": [
-        "v1.13-ce"
+        "v1.13-ce",
+        "v1.14-ce",
+        "v1.15-ce",
+        "v1.16-ce"
       ]
     },
     {
