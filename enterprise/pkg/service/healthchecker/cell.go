@@ -36,7 +36,7 @@ type config struct {
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-active-lb-health-checking", true, "Enable active health checking on loadbalancer services")
+	flags.Bool("enable-active-lb-health-checking", false, "Enable active health checking on loadbalancer services")
 }
 
 func registerActiveHealthChecker(

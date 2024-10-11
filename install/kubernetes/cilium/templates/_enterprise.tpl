@@ -82,6 +82,7 @@ enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quot
 loadbalancer-cp-enabled: "true"
 loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 loadbalancer-metrics-enabled: "true"
+enable-active-lb-health-checking: "true"
 {{- end }}
 
 {{- end }}
