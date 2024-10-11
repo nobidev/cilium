@@ -65,6 +65,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 			egwIPsProvider: params.EGWManager,
 			upgrader:       params.Upgrader,
 			peerAdvert:     params.PeerAdvert,
+			metadata:       make(map[string]EgressGatewayIPsMetadata),
 		},
 	}
 }
@@ -74,6 +75,7 @@ type EgressGatewayIPsReconciler struct {
 	egwIPsProvider egwIPsProvider
 	upgrader       paramUpgrader
 	peerAdvert     *IsovalentAdvertisement
+	metadata       map[string]EgressGatewayIPsMetadata
 }
 
 type EgressGatewayIPsMetadata struct {
@@ -89,11 +91,22 @@ func (r *EgressGatewayIPsReconciler) Name() string {
 	return "EgressGatewayIPs"
 }
 
-func (r *EgressGatewayIPsReconciler) Init(_ *instance.BGPInstance) error {
+func (r *EgressGatewayIPsReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = EgressGatewayIPsMetadata{
+		EGWAFPaths:       make(reconcilerv2.ResourceAFPathsMap),
+		EGWRoutePolicies: make(reconcilerv2.ResourceRoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *EgressGatewayIPsReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *EgressGatewayIPsReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *EgressGatewayIPsReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
@@ -324,15 +337,9 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 }
 
 func (r *EgressGatewayIPsReconciler) getMetadata(i *EnterpriseBGPInstance) EgressGatewayIPsMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = EgressGatewayIPsMetadata{
-			EGWAFPaths:       make(reconcilerv2.ResourceAFPathsMap),
-			EGWRoutePolicies: make(reconcilerv2.ResourceRoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(EgressGatewayIPsMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *EgressGatewayIPsReconciler) setMetadata(i *EnterpriseBGPInstance, metadata EgressGatewayIPsMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }

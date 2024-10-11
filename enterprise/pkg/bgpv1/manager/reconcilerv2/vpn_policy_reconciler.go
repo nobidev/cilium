@@ -50,6 +50,7 @@ type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
 	Logger          logrus.FieldLogger
 	PeerConfigStore resource.Store[*v2alpha1.CiliumBGPPeerConfig]
+	metadata        map[string]VPNRoutePolicyMetadata
 }
 
 type VPNRoutePolicyMetadata struct {
@@ -62,7 +63,8 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 	}
 
 	rp := &VPNRoutePolicyReconciler{
-		Logger: in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
+		metadata: make(map[string]VPNRoutePolicyMetadata),
+		Logger:   in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
 	}
 
 	in.Group.Add(job.OneShot("init-vpn-route-policy", func(ctx context.Context, health cell.Health) error {
@@ -91,11 +93,21 @@ func (r *VPNRoutePolicyReconciler) Priority() int {
 	return 59
 }
 
-func (r *VPNRoutePolicyReconciler) Init(_ *instance.BGPInstance) error {
+func (r *VPNRoutePolicyReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = VPNRoutePolicyMetadata{
+		VPNPolicies: make(reconcilerv2.RoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *VPNRoutePolicyReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *VPNRoutePolicyReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	if !r.initialized.Load() {
@@ -208,14 +220,9 @@ func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr n
 }
 
 func (r *VPNRoutePolicyReconciler) GetMetadata(i *instance.BGPInstance) VPNRoutePolicyMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = VPNRoutePolicyMetadata{
-			VPNPolicies: make(reconcilerv2.RoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(VPNRoutePolicyMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *VPNRoutePolicyReconciler) SetMetadata(i *instance.BGPInstance, m VPNRoutePolicyMetadata) {
-	i.Metadata[r.Name()] = m
+	r.metadata[i.Name] = m
 }

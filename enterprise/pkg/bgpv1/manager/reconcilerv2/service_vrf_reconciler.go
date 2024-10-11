@@ -69,6 +69,7 @@ type ServiceVRFReconciler struct {
 	upgrader     paramUpgrader
 	srv6Paths    *srv6Paths
 	srv6Manager  SRv6Manager
+	metadata     map[string]ServiceVRFReconcilerMetadata
 }
 
 func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut {
@@ -85,6 +86,7 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 			upgrader:     in.Upgrader,
 			srv6Paths:    in.SRv6Paths,
 			srv6Manager:  in.SRv6Manager,
+			metadata:     make(map[string]ServiceVRFReconcilerMetadata),
 		},
 	}
 }
@@ -112,18 +114,11 @@ type ServiceVRFReconcilerMetadata struct {
 }
 
 func (r *ServiceVRFReconciler) getMetadata(i *EnterpriseBGPInstance) ServiceVRFReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = ServiceVRFReconcilerMetadata{
-			vrfPaths:   make(VRFPaths),
-			vrfAdverts: make(VRFAdvertisements),
-			vrfSIDs:    make(VRFSIDInfo),
-		}
-	}
-	return i.Metadata[r.Name()].(ServiceVRFReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *ServiceVRFReconciler) setMetadata(i *EnterpriseBGPInstance, metadata ServiceVRFReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }
 
 func (r *ServiceVRFReconciler) Name() string {
@@ -132,10 +127,16 @@ func (r *ServiceVRFReconciler) Name() string {
 
 func (r *ServiceVRFReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
-		return fmt.Errorf("BUG: service VRF reconciler initialization with nil BGPInstance")
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.svcDiffStore.InitDiff(r.diffID(i.Name))
 	r.epDiffStore.InitDiff(r.diffID(i.Name))
+
+	r.metadata[i.Name] = ServiceVRFReconcilerMetadata{
+		vrfPaths:   make(VRFPaths),
+		vrfAdverts: make(VRFAdvertisements),
+		vrfSIDs:    make(VRFSIDInfo),
+	}
 	return nil
 }
 
@@ -143,6 +144,8 @@ func (r *ServiceVRFReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
 		r.svcDiffStore.CleanupDiff(r.diffID(i.Name))
 		r.epDiffStore.CleanupDiff(r.diffID(i.Name))
+
+		delete(r.metadata, i.Name)
 	}
 }
 

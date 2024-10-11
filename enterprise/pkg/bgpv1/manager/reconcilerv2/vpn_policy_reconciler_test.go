@@ -202,12 +202,15 @@ func TestVPNRoutePolicy(t *testing.T) {
 			reconciler := &VPNRoutePolicyReconciler{
 				Logger:          logger,
 				PeerConfigStore: newMockResourceStore[*v2alpha1.CiliumBGPPeerConfig](),
+				metadata:        make(map[string]VPNRoutePolicyMetadata),
 			}
 
 			if len(tt.peerConfigs) > 0 {
 				reconciler.PeerConfigStore = InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfigs)
 			}
 
+			reconciler.Init(testOSSBGPInstance)
+			defer reconciler.Cleanup(testOSSBGPInstance)
 			reconciler.initialized.Store(true)
 
 			// set preconfigured route policies

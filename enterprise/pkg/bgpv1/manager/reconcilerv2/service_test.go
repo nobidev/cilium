@@ -686,7 +686,11 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	var (
-		testBGPInstance     = instance.NewFakeBGPInstance()
+		testBGPInstance = instance.NewFakeBGPInstance()
+		ceeBGPInstance  = &EnterpriseBGPInstance{
+			Name:   testBGPInstance.Name,
+			Router: testBGPInstance.Router,
+		}
 		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -752,7 +756,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			})
 			req.NoError(err)
 
-			serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 		})
 	}
 }
@@ -1812,7 +1816,11 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			req := require.New(t)
 
 			var (
-				testBGPInstance     = instance.NewFakeBGPInstance()
+				testBGPInstance = instance.NewFakeBGPInstance()
+				ceeBGPInstance  = &EnterpriseBGPInstance{
+					Name:   testBGPInstance.Name,
+					Router: testBGPInstance.Router,
+				}
 				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -1873,7 +1881,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			}
 
 			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 
 			// validate that advertised paths match expected metadata
 			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
@@ -2190,7 +2198,11 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			req := require.New(t)
 
 			var (
-				testBGPInstance     = instance.NewFakeBGPInstance()
+				testBGPInstance = instance.NewFakeBGPInstance()
+				ceeBGPInstance  = &EnterpriseBGPInstance{
+					Name:   testBGPInstance.Name,
+					Router: testBGPInstance.Router,
+				}
 				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -2251,7 +2263,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			}
 
 			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 
 			// validate that advertised paths match expected metadata
 			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
@@ -2568,7 +2580,11 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			req := require.New(t)
 
 			var (
-				testBGPInstance     = instance.NewFakeBGPInstance()
+				testBGPInstance = instance.NewFakeBGPInstance()
+				ceeBGPInstance  = &EnterpriseBGPInstance{
+					Name:   testBGPInstance.Name,
+					Router: testBGPInstance.Router,
+				}
 				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -2629,7 +2645,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			}
 
 			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 
 			// validate that advertised paths match expected metadata
 			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
@@ -2974,7 +2990,11 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	req := require.New(t)
 
 	var (
-		testBGPInstance     = instance.NewFakeBGPInstance()
+		testBGPInstance = instance.NewFakeBGPInstance()
+		ceeBGPInstance  = &EnterpriseBGPInstance{
+			Name:   testBGPInstance.Name,
+			Router: testBGPInstance.Router,
+		}
 		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -3031,7 +3051,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		req.NoError(err)
 
 		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 
 		// validate that advertised paths match expected metadata
 		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
@@ -3303,7 +3323,11 @@ func Test_ServiceVIPSharing(t *testing.T) {
 
 	req := require.New(t)
 	var (
-		testBGPInstance     = instance.NewFakeBGPInstance()
+		testBGPInstance = instance.NewFakeBGPInstance()
+		ceeBGPInstance  = &EnterpriseBGPInstance{
+			Name:   testBGPInstance.Name,
+			Router: testBGPInstance.Router,
+		}
 		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
 		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -3360,7 +3384,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		req.NoError(err)
 
 		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, testBGPInstance.Metadata[ceeReconciler.Name()].(ServiceReconcilerMetadata))
+		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
 
 		// validate that advertised paths match expected metadata
 		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)

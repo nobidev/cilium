@@ -63,6 +63,7 @@ type ServiceReconciler struct {
 	peerAdvert   *IsovalentAdvertisement
 	svcDiffStore store.DiffStore[*slim_corev1.Service]
 	epDiffStore  store.DiffStore[*k8s.Endpoints]
+	metadata     map[string]ServiceReconcilerMetadata
 
 	// service health-checker
 	healthChecker          service.ServiceHealthCheckManager
@@ -123,6 +124,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		peerAdvert:       in.PeerAdvert,
 		svcDiffStore:     in.SvcDiffStore,
 		epDiffStore:      in.EPDiffStore,
+		metadata:         make(map[string]ServiceReconcilerMetadata),
 		svcHealth:        make(map[k8s.ServiceID]svcFrontendHealthMap),
 		svcHealthChanged: make(map[string]map[k8s.ServiceID]struct{}),
 	}
@@ -183,6 +185,12 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 
 	r.svcDiffStore.InitDiff(r.diffID(i.Name))
 	r.epDiffStore.InitDiff(r.diffID(i.Name))
+
+	r.metadata[i.Name] = ServiceReconcilerMetadata{
+		ServicePaths:          make(ossreconcilerv2.ResourceAFPathsMap),
+		ServiceRoutePolicies:  make(ossreconcilerv2.ResourceRoutePolicyMap),
+		ServiceAdvertisements: make(PeerAdvertisements),
+	}
 	return nil
 }
 
@@ -197,22 +205,17 @@ func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 
 		r.svcDiffStore.CleanupDiff(r.diffID(i.Name))
 		r.epDiffStore.CleanupDiff(r.diffID(i.Name))
+
+		delete(r.metadata, i.Name)
 	}
 }
 
 func (r *ServiceReconciler) getMetadata(i *EnterpriseBGPInstance) ServiceReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = ServiceReconcilerMetadata{
-			ServicePaths:          make(ossreconcilerv2.ResourceAFPathsMap),
-			ServiceRoutePolicies:  make(ossreconcilerv2.ResourceRoutePolicyMap),
-			ServiceAdvertisements: make(PeerAdvertisements),
-		}
-	}
-	return i.Metadata[r.Name()].(ServiceReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *ServiceReconciler) setMetadata(i *EnterpriseBGPInstance, metadata ServiceReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }
 
 // ServiceHealthUpdate is called by the service health-checker upon changes in service health based on backend health-checking.

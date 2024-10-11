@@ -58,6 +58,7 @@ type PodCIDRVRFReconciler struct {
 	Upgrader    paramUpgrader
 	SRv6Paths   *srv6Paths
 	SRv6Manager SRv6Manager
+	metadata    map[string]PodCIDRVRFReconcilerMetadata
 }
 
 type PodCIDRVRFReconcilerMetadata struct {
@@ -82,6 +83,7 @@ func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut 
 		Upgrader:    in.Upgrader,
 		SRv6Paths:   in.SRv6Paths,
 		SRv6Manager: in.SRv6Manager,
+		metadata:    make(map[string]PodCIDRVRFReconcilerMetadata),
 	}
 
 	return PodCIDRVRFReconcilerOut{Reconciler: pr}
@@ -95,11 +97,21 @@ func (r *PodCIDRVRFReconciler) Priority() int {
 	return 31 // somewhere around OSS PodCIDR Reconciler
 }
 
-func (r *PodCIDRVRFReconciler) Init(_ *instance.BGPInstance) error {
+func (r *PodCIDRVRFReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = PodCIDRVRFReconcilerMetadata{
+		VRFAFPaths: make(reconcilerv2.ResourceAFPathsMap),
+	}
 	return nil
 }
 
-func (r *PodCIDRVRFReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *PodCIDRVRFReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.Upgrader.upgrade(p)
@@ -244,14 +256,9 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 }
 
 func (r *PodCIDRVRFReconciler) getMetadata(i *EnterpriseBGPInstance) PodCIDRVRFReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = PodCIDRVRFReconcilerMetadata{
-			VRFAFPaths: make(reconcilerv2.ResourceAFPathsMap),
-		}
-	}
-	return i.Metadata[r.Name()].(PodCIDRVRFReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *PodCIDRVRFReconciler) setMetadata(i *EnterpriseBGPInstance, metadata PodCIDRVRFReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }

@@ -471,6 +471,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					peerConfig: mockPeerConfigStore,
 					adverts:    mockAdvertStore,
 				},
+				metadata: make(map[string]EgressGatewayIPsMetadata),
 			}
 
 			// set peer advert state
@@ -481,6 +482,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			}
 
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testBGPInstance := &EnterpriseBGPInstance{
+				Name:   testOSSBGPInstance.Name,
+				Router: testOSSBGPInstance.Router,
+			}
 
 			// set preconfigured data
 			presetEGWAFPaths := make(reconcilerv2.ResourceAFPathsMap)
@@ -497,10 +502,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				}
 			}
 
-			testOSSBGPInstance.Metadata[reconciler.Name()] = EgressGatewayIPsMetadata{
+			reconciler.setMetadata(testBGPInstance, EgressGatewayIPsMetadata{
 				EGWAFPaths:       presetEGWAFPaths,
 				EGWRoutePolicies: tt.preconfiguredRPs,
-			}
+			})
 
 			// run podIPPoolReconciler twice to ensure idempotency
 			for i := 0; i < 2; i++ {
@@ -512,7 +517,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 
 			// check if the advertisement is as expected
 			runningEGWAFPaths := make(map[resource.Key]map[types.Family]map[string]struct{})
-			for key, egwAFPaths := range testOSSBGPInstance.Metadata[reconciler.Name()].(EgressGatewayIPsMetadata).EGWAFPaths {
+			for key, egwAFPaths := range reconciler.getMetadata(testBGPInstance).EGWAFPaths {
 				runningEGWAFPaths[key] = make(map[types.Family]map[string]struct{})
 				for fam, afPaths := range egwAFPaths {
 					pathSet := make(map[string]struct{})
@@ -524,7 +529,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			}
 
 			req.Equal(tt.expectedEGWAFPaths, runningEGWAFPaths)
-			req.Equal(tt.expectedRPs, testOSSBGPInstance.Metadata[reconciler.Name()].(EgressGatewayIPsMetadata).EGWRoutePolicies)
+			req.Equal(tt.expectedRPs, reconciler.getMetadata(testBGPInstance).EGWRoutePolicies)
 		})
 	}
 }

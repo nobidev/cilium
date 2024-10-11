@@ -671,11 +671,17 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					SRv6Manager: srv6Manager,
 				},
 				srv6Manager: srv6Manager,
+				metadata:    make(map[string]ServiceVRFReconcilerMetadata),
 			}
 
 			// setup preconfig
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
-			testOSSBGPInstance.Metadata[svcVRFReconciler.Name()] = tt.prevMetadata
+			testBGPInstance := &EnterpriseBGPInstance{
+				Name:   testOSSBGPInstance.Name,
+				Router: testOSSBGPInstance.Router,
+			}
+			svcVRFReconciler.Init(testOSSBGPInstance)
+			svcVRFReconciler.setMetadata(testBGPInstance, tt.prevMetadata)
 
 			// reconcile twice to test idempotency
 			for i := 0; i < 2; i++ {
@@ -687,7 +693,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			}
 
 			// check if the expected metadata is the same as the actual metadata
-			runningMetadata := testOSSBGPInstance.Metadata[svcVRFReconciler.Name()].(ServiceVRFReconcilerMetadata)
+			runningMetadata := svcVRFReconciler.getMetadata(testBGPInstance)
 			req.Equal(tt.expectedAdverts, runningMetadata.vrfAdverts)
 
 			// check expected Paths
@@ -1048,10 +1054,17 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 					SRv6Manager: srv6Manager,
 				},
 				srv6Manager: srv6Manager,
+				metadata:    make(map[string]ServiceVRFReconcilerMetadata),
 			}
 
 			// setup preconfig
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testBGPInstance := &EnterpriseBGPInstance{
+				Name:   testOSSBGPInstance.Name,
+				Router: testOSSBGPInstance.Router,
+			}
+			svcVRFReconciler.Init(testOSSBGPInstance)
+			defer svcVRFReconciler.Cleanup(testOSSBGPInstance)
 
 			// reconcile to test initial state
 			err := svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
@@ -1061,7 +1074,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			req.NoError(err)
 
 			// check if the expected metadata is the same as the actual metadata
-			runningMetadata := testOSSBGPInstance.Metadata[svcVRFReconciler.Name()].(ServiceVRFReconcilerMetadata)
+			runningMetadata := svcVRFReconciler.getMetadata(testBGPInstance)
 			req.Equal(tt.expectedAdverts, runningMetadata.vrfAdverts)
 			req.Equal(tt.expectedVRFSIDs, runningMetadata.vrfSIDs)
 			compareSimplePath(req, tt.expectedPaths, runningMetadata.vrfPaths)
@@ -1087,7 +1100,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			req.NoError(err)
 
 			// check if the expected metadata is the same as the actual metadata
-			runningMetadata = testOSSBGPInstance.Metadata[svcVRFReconciler.Name()].(ServiceVRFReconcilerMetadata)
+			runningMetadata = svcVRFReconciler.getMetadata(testBGPInstance)
 			req.Equal(tt.expectedAdvertsAfterUpdate, runningMetadata.vrfAdverts)
 			// also check if SID is updated
 			if len(tt.updatedSRv6VRFs) > 0 {

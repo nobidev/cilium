@@ -572,12 +572,19 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					peerConfig: mockPeerConfigStore,
 					adverts:    mockAdvertStore,
 				},
+				metadata: make(map[string]LocatorPoolReconcilerMetadata),
 			}
 
 			reconciler.peerAdvert.initialized.Store(true)
 			reconciler.initialized.Store(true)
 
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testBGPInstance := &EnterpriseBGPInstance{
+				Name:   testOSSBGPInstance.Name,
+				Router: testOSSBGPInstance.Router,
+			}
+			reconciler.Init(testOSSBGPInstance)
+			defer reconciler.Cleanup(testOSSBGPInstance)
 
 			// set preconfigured data
 			presetAFPaths := make(reconcilerv2.ResourceAFPathsMap)
@@ -594,10 +601,10 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 				}
 			}
 
-			testOSSBGPInstance.Metadata[reconciler.Name()] = LocatorPoolReconcilerMetadata{
+			reconciler.setMetadata(testBGPInstance, LocatorPoolReconcilerMetadata{
 				AFPaths:       presetAFPaths,
 				RoutePolicies: test.preconfiguredRPs,
-			}
+			})
 
 			// run the reconciler twice to ensure idempotency
 			for i := 0; i < 2; i++ {
@@ -609,7 +616,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 
 			// check if the advertisement is as expected
 			runningAFPaths := make(map[resource.Key]map[types.Family]map[string]struct{})
-			for key, afPaths := range testOSSBGPInstance.Metadata[reconciler.Name()].(LocatorPoolReconcilerMetadata).AFPaths {
+			for key, afPaths := range reconciler.getMetadata(testBGPInstance).AFPaths {
 				runningAFPaths[key] = make(map[types.Family]map[string]struct{})
 				for fam, afPaths := range afPaths {
 					pathSet := make(map[string]struct{})
@@ -621,7 +628,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			}
 
 			req.EqualValues(test.expectedAFPaths, runningAFPaths)
-			req.EqualValues(test.expectedRPs, testOSSBGPInstance.Metadata[reconciler.Name()].(LocatorPoolReconcilerMetadata).RoutePolicies)
+			req.EqualValues(test.expectedRPs, reconciler.getMetadata(testBGPInstance).RoutePolicies)
 		})
 	}
 }

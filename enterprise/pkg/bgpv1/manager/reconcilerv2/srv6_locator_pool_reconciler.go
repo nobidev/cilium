@@ -70,6 +70,7 @@ type LocatorPoolReconciler struct {
 	sidAllocators     map[string]sidmanager.SIDAllocator
 	sidAllocatorsLock lock.RWMutex
 	locatorPoolStore  resource.Store[*v1alpha1.IsovalentSRv6LocatorPool]
+	metadata          map[string]LocatorPoolReconcilerMetadata
 }
 
 type LocatorPoolReconcilerMetadata struct {
@@ -87,6 +88,7 @@ func NewSRv6LocatorPoolReconciler(params srv6LocatorPoolReconcilerIn) srv6Locato
 		sidAllocators: make(map[string]sidmanager.SIDAllocator),
 		upgrader:      params.Upgrader,
 		peerAdvert:    params.PeerAdvert,
+		metadata:      make(map[string]LocatorPoolReconcilerMetadata),
 	}
 
 	params.JobGroup.Add(
@@ -150,11 +152,22 @@ func (r *LocatorPoolReconciler) Name() string {
 	return "LocatorPool"
 }
 
-func (r *LocatorPoolReconciler) Init(_ *instance.BGPInstance) error {
+func (r *LocatorPoolReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = LocatorPoolReconcilerMetadata{
+		AFPaths:       make(reconcilerv2.ResourceAFPathsMap),
+		RoutePolicies: make(reconcilerv2.ResourceRoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *LocatorPoolReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *LocatorPoolReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *LocatorPoolReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	if !r.initialized.Load() {
@@ -384,15 +397,9 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 }
 
 func (r *LocatorPoolReconciler) getMetadata(i *EnterpriseBGPInstance) LocatorPoolReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = LocatorPoolReconcilerMetadata{
-			AFPaths:       make(reconcilerv2.ResourceAFPathsMap),
-			RoutePolicies: make(reconcilerv2.ResourceRoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(LocatorPoolReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *LocatorPoolReconciler) setMetadata(i *EnterpriseBGPInstance, metadata LocatorPoolReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }

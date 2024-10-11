@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"sync/atomic"
 
@@ -67,6 +68,7 @@ type BFDStateReconciler struct {
 	db                 *statedb.DB
 	bfdPeersTable      statedb.Table[*types.BFDPeerStatus]
 	bgpPeerConfigStore resource.Store[*v1alpha1.IsovalentBGPPeerConfig]
+	metadata           map[string]BFDStateReconcilerMetadata
 }
 
 type BFDStateReconcilerMetadata struct {
@@ -83,6 +85,7 @@ func NewBFDStateReconciler(p BFDStateReconcilerIn) BFDStateReconcilerOut {
 		bfdPeersTable: p.BFDPeersTable,
 		signaler:      p.Signaler,
 		upgrader:      p.Upgrader,
+		metadata:      make(map[string]BFDStateReconcilerMetadata),
 		log:           p.Logger.WithField(bgptypes.ReconcilerLogField, "BFDState"),
 	}
 
@@ -109,11 +112,21 @@ func (r *BFDStateReconciler) Priority() int {
 	return 100 // low priority, let the configuration reconcilers do their work first
 }
 
-func (r *BFDStateReconciler) Init(_ *instance.BGPInstance) error {
+func (r *BFDStateReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = BFDStateReconcilerMetadata{
+		lastPeerState: make(map[netip.Addr]types.BFDState),
+	}
 	return nil
 }
 
-func (r *BFDStateReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *BFDStateReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 // Reconcile checks if a BFD peer that was configured for the router instance went down,
 // and if yes, it hard-resets the BGP peering for that peer address on the router instance.
@@ -201,19 +214,19 @@ func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.Recon
 	for peer := range r.bfdPeersTable.All(txn) {
 		metadata.lastPeerState[peer.PeerAddress] = peer.Local.State
 	}
+	r.setMetadata(params.BGPInstance, metadata)
 
 	logger.Debug("BFD state reconciliation finished")
 
 	return err
 }
 
-func (r *BFDStateReconciler) getMetadata(i *EnterpriseBGPInstance) *BFDStateReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = &BFDStateReconcilerMetadata{
-			lastPeerState: make(map[netip.Addr]types.BFDState),
-		}
-	}
-	return i.Metadata[r.Name()].(*BFDStateReconcilerMetadata)
+func (r *BFDStateReconciler) getMetadata(i *EnterpriseBGPInstance) BFDStateReconcilerMetadata {
+	return r.metadata[i.Name]
+}
+
+func (r *BFDStateReconciler) setMetadata(i *EnterpriseBGPInstance, m BFDStateReconcilerMetadata) {
+	r.metadata[i.Name] = m
 }
 
 // getConfiguredBFDPeers returns set of BFD peers configured in the provided router instance.

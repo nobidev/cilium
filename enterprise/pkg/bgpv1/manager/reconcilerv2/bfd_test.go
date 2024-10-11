@@ -67,8 +67,8 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 	f := &bfdTestFixture{
 		router: router,
 		instance: &instance.BGPInstance{
-			Router:   router,
-			Metadata: make(map[string]any),
+			Name:   "test-instance",
+			Router: router,
 		},
 	}
 
@@ -100,6 +100,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 			cell.Invoke(func(p BFDStateReconcilerIn) {
 				out := NewBFDStateReconciler(p)
 				f.reconciler = out.Reconciler.(*BFDStateReconciler)
+				f.reconciler.Init(f.instance)
 			}),
 			cell.Invoke(func(sig *signaler.BGPCPSignaler) {
 				f.bgpSignaler = sig
