@@ -62,6 +62,9 @@ for i in $(echo $t1NodeNames); do
   kubectl delete -n kube-system "${CILIUM_T1_POD}"
 done
 
+# restart coredns pods to ensure they don't run on tainted T1 nodes
+kubectl -n kube-system delete pods -l k8s-app=kube-dns
+
 # Wait until LB nodes are ready
 echo -n "Waiting until LB nodes are ready ..."
 cilium status --wait --interactive=false
