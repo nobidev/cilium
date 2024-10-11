@@ -234,7 +234,7 @@ func TestTranspose(t *testing.T) {
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			label, transposedSID, err := sid.Transpose(test.offset, test.length)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			require.Equal(t, test.expectedLabel, label)
 			require.Equal(t, test.expectedSID, transposedSID)
 		})

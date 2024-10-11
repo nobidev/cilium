@@ -406,7 +406,7 @@ func Test_Mapping(t *testing.T) {
 						assert.NoError(c, err)
 						return
 					}
-					assert.Equal(c, 0, len(clusterConfigs.Items))
+					assert.Empty(c, clusterConfigs.Items)
 					return
 				}
 
@@ -429,7 +429,7 @@ func Test_Mapping(t *testing.T) {
 						assert.NoError(c, err)
 						return
 					}
-					assert.Equal(c, 0, len(peerConfigs.Items))
+					assert.Empty(c, peerConfigs.Items)
 					return
 				}
 
@@ -452,7 +452,7 @@ func Test_Mapping(t *testing.T) {
 						assert.NoError(c, err)
 						return
 					}
-					assert.Equal(c, 0, len(ossAdverts.Items))
+					assert.Empty(c, ossAdverts.Items)
 					return
 				}
 
@@ -475,7 +475,7 @@ func Test_Mapping(t *testing.T) {
 						assert.NoError(c, err)
 						return
 					}
-					assert.Equal(c, 0, len(ossNodeConfigs.Items))
+					assert.Empty(c, ossNodeConfigs.Items)
 					return
 				}
 

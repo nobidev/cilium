@@ -90,7 +90,7 @@ func TestPolicyKeyEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }
@@ -147,7 +147,7 @@ func TestPolicyValueEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }
@@ -204,7 +204,7 @@ func TestSIDKeyEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }
@@ -261,7 +261,7 @@ func TestSIDValueEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }
@@ -340,7 +340,7 @@ func TestVRFKeyEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }
@@ -397,7 +397,7 @@ func TestVRFValueEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.a.Equal(tt.b), tt.want)
+			require.Equal(t, tt.want, tt.a.Equal(tt.b))
 		})
 	}
 }

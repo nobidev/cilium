@@ -110,7 +110,7 @@ var (
 func TestConnectionHash(t *testing.T) {
 	h1 := newConnectionAggregation(p1, false).Hash()
 	h2 := newConnectionAggregation(p2, false).Hash()
-	assert.True(t, h1 == h2)
+	assert.Equal(t, h1, h2)
 }
 
 func TestConnectionAggregationTCP(t *testing.T) {
@@ -119,48 +119,48 @@ func TestConnectionAggregationTCP(t *testing.T) {
 	go ca.Start(ctx)
 	defer cancel()
 	r := ca.Aggregate(p1)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new)
+	assert.Equal(t, aggregationpb.StateChange_new, r.StateChange)
 	assert.False(t, r.AggregatedFlow.Stats.Forward.AckSeen)
 	r = ca.Aggregate(p2)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p1)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p1)
 	assert.True(t, r.AggregatedFlow.Stats.Reply.AckSeen)
 
 	r = ca.Aggregate(p3)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_established)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p1)
+	assert.Equal(t, aggregationpb.StateChange_established, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p1)
 	assert.True(t, r.AggregatedFlow.Stats.Forward.AckSeen)
 	r = ca.Aggregate(p4)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p1)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p1)
 
 	// Different flow
 	r = ca.Aggregate(p5a)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new)
+	assert.Equal(t, aggregationpb.StateChange_new, r.StateChange)
 	r = ca.Aggregate(p5b)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 	r = ca.Aggregate(p5c)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new)
+	assert.Equal(t, aggregationpb.StateChange_new, r.StateChange)
 
 	// Different flow
 	r = ca.Aggregate(p6)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply, r.StateChange)
 
 	r = ca.Aggregate(p7)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p1)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p1)
 	r = ca.Aggregate(p8)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_closed)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p1)
+	assert.Equal(t, aggregationpb.StateChange_closed, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p1)
 
 	af := ca.Cache().Lookup(p2)
-	assert.True(t, af.FirstFlow == p1)
+	assert.Equal(t, af.FirstFlow, p1)
 
-	assert.True(t, af.Stats.Forward.NumFlows == 3)
-	assert.True(t, af.Stats.Reply.NumFlows == 3)
-	assert.True(t, af.Stats.Reply.CloseRequests == 1)
+	assert.EqualValues(t, 3, af.Stats.Forward.NumFlows)
+	assert.EqualValues(t, 3, af.Stats.Reply.NumFlows)
+	assert.EqualValues(t, 1, af.Stats.Reply.CloseRequests)
 }
 
 func TestConnectionAggregationReply(t *testing.T) {
@@ -169,46 +169,46 @@ func TestConnectionAggregationReply(t *testing.T) {
 	go ca.Start(ctx)
 	defer cancel()
 	r := ca.Aggregate(p2)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 	r = ca.Aggregate(p1)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p2)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p2)
 
 	r = ca.Aggregate(p4)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p2)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p2)
 	r = ca.Aggregate(p3)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_established)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p2)
+	assert.Equal(t, aggregationpb.StateChange_established, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p2)
 
 	// Different flow
 	r = ca.Aggregate(p5a)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new)
+	assert.Equal(t, aggregationpb.StateChange_new, r.StateChange)
 	r = ca.Aggregate(p5b)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 	r = ca.Aggregate(p5c)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new)
+	assert.Equal(t, aggregationpb.StateChange_new, r.StateChange)
 
 	// Different flow
 	r = ca.Aggregate(p6)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_first_reply, r.StateChange)
 
 	r = ca.Aggregate(p8)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p2)
+	assert.Equal(t, aggregationpb.StateChange_unspec, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p2)
 	r = ca.Aggregate(p7)
-	assert.True(t, r.StateChange == aggregationpb.StateChange_closed)
-	assert.True(t, r.AggregatedFlow.FirstFlow == p2)
+	assert.Equal(t, aggregationpb.StateChange_closed, r.StateChange)
+	assert.Equal(t, r.AggregatedFlow.FirstFlow, p2)
 
 	af := ca.Cache().Lookup(p1)
-	assert.True(t, af.FirstFlow == p2)
+	assert.Equal(t, af.FirstFlow, p2)
 
-	assert.True(t, af.Stats.Forward.NumFlows == 3)
-	assert.True(t, af.Stats.Reply.NumFlows == 3)
-	assert.True(t, af.Stats.Reply.CloseRequests == 1)
-	assert.True(t, af.Stats.Forward.CloseRequests == 1)
+	assert.EqualValues(t, 3, af.Stats.Forward.NumFlows)
+	assert.EqualValues(t, 3, af.Stats.Reply.NumFlows)
+	assert.EqualValues(t, 1, af.Stats.Reply.CloseRequests)
+	assert.EqualValues(t, 1, af.Stats.Forward.CloseRequests)
 
 }
 
@@ -222,7 +222,7 @@ func TestConnectionAggregationUDP(t *testing.T) {
 		Destination: testflow.Peer{IP: net.ParseIP("2.2.2.2"), Port: 22},
 		ProtocolStr: "UDP",
 	})
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	r = ca.Aggregate(&testflow.Flow{
 		Source:      testflow.Peer{IP: net.ParseIP("2.2.2.2"), Port: 22},
@@ -230,7 +230,7 @@ func TestConnectionAggregationUDP(t *testing.T) {
 		ProtocolStr: "UDP",
 		Reply:       true,
 	})
-	assert.True(t, r.StateChange == aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 
 	// Different flow
@@ -239,7 +239,7 @@ func TestConnectionAggregationUDP(t *testing.T) {
 		Destination: testflow.Peer{IP: net.ParseIP("2.2.2.2"), Port: 22},
 		ProtocolStr: "UDP",
 	})
-	assert.True(t, r.StateChange == aggregationpb.StateChange_new|aggregationpb.StateChange_established)
+	assert.Equal(t, aggregationpb.StateChange_new|aggregationpb.StateChange_established, r.StateChange)
 
 	// Different flow reply
 	r = ca.Aggregate(&testflow.Flow{
@@ -248,7 +248,7 @@ func TestConnectionAggregationUDP(t *testing.T) {
 		ProtocolStr: "UDP",
 		Reply:       true,
 	})
-	assert.True(t, r.StateChange == aggregationpb.StateChange_first_reply)
+	assert.Equal(t, aggregationpb.StateChange_first_reply, r.StateChange)
 	assert.True(t, r.Reply)
 
 	af := ca.Cache().Lookup(&testflow.Flow{
@@ -257,8 +257,8 @@ func TestConnectionAggregationUDP(t *testing.T) {
 		ProtocolStr: "UDP",
 	})
 
-	assert.True(t, af.Stats.Forward.NumFlows == 1)
-	assert.True(t, af.Stats.Reply.NumFlows == 1)
+	assert.EqualValues(t, 1, af.Stats.Forward.NumFlows)
+	assert.EqualValues(t, 1, af.Stats.Reply.NumFlows)
 }
 
 func TestCompareDNS(t *testing.T) {

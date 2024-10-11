@@ -100,7 +100,7 @@ func TestEndpointManager(t *testing.T) {
 	mgr.Upsert("10.0.0.6", tep3, 96, &meta2, id3)
 	mgr.Delete("10.0.0.4", source.KVStore)
 	mgr.Upsert("10.0.0.5", tep2, 95, &meta1, id3)
-	require.Len(t, fed.ops, 0, "Upsertions should have been buffered")
+	require.Empty(t, fed.ops, "Upsertions should have been buffered")
 	require.EqualValues(t, 3, testutil.ToFloat64(me.BufferedEndpoints))
 
 	// The configuration of a tunnel endpoint mapping should trigger the upsertion of buffered entries.
@@ -125,7 +125,7 @@ func TestEndpointManager(t *testing.T) {
 
 	// A no-op change of the routing mode should not trigger events.
 	mgr.setMapping(tep2, routingModeVXLAN)
-	require.Len(t, fed.ops, 0, "Synthetic upsertions and deletions should not have been generated")
+	require.Empty(t, fed.ops, "Synthetic upsertions and deletions should not have been generated")
 	require.EqualValues(t, 1, testutil.ToFloat64(me.BufferedEndpoints))
 
 	// A tunnel endpoint change for an existing prefix should propagate if known.
@@ -155,7 +155,7 @@ func TestEndpointManager(t *testing.T) {
 	// Unsetting mappings should not trigger any event propagation
 	mgr.unsetMapping(tep1)
 	mgr.unsetMapping(tep3)
-	require.Len(t, fed.ops, 0, "No event should have been propagated to downstream")
+	require.Empty(t, fed.ops, "No event should have been propagated to downstream")
 	require.EqualValues(t, 0, testutil.ToFloat64(me.BufferedEndpoints))
 
 	// And a subsequent reconfiguration should trigger deletions+upsertions for known entries.

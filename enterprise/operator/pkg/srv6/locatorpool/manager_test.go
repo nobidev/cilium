@@ -957,7 +957,7 @@ func sameSIDManagers(req *require.Assertions, poolPrefixLen int, running, expect
 	}
 
 	// running should be empty
-	req.Len(running, 0)
+	req.Empty(running)
 }
 
 func Test_Resync(t *testing.T) {

@@ -49,17 +49,17 @@ func TestAggregatorCache(t *testing.T) {
 	go ca.Start(ctx)
 	defer cancel()
 
-	assert.True(t, ca.String() == Name)
+	assert.Equal(t, Name, ca.String())
 
-	assert.True(t, ca.Aggregate(a).StateChange == aggregationpb.StateChange_new)
-	assert.True(t, ca.Aggregate(a).StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, ca.Aggregate(a).StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, ca.Cache().Lookup(a) != nil)
-	assert.True(t, ca.Cache().Lookup(b) == nil)
+	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(a).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(a).StateChange)
+	assert.NotNil(t, ca.Cache().Lookup(a))
+	assert.Nil(t, ca.Cache().Lookup(b))
 
-	assert.True(t, ca.Aggregate(b).StateChange == aggregationpb.StateChange_new)
-	assert.True(t, ca.Aggregate(b).StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, ca.Aggregate(b).StateChange == aggregationpb.StateChange_unspec)
-	assert.True(t, ca.Cache().Lookup(b) != nil)
-	assert.True(t, ca.Cache().Lookup(a) != nil)
+	assert.Equal(t, aggregationpb.StateChange_new, ca.Aggregate(b).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
+	assert.Equal(t, aggregationpb.StateChange_unspec, ca.Aggregate(b).StateChange)
+	assert.NotNil(t, ca.Cache().Lookup(b))
+	assert.NotNil(t, ca.Cache().Lookup(a))
 }

@@ -99,7 +99,7 @@ func (k *EgressGatewayOperatorTestSuite) updatePolicyMaxGatewayNodes(t *testing.
 
 func (k *EgressGatewayOperatorTestSuite) getCurrentStatusForUpdate(t *testing.T, policy *policyParams) *policyParams {
 	iegp, err := k.fakeSet.CiliumFakeClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Get(context.TODO(), policy.name, metav1.GetOptions{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	policy.generation = iegp.Generation + 1
 
@@ -143,7 +143,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusFromPolicy(tb te
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	assert.Nil(tb, err)
+	assert.NoError(tb, err)
 }
 
 func tryAssertIegpGatewayStatus(fakeSet *k8sClient.FakeClientset, policy string, gs gatewayStatus) error {
@@ -186,7 +186,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpStatusConditionsFromPolicy(tb
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	assert.Nil(tb, err)
+	assert.NoError(tb, err)
 }
 
 func tryAssertIegpStatusConditions(fakeSet *k8sClient.FakeClientset, policy string, conds []metav1.Condition) error {

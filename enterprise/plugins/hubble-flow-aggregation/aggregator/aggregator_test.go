@@ -30,18 +30,18 @@ func Test_flowAggregation_OnFlowDelivery(t *testing.T) {
 func TestConfigureAggregator(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	a, err := ConfigureAggregator(clock, []*aggregationpb.Aggregator{})
-	assert.True(t, err == nil)
-	assert.True(t, a == nil)
+	assert.NoError(t, err)
+	assert.Nil(t, a)
 
 	a, err = ConfigureAggregator(clock, []*aggregationpb.Aggregator{{Type: 10000}})
-	assert.True(t, err != nil)
-	assert.True(t, a == nil)
+	assert.Error(t, err)
+	assert.Nil(t, a)
 
 	a, err = ConfigureAggregator(clock, []*aggregationpb.Aggregator{{Type: aggregationpb.AggregatorType_identity}})
-	assert.True(t, err == nil)
-	assert.True(t, a.String() == "compare")
+	assert.NoError(t, err)
+	assert.Equal(t, "compare", a.String())
 
 	a, err = ConfigureAggregator(clock, []*aggregationpb.Aggregator{{Type: aggregationpb.AggregatorType_identity}, {Type: aggregationpb.AggregatorType_connection}})
-	assert.True(t, err == nil)
-	assert.True(t, a.String()[0] == '[')
+	assert.NoError(t, err)
+	assert.EqualValues(t, '[', a.String()[0])
 }

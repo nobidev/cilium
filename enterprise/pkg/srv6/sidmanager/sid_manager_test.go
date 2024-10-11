@@ -396,7 +396,7 @@ func TestSIDManagerStatusReconciliation(t *testing.T) {
 			if !assert.NotNil(t, sm.Status, "Status is nil") {
 				return
 			}
-			assert.Len(t, sm.Status.SIDAllocations, 0, "SIDAllocations still exists")
+			assert.Empty(t, sm.Status.SIDAllocations, "SIDAllocations still exists")
 		})
 	})
 }
@@ -509,7 +509,7 @@ func TestSIDManagerRestoration(t *testing.T) {
 				err := c.Delete(context.TODO(), sidmanager.Name, metav1.DeleteOptions{})
 				require.NoError(t, err)
 				eventuallyWithT(t, func(t *assert.CollectT) {
-					assert.Len(t, o.Allocators(), 0, "Allocators still exist")
+					assert.Empty(t, o.Allocators(), "Allocators still exist")
 				})
 			})
 
@@ -542,7 +542,7 @@ func TestSIDManagerRestoration(t *testing.T) {
 					if !assert.NotNil(t, sm.Status, "Status is nil") {
 						return
 					}
-					assert.Len(t, sm.Status.SIDAllocations, 0, "Stale allocation restored to the status")
+					assert.Empty(t, sm.Status.SIDAllocations, "Stale allocation restored to the status")
 				})
 			}
 		})
