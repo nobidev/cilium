@@ -13,6 +13,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -22,6 +23,7 @@ import (
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -32,8 +34,11 @@ const (
 	bgpCiliumASN = 65001
 	bgpFRRASN    = 65000
 
-	bgpCommunityPodCIDR = "65001:100"
-	bgpCommunityService = "65001:200"
+	bgpCommunityPodCIDR    = "65001:100"
+	bgpCommunityService    = "65001:200"
+	bgpCommunityAggService = "65001:300"
+
+	bgpPrefixAggregateLength = 24
 )
 
 func BGPSvcAdvertisements() check.Scenario {
@@ -70,6 +75,17 @@ func (s *bgpSvcAdvertisements) Run(ctx context.Context, t *check.Test) {
 		// wait for BGP peers and expected prefixes
 		podCIDRPrefixes := ct.PodCIDRPrefixes(ipFamily)
 		svcPrefixes := ct.EchoServicePrefixes(ipFamily)
+
+		// create aggregated service prefixes
+		aggregatedSvcPrefixes := make([]netip.Prefix, 0, len(svcPrefixes))
+		for _, prefix := range svcPrefixes {
+			aggPrefix, err := prefix.Addr().Prefix(bgpPrefixAggregateLength)
+			if err != nil {
+				t.Fatalf("failed to aggregate prefix %s: %v", prefix, err)
+			}
+			aggregatedSvcPrefixes = append(aggregatedSvcPrefixes, aggPrefix)
+		}
+
 		for _, frr := range ct.FRRPods() {
 			check.WaitForFRRBGPNeighborsState(ctx, t, &frr, frrPeers, "Established")
 
@@ -78,6 +94,12 @@ func (s *bgpSvcAdvertisements) Run(ctx context.Context, t *check.Test) {
 
 			frrPrefixes = check.WaitForFRRBGPPrefixes(ctx, t, &frr, svcPrefixes, ipFamily)
 			check.AssertFRRBGPCommunity(t, frrPrefixes, svcPrefixes, bgpCommunityService)
+
+			// Aggregated service prefixes is only supported from 1.17
+			if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+				frrPrefixes = check.WaitForFRRBGPPrefixes(ctx, t, &frr, aggregatedSvcPrefixes, ipFamily)
+				check.AssertFRRBGPCommunity(t, frrPrefixes, aggregatedSvcPrefixes, bgpCommunityAggService)
+			}
 		}
 
 		for _, client := range ct.ExternalEchoPods() {
@@ -157,6 +179,26 @@ func configureBGPPeering(ctx context.Context, t *check.Test, ipFamily features.I
 			},
 		},
 	}
+
+	// add aggregated service prefixes advertisement if version is >= 1.17.0
+	if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1alpha1.BGPAdvertisement{
+			AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
+			Service: &isovalentv1alpha1.BGPServiceOptions{
+				AggregationLength: ptr.To[int32](bgpPrefixAggregateLength),
+				Addresses:         []ciliumv2alpha1.BGPServiceAddressType{ciliumv2alpha1.BGPClusterIPAddr},
+			},
+			Selector: &slimv1.LabelSelector{
+				MatchLabels: map[string]string{"kind": "echo"},
+			},
+			Attributes: &ciliumv2alpha1.BGPAttributes{
+				Communities: &ciliumv2alpha1.BGPCommunities{
+					Standard: []ciliumv2alpha1.BGPStandardCommunity{bgpCommunityAggService},
+				},
+			},
+		})
+	}
+
 	_, err := client.IsovalentBGPAdvertisements().Create(ctx, advertisement, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("failed to create IsovalentBGPAdvertisement: %v", err)
