@@ -186,7 +186,7 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 
 	ret = egress_gw_request_needs_redirect(rtuple, gateway_ip);
 	if (ret == CTX_ACT_OK)
-		ret = egress_gw_ha_request_needs_redirect(rtuple, ct_status, gateway_ip);
+		ret = egress_gw_ha_request_needs_redirect(rtuple, gateway_ip);
 
 	return ret;
 }

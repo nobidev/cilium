@@ -68,11 +68,11 @@ bool egress_gw_ha_policy_entry_is_excluded_cidr(const struct egress_gw_ha_policy
 
 static __always_inline int
 egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
-				    int ct_status __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
 	struct egress_gw_ha_policy_entry *egress_gw_policy;
+	struct egress_gw_ha_ct_entry *egress_ct;
 	struct ipv4_ct_tuple ct_key;
 
 	/* The first iteration of egress_gw_ha_request_needs_redirect() would
@@ -95,17 +95,13 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 	ipv4_ct_tuple_swap_addrs(&ct_key);
 	ct_key.flags = 0;
 
-	/* Established connection should have its gateway in the EgressCT map: */
-	if (ct_status == CT_ESTABLISHED) {
-		struct egress_gw_ha_ct_entry *egress_ct = lookup_ip4_egress_ct(&ct_key);
-
-		if (egress_ct) {
-			/* If there's an entry, extract the IP of the gateway node from
-			 * the egress_ct struct and forward the packet to the gateway
-			 */
-			*gateway_ip = egress_ct->gateway_ip;
-			return CTX_ACT_REDIRECT;
-		}
+	egress_ct = lookup_ip4_egress_ct(&ct_key);
+	if (egress_ct) {
+		/* If there's an entry, extract the IP of the gateway node from
+		 * the egress_ct struct and forward the packet to the gateway
+		 */
+		*gateway_ip = egress_ct->gateway_ip;
+		return CTX_ACT_REDIRECT;
 	}
 
 	/* Lookup the (src IP, dst IP) tuple in the the egress policy map */
