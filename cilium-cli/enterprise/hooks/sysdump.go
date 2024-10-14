@@ -299,6 +299,29 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting Cilium DNS Proxy Helm values",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				namespaces := []string{collector.Options.CiliumNamespace}
+				var taskErr error
+				for _, ns := range namespaces {
+					val, err := collector.Client.GetHelmValues(ctx, opts.CiliumDnsProxyReleaseName, ns)
+					if err != nil {
+						taskErr = errors.Join(taskErr, fmt.Errorf("failed to collect Cilium DNS Proxy helm values from namespace %q: %w", ns, err))
+						continue
+					}
+					if err := collector.WriteString("cilium-dnsproxy-helm-values-<ts>.yaml", val); err != nil {
+						taskErr = errors.Join(taskErr, fmt.Errorf("failed to write cilium-dnsproxy helm values: %w", err))
+						continue
+					}
+					// we didn't hit any errors, return early with the successful values
+					return nil
+				}
+				return taskErr
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting Hubble UI Enterprise oauth2-proxy Configmap",
 			Quick:           true,
 			Task: func(ctx context.Context) error {

@@ -45,6 +45,8 @@ type EnterpriseOptions struct {
 
 	HubbleEnterpriseReleaseName string
 	HubbleEnterpriseNamespace   string
+
+	CiliumDnsProxyReleaseName string
 }
 
 func NewEnterpriseHook() *EnterpriseHooks {
@@ -56,6 +58,7 @@ func NewEnterpriseHook() *EnterpriseHooks {
 			HubbleUINamespace:           "hubble-ui",
 			HubbleEnterpriseReleaseName: "hubble-enterprise",
 			HubbleEnterpriseNamespace:   "kube-system",
+			CiliumDnsProxyReleaseName:   "cilium-dnsproxy",
 		},
 	}
 }
@@ -148,6 +151,9 @@ cilium sysdump --node-list node-a,node-b,node-c`
 			cmd.Flags().StringArrayVar(&eh.Opts.HubbleTimescapeBugtoolFlags,
 				"hubble-timescape-bugtool-flags", nil,
 				"Optional set of flags to pass to hubble timescape bugtool command.")
+			cmd.Flags().StringVar(&eh.Opts.CiliumDnsProxyReleaseName,
+				"dns-proxy-release-name", eh.Opts.CiliumDnsProxyReleaseName,
+				"The Cilium DNS proxy Helm release name for which to get values")
 		}
 	}
 }
