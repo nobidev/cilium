@@ -36,7 +36,8 @@ type EnterpriseHooks struct {
 
 // EnterpriseOptions are cilium enterprise specific options for tasks
 type EnterpriseOptions struct {
-	HubbleUINamespace string
+	HubbleUINamespace   string
+	HubbleUIReleaseName string
 
 	HubbleTimescapeReleaseName  string
 	HubbleTimescapeSelector     string
@@ -56,6 +57,7 @@ func NewEnterpriseHook() *EnterpriseHooks {
 			HubbleTimescapeReleaseName:  "hubble-timescape",
 			HubbleTimescapeNamespace:    "hubble-timescape",
 			HubbleUINamespace:           "hubble-ui",
+			HubbleUIReleaseName:         "hubble-ui",
 			HubbleEnterpriseReleaseName: "hubble-enterprise",
 			HubbleEnterpriseNamespace:   "kube-system",
 			CiliumDnsProxyReleaseName:   "cilium-dnsproxy",
@@ -139,6 +141,9 @@ cilium sysdump --node-list node-a,node-b,node-c`
 			cmd.Flags().StringVar(&eh.Opts.HubbleUINamespace,
 				"hubble-ui-namespace", eh.Opts.HubbleUINamespace,
 				"The namespace Hubble UI is running in")
+			cmd.Flags().StringVar(&eh.Opts.HubbleUIReleaseName,
+				"hubble-ui-helm-release-name", eh.Opts.HubbleUIReleaseName,
+				"The Hubble UI Helm release name for which to get values")
 			cmd.Flags().StringVar(&eh.Opts.HubbleTimescapeReleaseName,
 				"hubble-timescape-helm-release-name", eh.Opts.HubbleTimescapeReleaseName,
 				"The Hubble Timescape Helm release name for which to get values")

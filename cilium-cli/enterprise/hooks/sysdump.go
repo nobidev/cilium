@@ -260,6 +260,29 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting 'hubble-ui' Helm values",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				namespaces := []string{collector.Options.CiliumNamespace, opts.HubbleUINamespace}
+				var taskErr error
+				for _, ns := range namespaces {
+					val, err := collector.Client.GetHelmValues(ctx, opts.HubbleUIReleaseName, ns)
+					if err != nil {
+						taskErr = errors.Join(taskErr, fmt.Errorf("failed to collect hubble-ui helm values from namespace %q: %w", ns, err))
+						continue
+					}
+					if err := collector.WriteString("hubble-ui-helm-values-<ts>.yaml", val); err != nil {
+						taskErr = errors.Join(taskErr, fmt.Errorf("failed to write hubble-ui helm values: %w", err))
+						continue
+					}
+					// we didn't hit any errors, return early with the successful values
+					return nil
+				}
+				return taskErr
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting logs and metrics from 'cilium-dnsproxy' pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
