@@ -112,6 +112,7 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'iptables'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'clustermesh'
 
@@ -120,6 +121,7 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'iptables'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'clustermesh'
 
@@ -128,6 +130,7 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'iptables'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'clustermesh'
 
@@ -136,6 +139,7 @@ jobs:
             tunnel: 'geneve'
             kube-proxy: 'none'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
             mode: 'kvstoremesh'
 
@@ -144,6 +148,7 @@ jobs:
             tunnel: 'geneve'
             kube-proxy: 'none'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
             mode: 'kvstoremesh'
 
@@ -152,6 +157,7 @@ jobs:
             tunnel: 'geneve'
             kube-proxy: 'none'
             encryption: 'disabled'
+            encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
             mode: 'kvstoremesh'
 
@@ -160,6 +166,7 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'none'
             encryption: 'wireguard'
+            encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'external'
 
@@ -168,6 +175,7 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'none'
             encryption: 'wireguard'
+            encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'external'
 
@@ -176,6 +184,34 @@ jobs:
             tunnel: 'vxlan'
             kube-proxy: 'none'
             encryption: 'wireguard'
+            encryption-policies: false
+            endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            mode: 'external'
+
+          - name: '10'
+            routing: 'native'
+            tunnel: 'vxlan'
+            kube-proxy: 'none'
+            encryption: 'wireguard'
+            encryption-policies: true
+            endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            mode: 'external'
+
+          - name: '11'
+            routing: 'tunnel'
+            tunnel: 'vxlan'
+            kube-proxy: 'none'
+            encryption: 'wireguard'
+            encryption-policies: true
+            endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            mode: 'external'
+
+          - name: '12'
+            routing: 'mixed'
+            tunnel: 'vxlan'
+            kube-proxy: 'none'
+            encryption: 'wireguard'
+            encryption-policies: true
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
             mode: 'external'
 
@@ -243,6 +279,8 @@ jobs:
             --set hubble.eventBufferCapacity=65535 \
             --set extraConfig.clustermesh-sync-timeout=10m \
             --set envoy.enabled=false \
+            --set enterprise.encryption.policy.enabled=${{ matrix.encryption-policies }} \
+            --set enterprise.encryption.policy.fallbackBehavior=plaintext \
           "
 
           CILIUM_INSTALL_CLUSTER1="$CILIUM_INSTALL_DEFAULTS \
