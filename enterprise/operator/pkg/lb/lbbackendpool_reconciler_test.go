@@ -89,7 +89,7 @@ func TestLBBackendPoolStatusAccepted(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateAcceptedStatusCondition(tc.lbbp)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbbp.Status.Conditions))
+			assert.Len(t, tc.lbbp.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbbp.GetStatusCondition(conditionType)
 			require.NotNil(t, c)

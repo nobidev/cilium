@@ -83,7 +83,7 @@ func TestLBServiceStatusVIP(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateVIPInStatus(tc.lbsvc, tc.vip)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
+			assert.Equal(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
@@ -167,7 +167,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateAssignedIpInStatus(tc.model, tc.lbsvc)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
+			assert.Equal(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
