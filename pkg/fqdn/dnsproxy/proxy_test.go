@@ -45,7 +45,7 @@ import (
 )
 
 type DNSProxyTestSuite struct {
-	repo         *policy.Repository
+	repo         policy.PolicyRepository
 	dnsTCPClient *dns.Client
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
@@ -159,7 +159,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	return s
 }
 
-func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
+func (s *DNSProxyTestSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 
@@ -251,7 +251,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))

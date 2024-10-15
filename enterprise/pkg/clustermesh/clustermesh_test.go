@@ -36,7 +36,7 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 
 	kvstore.SetupDummy(t, "etcd")
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-mgr.InitIdentityAllocator(nil)
 	t.Cleanup(mgr.Close)
 
@@ -105,7 +105,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 
 	kvstore.SetupDummy(t, "etcd")
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-mgr.InitIdentityAllocator(nil)
 	t.Cleanup(mgr.Close)
 

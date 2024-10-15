@@ -1018,6 +1018,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
+	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy and Cilium Clusterwide Network Policy")
+	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
+	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
+
 	flags.StringSlice(option.PolicyCIDRMatchMode, defaults.PolicyCIDRMatchMode, "The entities that can be selected by CIDR policy. Supported values: 'nodes'")
 	option.BindEnv(vp, option.PolicyCIDRMatchMode)
 
@@ -1569,9 +1573,9 @@ type daemonParams struct {
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
 	IdentityAllocator      identitycell.CachingIdentityAllocator
-	Policy                 *policy.Repository
+	Policy                 policy.PolicyRepository
 	IPCache                *ipcache.IPCache
-	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
+	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
 	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
 	CNIConfigManager       cni.CNIConfigManager
 	SwaggerSpec            *server.Spec
@@ -1610,7 +1614,7 @@ type daemonParams struct {
 	ServiceResolver     *dial.ServiceResolver
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     *identitymanager.IdentityManager
+	IdentityManager     identitymanager.IDManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
 	Hubble              hubblecell.HubbleIntegration

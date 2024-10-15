@@ -39,11 +39,11 @@ import (
 
 type EndpointSuite struct {
 	orchestrator datapath.Orchestrator
-	repo         *policy.Repository
+	repo         policy.PolicyRepository
 	mgr          *cache.CachingIdentityAllocator
 
 	// Owners interface mock
-	OnGetPolicyRepository     func() *policy.Repository
+	OnGetPolicyRepository     func() policy.PolicyRepository
 	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -57,7 +57,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
 		repo:         policy.NewPolicyRepository(nil, nil, nil, nil),
-		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}),
+		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
 	}
 
 	// GetConfig the default labels prefix filter
@@ -85,7 +85,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	return s
 }
 
-func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
+func (s *EndpointSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 
