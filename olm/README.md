@@ -1,0 +1,114 @@
+# CLife - Cilium Lifecycle Operator 
+
+Pronunciation: sea life
+
+CLife aims at managing the lifecycle of Cilium components from installation
+to upgrade and removal.
+
+## Description
+
+CLife is a replacement of cilium-ee-olm that leads to an improved deployment experience on OpenShift and later on other platforms. It also aims at offering a lighter, less time consuming release process. The minimum viable product intends to set the foundations for advanced capabilities like: changes and upgrades readiness for a safer user experience, controlling out-of-band changes and environment aware auto-configuration.
+
+## Getting Started
+
+### Prerequisites
+
+- go version v1.21.0+
+- docker version 17.03+.
+- kubectl version v1.11.3+.
+- Access to a Kubernetes v1.11.3+ cluster.
+
+### To Deploy on a cluster
+
+TODO: Provide instructions for setting up kind.
+
+**Build and push your image to the location specified by `IMG`:**
+
+```sh
+make docker-build docker-push IMG=<some-registry>/clife:tag
+```
+
+> [!NOTE]
+> This image oughts to be published in the personal registry you specified.
+> It may be required to provide access rights to pull this image from the development cluster.
+
+**Install the CRDs into the cluster:**
+
+```sh
+make install
+```
+
+**Deploy the Manager to the cluster with the image specified by `IMG`:**
+
+```sh
+make deploy IMG=<some-registry>/clife:tag
+```
+
+> [!NOTE]
+> If you encounter RBAC errors, you may need to grant yourself cluster-admin
+> privileges or be logged in as admin.
+
+**Create an instance of the custom resource:**
+
+
+```sh
+kubectl apply -k config/samples/
+```
+
+### To Uninstall
+
+**Delete the custom resources from the cluster:**
+
+```sh
+kubectl delete -k config/samples/
+```
+
+**Delete the APIs (CRDs) from the cluster:**
+
+```sh
+make uninstall
+```
+
+**Remove the controller from the cluster:**
+
+```sh
+make undeploy
+```
+
+## Manifests
+
+Follow these steps to generate Cilium Isovalent Operator manifests and to install it using these manifests.
+
+1. Build the operator for the image built and published in the registry:
+
+```sh
+make build-installer IMG=<some-registry>/clife:tag
+```
+
+> [!NOTE]
+> The makefile target mentioned above generates an 'install.yaml'
+> file in the dist directory. This file contains all the resources generated
+> by Kustomize.
+
+2. Use the generated manifests:
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/<org>/olm/<tag or branch>/dist/install.yaml
+```
+
+## Operator Lifecycle Manager
+
+TODO:
+- Provide instructions for installing OLM on a kind cluster
+- Provide instructions for generating OLM manifests
+- Provide instructions for building and pushing an OLM bundle
+- Provide instructions for building and pushing an OLM catalog
+- Provide instructions for deploying clife using OLM
+
+## Contributing
+
+> [!TIP]
+> Run `make help` to get information on all `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
