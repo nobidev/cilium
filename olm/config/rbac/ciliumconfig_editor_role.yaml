@@ -1,0 +1,27 @@
+# permissions for end users to edit ciliumconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clife
+    app.kubernetes.io/managed-by: kustomize
+  name: ciliumconfig-editor-role
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumconfigs/status
+  verbs:
+  - get
