@@ -173,8 +173,8 @@ func TestHealthChecker_UpsertService(t *testing.T) {
 
 	// Check for quarantined backend event for the unhealthy backend.
 	ev := <-thc.Events
-	assert.Equal(t, ev.beAddr, beAddr2)
-	assert.Equal(t, ev.beState, lb.BackendStateQuarantined)
+	assert.Equal(t, beAddr2, ev.beAddr)
+	assert.Equal(t, lb.BackendStateQuarantined, ev.beState)
 
 	// Update service backends
 	bes := []*lb.Backend{backends1[0]}
@@ -229,12 +229,12 @@ func TestHealthChecker_UpsertDeleteServiceWithCommonBackend(t *testing.T) {
 
 	// Check for quarantined backend event for the unhealthy backend.
 	ev := <-thc.Events
-	assert.Equal(t, ev.beAddr, beAddr2)
-	assert.Equal(t, ev.beState, lb.BackendStateQuarantined)
+	assert.Equal(t, beAddr2, ev.beAddr)
+	assert.Equal(t, lb.BackendStateQuarantined, ev.beState)
 
 	ev = <-thc.Events
-	assert.Equal(t, ev.beAddr, beAddr2)
-	assert.Equal(t, ev.beState, lb.BackendStateQuarantined)
+	assert.Equal(t, beAddr2, ev.beAddr)
+	assert.Equal(t, lb.BackendStateQuarantined, ev.beState)
 
 	// Delete one of the services.
 	thc.hc.DeleteService(sAddr, sName)
