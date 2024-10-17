@@ -83,7 +83,7 @@ func TestLBServiceStatusVIP(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateVIPInStatus(tc.lbsvc, tc.vip)
 
-			assert.Equal(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
@@ -167,7 +167,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateAssignedIpInStatus(tc.model, tc.lbsvc)
 
-			assert.Equal(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
@@ -236,7 +236,7 @@ func TestLBServiceStatusSecret(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateSecretExistenceInStatus(tc.lbsvc, tc.missingSecrets)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
@@ -305,7 +305,7 @@ func TestLBServiceStatusBackendExistence(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateBackendExistenceInStatus(tc.lbsvc, tc.missingBackends)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
@@ -476,7 +476,7 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r.updateBackendCompatibilityInStatus(tc.lbsvc, tc.backends)
 
-			assert.Equal(t, tc.expectedNrOfConditions, len(tc.lbsvc.Status.Conditions))
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
 
 			c := tc.lbsvc.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
