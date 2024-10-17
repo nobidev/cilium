@@ -93,8 +93,8 @@ type Daemon struct {
 	l7Proxy          *proxy.Proxy
 	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
-	policy           *policy.Repository
-	idmgr            *identitymanager.IdentityManager
+	policy           policy.PolicyRepository
+	idmgr            identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -184,7 +184,7 @@ type Daemon struct {
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() *policy.Repository {
+func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
 	return d.policy
 }
 
