@@ -5,8 +5,7 @@ on:
     branches:
       - main-ce
       - ft/main-ce/**
-      - v1.16-ce
-      - v1.15-ce
+      - v1.[0-9]+-ce
     tags:
       - v[0-9]+.[0-9]+.[0-9]+-*
 
