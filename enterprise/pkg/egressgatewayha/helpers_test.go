@@ -251,7 +251,7 @@ type policyParams struct {
 	generation           int64
 	labels               map[string]string
 	endpointLabels       map[string]string
-	destinationCIDR      string
+	destinationCIDRs     []string
 	excludedCIDRs        []string
 	egressCIDRs          []string
 	nodeLabels           map[string]string
@@ -268,7 +268,11 @@ type policyParams struct {
 func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 	// Note we avoid 'MustParse*()' varieties here to allow testing how
 	// poor input is handed to ParseIEGP().
-	parsedDestinationCIDR, _ := netip.ParsePrefix(params.destinationCIDR)
+	parsedDestinationCIDRs := []netip.Prefix{}
+	for _, destinationCIDR := range params.destinationCIDRs {
+		parsedDestinationCIDR, _ := netip.ParsePrefix(destinationCIDR)
+		parsedDestinationCIDRs = append(parsedDestinationCIDRs, parsedDestinationCIDR)
+	}
 
 	parsedExcludedCIDRs := []netip.Prefix{}
 	for _, excludedCIDR := range params.excludedCIDRs {
@@ -300,7 +304,7 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 		uid:                     params.uid,
 		generation:              params.generation,
 		groupStatusesGeneration: params.observedGeneration,
-		dstCIDRs:                []netip.Prefix{parsedDestinationCIDR},
+		dstCIDRs:                parsedDestinationCIDRs,
 		excludedCIDRs:           parsedExcludedCIDRs,
 		azAffinity:              params.azAffinity,
 		labels:                  params.labels,
@@ -341,6 +345,11 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 		}
 	}
 
+	destinationCIDRs := []v1.IPv4CIDR{}
+	for _, destinationCIDR := range params.destinationCIDRs {
+		destinationCIDRs = append(destinationCIDRs, v1.IPv4CIDR(destinationCIDR))
+	}
+
 	excludedCIDRs := []v1.IPv4CIDR{}
 	for _, excludedCIDR := range params.excludedCIDRs {
 		excludedCIDRs = append(excludedCIDRs, v1.IPv4CIDR(excludedCIDR))
@@ -367,12 +376,10 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 					},
 				},
 			},
-			DestinationCIDRs: []v1.IPv4CIDR{
-				v1.IPv4CIDR(params.destinationCIDR),
-			},
-			ExcludedCIDRs: excludedCIDRs,
-			EgressCIDRs:   egressCIDRs,
-			AZAffinity:    params.azAffinity.toString(),
+			DestinationCIDRs: destinationCIDRs,
+			ExcludedCIDRs:    excludedCIDRs,
+			EgressCIDRs:      egressCIDRs,
+			AZAffinity:       params.azAffinity.toString(),
 
 			EgressGroups: []v1.EgressGroup{
 				{

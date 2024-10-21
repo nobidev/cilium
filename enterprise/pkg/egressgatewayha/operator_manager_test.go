@@ -219,12 +219,12 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 
 	// Create a new HA policy that selects k8s1 and k8s2 nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -299,13 +299,13 @@ func TestEgressGatewayOperatorManagerHAGroupNodeRestartScenario(t *testing.T) {
 
 	// Create a new HA policy that selects k8s1, k8s2 and k8s3 nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		maxGatewayNodes: 2,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		maxGatewayNodes:  2,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -357,13 +357,13 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalOnly,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalOnly,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -668,14 +668,14 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnly(t *testing.T) 
 
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalOnlyFirst,
-		maxGatewayNodes: 2,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalOnlyFirst,
+		maxGatewayNodes:  2,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -730,13 +730,13 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalOnlyFirst,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalOnlyFirst,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1050,14 +1050,14 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnlyFirst(t *testin
 
 	// Create a new HA policy that selects k8s{1,2,3,4,5,6} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalOnlyFirst,
-		maxGatewayNodes: 2,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalOnlyFirst,
+		maxGatewayNodes:  2,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1142,14 +1142,14 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalPriority,
-		maxGatewayNodes: 4,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalPriority,
+		maxGatewayNodes:  4,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1469,14 +1469,14 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalPriority(t *testing
 
 	// Create a new HA policy that selects k8s{1,2,3,4,5} nodes
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		azAffinity:      azAffinityLocalPriority,
-		maxGatewayNodes: 2,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		azAffinity:       azAffinityLocalPriority,
+		maxGatewayNodes:  2,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1730,13 +1730,13 @@ func TestEgressCIDRAllocation(t *testing.T) {
 	// Create a new HA policy that selects all four nodes and request IPs from
 	// CIDR "10.100.255.48/30"
 	policy := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		egressCIDRs:     []string{"10.100.255.48/30"},
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/30"},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1866,13 +1866,13 @@ func TestEgressCIDRAllocationWithConflicts(t *testing.T) {
 	// Create a new HA policy that selects nodes k8s1 and k8s2 and request IPs from
 	// CIDR "10.100.255.48/30"
 	policy1 := k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		egressCIDRs:     []string{"10.100.255.48/30"},
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/30"},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
 	})
 
 	k.addNode(t, node3Name, node3IP, nodeGroup2Labels)
@@ -1881,13 +1881,13 @@ func TestEgressCIDRAllocationWithConflicts(t *testing.T) {
 	// Create a new HA policy that selects nodes k8s3 and k8s4 and request IPs from
 	// the same CIDR "10.100.255.48/30"
 	policy2 := k.addPolicy(t, &policyParams{
-		name:            "policy-2",
-		uid:             policy2UID,
-		endpointLabels:  ep2Labels,
-		destinationCIDR: destCIDR,
-		egressCIDRs:     []string{"10.100.255.48/30"},
-		nodeLabels:      nodeGroup2Labels,
-		iface:           testInterface1,
+		name:             "policy-2",
+		uid:              policy2UID,
+		endpointLabels:   ep2Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/30"},
+		nodeLabels:       nodeGroup2Labels,
+		iface:            testInterface1,
 	})
 
 	// since policy2 is requesting allocations from a conflicting CIDR, it won't get any IP
@@ -1933,12 +1933,12 @@ func TestEgressCIDRAllocationWithoutCIDRs(t *testing.T) {
 	// Create a new HA policy that selects all four nodes and do not specify
 	// any egress CIDRs (no IPAM)
 	k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
 	})
 
 	// no egress IPs and no Condition should be found in Status
@@ -1960,14 +1960,14 @@ func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
 
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes with a /31 egress CIDR
 	k.addPolicy(t, &policyParams{
-		name:            "policy-1",
-		uid:             policy1UID,
-		endpointLabels:  ep1Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		iface:           testInterface1,
-		egressCIDRs:     []string{"10.100.255.48/31"},
-		azAffinity:      azAffinityLocalOnly,
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup1Labels,
+		iface:            testInterface1,
+		egressCIDRs:      []string{"10.100.255.48/31"},
+		azAffinity:       azAffinityLocalOnly,
 	})
 
 	// only node1 and node2 are listed in activeGatewayIPs and activeGatewayIPsByAZ

@@ -586,9 +586,9 @@ func (k *EgressGatewayTestSuite) assertAdvertisedEgressIPs(tb testing.TB, egress
 func TestEgressGatewayIEGPParser(t *testing.T) {
 	// must specify name
 	policy := policyParams{
-		name:            "",
-		destinationCIDR: destCIDR,
-		iface:           testInterface1,
+		name:             "",
+		destinationCIDRs: []string{destCIDR},
+		iface:            testInterface1,
 	}
 
 	iegp, _ := newIEGP(&policy)
@@ -617,9 +617,9 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 
 	// catch nil EgressGateway field
 	policy = policyParams{
-		name:            "policy-1",
-		destinationCIDR: destCIDR,
-		iface:           testInterface1,
+		name:             "policy-1",
+		destinationCIDRs: []string{destCIDR},
+		iface:            testInterface1,
 	}
 
 	iegp, _ = newIEGP(&policy)
@@ -629,9 +629,9 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 
 	// must specify some sort of endpoint selector
 	policy = policyParams{
-		name:            "policy-1",
-		destinationCIDR: destCIDR,
-		iface:           testInterface1,
+		name:             "policy-1",
+		destinationCIDRs: []string{destCIDR},
+		iface:            testInterface1,
 	}
 
 	iegp, _ = newIEGP(&policy)
@@ -642,10 +642,10 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 
 	// can't specify both egress iface and IP
 	policy = policyParams{
-		name:            "policy-1",
-		destinationCIDR: destCIDR,
-		iface:           testInterface1,
-		egressIP:        egressIP1,
+		name:             "policy-1",
+		destinationCIDRs: []string{destCIDR},
+		iface:            testInterface1,
+		egressIP:         egressIP1,
 	}
 
 	iegp, _ = newIEGP(&policy)
@@ -661,7 +661,7 @@ func TestEgressGatewayManagerHAGroup(t *testing.T) {
 		name:              "policy-1",
 		uid:               policy1UID,
 		endpointLabels:    ep1Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup1Labels,
 		iface:             testInterface1,
 		activeGatewayIPs:  []string{node1IP, node2IP},
@@ -720,12 +720,12 @@ func TestEgressGatewayManagerHAGroup(t *testing.T) {
 
 	// Create a new HA policy that matches no nodes
 	policy2 := k.addPolicy(t, &policyParams{
-		name:            "policy-2",
-		uid:             policy2UID,
-		endpointLabels:  ep2Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup2Labels,
-		iface:           testInterface2,
+		name:             "policy-2",
+		uid:              policy2UID,
+		endpointLabels:   ep2Labels,
+		destinationCIDRs: []string{destCIDR},
+		nodeLabels:       nodeGroup2Labels,
+		iface:            testInterface2,
 	})
 
 	k.assertEgressRules(t, []egressRule{
@@ -802,7 +802,7 @@ func TestEgressGatewayManagerHAGroup(t *testing.T) {
 		name:              "policy-3",
 		uid:               policy3UID,
 		endpointLabels:    ep1Labels,
-		destinationCIDR:   destCIDR3,
+		destinationCIDRs:  []string{destCIDR3},
 		nodeLabels:        nodeGroup1Labels,
 		iface:             "no_interface",
 		activeGatewayIPs:  []string{node1IP, node2IP},
@@ -840,7 +840,7 @@ func TestEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
 		name:             "policy-1",
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
-		destinationCIDR:  destCIDR,
+		destinationCIDRs: []string{destCIDR},
 		azAffinity:       azAffinityLocalOnly,
 		nodeLabels:       nodeGroup1Labels,
 		iface:            testInterface1,
@@ -889,7 +889,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 		name:              "policy-1",
 		uid:               policy1UID,
 		endpointLabels:    ep1Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup1Labels,
 		iface:             testInterface1,
 		activeGatewayIPs:  []string{node1IP, node2IP},
@@ -1134,7 +1134,7 @@ func TestEndpointDataStore(t *testing.T) {
 		name:              "policy-1",
 		uid:               policy1UID,
 		endpointLabels:    ep1Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup1Labels,
 		iface:             testInterface1,
 		activeGatewayIPs:  []string{node1IP, node2IP},
@@ -1192,7 +1192,7 @@ func TestAdvertisedEgressIPs(t *testing.T) {
 		uid:               policy1UID,
 		labels:            advertisePolicyLabels,
 		endpointLabels:    ep1Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup1Labels,
 		iface:             testInterface1,
 		activeGatewayIPs:  []string{node1IP, node2IP},
@@ -1242,7 +1242,7 @@ func TestAdvertisedEgressIPs(t *testing.T) {
 		name:              "policy-2",
 		uid:               policy2UID,
 		endpointLabels:    ep2Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup2Labels,
 		iface:             testInterface2,
 		activeGatewayIPs:  []string{node1IP},
@@ -1293,7 +1293,7 @@ func TestAdvertisedEgressIPs(t *testing.T) {
 		uid:               policy3UID,
 		labels:            advertisePolicyLabels,
 		endpointLabels:    ep2Labels,
-		destinationCIDR:   destCIDR,
+		destinationCIDRs:  []string{destCIDR},
 		nodeLabels:        nodeGroup2Labels,
 		iface:             testInterface2,
 		activeGatewayIPs:  []string{node1IP},
