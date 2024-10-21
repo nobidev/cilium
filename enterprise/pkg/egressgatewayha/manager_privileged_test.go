@@ -1377,3 +1377,69 @@ func TestAdvertisedEgressIPs(t *testing.T) {
 	k.assertBGPSignal(t, k.manager)
 	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{})
 }
+
+func TestSameGatewayInMultipleEgressGroups(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+
+	// Create a new HA policy (policy-1) using the same nodeGroup in two egress groups,
+	// with testInterface1 and testInterface2 and with labels used in advertisePolicySelector.
+	policy1 := k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		labels:           advertisePolicyLabels,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR, destCIDR3},
+		egressGroups: []egressGroupParams{
+			{
+				iface:      testInterface1,
+				nodeLabels: nodeGroup1Labels,
+			},
+			{
+				iface:      testInterface2,
+				nodeLabels: nodeGroup1Labels,
+			},
+		},
+	})
+
+	// Expect no rules and no EgressIP advertised.
+	k.assertEgressRules(t, []egressRule{})
+	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{})
+
+	// Add active gateway node1 to egress group1 - advertise egressIP1.
+	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "", egressGroupID1)
+	k.assertBGPSignal(t, k.manager)
+	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{
+		{Name: policy1.name}: {egressIP1},
+	})
+
+	// Add active gateway node1 to egress group2 - advertise egressIP1 only.
+	// We log the "Local node selected by multiple egress gateway groups from the same policy"
+	// in the agent, and interrupt the regeneration of the gateway config.
+	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "", egressGroupID2)
+	k.assertBGPSignal(t, k.manager)
+	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{
+		{Name: policy1.name}: {egressIP1},
+	})
+
+	// Add a new endpoint that matches policy-1 - assert that only egressIP1 is in the map.
+	k.addEndpoint(t, "ep-1", ep1IP, ep1Labels, node1IP)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR3, egressIP1, node1IP},
+	})
+
+	// Change interface of active gateway in egress group 2 to testInterface1 -
+	// advertise and use only egressIP1 as also specified in group 1. The previous
+	// error is also logged here, no regeneration happens.
+	policy1.egressGroups[egressGroupID2].iface = testInterface1
+	k.addPolicy(t, policy1)
+
+	k.assertBGPSignal(t, k.manager)
+	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{
+		{Name: policy1.name}: {egressIP1},
+	})
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR3, egressIP1, node1IP},
+	})
+}
