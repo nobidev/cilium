@@ -206,7 +206,7 @@ jobs:
           done
           echo ""
 
-          kubectl apply -f examples/kubernetes/loadbalancer/lb/t1-nodeconfig.yaml
+          kubectl apply -f enterprise/examples/kubernetes/loadbalancer/lb/t1-nodeconfig.yaml
           kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
           cilium status --wait
 

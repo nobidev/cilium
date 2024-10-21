@@ -426,7 +426,6 @@ Makefile* @cilium/build
 /examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
-/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
 /examples/minikube/ @cilium/sig-k8s
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
@@ -790,6 +789,7 @@ Makefile* @cilium/build
 /enterprise/cilium-dbg/cmd/*bfd_* @isovalent/traffic-engineering
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
+/enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
 /enterprise/featurelist/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy

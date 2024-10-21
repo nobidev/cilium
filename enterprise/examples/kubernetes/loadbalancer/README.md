@@ -7,8 +7,8 @@ make kind-loadbalancer && \
 kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
 ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast && \
 make kind-image-enterprise-fast && \
-./examples/kubernetes/loadbalancer/lb_configure.sh && \
-./examples/kubernetes/loadbalancer/deploy_prometheus.sh
+./enterprise/examples/kubernetes/loadbalancer/lb_configure.sh && \
+./enterprise/examples/kubernetes/loadbalancer/deploy_prometheus.sh
 ```
 
 to recompile and deploy Cilium with the local changes:
@@ -19,8 +19,8 @@ make kind-image-enterprise-fast
 ## Deploy & Test LoadBalancer example
 
 ```sh
-./examples/kubernetes/loadbalancer/example_install.sh && \
-./examples/kubernetes/loadbalancer/example_test.sh
+./enterprise/examples/kubernetes/loadbalancer/example_install.sh && \
+./enterprise/examples/kubernetes/loadbalancer/example_test.sh
 ```
 ## Observability
 
