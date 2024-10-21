@@ -499,6 +499,19 @@
       "status": "not_affected",
       "status_notes": "Flags on OpenSSL binaries on the 1.13-ce container that are shipped but not used",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-9143"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Flags on OpenSSL functionality that is shipped but not used. OpenSSL doesn not intend to release an out-of-band fix for this issue.",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
