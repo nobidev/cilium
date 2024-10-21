@@ -91,8 +91,9 @@ func (k *EgressGatewayOperatorTestSuite) addPolicy(t *testing.T, policy *policyP
 	return policy
 }
 
-func (k *EgressGatewayOperatorTestSuite) updatePolicyMaxGatewayNodes(t *testing.T, policy *policyParams, n int) *policyParams {
-	policy.maxGatewayNodes = n
+func (k *EgressGatewayOperatorTestSuite) updateEgressGroupMaxGatewayNodes(t *testing.T, policy *policyParams, group, n int) *policyParams {
+	require.True(t, 0 <= group && group < len(policy.egressGroups))
+	policy.egressGroups[group].maxGatewayNodes = n
 	addPolicy(t, k.fakeSet, k.policies, policy)
 	return policy
 }
@@ -103,10 +104,13 @@ func (k *EgressGatewayOperatorTestSuite) getCurrentStatusForUpdate(t *testing.T,
 
 	policy.generation = iegp.Generation + 1
 
-	iegpGs := iegp.Status.GroupStatuses[0]
-	policy.activeGatewayIPs = iegpGs.ActiveGatewayIPs
-	policy.activeGatewayIPsByAZ = iegpGs.ActiveGatewayIPsByAZ
-	policy.healthyGatewayIPs = iegpGs.HealthyGatewayIPs
+	for i, iegpGs := range iegp.Status.GroupStatuses {
+		target := &policy.egressGroups[i]
+		target.activeGatewayIPs = iegpGs.ActiveGatewayIPs
+		target.activeGatewayIPsByAZ = iegpGs.ActiveGatewayIPsByAZ
+		target.healthyGatewayIPs = iegpGs.HealthyGatewayIPs
+	}
+
 	// The operator is responsible for updating the ObservedGeneration
 	policy.observedGeneration = iegp.Status.ObservedGeneration
 
@@ -223,8 +227,7 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -260,7 +263,7 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 
 	// Update the policy to allow at most 1 gateway
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 1)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node2IP},
 		healthyGatewayIPs: []string{node1IP, node2IP},
@@ -280,7 +283,7 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 
 	// Allow all gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 0)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 0)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node2IP, node1IP},
 		healthyGatewayIPs: []string{node1IP, node2IP},
@@ -303,9 +306,11 @@ func TestEgressGatewayOperatorManagerHAGroupNodeRestartScenario(t *testing.T) {
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
-		maxGatewayNodes:  2,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 2,
+		}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -340,7 +345,7 @@ func TestEgressGatewayOperatorManagerHAGroupNodeRestartScenario(t *testing.T) {
 
 	// Check if we ignore the previous status when we update the IEGP. (increment its generation)
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 2)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 2)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node1IP, node2IP},
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP},
@@ -361,9 +366,8 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalOnly,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -504,7 +508,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 
 	// Update the policy to allow at most 1 gateway
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 1)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -643,7 +647,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 
 	// Allow all gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 0)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 0)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP, node1IP, node3IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -672,10 +676,12 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnly(t *testing.T) 
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalOnlyFirst,
-		maxGatewayNodes:  2,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 2,
+		}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -709,7 +715,7 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnly(t *testing.T) 
 
 	// Check if we ignore the previous status when we update the IEGP. (increment its generation)
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 2)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 2)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -734,9 +740,8 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalOnlyFirst,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -877,7 +882,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 
 	// Update the policy to allow at most 1 gateway
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 1)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1018,7 +1023,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 
 	// Allow all gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 0)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 0)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP, node1IP, node3IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1054,10 +1059,12 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnlyFirst(t *testin
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalOnlyFirst,
-		maxGatewayNodes:  2,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 2,
+		}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1121,7 +1128,7 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnlyFirst(t *testin
 
 	// Check if we ignore the previous status when we update the IEGP. (increment its generation)
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 2)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 2)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node5IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1146,10 +1153,12 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalPriority,
-		maxGatewayNodes:  4,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 4,
+		}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1282,7 +1291,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 
 	// Update the policy to allow at most 1 gateway
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 1)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1415,7 +1424,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 
 	// Allow 2 gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 2)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 2)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1427,7 +1436,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 
 	// Allow 3 gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 3)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 3)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP, node1IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1439,7 +1448,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 
 	// Allow all 4 gateways
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 4)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 4)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node4IP, node2IP, node1IP, node3IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1473,10 +1482,12 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalPriority(t *testing
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		azAffinity:       azAffinityLocalPriority,
-		maxGatewayNodes:  2,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 2,
+		}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1540,7 +1551,7 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalPriority(t *testing
 
 	// Check if we ignore the previous status when we update the IEGP. (increment its generation)
 	policy1 = k.getCurrentStatusForUpdate(t, policy1)
-	k.updatePolicyMaxGatewayNodes(t, policy1, 2)
+	k.updateEgressGroupMaxGatewayNodes(t, policy1, defaultEgressGroupID, 2)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node2IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1735,8 +1746,7 @@ func TestEgressCIDRAllocation(t *testing.T) {
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
 		egressCIDRs:      []string{"10.100.255.48/30"},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -1822,7 +1832,7 @@ func TestEgressCIDRAllocation(t *testing.T) {
 	})
 
 	// Update the policy to allow at most 1 gateway, only a single IP will be allocated
-	k.updatePolicyMaxGatewayNodes(t, policy, 1)
+	k.updateEgressGroupMaxGatewayNodes(t, policy, defaultEgressGroupID, 1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node5IP},
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node5IP},
@@ -1838,8 +1848,8 @@ func TestEgressCIDRAllocation(t *testing.T) {
 	})
 
 	// User-specified EgressIP are not supported when relying on egress-gateway IPAM
-	policy.egressIP = "10.100.255.48"
-	policy.iface = "" // clear the interface, since having both iface and egressIP is not supported
+	policy.egressGroups[defaultEgressGroupID].egressIP = "10.100.255.48"
+	policy.egressGroups[defaultEgressGroupID].iface = "" // clear the interface, since having both iface and egressIP is not supported
 	addPolicy(t, k.fakeSet, k.policies, policy)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{},
@@ -1871,8 +1881,7 @@ func TestEgressCIDRAllocationWithConflicts(t *testing.T) {
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
 		egressCIDRs:      []string{"10.100.255.48/30"},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	k.addNode(t, node3Name, node3IP, nodeGroup2Labels)
@@ -1886,8 +1895,7 @@ func TestEgressCIDRAllocationWithConflicts(t *testing.T) {
 		endpointLabels:   ep2Labels,
 		destinationCIDRs: []string{destCIDR},
 		egressCIDRs:      []string{"10.100.255.48/30"},
-		nodeLabels:       nodeGroup2Labels,
-		iface:            testInterface1,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup2Labels}},
 	})
 
 	// since policy2 is requesting allocations from a conflicting CIDR, it won't get any IP
@@ -1937,8 +1945,7 @@ func TestEgressCIDRAllocationWithoutCIDRs(t *testing.T) {
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	// no egress IPs and no Condition should be found in Status
@@ -1964,10 +1971,9 @@ func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
 		uid:              policy1UID,
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR},
-		nodeLabels:       nodeGroup1Labels,
-		iface:            testInterface1,
 		egressCIDRs:      []string{"10.100.255.48/31"},
 		azAffinity:       azAffinityLocalOnly,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
 	// only node1 and node2 are listed in activeGatewayIPs and activeGatewayIPsByAZ

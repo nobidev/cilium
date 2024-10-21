@@ -89,6 +89,11 @@ const (
 	policy1UID = "d68a62ea-f358-4016-87c2-7ae9724f74f7"
 	policy2UID = "953b7b1a-1fb3-42e6-add5-4763381e124f"
 	policy3UID = "1217a56e-cbe0-472f-8576-040acdbb5f90"
+
+	// Egress groups IDs in the configuration list.
+	egressGroupID1       = 0
+	egressGroupID2       = 1
+	defaultEgressGroupID = egressGroupID1
 )
 
 var (
@@ -245,24 +250,28 @@ func newHealthcheckerMock() *healthcheckerMock {
 	}
 }
 
-type policyParams struct {
-	name                 string
-	uid                  types.UID
-	generation           int64
-	labels               map[string]string
-	endpointLabels       map[string]string
-	destinationCIDRs     []string
-	excludedCIDRs        []string
-	egressCIDRs          []string
+type egressGroupParams struct {
 	nodeLabels           map[string]string
 	iface                string
 	egressIP             string
 	maxGatewayNodes      int
-	azAffinity           azAffinityMode
 	activeGatewayIPs     []string
 	activeGatewayIPsByAZ map[string][]string
 	healthyGatewayIPs    []string
-	observedGeneration   int64
+}
+
+type policyParams struct {
+	name               string
+	uid                types.UID
+	generation         int64
+	labels             map[string]string
+	endpointLabels     map[string]string
+	destinationCIDRs   []string
+	excludedCIDRs      []string
+	egressCIDRs        []string
+	egressGroups       []egressGroupParams
+	azAffinity         azAffinityMode
+	observedGeneration int64
 }
 
 func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
@@ -280,21 +289,46 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 		parsedExcludedCIDRs = append(parsedExcludedCIDRs, parsedExcludedCIDR)
 	}
 
-	parsedActiveGatewayIPs := []netip.Addr{}
-	for _, activeGatewayIP := range params.activeGatewayIPs {
-		parsedActiveGatewayIPs = append(parsedActiveGatewayIPs, netip.MustParseAddr(activeGatewayIP))
-	}
-
-	parsedActiveGatewayIPsByAZ := map[string][]netip.Addr{}
-	for az, activeGatewayIPs := range params.activeGatewayIPsByAZ {
-		for _, activeGatewayIP := range activeGatewayIPs {
-			parsedActiveGatewayIPsByAZ[az] = append(parsedActiveGatewayIPsByAZ[az], netip.MustParseAddr(activeGatewayIP))
+	parsedGroupStatusesConfigs := []groupStatus{}
+	parsedGroupConfigs := []groupConfig{}
+	for _, egParams := range params.egressGroups {
+		gc := groupConfig{
+			nodeSelector: api.EndpointSelector{
+				LabelSelector: &slimv1.LabelSelector{
+					MatchLabels: egParams.nodeLabels,
+				},
+			},
+			iface:           egParams.iface,
+			maxGatewayNodes: egParams.maxGatewayNodes,
 		}
-	}
 
-	parsedHealthyGatewayIPs := []netip.Addr{}
-	for _, healthyGatewayIP := range params.healthyGatewayIPs {
-		parsedHealthyGatewayIPs = append(parsedHealthyGatewayIPs, netip.MustParseAddr(healthyGatewayIP))
+		if egParams.egressIP != "" {
+			gc.egressIP = netip.MustParseAddr(egParams.egressIP)
+		}
+		parsedGroupConfigs = append(parsedGroupConfigs, gc)
+
+		parsedActiveGatewayIPs := []netip.Addr{}
+		for _, activeGatewayIP := range egParams.activeGatewayIPs {
+			parsedActiveGatewayIPs = append(parsedActiveGatewayIPs, netip.MustParseAddr(activeGatewayIP))
+		}
+
+		parsedActiveGatewayIPsByAZ := map[string][]netip.Addr{}
+		for az, activeGatewayIPs := range egParams.activeGatewayIPsByAZ {
+			for _, activeGatewayIP := range activeGatewayIPs {
+				parsedActiveGatewayIPsByAZ[az] = append(parsedActiveGatewayIPsByAZ[az], netip.MustParseAddr(activeGatewayIP))
+			}
+		}
+
+		parsedHealthyGatewayIPs := []netip.Addr{}
+		for _, healthyGatewayIP := range egParams.healthyGatewayIPs {
+			parsedHealthyGatewayIPs = append(parsedHealthyGatewayIPs, netip.MustParseAddr(healthyGatewayIP))
+		}
+
+		parsedGroupStatusesConfigs = append(parsedGroupStatusesConfigs, groupStatus{
+			activeGatewayIPs:     parsedActiveGatewayIPs,
+			activeGatewayIPsByAZ: parsedActiveGatewayIPsByAZ,
+			healthyGatewayIPs:    parsedHealthyGatewayIPs,
+		})
 	}
 
 	policy := &PolicyConfig{
@@ -315,34 +349,8 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 				},
 			},
 		},
-		groupConfigs: []groupConfig{
-			{
-				nodeSelector: api.EndpointSelector{
-					LabelSelector: &slimv1.LabelSelector{
-						MatchLabels: params.endpointLabels,
-					},
-				},
-				iface:           params.iface,
-				maxGatewayNodes: params.maxGatewayNodes,
-			},
-		},
-		groupStatuses: []groupStatus{
-			{
-				activeGatewayIPs:     parsedActiveGatewayIPs,
-				activeGatewayIPsByAZ: parsedActiveGatewayIPsByAZ,
-				healthyGatewayIPs:    parsedHealthyGatewayIPs,
-			},
-		},
-	}
-
-	if len(params.endpointLabels) != 0 {
-		policy.endpointSelectors = []api.EndpointSelector{
-			{
-				LabelSelector: &slimv1.LabelSelector{
-					MatchLabels: params.endpointLabels,
-				},
-			},
-		}
+		groupConfigs:  parsedGroupConfigs,
+		groupStatuses: parsedGroupStatusesConfigs,
 	}
 
 	destinationCIDRs := []v1.IPv4CIDR{}
@@ -358,6 +366,25 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 	egressCIDRs := []v1.IPv4CIDR{}
 	for _, egressCIDR := range params.egressCIDRs {
 		egressCIDRs = append(egressCIDRs, v1.IPv4CIDR(egressCIDR))
+	}
+
+	groupStatuses := []v1.IsovalentEgressGatewayPolicyGroupStatus{}
+	egressGroups := []v1.EgressGroup{}
+	for _, egParams := range params.egressGroups {
+		groupStatuses = append(groupStatuses, v1.IsovalentEgressGatewayPolicyGroupStatus{
+			ActiveGatewayIPs:     egParams.activeGatewayIPs,
+			ActiveGatewayIPsByAZ: egParams.activeGatewayIPsByAZ,
+			HealthyGatewayIPs:    egParams.healthyGatewayIPs,
+		})
+
+		egressGroups = append(egressGroups, v1.EgressGroup{
+			NodeSelector: &slimv1.LabelSelector{
+				MatchLabels: egParams.nodeLabels,
+			},
+			Interface:       egParams.iface,
+			EgressIP:        egParams.egressIP,
+			MaxGatewayNodes: egParams.maxGatewayNodes,
+		})
 	}
 
 	iegp := &Policy{
@@ -380,26 +407,10 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 			ExcludedCIDRs:    excludedCIDRs,
 			EgressCIDRs:      egressCIDRs,
 			AZAffinity:       params.azAffinity.toString(),
-
-			EgressGroups: []v1.EgressGroup{
-				{
-					NodeSelector: &slimv1.LabelSelector{
-						MatchLabels: params.nodeLabels,
-					},
-					Interface:       params.iface,
-					EgressIP:        params.egressIP,
-					MaxGatewayNodes: params.maxGatewayNodes,
-				},
-			},
+			EgressGroups:     egressGroups,
 		},
 		Status: v1.IsovalentEgressGatewayPolicyStatus{
-			GroupStatuses: []v1.IsovalentEgressGatewayPolicyGroupStatus{
-				{
-					ActiveGatewayIPs:     params.activeGatewayIPs,
-					ActiveGatewayIPsByAZ: params.activeGatewayIPsByAZ,
-					HealthyGatewayIPs:    params.healthyGatewayIPs,
-				},
-			},
+			GroupStatuses:      groupStatuses,
 			ObservedGeneration: params.observedGeneration,
 		},
 	}
