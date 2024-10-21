@@ -47,6 +47,10 @@ build-enterprise-operator: ## Build cilium operator binary
 build-enterprise-relay: ## Build hubble-relay
 	$(QUIET)$(MAKE) -C enterprise/hubble-relay
 
+.PHONY: kind-loadbalancer
+kind-loadbalancer: ## Create a kind cluster for LoadBalancer development.
+	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --xdp "" 4 "" "" "none" "ipv4"
+
 .PHONY: kind-image-fast-enterprise-agent
 kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterprise-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
