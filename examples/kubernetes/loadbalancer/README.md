@@ -5,7 +5,7 @@
 ```sh
 make kind-loadbalancer && \
 kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
-ADDITIONAL_KIND_VALUES_FILE=contrib/testing/kind-loadbalancer.yaml make kind-install-cilium-fast && \
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast && \
 make kind-image-enterprise-fast && \
 ./examples/kubernetes/loadbalancer/lb_configure.sh && \
 ./examples/kubernetes/loadbalancer/deploy_prometheus.sh
