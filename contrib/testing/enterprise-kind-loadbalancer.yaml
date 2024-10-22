@@ -47,6 +47,8 @@ extraConfig:
   loadbalancer-cp-accesslog-file-path: "/var/log/envoy/accesslog.log"
   loadbalancer-cp-accesslog-enable-tcp: "true"
   loadbalancer-cp-accesslog-enable-hc: "true"
+  loadbalancer-cp-t2-use-remote-address: "true"
+  loadbalancer-cp-t2-xff-num-trusted-hops: 0
 operator:
   prometheus:
     enabled: true

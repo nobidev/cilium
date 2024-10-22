@@ -1,0 +1,10 @@
+ServerName: "ilb"
+T1T2HealthCheck:
+  T1ProbeTimeoutSeconds: 5
+  T1ProbeHTTPPath: /health
+  T1ProbeHTTPMethod: GET
+  T1ProbeHTTPUserAgentPrefix: cilium-probe/
+  T2ProbeMinHealthyBackendPercentage: 20
+OriginalIPDetection:
+  UseRemoteAddress: false
+  XffNumTrustedHops: 2

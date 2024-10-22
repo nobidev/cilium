@@ -57,6 +57,8 @@ type Config struct {
 	LoadBalancerCPHTTPServerName              string
 	LoadBalancerCPT1HCProbeTimeoutSeconds     uint
 	LoadBalancerCPT2HCProbeMinHealthyBackends uint
+	LoadBalancerCPT2UseRemoteAddress          bool
+	LoadBalancerCPT2XffNumTrustedHops         uint
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -80,6 +82,10 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-http-server-name", "ilb", "Server name that is used when writing the server header in T2 HTTP responses")
 	flags.Uint("loadbalancer-cp-t1-hc-probe-timeout-seconds", 5, "Probe timeout in seconds for T1 -> T2 health checks")
 	flags.Uint("loadbalancer-cp-t2-hc-probe-min-healthy-backends", 20, "The minimum percentage of backend that must be healthy from T2 point of view in order to send traffic from T1 to it")
+	flags.Bool("loadbalancer-cp-t2-use-remote-address", true, "Whether or not the LoadBalancer control plane should configure T2 Envoy to use the real remote address of the client connection when determining internal versus external origin.\n"+
+		"More information can be found at https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-forwarded-for")
+	flags.Uint("loadbalancer-cp-t2-xff-num-trusted-hops", 0, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.\n"+
+		"More information can be found at https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-forwarded-for")
 }
 
 type reconcilerParams struct {
@@ -180,6 +186,10 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 			T1ProbeHttpMethod:                  "GET",
 			T1ProbeHttpUserAgentPrefix:         "cilium-probe/",
 			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
+		},
+		OriginalIPDetection: reconcilerOriginalIPDetectionConfig{
+			UseRemoteAddress:  params.Config.LoadBalancerCPT2UseRemoteAddress,
+			XffNumTrustedHops: params.Config.LoadBalancerCPT2XffNumTrustedHops,
 		},
 	}
 }

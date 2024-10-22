@@ -54,11 +54,12 @@ type lbServiceReconciler struct {
 }
 
 type reconcilerConfig struct {
-	SecretsNamespace string
-	ServerName       string
-	AccessLog        reconcilerAccesslogConfig
-	RequestID        reconcilerRequestIDConfig
-	T1T2HealthCheck  reconcilerT1T2HealthCheckConfig
+	SecretsNamespace    string
+	ServerName          string
+	AccessLog           reconcilerAccesslogConfig
+	RequestID           reconcilerRequestIDConfig
+	T1T2HealthCheck     reconcilerT1T2HealthCheckConfig
+	OriginalIPDetection reconcilerOriginalIPDetectionConfig
 }
 
 type reconcilerAccesslogConfig struct {
@@ -88,6 +89,11 @@ type reconcilerT1T2HealthCheckConfig struct {
 	T1ProbeHttpMethod                  string
 	T1ProbeHttpUserAgentPrefix         string
 	T2ProbeMinHealthyBackendPercentage uint
+}
+
+type reconcilerOriginalIPDetectionConfig struct {
+	UseRemoteAddress  bool
+	XffNumTrustedHops uint
 }
 
 func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {

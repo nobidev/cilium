@@ -61,7 +61,7 @@ spec:
                 serverName: ilb
                 statPrefix: frontend_listener_healthcheck_http
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
         - filterChainMatch:
             serverNames:
               - foo.acme.io
@@ -97,7 +97,7 @@ spec:
                 serverName: ilb
                 statPrefix: frontend_listener_https
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:

@@ -345,7 +345,8 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 		CodecType:                    envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_AUTO,
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
-		UseRemoteAddress:             wrapperspb.Bool(true),
+		UseRemoteAddress:             wrapperspb.Bool(r.config.OriginalIPDetection.UseRemoteAddress),
+		XffNumTrustedHops:            uint32(r.config.OriginalIPDetection.XffNumTrustedHops),
 		StripMatchingHostPort:        true,
 		HttpFilters:                  r.desiredEnvoyListenerHealthCheckHttpHTTPFilters(model),
 		RouteSpecifier:               &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_RouteConfig{}, // no routes - but specifier required
@@ -372,7 +373,8 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *e
 		CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
-		UseRemoteAddress:             wrapperspb.Bool(true),
+		UseRemoteAddress:             wrapperspb.Bool(r.config.OriginalIPDetection.UseRemoteAddress),
+		XffNumTrustedHops:            uint32(r.config.OriginalIPDetection.XffNumTrustedHops),
 		StripMatchingHostPort:        true,
 		HttpFilters:                  r.desiredEnvoyListenerHttpHTTPFilters(model),
 		RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{
@@ -704,7 +706,8 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *
 		CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
-		UseRemoteAddress:             wrapperspb.Bool(true),
+		UseRemoteAddress:             wrapperspb.Bool(r.config.OriginalIPDetection.UseRemoteAddress),
+		XffNumTrustedHops:            uint32(r.config.OriginalIPDetection.XffNumTrustedHops),
 		StripMatchingHostPort:        true,
 		HttpFilters:                  r.desiredEnvoyListenerHttpsHTTPFilters(model),
 		RouteSpecifier: &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_Rds{

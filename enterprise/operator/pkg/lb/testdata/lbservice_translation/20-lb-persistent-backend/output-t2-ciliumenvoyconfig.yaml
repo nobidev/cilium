@@ -64,7 +64,7 @@ spec:
                 routeConfig: {}
                 statPrefix: frontend_listener_healthcheck_http
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
         - filterChainMatch:
             transportProtocol: raw_buffer
           filters:
@@ -95,7 +95,7 @@ spec:
                 normalizePath: true
                 mergeSlashes: true
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http

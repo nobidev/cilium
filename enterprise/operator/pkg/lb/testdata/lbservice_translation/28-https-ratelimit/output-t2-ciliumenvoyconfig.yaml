@@ -63,7 +63,7 @@ spec:
                 serverName: ilb
                 statPrefix: frontend_listener_healthcheck_http
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
         - filterChainMatch:
             serverNames:
               - bar.acme.io
@@ -107,7 +107,7 @@ spec:
                 normalizePath: true
                 mergeSlashes: true
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
                 rds:
                   routeConfigName: frontend_routeconfig_https
                 serverName: ilb

@@ -61,7 +61,7 @@ spec:
                 routeConfig: {}
                 statPrefix: frontend_listener_healthcheck_http
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
         - filterChainMatch:
             transportProtocol: raw_buffer
           filters:
@@ -94,7 +94,7 @@ spec:
                   routeConfigName: frontend_routeconfig_http
                 statPrefix: frontend_listener_http
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

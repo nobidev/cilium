@@ -60,7 +60,7 @@ spec:
                 normalizePath: true
                 mergeSlashes: true
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
                 routeConfig: {}
                 statPrefix: frontend_listener_healthcheck_http
         - filterChainMatch:
