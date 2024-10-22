@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/k8s"
 )
@@ -34,7 +33,6 @@ var Cell = cell.Module(
 	),
 
 	// enterprise-only reconcilers
-	reconciler.ConfigReconcilers,
 	reconcilerv2.ConfigReconcilers,
 
 	// set enterprise BGP config objct in agent
