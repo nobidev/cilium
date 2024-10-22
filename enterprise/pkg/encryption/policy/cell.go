@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -59,16 +59,25 @@ var Cell = cell.Module(
 		startEncryptionPolicyReconciler,
 	),
 
+	// Register identity observer in policy trifecta
+	cell.ProvidePrivate(
+		newIdentityObserver,
+		newIdentityStream,
+	),
+	cell.Provide(registerIdentityObserver),
+
 	// Start the encryption policy subsystem
 	cell.Invoke(newSelectiveEncryptionEngine),
 )
 
 const (
-	policyInitializerName   = "isovalentclusterwideencryptionpolicy-synced"
-	identityInitializerName = "identities-synced"
+	policyInitializerName      = "isovalentclusterwideencryptionpolicy-synced"
+	identityInitializerName    = "identities-synced"
+	clustermeshInitializerName = "clustermesh-synced"
 
 	policyUpdateObserver   = "encryption-policy-resource-events"
 	identityUpdateObserver = "encryption-policy-identity-events"
+	clustermeshSyncJob     = "encryption-policy-wait-for-clustermesh"
 )
 
 var defaultConfig = types.Config{
@@ -85,6 +94,29 @@ func isovalentClusterwideEncryptionPolicyResource(cfg types.Config, lc cell.Life
 	return resource.New[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy](lc, lw, resource.WithMetric("IsovalentClusterwideEncryptionPolicy")), nil
 }
 
+type identityObserverOut struct {
+	cell.Out
+
+	// IdentityHandler contains zero or one element
+	IdentityHandler []identity.UpdateIdentities `group:"identity-handlers,flatten"`
+}
+
+func registerIdentityObserver(cfg types.Config, observer *identityObserver) identityObserverOut {
+	if !cfg.EnableEncryptionPolicy {
+		return identityObserverOut{}
+	}
+
+	return identityObserverOut{
+		IdentityHandler: []identity.UpdateIdentities{
+			observer,
+		},
+	}
+}
+
+func newIdentityStream(observer *identityObserver) stream.Observable[IdentityChangeBatch] {
+	return observer
+}
+
 type engineParams struct {
 	cell.In
 
@@ -94,7 +126,7 @@ type engineParams struct {
 	Registry  job.Registry
 	Health    cell.Health
 
-	IdentityChanges stream.Observable[cache.IdentityChange]
+	IdentityChanges stream.Observable[IdentityChangeBatch]
 	DaemonConfig    *option.DaemonConfig
 	ICEPResource    resource.Resource[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy]
 
@@ -102,6 +134,8 @@ type engineParams struct {
 	PolicyTable       statedb.RWTable[*EncryptionPolicyEntry]
 	Reconciler        reconciler.Reconciler[*EncryptionPolicyEntry]
 	ReconcilerTracker *reconcilerMetrics
+
+	ClusterMesh *clustermesh.ClusterMesh
 
 	Metrics *encryptionPolicyMetrics
 }
@@ -124,6 +158,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 	txn := params.StateDB.WriteTxn(params.PolicyTable)
 	policyInitializer := params.PolicyTable.RegisterInitializer(txn, policyInitializerName)
 	identityInitializer := params.PolicyTable.RegisterInitializer(txn, identityInitializerName)
+	clustermeshInitializer := params.PolicyTable.RegisterInitializer(txn, clustermeshInitializerName)
 	txn.Commit()
 
 	engine := &Engine{
@@ -143,9 +178,6 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		rulesByResource: map[resource.Key][]*encryptionRule{},
 	}
 
-	// Batches identity changes
-	identityChanges := bufferIdentityUpdates(params.IdentityChanges)
-
 	// Custom job group to obtain runtime metrics
 	jobGroup := params.Registry.NewGroup(params.Health,
 		job.WithMetrics(params.Metrics),
@@ -153,8 +185,17 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 	)
 
 	engine.log.Info("Starting encryption-policy subsystem")
-	jobGroup.Add(job.Observer(identityUpdateObserver, engine.handleIdentityChange, identityChanges))
+	jobGroup.Add(job.Observer(identityUpdateObserver, engine.handleIdentityChange, params.IdentityChanges))
 	jobGroup.Add(job.Observer(policyUpdateObserver, engine.handlePolicyChange, params.ICEPResource))
+	jobGroup.Add(job.OneShot(clustermeshSyncJob, func(ctx context.Context, health cell.Health) (err error) {
+		if params.ClusterMesh != nil {
+			err = params.ClusterMesh.IPIdentitiesSynced(ctx)
+		}
+		engine.log.Debug("Clustermesh synced")
+		engine.finishInitializer(clustermeshInitializer)
+		return err
+	}))
+
 	params.Lifecycle.Append(jobGroup)
 
 	return engine
@@ -201,6 +242,8 @@ type Engine struct {
 	policyInitializer   func(txn statedb.WriteTxn)
 	identityInitializer func(txn statedb.WriteTxn)
 
+	localIdentitiesSynced sync.Once
+
 	metrics *encryptionPolicyMetrics
 
 	// rulesMutex protects access to rulesRevision and rulesByResource, but not
@@ -240,8 +283,8 @@ func (e *Engine) handlePolicyChange(ctx context.Context, event resource.Event[*i
 }
 
 // handleIdentityChange reacts to changes in Cilium identities (invoked by an observer job)
-func (e *Engine) handleIdentityChange(ctx context.Context, events []cache.IdentityChange) error {
-	e.log.Debug("Updating selector cache due to identity change(s)", slog.Any("events", events))
+func (e *Engine) handleIdentityChange(ctx context.Context, event IdentityChangeBatch) error {
+	e.log.Debug("Updating selector cache due to identity change(s)", slog.Any("event", event))
 
 	// Start a new transaction here. This is needed because an update to a single
 	// identity may lead multiple subject and peer selectors being notified
@@ -253,55 +296,27 @@ func (e *Engine) handleIdentityChange(ctx context.Context, events []cache.Identi
 	txn := e.db.WriteTxn(e.policyTable)
 	e.identityChangeTxn.Store(&txn)
 
+	e.selectorCache.UpdateIdentities(event.Added, event.Deleted, &wg)
+
 	// Waiting on the WaitGroup here is fine, as our selector cache users
 	// (subjectIdentityNotifier and peerIdentityNotifier) do not perform any
 	// blocking operations (only StateDB updates), but we still want to make
 	// sure that all updates are processed before we commit the transaction
 	// and handle the next batch
-	var identitiesSynced bool
-	defer func() {
-		wg.Wait()
-		// Measure time it takes to reconcile
-		e.reconcilerTracker.measureReconciliationTime(reasonIdentityUpdate, e.policyTable.Revision(txn))
+	wg.Wait()
 
-		// Clear current transaction and commit
-		e.identityChangeTxn.Store(nil)
-		txn.Commit()
-		// Finish initializer after the identity transaction is committed
-		// to avoid a deadlock
-		if identitiesSynced {
-			e.finishInitializer(e.identityInitializer)
-		}
-	}()
+	// Measure time it takes to reconcile
+	e.reconcilerTracker.measureReconciliationTime(reasonIdentityUpdate, e.policyTable.Revision(txn))
 
-	// Split the identity change batch into two disjunct "added" and "deleted"
-	// sets. This is a requirement to call UpdateIdentities.
-	added := identity.IdentityMap{}
-	deleted := identity.IdentityMap{}
-	for _, ev := range events {
-		switch ev.Kind {
-		case cache.IdentityChangeUpsert:
-			// coalesce with potential previous deletion
-			add := ev.Labels.LabelArray()
-			if prevDel, ok := deleted[ev.ID]; ok && prevDel.Equals(add) {
-				delete(deleted, ev.ID)
-			} else {
-				added[ev.ID] = add
-			}
-		case cache.IdentityChangeDelete:
-			// coalesce with potential previous addition
-			del := ev.Labels.LabelArray()
-			if prevAdd, ok := added[ev.ID]; ok && prevAdd.Equals(del) {
-				delete(added, ev.ID)
-			} else {
-				deleted[ev.ID] = del
-			}
-		case cache.IdentityChangeSync:
-			e.log.Debug("Identities synced")
-			identitiesSynced = true // read in defer statement
-		}
-	}
-	e.selectorCache.UpdateIdentities(added, deleted, &wg)
+	// Clear current transaction and commit
+	e.identityChangeTxn.Store(nil)
+	txn.Commit()
+
+	// Finish initializer after the identity transaction is committed to avoid a deadlock
+	e.localIdentitiesSynced.Do(func() {
+		e.log.Debug("Identities synced")
+		e.finishInitializer(e.identityInitializer)
+	})
 
 	return nil
 }

@@ -12,44 +12,83 @@ package policy
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
-func Test_bufferIdentityUpdates(t *testing.T) {
-	src := stream.FromSlice([]cache.IdentityChange{
-		{Kind: cache.IdentityChangeUpsert, ID: 1},
-		{Kind: cache.IdentityChangeUpsert, ID: 2},
-		{Kind: cache.IdentityChangeUpsert, ID: 3},
-		{Kind: cache.IdentityChangeSync},
-		{Kind: cache.IdentityChangeDelete, ID: 3},
-		{Kind: cache.IdentityChangeUpsert, ID: 4},
-		{Kind: cache.IdentityChangeUpsert, ID: 5},
+func Test_identityObserver(t *testing.T) {
+	const fooIdentity = 1001
+	fooLabels := labels.NewLabelsFromModel([]string{
+		k8sLabel("foo", "1"),
+	})
+	const barIdentity = 2002
+	barLabels := labels.NewLabelsFromModel([]string{
+		k8sLabel("bar", "2"),
+	})
+	const bazIdentity = 3003
+	bazLabels := labels.NewLabelsFromModel([]string{
+		k8sLabel("baz", "3"),
+	})
+	const quxIdentity = 4004
+	quxLabels := labels.NewLabelsFromModel([]string{
+		k8sLabel("qux", "4"),
 	})
 
-	buffered := bufferIdentityUpdates(src)
+	observer := newIdentityObserver()
 
-	out, err := stream.ToSlice(context.TODO(), buffered)
-	require.NoError(t, err)
-	require.Equal(t, []IdentityChangeBatch{
-		{
-			{Kind: cache.IdentityChangeUpsert, ID: 1},
-			{Kind: cache.IdentityChangeUpsert, ID: 2},
-			{Kind: cache.IdentityChangeUpsert, ID: 3},
-			{Kind: cache.IdentityChangeSync},
-		},
-		{
-			{Kind: cache.IdentityChangeDelete, ID: 3},
-		},
-		{
-			{Kind: cache.IdentityChangeUpsert, ID: 4},
-		},
-		{
-			{Kind: cache.IdentityChangeUpsert, ID: 5},
-		},
-	}, out)
+	wg := &sync.WaitGroup{}
+
+	// Issue updates before Observe is called
+	observer.UpdateIdentities(identity.IdentityMap{
+		fooIdentity: fooLabels.LabelArray(),
+		barIdentity: barLabels.LabelArray(),
+	}, nil, wg)
+	observer.UpdateIdentities(identity.IdentityMap{
+		bazIdentity: bazLabels.LabelArray(),
+	}, nil, wg)
+
+	// Start observing
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := stream.ToChannel(ctx, observer)
+
+	require.Equal(t, IdentityChangeBatch{Added: identity.IdentityMap{
+		fooIdentity: fooLabels.LabelArray(),
+		barIdentity: barLabels.LabelArray(),
+	}}, <-ch)
+
+	// Issue another update while there are still pending batches
+	observer.UpdateIdentities(nil, identity.IdentityMap{
+		barIdentity: barLabels.LabelArray(),
+	}, wg)
+
+	// Drain channel
+	require.Equal(t, IdentityChangeBatch{Added: identity.IdentityMap{
+		bazIdentity: bazLabels.LabelArray(),
+	}}, <-ch)
+	require.Equal(t, IdentityChangeBatch{Deleted: identity.IdentityMap{
+		barIdentity: barLabels.LabelArray(),
+	}}, <-ch)
+
+	// Issue some more pending updates while consumer is now waiting
+	observer.UpdateIdentities(identity.IdentityMap{
+		quxIdentity: quxLabels.LabelArray(),
+	}, nil, wg)
+
+	// Ensure consumer was woken up
+	require.Equal(t, IdentityChangeBatch{Added: identity.IdentityMap{
+		quxIdentity: quxLabels.LabelArray(),
+	}}, <-ch)
+
+	// Stop observing
+	cancel()
+
+	// Channel should be closed
+	_, ok := <-ch
+	require.False(t, ok)
 }

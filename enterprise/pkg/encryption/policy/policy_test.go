@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -228,26 +227,12 @@ func TestPolicyEngine(t *testing.T) {
 	}
 
 	_, waitForStateChange := tbl.AllWatch(db.ReadTxn())
-	err := engine.handleIdentityChange(ctx, []cache.IdentityChange{
-		{
-			Kind:   cache.IdentityChangeUpsert,
-			ID:     fooIdentity,
-			Labels: fooLabels,
-		},
-		{
-			Kind:   cache.IdentityChangeUpsert,
-			ID:     fooBarIdentity,
-			Labels: fooBarLabels,
-		},
-		{
-			Kind:   cache.IdentityChangeUpsert,
-			ID:     bazIdentity,
-			Labels: bazLabels,
-		},
-		{
-			Kind:   cache.IdentityChangeUpsert,
-			ID:     barBazIdentiy,
-			Labels: barBazLabels,
+	err := engine.handleIdentityChange(ctx, IdentityChangeBatch{
+		Added: identity.IdentityMap{
+			fooIdentity:    fooLabels.LabelArray(),
+			fooBarIdentity: fooBarLabels.LabelArray(),
+			bazIdentity:    bazLabels.LabelArray(),
+			barBazIdentiy:  barBazLabels.LabelArray(),
 		},
 	})
 	require.NoError(t, err)
@@ -277,11 +262,9 @@ func TestPolicyEngine(t *testing.T) {
 
 	// Remove barBazIdentiy
 	_, waitForStateChange = tbl.AllWatch(db.ReadTxn())
-	err = engine.handleIdentityChange(ctx, []cache.IdentityChange{
-		{
-			Kind:   cache.IdentityChangeDelete,
-			ID:     barBazIdentiy,
-			Labels: barBazLabels,
+	err = engine.handleIdentityChange(ctx, IdentityChangeBatch{
+		Deleted: identity.IdentityMap{
+			barBazIdentiy: barBazLabels.LabelArray(),
 		},
 	})
 	require.NoError(t, err)
@@ -346,11 +329,9 @@ func TestPolicyEngine(t *testing.T) {
 
 	// Re-add barBazIdentiy
 	_, waitForStateChange = tbl.AllWatch(db.ReadTxn())
-	err = engine.handleIdentityChange(ctx, []cache.IdentityChange{
-		{
-			Kind:   cache.IdentityChangeUpsert,
-			ID:     barBazIdentiy,
-			Labels: barBazLabels,
+	err = engine.handleIdentityChange(ctx, IdentityChangeBatch{
+		Added: identity.IdentityMap{
+			barBazIdentiy: barBazLabels.LabelArray(),
 		},
 	})
 	require.NoError(t, err)
