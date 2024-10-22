@@ -36,14 +36,20 @@ import (
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 
+	helmchart "helm.sh/helm/v3/pkg/chart"
+
 	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
+	"github.com/isovalent/cilium/olm/helm"
 )
 
 // CiliumConfigReconciler reconciles a CiliumConfig object
 type CiliumConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Chart  *helmchart.Chart
 }
+
+// TODO: The controller is missing some rights
 
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs/status,verbs=get;update;patch
@@ -72,18 +78,44 @@ type CiliumConfigReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO: Modify the Reconcile function to compare the state specified by
-// the CiliumConfig object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
+
+	// Get the CiliumConfig
+	ccfg := &ciliumiov1alpha1.CiliumConfig{}
+	nsn := req.NamespacedName
+	err := r.Client.Get(ctx, nsn, ccfg)
+	if err != nil {
+		// TODO: this does not seem the best UX
+		// Deleting the custom resource would completely remove Cilium
+		// and possible break the connectivity of all what is running in
+		// Kubernetes. We need safeguards, options:
+		// - to have the default configuration applied if there is no CiliumConfig
+		// and to uninstall only when a very clear attribute is set in CiliumConfig.
+		// - to allow the uninstall by removing the custom resource only when an
+		// environment variable has been set in the operator deployment.
+		if apierrors.IsNotFound(err) {
+			// TODO err = UninstallCilium(restConfig, nsn, logger)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to retrieve CiliumConfig")
+		return ctrl.Result{}, err
+	}
+
+	// TODO:
+	// DefaultPostRendererFunc returns a post-renderer that applies owner references to compatible objects
+	// in a helm release manifest. This is the default post-renderer used by ActionClients created with
+	// NewActionClientGetter.
+	// Owner references are currently not set. This needs to be amended
 
 	// TODO: add logic here
-
+	// - Load the values into vals map[string]interface{}, passed to Install()
+	//		- defaults provided by values.yaml
+	//		- overrides provided by the CiliumConfig
+	helm.Install(r.Chart, logger)
 	return ctrl.Result{}, nil
 }
 

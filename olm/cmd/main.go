@@ -36,8 +36,11 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	helmloader "helm.sh/helm/v3/pkg/chart/loader"
+
 	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
-	"github.com/isovalent/cilium/olm/internal/controller"
+	"github.com/isovalent/cilium/olm/controller"
+	// "github.com/isovalent/cilium/olm/helm"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -128,9 +131,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO: the manifests directory is a copy of install/kubernetes/cilium directory that will need to be synced
+	// Docker does not support symbolic links with targets outside of the root directory.
+	chart, err := helmloader.LoadDir("./manifests")
+	if err != nil {
+		setupLog.Error(err, "Charts can't be loaded")
+		os.Exit(1)
+	}
+
 	if err = (&controller.CiliumConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Chart:  chart,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CiliumConfig")
 		os.Exit(1)

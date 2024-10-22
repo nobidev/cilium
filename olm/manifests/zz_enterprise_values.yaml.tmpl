@@ -1,0 +1,173 @@
+# Enterprise-only settings
+enterprise:
+
+  # featureGates is a list of feature IDs that are allowed to be enabled.
+  # Enabling a feature without adding it to this list will cause the agent or
+  # operator to fail to start.
+  # Note: This list is not used to enable features, but to allow features to be
+  # enabled via their respective configuration options.
+  #
+  # To allow all Alpha, Beta and Limited features you can pass AllowAlphaFeatures,
+  # AllowBetaFeatures and AllowLimitedFeatures respectively.
+  #
+  # Example usage: featureGates: [AllBetaFeatures, DatapathModeIPDualStack]
+  # would allow all beta features and the DatapathModeIPDualStack feature.
+  featureGates: []
+
+  clustermesh:
+    # -- Enable overlapping PodCIDR support
+    enableOverlappingPodCIDRSupport: false
+
+    mixedRoutingMode:
+      # -- Enable meshing clusters configured with a different primary routing mode.
+      # Inter-cluster traffic is forwarded according to the locally configured mode
+      # when matching that of the target cluster, native routing if both clusters use
+      # native routing, tunnel if both clusters use tunnel, and defaults to tunnel in
+      # the case of a mismatch. The tunnel protocol must be configured to the same
+      # value in all clusters. Limited to Cluster Scope or Kubernetes Host Scope
+      # IPAM modes. Incompatible with the Direct Server Return (DSR) LB mode.
+      enabled: false
+
+    phantomServices:
+    # -- Enable Phantom Services support
+      enabled: true
+
+  # -- Enables egress gateway HA
+  egressGatewayHA:
+    enabled: false
+    # -- Time between triggers of egress gateway state reconciliations
+    reconciliationTriggerInterval: 1s
+    # -- Maximum number of entries in egress gateway policy map
+    # maxPolicyEntries: 16384
+    # -- Healthcheck timeout after which an egress gateway is marked not healthy.
+    # This also configures the frequency of probes to a value of healthcheckTimeout / 2
+    # healthcheckTimeout: 2s
+
+  srv6:
+    # -- Enable SRv6 encapsulation support.
+    enabled: false
+    # -- Specify SRv6 SID encapsulation.
+    encapMode: reduced
+    # -- Enables custom SRv6 SID locator pool operator support.
+    locatorPoolEnabled: false
+
+  bgpControlPlane:
+    # -- Enables enterprise BGP control plane
+    enabled: false
+    # -- Enables BGP integration with service health-checking.
+    enableServiceHealthChecking: false
+    # -- SecretsNamespace is the namespace which BGP support will retrieve secrets from.
+    secretsNamespace:
+      # -- Create secrets namespace for BGP secrets.
+      create: false
+      # -- The name of the secret namespace to which Cilium agents are given read access
+      name: kube-system
+
+  bfd:
+    # -- Enables Bidirectional Forwarding Detection (BFD) feature.
+    enabled: false
+
+  # -- Multi-network support (preview feature)
+  multiNetwork:
+    # -- Enables the multi-network feature in Cilium CNI
+    enabled: false
+    # -- Enable multi-network aware automatic L2 routing between nodes
+    autoDirectNodeRoutes: true
+    # -- Automatically creates a "default" IsovalentPodNetwork on operator startup
+    autoCreateDefaultPodNetwork: true
+
+  multicast:
+    # -- Enables multicast in cilium, multicast replication works only in tunnel mode.
+    enabled: false
+
+  ciliummesh:
+    # -- Enables Cilium Mesh
+    enabled: false
+
+  # -- Transparent encryption
+  encryption:
+    policy:
+      # -- Enables support for encryption policies
+      enabled: false
+
+hubble:
+  # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
+  # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
+  rbac:
+    # -- Enables hubble-rbac by running it as a sidecar in hubble-relay.
+    enabled: false
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: quay.io/isovalent/hubble-rbac
+      tag: v1.6.0
+      digest: ""
+      useDigest: false
+      pullPolicy: "Always"
+    extraArgs: {}
+    extraEnv: []
+    # extraEnv:
+    #   - name: foo
+    #     value: bar
+    resources: {}
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      capabilities:
+        drop:
+          - ALL
+
+    loggingLevel: info
+
+    listenPort: 4245
+
+    auth:
+      oidc:
+        # @schema
+        # type: [null, string]
+        # @schema
+        issuerUrl: ~
+        # @schema
+        # type: [null, string]
+        # @schema
+        clientID: ~
+        ca:
+          configMap:
+            # @schema
+            # type: [null, string]
+            # @schema
+            name: ~
+            key: "ca.crt"
+
+    # -- Options to configure the Hubble RBAC authorization policy.
+    # The policy can be defined inline in the configMap.bindings and
+    # configMap.roles field, or in a separate configMap specified by the
+    # configMap.name.
+    policy:
+      # -- Whether to enable logging of a user's roles to debug logs when they
+      # authenticate and make requests.
+      logRoles: false
+      configMap:
+        # -- Whether to create the config map from where the mapping between claims
+        # and roles is read. If set to 'false' the user must create the config map
+        # out-of-band. Hubble Relay will not start until the config map is
+        # in place.
+        create: true
+        # -- (Advanced) The name of the config map containing the policy document.
+        # If managed out-of-band, the config map must have the name defined here.
+        # Most users won't need to customize this.
+        name: hubble-rbac-policy
+        # -- (Advanced) The name of the config map key containing the policy
+        # document. If managed out-of-band, the config map must contain the policy
+        # document under this key. Most users won't need to customize this.
+        key: hubble-rbac-policy.yaml
+
+        # -- The list of roles to define.
+        roles: []
+        # -- The list of bindings between claims and roles.
+        bindings: []
