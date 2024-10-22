@@ -20,6 +20,13 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.2
 
+# This workflow builds each platform as part of separate jobs and then merges the
+# built images into a manifest before pushing. This is done for two reasons:
+# 1. Before pushing, it must be confirmed for each platform-specific image that the
+#    crypto libraries the images are using are correct,.
+# 2. Before pushing, an SBOM must be created and attached to each platform-specific
+#    image.
+
 jobs:
   sanity-checks:
     timeout-minutes: 10
@@ -44,8 +51,51 @@ jobs:
     environment: ${{ startsWith(github.event.ref, 'refs/tags/v') && 'release' || '' }}
     runs-on: ubuntu-24.04
     needs: sanity-checks
+    outputs:
+      # The digests of the per-platform images are combined in the next job with the
+      # manifest tag(s), so they need to be made available. As a result, the variables
+      # here must be synced with the next job.
+      # Parallelizing builds has two advantages:
+      # 1. Speedup
+      # 2. Avoids build cache interference. This workflow used to look like this:
+      #    (1) build amd64 image, (2) build arm64 image, (3) check FIPs libraries
+      #    are in use for each platform-specific image, (4) build and push amd64
+      #    image, (5) build and push arm64 image. The images from steps one and two
+      #    would have different digests than the images in steps four in five. This
+      #    is because the Dockerfiles use cache mounts in some RUN instructions, which
+      #    are taken into consideration in determining the digest.
+      image_cilium_amd64: ${{ steps.pass_image.outputs.cilium-amd64 }}
+      image_cilium_arm64: ${{ steps.pass_image.outputs.cilium-arm64 }}
+      manifest_cilium_primary: ${{ steps.pass_image.outputs.cilium-primary }}
+      manifest_cilium_secondary: ${{ steps.pass_image.outputs.cilium-secondary }}
+      image_operator_aws_amd64: ${{ steps.pass_image.outputs.operator-aws-amd64 }}
+      image_operator_aws_arm64: ${{ steps.pass_image.outputs.operator-aws-arm64 }}
+      manifest_operator_aws_primary: ${{ steps.pass_image.outputs.operator-aws-primary }}
+      manifest_operator_aws_secondary: ${{ steps.pass_image.outputs.operator-aws-secondary }}
+      image_operator_azure_amd64: ${{ steps.pass_image.outputs.operator-azure-amd64 }}
+      image_operator_azure_arm64: ${{ steps.pass_image.outputs.operator-azure-arm64 }}
+      manifest_operator_azure_primary: ${{ steps.pass_image.outputs.operator-azure-primary }}
+      manifest_operator_azure_secondary: ${{ steps.pass_image.outputs.operator-azure-secondary }}
+      image_operator_alibabacloud_amd64: ${{ steps.pass_image.outputs.operator-alibabacloud-amd64 }}
+      image_operator_alibabacloud_arm64: ${{ steps.pass_image.outputs.operator-alibabacloud-arm64 }}
+      manifest_operator_alibabacloud_primary: ${{ steps.pass_image.outputs.operator-alibabacloud-primary }}
+      manifest_operator_alibabacloud_secondary: ${{ steps.pass_image.outputs.operator-alibabacloud-secondary }}
+      image_operator_generic_amd64: ${{ steps.pass_image.outputs.operator-generic-amd64 }}
+      image_operator_generic_arm64: ${{ steps.pass_image.outputs.operator-generic-arm64 }}
+      manifest_operator_generic_primary: ${{ steps.pass_image.outputs.operator-generic-primary }}
+      manifest_operator_generic_secondary: ${{ steps.pass_image.outputs.operator-generic-secondary }}
     strategy:
       matrix:
+        name:
+          - cilium
+          - operator-aws
+          - operator-azure
+          - operator-alibabacloud
+          - operator-generic
+        platform:
+          - amd64
+          - arm64
+        # This matrix must be synced with the next job's matrix.
         include:
             # Name of the image.
           - name: cilium
@@ -95,8 +145,7 @@ jobs:
         # - tag: A single image tag to uniquely identiy the build.
         # - image_tag_primary: Full image name, including a tag, for the final manifest list.
         # - image_tag_secondary: A second full image name, including a tag, for the final manifest list. Can be blank.
-        # - image_tag_amd64: Full image name, including a tag, for the temporary amd64 build.
-        # - image_tag_arm64: Full image name, including a tag, for the temporary arm64 build.
+        # - image_tag_platform: Full image name, including a tag, for the platform-specific build.
 
       - name: Get image information based on the trigger
         id: tags
@@ -115,8 +164,7 @@ jobs:
             # Need one for each platform and a generic one for the manifest at the end
             echo "image_tag_primary=${base_image_name}:${tag}" >> $GITHUB_OUTPUT
             echo image_tag_secondary="" >> $GITHUB_OUTPUT
-            echo "image_tag_amd64=${base_image_name}:${tag}-amd64" >> $GITHUB_OUTPUT
-            echo "image_tag_arm64=${base_image_name}:${tag}-arm64" >> $GITHUB_OUTPUT
+            echo "image_tag_platform=${base_image_name}:${tag}-${{ matrix.platform }}" >> $GITHUB_OUTPUT
           else
             # Create two image tags: one 'floating' tag which is based on the stable branch name
             # or "latest" for main-ce, and a standard tag which contains the commit SHA.
@@ -145,8 +193,7 @@ jobs:
 
             echo "image_tag_primary=${base_image_name}:${tag}" >> $GITHUB_OUTPUT
             echo "image_tag_secondary=${base_image_name}:${floating_tag}" >> $GITHUB_OUTPUT
-            echo "image_tag_amd64=${base_image_name}:${tag}-amd64" >> $GITHUB_OUTPUT
-            echo "image_tag_arm64=${base_image_name}:${tag}-arm64" >> $GITHUB_OUTPUT
+            echo "image_tag_platform=${base_image_name}:${tag}-${{ matrix.platform }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Print image tag information
@@ -159,10 +206,8 @@ jobs:
           echo "${{ steps.tags.outputs.image_tag_primary }}"
           echo "image_tag_secondary"
           echo "${{ steps.tags.outputs.image_tag_secondary }}"
-          echo "image_tag_amd64"
-          echo "${{ steps.tags.outputs.image_tag_amd64 }}"
-          echo "image_tag_arm64"
-          echo "${{ steps.tags.outputs.image_tag_arm64 }}"
+          echo "image_tag_platform"
+          echo "${{ steps.tags.outputs.image_tag_platform }}"
 
       - name: Login to quay.io - release
         if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
@@ -196,44 +241,17 @@ jobs:
             exit 1
           fi
 
-      # This workflow builds each platform as part of separate steps and then merges the
-      # built images into a manifest before pushing. This is done for two reasons:
-      # 1. Before pushing, it must be confirmed that the crypto libraries the images
-      #    are using are correct.
-      # 2. Before pushing, an SBOM must be created and attached to each individual image.
-      # TODO: Is there a way to parallelize the individual steps below before merging?
-
-      - name: Build ${{ matrix.name }} - amd64
+      - name: Build ${{ matrix.name }}
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
-        id: docker_build_amd64_pre
+        id: docker_build
         with:
           provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: false
           load: true
-          platforms: linux/amd64
-          tags: ${{ steps.tags.outputs.image_tag_amd64 }}
-          target: release
-          build-args: |
-            OPERATOR_VARIANT=${{ matrix.name }}
-            MODIFIERS=FIPS=1\ NOSTRIP=1
-
-        # TODO: arm64 builds are currently broken for the cilium-operator.
-        # See issue cilium/cilium#35324.
-
-      - name: Build ${{ matrix.name }} - arm64
-        if: ${{ false }}
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
-        id: docker_build_arm64_pre
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: false
-          load: true
-          platforms: linux/arm64
-          tags: ${{ steps.tags.outputs.image_tag_arm64 }}
+          platforms: linux/${{ matrix.platform }}
+          tags: ${{ steps.tags.outputs.image_tag_platform }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -249,128 +267,110 @@ jobs:
           # https://stackoverflow.com/questions/6550484/prevent-grep-returning-an-error-when-input-doesnt-match/49627999#49627999
           c1grep() { grep "$@" || test $? = 1; }
 
-          image_base="${{ steps.tags.outputs.base_image_name }}"
-          # When the images are loaded into the local docker daemon without being pushed, the
-          # digests aren't attached. This means we need to reference them by their tag.
-          # In this step.
-          image_amd64="${{ steps.tags.outputs.image_tag_amd64 }}"
-          # image_arm64="${{ steps.tags.outputs.image_tag_arm64 }}"
+          image="${{ steps.tags.outputs.image_tag_platform }}"
 
-          for image in "${image_amd64}"; do  # "${image_arm64}"; do
-            if ! docker image inspect $image; then
-              echo "Image ${image} was not put into local store"
-              exit 1
-            fi
-            container_name=$(uuidgen | cut -d'-' -f1)
+          if ! docker image inspect $image; then
+            echo "Image ${image} was not put into local store"
+            docker image ls --digests
+            exit 1
+          fi
+          container_name=$(uuidgen | cut -d'-' -f1)
 
-            mkdir -p ./binaries
-            touch ./symbols.txt
-            docker create --name $container_name $image
-            for binary in ${{ matrix.binaries }}; do
-              docker cp $container_name:/usr/bin/$binary ./binaries/$binary
-              echo "$binary" >> ./symbols.txt
-              go tool nm ./binaries/$binary | grep -E "sig\.(BoringCrypto|FIPSOnly|StandardCrypto)" >> ./symbols.txt
-            done
-            docker rm $container_name
-
-            cat ./symbols.txt
-
-            nstandard="$(cat ./symbols.txt | c1grep 'sig.StandardCrypto' | wc -l)"
-            nboring="$(cat ./symbols.txt | c1grep 'sig.BoringCrypto' | wc -l)"
-            nfips="$(cat ./symbols.txt | c1grep 'sig.FIPSOnly' | wc -l)"
-
-            if [ "${nstandard}" != "0" ]; then
-              echo "Fail for image ${image}, standard crypto is used in ${nstandard} binaries"
-              exit 1
-            fi
-
-            if [ "${nboring}" != "${nfips}" ]; then
-              echo "Fail for image ${image}, mismatch between number of FIPSOnly binaries and BoringCrypto binaries: ${nfips} != ${nboring}"
-              exit 1
-            fi
-
+          mkdir -p ./binaries
+          touch ./symbols.txt
+          docker create --name $container_name $image
+          for binary in ${{ matrix.binaries }}; do
+            docker cp $container_name:/usr/bin/$binary ./binaries/$binary
+            echo "$binary" >> ./symbols.txt
+            go tool nm ./binaries/$binary | grep -E "sig\.(BoringCrypto|FIPSOnly|StandardCrypto)" >> ./symbols.txt
           done
+          docker rm $container_name
 
-       # Now that the images have been checked, we can push them. This will populate the image's
-       # digest, which is required by cosign for signing.
+          cat ./symbols.txt
 
-      - name: Push ${{ matrix.name }} - amd64
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
-        id: docker_build_amd64
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.tags.outputs.image_tag_amd64 }}
-          target: release
-          build-args: |
-            OPERATOR_VARIANT=${{ matrix.name }}
-            MODIFIERS=FIPS=1\ NOSTRIP=1
+          nstandard="$(cat ./symbols.txt | c1grep 'sig.StandardCrypto' | wc -l)"
+          nboring="$(cat ./symbols.txt | c1grep 'sig.BoringCrypto' | wc -l)"
+          nfips="$(cat ./symbols.txt | c1grep 'sig.FIPSOnly' | wc -l)"
 
-        # TODO: arm64 builds are currently broken for the cilium-operator.
-        # See issue cilium/cilium#35324.
-
-      - name: Push ${{ matrix.name }} - arm64
-        if: ${{ false }}
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
-        id: docker_build_arm64
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/arm64
-          tags: ${{ steps.tags.outputs.image_tag_arm64 }}
-          target: release
-          build-args: |
-            OPERATOR_VARIANT=${{ matrix.name }}
-            MODIFIERS=FIPS=1\ NOSTRIP=1
-
-      - name: Ensure image digest didn't change
-        run: |
-          if [ "${{ steps.docker_build_amd64_pre.outputs.digest }}" != "${{ steps.docker_build_amd64.outputs.digest }}" ]; then
-            echo "Sanity check failed, amd64 image digest changed"
+          if [ "${nstandard}" != "0" ]; then
+            echo "Fail for image ${image}, standard crypto is used in ${nstandard} binaries"
             exit 1
           fi
 
-          # if [ "${{ steps.docker_build_arm64_pre.outputs.digest }}" != "${{ steps.docker_build_arm64.outputs.digest }}" ]; then
-          #   echo "Sanity check failed, amd64 image digest changed"
-          #   exit 1
-          # fi
+          if [ "${nboring}" != "${nfips}" ]; then
+            echo "Fail for image ${image}, mismatch between number of FIPSOnly binaries and BoringCrypto binaries: ${nfips} != ${nboring}"
+            exit 1
+          fi
+
+      - name: Push verified image
+        id: docker_push
+        run: |
+          docker push ${{ steps.tags.outputs.image_tag_platform }}
+          docker image ls --digests
+          output=$(docker image inspect ${{ steps.tags.outputs.image_tag_platform }} | jq -r '.[] | "image=\(.RepoDigests[0])"')
+          echo $output
+          echo "$output" >> $GITHUB_OUTPUT
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Sign Container Images
         run: |
-          cosign sign -y ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_amd64.outputs.digest }}
-          # cosign sign -y ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_arm64.outputs.digest }}
+          cosign sign -y ${{ steps.docker_push.outputs.image }}
 
-      - name: Generate SBOM - amd64
+      - name: Generate SBOM
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
-          artifact-name: sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_amd64.spdx.json
-          output-file: ./sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_amd64.spdx.json
-          image: ${{ steps.tags.outputs.image_tag_amd64 }}
+          artifact-name: sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json
+          output-file: ./sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json
+          image: ${{ steps.docker_push.outputs.image }}
+          # Use an older version of Syft so the boring crypto experiment is displayed.
+          # Do not upgrade without verifying the goexperiment is placed into the SBOM!
           syft-version: v1.4.1
           upload-release-assets: false
 
-      - name: Generate SBOM - arm64
-        if: ${{ false }}
-        uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
-        with:
-          artifact-name: sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_arm64.spdx.json
-          output-file: ./sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_arm64.spdx.json
-          image: ${{ steps.tags.outputs.image_tag_arm64 }}
-          syft-version: v1.4.1
-          upload-release-assets: false
-
-      - name: Attach SBOM attestation to container images
+      - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_amd64.spdx.json --type spdxjson ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_amd64.outputs.digest }}
-          # cosign attest -r -y --predicate sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_arm64.spdx.json --type spdxjson ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_arm64.outputs.digest }}
+          cosign attest -r -y --predicate sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json --type spdxjson ${{ steps.docker_push.outputs.image }}
+
+      - name: Pass image to next job
+        id: pass_image
+        run: |
+          echo "${{ matrix.name }}-${{ matrix.platform }}=${{ steps.docker_push.outputs.image }}" >> $GITHUB_OUTPUT
+          echo "${{ matrix.name }}-primary=${{ steps.tags.outputs.image_tag_primary }}" >> $GITHUB_OUTPUT
+          echo "${{ matrix.name }}-secondary=${{ steps.tags.outputs.image_tag_secondary }}" >> $GITHUB_OUTPUT
+
+  create-manifest:
+    timeout-minutes: 45
+    name: Create final manifest
+    environment: ${{ startsWith(github.event.ref, 'refs/tags/v') && 'release' || '' }}
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+    strategy:
+      matrix:
+        # This matrix must be synced with the previous job's matrix.
+        name:
+          - cilium
+          - operator-aws
+          - operator-alibabacloud
+          - operator-azure
+          - operator-generic
+    steps:
+      - name: Login to quay.io - release
+        if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Login to quay.io - non-release
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        if: ${{ ! startsWith(github.event.ref, 'refs/tags/') }}
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Create manifest
         id: docker_manifest
@@ -378,22 +378,64 @@ jobs:
         run: |
           set -xeo pipefail
 
-          image_tags="-t ${{ steps.tags.outputs.image_tag_primary }}"
-
-          if [ ! -z "${{ steps.tags.outputs.image_tag_secondary }}" ]; then
-            image_tags+=" -t ${{ steps.tags.outputs.image_tag_secondary }}"
+          # TODO: There's probably a smarter way to do this...
+          image_name="${{ matrix.name }}"
+          if [ "${image_name}" == "cilium" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_cilium_amd64 }} ${{ needs.build-and-push.outputs.image_cilium_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_cilium_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_cilium_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_cilium_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_cilium_secondary }}"
+            fi
+          elif [ "${image_name}" == "operator-aws" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_operator_aws_amd64 }} ${{ needs.build-and-push.outputs.image_operator_aws_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_operator_aws_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_aws_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_aws_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_aws_secondary }}"
+            fi
+          elif [ "${image_name}" == "operator-alibabacloud" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_operator_alibabacloud_amd64 }} ${{ needs.build-and-push.outputs.image_operator_alibabacloud_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_secondary }}"
+            fi
+          elif [ "${image_name}" == "operator-azure" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_operator_azure_amd64 }} ${{ needs.build-and-push.outputs.image_operator_azure_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_operator_azure_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_azure_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_azure_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_azure_secondary }}"
+            fi
+          elif [ "${image_name}" == "operator-generic" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_operator_generic_amd64 }} ${{ needs.build-and-push.outputs.image_operator_generic_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_operator_generic_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_generic_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_generic_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_generic_secondary }}"
+            fi
+          else
+            echo "Invalid image name from matrix: ${image_name}"
+            exit 1
           fi
 
           docker buildx imagetools create \
             $image_tags \
-            ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_amd64.outputs.digest }}  # \
-            # ${{ steps.tags.outputs.base_image_name }}@${{ steps.docker_build_arm64.outputs.digest }}
+            $platform_tags
+
+          # Wait for the image to appear.
+          while ! docker buildx imagetools inspect $primary_tag; do
+            sleep 1
+          done
 
           # For some reason, if you just use {{ .Manifest.Digest }} in the go template, it'll just print
-          # its normal text output
-          output="$(docker buildx imagetools inspect ${{ steps.tags.outputs.image_tag_primary }} --format 'digest={{ .Manifest.Digest }}')"
-
+          # its normal text output. In this command, we format the variable output as `digest=<digest>` which can
+          # then be piped directly to $GITHUB_OUTPUT.
+          output="$(docker buildx imagetools inspect $primary_tag --format 'digest={{ .Manifest.Digest }}')"
           echo $output >> $GITHUB_OUTPUT
+
+          echo primary_tag=$primary_tag >> $GITHUB_OUTPUT
 
       - name: Image Release Digest
         shell: bash
@@ -406,7 +448,7 @@ jobs:
 
           echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`${{ steps.tags.outputs.image_tag_primary }}@${{ steps.docker_manifest.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`${{ steps.docker_manifest.outputs.primary_tag }}@${{ steps.docker_manifest.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
@@ -420,12 +462,12 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: build-and-push
+    needs: create-manifest
     steps:
       - name: Getting image tag
         id: tag
         run: |
-          # Ensure that this logic is synced with the logic in the previous job!
+          # Ensure that this logic is synced with the logic in the previous jobs!
           if [ "${{ startsWith(github.event.ref, 'refs/tags/v') }}" == "true" ]; then
             tag=${GITHUB_REF##*/}-fips
             echo tag=$tag >> $GITHUB_OUTPUT
@@ -433,6 +475,7 @@ jobs:
             tag=${{ github.sha }}-fips
             echo tag=$tag >> $GITHUB_OUTPUT
           fi
+
       - name: Downloading Image Digests
         shell: bash
         run: |
