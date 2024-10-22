@@ -74,6 +74,16 @@ var (
 		},
 	}
 
+	peer2 = v1alpha1.IsovalentBGPNodePeer{
+		Name:        "peer-65001-2",
+		PeerAddress: ptr.To[string]("10.10.10.2"),
+		PeerConfigRef: &v1alpha1.PeerConfigReference{
+			Group: "isovalent.com",
+			Kind:  "IsovalentBGPPeerConfig",
+			Name:  "peer-config",
+		},
+	}
+
 	peerConfig = &v1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config",
@@ -128,14 +138,38 @@ var (
 		},
 	}
 
-	egw1RPName = PolicyName("peer-65001", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey.Name)
-	egw1RP     = &types.RoutePolicy{
-		Name: egw1RPName,
+	egw1Peer1RPName = PolicyName("peer-65001", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey.Name)
+	egw1Peer1RP     = &types.RoutePolicy{
+		Name: egw1Peer1RPName,
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
 					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         egwPrefix,
+							PrefixLenMin: 32,
+							PrefixLenMax: 32,
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction:    types.RoutePolicyActionAccept,
+					AddCommunities: []string{"65000:100"},
+				},
+			},
+		},
+	}
+
+	egw1Peer2RPName = PolicyName("peer-65001-2", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey.Name)
+	egw1Peer2RP     = &types.RoutePolicy{
+		Name: egw1Peer2RPName,
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         egwPrefix,
@@ -241,7 +275,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 			},
 		},
@@ -257,7 +291,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 			},
 			testEGWPolicies: []mockEGWPolicy{
@@ -297,7 +331,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // new route policy added
 					egw2RPName: egw2RP,
@@ -321,7 +355,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // old route policy, contains old community
 					egw2RPName: egw2RPOld,
@@ -364,7 +398,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // updated route policy added
 					egw2RPName: egw2RP,
@@ -388,7 +422,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 				egwPolicyKey2: reconcilerv2.RoutePolicyMap{
 					egw2RPName: egw2RP,
@@ -421,7 +455,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				egwPolicyKey: reconcilerv2.RoutePolicyMap{
-					egw1RPName: egw1RP,
+					egw1Peer1RPName: egw1Peer1RP,
 				},
 				egwPolicyKey2: reconcilerv2.RoutePolicyMap{
 					egw2RPName: egw2RP,
@@ -452,6 +486,39 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
 			expectedRPs:        reconcilerv2.ResourceRoutePolicyMap{},
+		},
+		{
+			name:             "Test with two peers",
+			advertisement:    egwAdvert,
+			preconfiguredRPs: make(reconcilerv2.ResourceRoutePolicyMap),
+			testEGWPolicies: []mockEGWPolicy{
+				{
+					id: k8sTypes.NamespacedName{
+						Namespace: egwPolicyKey.Namespace,
+						Name:      egwPolicyKey.Name,
+					},
+					labels:    egwLabels,
+					egressIPs: []netip.Addr{egwAddr},
+				},
+			},
+			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer, peer2},
+			},
+			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
+				egwPolicyKey: {
+					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+						egwPrefix.String(): {},
+					},
+				},
+			},
+			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
+				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+					egw1Peer1RPName: egw1Peer1RP,
+					egw1Peer2RPName: egw1Peer2RP,
+				},
+			},
 		},
 	}
 

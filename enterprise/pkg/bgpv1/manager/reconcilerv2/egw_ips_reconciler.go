@@ -321,16 +321,19 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 						return nil, fmt.Errorf("failed to create egress gateway route policy: %w", err)
 					}
 
-					// in this case there is 1-1 mapping between route policy and egress gateway policy
-					desiredRoutePolicies[resource.Key{
+					egwKey := resource.Key{
 						Name:      egwID.Name,
 						Namespace: egwID.Namespace,
-					}] = reconcilerv2.RoutePolicyMap{
-						policyName: policy,
 					}
+
+					if _, exists := desiredRoutePolicies[egwKey]; !exists {
+						desiredRoutePolicies[egwKey] = make(reconcilerv2.RoutePolicyMap)
+					}
+					desiredRoutePolicies[egwKey][policyName] = policy
 				}
 			}
 		}
+
 	}
 
 	return desiredRoutePolicies, nil
