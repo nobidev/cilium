@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -117,9 +118,11 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 
 		// translation
 		t1Translator := &lbServiceT1Translator{
+			logger: hivetest.Logger(t),
 			config: config,
 		}
 		t2Translator := &lbServiceT2Translator{
+			logger: hivetest.Logger(t),
 			config: config,
 		}
 
@@ -134,8 +137,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml)
 
 		// T1 Endpoints
-		endpoints, err := t1Translator.DesiredEndpoints(model)
-		require.NoError(t, err)
+		endpoints := t1Translator.DesiredEndpoints(model)
 
 		actualEndpointsYaml := ""
 		if endpoints != nil {

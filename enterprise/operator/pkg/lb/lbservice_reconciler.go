@@ -263,11 +263,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	// Build desired resources
 	desiredT1Service := r.t1Translator.DesiredService(model)
-
-	desiredT1Endpoints, err := r.t1Translator.DesiredEndpoints(model)
-	if err != nil {
-		return err
-	}
+	desiredT1Endpoints := r.t1Translator.DesiredEndpoints(model)
 
 	// Set controlling ownerreferences
 	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Service, r.scheme); err != nil {
@@ -701,6 +697,7 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 	incompatibleBackendMessages := []string{}
 
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatiblePersistentBackendLBAlgorithms(lbsvc, backends)...)
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1MultipleBackendPorts(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getInvalidBackends(backends)...)
 
 	if len(incompatibleBackendMessages) > 0 {
@@ -754,6 +751,41 @@ func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *
 		for _, configuredBackend := range backends {
 			if b == configuredBackend.Name && (configuredBackend.Spec.Loadbalancing == nil || configuredBackend.Spec.Loadbalancing.Algorithm.ConsistentHashing == nil) {
 				incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("Backend %q is incompatible: Configured \"persistentBackend\" without LB algorithm \"consistentHashing\"", b))
+			}
+		}
+	}
+
+	return incompatibleBackendMessages
+}
+
+func (*lbServiceReconciler) getIncompatibleT1MultipleBackendPorts(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+	incompatibleBackendMessages := []string{}
+
+	backendsUsedAsT1OnlyBackend := map[string]struct{}{}
+
+	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceMode == nil ||
+		*lbsvc.Spec.Applications.TCPProxy.ForceMode == isovalentv1alpha1.LBTCPProxyForceModeT1 ||
+		*lbsvc.Spec.Applications.TCPProxy.ForceMode == isovalentv1alpha1.LBTCPProxyForceModeAuto) { // TODO: remove auto from condition once we support T2 proxy
+
+		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
+			backendsUsedAsT1OnlyBackend[t1r.BackendRef.Name] = struct{}{}
+		}
+	}
+
+	for b := range backendsUsedAsT1OnlyBackend {
+		for _, configuredBackend := range backends {
+			if b == configuredBackend.Name {
+				port := int32(0)
+
+				for _, be := range configuredBackend.Spec.Backends {
+					if port == 0 {
+						port = be.Port
+					}
+					if port != be.Port {
+						incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("Backend %q is incompatible: T1 only service does not support backends with different ports", b))
+						break
+					}
+				}
 			}
 		}
 	}

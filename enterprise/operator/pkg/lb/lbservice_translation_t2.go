@@ -14,6 +14,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -63,6 +64,7 @@ const (
 )
 
 type lbServiceT2Translator struct {
+	logger *slog.Logger
 	config reconcilerConfig
 }
 

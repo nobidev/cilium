@@ -101,8 +101,8 @@ func registerReconcilers(params reconcilerParams) error {
 		params.Scheme,
 		params.NodeSource,
 		&ingestor{},
-		&lbServiceT1Translator{config: reconcilerConfig},
-		&lbServiceT2Translator{config: reconcilerConfig},
+		&lbServiceT1Translator{logger: params.Logger, config: reconcilerConfig},
+		&lbServiceT2Translator{logger: params.Logger, config: reconcilerConfig},
 	)
 
 	lbVIPReconciler := newLBVIPReconciler(

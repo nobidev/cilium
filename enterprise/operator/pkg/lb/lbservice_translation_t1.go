@@ -12,19 +12,23 @@ package lb
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type lbServiceT1Translator struct {
+	logger *slog.Logger
 	config reconcilerConfig
 }
 
@@ -141,7 +145,7 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) []c
 	}
 }
 
-func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) ([]corev1.EndpointSubset, error) {
+func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
 	epAddresses := []corev1.EndpointAddress{}
 	port := uint32(0)
 
@@ -154,7 +158,12 @@ func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) ([
 					port = b.port
 				}
 				if port != b.port {
-					return nil, fmt.Errorf("T1-only service does not support backends with different ports")
+					r.logger.Debug("Skipping incompatible backend",
+						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
+						"ip", b.address,
+						"port", b.port,
+						"reason", "T1-only service does not support backends with different ports")
+					continue
 				}
 				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
 			}
@@ -172,24 +181,18 @@ func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) ([
 				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endpoints, error) {
+func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) *corev1.Endpoints {
 	if model.vip.assignedIPv4 == nil {
-		return nil, nil
+		return nil
 	}
 
-	var (
-		epSubsets []corev1.EndpointSubset
-		err       error
-	)
+	var epSubsets []corev1.EndpointSubset
 
 	if model.isTCPProxyT1OnlyMode() {
-		epSubsets, err = r.endpointSubsetsFromBackends(model)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create endpoint: %w", err)
-		}
+		epSubsets = r.endpointSubsetsFromBackends(model)
 	} else {
 		epSubsets = r.endpointSubsetsFromT2Nodes(model)
 	}
@@ -200,7 +203,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) (*corev1.Endp
 			Name:      model.getOwningResourceName(),
 		},
 		Subsets: epSubsets,
-	}, nil
+	}
 }
 
 func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
