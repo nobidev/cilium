@@ -149,9 +149,8 @@ func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) []
 	epAddresses := []corev1.EndpointAddress{}
 	port := uint32(0)
 
-	routes := model.applications.tcpProxy.routes
-	if len(routes) == 1 {
-		backend, ok := model.referencedBackends[model.applications.tcpProxy.routes[0].backendRef.name]
+	for _, tr := range model.applications.tcpProxy.routes {
+		backend, ok := model.referencedBackends[tr.backendRef.name]
 		if ok {
 			for _, b := range backend.lbBackends {
 				if port == 0 {

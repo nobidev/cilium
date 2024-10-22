@@ -342,11 +342,6 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 		return nil
 	}
 
-	if len(app.Routes) != 1 {
-		// ! should have been checked already
-		return nil
-	}
-
 	routes := []lbRouteTCPProxy{}
 	for _, lr := range app.Routes {
 		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
