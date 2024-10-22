@@ -75,7 +75,10 @@ affinity:
         matchLabels:
           k8s-app: cilium-dnsproxy
 
-# -- Node selector for cilium-dnsproxy.
+# Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy: ""
+
+# -- Node selector for cilium-dnsproxy
 nodeSelector:
   kubernetes.io/os: linux
 

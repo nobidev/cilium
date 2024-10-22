@@ -223,6 +223,9 @@ spec:
       tolerations:
       {{- toYaml . | trim | nindent 6 }}
 {{- end }}
+{{- if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
       volumes:
         # To keep state between restarts / upgrades
       - hostPath:
