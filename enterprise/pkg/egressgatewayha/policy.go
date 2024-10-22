@@ -854,6 +854,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			// this case don't regenerate a new gatewayConfig and return an error
 			if gwc.localNodeConfiguredAsGateway {
 				logger.WithError(err).Error("Local node selected by multiple egress gateway groups from the same policy")
+				continue
 			}
 
 			if egressIP, found := groupStatus.egressIPByGatewayIP[localNodeK8sAddr]; found {
@@ -877,6 +878,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				gwc.egressIP = egressIP
 			} else if err := gwc.deriveFromGroupConfig(&gc); err != nil {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				continue
 			}
 
 			gwc.localNodeConfiguredAsGateway = true
