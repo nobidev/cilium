@@ -1010,6 +1010,12 @@ func (r *LBService) AllReferencedBasicAuthSecretNames() []string {
 		secretNames = append(secretNames, r.Spec.Applications.HTTPProxy.Auth.Basic.Users.SecretRef.Name)
 	}
 
+	if r.Spec.Applications.HTTPSProxy != nil &&
+		r.Spec.Applications.HTTPSProxy.Auth != nil &&
+		r.Spec.Applications.HTTPSProxy.Auth.Basic != nil {
+		secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.Auth.Basic.Users.SecretRef.Name)
+	}
+
 	slices.Sort(secretNames)
 	return slices.Compact(secretNames)
 }
