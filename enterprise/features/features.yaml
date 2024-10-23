@@ -98,6 +98,16 @@ features:
     helm: 
       enterprise.bgpControlPlane.enabled: true
 
+  BFD:
+    maturity: Beta
+    description: |
+      Enables Bidirectional Forwarding Detection (BFD) feature
+    flags:
+      enable-bfd: true
+    skip-flag-check: true
+    helm:
+      enterprise.bfd.enabled: true
+
   Multicast:
     maturity: Limited
     description: |
