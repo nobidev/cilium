@@ -9,7 +9,6 @@ resources for more details:
 
 - [CFP](https://docs.google.com/document/d/1zcAttwopuhA_BzpfjH0yjlxScijSv2ZqGkphSHpnrRE/edit)
 - [GitHub Issue](https://github.com/isovalent/roadmap/issues/616)
-- [Porting existing enterprise features to main-ce branch](https://github.com/isovalent/cilium/issues/1167)
 
 Please post a message in [#prj-cee-oss-codebase Slack channel](https://isovalent.slack.com/archives/C05188W95GT)
 if you are interested in participating in the experiment.
