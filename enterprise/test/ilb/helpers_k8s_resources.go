@@ -376,6 +376,20 @@ func withHTTPSProxyApplication(opts ...httpsApplicationOption) serviceOption {
 	}
 }
 
+func withHttpsBasicAuth(secretRef string) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPAuth{
+			Basic: &isovalentv1alpha1.LBServiceHTTPBasicAuth{
+				Users: isovalentv1alpha1.LBServiceHTTPBasicAuthUser{
+					SecretRef: isovalentv1alpha1.LBServiceSecretRef{
+						Name: secretRef,
+					},
+				},
+			},
+		}
+	}
+}
+
 func withTLSPassthroughApplication(opts ...tlsPassthroughApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		app := &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{}

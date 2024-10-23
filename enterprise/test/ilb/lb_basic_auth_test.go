@@ -13,97 +13,145 @@ package ilb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestHTTPBasicAuth(t *testing.T) {
-	ctx := context.Background()
-	testName := "basic-auth-http"
-	testK8sNamespace := "default"
+func TestBasicAuth(t *testing.T) {
+	for _, proto := range []string{"http", "https"} {
+		t.Run(strings.ToUpper(proto), func(t *testing.T) {
+			ctx := context.Background()
+			testName := "basic-auth-" + proto
+			testK8sNamespace := "default"
+			hostName := "basic-auth.acme.io"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+			ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+			dockerCli := newDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
-	backend := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})[0]
-
-	t.Log("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
-
-	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
-
-	t.Logf("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
-
-	t.Log("Creating basic auth secret...")
-	creds := []basicAuthCredential{
-		{
-			username: "user0",
-			password: "password0",
-		},
-		{
-			username: "user1",
-			password: "password1",
-		},
-	}
-	secretName := scenario.createBasicAuthSecret(ctx, creds)
-
-	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
-		// Enable application-wide basic auth
-		withHttpBasicAuth(secretName),
-		// Set per-route exception
-		withHttpRoute(testName,
-			withHttpPath("/no-auth"),
-			withHttpRouteBasicAuth(true),
-		),
-		// Default route
-		withHttpRoute(testName),
-	))
-	scenario.createLBService(ctx, service)
-
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	t.Run("ValidCredentials", func(t *testing.T) {
-		for _, cred := range creds {
-			cmd := curlCmd(fmt.Sprintf("-m 1 --basic -u %s:%s http://%s/needs-auth", cred.username, cred.password, vipIP))
-			stdout, stderr, err := client.Exec(ctx, cmd)
-			if err != nil {
-				t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+			if proto == "https" {
+				t.Log("Creating cert and secret...")
+				scenario.createLBServerCertificate(ctx, testName, hostName)
 			}
-		}
-	})
 
-	t.Run("NoCredential", func(t *testing.T) {
-		stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 -w '%%{response_code}' http://%s/needs-auth", vipIP)))
-		if err == nil {
-			t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
-		}
-		if stdout != "401" {
-			t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
-		}
-	})
+			t.Log("Creating backend apps...")
+			backend := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})[0]
 
-	t.Run("InvalidCredential", func(t *testing.T) {
-		stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1  -w '%%{response_code}' --basic -u unknown:unknown http://%s/needs-auth", vipIP)))
-		if err == nil {
-			t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
-		}
-		if stdout != "401" {
-			t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
-		}
-	})
+			t.Log("Creating clients and add BGP peering ...")
 
-	t.Run("PerRouteException", func(t *testing.T) {
-		// Ensure the per-route exception is working
-		stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 http://%s/no-auth", vipIP)))
-		if err != nil {
-			t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
-		}
-	})
+			var client *frrContainer
+			if proto == "http" {
+				client = scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+			} else {
+				client = scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
+			}
+
+			t.Logf("Creating LB VIP resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(ctx, vip)
+
+			t.Logf("Creating LB BackendPool resources...")
+			scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
+
+			t.Log("Creating basic auth secret...")
+			creds := []basicAuthCredential{
+				{
+					username: "user0",
+					password: "password0",
+				},
+				{
+					username: "user1",
+					password: "password1",
+				},
+			}
+			secretName := scenario.createBasicAuthSecret(ctx, creds)
+
+			t.Logf("Creating LB Service resources...")
+
+			var service *isovalentv1alpha1.LBService
+			if proto == "http" {
+				// HTTP
+				service = lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+					// Enable application-wide basic auth
+					withHttpBasicAuth(secretName),
+					// Set per-route exception
+					withHttpRoute(testName,
+						withHttpPath("/no-auth"),
+						withHttpRouteBasicAuth(true),
+					),
+					// Default route
+					withHttpRoute(testName),
+				))
+			} else {
+				// HTTPS
+				service = lbService(testK8sNamespace, testName,
+					withPort(443),
+					withHTTPSProxyApplication(
+						// Enable application-wide basic auth
+						withHttpsBasicAuth(secretName),
+						// Set per-route exception
+						withHttpsRoute(testName,
+							withHttpPath("/no-auth"),
+							withHttpRouteBasicAuth(true),
+						),
+						// Default route
+						withHttpsRoute(testName),
+						withCertificate(testName),
+					),
+				)
+			}
+			scenario.createLBService(ctx, service)
+
+			t.Logf("Waiting for full VIP connectivity of %q...", testName)
+			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+			var curlOpt string
+			if proto == "http" {
+				curlOpt = fmt.Sprintf("--resolve %s:80:%s", hostName, vipIP)
+			} else {
+				curlOpt = fmt.Sprintf("--cacert /tmp/%s.crt --resolve %s:443:%s", hostName, hostName, vipIP)
+			}
+
+			t.Run("ValidCredentials", func(t *testing.T) {
+				for _, cred := range creds {
+					cmd := curlCmd(fmt.Sprintf("-m 1 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
+					stdout, stderr, err := client.Exec(ctx, cmd)
+					if err != nil {
+						t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+					}
+				}
+			})
+
+			t.Run("NoCredential", func(t *testing.T) {
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+				if err == nil {
+					t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+				}
+				if stdout != "401" {
+					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+				}
+			})
+
+			t.Run("InvalidCredential", func(t *testing.T) {
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
+				if err == nil {
+					t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+				}
+				if stdout != "401" {
+					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+				}
+			})
+
+			t.Run("PerRouteException", func(t *testing.T) {
+				// Ensure the per-route exception is working
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+				if err != nil {
+					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+				}
+			})
+		})
+	}
 }
