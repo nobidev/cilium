@@ -2936,6 +2936,11 @@ func (in *LBServiceApplicationHTTPSProxy) DeepCopyInto(out *LBServiceApplication
 		*out = new(LBServiceHTTPRateLimits)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Auth != nil {
+		in, out := &in.Auth, &out.Auth
+		*out = new(LBServiceHTTPAuth)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Routes != nil {
 		in, out := &in.Routes, &out.Routes
 		*out = make([]LBServiceHTTPRoute, len(*in))

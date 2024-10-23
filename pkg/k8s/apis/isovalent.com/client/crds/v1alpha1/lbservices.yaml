@@ -431,6 +431,40 @@ spec:
                       Defining this stanza enables HTTPSProxy application that proxies the
                       HTTPS traffic to the backends over TLS and TCP connections.
                     properties:
+                      auth:
+                        description: Optional HTTP authN/authZ configuration for the
+                          HTTPS proxy application.
+                        properties:
+                          basic:
+                            description: The basic authentication configuration.
+                            properties:
+                              users:
+                                description: Users for the basic authentication.
+                                properties:
+                                  secretRef:
+                                    description: |-
+                                      The reference to the k8s secret that contains the username and
+                                      password for the basic authentication. This must be a k8s secret of
+                                      type Opaque with the username as a key and the password as a value.
+                                      A single secret can contain multiple username-password pairs.
+                                    properties:
+                                      name:
+                                        description: The name of the K8s Secret resource.
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                required:
+                                - secretRef
+                                type: object
+                            required:
+                            - users
+                            type: object
+                        type: object
+                        x-kubernetes-validations:
+                        - message: Exactly one authN/Z method can be specified
+                          rule: has(self.basic)
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTPS connections.

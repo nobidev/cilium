@@ -2359,6 +2359,14 @@ func (in *LBServiceApplicationHTTPSProxy) DeepEqual(other *LBServiceApplicationH
 		}
 	}
 
+	if (in.Auth == nil) != (other.Auth == nil) {
+		return false
+	} else if in.Auth != nil {
+		if !in.Auth.DeepEqual(other.Auth) {
+			return false
+		}
+	}
+
 	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {
 		in, other := &in.Routes, &other.Routes
 		if other == nil {

@@ -146,6 +146,11 @@ type LBServiceApplicationHTTPSProxy struct {
 	// +kubebuilder:validation:Optional
 	RateLimits *LBServiceHTTPRateLimits `json:"rateLimits,omitempty"`
 
+	// Optional HTTP authN/authZ configuration for the HTTPS proxy application.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *LBServiceHTTPAuth `json:"auth,omitempty"`
+
 	// The HTTP routing configuration.
 	//
 	// +kubebuilder:validation:Required
