@@ -37,6 +37,11 @@ func NewEnterpriseConnectivityTest(ct *check.ConnectivityTest) *EnterpriseConnec
 		dst: client,
 	}
 
+	if ct.Params().MultiCluster != "" {
+		remoteClient, _ := enterpriseK8s.NewEnterpriseClient(ct.Clients()[1])
+		c.dst = remoteClient
+	}
+
 	return &EnterpriseConnectivityTest{
 		ConnectivityTest: ct,
 		clients:          c,
