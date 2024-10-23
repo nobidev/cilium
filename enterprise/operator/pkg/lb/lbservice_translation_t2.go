@@ -138,6 +138,12 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_config_listener_v3.Listener {
+	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
+
+	if r.config.AccessLog.EnableTCP {
+		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP)
+	}
+
 	return &envoy_config_listener_v3.Listener{
 		Name: "frontend_listener",
 		Address: &envoy_config_core_v3.Address{
@@ -152,7 +158,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 		},
 		ListenerFilters:               r.desiredEnvoyListenerFilters(model),
 		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
-		AccessLog:                     r.desiredEnvoyListenerAccessLoggers(),
+		AccessLog:                     accessLoggers,
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 	}
 }
@@ -180,33 +186,6 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []
 	})
 
 	return listenerFilters
-}
-
-func (r *lbServiceT2Translator) desiredEnvoyListenerAccessLoggers() []*envoy_config_accesslog_v3.AccessLog {
-	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
-
-	if r.config.AccessLog.EnableTCP {
-		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
-			Name: "stdout",
-			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
-					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
-							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_config_core_v3.DataSource{
-									Specifier: &envoy_config_core_v3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", r.config.AccessLog.FormatTCP),
-									},
-								},
-							},
-						},
-					},
-				}),
-			},
-		})
-	}
-
-	return accessLoggers
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
