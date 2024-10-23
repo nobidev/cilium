@@ -72,7 +72,7 @@ helm install -n kube-system cilium oci://quay.io/isovalent-charts-dev/cilium --v
 
 ### Using Cilium CLI
 
-Download the latest `cilium-cli` from https://github.com/cilium/cilium-cli/releases.
+Download the latest `cilium-cli` from https://github.com/isovalent/cilium-cli-releases/releases.
 
 Make sure `cilium-cli` is in [Helm mode](https://github.com/cilium/cilium-cli#experimental-helm-installation-mode):
 ```
