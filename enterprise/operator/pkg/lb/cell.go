@@ -39,6 +39,8 @@ var Cell = cell.Module(
 type Config struct {
 	LoadBalancerCPEnabled                     bool
 	LoadBalancerCPSecretsNamespace            string
+	LoadBalancerCPAccessLogEnableStdOut       bool
+	LoadBalancerCPAccessLogFilePath           string
 	LoadBalancerCPAccessLogEnableHC           bool
 	LoadBalancerCPAccessLogEnableTCP          bool
 	LoadBalancerCPAccessLogFormatHC           string
@@ -56,6 +58,8 @@ type Config struct {
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("loadbalancer-cp-enabled", false, "Whether or not the LoadBalancer control plane is enabled.")
 	flags.String("loadbalancer-cp-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane.")
+	flags.Bool("loadbalancer-cp-accesslog-enable-stdout", true, "Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane.")
+	flags.String("loadbalancer-cp-accesslog-file-path", "", "Path where the Envoy Access Log should be sent to on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-hc", false, "Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-tcp", false, "Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane")
 	flags.String("loadbalancer-cp-accesslog-format-hc", accesslog.GetFormatString(accesslog.AccessLogTypeHealthCheck), "Envoy Access Log format for T1 -> T2 Health Check HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
@@ -144,12 +148,14 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
 		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
 		AccessLog: reconcilerAccesslogConfig{
-			EnableHC:   params.Config.LoadBalancerCPAccessLogEnableHC,
-			EnableTCP:  params.Config.LoadBalancerCPAccessLogEnableTCP,
-			FormatHC:   params.Config.LoadBalancerCPAccessLogFormatHC,
-			FormatTCP:  params.Config.LoadBalancerCPAccessLogFormatTCP,
-			FormatTLS:  params.Config.LoadBalancerCPAccessLogFormatTLS,
-			FormatHTTP: params.Config.LoadBalancerCPAccessLogFormatHTTP,
+			EnableStdOut: params.Config.LoadBalancerCPAccessLogEnableStdOut,
+			FilePath:     params.Config.LoadBalancerCPAccessLogFilePath,
+			EnableHC:     params.Config.LoadBalancerCPAccessLogEnableHC,
+			EnableTCP:    params.Config.LoadBalancerCPAccessLogEnableTCP,
+			FormatHC:     params.Config.LoadBalancerCPAccessLogFormatHC,
+			FormatTCP:    params.Config.LoadBalancerCPAccessLogFormatTCP,
+			FormatTLS:    params.Config.LoadBalancerCPAccessLogFormatTLS,
+			FormatHTTP:   params.Config.LoadBalancerCPAccessLogFormatHTTP,
 		},
 		RequestID: reconcilerRequestIDConfig{
 			Generate: params.Config.LoadBalancerCPRequestIDGenerate,

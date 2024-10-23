@@ -28,6 +28,7 @@ import (
 	envoy_config_listener_v3 "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_rbac_v3 "github.com/cilium/proxy/go/envoy/config/rbac/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_accessloggers_file_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/file/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	envoy_extensions_filters_http_basic_auth_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/basic_auth/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
@@ -864,26 +865,46 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(format string) []*envoy_config_accesslog_v3.AccessLog {
-	return []*envoy_config_accesslog_v3.AccessLog{
-		{
+	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
+
+	alFormat := &envoy_config_core_v3.SubstitutionFormatString{
+		Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
+			TextFormatSource: &envoy_config_core_v3.DataSource{
+				Specifier: &envoy_config_core_v3.DataSource_InlineString{
+					InlineString: fmt.Sprintf("%s\n", format),
+				},
+			},
+		},
+	}
+
+	if r.config.AccessLog.EnableStdOut {
+		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
 			Name: "stdout",
 			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
-							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &envoy_config_core_v3.DataSource{
-									Specifier: &envoy_config_core_v3.DataSource_InlineString{
-										InlineString: fmt.Sprintf("%s\n", format),
-									},
-								},
-							},
-						},
+						LogFormat: alFormat,
 					},
 				}),
 			},
-		},
+		})
 	}
+
+	if r.config.AccessLog.FilePath != "" {
+		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
+			Name: "file",
+			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_accessloggers_file_v3.FileAccessLog{
+					Path: r.config.AccessLog.FilePath,
+					AccessLogFormat: &envoy_extensions_accessloggers_file_v3.FileAccessLog_LogFormat{
+						LogFormat: alFormat,
+					},
+				}),
+			},
+		})
+	}
+
+	return accessLoggers
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyRouteConfigs(model *lbService) []*envoy_config_route_v3.RouteConfiguration {
