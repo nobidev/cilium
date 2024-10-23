@@ -394,6 +394,15 @@ features:
     helm:
       l2announcements.enabled: true
 
+  NodeIPAMLoadBalancer:
+    maturity: Beta
+    description: |
+      Node IPAM LoadBalancer allows Cilium to advertise the node’s IPs directly inside Services of type LoadBalancer.
+    flags:
+      enable-node-ipam: true
+    helm:
+      nodeIPAM.enabled: true
+
   ### Mutual auth
 
   MutualAuthSpire:
