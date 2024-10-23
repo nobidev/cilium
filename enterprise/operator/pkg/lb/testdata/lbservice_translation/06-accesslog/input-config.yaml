@@ -3,7 +3,9 @@ AccessLog:
   EnableStdOut: false
   FilePath: "/var/log/envoy-accesslog.log"
   FormatHTTP: "ACCESSLOG_FORMAT_STRING"
+  JSONFormatHTTP: "{}"
   FormatHC: "ACCESSLOG_HC_FORMAT_STRING"
+  JSONFormatHC: "{}"
   EnableHC: true
 RequestID:
   Generate: true

@@ -62,14 +62,18 @@ type reconcilerConfig struct {
 }
 
 type reconcilerAccesslogConfig struct {
-	EnableStdOut bool
-	FilePath     string
-	EnableHC     bool
-	EnableTCP    bool
-	FormatHC     string
-	FormatTCP    string
-	FormatTLS    string
-	FormatHTTP   string
+	EnableStdOut   bool
+	FilePath       string
+	EnableHC       bool
+	EnableTCP      bool
+	FormatHC       string
+	JSONFormatHC   string
+	FormatTCP      string
+	JSONFormatTCP  string
+	FormatTLS      string
+	JSONFormatTLS  string
+	FormatHTTP     string
+	JSONFormatHTTP string
 }
 
 type reconcilerRequestIDConfig struct {

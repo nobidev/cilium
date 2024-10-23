@@ -13,6 +13,7 @@ package lb
 import (
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -57,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -142,7 +144,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableTCP {
-		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP)
+		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP)
 	}
 
 	return &envoy_config_listener_v3.Listener{
@@ -289,7 +291,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableHC {
-		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHC)
+		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHC, r.config.AccessLog.JSONFormatHC)
 	}
 
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
@@ -321,7 +323,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -653,7 +655,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -765,7 +767,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS),
+					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -821,7 +823,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS),
+					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -864,18 +866,8 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 	return tlsProxyFilterChains
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(format string) []*envoy_config_accesslog_v3.AccessLog {
+func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(textFormatString string, jsonFormatString string) []*envoy_config_accesslog_v3.AccessLog {
 	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
-
-	alFormat := &envoy_config_core_v3.SubstitutionFormatString{
-		Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
-			TextFormatSource: &envoy_config_core_v3.DataSource{
-				Specifier: &envoy_config_core_v3.DataSource_InlineString{
-					InlineString: fmt.Sprintf("%s\n", format),
-				},
-			},
-		},
-	}
 
 	if r.config.AccessLog.EnableStdOut {
 		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
@@ -883,7 +875,15 @@ func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(format string) []*envo
 			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_stream_v3.StdoutAccessLog{
 					AccessLogFormat: &envoy_extensions_accessloggers_stream_v3.StdoutAccessLog_LogFormat{
-						LogFormat: alFormat,
+						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
+							Format: &envoy_config_core_v3.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &envoy_config_core_v3.DataSource{
+									Specifier: &envoy_config_core_v3.DataSource_InlineString{
+										InlineString: fmt.Sprintf("%s\n", textFormatString),
+									},
+								},
+							},
+						},
 					},
 				}),
 			},
@@ -891,13 +891,32 @@ func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(format string) []*envo
 	}
 
 	if r.config.AccessLog.FilePath != "" {
+		jsonFormatMap := map[string]any{}
+		if err := json.Unmarshal([]byte(jsonFormatString), &jsonFormatMap); err != nil {
+			r.logger.Error("Failed to unmarshal JSON accesslog format - skipping", "filepath", r.config.AccessLog.FilePath, logfields.Error, err)
+			return accessLoggers
+		}
+
+		jsonFormatStruct, err := structpb.NewStruct(jsonFormatMap)
+		if err != nil {
+			r.logger.Error("Failed to create protobuf struct for JSON accesslog format - skipping", "filepath", r.config.AccessLog.FilePath, logfields.Error, err)
+			return accessLoggers
+		}
+
 		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
 			Name: "file",
 			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_accessloggers_file_v3.FileAccessLog{
 					Path: r.config.AccessLog.FilePath,
 					AccessLogFormat: &envoy_extensions_accessloggers_file_v3.FileAccessLog_LogFormat{
-						LogFormat: alFormat,
+						LogFormat: &envoy_config_core_v3.SubstitutionFormatString{
+							Format: &envoy_config_core_v3.SubstitutionFormatString_JsonFormat{
+								JsonFormat: jsonFormatStruct,
+							},
+							JsonFormatOptions: &envoy_config_core_v3.JsonFormatOptions{
+								SortProperties: true,
+							},
+						},
 					},
 				}),
 			},

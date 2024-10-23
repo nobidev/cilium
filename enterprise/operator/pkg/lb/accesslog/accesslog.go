@@ -18,14 +18,26 @@ import (
 //go:embed healthcheck_text_format.txt
 var healthCheckTextFormat string
 
+//go:embed healthcheck_json_format.json
+var healthCheckJSONFormat string
+
 //go:embed tcp_text_format.txt
 var tcpTextFormat string
+
+//go:embed tcp_json_format.json
+var tcpJSONFormat string
 
 //go:embed tls_text_format.txt
 var tlsTextFormat string
 
+//go:embed tls_json_format.json
+var tlsJSONFormat string
+
 //go:embed http_text_format.txt
 var httpTextFormat string
+
+//go:embed http_json_format.json
+var httpJSONFormat string
 
 type AccessLogType int
 
@@ -36,8 +48,8 @@ const (
 	AccessLogTypeHTTP
 )
 
-func GetFormatString(alType AccessLogType) string {
-	formatString := getFormatString(alType)
+func GetFormatText(alType AccessLogType) string {
+	formatString := getFormatText(alType)
 
 	formatString = strings.ReplaceAll(formatString, "\n", " ")
 	formatString = strings.TrimSpace(formatString)
@@ -45,7 +57,7 @@ func GetFormatString(alType AccessLogType) string {
 	return formatString
 }
 
-func getFormatString(alType AccessLogType) string {
+func getFormatText(alType AccessLogType) string {
 	switch alType {
 	case AccessLogTypeHealthCheck:
 		return healthCheckTextFormat
@@ -55,6 +67,29 @@ func getFormatString(alType AccessLogType) string {
 		return tlsTextFormat
 	case AccessLogTypeHTTP:
 		return httpTextFormat
+	}
+
+	return ""
+}
+
+func GetFormatJSON(alType AccessLogType) string {
+	formatString := getFormatJSON(alType)
+
+	formatString = strings.ReplaceAll(formatString, "\n", " ")
+
+	return formatString
+}
+
+func getFormatJSON(alType AccessLogType) string {
+	switch alType {
+	case AccessLogTypeHealthCheck:
+		return healthCheckJSONFormat
+	case AccessLogTypeTCP:
+		return tcpJSONFormat
+	case AccessLogTypeTLS:
+		return tlsJSONFormat
+	case AccessLogTypeHTTP:
+		return httpJSONFormat
 	}
 
 	return ""
