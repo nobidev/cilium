@@ -728,6 +728,21 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 		})
 	}
 
+	if model.usesHTTPSBasicAuth() {
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.basic_auth",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_basic_auth_v3.BasicAuth{
+					Users: &envoy_config_core_v3.DataSource{
+						Specifier: &envoy_config_core_v3.DataSource_InlineString{
+							InlineString: r.toHTPasswdString(model.applications.httpsProxy.auth.basicAuth),
+						},
+					},
+				}),
+			},
+		})
+	}
+
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
@@ -930,7 +945,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpsProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), false, model.applications.httpsProxy.routes, httpTypeHTTPS)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), model.usesHTTPSBasicAuth(), model.applications.httpsProxy.routes, httpTypeHTTPS)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{

@@ -166,6 +166,12 @@ func (r lbService) usesHTTPBasicAuth() bool {
 		r.applications.httpProxy.auth.basicAuth != nil
 }
 
+func (r lbService) usesHTTPSBasicAuth() bool {
+	return r.applications.httpsProxy != nil &&
+		r.applications.httpsProxy.auth != nil &&
+		r.applications.httpsProxy.auth.basicAuth != nil
+}
+
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
@@ -227,6 +233,7 @@ type lbApplicationHTTPSProxy struct {
 	tlsConfig           *lbServiceTLSConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
 	rateLimits          *lbServiceConnectionRateLimit
+	auth                *lbServiceHTTPAuth
 	routes              map[string][]lbRouteHTTP
 }
 

@@ -150,7 +150,7 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend, referencedSecrets map[string]*corev1.Secret) lbApplications {
 	return lbApplications{
 		httpProxy:      r.toApplicationHTTP(lbsvc, referencedBackends, referencedSecrets),
-		httpsProxy:     r.toApplicationHTTPS(lbsvc, referencedBackends),
+		httpsProxy:     r.toApplicationHTTPS(lbsvc, referencedBackends, referencedSecrets),
 		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, referencedBackends),
 		tlsProxy:       r.toApplicationTLSProxy(lbsvc, referencedBackends),
 		tcpProxy:       r.toApplicationTCPProxy(lbsvc, referencedBackends),
@@ -204,7 +204,7 @@ func (r *ingestor) toApplicationHTTP(lbsvc *isovalentv1alpha1.LBService, referen
 	}
 }
 
-func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationHTTPSProxy {
+func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend, referencedSecrets map[string]*corev1.Secret) *lbApplicationHTTPSProxy {
 	if lbsvc.Spec.Applications.HTTPSProxy == nil {
 		return nil
 	}
@@ -228,6 +228,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
 			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
 			rateLimits:        r.toHTTPRouteRateLimits(lr.RateLimits),
+			auth:              r.toHTTPRouteAuth(lr.Auth),
 		}
 
 		if lr.Match == nil || len(lr.Match.HostNames) == 0 {
@@ -251,6 +252,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 		tlsConfig:           tlsConfig,
 		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPSProxy.ConnectionFiltering),
 		rateLimits:          r.toHTTPRateLimits(lbsvc.Spec.Applications.HTTPSProxy.RateLimits),
+		auth:                r.toHTTPAuth(lbsvc.Spec.Applications.HTTPSProxy.Auth, referencedSecrets),
 		routes:              routes,
 	}
 }
