@@ -22,6 +22,8 @@ import (
 
 type LocalServices localServices
 
+type PathReferencesMap pathReferencesMap
+
 func (r *ServiceReconciler) PopulateLocalServices(localNodeName string) (LocalServices, error) {
 	ls, err := r.populateLocalServices(localNodeName)
 	return LocalServices(ls), err
@@ -39,12 +41,12 @@ func (r *ServiceReconciler) SvcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualR
 	return r.svcDesiredRoutes(newc, svc, localServices(ls))
 }
 
-func (r *ServiceReconciler) ReconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix) error {
-	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes)
+func (r *ServiceReconciler) ReconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix, pathRefs PathReferencesMap) error {
+	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes, pathReferencesMap(pathRefs))
 }
 
-func (r *ServiceReconciler) WithdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key) error {
-	return r.withdrawService(ctx, sc, key)
+func (r *ServiceReconciler) WithdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key, pathRefs PathReferencesMap) error {
+	return r.withdrawService(ctx, sc, key, pathReferencesMap(pathRefs))
 }
 
 func (r *ServiceReconciler) DiffReconciliationServiceList(sc *instance.ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
