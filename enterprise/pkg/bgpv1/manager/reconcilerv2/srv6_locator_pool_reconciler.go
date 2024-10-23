@@ -145,11 +145,11 @@ func NewSRv6LocatorPoolReconciler(params srv6LocatorPoolReconcilerIn) srv6Locato
 }
 
 func (r *LocatorPoolReconciler) Priority() int {
-	return 45
+	return LocatorPoolReconcilerPriority
 }
 
 func (r *LocatorPoolReconciler) Name() string {
-	return "LocatorPool"
+	return LocatorPoolReconcilerName
 }
 
 func (r *LocatorPoolReconciler) Init(i *instance.BGPInstance) error {

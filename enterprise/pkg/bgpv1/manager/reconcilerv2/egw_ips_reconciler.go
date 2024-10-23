@@ -84,11 +84,11 @@ type EgressGatewayIPsMetadata struct {
 }
 
 func (r *EgressGatewayIPsReconciler) Priority() int {
-	return 55
+	return EgressGatewayIPsReconcilerPriority
 }
 
 func (r *EgressGatewayIPsReconciler) Name() string {
-	return "EgressGatewayIPs"
+	return EgressGatewayIPsReconcilerName
 }
 
 func (r *EgressGatewayIPsReconciler) Init(i *instance.BGPInstance) error {

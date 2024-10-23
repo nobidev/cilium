@@ -136,11 +136,11 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 }
 
 func (r *ServiceReconciler) Name() string {
-	return "Service" // needs to match the name of the OSS recocniler we are overriding
+	return ServiceReconcilerName
 }
 
 func (r *ServiceReconciler) Priority() int {
-	return 39 // must be lower (higher priority) than the OSS reconciler we are overriding
+	return ServiceReconcilerPriority
 }
 
 // Start is a hive lifecycle hook called when running the hive.

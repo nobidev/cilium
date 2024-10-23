@@ -84,13 +84,13 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 }
 
 func (r *VPNRoutePolicyReconciler) Name() string {
-	return "vpn-route-policy"
+	return VPNRoutePolicyReconcilerName
 }
 
 func (r *VPNRoutePolicyReconciler) Priority() int {
 	// This reconciler should run just before the OSS Neighbor reconciler,
 	// so gobgp will already have desired VPN policies in place.
-	return 59
+	return VPNRoutePolicyReconcilerPriority
 }
 
 func (r *VPNRoutePolicyReconciler) Init(i *instance.BGPInstance) error {

@@ -83,13 +83,13 @@ var (
 
 	importPeerPolicy = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeImport,
-		"vpn-route-policy-import-red-peer-65001",
+		"VPNRoutePolicy-import-red-peer-65001",
 		"192.168.0.10/32",
 	)
 
 	exportPeerPolicy = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeExport,
-		"vpn-route-policy-export-red-peer-65001",
+		"VPNRoutePolicy-export-red-peer-65001",
 		"192.168.0.10/32",
 	)
 )

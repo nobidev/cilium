@@ -105,11 +105,11 @@ func NewBFDStateReconciler(p BFDStateReconcilerIn) BFDStateReconcilerOut {
 }
 
 func (r *BFDStateReconciler) Name() string {
-	return "BFDState"
+	return BFDStateReconcilerName
 }
 
 func (r *BFDStateReconciler) Priority() int {
-	return 100 // low priority, let the configuration reconcilers do their work first
+	return BFDStateReconcilerPriority
 }
 
 func (r *BFDStateReconciler) Init(i *instance.BGPInstance) error {

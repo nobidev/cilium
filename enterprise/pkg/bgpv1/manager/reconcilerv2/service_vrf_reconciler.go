@@ -122,7 +122,7 @@ func (r *ServiceVRFReconciler) setMetadata(i *EnterpriseBGPInstance, metadata Se
 }
 
 func (r *ServiceVRFReconciler) Name() string {
-	return "ServiceVRF"
+	return ServiceVRFReconcilerName
 }
 
 func (r *ServiceVRFReconciler) Init(i *instance.BGPInstance) error {
@@ -154,7 +154,7 @@ func (r *ServiceVRFReconciler) diffID(instanceName string) string {
 }
 
 func (r *ServiceVRFReconciler) Priority() int {
-	return 41 // Right after OSS service reconciler
+	return ServiceVRFReconcilerPriority
 }
 
 func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {

@@ -77,11 +77,11 @@ func NewImportedVPNRouteReconciler(params ImportedVPNRouteReconcilerIn) Imported
 }
 
 func (r *ImportedVPNRouteReconciler) Name() string {
-	return "ImportedVPNRouteReconciler"
+	return ImportedVPNRouteReconcilerName
 }
 
 func (r *ImportedVPNRouteReconciler) Priority() int {
-	return 20
+	return ImportedVPNRouteReconcilerPriority
 }
 
 func (r *ImportedVPNRouteReconciler) Init(_ *instance.BGPInstance) error {

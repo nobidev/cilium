@@ -1,0 +1,44 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+package reconcilerv2
+
+import ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+
+const (
+	BFDStateReconcilerName         = "BFDState"
+	ServiceReconcilerName          = ossreconcilerv2.ServiceReconcilerName // needs to match the name of the OSS reconciler we are overriding
+	EgressGatewayIPsReconcilerName = "EgressGatewayIPs"
+	PodCIDRVRFReconcilerName       = "PodCIDRVRF"
+	ServiceVRFReconcilerName       = "ServiceVRF"
+	LocatorPoolReconcilerName      = "LocatorPool"
+	VPNRoutePolicyReconcilerName   = "VPNRoutePolicy"
+)
+
+// Configuration Reconciler Priorities, lower number means higher priority. It is used to determine the
+// order in which reconcilers are called. Reconcilers are called from lowest to highest on
+// each Reconcile event.
+const (
+	BFDStateReconcilerPriority = 100 // low priority, let the configuration reconcilers do their work first
+	// VPNRoutePolicyReconcilerPriority should be before the OSS Neighbor reconciler,
+	// so gobgp will already have desired VPN policies in place.
+	VPNRoutePolicyReconcilerPriority   = ossreconcilerv2.NeighborReconcilerPriority - 1
+	EgressGatewayIPsReconcilerPriority = 55
+	ServiceReconcilerPriority          = ossreconcilerv2.ServiceReconcilerPriority - 1 // must be lower (higher priority) than the OSS reconciler we are overriding
+	LocatorPoolReconcilerPriority      = 45
+	ServiceVRFReconcilerPriority       = 41
+	PodCIDRVRFReconcilerPriority       = 31
+)
+
+// State reconciler name and priorities
+const (
+	ImportedVPNRouteReconcilerName     = "ImportedVPNRoute"
+	ImportedVPNRouteReconcilerPriority = 20
+)

@@ -90,11 +90,11 @@ func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut 
 }
 
 func (r *PodCIDRVRFReconciler) Name() string {
-	return "PodCIDRVRFReconciler"
+	return PodCIDRVRFReconcilerName
 }
 
 func (r *PodCIDRVRFReconciler) Priority() int {
-	return 31 // somewhere around OSS PodCIDR Reconciler
+	return PodCIDRVRFReconcilerPriority
 }
 
 func (r *PodCIDRVRFReconciler) Init(i *instance.BGPInstance) error {
