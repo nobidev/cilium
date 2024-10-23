@@ -7,8 +7,8 @@ enterprise:
   bfd:
     enabled: true
   featureGates:
-  - "BGPControlPlane"
-  - "ArchARM64"
+    - "BGPControlPlane"
+    - "ArchARM64"
 debug:
   enabled: true
   verbose: "envoy datapath"
@@ -36,6 +36,7 @@ extraConfig:
   enable-ipip-termination: "true"
   loadbalancer-cp-requestid-generate: "true"
   loadbalancer-cp-requestid-response: "true"
+  loadbalancer-cp-accesslog-file-path: "/var/log/envoy-accesslog.log"
   loadbalancer-cp-accesslog-enable-tcp: "true"
   loadbalancer-cp-accesslog-enable-hc: "true"
 operator:
