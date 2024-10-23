@@ -759,10 +759,13 @@ Makefile* @cilium/build
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_cilium_mesh.h @isovalent/cilium-mesh
+/bpf/lib/enterprise_encrypt.h @isovalent/encryption
 /bpf/complexity-tests/**/**/*enterprise_*.txt @isovalent/cilium-datapath
 /bpf/lib/egress_gateway_ha.h @isovalent/egress-gateway
 /bpf/tests/*egressgw_ha_*.c @isovalent/egress-gateway
+/bpf/tests/enterprise_tc_encryption_policy_mixed.c @isovalent/encryption
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
+/bpf/tests/lib/enterprise_encryption_policy.h @isovalent/encryption
 /bugtool/cmd/enterprise_* @isovalent/cli
 /cilium-cli/enterprise/ @isovalent/cli
 /cilium-cli/enterprise/hooks/cli/bgp* @isovalent/traffic-engineering
