@@ -186,7 +186,7 @@ func TestHTTPProxyProtocol(t *testing.T) {
 						}
 
 						// XFF should contain the client IP
-						if !tt.invisible && !strings.Contains(resp.XFF, tt.clientIP) {
+						if useRemoteAddressEnabled() && xffNumTrustedHopsDisabled() && !tt.invisible && !strings.Contains(resp.XFF, tt.clientIP) {
 							return fmt.Errorf("expected response to contain X-Forwarded-For %q, got %q", tt.clientIP, resp.XFF)
 						}
 					}

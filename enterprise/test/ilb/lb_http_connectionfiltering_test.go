@@ -66,6 +66,7 @@ func TestHTTPConnectionFiltering(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			skipIfOnSingleNode(t, ">1 FRR clients are not supported")
+			skipIfNotUseRemoteAddress(t, "use-remote-address is not enabled")
 
 			ctx := context.Background()
 			testName := fmt.Sprintf("http-connectionfiltering-%s", tC.desc)

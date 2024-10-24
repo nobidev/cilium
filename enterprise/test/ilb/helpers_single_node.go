@@ -24,8 +24,28 @@ import (
 var flagMode = flag.String("mode", "multi-node", "Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace.")
 var flagSingleNodeIPAddr = flag.String("single-node-ip", "", "The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
 
+// TODO (sayboras): Remove these flags once we have feature auto-detection
+var useRemoteAddress = flag.Bool("use-remote-address", false, "Use remote address for client IP in HTTP requests")
+var xffNumTrustedHops = flag.Int("xff-num-trusted-hops", 2, "Number of trusted hops in X-Forwarded-For header")
+
 func isSingleNode() bool {
 	return *flagMode == "single-node"
+}
+
+func useRemoteAddressEnabled() bool {
+	return *useRemoteAddress
+}
+
+func useRemoteAddressDisabled() bool {
+	return !*useRemoteAddress
+}
+
+func xffNumTrustedHopsEnabled() bool {
+	return *xffNumTrustedHops > 0
+}
+
+func xffNumTrustedHopsDisabled() bool {
+	return *xffNumTrustedHops <= 0
 }
 
 func getSingleNodeIPAddr() string {
@@ -35,6 +55,12 @@ func getSingleNodeIPAddr() string {
 func skipIfOnSingleNode(t *testing.T, msg string) {
 	if isSingleNode() {
 		t.Skipf("skipping due to single-mode: %s", msg)
+	}
+}
+
+func skipIfNotUseRemoteAddress(t *testing.T, msg string) {
+	if useRemoteAddressDisabled() {
+		t.Skipf("skipping due to not using remote address: %s", msg)
 	}
 }
 

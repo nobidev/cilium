@@ -88,6 +88,14 @@ jobs:
             kernel: "6.1-20240710.064909"
           - mode: "single-node"
             kernel: "6.1-20240710.064909"
+          - mode: "single-node"
+            kernel: "6.1-20240710.064909"
+            use-remote-address: "true"
+            xff-num-trusted-hops: 1
+          - mode: "single-node"
+            kernel: "6.1-20240710.064909"
+            use-remote-address: "false"
+            xff-num-trusted-hops: 2
 
     timeout-minutes: 60
     steps:
@@ -168,6 +176,16 @@ jobs:
       - name: Install Isovalent LB
         shell: bash
         run: |
+          EXTRA=""
+          if [ "${{ matrix.use-remote-address }}" == "false" ]; then
+            EXTRA+=" --helm-set-string=extraConfig.use-remote-address=false"
+          fi
+
+          if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
+            EXTRA+=" --helm-set-string=extraConfig.loadbalancer-cp-t2-use-remote-address=false"
+            EXTRA+=" --helm-set-string=extraConfig.loadbalancer-cp-t2-xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
+          fi
+
           cilium install \
              --wait --chart-directory=./install/kubernetes/cilium \
              --helm-set=image.repository=quay.io/isovalent-dev/cilium-ci \
@@ -195,7 +213,8 @@ jobs:
              --helm-set-string=extraConfig.enable-ipip-termination=true \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
-             --helm-set=enterprise.featureGates="{BGPControlPlane}"
+             --helm-set=enterprise.featureGates="{BGPControlPlane}" \
+             $EXTRA
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
@@ -226,6 +245,14 @@ jobs:
             # in --mode=single-node due to all client/app containers running in the same
             # netns (port clashes).
             PARAMS="--cleanup=false"
+          fi
+
+          if [ "${{ matrix.use-remote-address }}" == "false" ]; then
+            PARAMS+=" --use-remote-address=false"
+          fi
+
+          if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
+            PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
           # Using rakyll/gotest to colorize the "go test" output.

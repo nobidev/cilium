@@ -38,7 +38,10 @@ import (
 //        Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default "multi-node")
 //  -single-node-ip string
 //        The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.
-//
+//	-use-remote-address bool
+//        Use remote address for client IP in HTTP requests (default true)
+//  -xff-num-trusted-hops int
+//        Number of trusted hops in X-Forwarded-For header (default 0)
 // One can run in the --mode=single-node using a remote node for deploying client
 // and LB app containers, and then running test requests from them. To do so,
 // set DOCKER_HOST= to point to the remote node.
