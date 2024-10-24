@@ -168,6 +168,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
 		AccessLog:                     accessLoggers,
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
+		StatPrefix:                    fmt.Sprintf("%s_%s", model.namespace, model.name),
 	}
 }
 
@@ -302,7 +303,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.rbac",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), model.t1NodeIPs, httpTypeHTTP)),
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), model.t1NodeIPs, httpTypeHTTP, model.namespace, model.name)),
 			},
 		})
 	}
@@ -311,7 +312,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.local_ratelimit",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPConnectionRateLimits())),
+				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPConnectionRateLimits(), model.namespace, model.name)),
 			},
 		})
 	}
@@ -344,7 +345,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 		GenerateRequestId:            wrapperspb.Bool(true),
 		PreserveExternalRequestId:    false,
 		AlwaysSetRequestIdInResponse: false,
-		StatPrefix:                   "frontend_listener_healthcheck_http",
+		StatPrefix:                   fmt.Sprintf("healthcheck_http_%s_%s", model.namespace, model.name),
 		CodecType:                    envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_AUTO,
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
@@ -372,7 +373,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *e
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
-		StatPrefix:                   "frontend_listener_http",
+		StatPrefix:                   fmt.Sprintf("http_%s_%s", model.namespace, model.name),
 		CodecType:                    r.toCodecType(model.applications.getHTTPHTTPConfig()),
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
@@ -439,7 +440,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 			Name: "envoy.filters.http.local_ratelimit",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
-					StatPrefix: "http_ratelimit", // required attribute
+					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
 				}),
 			},
 		})
@@ -755,7 +756,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.rbac",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPSConnectionFiltering(), model.t1NodeIPs, httpTypeHTTPS)),
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPSConnectionFiltering(), model.t1NodeIPs, httpTypeHTTPS, model.namespace, model.name)),
 			},
 		})
 	}
@@ -764,7 +765,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.local_ratelimit",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPSConnectionRateLimits())),
+				TypedConfig: toAny(r.toNetworkRateLimitFilter(model.applications.getHTTPSConnectionRateLimits(), model.namespace, model.name)),
 			},
 		})
 	}
@@ -811,7 +812,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
-		StatPrefix:                   "frontend_listener_https",
+		StatPrefix:                   fmt.Sprintf("https_%s_%s", model.namespace, model.name),
 		CodecType:                    r.toCodecType(model.applications.getHTTPSHTTPConfig()),
 		NormalizePath:                wrapperspb.Bool(true),
 		MergeSlashes:                 true,
@@ -857,7 +858,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 			Name: "envoy.filters.http.local_ratelimit",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
-					StatPrefix: "http_ratelimit", // required attribute
+					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
 				}),
 			},
 		})
@@ -911,7 +912,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 				Name: "envoy.filters.network.rbac",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering, model.namespace, model.name)),
 				},
 			})
 		}
@@ -920,7 +921,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 				Name: "envoy.filters.network.local_ratelimit",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits)),
+					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits, model.namespace, model.name)),
 				},
 			})
 		}
@@ -930,7 +931,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
-					StatPrefix: fmt.Sprintf("frontend_listener_tls_passthrough_%d", i),
+					StatPrefix: fmt.Sprintf("tls_passthrough_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 						Cluster: r.getClusterName(tr.backendRef.name),
@@ -967,7 +968,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 				Name: "envoy.filters.network.rbac",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering)),
+					TypedConfig: toAny(r.toTLSRouteRBACFilter(tr.connectionFiltering, model.namespace, model.name)),
 				},
 			})
 		}
@@ -976,7 +977,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 				Name: "envoy.filters.network.local_ratelimit",
 				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits)),
+					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits, model.namespace, model.name)),
 				},
 			})
 		}
@@ -986,7 +987,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
-					StatPrefix: fmt.Sprintf("frontend_listener_tls_proxy_%d", i),
+					StatPrefix: fmt.Sprintf("tls_proxy_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 						Cluster: r.getClusterName(tr.backendRef.name),
@@ -1115,6 +1116,8 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 			model.usesHTTPJWTAuth(),
 			model.applications.httpProxy.routes,
 			httpTypeHTTP,
+			model.namespace,
+			model.name,
 		)
 	}
 
@@ -1134,6 +1137,8 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 			model.usesHTTPSJWTAuth(),
 			model.applications.httpsProxy.routes,
 			httpTypeHTTPS,
+			model.namespace,
+			model.name,
 		)
 	}
 
@@ -1143,7 +1148,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, usesBasicAuth bool, usesJWTAuth bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, usesBasicAuth bool, usesJWTAuth bool, modelRoutes map[string][]lbRouteHTTP, httpType string, namespace string, name string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
 	routeHostNamesOrdered := slices.Sorted(maps.Keys(modelRoutes))
@@ -1157,7 +1162,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 				tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
 			}
 			if usesRateLimiting {
-				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits))
+				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits, namespace, name))
 			}
 			if usesBasicAuth && route.auth != nil && route.auth.basicAuth != nil {
 				tpfc["envoy.filters.http.basic_auth"] = toAny(r.toHTTPRouteBasicAuthFilter(route.auth.basicAuth))
@@ -1802,7 +1807,7 @@ func (r *lbServiceT2Translator) mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_c
 	}
 }
 
-func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPConnectionFiltering, t1NodeIPs []string, httpType string) *envoy_extensions_filters_network_rbac_v3.RBAC {
+func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPConnectionFiltering, t1NodeIPs []string, httpType string, namespace string, name string) *envoy_extensions_filters_network_rbac_v3.RBAC {
 	if config == nil {
 		return nil
 	}
@@ -1833,7 +1838,7 @@ func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPCon
 	}
 
 	return &envoy_extensions_filters_network_rbac_v3.RBAC{
-		StatPrefix: fmt.Sprintf("%s_proxy_request_filtering", httpType),
+		StatPrefix: fmt.Sprintf("%s_%s_%s", httpType, namespace, name),
 		Rules: &envoy_config_rbac_v3.RBAC{
 			Action:   action,
 			Policies: policies,
@@ -1897,7 +1902,7 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 	}
 }
 
-func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectionFiltering) *envoy_extensions_filters_network_rbac_v3.RBAC {
+func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectionFiltering, namespace string, name string) *envoy_extensions_filters_network_rbac_v3.RBAC {
 	if config == nil {
 		return nil
 	}
@@ -1932,7 +1937,7 @@ func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectio
 	}
 
 	return &envoy_extensions_filters_network_rbac_v3.RBAC{
-		StatPrefix: "tls_passthrough_request_filtering",
+		StatPrefix: fmt.Sprintf("tls_%s_%s", namespace, name),
 		Rules: &envoy_config_rbac_v3.RBAC{
 			Action:   action,
 			Policies: policies,
@@ -2057,13 +2062,13 @@ func (r *lbServiceT2Translator) toRBACAction(ruleType ruleTypeType) envoy_config
 	}
 }
 
-func (r *lbServiceT2Translator) toNetworkRateLimitFilter(config *lbServiceConnectionRateLimit) *envoy_extensions_filters_network_localratelimit_v3.LocalRateLimit {
+func (r *lbServiceT2Translator) toNetworkRateLimitFilter(config *lbServiceConnectionRateLimit, namespace string, name string) *envoy_extensions_filters_network_localratelimit_v3.LocalRateLimit {
 	if config == nil {
 		return nil
 	}
 
 	return &envoy_extensions_filters_network_localratelimit_v3.LocalRateLimit{
-		StatPrefix: "network_ratelimit",
+		StatPrefix: fmt.Sprintf("%s_%s", namespace, name),
 		TokenBucket: &envoy_type_v3.TokenBucket{
 			MaxTokens:     uint32(config.connections.limit),
 			TokensPerFill: wrapperspb.UInt32(uint32(config.connections.limit)),
@@ -2072,7 +2077,7 @@ func (r *lbServiceT2Translator) toNetworkRateLimitFilter(config *lbServiceConnec
 	}
 }
 
-func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRateLimit) *envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit {
+func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRateLimit, namespace string, name string) *envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit {
 	// We have to provide a ratelimit configuration even if no config available.
 	// This is required if the ratelimit is defined as HTTP filter.
 	// Also setting to some random defaults (that meet the validation) -
@@ -2088,7 +2093,7 @@ func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRa
 	}
 
 	return &envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
-		StatPrefix: "http_ratelimit",
+		StatPrefix: fmt.Sprintf("%s_%s", namespace, name),
 		TokenBucket: &envoy_type_v3.TokenBucket{
 			MaxTokens:     tokensPerFill,
 			TokensPerFill: wrapperspb.UInt32(tokensPerFill),
