@@ -15,6 +15,7 @@ triggers:
     # TODO: Re-enable once the issue is solved and the workflow is passing.
     #- enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
+    - enterprise-encryption-policy.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
@@ -51,6 +52,9 @@ triggers:
   /scale-encryption-policy:
     workflows:
     - enterprise-scale-encryption-policy.yaml
+  /ci-encryption-policy:
+    workflows:
+    - enterprise-encryption-policy.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:
@@ -71,3 +75,5 @@ workflows:
     paths-ignore-regex: (test|Documentation|hubble)/
   enterprise-lb.yaml:
     paths-ignore-regex: Documentation/
+  enterprise-encryption-policy.yaml:
+    paths-ignore-regex: (test|Documentation|hubble)/
