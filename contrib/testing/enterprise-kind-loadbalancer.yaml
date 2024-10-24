@@ -24,6 +24,14 @@ envoy:
       enabled: true
   # To make DNS-based backend discovery work within the cluster.
   dnsPolicy: ClusterFirstWithHostNet
+  # Mount Envoy Accesslog from Container to Host
+  extraHostPathMounts:
+    - name: envoy-accesslog
+      mountPath: /var/log/envoy
+      hostPath: /var/log/envoy
+      hostPathType: DirectoryOrCreate
+      readOnly: false
+      mountPropagation: HostToContainer
 envoyConfig:
   enabled: true
 bpf:
@@ -36,7 +44,7 @@ extraConfig:
   enable-ipip-termination: "true"
   loadbalancer-cp-requestid-generate: "true"
   loadbalancer-cp-requestid-response: "true"
-  loadbalancer-cp-accesslog-file-path: "/var/log/envoy-accesslog.log"
+  loadbalancer-cp-accesslog-file-path: "/var/log/envoy/accesslog.log"
   loadbalancer-cp-accesslog-enable-tcp: "true"
   loadbalancer-cp-accesslog-enable-hc: "true"
 operator:
