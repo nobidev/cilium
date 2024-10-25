@@ -18,10 +18,13 @@ import (
 type testAppResponseData struct {
 	ServiceName  string `json:"service_name"`
 	InstanceName string `json:"instance_name"`
+	RequestPath  string `json:"request_path"`
 	StatusCode   int    `json:"status_code"`
 	StatusText   string `json:"status_text"`
 	HealthStatus string `json:"health_status"`
 	RemoteAddr   string `json:"remote_addr"`
+	RequestID    string `json:"x_request_id"`
+	XFF          string `json:"x_forwarded_for"`
 }
 
 func toTestAppResponse(t *testing.T, response string) testAppResponseData {

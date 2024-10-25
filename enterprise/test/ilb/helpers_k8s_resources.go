@@ -404,6 +404,24 @@ func withHTTPProxyApplication(opts ...httpApplicationOption) serviceOption {
 	}
 }
 
+func withProxyProtocol(disallowedVersion []int, tlvs []int) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		var dv []isovalentv1alpha1.LBProxyProtocolVersion
+		for _, v := range disallowedVersion {
+			dv = append(dv, isovalentv1alpha1.LBProxyProtocolVersion(v))
+		}
+
+		var pTLVs []isovalentv1alpha1.LBProxyProtocolTLV
+		for _, tlv := range tlvs {
+			pTLVs = append(pTLVs, isovalentv1alpha1.LBProxyProtocolTLV(tlv))
+		}
+		o.Spec.ProxyProtocolConfig = &isovalentv1alpha1.LBServiceProxyProtocolConfig{
+			DisallowedVersions: dv,
+			PassthroughTLVs:    pTLVs,
+		}
+	}
+}
+
 type httpsApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy)
 
 func withHttpsRoute(backendRef string, opts ...httpApplicationRouteOption) httpsApplicationOption {
