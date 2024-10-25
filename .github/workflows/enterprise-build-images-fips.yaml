@@ -377,6 +377,7 @@ jobs:
         shell: bash
         run: |
           set -xeo pipefail
+
           image_tags="-t ${{ steps.tags.outputs.image_tag_primary }}"
 
           if [ ! -z "${{ steps.tags.outputs.image_tag_secondary }}" ]; then
