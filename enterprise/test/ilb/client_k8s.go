@@ -13,6 +13,7 @@ package ilb
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,12 @@ type ciliumCli struct {
 
 func newCiliumAndK8sCli(f fataler) (*ciliumCli, *k8s.Clientset) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+
+	// use KUBECONFIG env var if set
+	kubeConfigEnv := os.Getenv("KUBECONFIG")
+	if kubeConfigEnv != "" {
+		kubeConfigPath = kubeConfigEnv
+	}
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
