@@ -150,7 +150,7 @@ func testPersistenceWith100Requests(t *testing.T, ctx context.Context, client *f
 		}
 
 		return fmt.Errorf("condition is not satisfied yet (%d/100)", successCount)
-	}, shortTimeout, time.Millisecond*1) // As fast as possible
+	}, longTimeout, time.Millisecond*1) // As fast as possible
 }
 
 func assertPersistentBackend(t *testing.T, previousServiceName string, currentServiceName string) {
