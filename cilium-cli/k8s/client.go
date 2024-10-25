@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..）
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
@@ -52,6 +52,12 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
+
+func init() {
+	// Register the Cilium types in the default scheme.
+	_ = ciliumv2.AddToScheme(scheme.Scheme)
+	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
+}
 
 type Client struct {
 	Clientset          kubernetes.Interface
@@ -66,10 +72,6 @@ type Client struct {
 }
 
 func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
-	// Register the Cilium types in the default scheme.
-	_ = ciliumv2.AddToScheme(scheme.Scheme)
-	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
-
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
 		KubeConfig: &kubeconfig,
@@ -311,11 +313,12 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
 }
 
-func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error) {
+func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error) {
 	opts := &corev1.PodLogOptions{
 		Container:  defaults.AgentContainerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
+		Previous:   previous,
 	}
 	req := c.PodLogs(namespace, pod, opts)
 	podLogs, err := req.Stream(ctx)
