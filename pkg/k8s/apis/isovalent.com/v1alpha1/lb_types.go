@@ -50,12 +50,34 @@ type LBServiceSpec struct {
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 
+	// Enable PROXY protocol on this service. It can be enabled together
+	// with TLS. If unspecified, PROXY protocol will be disabled.
+	//
+	// +kubebuilder:validation:Optional
+	ProxyProtocolConfig *LBServiceProxyProtocolConfig `json:"proxyProtocolConfig,omitempty"`
+
 	// The configuration for the applications that running on the port.
 	// While the name is plural, only one application can be specified
 	// currently.
 	//
 	// +kubebuilder:validation:Required
 	Applications LBServiceApplications `json:"applications"`
+}
+
+type LBServiceProxyProtocolConfig struct {
+	// The list of versions of the PROXY protocol, which will be rejected.
+	// If not specified, all versions are allowed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	DisallowedVersions []LBProxyProtocolVersion `json:"disallowedVersions,omitempty"`
+
+	// This config controls which TLVs can be passed to filter state if it is Proxy Protocol
+	// V2 header. If there is no setting for this field, no TLVs will be passed through.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	PassthroughTLVs []LBProxyProtocolTLV `json:"passthroughTLVs,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && has(self.tcpProxy))"
@@ -428,6 +450,16 @@ type LBTLSSignatureAlgorithm string
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 type LBServiceHostName string
+
+// +kubebuilder:validation:Enum=1;2
+type LBProxyProtocolVersion int
+
+const (
+	LBProxyProtocolVersion1 LBProxyProtocolVersion = 1
+	LBProxyProtocolVersion2 LBProxyProtocolVersion = 2
+)
+
+type LBProxyProtocolTLV int
 
 type LBServiceTLSCertificate struct {
 	// Reference to K8s secret in the same namespace that contains
@@ -1178,6 +1210,11 @@ type LBBackendPoolSpec struct {
 	// +kubebuilder:validation:Optional
 	TCPConfig *LBBackendTCPConfig `json:"tcpConfig,omitempty"`
 
+	// PROXY protocol on this backend pool.
+	//
+	// +kubebuilder:validation:Optional
+	ProxyProtocolConfig *LBBackendPoolProxyProtocolConfig `json:"proxyProtocolConfig,omitempty"`
+
 	// The pool-wide TLS configuration.
 	//
 	// +kubebuilder:validation:Optional
@@ -1258,6 +1295,17 @@ type LBBackendTLSConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	AllowedSignatureAlgorithms []LBTLSSignatureAlgorithm `json:"allowedSignatureAlgorithms,omitempty"`
+}
+
+type LBBackendPoolProxyProtocolConfig struct {
+	// The version of the PROXY protocol (e.g. 1 or 2)
+	// +kubebuilder:validation:Required
+	Version LBProxyProtocolVersion `json:"version,omitempty"`
+
+	// The list of TLVs to be passed through.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	PassthroughTLVs []LBProxyProtocolTLV `json:"passthroughTLVs,omitempty"`
 }
 
 type LBBackendHTTPConfig struct {

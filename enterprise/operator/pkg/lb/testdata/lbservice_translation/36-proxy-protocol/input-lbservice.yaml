@@ -1,0 +1,20 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  proxyProtocolConfig:
+    disallowedVersions:
+    - 1
+    passthroughTLVs:
+    - 123
+    - 456
+  applications:
+    httpProxy:
+      routes:
+        - backendRef:
+            name: lb-1

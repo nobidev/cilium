@@ -35,11 +35,12 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 			assignedIPv4: getAssignedIP(vip),
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
-		port:               lbsvc.Spec.Port,
-		applications:       r.toApplications(lbsvc, referencedBackends, referencedSecrets),
-		referencedBackends: referencedBackends,
-		t1NodeIPs:          t1NodeIPs,
-		t2NodeIPs:          t2NodeIPs,
+		port:                lbsvc.Spec.Port,
+		proxyProtocolConfig: r.toServiceProxyProtocolConfig(lbsvc.Spec.ProxyProtocolConfig),
+		applications:        r.toApplications(lbsvc, referencedBackends, referencedSecrets),
+		referencedBackends:  referencedBackends,
+		t1NodeIPs:           t1NodeIPs,
+		t2NodeIPs:           t2NodeIPs,
 	}
 }
 
@@ -141,6 +142,7 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 			tlsConfig:         r.toBackendTLSConfig(b.Spec.TLSConfig),
 			httpConfig:        r.toBackendHTTPConfig(b.Spec.HTTPConfig),
 			dnsResolverConfig: r.toDNSResolverConfig(b.Spec.DNSResolverConfig),
+			proxyProtocol:     r.toBackendProxyProtocolConfig(b.Spec.ProxyProtocolConfig),
 		}
 	}
 
@@ -1002,5 +1004,42 @@ func (r *ingestor) toHTTPRouteBasicAuth(basicAuth *isovalentv1alpha1.LBServiceHT
 	}
 	return &lbRouteHTTPBasicAuth{
 		disabled: basicAuth.Disabled,
+	}
+}
+
+func (r *ingestor) toServiceProxyProtocolConfig(protocol *isovalentv1alpha1.LBServiceProxyProtocolConfig) *lbServiceProxyProtocolConfig {
+	if protocol == nil {
+		return nil
+	}
+
+	var dVersions []int
+	for _, v := range protocol.DisallowedVersions {
+		dVersions = append(dVersions, int(v))
+	}
+
+	var tlvs []uint32
+	for _, tlv := range protocol.PassthroughTLVs {
+		tlvs = append(tlvs, uint32(tlv))
+	}
+
+	return &lbServiceProxyProtocolConfig{
+		disallowedVersions: dVersions,
+		passThroughTLVs:    tlvs,
+	}
+}
+
+func (r *ingestor) toBackendProxyProtocolConfig(protocol *isovalentv1alpha1.LBBackendPoolProxyProtocolConfig) *lbBackendProxyProtocolConfig {
+	if protocol == nil {
+		return nil
+	}
+
+	var tlvs []uint32
+	for _, tlv := range protocol.PassthroughTLVs {
+		tlvs = append(tlvs, uint32(tlv))
+	}
+
+	return &lbBackendProxyProtocolConfig{
+		version:         int(protocol.Version),
+		passthroughTLVs: tlvs,
 	}
 }

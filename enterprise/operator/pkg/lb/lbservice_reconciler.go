@@ -705,6 +705,7 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatiblePersistentBackendLBAlgorithms(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1MultipleBackendPorts(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getInvalidBackends(backends)...)
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleProxyProtocol(lbsvc, backends)...)
 
 	if len(incompatibleBackendMessages) > 0 {
 		backendsCompatibleCondition.Status = metav1.ConditionFalse
@@ -807,6 +808,27 @@ func (*lbServiceReconciler) getInvalidBackends(backends []*isovalentv1alpha1.LBB
 
 		if condition != nil && condition.Reason == isovalentv1alpha1.BackendAcceptedConditionReasonInvalid {
 			invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is invalid: %q", b.Name, condition.Message))
+		}
+	}
+
+	return invalidBackendMessages
+}
+
+func (*lbServiceReconciler) getIncompatibleProxyProtocol(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+	invalidBackendMessages := []string{}
+
+	if lbsvc.Spec.ProxyProtocolConfig == nil {
+		for _, b := range backends {
+			// This is to avoid DownstreamProtocolError for any request with ProxyProtocol to the given backend
+			if b.Spec.ProxyProtocolConfig != nil {
+				invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is incompatible: ProxyProtocolConfig is not supported for LB services", b.Name))
+			}
+		}
+	} else {
+		for _, b := range backends {
+			if b.Spec.ProxyProtocolConfig != nil && slices.Contains(lbsvc.Spec.ProxyProtocolConfig.DisallowedVersions, b.Spec.ProxyProtocolConfig.Version) {
+				invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is incompatible: ProxyProtocolConfig version %d is disallowed", b.Name, b.Spec.ProxyProtocolConfig.Version))
+			}
 		}
 	}
 

@@ -36,12 +36,14 @@ import (
 	envoy_extensions_filters_http_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
 	envoy_extensions_filters_http_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_filters_listener_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/proxy_protocol/v3"
 	envoy_extensions_filters_listener_tlsinspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_hcm_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
 	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_network_dns_resolver_cares_v3 "github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3"
+	envoy_extensions_transportsockets_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	envoy_extensions_transportsockets_rawbuffer_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/raw_buffer/v3"
 	envoy_extensions_transportsockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
@@ -176,6 +178,20 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []
 		},
 	})
 
+	if model.proxyProtocolConfig != nil {
+		// Without this filter, Envoy will not be able to parse the Proxy Protocol header
+		// and return protocol error
+		// Sample error log:
+		// 	- application log: http/1.1 protocol error: INVALID_HEADER_NAME_CHARACTER
+		//  - access log: http.resp.code.details="http1.codec_error"  response.flags="DPE" response.flags-long="DownstreamProtocolError"
+		listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+			Name: "envoy.filters.listener.proxy_protocol",
+			ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(r.toProxyProtocolConfig(model.proxyProtocolConfig)),
+			},
+		})
+	}
+
 	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
 	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
 	// comes with BPF map lookups enabled.
@@ -189,6 +205,31 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []
 	})
 
 	return listenerFilters
+}
+
+func (r *lbServiceT2Translator) toProxyProtocolConfig(proxyProtocolConfig *lbServiceProxyProtocolConfig) *envoy_extensions_filters_listener_proxy_protocol_v3.ProxyProtocol {
+	if proxyProtocolConfig == nil {
+		return nil
+	}
+
+	var disallowedVersions []envoy_config_core_v3.ProxyProtocolConfig_Version
+	for _, v := range proxyProtocolConfig.disallowedVersions {
+		switch v {
+		case proxyProtocolVersionV1:
+			disallowedVersions = append(disallowedVersions, envoy_config_core_v3.ProxyProtocolConfig_V1)
+		case proxyProtocolVersionV2:
+			disallowedVersions = append(disallowedVersions, envoy_config_core_v3.ProxyProtocolConfig_V2)
+		}
+	}
+
+	return &envoy_extensions_filters_listener_proxy_protocol_v3.ProxyProtocol{
+		// This is to make sure that the listener will not be rejected other kinds of traffic
+		AllowRequestsWithoutProxyProtocol: true,
+		DisallowedVersions:                disallowedVersions,
+		PassThroughTlvs: &envoy_config_core_v3.ProxyProtocolPassThroughTLVs{
+			TlvType: proxyProtocolConfig.passThroughTLVs,
+		},
+	}
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
@@ -1135,7 +1176,7 @@ func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(healthCheckC
 					"type": structpb.NewStringValue("healthcheck"),
 				},
 			},
-			TransportSocket: r.toTransportSocket(healthCheckConfig.tlsConfig),
+			TransportSocket: r.toTransportSocket(healthCheckConfig.tlsConfig, nil),
 		},
 	}
 }
@@ -1166,7 +1207,7 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(b.httpConfig),
 		},
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
-		TransportSocket:               r.toTransportSocket(b.tlsConfig),
+		TransportSocket:               r.toTransportSocket(b.tlsConfig, b.proxyProtocol),
 		IgnoreHealthOnHostRemoval:     true,
 	}
 
@@ -1259,7 +1300,7 @@ func (r *lbServiceT2Translator) rawTransportSocket() *envoy_config_core_v3.Trans
 	}
 }
 
-func (r *lbServiceT2Translator) toTransportSocket(tlsConfig *lbBackendTLSConfig) *envoy_config_core_v3.TransportSocket {
+func (r *lbServiceT2Translator) wrapWithTLSTransport(tlsConfig *lbBackendTLSConfig) *envoy_config_core_v3.TransportSocket {
 	if tlsConfig == nil {
 		return r.rawTransportSocket()
 	}
@@ -1274,6 +1315,39 @@ func (r *lbServiceT2Translator) toTransportSocket(tlsConfig *lbBackendTLSConfig)
 			}),
 		},
 	}
+}
+
+func (r *lbServiceT2Translator) wrapWithProxyProtocolTransport(ts *envoy_config_core_v3.TransportSocket, proxyProtocol *lbBackendProxyProtocolConfig) *envoy_config_core_v3.TransportSocket {
+	if proxyProtocol == nil {
+		return ts
+	}
+
+	ppUpstreamTransport := &envoy_extensions_transportsockets_proxy_protocol_v3.ProxyProtocolUpstreamTransport{}
+	switch proxyProtocol.version {
+	case proxyProtocolVersionV1:
+		ppUpstreamTransport.Config = &envoy_config_core_v3.ProxyProtocolConfig{
+			Version: envoy_config_core_v3.ProxyProtocolConfig_V1,
+			PassThroughTlvs: &envoy_config_core_v3.ProxyProtocolPassThroughTLVs{
+				TlvType: proxyProtocol.passthroughTLVs,
+			},
+		}
+	case proxyProtocolVersionV2:
+		ppUpstreamTransport.Config = &envoy_config_core_v3.ProxyProtocolConfig{
+			Version: envoy_config_core_v3.ProxyProtocolConfig_V2,
+		}
+	}
+	ppUpstreamTransport.TransportSocket = ts
+
+	return &envoy_config_core_v3.TransportSocket{
+		Name: "envoy.transport_sockets.proxy_protocol",
+		ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+			TypedConfig: toAny(ppUpstreamTransport),
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toTransportSocket(tlsConfig *lbBackendTLSConfig, proxyProtocol *lbBackendProxyProtocolConfig) *envoy_config_core_v3.TransportSocket {
+	return r.wrapWithProxyProtocolTransport(r.wrapWithTLSTransport(tlsConfig), proxyProtocol)
 }
 
 func (r *lbServiceT2Translator) toClusterHTTPProtocolOptions(httpConfig lbBackendHTTPConfig) *anypb.Any {

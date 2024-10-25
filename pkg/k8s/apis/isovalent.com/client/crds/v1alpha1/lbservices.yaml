@@ -1477,6 +1477,31 @@ spec:
                 maximum: 65535
                 minimum: 1
                 type: integer
+              proxyProtocolConfig:
+                description: |-
+                  Enable PROXY protocol on this service. It can be enabled together
+                  with TLS. If unspecified, PROXY protocol will be disabled.
+                properties:
+                  disallowedVersions:
+                    description: |-
+                      The list of versions of the PROXY protocol, which will be rejected.
+                      If not specified, all versions are allowed.
+                    items:
+                      enum:
+                      - 1
+                      - 2
+                      type: integer
+                    minItems: 1
+                    type: array
+                  passthroughTLVs:
+                    description: |-
+                      This config controls which TLVs can be passed to filter state if it is Proxy Protocol
+                      V2 header. If there is no setting for this field, no TLVs will be passed through.
+                    items:
+                      type: integer
+                    minItems: 1
+                    type: array
+                type: object
               vipRef:
                 description: |-
                   The reference to the LBVIP resource that the LBService should be

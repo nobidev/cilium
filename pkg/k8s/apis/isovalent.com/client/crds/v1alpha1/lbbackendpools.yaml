@@ -302,6 +302,24 @@ spec:
                 required:
                 - algorithm
                 type: object
+              proxyProtocolConfig:
+                description: PROXY protocol on this backend pool.
+                properties:
+                  passthroughTLVs:
+                    description: The list of TLVs to be passed through.
+                    items:
+                      type: integer
+                    minItems: 1
+                    type: array
+                  version:
+                    description: The version of the PROXY protocol (e.g. 1 or 2)
+                    enum:
+                    - 1
+                    - 2
+                    type: integer
+                required:
+                - version
+                type: object
               tcpConfig:
                 description: The pool-wide TCP configuration.
                 properties:

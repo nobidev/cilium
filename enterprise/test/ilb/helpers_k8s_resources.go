@@ -682,6 +682,19 @@ func withHealthCheckTLS() backendPoolOption {
 	}
 }
 
+func withProxyProtocolConfig(version int, tlvs []int) backendPoolOption {
+	temp := make([]isovalentv1alpha1.LBProxyProtocolTLV, len(tlvs))
+	for i, tlv := range tlvs {
+		temp[i] = isovalentv1alpha1.LBProxyProtocolTLV(tlv)
+	}
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.ProxyProtocolConfig = &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+			Version:         isovalentv1alpha1.LBProxyProtocolVersion(version),
+			PassthroughTLVs: temp,
+		}
+	}
+}
+
 func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *isovalentv1alpha1.LBBackendPool {
 	pool := &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{

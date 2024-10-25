@@ -471,6 +471,74 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 			expectedReason:         "AllBackendsCompatible",
 			expectedMessage:        "All referenced backends are compatible",
 		},
+		{
+			desc: "Incompatible proxy protocol backends",
+			lbsvc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
+				HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+					Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+				},
+			}}},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+						Version: 1,
+					},
+				}},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "IncompatibleBackends",
+			expectedMessage:        "Backend \"backend-1\" is incompatible: ProxyProtocolConfig is not supported for LB services",
+		},
+		{
+			desc: "Incompatible proxy protocol version backends",
+			lbsvc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{
+				ProxyProtocolConfig: &isovalentv1alpha1.LBServiceProxyProtocolConfig{
+					DisallowedVersions: []isovalentv1alpha1.LBProxyProtocolVersion{1},
+				},
+				Applications: isovalentv1alpha1.LBServiceApplications{
+					HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+						Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+					},
+				}}},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+						Version: 1,
+					},
+				}},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "IncompatibleBackends",
+			expectedMessage:        "Backend \"backend-1\" is incompatible: ProxyProtocolConfig version 1 is disallowed",
+		},
+		{
+			desc: "All backend compatible (proxy protocol)",
+			lbsvc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{
+				ProxyProtocolConfig: &isovalentv1alpha1.LBServiceProxyProtocolConfig{},
+				Applications: isovalentv1alpha1.LBServiceApplications{
+					HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+						Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+					},
+				}}},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+						Version: 2,
+					},
+				}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "backend-2"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+						Version: 1,
+					},
+				}},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "AllBackendsCompatible",
+			expectedMessage:        "All referenced backends are compatible",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {

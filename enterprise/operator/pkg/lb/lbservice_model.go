@@ -19,20 +19,26 @@ import (
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
 type lbService struct {
-	namespace          string
-	name               string
-	vip                lbVIP
-	port               int32
-	applications       lbApplications
-	referencedBackends map[string]backend
-	t1NodeIPs          []string
-	t2NodeIPs          []string
+	namespace           string
+	name                string
+	vip                 lbVIP
+	port                int32
+	proxyProtocolConfig *lbServiceProxyProtocolConfig
+	applications        lbApplications
+	referencedBackends  map[string]backend
+	t1NodeIPs           []string
+	t2NodeIPs           []string
 }
 
 type lbVIP struct {
 	name         string
 	assignedIPv4 *string
 	bindStatus   lbVIPBindStatus
+}
+
+type lbServiceProxyProtocolConfig struct {
+	disallowedVersions []int
+	passThroughTLVs    []uint32
 }
 
 type lbVIPBindStatus struct {
@@ -449,6 +455,7 @@ type backend struct {
 	tcpConfig         *lbBackendTCPConfig
 	tlsConfig         *lbBackendTLSConfig
 	httpConfig        lbBackendHTTPConfig
+	proxyProtocol     *lbBackendProxyProtocolConfig
 	dnsResolverConfig *lbBackendDNSResolverConfig
 }
 
@@ -519,6 +526,16 @@ type lbBackendTLSConfig struct {
 	allowedCipherSuites        []string
 	allowedECDHCurves          []string
 	allowedSignatureAlgorithms []string
+}
+
+const (
+	proxyProtocolVersionV1 = 1
+	proxyProtocolVersionV2 = 2
+)
+
+type lbBackendProxyProtocolConfig struct {
+	version         int
+	passthroughTLVs []uint32
 }
 
 type lbBackendHTTPConfig struct {
