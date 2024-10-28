@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -193,6 +194,8 @@ type Manager struct {
 	policyInitializer func(txn statedb.WriteTxn)
 
 	db *statedb.DB
+
+	ctNATMapGC ctmap.GCRunner
 }
 
 type Params struct {
@@ -213,6 +216,8 @@ type Params struct {
 	DB                 *statedb.DB
 	EgressIPTable      statedb.RWTable[*enterprise_tables.EgressIPEntry]
 	EgressIPReconciler reconciler.Reconciler[*enterprise_tables.EgressIPEntry]
+
+	CTNATMapGC ctmap.GCRunner
 
 	Lifecycle cell.Lifecycle
 }
@@ -292,6 +297,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		egressIPTable:                 p.EgressIPTable,
 		egressIPReconciler:            p.EgressIPReconciler,
 		policyInitializer:             policyInitializer,
+		ctNATMapGC:                    p.CTNATMapGC,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -399,6 +405,12 @@ func (manager *Manager) processEvents(ctx context.Context) {
 	policyEvents := manager.policies.Events(ctx)
 	endpointEvents := manager.endpoints.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
 	nodeEvents := manager.ciliumNodes.Events(ctx)
+
+	manager.ctNATMapGC.Observe4().Observe(ctx,
+		func(event ctmap.GCEvent) {
+			egressmapha.PurgeEgressCTEntry(manager.ctMap, event.Key)
+		},
+		func(err error) {})
 
 	for {
 		select {

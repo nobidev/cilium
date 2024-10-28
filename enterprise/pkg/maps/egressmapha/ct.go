@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
@@ -74,6 +75,20 @@ func createCtMapFromDaemonConfig(in struct {
 
 	out.MapOut = bpf.NewMapOut(CtMap(createCtMap(in.Lifecycle, ebpf.PinByName)))
 	return
+}
+
+func PurgeEgressCTEntry(m CtMap, key ctmap.CtKey) {
+	t := key.GetTupleKey().(*tuple.TupleKey4Global)
+	tupleType := t.GetFlags()
+
+	if tupleType == tuple.TUPLE_F_OUT {
+		egressCTKey := &EgressCtKey4{t.TupleKey4}
+		sourceAddr := egressCTKey.SourceAddr
+		egressCTKey.SourceAddr = egressCTKey.DestAddr
+		egressCTKey.DestAddr = sourceAddr
+
+		m.Delete(egressCTKey)
+	}
 }
 
 // CreatePrivateCtMap creates an unpinned CT map.
