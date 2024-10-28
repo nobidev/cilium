@@ -119,6 +119,36 @@ func withHttpConnectionFilteringAllowBySourceIP(sourceCIDR string) httpApplicati
 	}
 }
 
+func withHttpsConnectionFilteringDenyBySourceIP(sourceCIDR string) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceHTTPConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
+			Rules: []isovalentv1alpha1.LBServiceHTTPConnectionFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
+func withHttpsConnectionFilteringAllowBySourceIP(sourceCIDR string) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceHTTPConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPConnectionFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
 func withHttpRequestFilteringDenyByExactPath(path string) httpApplicationRouteOption {
 	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
 		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
