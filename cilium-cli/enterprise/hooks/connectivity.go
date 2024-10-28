@@ -411,7 +411,8 @@ func (ec *EnterpriseConnectivity) addBGPTests(ct *check.ConnectivityTest) (err e
 			)
 	}
 
-	newTest(ct, "enterprise-bgp-control-plane-v2").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-enterprise-bgp-control-plane-v2").
 		WithScenarios(enterpriseTests.BGPSvcAdvertisements())
 
 	return nil
@@ -420,7 +421,7 @@ func (ec *EnterpriseConnectivity) addBGPTests(ct *check.ConnectivityTest) (err e
 func (ec *EnterpriseConnectivity) addBFDTests(ct *check.ConnectivityTest) (err error) {
 	bfdStandaloneTest := func(ct *check.ConnectivityTest) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
-			NewEnterpriseTest("bfd-standalone").
+			NewEnterpriseTest("seq-bfd-standalone"). // prefix the test name with `seq-` to run it sequentially
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.BFD),
 				features.RequireEnabled(features.NodeWithoutCilium),
@@ -443,7 +444,7 @@ func (ec *EnterpriseConnectivity) addBFDTests(ct *check.ConnectivityTest) (err e
 
 	bfdBGPTest := func(ct *check.ConnectivityTest) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
-			NewEnterpriseTest("bfd-bgp").
+			NewEnterpriseTest("seq-bfd-bgp"). // prefix the test name with `seq-` to run it sequentially
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.BFD),
 				features.RequireEnabled(features.NodeWithoutCilium),
