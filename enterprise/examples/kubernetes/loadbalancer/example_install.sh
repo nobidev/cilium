@@ -62,7 +62,7 @@ for i in $(echo $t1NodeNames); do
 done
 
 for i in "${frrClients[@]}"; do
-  docker run -d --restart=always --name ${i} --privileged -e "NEIGHBORS=${neighbors}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.2
+  docker run -d --restart=always --name ${i} --privileged -e "NEIGHBORS=${neighbors}" --network kind-cilium quay.io/isovalent-dev/lb-frr-client:v0.0.3
 done
 
 # Copy Backend TLS secrets to FRR client

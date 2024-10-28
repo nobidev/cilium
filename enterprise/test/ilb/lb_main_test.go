@@ -29,11 +29,11 @@ import (
 // Flags:
 //
 //  -app-image string
-//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.6")
+//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.8")
 //  -cleanup
 //        Cleanup created resources after each test case run (default true)
 //  -client-image string
-//        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.2")
+//        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.3")
 //  -mode string
 //        Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default "multi-node")
 //  -single-node-ip string
