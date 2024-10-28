@@ -179,6 +179,36 @@ func withTLSPassthroughConnectionFilteringAllowBySourceIP(sourceCIDR string) tls
 	}
 }
 
+func withTLSProxyConnectionFilteringDenyBySourceIP(sourceCIDR string) tlsRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSRoute) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceTLSRouteConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
+			Rules: []isovalentv1alpha1.LBServiceTLSRouteRequestFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
+func withTLSProxyConnectionFilteringAllowBySourceIP(sourceCIDR string) tlsRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTLSRoute) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceTLSRouteConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceTLSRouteRequestFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
 func withHttpRequestFilteringDenyByExactPath(path string) httpApplicationRouteOption {
 	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
 		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
