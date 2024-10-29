@@ -86,6 +86,18 @@ func (c *FakeIsovalentBGPClusterConfigs) Update(ctx context.Context, isovalentBG
 	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeIsovalentBGPClusterConfigs) UpdateStatus(ctx context.Context, isovalentBGPClusterConfig *v1alpha1.IsovalentBGPClusterConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
+	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(isovalentbgpclusterconfigsResource, "status", isovalentBGPClusterConfig, opts), emptyResult)
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
+}
+
 // Delete takes name of the isovalentBGPClusterConfig and deletes it. Returns an error if one occurs.
 func (c *FakeIsovalentBGPClusterConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.

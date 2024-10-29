@@ -117,6 +117,12 @@ rules:
   - update
   - delete
   - patch
+- apiGroups:
+  - isovalent.com
+  resources:
+  - isovalentbgpclusterconfigs/status
+  verbs:
+  - update
 {{- end }}
 {{- if or .Values.enterprise.bfd.enabled }}
 - apiGroups:
