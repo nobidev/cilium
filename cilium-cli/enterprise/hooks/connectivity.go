@@ -152,7 +152,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				features.RequireEnabled(features.NodeWithoutCilium))
 	}
 
-	newTest(ct, "egress-gateway-ha").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -167,7 +168,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithScenarios(enterpriseTests.EgressGatewayHA())
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-with-l7-policy").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-with-l7-policy").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -186,7 +188,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			WithScenarios(enterpriseTests.EgressGatewayHA())
 	}
 
-	newTest(ct, "egress-gateway-ha-excluded-cidrs").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha-excluded-cidrs").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -196,7 +199,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithScenarios(enterpriseTests.EgressGatewayExcludedCIDRs())
 
-	newTest(ct, "egress-gateway-ha-multiple-gateways").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha-multiple-gateways").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -205,7 +209,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithScenarios(enterpriseTests.EgressGatewayMultipleGateways())
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-multiple-gateways-with-l7-policy").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-multiple-gateways-with-l7-policy").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -219,7 +224,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.14.8")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-az-affinity").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-az-affinity").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -251,7 +257,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newIPAMTest(ct, "egress-gateway-ha-ipam").
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -262,7 +269,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newIPAMTest(ct, "egress-gateway-ha-ipam-multiple-gateways").
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-multiple-gateways").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
