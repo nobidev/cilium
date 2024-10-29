@@ -845,6 +845,7 @@ Makefile* @cilium/build
 /pkg/fqdn/dnsproxy/enterprise_* @isovalent/dns-proxy
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentclusterwideencryptionpolicies.yaml @isovalent/encryption
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentpodnetworks.yaml @isovalent/multi-network
+/pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/lb*.yaml @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/client/crds/v1/isovalentegressgatewaypolicies.yaml @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/v1alpha1/encryption_types.go @isovalent/encryption
 /pkg/k8s/apis/isovalent.com/v1alpha1/lb_types*  @isovalent/isovalent-loadbalancer
