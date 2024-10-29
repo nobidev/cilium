@@ -131,7 +131,7 @@ jobs:
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.vars.outputs.kind-params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
-          port-forward: '6443:6443,22375:2375,22376:22376'
+          port-forward: "6443:6443,22375:2375,22376:22376"
 
       - name: Preconfigure K8s nodes
         shell: bash
@@ -193,6 +193,8 @@ jobs:
              --helm-set=bpf.monitorAggregation=none \
              --helm-set=kubeProxyReplacement=true \
              --helm-set-string=extraConfig.enable-ipip-termination=true \
+             --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
+             --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
              --helm-set=enterprise.featureGates="{BGPControlPlane}"
 
           cilium status --wait
