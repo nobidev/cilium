@@ -292,14 +292,17 @@ func createOSSClusterConfig(entClusterConfig *v1alpha1.IsovalentBGPClusterConfig
 		}
 
 		for _, peer := range bgpInstance.Peers {
-			ossBGPInstance.Peers = append(ossBGPInstance.Peers, v2alpha1.CiliumBGPPeer{
+			p := v2alpha1.CiliumBGPPeer{
 				Name:        peer.Name,
 				PeerAddress: peer.PeerAddress,
 				PeerASN:     peer.PeerASN,
-				PeerConfigRef: &v2alpha1.PeerConfigReference{
+			}
+			if peer.PeerConfigRef != nil {
+				p.PeerConfigRef = &v2alpha1.PeerConfigReference{
 					Name: peer.PeerConfigRef.Name,
-				},
-			})
+				}
+			}
+			ossBGPInstance.Peers = append(ossBGPInstance.Peers, p)
 		}
 
 		newOSSClusterConfig.Spec.BGPInstances = append(newOSSClusterConfig.Spec.BGPInstances, ossBGPInstance)

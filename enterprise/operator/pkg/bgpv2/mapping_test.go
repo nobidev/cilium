@@ -63,6 +63,11 @@ var (
 								Name: "peer-config-2",
 							},
 						},
+						{
+							Name:        "peer-3",
+							PeerAddress: ptr.To[string]("192.168.10.30"),
+							PeerASN:     ptr.To[int64](65002),
+						},
 					},
 				},
 			},
@@ -87,6 +92,11 @@ var (
 				PeerConfigRef: &v1alpha1.PeerConfigReference{
 					Name: "peer-config-2",
 				},
+			},
+			{
+				Name:        "peer-3",
+				PeerAddress: ptr.To[string]("192.168.10.30"),
+				PeerASN:     ptr.To[int64](65002),
 			},
 		},
 	}
@@ -129,6 +139,11 @@ var (
 							PeerConfigRef: &v2alpha1.PeerConfigReference{
 								Name: "peer-config-2",
 							},
+						},
+						{
+							Name:        "peer-3",
+							PeerAddress: ptr.To[string]("192.168.10.30"),
+							PeerASN:     ptr.To[int64](65002),
 						},
 					},
 				},
