@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/identity"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -125,6 +126,7 @@ type engineParams struct {
 	Config    types.Config
 	Registry  job.Registry
 	Health    cell.Health
+	Tunnel    tunnel.Config
 
 	IdentityChanges stream.Observable[IdentityChangeBatch]
 	DaemonConfig    *option.DaemonConfig
@@ -149,6 +151,11 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 	if !params.DaemonConfig.EnableWireguard {
 		params.Log.Error("Encryption Policy requires WireGuard to be enabled")
+		return nil
+	}
+
+	if params.DaemonConfig.TunnelingEnabled() && params.Tunnel.Protocol() != tunnel.VXLAN {
+		params.Log.Error("Encryption Policy requires VXLAN as the tunnel potocol")
 		return nil
 	}
 
