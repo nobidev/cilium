@@ -14,9 +14,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -60,7 +63,41 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 		err = errors.Join(err, dErr)
 	}
 
+	// Update ClusterConfig conditions
+	updateStatus := false
+	if changed := m.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+		updateStatus = true
+	}
+
+	// Sort conditions to the stable order
+	slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
+		return strings.Compare(a.Type, b.Type)
+	})
+
+	// Call API only when there's a condition change
+	if updateStatus {
+		_, uErr := m.clientSet.IsovalentV1alpha1().IsovalentBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if uErr != nil {
+			err = errors.Join(err, uErr)
+		}
+	}
+
 	return err
+}
+
+func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1alpha1.IsovalentBGPClusterConfig, noMatchingNode bool) bool {
+	cond := meta_v1.Condition{
+		Type:               v1alpha1.BGPClusterConfigConditionNoMatchingNode,
+		Status:             meta_v1.ConditionTrue,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "NoMatchingNode",
+		Message:            "No node matches spec.nodeSelector",
+	}
+	if !noMatchingNode {
+		cond.Status = meta_v1.ConditionFalse
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
 func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, config *v1alpha1.IsovalentBGPClusterConfig, nodeName string) error {

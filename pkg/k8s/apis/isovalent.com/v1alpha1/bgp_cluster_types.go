@@ -205,3 +205,9 @@ type BGPVRF struct {
 	// +kubebuilder:validation:Optional
 	ExportRTs []string `json:"exportRTs,omitempty"`
 }
+
+// Conditions for IsovalentBGPClusterConfig
+const (
+	// Node selector selects nothing
+	BGPClusterConfigConditionNoMatchingNode = "isovalent.com/NoMatchingNode"
+)

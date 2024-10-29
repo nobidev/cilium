@@ -12,6 +12,7 @@ package bgpv2
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -19,20 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func Test_ClusterConfigSteps(t *testing.T) {
 	steps := []struct {
-		name                string
-		clusterConfig       *v1alpha1.IsovalentBGPClusterConfig
-		nodeConfigOverride  *v1alpha1.IsovalentBGPNodeConfigOverride
-		nodes               []*cilium_v2.CiliumNode
-		expectedNodeConfigs []*v1alpha1.IsovalentBGPNodeConfig
+		name                   string
+		clusterConfig          *v1alpha1.IsovalentBGPClusterConfig
+		nodeConfigOverride     *v1alpha1.IsovalentBGPNodeConfigOverride
+		nodes                  []*cilium_v2.CiliumNode
+		expectedNodeConfigs    []*v1alpha1.IsovalentBGPNodeConfig
+		expectedTrueConditions []string
 	}{
 		{
 			name:          "initial node setup",
@@ -184,6 +188,9 @@ func Test_ClusterConfigSteps(t *testing.T) {
 				},
 			},
 			expectedNodeConfigs: nil,
+			expectedTrueConditions: []string{
+				v1alpha1.BGPClusterConfigConditionNoMatchingNode,
+			},
 		},
 	}
 
@@ -232,6 +239,135 @@ func Test_ClusterConfigSteps(t *testing.T) {
 				}
 
 			}, TestTimeout, 50*time.Millisecond)
+
+			// Condition checks. Assuming the cluster config already exists on the API server.
+			if len(step.expectedTrueConditions) > 0 {
+				bgpcc, err := f.isoClusterClient.Get(ctx, isoClusterConfig.Name, meta_v1.GetOptions{})
+				req.NoError(err)
+
+				trueConditions := sets.New[string]()
+				for _, cond := range bgpcc.Status.Conditions {
+					trueConditions.Insert(cond.Type)
+				}
+
+				for _, cond := range step.expectedTrueConditions {
+					req.True(trueConditions.Has(cond), "Condition missing or not true: %s", cond)
+				}
+			}
+		})
+	}
+}
+
+func TestClusterConfigConditions(t *testing.T) {
+	clusterConfigName := "cluster-config0"
+
+	node := cilium_v2.CiliumNode{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				"bgp": "rack1",
+			},
+		},
+	}
+
+	tests := []struct {
+		name                    string
+		clusterConfig           *v1alpha1.IsovalentBGPClusterConfig
+		expectedConditionStatus map[string]meta_v1.ConditionStatus
+	}{
+		{
+			name: "NoMatchingNode False",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bgp": "rack1",
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "NoMatchingNode False Nil Selector",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: nil,
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "NoMatchingNode True",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bgp": "rack2",
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			f, watchersReady := newFixture(ctx, require.New(t))
+
+			tlog := hivetest.Logger(t)
+			f.hive.Start(tlog, ctx)
+			defer f.hive.Stop(tlog, ctx)
+
+			watchersReady()
+
+			// Setup resources
+			upsertNode(req, ctx, f, &node)
+			upsertIsoBGPCC(req, ctx, f, tt.clusterConfig)
+
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				// Check conditions
+				cc, err := f.isoClusterClient.Get(ctx, clusterConfigName, meta_v1.GetOptions{})
+				if !assert.NoError(ct, err, "Cannot get cluster config") {
+					return
+				}
+
+				// Check if the expected condition exists and has an intended values
+				missing := maps.Clone(tt.expectedConditionStatus)
+				for condType, status := range tt.expectedConditionStatus {
+					for _, cond := range cc.Status.Conditions {
+						if cond.Type == condType {
+							if !assert.Equal(ct, status, cond.Status) {
+								return
+							}
+							delete(missing, cond.Type)
+						}
+					}
+				}
+
+				assert.Empty(ct, missing, "Missing conditions: %v", missing)
+			}, time.Second*3, time.Millisecond*100)
 		})
 	}
 }
