@@ -169,7 +169,7 @@ jobs:
             --helm-set=enterprise.srv6.encapMode=${{ matrix.encap-mode }} \
             --helm-set=enterprise.srv6.locatorPoolEnabled=${{ matrix.sid-manger-enabled }} \
             --helm-set=enterprise.featureGate.strict=true \
-            --helm-set='enterprise.featureGate.approved={SRv6,DatapathIPModeDualStack,EnvoyDaemonSet,ClusterMeshPhantomServices}' \
+            --helm-set='enterprise.featureGate.approved={SRv6,DatapathIPModeDualStack,ClusterMeshPhantomServices}' \
           "
 
           echo sha=${SHA} >> $GITHUB_OUTPUT

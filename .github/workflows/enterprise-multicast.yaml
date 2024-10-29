@@ -152,7 +152,7 @@ jobs:
             --helm-set=tunnelProtocol=vxlan \
             --helm-set=enterprise.multicast.enabled=true \
             --helm-set=enterprise.featureGate.strict=true \
-            --helm-set='enterprise.featureGate.approved={EncryptionIPSec,EncryptionWireguard,Multicast,EnvoyDaemonSet}' \
+            --helm-set='enterprise.featureGate.approved={EncryptionIPSec,EncryptionWireguard,Multicast}' \
           "
 
           echo sha=${SHA} >> $GITHUB_OUTPUT

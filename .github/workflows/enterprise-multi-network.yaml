@@ -141,7 +141,7 @@ jobs:
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.secondary-pool.ipv4.maskSize=27 \
             --helm-set=enterprise.multiNetwork.enabled=true \
             --helm-set=enterprise.featureGate.strict=true \
-            --helm-set='enterprise.featureGate.approved={IPAMMultiPool,MultiNetwork,EnvoyDaemonSet}' \
+            --helm-set='enterprise.featureGate.approved={IPAMMultiPool,MultiNetwork}' \
             --helm-set=enterprise.multiNetwork.autoCreateDefaultPodNetwork=true"
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \

@@ -336,15 +336,6 @@ features:
 
   ### Envoy
 
-  EnvoyDaemonSet:
-    maturity: Limited
-    description: |
-      Envoy Proxy in standalone DaemonSet.
-    flags:
-      external-envoy-proxy: true
-    helm:
-      envoy.enabled: true
-
   IngressController:
     maturity: Limited
     description: |

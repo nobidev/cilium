@@ -110,7 +110,7 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set-string=extraConfig.external-dns-proxy=true \
             --helm-set=enterprise.featureGate.strict=true \
-            '--helm-set=enterprise.featureGate.approved={DNSProxyHA,EnvoyDaemonSet}' \
+            '--helm-set=enterprise.featureGate.approved={DNSProxyHA}' \
           "
 
           CONNECTIVITY_TEST_DEFAULTS=" \
