@@ -600,7 +600,7 @@ func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *is
 		},
 		Spec: isovalentv1alpha1.LBBackendPoolSpec{
 			HealthCheck: isovalentv1alpha1.HealthCheck{
-				IntervalSeconds: ptr.To[int32](5),
+				IntervalSeconds: ptr.To[int32](15),
 				HTTP: &isovalentv1alpha1.HealthCheckHTTP{
 					Path: ptr.To("/health"),
 				},
