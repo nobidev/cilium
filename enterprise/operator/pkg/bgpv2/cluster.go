@@ -63,9 +63,15 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 		err = errors.Join(err, dErr)
 	}
 
+	// Collect the missing peerConfig references
+	missingPCs := m.missingPeerConfigs(config)
+
 	// Update ClusterConfig conditions
 	updateStatus := false
 	if changed := m.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+		updateStatus = true
+	}
+	if changed := m.updateMissingPeerConfigsCondition(config, missingPCs); changed {
 		updateStatus = true
 	}
 
@@ -83,6 +89,47 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 	}
 
 	return err
+}
+
+// missingPeerConfigs returns a IsovalentBGPPeerConfig which is referenced from
+// the ClusterConfig, but doesn't exist. The returned slice is sorted and
+// deduplicated for output stability.
+func (m *BGPResourceMapper) missingPeerConfigs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+	missing := []string{}
+	for _, instance := range config.Spec.BGPInstances {
+		for _, peer := range instance.Peers {
+			if peer.PeerConfigRef == nil {
+				continue
+			}
+
+			_, exists, _ := m.peerConfig.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
+			if !exists {
+				missing = append(missing, peer.PeerConfigRef.Name)
+			}
+
+			// Just ignore the error other than NotFound. It might
+			// be a network issue, or something else, but we are
+			// only interested in detecting the invalid reference
+			// here.
+		}
+	}
+	slices.Sort(missing)
+	return slices.Compact(missing)
+}
+
+func (m *BGPResourceMapper) updateMissingPeerConfigsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingPCs []string) bool {
+	cond := meta_v1.Condition{
+		Type:               v1alpha1.BGPClusterConfigConditionMissingPeerConfigs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "MissingPeerConfigs",
+	}
+	if len(missingPCs) != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Referenced IsovalentBGPPeerConfig(s) are missing: %v", missingPCs)
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
 func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1alpha1.IsovalentBGPClusterConfig, noMatchingNode bool) bool {

@@ -260,6 +260,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 
 func TestClusterConfigConditions(t *testing.T) {
 	clusterConfigName := "cluster-config0"
+	peerConfigName := "peer-config0"
 
 	node := cilium_v2.CiliumNode{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -267,6 +268,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			Labels: map[string]string{
 				"bgp": "rack1",
 			},
+		},
+	}
+
+	peerConfig := v1alpha1.IsovalentBGPPeerConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: peerConfigName,
 		},
 	}
 
@@ -325,6 +332,81 @@ func TestClusterConfigConditions(t *testing.T) {
 				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
 			},
 		},
+		{
+			name: "MissingPeerConfig False",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							Peers: []v1alpha1.IsovalentBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &v1alpha1.PeerConfigReference{
+										Name: peerConfigName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig False nil PeerConfigRef",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							Peers: []v1alpha1.IsovalentBGPPeer{
+								{
+									Name: "peer0",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig True",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							Peers: []v1alpha1.IsovalentBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &v1alpha1.PeerConfigReference{
+										Name: peerConfigName + "-foo",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -345,6 +427,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			// Setup resources
 			upsertNode(req, ctx, f, &node)
 			upsertIsoBGPCC(req, ctx, f, tt.clusterConfig)
+			upsertIsoBGPPC(req, ctx, f, &peerConfig)
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				// Check conditions

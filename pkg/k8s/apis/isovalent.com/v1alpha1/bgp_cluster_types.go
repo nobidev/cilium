@@ -210,4 +210,6 @@ type BGPVRF struct {
 const (
 	// Node selector selects nothing
 	BGPClusterConfigConditionNoMatchingNode = "isovalent.com/NoMatchingNode"
+	// Referenced peer configs are missing
+	BGPClusterConfigConditionMissingPeerConfigs = "isovalent.com/MissingPeerConfigs"
 )
