@@ -73,7 +73,7 @@ func TestHTTPSRouteRatelimiting(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
 
 	{
 		t.Logf("Testing %q that first request succeeds ...", testCmd)
@@ -99,7 +99,7 @@ func TestHTTPSRouteRatelimiting(t *testing.T) {
 	}, longTimeout, pollInterval)
 
 	{
-		testCmdAdmin := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/admin"))
+		testCmdAdmin := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/admin"))
 		t.Logf("Testing %q that should still be possible even  after hitting the ratelimit ...", testCmdAdmin)
 		stdout, stderr, err := client.Exec(ctx, testCmdAdmin)
 		if err != nil {
@@ -145,7 +145,7 @@ func TestHTTPSApplicationRatelimiting(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
 
 	{
 		t.Logf("Testing %q that first request succeeds ...", testCmd)

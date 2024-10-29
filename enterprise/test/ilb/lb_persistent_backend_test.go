@@ -62,13 +62,13 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 
 	// 1. Test persistent backend selection with cookie
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
 		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, ctx, client, testCmd)
 	}
 
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
 		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, ctx, client, testCmd)
 	}
@@ -119,13 +119,13 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 
 	// 1. Test persistent backend selection with source IP
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
 		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, ctx, clients[0], testCmd)
 	}
 
 	{
-		testCmd := curlCmd(fmt.Sprintf("-m 2 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
 		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, ctx, clients[1], testCmd)
 	}

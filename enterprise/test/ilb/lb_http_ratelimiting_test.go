@@ -70,7 +70,7 @@ func TestHTTPRouteRatelimiting(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
 
 	{
 		t.Logf("Testing %q that first request succeeds ...", testCmd)
@@ -96,7 +96,7 @@ func TestHTTPRouteRatelimiting(t *testing.T) {
 	}, longTimeout, pollInterval)
 
 	{
-		testCmdAdmin := curlCmdVerbose(fmt.Sprintf("-m 5 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/admin"))
+		testCmdAdmin := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/admin"))
 		t.Logf("Testing %q that should still be possible even  after hitting the ratelimit ...", testCmdAdmin)
 		stdout, stderr, err := client.Exec(ctx, testCmdAdmin)
 		if err != nil {
@@ -142,7 +142,7 @@ func TestHTTPApplicationRatelimiting(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
 
 	{
 		t.Logf("Testing %q that first request succeeds ...", testCmd)

@@ -55,7 +55,7 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-	testCmd := curlCmdVerbose(fmt.Sprintf("-m 5 http://%s:81/", vipIP))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestHTTP2(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-	testCmd := curlCmdVerbose(fmt.Sprintf("--http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
@@ -202,7 +202,7 @@ func TestHTTPPath(t *testing.T) {
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
+		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
@@ -211,7 +211,7 @@ func TestHTTPPath(t *testing.T) {
 	}
 
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
+		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
 		t.Logf("Testing failure on other path %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err == nil {
@@ -273,7 +273,7 @@ func TestHTTPRoutes(t *testing.T) {
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {
-		testCmd := curlCmd(fmt.Sprintf("-H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {

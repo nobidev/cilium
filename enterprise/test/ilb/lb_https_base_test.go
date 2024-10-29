@@ -57,7 +57,7 @@ func TestHTTPS(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
-	testCmd := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {
@@ -137,7 +137,7 @@ func TestHTTPSRoutes(t *testing.T) {
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {
-		testCmd := curlCmd(fmt.Sprintf("--cacert /tmp/"+rhost.hostname+".crt -H 'Content-Type: application/json' --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 --cacert /tmp/"+rhost.hostname+".crt -H 'Content-Type: application/json' --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
@@ -193,7 +193,7 @@ func TestHTTPS_H2(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
-	testCmd := curlCmd(fmt.Sprintf("-o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))
 	t.Logf("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(ctx, testCmd)
 	if err != nil {

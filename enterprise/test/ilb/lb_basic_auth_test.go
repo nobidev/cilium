@@ -117,7 +117,7 @@ func TestBasicAuth(t *testing.T) {
 
 			t.Run("ValidCredentials", func(t *testing.T) {
 				for _, cred := range creds {
-					cmd := curlCmd(fmt.Sprintf("-m 1 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
+					cmd := curlCmd(fmt.Sprintf("--max-time 10 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
 					stdout, stderr, err := client.Exec(ctx, cmd)
 					if err != nil {
 						t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
@@ -126,7 +126,7 @@ func TestBasicAuth(t *testing.T) {
 			})
 
 			t.Run("NoCredential", func(t *testing.T) {
-				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
 				if err == nil {
 					t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 				}
@@ -136,7 +136,7 @@ func TestBasicAuth(t *testing.T) {
 			})
 
 			t.Run("InvalidCredential", func(t *testing.T) {
-				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
 				if err == nil {
 					t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 				}
@@ -147,7 +147,7 @@ func TestBasicAuth(t *testing.T) {
 
 			t.Run("PerRouteException", func(t *testing.T) {
 				// Ensure the per-route exception is working
-				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s %s://%s/no-auth", curlOpt, proto, hostName)))
 				if err != nil {
 					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 				}

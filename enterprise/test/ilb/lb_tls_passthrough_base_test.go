@@ -62,8 +62,8 @@ func TestTLSPassthrough(t *testing.T) {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTPs request
-	testCmd1 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
-	testCmd2 := curlCmdVerbose(fmt.Sprintf("--cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
+	testCmd1 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
+	testCmd2 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		t.Logf("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)

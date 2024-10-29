@@ -106,7 +106,7 @@ func TestHTTPConnectionFiltering(t *testing.T) {
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmdVerbose(fmt.Sprintf("--resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path))
+				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path))
 				t.Logf("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
