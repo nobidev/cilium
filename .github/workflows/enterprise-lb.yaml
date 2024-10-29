@@ -235,7 +235,7 @@ jobs:
           DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotest -test.v -test.timeout=30m ./enterprise/test/ilb $PARAMS
 
       - name: Run "cilium lb status"
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
           cilium lb status
