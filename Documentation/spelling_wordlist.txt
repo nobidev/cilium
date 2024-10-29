@@ -281,9 +281,9 @@ decrypt
 decrypted
 deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
-defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -310,6 +310,7 @@ effectful
 egressing
 elfutils
 ena
+enableSourceIPVerification
 enablement
 endPort
 endian
@@ -567,6 +568,7 @@ netdevsim
 netfilter
 netfront
 netkit
+netlink
 netns
 netperf
 netsec
@@ -669,7 +671,9 @@ reparsing
 repo
 repos
 reproducibility
+reqid
 requireIPv
+resizable
 resync
 retpoline
 retransmission

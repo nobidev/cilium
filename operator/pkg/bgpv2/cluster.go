@@ -7,9 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -52,7 +55,88 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 		err = errors.Join(err, dErr)
 	}
 
+	// Collect the missing peerConfig references
+	missingPCs := b.missingPeerConfigs(config)
+
+	// Update ClusterConfig conditions
+	updateStatus := false
+	if changed := b.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+		updateStatus = true
+	}
+	if changed := b.updateMissingPeerConfigsCondition(config, missingPCs); changed {
+		updateStatus = true
+	}
+
+	// Sort conditions to the stable order
+	slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
+		return strings.Compare(a.Type, b.Type)
+	})
+
+	// Call API only when there's a condition change
+	if updateStatus {
+		_, uErr := b.clientset.CiliumV2alpha1().CiliumBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if uErr != nil {
+			err = errors.Join(err, uErr)
+		}
+	}
+
 	return err
+}
+
+// missingPeerConfigs returns a CiliumBGPPeerConfig which is referenced from
+// the ClusterConfig, but doesn't exist. The returned slice is sorted and
+// deduplicated for output stability.
+func (b *BGPResourceManager) missingPeerConfigs(config *v2alpha1.CiliumBGPClusterConfig) []string {
+	missing := []string{}
+	for _, instance := range config.Spec.BGPInstances {
+		for _, peer := range instance.Peers {
+			if peer.PeerConfigRef == nil {
+				continue
+			}
+
+			_, exists, _ := b.peerConfigStore.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
+			if !exists {
+				missing = append(missing, peer.PeerConfigRef.Name)
+			}
+
+			// Just ignore the error other than NotFound. It might
+			// be a network issue, or something else, but we are
+			// only interested in detecting the invalid reference
+			// here.
+		}
+	}
+	slices.Sort(missing)
+	return slices.Compact(missing)
+}
+
+func (b *BGPResourceManager) updateMissingPeerConfigsCondition(config *v2alpha1.CiliumBGPClusterConfig, missingPCs []string) bool {
+	cond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionMissingPeerConfigs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "MissingPeerConfigs",
+	}
+	if len(missingPCs) != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Referenced CiliumBGPPeerConfig(s) are missing: %v", missingPCs)
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
+}
+
+func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2alpha1.CiliumBGPClusterConfig, noMatchingNode bool) bool {
+	cond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionNoMatchingNode,
+		Status:             meta_v1.ConditionTrue,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "NoMatchingNode",
+		Message:            "No node matches spec.nodeSelector",
+	}
+	if !noMatchingNode {
+		cond.Status = meta_v1.ConditionFalse
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
 func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig, nodeName string) error {

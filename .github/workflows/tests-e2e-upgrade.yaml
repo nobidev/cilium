@@ -56,6 +56,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  test_concurrency: 5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -81,7 +84,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -212,6 +215,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
+            encryption-strict-mode: 'true'
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
@@ -243,6 +247,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
+            encryption-strict-mode: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
@@ -391,7 +396,7 @@ jobs:
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
 
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -399,7 +404,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -439,6 +444,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -463,6 +469,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -500,7 +507,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -511,7 +518,7 @@ jobs:
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
         if: ${{ matrix.skip-upgrade != 'true' }}
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -566,12 +573,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
+      - name: Setup Cilium CLI flags
+        id: cli-flags
         run: |
           EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
+            EXTRA+=("\"--secondary-network-iface=eth1\"")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -579,20 +586,53 @@ jobs:
           #
           # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
           # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
+          EXTRA+=("\"--expected-drop-reasons=+No egress gateway found\"")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
+
+          echo flags="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
             --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA[@]}" >> $GITHUB_OUTPUT
 
-          # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test "seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run concurrent Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test-concurrency=${{ env.test_concurrency }} \
+            --test "!seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -611,27 +651,28 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
-          fi
-
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test \
             --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test "seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run concurrent Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test-concurrency=${{ env.test_concurrency }} \
+            --test "!seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -669,7 +710,7 @@ jobs:
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false

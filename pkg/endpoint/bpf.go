@@ -396,6 +396,17 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Skip BPF if the endpoint has no policy map
 	if e.isProperty(PropertySkipBPFPolicy) {
+		// Ingress endpoint needs entries in the endpoints map so that the return traffic,
+		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
+		if e.isProperty(PropertyAtHostNS) {
+			stats.mapSync.Start()
+			err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+			stats.mapSync.End(err == nil)
+			if err != nil {
+				return 0, fmt.Errorf("Exposing endpoint in endpoints BPF map failed: %w", err)
+			}
+		}
+
 		// Allow another builder to start while we wait for the proxy
 		if regenContext.DoneFunc != nil {
 			regenContext.DoneFunc()
@@ -632,6 +643,11 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if e.isProperty(PropertySkipBPFPolicy) {
+		// Ingress endpoint needs epInfoCache for endpointmap population
+		if e.isProperty(PropertyAtHostNS) {
+			datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
+		}
+
 		if e.isProperty(PropertyFakeEndpoint) {
 			if err = e.writeHeaderfile(nextDir); err != nil {
 				return fmt.Errorf("Unable to write header file: %w", err)
@@ -1138,13 +1154,11 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapState, withDiffs bool) (
 func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap, insert := policy.NewMapStateWithInsert()
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		policymapKey := key.(*policymap.PolicyKey)
+	cb := func(policymapKey *policymap.PolicyKey, policymapEntry *policymap.PolicyEntry) {
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.KeyForDirection(trafficdirection.TrafficDirection(policymapKey.TrafficDirection)).
 			WithIdentity(identity.NumericIdentity(policymapKey.Identity)).
 			WithPortProtoPrefix(u8proto.U8proto(policymapKey.Nexthdr), policymapKey.GetDestPort(), policymapKey.GetPortPrefixLen())
-		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
 			ProxyPort: policymapEntry.GetProxyPort(),
@@ -1153,7 +1167,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		}
 		insert(policyKey, policyEntry)
 	}
-	err := e.policyMap.DumpWithCallback(cb)
+	err := e.policyMap.DumpValid(cb)
 
 	return currentMap, err
 }
