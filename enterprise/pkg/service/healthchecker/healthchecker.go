@@ -645,7 +645,7 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	conn, err := d.DialContext(ctx, "tcp", connAddr)
 	if err != nil {
 		// Be conservative while failing a probe.
-		if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENETUNREACH) || os.IsTimeout(err) {
+		if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH) || os.IsTimeout(err) {
 			probeOut <- getProbeData(fmt.Errorf("err: %w", err))
 			return
 		}
