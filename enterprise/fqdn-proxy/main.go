@@ -38,7 +38,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -66,8 +66,7 @@ import (
 )
 
 const (
-	metricsNamespace  = "isovalent"
-	clientConnRetries = 24
+	metricsNamespace = "isovalent"
 )
 
 var (
@@ -280,21 +279,14 @@ func main() {
 	}
 
 	DNSNotificationQueue = make(chan *pb.DNSNotification, *DNSNotificationChannelSize)
-	for i := 0; i < clientConnRetries; i++ {
-		if err := resetClient(); err != nil {
-			if i == clientConnRetries-1 {
-				log.WithError(err).Fatal("timed out trying to init connection to agent grpc api")
-			}
-			log.WithError(err).Error("could not init connection to agent grpc api, will retry")
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		break
+	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
+	if err != nil {
+		log.WithError(err).Fatal("failed to create grpc client to talk to agent")
 	}
-	go manageConnection()
+	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)})
+
 	go manageNotifyOnDNSMsg()
 	log.Info("starting cilium dns proxy server")
-	var err error
 	if err := re.InitRegexCompileLRU(*FQDNRegexCompileLRUSize); err != nil {
 		log.WithError(err).Fatal("failed to start DNS proxy: failed to init regex LRU cache")
 	}
@@ -393,48 +385,35 @@ func exposeMetrics() {
 	}
 }
 
-// manageConnection periodically resets/re-dials the Agent GRPC Client connection.
-func manageConnection() {
-	log.Debug("starting agent fqdn grpc client connection manager")
-	for {
-		prevConnStatus := client().conn.GetState()
-
-		client().conn.WaitForStateChange(context.Background(), connectivity.Ready)
-		if err := resetClient(); err != nil {
-			log.WithError(err).Error("failed to reset connection")
-			continue
-		}
-
-		// Add an entry to the log only if the connection status
-		// has really changed after resetting the client
-		curConnStatus := client().conn.GetState()
-		if curConnStatus != prevConnStatus {
-			log.Infof("new grpc client connection status: %v", curConnStatus)
-		}
-		time.Sleep(30 * time.Second)
-	}
-}
-
-func resetClient() error {
-	if client() != nil && client().conn != nil {
-		err := client().conn.Close()
-		if err != nil {
-			log.Infof("Failed to close agent connection: %v", err)
-		}
+// createClient creates a gRPC client tuned for communication over unix domain sockets, i.e. with
+// much more aggressive timeouts than would be suitable for network communication. Note that client
+// creation does _not_ perform I/O, hence successful creation of the client does not imply
+// connectivity.
+func createClient(address string) (grpc.ClientConnInterface, error) {
+	// Override the default backoff config to specify a much shorter base and max delay, since
+	// there's no network, no concern of overwhelming a server with many clients nor other problems
+	// gRPC tries to be robust against.
+	backoff := backoff.Config{
+		BaseDelay:  time.Millisecond * 50,
+		Multiplier: backoff.DefaultConfig.Multiplier,
+		Jitter:     backoff.DefaultConfig.Jitter,
+		MaxDelay:   time.Second * 5,
 	}
 
-	var err error
-	newConn, err := grpc.Dial("unix:///var/run/cilium/proxy-agent.sock",
+	return grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 		grpc.WithIdleTimeout(time.Duration(0)),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff,
+			// The MinConnectTimeout comes into play when there is a listener on the unix domain
+			// socket, but no server handles incoming connections. This directly impacts DNS tail
+			// latency in the worst case, so we're fairly aggressive. After this expires without a
+			// successful connection, RPCs fail with "use of closed connection" when started in
+			// TRANSIENT_FAILURE, but each still cause an attempt to reestablish a connection after
+			// the backoff has been waited for (which we also make much more aggressive).
+			MinConnectTimeout: time.Millisecond * 500,
+		}),
 	)
-	if err != nil {
-		log.Errorf("failed to reset grpc client: %v", err)
-		return err
-	}
-	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(newConn), newConn})
-	return nil
 }
 
 // RestoreRules runs on startup and tries to restore rules from Cilium agent
