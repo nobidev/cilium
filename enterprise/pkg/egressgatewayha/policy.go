@@ -46,6 +46,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -126,6 +127,23 @@ type groupStatus struct {
 	activeGatewayIPsByAZ map[string][]netip.Addr
 	healthyGatewayIPs    []netip.Addr
 	egressIPByGatewayIP  map[netip.Addr]netip.Addr
+}
+
+func (gs *groupStatus) filterGWsWithoutEgressIP() {
+	filter := func(addrs []netip.Addr) []netip.Addr {
+		return slices.DeleteFunc(addrs, func(addr netip.Addr) bool {
+			_, found := gs.egressIPByGatewayIP[addr]
+			return !found
+		})
+	}
+
+	// filter away active gateways without an assigned egress IP
+	gs.activeGatewayIPs = filter(gs.activeGatewayIPs)
+
+	// filter away active gateways in each AZ without an assigned egress IP
+	for az, gwsByAZ := range gs.activeGatewayIPsByAZ {
+		gs.activeGatewayIPsByAZ[az] = filter(gwsByAZ)
+	}
 }
 
 type azAffinityMode int
@@ -588,8 +606,10 @@ func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, 
 			}...)
 		}
 
-		// check if this group has at least one active gateway, otherwise there is nothing to allocate
-		if len(groupStatuses[i].activeGatewayIPs) == 0 {
+		// check if this group has at least one active gateway, either in activeGatewayIPs or
+		// activeGatewayIPsByAZ (to account for AZ affinity case), otherwise there is nothing to allocate.
+		activeGWs := activeGatewaysInGroup(groupStatuses[i])
+		if len(activeGWs) == 0 {
 			continue
 		}
 
@@ -600,13 +620,11 @@ func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, 
 		}
 
 		// Sort the active gateway IPs so that the allocation algorithm is deterministic.
-		activeGatewayIPs := make([]netip.Addr, len(groupStatuses[i].activeGatewayIPs))
-		copy(activeGatewayIPs, groupStatuses[i].activeGatewayIPs)
-		slices.SortFunc(activeGatewayIPs, func(a, b netip.Addr) int {
+		slices.SortFunc(activeGWs, func(a, b netip.Addr) int {
 			return a.Compare(b)
 		})
 
-		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(egressPool, activeGatewayIPs, prevEgressIPs)
+		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(egressPool, activeGWs, prevEgressIPs)
 		if err != nil {
 			operatorManager.health.Degraded(fmt.Sprintf("unable to fulfill allocations for policy %s", config.id), err)
 			return groupStatuses, conditionsForFailure(config.generation, []meta_v1.Condition{
@@ -652,6 +670,15 @@ func conditionsForSuccess(generation int64, conditions ...meta_v1.Condition) []m
 			Reason:             "noreason",
 			Message:            "allocation requests satisfied",
 		},
+	)
+}
+
+func activeGatewaysInGroup(group groupStatus) []netip.Addr {
+	return ciliumslices.Unique(
+		slices.Concat(
+			group.activeGatewayIPs,
+			slices.Concat(slices.Collect(maps.Values(group.activeGatewayIPsByAZ))...),
+		),
 	)
 }
 
@@ -712,22 +739,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		// cannot be assigned. Therefore, we remove each gateway IP without an egress IP from
 		// both the list of active gateways and the map of active gateways by affinity zones
 		for i := range groupStatuses {
-			updActiveGws := slices.Collect(maps.Keys(groupStatuses[i].egressIPByGatewayIP))
-			slices.SortFunc(updActiveGws, func(a, b netip.Addr) int {
-				return a.Compare(b)
-			})
-			groupStatuses[i].activeGatewayIPs = updActiveGws
-
-			updGwsByAz := make(map[string][]netip.Addr, len(groupStatuses[i].activeGatewayIPsByAZ))
-			for az, gwsByAZ := range groupStatuses[i].activeGatewayIPsByAZ {
-				updGwsByAz[az] = []netip.Addr{}
-				for _, gw := range gwsByAZ {
-					if slices.Contains(groupStatuses[i].activeGatewayIPs, gw) {
-						updGwsByAz[az] = append(updGwsByAz[az], gw)
-					}
-				}
-			}
-			groupStatuses[i].activeGatewayIPsByAZ = updGwsByAz
+			groupStatuses[i].filterGWsWithoutEgressIP()
 		}
 	}
 

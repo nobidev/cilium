@@ -1965,6 +1965,47 @@ func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
 	k.addNode(t, node3Name, node3IP, nodeGroup1LabelsAZ2)
 	k.addNode(t, node4Name, node4IP, nodeGroup1LabelsAZ2)
 
+	// Create a new HA policy that selects k8s{1,2,3,4} nodes with a /30 egress CIDR
+	k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/30"},
+		azAffinity:       azAffinityLocalOnly,
+		egressGroups:     []egressGroupParams{{nodeLabels: nodeGroup1Labels, iface: testInterface1}},
+	})
+
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		egressIPByGatewayIP: map[string]string{
+			node1IP: "10.100.255.48",
+			node2IP: "10.100.255.49",
+			node3IP: "10.100.255.50",
+			node4IP: "10.100.255.51",
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionTrue,
+		},
+	})
+}
+
+func TestEgressCIDRAllocationWithAZAffinityPoolExhausted(t *testing.T) {
+	k := setupEgressGatewayOperatorTestSuite(t)
+
+	k.addNode(t, node1Name, node1IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node3Name, node3IP, nodeGroup1LabelsAZ2)
+	k.addNode(t, node4Name, node4IP, nodeGroup1LabelsAZ2)
+
 	// Create a new HA policy that selects k8s{1,2,3,4} nodes with a /31 egress CIDR
 	k.addPolicy(t, &policyParams{
 		name:             "policy-1",
@@ -1998,6 +2039,48 @@ func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
 		{
 			Type:   egwIPAMPoolExhausted,
 			Status: metav1.ConditionUnknown,
+		},
+	})
+}
+
+func TestEgressCIDRAllocationWithAZAffinityMaxGWNodes(t *testing.T) {
+	k := setupEgressGatewayOperatorTestSuite(t)
+
+	k.addNode(t, node1Name, node1IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node3Name, node3IP, nodeGroup1LabelsAZ2)
+	k.addNode(t, node4Name, node4IP, nodeGroup1LabelsAZ2)
+
+	// Create a new HA policy that selects k8s{1,2,3,4} nodes with a /30 egress CIDR
+	// and max gateway nodes set to 1. Since AZ affinity is enabled, there will be one
+	// active gateway for each affinity zone, for a total of 2. Consequently, IPAM should
+	// allocate 2 egress IPs.
+	k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/30"},
+		azAffinity:       azAffinityLocalOnly,
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels, maxGatewayNodes: 1}},
+	})
+
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP},
+			"az-2": {node4IP},
+		},
+		egressIPByGatewayIP: map[string]string{
+			node1IP: "10.100.255.48",
+			node4IP: "10.100.255.49",
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionTrue,
 		},
 	})
 }
