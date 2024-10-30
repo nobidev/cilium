@@ -95,8 +95,8 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 			fmt.Fprintln(c.OutOrStdout(), "")
 
 			tableTabWriter := tabwriter.NewWriter(c.OutOrStdout(), minWidth, 0, padding, paddingChar, 0)
-			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"BGP Peers"+Reset, Default+"BGP"+Reset, Default+"T1"+Reset, Default+"HC T1->T2"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
-			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", Default+"---------"+Reset, Default+"---"+Reset, Default+"--"+Reset, Default+"---------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
+			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"BGP Peers"+Reset, Default+"BGP"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
+			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", Default+"---------"+Reset, Default+"---"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
 			for _, f := range lsm.Services {
 				fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type, printSimpleStatusCell(f.BGPPeerStatus), printSimpleStatusCell(f.BGPNodeStatus), printSimpleStatusCell(f.T1NodeStatus), printSimpleStatusCell(f.T1T2HCStatus), printSimpleStatusCell(f.T2NodeStatus), printSimpleStatusCell(f.T2BackendHCStatus), printGroupedStatusCell(f.BackendpoolStatus), getOverallStatus(f.BGPNodeStatus, f.BGPPeerStatus))
 			}
@@ -160,7 +160,7 @@ func statusText(statusText string) string {
 }
 
 func relationText(status string, ok, total int) string {
-	if status == "N/A" {
+	if status == "N/A" || status == "" {
 		return ""
 	}
 

@@ -6,6 +6,7 @@ package loadbalancer
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +74,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
 			T2NodeStatus:      s.getT2Status(f, t2EnvoyConfigs),
 			T2BackendHCStatus: s.getHCT2Backends(f, t2EnvoyConfigs),
-			BackendpoolStatus: s.getBackends(f, t2EnvoyConfigs),
+			BackendpoolStatus: s.getBackends(f, t1ServicesRoutes, t2EnvoyConfigs),
 			Status:            s.getOverallStatus(f, bgpRoutes),
 		}
 
@@ -276,7 +277,20 @@ func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeSe
 	}
 }
 
+func (s *LoadbalancerClient) isT1Only(lbsvc isovalentv1alpha1.LBService) bool {
+	return lbsvc.Spec.Applications.TCPProxy != nil &&
+		(lbsvc.Spec.Applications.TCPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeAuto, isovalentv1alpha1.LBTCPProxyForceModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceMode))
+}
+
 func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
+	if s.isT1Only(lbsvc) {
+		return LoadbalancerStatusModelSimpleStatus{
+			Status: "",
+			OK:     0,
+			Total:  0,
+		}
+	}
+
 	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
@@ -357,6 +371,14 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 }
 
 func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
+	if s.isT1Only(lbsvc) {
+		return LoadbalancerStatusModelSimpleStatus{
+			Status: "",
+			OK:     0,
+			Total:  0,
+		}
+	}
+
 	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
@@ -395,13 +417,85 @@ func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, 
 	}
 }
 
-func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelGroupedStatus {
+func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelGroupedStatus {
 	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelGroupedStatus{
 			Status: "N/A",
 		}
 	}
 
+	var status map[string]map[string]int
+	nrOfNodes := 0
+
+	if s.isT1Only(lbsvc) {
+		status = s.getBackendStatusFromT1(lbsvc, nodeT1Services)
+		nrOfNodes = len(nodeT1Services)
+	} else {
+		status = s.getBackendStatusFromT2(lbsvc, nodeEnvoyConfigs)
+		nrOfNodes = len(nodeEnvoyConfigs)
+	}
+
+	total := 0
+	totalOk := 0
+
+	groups := []LoadbalancerStatusModelSimpleStatus{}
+
+	for _, endpoints := range status {
+		nrOk := 0
+		for _, v := range endpoints {
+			total++
+			if v == nrOfNodes {
+				nrOk++
+				totalOk++
+			}
+		}
+
+		groups = append(groups, LoadbalancerStatusModelSimpleStatus{
+			Status: s.statusText(nrOk, len(endpoints)),
+			OK:     nrOk,
+			Total:  len(endpoints),
+		})
+	}
+
+	return LoadbalancerStatusModelGroupedStatus{
+		Status: s.statusText(totalOk, total),
+		Groups: groups,
+	}
+}
+
+func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]int {
+	status := map[string]map[string]int{}
+
+	for _, sn := range nodeT1Services {
+		for _, s := range sn {
+			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
+				s.Status.Realized.Flags.Type == "LoadBalancer" &&
+				s.Status.Realized.Flags.Name == "lbfe-"+lbsvc.Name &&
+				s.Status.Realized.FrontendAddress.IP == *lbsvc.Status.Addresses.IPv4 &&
+				s.Status.Realized.FrontendAddress.Port == uint16(lbsvc.Spec.Port) {
+
+				for _, b := range s.Status.Realized.BackendAddresses {
+					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name]; !ok {
+						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name] = map[string]int{}
+					}
+
+					key := fmt.Sprintf("%s-%d", *b.IP, b.Port)
+					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key]; !ok {
+						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = 0
+					}
+
+					if b.State == "active" {
+						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] + 1
+					}
+				}
+			}
+		}
+	}
+
+	return status
+}
+
+func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) map[string]map[string]int {
 	status := map[string]map[string]int{}
 
 	for _, ecn := range nodeEnvoyConfigs {
@@ -433,32 +527,7 @@ func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, node
 		}
 	}
 
-	total := 0
-	totalOk := 0
-
-	groups := []LoadbalancerStatusModelSimpleStatus{}
-
-	for _, endpoints := range status {
-		nrOk := 0
-		for _, v := range endpoints {
-			total++
-			if v == len(nodeEnvoyConfigs) {
-				nrOk++
-				totalOk++
-			}
-		}
-
-		groups = append(groups, LoadbalancerStatusModelSimpleStatus{
-			Status: s.statusText(nrOk, len(endpoints)),
-			OK:     nrOk,
-			Total:  len(endpoints),
-		})
-	}
-
-	return LoadbalancerStatusModelGroupedStatus{
-		Status: s.statusText(totalOk, total),
-		Groups: groups,
-	}
+	return status
 }
 
 func (s *LoadbalancerClient) getOverallStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) string {
