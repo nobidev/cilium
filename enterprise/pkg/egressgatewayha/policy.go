@@ -236,9 +236,9 @@ func getIEGPForStatusUpdate(iegp *Policy, groupStatuses []groupStatus, condition
 	iegpGroupStatuses := make([]v1.IsovalentEgressGatewayPolicyGroupStatus, 0, len(groupStatuses))
 	for _, gs := range groupStatuses {
 		iegpGroupStatuses = append(iegpGroupStatuses, v1.IsovalentEgressGatewayPolicyGroupStatus{
-			ActiveGatewayIPs:     toStringSlice(gs.activeGatewayIPs),
+			ActiveGatewayIPs:     toSortedStringSlice(gs.activeGatewayIPs),
 			ActiveGatewayIPsByAZ: toStringMapStringSlice(gs.activeGatewayIPsByAZ),
-			HealthyGatewayIPs:    toStringSlice(gs.healthyGatewayIPs),
+			HealthyGatewayIPs:    toSortedStringSlice(gs.healthyGatewayIPs),
 			EgressIPByGatewayIP:  toStringMap(gs.egressIPByGatewayIP),
 		})
 	}
@@ -1279,11 +1279,12 @@ func ParseIEGPConfigID(iegp *v1.IsovalentEgressGatewayPolicy) types.NamespacedNa
 	}
 }
 
-func toStringSlice(s []netip.Addr) []string {
+func toSortedStringSlice(s []netip.Addr) []string {
 	out := make([]string, 0, len(s))
 	for _, v := range s {
 		out = append(out, v.String())
 	}
+	slices.Sort(out)
 	return out
 }
 
@@ -1298,7 +1299,7 @@ func toStringMap(m map[netip.Addr]netip.Addr) map[string]string {
 func toStringMapStringSlice(m map[string][]netip.Addr) map[string][]string {
 	out := make(map[string][]string, len(m))
 	for k, v := range m {
-		out[k] = toStringSlice(v)
+		out[k] = toSortedStringSlice(v)
 	}
 	return out
 }
