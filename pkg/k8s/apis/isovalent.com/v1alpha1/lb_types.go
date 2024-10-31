@@ -273,6 +273,10 @@ type LBServiceHTTPJWTAuthJWKS struct {
 	SecretRef *LBServiceSecretRef `json:"secretRef,omitempty"`
 }
 
+const (
+	LBServiceJWKSSecretKey = "jwks"
+)
+
 type LBServiceHTTPBasicAuthUser struct {
 	// The reference to the k8s secret that contains the username and
 	// password for the basic authentication. This must be a k8s secret of
@@ -1041,6 +1045,7 @@ func (r *LBService) AllReferencedSecretNames() []string {
 	secretNames = append(secretNames, r.AllReferencedTLSCertificateSecretNames()...)
 	secretNames = append(secretNames, r.AllReferencedTLSCACertValidationSecretNames()...)
 	secretNames = append(secretNames, r.AllReferencedBasicAuthSecretNames()...)
+	secretNames = append(secretNames, r.AllReferencedJWTAuthSecretNames()...)
 
 	slices.Sort(secretNames)
 	return slices.Compact(secretNames)
@@ -1097,6 +1102,24 @@ func (r *LBService) AllReferencedBasicAuthSecretNames() []string {
 		r.Spec.Applications.HTTPSProxy.Auth != nil &&
 		r.Spec.Applications.HTTPSProxy.Auth.Basic != nil {
 		secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.Auth.Basic.Users.SecretRef.Name)
+	}
+
+	slices.Sort(secretNames)
+	return slices.Compact(secretNames)
+}
+
+func (r *LBService) AllReferencedJWTAuthSecretNames() []string {
+	secretNames := []string{}
+
+	if r.Spec.Applications.HTTPProxy != nil &&
+		r.Spec.Applications.HTTPProxy.Auth != nil &&
+		r.Spec.Applications.HTTPProxy.Auth.JWT != nil {
+		for _, provider := range r.Spec.Applications.HTTPProxy.Auth.JWT.Providers {
+			if provider.JWKS.SecretRef == nil {
+				continue
+			}
+			secretNames = append(secretNames, provider.JWKS.SecretRef.Name)
+		}
 	}
 
 	slices.Sort(secretNames)

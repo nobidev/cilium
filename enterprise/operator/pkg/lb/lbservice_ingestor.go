@@ -955,6 +955,7 @@ func (r *ingestor) toHTTPAuth(auth *isovalentv1alpha1.LBServiceHTTPAuth, referen
 	}
 	return &lbServiceHTTPAuth{
 		basicAuth: r.toHTTPBasicAuth(auth.Basic, referencedSecrets),
+		jwtAuth:   r.toHTTPJWTAuth(auth.JWT, referencedSecrets),
 	}
 }
 
@@ -988,6 +989,41 @@ func (r *ingestor) toHTTPBasicAuth(basicAuth *isovalentv1alpha1.LBServiceHTTPBas
 	return ba
 }
 
+func (r *ingestor) toHTTPJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPJWTAuth, referencedSecrets map[string]*corev1.Secret) *lbServiceHTTPJWTAuth {
+	if jwtAuth == nil {
+		return nil
+	}
+
+	ja := &lbServiceHTTPJWTAuth{
+		providers: []jwtProvider{},
+	}
+
+	for _, provider := range jwtAuth.Providers {
+		if provider.JWKS.SecretRef == nil {
+			continue
+		}
+
+		secret, ok := referencedSecrets[provider.JWKS.SecretRef.Name]
+		if !ok {
+			continue
+		}
+
+		jwksStr, ok := secret.Data[isovalentv1alpha1.LBServiceJWKSSecretKey]
+		if !ok {
+			continue
+		}
+
+		ja.providers = append(ja.providers, jwtProvider{
+			name: provider.Name,
+			localJWKS: &localJWKS{
+				jwksStr: string(jwksStr),
+			},
+		})
+	}
+
+	return ja
+}
+
 func (r *ingestor) toHTTPRouteAuth(auth *isovalentv1alpha1.LBServiceHTTPRouteAuth) *lbRouteHTTPAuth {
 	if auth == nil {
 		return nil
@@ -995,6 +1031,7 @@ func (r *ingestor) toHTTPRouteAuth(auth *isovalentv1alpha1.LBServiceHTTPRouteAut
 
 	return &lbRouteHTTPAuth{
 		basicAuth: r.toHTTPRouteBasicAuth(auth.Basic),
+		jwtAuth:   r.toHTTPRouteJWTAuth(auth.JWT),
 	}
 }
 
@@ -1041,5 +1078,14 @@ func (r *ingestor) toBackendProxyProtocolConfig(protocol *isovalentv1alpha1.LBBa
 	return &lbBackendProxyProtocolConfig{
 		version:         int(protocol.Version),
 		passthroughTLVs: tlvs,
+	}
+}
+
+func (r *ingestor) toHTTPRouteJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPRouteJWTAuth) *lbRouteHTTPJWTAuth {
+	if jwtAuth == nil {
+		return nil
+	}
+	return &lbRouteHTTPJWTAuth{
+		disabled: jwtAuth.Disabled,
 	}
 }

@@ -178,6 +178,12 @@ func (r lbService) usesHTTPSBasicAuth() bool {
 		r.applications.httpsProxy.auth.basicAuth != nil
 }
 
+func (r lbService) usesHTTPJWTAuth() bool {
+	return r.applications.httpProxy != nil &&
+		r.applications.httpProxy.auth != nil &&
+		r.applications.httpProxy.auth.jwtAuth != nil
+}
+
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil
@@ -427,10 +433,24 @@ type lbRouteTCPConnectionFilteringRule struct {
 
 type lbServiceHTTPAuth struct {
 	basicAuth *lbServiceHTTPBasicAuth
+	jwtAuth   *lbServiceHTTPJWTAuth
 }
 
 type lbServiceHTTPBasicAuth struct {
 	users []lbServiceUserPassword
+}
+
+type lbServiceHTTPJWTAuth struct {
+	providers []jwtProvider
+}
+
+type jwtProvider struct {
+	name      string
+	localJWKS *localJWKS
+}
+
+type localJWKS struct {
+	jwksStr string
 }
 
 type lbServiceUserPassword struct {
@@ -440,9 +460,14 @@ type lbServiceUserPassword struct {
 
 type lbRouteHTTPAuth struct {
 	basicAuth *lbRouteHTTPBasicAuth
+	jwtAuth   *lbRouteHTTPJWTAuth
 }
 
 type lbRouteHTTPBasicAuth struct {
+	disabled bool
+}
+
+type lbRouteHTTPJWTAuth struct {
 	disabled bool
 }
 

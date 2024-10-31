@@ -33,6 +33,7 @@ import (
 	envoy_extensions_accessloggers_stream_v3 "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	envoy_extensions_filters_http_basic_auth_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/basic_auth/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/health_check/v3"
+	envoy_extensions_filters_http_jwt_authn_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/jwt_authn/v3"
 	envoy_extensions_filters_http_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
 	envoy_extensions_filters_http_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
@@ -457,6 +458,15 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 		})
 	}
 
+	if model.usesHTTPJWTAuth() {
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.jwt_authn",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(r.toJWTAuthentication(model.applications.httpProxy.auth.jwtAuth)),
+			},
+		})
+	}
+
 	httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
@@ -465,6 +475,69 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 	})
 
 	return httpFilters
+}
+
+func (r *lbServiceT2Translator) toJWTAuthentication(auth *lbServiceHTTPJWTAuth) *envoy_extensions_filters_http_jwt_authn_v3.JwtAuthentication {
+	providers := map[string]*envoy_extensions_filters_http_jwt_authn_v3.JwtProvider{}
+	providerNameRequirements := []*envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement{}
+	for _, provider := range auth.providers {
+		p := &envoy_extensions_filters_http_jwt_authn_v3.JwtProvider{
+			// Forward JWT. The backend application suppose to use
+			// JWT for their application specific logic.
+			Forward: true,
+		}
+
+		if provider.localJWKS != nil {
+			p.JwksSourceSpecifier = &envoy_extensions_filters_http_jwt_authn_v3.JwtProvider_LocalJwks{
+				LocalJwks: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineString{
+						InlineString: provider.localJWKS.jwksStr,
+					},
+				},
+			}
+		}
+
+		providers[provider.name] = p
+
+		providerNameRequirements = append(providerNameRequirements, &envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement{
+			RequiresType: &envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement_ProviderName{
+				ProviderName: provider.name,
+			},
+		})
+	}
+
+	var requirement *envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement
+	if len(providerNameRequirements) == 1 {
+		// Envoy rejects the RequirementAny with a single entry. We
+		// need to handle this case separately.
+		requirement = providerNameRequirements[0]
+	} else {
+		requirement = &envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement{
+			RequiresType: &envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement_RequiresAny{
+				RequiresAny: &envoy_extensions_filters_http_jwt_authn_v3.JwtRequirementOrList{
+					Requirements: providerNameRequirements,
+				},
+			},
+		}
+	}
+
+	return &envoy_extensions_filters_http_jwt_authn_v3.JwtAuthentication{
+		Providers: providers,
+
+		// Accept the requiest if any of the provider matches.
+		Rules: []*envoy_extensions_filters_http_jwt_authn_v3.RequirementRule{
+			{
+				Match: &envoy_config_route_v3.RouteMatch{
+					PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+				RequirementType: &envoy_extensions_filters_http_jwt_authn_v3.RequirementRule_Requires{
+					Requires: requirement,
+				},
+			},
+		},
+	}
 }
 
 func (r *lbServiceT2Translator) toHTPasswdString(auth *lbServiceHTTPBasicAuth) string {
@@ -994,6 +1067,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 			model.usesHTTPRequestFiltering(),
 			model.usesHTTPRequestRateLimiting(),
 			model.usesHTTPBasicAuth(),
+			model.usesHTTPJWTAuth(),
 			model.applications.httpProxy.routes,
 			httpTypeHTTP,
 		)
@@ -1008,7 +1082,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteConfig(model *lbService) *e
 func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *envoy_config_route_v3.RouteConfiguration {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 	if model.applications.httpsProxy != nil {
-		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), model.usesHTTPSBasicAuth(), model.applications.httpsProxy.routes, httpTypeHTTPS)
+		virtualHosts = r.desiredEnvoyHttpRouteVirtualHosts(model.usesHTTPSRequestFiltering(), model.usesHTTPSRequestRateLimiting(), model.usesHTTPSBasicAuth(), false, model.applications.httpsProxy.routes, httpTypeHTTPS)
 	}
 
 	return &envoy_config_route_v3.RouteConfiguration{
@@ -1017,7 +1091,7 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpsRouteConfig(model *lbService) *
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, usesBasicAuth bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
+func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFiltering bool, usesRateLimiting bool, usesBasicAuth bool, usesJWTAuth bool, modelRoutes map[string][]lbRouteHTTP, httpType string) []*envoy_config_route_v3.VirtualHost {
 	virtualHosts := []*envoy_config_route_v3.VirtualHost{}
 
 	routeHostNamesOrdered := slices.Sorted(maps.Keys(modelRoutes))
@@ -1035,6 +1109,9 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 			}
 			if usesBasicAuth && route.auth != nil && route.auth.basicAuth != nil {
 				tpfc["envoy.filters.http.basic_auth"] = toAny(r.toHTTPRouteBasicAuthFilter(route.auth.basicAuth))
+			}
+			if usesJWTAuth && route.auth != nil && route.auth.jwtAuth != nil {
+				tpfc["envoy.filters.http.jwt_authn"] = toAny(r.toHTTPRouteJWTAuthFilter(route.auth.jwtAuth))
 			}
 
 			envoyRoutes = append(envoyRoutes, &envoy_config_route_v3.Route{
@@ -1884,6 +1961,14 @@ func (r *lbServiceT2Translator) toHTTPRateLimitFilter(config *lbServiceRequestRa
 func (r *lbServiceT2Translator) toHTTPRouteBasicAuthFilter(config *lbRouteHTTPBasicAuth) *envoy_config_route_v3.FilterConfig {
 	return &envoy_config_route_v3.FilterConfig{
 		Disabled: config.disabled,
+	}
+}
+
+func (r *lbServiceT2Translator) toHTTPRouteJWTAuthFilter(config *lbRouteHTTPJWTAuth) *envoy_extensions_filters_http_jwt_authn_v3.PerRouteConfig {
+	return &envoy_extensions_filters_http_jwt_authn_v3.PerRouteConfig{
+		RequirementSpecifier: &envoy_extensions_filters_http_jwt_authn_v3.PerRouteConfig_Disabled{
+			Disabled: config.disabled,
+		},
 	}
 }
 
