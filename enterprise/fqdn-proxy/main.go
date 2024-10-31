@@ -162,7 +162,6 @@ var (
 // client resets.
 type fqdnAgentClient struct {
 	pb.FQDNProxyAgentClient
-	conn *grpc.ClientConn
 }
 
 func init() {
@@ -278,7 +277,7 @@ func main() {
 	}
 	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)})
 
-	go manageNotifyOnDNSMsg()
+	go manageDNSNotificationQueue()
 	log.Info("starting cilium dns proxy server")
 	if err := re.InitRegexCompileLRU(*FQDNRegexCompileLRUSize); err != nil {
 		log.WithError(err).Fatal("failed to start DNS proxy: failed to init regex LRU cache")
@@ -317,16 +316,16 @@ func main() {
 		log.WithField("code", *ToFQDNSRejectResponseCode).Fatalf("invalid fqdn reject response code, must be one of %v", option.FQDNRejectOptions)
 	}
 
-	go RestoreRules()
-	go RunServer(proxy)
 	log.Info("fqdn proxy is now ready")
+	go restoreRules()
+	go runServer(proxy)
 
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-exitSignal
 }
 
-func manageNotifyOnDNSMsg() {
+func manageDNSNotificationQueue() {
 	wp := workerpool.New(*DNSNotificationSendWorkers)
 	for msg := range DNSNotificationQueue {
 		msg := msg
@@ -414,8 +413,8 @@ func createClient(address string) (grpc.ClientConnInterface, error) {
 	)
 }
 
-// RestoreRules runs on startup and tries to restore rules from Cilium agent
-func RestoreRules() {
+// restoreRules runs on startup and tries to restore rules from Cilium agent
+func restoreRules() {
 	log.Info("Restoring DNS rules from Cilium Agent")
 	var err error
 	var rules *pb.RestoredRulesMap
@@ -662,14 +661,13 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 		// Cilium-agent is down or unable to successfully plumb the policy
 		// right now, so queue this DNSNotification until cilium is able to
 		// handle the message.
-		if *exposePrometheusMetrics {
-			ProxyUpdateQueueLen.Inc()
-		}
 		select {
 		case DNSNotificationQueue <- notification:
+			if *exposePrometheusMetrics {
+				ProxyUpdateQueueLen.Inc()
+			}
 		default:
 			if *exposePrometheusMetrics {
-				ProxyUpdateQueueLen.Dec()
 				metricError = metricErrorOverflow
 				ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
 			}
@@ -778,7 +776,7 @@ func newServer(proxy *dnsproxy.DNSProxy) *FQDNProxyServer {
 	return &FQDNProxyServer{proxy: proxy}
 }
 
-func RunServer(proxy *dnsproxy.DNSProxy) {
+func runServer(proxy *dnsproxy.DNSProxy) {
 	socket := "/var/run/cilium/proxy.sock"
 	os.Remove(socket)
 	lis, err := net.Listen("unix", socket)
