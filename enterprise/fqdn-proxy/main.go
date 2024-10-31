@@ -39,6 +39,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -153,7 +154,6 @@ var (
 	metricErrorAllow    = "allow"
 	LogInfoTrigger      *trigger.Trigger
 	LogWarningTrigger   *trigger.Trigger
-	LogAgentDownTrigger *trigger.Trigger
 	LogDebugTrigger     *trigger.Trigger
 )
 
@@ -173,13 +173,6 @@ func init() {
 		Name:        "ProxyLogWarning",
 	}); err != nil {
 		log.WithError(err).Error("failed to create proxylogwarning trigger")
-	}
-	if LogAgentDownTrigger, err = trigger.NewTrigger(trigger.Parameters{
-		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(log.Warning),
-		Name:        "AgentDownLogWarning",
-	}); err != nil {
-		log.WithError(err).Error("failed to create agentdownlogwarning trigger")
 	}
 	if LogDebugTrigger, err = trigger.NewTrigger(trigger.Parameters{
 		MinInterval: time.Minute,
@@ -358,21 +351,26 @@ func sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
 		requestCtx, cancel := context.WithTimeout(ctx, DNSNotificationSendTimeout)
 		_, err := client().NotifyOnDNSMessage(requestCtx, msg)
 		cancel()
-		var errDNSRequestNoEndpoint dnsproxy.ErrDNSRequestNoEndpoint
-		switch {
-		case err == nil:
-			LogDebugTrigger.TriggerWithReason("Queued DNS Notification was successful")
-			return
-		case strings.Contains(err.Error(), errDNSRequestNoEndpoint.Error()):
-			log.WithFields(logrus.Fields{
-				"error": err,
-				"addr":  msg.EpIPPort,
-			}).Debug("Dropping DNS notification due to endpoint no longer existing")
-			return
-		default:
-			LogAgentDownTrigger.TriggerWithReason(fmt.Sprintf("Failed to notify agent about DNS msg, retrying in %v: %s", DNSNotificationSendRetryInterval, err))
+		updateAgentReachability(err)
+
+		if err != nil {
+			// If the endpoint no longer exists, there's no point in sending this mapping.
+			var errDNSRequestNoEndpoint dnsproxy.ErrDNSRequestNoEndpoint
+			if strings.Contains(err.Error(), errDNSRequestNoEndpoint.Error()) {
+				log.WithFields(logrus.Fields{
+					"error": err,
+					"addr":  msg.EpIPPort,
+				}).Debug("Dropping DNS notification since the endpoint no longer exists")
+				return
+			}
+
 			time.Sleep(DNSNotificationSendRetryInterval)
+			continue
 		}
+
+		LogDebugTrigger.TriggerWithReason("Queued DNS Notification was successful")
+
+		return
 	}
 }
 
@@ -421,8 +419,10 @@ func RestoreRules() {
 	log.Info("Restoring DNS rules from Cilium Agent")
 	var err error
 	var rules *pb.RestoredRulesMap
+
 	for {
 		rules, err = client().GetAllRules(context.Background(), &pb.Empty{})
+		updateAgentReachability(err)
 		if err == nil {
 			break
 		}
@@ -459,6 +459,26 @@ func RestoreRules() {
 	log.Debug("Rules restored")
 }
 
+// Tracks whether the agent was reachable the last time we tried a RPC. Serves to avoid logging
+// excessively in the expected case of agent downtime (e.g. during upgrades).
+var agentReachable atomic.Bool
+
+func updateAgentReachability(err error) *status.Status {
+	sts, ok := status.FromError(err)
+	if !ok || sts.Code() == codes.OK || sts.Code() == codes.Unknown {
+		// Not a gRPC error indicating communication failure, assume agent communication worked.
+		if !agentReachable.Swap(true) {
+			log.Info("Agent connectivity established.")
+		}
+		return sts
+	}
+	if agentReachable.Swap(false) {
+		log.Infof("Agent connectivity lost: %v: %q", sts.Code().String(), sts.Message())
+	}
+
+	return sts
+}
+
 // LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
 func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 	// Make sure to send IPv4 addresses as [4]byte instead of [16]byte over gRPC, so they aren't
@@ -473,6 +493,8 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 	}
 
 	ep, err := client().LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: bs})
+	updateAgentReachability(err)
+
 	if err != nil {
 		cache.lock.RLock()
 		endpoint, ok := cache.endpointByIP[ip]
@@ -480,7 +502,7 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 		if !ok {
 			return nil, false, fmt.Errorf("could not lookup endpoint for ip %s: %w", ip, err)
 		}
-		LogWarningTrigger.TriggerWithReason(fmt.Sprintf("endpoint retrieved from cache: %s", err))
+		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("endpoint retrieved from cache: %s", err))
 		return endpoint, false, nil
 	}
 	endpoint := &endpoint.Endpoint{
@@ -501,6 +523,8 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 // ipcache.
 func LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 	id, err := client().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+	updateAgentReachability(err)
+
 	if err != nil {
 		cache.lock.RLock()
 		cachedID, ok := cache.identityByIP[ip]
@@ -511,7 +535,7 @@ func LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 		}
 		//TODO: check if this assumption is correct
 		// we assume that the identity exists if it's in the cache
-		log.WithError(err).Warning("security ID retrieved from cache")
+		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("security ID lookup in cache: %s", err))
 		return cachedID, true
 	}
 
@@ -531,6 +555,8 @@ func LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 // ipcache.
 func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 	ips, err := client().LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
+	updateAgentReachability(err)
+
 	if err != nil {
 		cache.lock.RLock()
 		cachedIPs, ok := cache.ipBySecID[nid]
@@ -539,7 +565,8 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 			log.Errorf("could not lookup ips for id %v: %v", nid, err)
 			return nil
 		}
-		log.WithError(err).Warning("IPs retrieved from cache")
+
+		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("IPs retrieved from cache: %s", err))
 		return cachedIPs
 	}
 
@@ -621,15 +648,15 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	// request/response.
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(DNSNotificationSendTimeout))
 	defer cancel()
-	if _, err = client().NotifyOnDNSMessage(ctx, notification); err != nil {
-		LogInfoTrigger.TriggerWithReason(fmt.Sprintf("Cilium agent gRPC call failed during DNS response handling: %s", err))
-		if *exposePrometheusMetrics {
-			if s := status.Convert(err); s != nil {
-				metricError = s.Code().String()
-				ProxyUpdateErrors.WithLabelValues(metricError).Inc()
-			} else {
-				log.WithError(err).Warning("BUG: Unexpected error during DNS notification to cilium-agent")
-			}
+	_, err = client().NotifyOnDNSMessage(ctx, notification)
+	status := updateAgentReachability(err)
+
+	if err != nil {
+		if status == nil {
+			log.WithError(err).Warning("BUG: Unexpected non-status error during DNS notification to agent")
+		} else if *exposePrometheusMetrics {
+			metricError = status.Code().String()
+			ProxyUpdateErrors.WithLabelValues(metricError).Inc()
 		}
 
 		// Cilium-agent is down or unable to successfully plumb the policy
