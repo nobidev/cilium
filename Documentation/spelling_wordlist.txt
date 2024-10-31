@@ -534,6 +534,7 @@ microservice
 microservices
 minikube
 misconfiguration
+misconfigured
 misconfigures
 mitigations
 mlx

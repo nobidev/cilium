@@ -273,7 +273,8 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					collector.Options.LogsSinceTime, collector.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'cilium-dnsproxy' pods: %w", err)
 				}
-				if err = collector.SubmitMetricsSubtask(p, dnsProxyContainerName, dnsProxyMetricsPortName); err != nil {
+				if err = collector.SubmitMetricsSubtask(sysdump.FilterPods(p, collector.NodeList),
+					dnsProxyContainerName, dnsProxyMetricsPortName); err != nil {
 					return fmt.Errorf("failed to collect metrics from 'cilium-dnsproxy' pods: %w", err)
 				}
 

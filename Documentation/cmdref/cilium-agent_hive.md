@@ -29,6 +29,7 @@ cilium-agent hive [flags]
       --direct-routing-device string                                 Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-envoy-version-check                                  Do not perform Envoy version check
       --disable-iptables-feeder-rules strings                        Chains to ignore when installing feeder rules.
+      --dynamic-lifecycle-config string                              List of dynamic lifecycle features and their configuration including the dependencies (default "[]")
       --egress-gateway-ha-policy-map-max int                         Maximum number of entries in egress gatewa HA policy map (default 16384)
       --egress-gateway-ha-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-gateway-policy-map-max int                            Maximum number of entries in egress gateway policy map (default 16384)
@@ -46,6 +47,7 @@ cilium-agent hive [flags]
       --enable-cluster-aware-addressing                              Enable cluster-aware addressing, to support overlapping PodCIDRs
       --enable-drift-checker                                         Enables support for config drift checker
       --enable-dynamic-config                                        Enables support for dynamic agent config
+      --enable-dynamic-lifecycle-manager                             Enables support for dynamic lifecycle management
       --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
       --enable-gateway-api                                           Enables Envoy secret sync for Gateway API related TLS secrets

@@ -68,8 +68,8 @@ github.com/cilium/hive v0.0.0-20241021113747-bb8f3c0bede4 h1:dTnQNUDijFP+hf7soSZ
 github.com/cilium/hive v0.0.0-20241021113747-bb8f3c0bede4/go.mod h1:pI2GJ1n3SLKIQVFrKF7W6A6gb6BQkZ+3Hp4PAEo5SuI=
 github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38 h1:hbRPkcebWy1ZqqcnwiJJCFyzLa+xnXk6G/sM/eAsnrU=
 github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38/go.mod h1:5L6S+WQ9v24ibJq38EMHEDljPrdx6PHqTDSHxRCJL2g=
-github.com/cilium/statedb v0.3.1 h1:uoFEYydXjMLMRy7uDhJLsKavHWuDFjfPgE7PO6vVHxs=
-github.com/cilium/statedb v0.3.1/go.mod h1:lnH5vWUBW+nSTQVTlpPhGqjqagEMXQePAgdC9zSRaIQ=
+github.com/cilium/statedb v0.3.2 h1:gXjEEVv/zSNU41nHjlhOVqqpTWnMt+l+9Z+FhBnqCSk=
+github.com/cilium/statedb v0.3.2/go.mod h1:KEdRTPdh54Asl6qimsUh6zFHVprL6ijp9/gCC+/3uA0=
 github.com/cilium/stream v0.0.0-20240816054136-71321e385273 h1:lyP0p5AW9fnNWmUcQ/BKaOmBEyZ+VWY1mGT1CFWv2b0=
 github.com/cilium/stream v0.0.0-20240816054136-71321e385273/go.mod h1:/e83AwqvNKpyg4n3C41qmnmj1x2G9DwzI+jb7GkF4lI=
 github.com/cilium/workerpool v1.2.0 h1:Wc2iOPTvCgWKQXeq4L5tnx4QFEI+z5q1+bSpSS0cnAY=

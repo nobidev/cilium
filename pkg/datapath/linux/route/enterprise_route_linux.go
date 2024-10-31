@@ -16,13 +16,15 @@ import (
 	"fmt"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 // DeleteV4 deletes an IPv4 Linux route. Differently from Delete, it does
 // not discard Priority, Local, Type, MTU and Scope fields.
 // An error is returned if the route does not exist or if the route could not be deleted.
 func DeleteV4(route Route) error {
-	link, err := netlink.LinkByName(route.Device)
+	link, err := safenetlink.LinkByName(route.Device)
 	if err != nil {
 		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
 	}
