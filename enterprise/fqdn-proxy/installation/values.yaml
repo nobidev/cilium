@@ -13,6 +13,8 @@ image:
 runPath: "/var/run/cilium"
 gke: false
 debug: false
+pprof:
+  enabled: false
 extraArgs: []
 extraVolumes: []
 extraVolumeMounts: []

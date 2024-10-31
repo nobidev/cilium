@@ -103,6 +103,9 @@ spec:
 {{- if .Values.debug }}
         - --debug
 {{- end }}
+{{- if .Values.pprof.enabled }}
+        - --pprof=true
+{{- end }}
 {{- if .Values.metrics.enabled }}
         - --expose-metrics
 {{- end }}
