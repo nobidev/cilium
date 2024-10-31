@@ -113,6 +113,7 @@ type LBServiceApplications struct {
 	TCPProxy *LBServiceApplicationTCPProxy `json:"tcpProxy,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:message="Application-wide and per-route auth type must be matched",rule="!has(self.auth) || (has(self.auth.basic) && self.routes.all(r, !has(r.auth) || has(r.auth.basic))) || (has(self.auth.jwt)   && self.routes.all(r, !has(r.auth) || has(r.auth.jwt)))"
 type LBServiceApplicationHTTPProxy struct {
 	// The application-wide HTTP configuration.
 	//
@@ -193,12 +194,17 @@ type LBServiceHTTPConfig struct {
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="has(self.basic)"
+// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="(has(self.basic) && !has(self.jwt)) || (!has(self.basic) && has(self.jwt))"
 type LBServiceHTTPAuth struct {
 	// The basic authentication configuration.
 	//
 	// +kubebuilder:validation:Optional
 	Basic *LBServiceHTTPBasicAuth `json:"basic,omitempty"`
+
+	// The jwt authentication configuration.
+	//
+	// +kubebuilder:validation:Optional
+	JWT *LBServiceHTTPJWTAuth `json:"jwt,omitempty"`
 }
 
 type LBServiceHTTPRouteAuth struct {
@@ -206,6 +212,11 @@ type LBServiceHTTPRouteAuth struct {
 	//
 	// +kubebuilder:validation:Optional
 	Basic *LBServiceHTTPRouteBasicAuth `json:"basic,omitempty"`
+
+	// The per-route JWT authentication configuration.
+	//
+	// +kubebuilder:validation:Optional
+	JWT *LBServiceHTTPRouteJWTAuth `json:"jwt,omitempty"`
 }
 
 type LBServiceHTTPBasicAuth struct {
@@ -220,6 +231,46 @@ type LBServiceHTTPRouteBasicAuth struct {
 	//
 	// +kubebuilder:validation:Required
 	Disabled bool `json:"disabled"`
+}
+
+type LBServiceHTTPJWTAuth struct {
+	// The list of JWT authentication providers. At least one provider must
+	// be specified.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=name
+	Providers []LBServiceHTTPJWTProvider `json:"providers"`
+}
+
+type LBServiceHTTPRouteJWTAuth struct {
+	// Disables the JWT authentication for this route.
+	//
+	// +kubebuilder:validation:Required
+	Disabled bool `json:"disabled"`
+}
+
+type LBServiceHTTPJWTProvider struct {
+	// The name of the provider.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// The JWT authentication configuration.
+	//
+	// +kubebuilder:validation:Required
+	JWKS LBServiceHTTPJWTAuthJWKS `json:"jwks"`
+}
+
+// +kubebuilder:validation:XValidation:message="Either secretRef or httpURI must be specified",rule="has(self.secretRef)"
+type LBServiceHTTPJWTAuthJWKS struct {
+	// The reference to the k8s Secret contains JWKS. The Secret must be an
+	// Opaque Secret with "jwks" key and base64-encoded JWKS string as a
+	// value.
+	//
+	// +kubebuilder:validation:Optional
+	SecretRef *LBServiceSecretRef `json:"secretRef,omitempty"`
 }
 
 type LBServiceHTTPBasicAuthUser struct {

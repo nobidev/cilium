@@ -100,10 +100,57 @@ spec:
                             required:
                             - users
                             type: object
+                          jwt:
+                            description: The jwt authentication configuration.
+                            properties:
+                              providers:
+                                description: |-
+                                  The list of JWT authentication providers. At least one provider must
+                                  be specified.
+                                items:
+                                  properties:
+                                    jwks:
+                                      description: The JWT authentication configuration.
+                                      properties:
+                                        secretRef:
+                                          description: |-
+                                            The reference to the k8s Secret contains JWKS. The Secret must be an
+                                            Opaque Secret with "jwks" key and base64-encoded JWKS string as a
+                                            value.
+                                          properties:
+                                            name:
+                                              description: The name of the K8s Secret
+                                                resource.
+                                              minLength: 1
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                      type: object
+                                      x-kubernetes-validations:
+                                      - message: Either secretRef or httpURI must
+                                          be specified
+                                        rule: has(self.secretRef)
+                                    name:
+                                      description: The name of the provider.
+                                      type: string
+                                  required:
+                                  - jwks
+                                  - name
+                                  type: object
+                                minItems: 1
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            required:
+                            - providers
+                            type: object
                         type: object
                         x-kubernetes-validations:
                         - message: Exactly one authN/Z method can be specified
-                          rule: has(self.basic)
+                          rule: (has(self.basic) && !has(self.jwt)) || (!has(self.basic)
+                            && has(self.jwt))
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTP connections.
@@ -199,6 +246,16 @@ spec:
                                   properties:
                                     disabled:
                                       description: Disables the basic authentication
+                                        for this route.
+                                      type: boolean
+                                  required:
+                                  - disabled
+                                  type: object
+                                jwt:
+                                  description: The per-route JWT authentication configuration.
+                                  properties:
+                                    disabled:
+                                      description: Disables the JWT authentication
                                         for this route.
                                       type: boolean
                                   required:
@@ -426,6 +483,11 @@ spec:
                     required:
                     - routes
                     type: object
+                    x-kubernetes-validations:
+                    - message: Application-wide and per-route auth type must be matched
+                      rule: '!has(self.auth) || (has(self.auth.basic) && self.routes.all(r,
+                        !has(r.auth) || has(r.auth.basic))) || (has(self.auth.jwt)   &&
+                        self.routes.all(r, !has(r.auth) || has(r.auth.jwt)))'
                   httpsProxy:
                     description: |-
                       Defining this stanza enables HTTPSProxy application that proxies the
@@ -461,10 +523,57 @@ spec:
                             required:
                             - users
                             type: object
+                          jwt:
+                            description: The jwt authentication configuration.
+                            properties:
+                              providers:
+                                description: |-
+                                  The list of JWT authentication providers. At least one provider must
+                                  be specified.
+                                items:
+                                  properties:
+                                    jwks:
+                                      description: The JWT authentication configuration.
+                                      properties:
+                                        secretRef:
+                                          description: |-
+                                            The reference to the k8s Secret contains JWKS. The Secret must be an
+                                            Opaque Secret with "jwks" key and base64-encoded JWKS string as a
+                                            value.
+                                          properties:
+                                            name:
+                                              description: The name of the K8s Secret
+                                                resource.
+                                              minLength: 1
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                      type: object
+                                      x-kubernetes-validations:
+                                      - message: Either secretRef or httpURI must
+                                          be specified
+                                        rule: has(self.secretRef)
+                                    name:
+                                      description: The name of the provider.
+                                      type: string
+                                  required:
+                                  - jwks
+                                  - name
+                                  type: object
+                                minItems: 1
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            required:
+                            - providers
+                            type: object
                         type: object
                         x-kubernetes-validations:
                         - message: Exactly one authN/Z method can be specified
-                          rule: has(self.basic)
+                          rule: (has(self.basic) && !has(self.jwt)) || (!has(self.basic)
+                            && has(self.jwt))
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTPS connections.
@@ -560,6 +669,16 @@ spec:
                                   properties:
                                     disabled:
                                       description: Disables the basic authentication
+                                        for this route.
+                                      type: boolean
+                                  required:
+                                  - disabled
+                                  type: object
+                                jwt:
+                                  description: The per-route JWT authentication configuration.
+                                  properties:
+                                    disabled:
+                                      description: Disables the JWT authentication
                                         for this route.
                                       type: boolean
                                   required:
