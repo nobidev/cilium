@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 const (
@@ -50,7 +51,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 		return fmt.Errorf("egress IP %s is not valid", entry.Addr)
 	}
 
-	iface, err := netlink.LinkByName(entry.Interface)
+	iface, err := safenetlink.LinkByName(entry.Interface)
 	if err != nil {
 		return fmt.Errorf("failed to get device %s by name: %w", entry.Interface, err)
 	}
@@ -72,7 +73,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 		return fmt.Errorf("failed to upsert rule for address %s: %w", entry.Addr, err)
 	}
 
-	routes, err := netlink.RouteListFiltered(
+	routes, err := safenetlink.RouteListFiltered(
 		netlink.FAMILY_V4,
 		&netlink.Route{
 			Src:       entry.Addr.AsSlice(),
@@ -128,7 +129,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.EgressIPEntry) error {
-	iface, err := netlink.LinkByName(entry.Interface)
+	iface, err := safenetlink.LinkByName(entry.Interface)
 	if err != nil {
 		return fmt.Errorf("failed to get device %s by name: %w", entry.Interface, err)
 	}
@@ -158,13 +159,13 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 
 func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*tables.EgressIPEntry, statedb.Revision]) error {
 	rulesFilter, rulesMask := rulesFilter()
-	rules, err := netlink.RuleListFiltered(netlink.FAMILY_V4, rulesFilter, rulesMask)
+	rules, err := safenetlink.RuleListFiltered(netlink.FAMILY_V4, rulesFilter, rulesMask)
 	if err != nil {
 		return fmt.Errorf("failed to list egress-gateway IPAM rules: %w", err)
 	}
 
 	routesFilter, routesMask := routesFilter()
-	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, routesFilter, routesMask)
+	routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, routesFilter, routesMask)
 	if err != nil {
 		return fmt.Errorf("failed to list egress-gateway IPAM routes: %w", err)
 	}

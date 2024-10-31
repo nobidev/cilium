@@ -24,6 +24,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -455,7 +456,7 @@ func (conn *bfdEchoClientConn) lookupPeerLinkLayerAddr() error {
 		ipFamily = netlink.FAMILY_V6
 	}
 
-	neigh, err := netlink.NeighList(conn.ifIndex, ipFamily)
+	neigh, err := safenetlink.NeighList(conn.ifIndex, ipFamily)
 	if err != nil {
 		return fmt.Errorf("failed to list IP neighbors: %w", err)
 	}

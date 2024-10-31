@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -863,7 +864,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 					err   error
 				)
 				if gc.iface != "" {
-					iface, err = netlink.LinkByName(gc.iface)
+					iface, err = safenetlink.LinkByName(gc.iface)
 				} else {
 					iface, err = route.NodeDeviceWithDefaultRoute(true, false)
 				}
