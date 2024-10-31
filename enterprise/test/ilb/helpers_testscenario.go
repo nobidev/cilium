@@ -610,3 +610,25 @@ func (r *lbTestScenario) createBasicAuthSecret(ctx context.Context, creds []basi
 
 	return sec.Name
 }
+
+func (r *lbTestScenario) createJWTAuthSecret(ctx context.Context, jwks []byte) string {
+	sec := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.testName + "-jwt-auth",
+		},
+		StringData: map[string]string{
+			isovalentv1alpha1.LBServiceJWKSSecretKey: string(jwks),
+		},
+	}
+
+	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, &sec, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+		}
+	}
+	maybeCleanupT(func() error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
+	}, r.t)
+
+	return sec.Name
+}

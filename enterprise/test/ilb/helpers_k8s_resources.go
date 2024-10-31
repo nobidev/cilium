@@ -372,6 +372,44 @@ func withHttpRouteBasicAuth(disabled bool) httpApplicationRouteOption {
 	}
 }
 
+func withHttpJWTAuth(opts ...httpJWTAuthOption) httpApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPAuth{
+			JWT: &isovalentv1alpha1.LBServiceHTTPJWTAuth{
+				Providers: []isovalentv1alpha1.LBServiceHTTPJWTProvider{},
+			},
+		}
+		for _, opt := range opts {
+			opt(o.Auth.JWT)
+		}
+	}
+}
+
+type httpJWTAuthOption func(o *isovalentv1alpha1.LBServiceHTTPJWTAuth)
+
+func withJWTProvider(name, jwkSecretRef string) httpJWTAuthOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPJWTAuth) {
+		o.Providers = append(o.Providers, isovalentv1alpha1.LBServiceHTTPJWTProvider{
+			Name: name,
+			JWKS: isovalentv1alpha1.LBServiceHTTPJWTAuthJWKS{
+				SecretRef: &isovalentv1alpha1.LBServiceSecretRef{
+					Name: jwkSecretRef,
+				},
+			},
+		})
+	}
+}
+
+func withHttpRouteJWTAuth(disabled bool) httpApplicationRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPRouteAuth{
+			JWT: &isovalentv1alpha1.LBServiceHTTPRouteJWTAuth{
+				Disabled: disabled,
+			},
+		}
+	}
+}
+
 type serviceOption func(o *isovalentv1alpha1.LBService)
 
 func withVIPRef(vipName string) serviceOption {
