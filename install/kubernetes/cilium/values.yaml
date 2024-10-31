@@ -570,8 +570,15 @@ bpf:
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
   monitorFlags: "all"
-  # -- Allow cluster external access to ClusterIP services.
+  # -- (bool) Allow cluster external access to ClusterIP services.
+  # @default -- `false`
   lbExternalClusterIP: false
+  # -- (bool) Enable loadBalancerSourceRanges CIDR filtering for all service
+  # types, not just LoadBalancer services. The corresponding NodePort and
+  # ClusterIP (if enabled for cluster-external traffic) will also apply the
+  # CIDR filter.
+  # @default -- `false`
+  lbSourceRangeAllTypes: false
   # @schema
   # type: [null, boolean]
   # @schema
@@ -747,6 +754,14 @@ daemon:
   #
   # By default, all keys may be overridden.
   blockedConfigOverrides: ~
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- enableSourceIPVerification is a boolean flag to enable or disable the Source IP verification
+  # of endpoints. This flag is useful when Cilium is chained with other CNIs.
+  #
+  # By default, this functionality is enabled
+  enableSourceIPVerification: true
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
 # masqueraded (to an output device IPv4 address), if the output device runs the
@@ -2383,9 +2398,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.30.6-1729608965-1e298fad5ecff399849a689fb0730551afe42422"
+    tag: "v1.30.6-1729774282-0fdfdb63f28d1701595e9374931c4c570a7f8771"
     pullPolicy: "Always"
-    digest: "sha256:4bf4d4dfd23477666d9d2c05b701954df268902d9f31d691e1a0dc85661ac5ac"
+    digest: "sha256:668b7a20971ff54b0e6d82a9019f608cee670515912fcacec48136b04252453e"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []

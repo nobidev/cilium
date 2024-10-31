@@ -159,7 +159,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				features.RequireEnabled(features.NodeWithoutCilium))
 	}
 
-	newTest(ct, "egress-gateway-ha").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -174,7 +175,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithScenarios(enterpriseTests.EgressGatewayHA())
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-with-l7-policy").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-with-l7-policy").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -193,7 +195,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			WithScenarios(enterpriseTests.EgressGatewayHA())
 	}
 
-	newTest(ct, "egress-gateway-ha-excluded-cidrs").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha-excluded-cidrs").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -203,7 +206,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithScenarios(enterpriseTests.EgressGatewayExcludedCIDRs())
 
-	newTest(ct, "egress-gateway-ha-multiple-gateways").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-egress-gateway-ha-multiple-gateways").
 		WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 			Name:            "iegp-sample-client",
 			PodSelectorKind: "client",
@@ -212,7 +216,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		WithScenarios(enterpriseTests.EgressGatewayMultipleGateways())
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-multiple-gateways-with-l7-policy").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-multiple-gateways-with-l7-policy").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -226,7 +231,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.14.8")(ct.CiliumVersion) {
-		newTest(ct, "egress-gateway-ha-az-affinity").
+		// prefix the test name with `seq-` to run it sequentially
+		newTest(ct, "seq-egress-gateway-ha-az-affinity").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -258,7 +264,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newIPAMTest(ct, "egress-gateway-ha-ipam").
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -269,7 +276,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	}
 
 	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-		newIPAMTest(ct, "egress-gateway-ha-ipam-multiple-gateways").
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-multiple-gateways").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				PodSelectorKind: "client",
@@ -464,7 +472,8 @@ func (ec *EnterpriseConnectivity) addBGPTests(ct *check.ConnectivityTest) (err e
 			)
 	}
 
-	newTest(ct, "enterprise-bgp-control-plane-v2").
+	// prefix the test name with `seq-` to run it sequentially
+	newTest(ct, "seq-enterprise-bgp-control-plane-v2").
 		WithScenarios(enterpriseTests.BGPSvcAdvertisements())
 
 	return nil
@@ -473,7 +482,7 @@ func (ec *EnterpriseConnectivity) addBGPTests(ct *check.ConnectivityTest) (err e
 func (ec *EnterpriseConnectivity) addBFDTests(ct *check.ConnectivityTest) (err error) {
 	bfdStandaloneTest := func(ct *check.ConnectivityTest) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
-			NewEnterpriseTest("bfd-standalone").
+			NewEnterpriseTest("seq-bfd-standalone"). // prefix the test name with `seq-` to run it sequentially
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.BFD),
 				features.RequireEnabled(features.NodeWithoutCilium),
@@ -496,7 +505,7 @@ func (ec *EnterpriseConnectivity) addBFDTests(ct *check.ConnectivityTest) (err e
 
 	bfdBGPTest := func(ct *check.ConnectivityTest) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
-			NewEnterpriseTest("bfd-bgp").
+			NewEnterpriseTest("seq-bfd-bgp"). // prefix the test name with `seq-` to run it sequentially
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.BFD),
 				features.RequireEnabled(features.NodeWithoutCilium),

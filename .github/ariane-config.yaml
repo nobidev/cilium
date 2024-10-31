@@ -10,6 +10,7 @@ triggers:
     - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
+    - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
     - conformance-multi-pool.yaml
@@ -46,7 +47,7 @@ triggers:
   /ci-eks:
     workflows:
     - conformance-eks.yaml
-  /ci-external-workloads:
+  /ci-external-workloads(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
     workflows:
     - conformance-externalworkloads.yaml
   /ci-gateway-api:
@@ -55,7 +56,7 @@ triggers:
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
-  /ci-gke:
+  /ci-gke(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
     workflows:
     - conformance-gke.yaml
   /ci-ingress:
