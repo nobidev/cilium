@@ -1860,6 +1860,13 @@ hubble:
   # -- Enables experimental support for using integrated Hubble Timescape.
   timescape:
     enabled: false
+    persistence:
+      enabled: false
+      volumeSize: 10Gi
+      # @schema
+      # type: [null, string]
+      # @schema
+      storageClassName: ~
     ttl: 24h
     image:
       # @schema

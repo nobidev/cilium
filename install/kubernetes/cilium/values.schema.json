@@ -3517,6 +3517,23 @@
               },
               "type": "object"
             },
+            "persistence": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "storageClassName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "volumeSize": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "podSecurityContext": {
               "properties": {
                 "fsGroup": {

@@ -197,9 +197,30 @@ spec:
           items:
           - key: clickhouse-users.xml
             path: clickhouse-user.xml
-
       - name: clickhouse-data
+        {{- if .Values.hubble.timescape.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: hubble-timescape-clickhouse-data
+        {{- else }}
         emptyDir: {}
+        {{- end }}
+{{- if .Values.hubble.timescape.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hubble-timescape-clickhouse-data
+  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.hubble.timescape.persistence.volumeSize }}
+  {{- with .Values.hubble.timescape.persistence.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
