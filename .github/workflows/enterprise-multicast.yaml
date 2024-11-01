@@ -97,19 +97,19 @@ jobs:
         include:
           - name: 1
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241001.183627'
+            kernel: '5.15-20241010.074256'
             encryption: false
           - name: 2
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20241001.183627'
+            kernel: '6.6-20241010.074256'
             encryption: false
           - name: 3
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241001.183627'
+            kernel: '5.15-20241010.074256'
             encryption: true
           - name: 4
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20241001.183627'
+            kernel: '6.6-20241010.074256'
             encryption: true
     timeout-minutes: 60
     steps:
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
@@ -226,7 +226,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.enterprise-multicast-test.result == 'failure' }}
-        uses: actions/upload-artifact/merge@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
