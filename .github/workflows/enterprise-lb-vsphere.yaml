@@ -1,0 +1,295 @@
+name: Enterprise LoadBalancer vSphere (ci-lb-vsphere)
+# This workflow runs on self-hosted runners in the vSphere lab environment.
+# For more details, see https://github.com/isovalent/isovalent-operator/tree/pr/docs?tab=readme-ov-file#ci-running-in-vsphere
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: "{}"
+      skip-cleanup:
+        description: "If set to true, operator-created Loadbalancers will not be deleted"
+        required: false
+        default: false
+
+  # Run every 8 hours
+  schedule:
+    - cron: "0 2/8 * * *"
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: [self-hosted, vsphere]
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: [self-hosted, vsphere]
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  setup-and-test:
+    runs-on: [self-hosted, vsphere]
+    name: "Setup & Test"
+    timeout-minutes: 60
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.2
+
+      - name: Install helm
+        shell: bash
+        run: |
+          # renovate: datasource=github-releases depName=helm/helm
+          HELM_VERSION=v3.13.1
+          wget -4 "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          mv ./linux-amd64/helm /usr/local/bin/helm
+
+      - name: Checkout PR
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          export SHA_SHORT=${SHA:0:12}
+          echo sha_short=${SHA_SHORT} >> $GITHUB_OUTPUT
+
+          echo lb_name="ci-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_OUTPUT
+          SHORT_ID="$(($(echo ${LB_NAME} | cksum | cut -f1 -d ' ') % 256))"
+          echo control_plane_ip="172.20.128.${SHORT_ID}" >> $GITHUB_OUTPUT
+          echo lb_kubeconfig=${LB_NAME}.kubeconfig >> $GITHUB_OUTPUT
+
+      - name: Package and copy Helm chart
+        id: helm-chart
+        shell: bash
+        run: |
+          export VERSION=$(cat VERSION)
+          # append the sha to the version string to ensure the chart is uniquely identifiable
+          export CHART_VERSION="${VERSION}.${{ steps.vars.outputs.sha_short }}"
+          export VERSIONED_NAME="cilium-${CHART_VERSION}"
+
+          sed -i "s/version: ${VERSION}/version: ${CHART_VERSION}/" install/kubernetes/cilium/Chart.yaml
+
+          cat install/kubernetes/cilium/Chart.yaml
+
+          # package and copy the chart to the operator's charts directory
+          helm dependency update install/kubernetes/cilium
+          helm package install/kubernetes/cilium
+          kubectl -n isovalent-operator-system create configmap ${VERSIONED_NAME} --from-file="${VERSIONED_NAME}.tgz"
+
+          echo versioned_name=${VERSIONED_NAME} >> $GITHUB_OUTPUT
+          echo chart_version=${CHART_VERSION} >> $GITHUB_OUTPUT
+
+      - name: Generate LoadBalancer manifests (vsphere)
+        shell: bash
+        run: |
+          cat <<EOF > lb.yaml
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ steps.vars.outputs.lb_name }}
+          ---
+          apiVersion: infra.isovalent.com/v1alpha1
+          kind: ProviderConfig
+          metadata:
+            name: ${{ steps.vars.outputs.lb_name }}
+            namespace: kube-system
+          spec:
+            credentialsSecretRef:
+              name: vsphere-config
+              namespace: kube-system
+            providerType: vsphere
+            overrides:
+              cilium:
+                - "image.repository=quay.io/isovalent-dev/cilium-ci"
+                - "image.useDigest=false"
+                - "image.tag=${{ steps.vars.outputs.sha }}"
+                - "operator.image.repository=quay.io/isovalent-dev/operator"
+                - "operator.image.suffix=-ci"
+                - "operator.image.tag=${{ steps.vars.outputs.sha }}"
+                - "operator.image.useDigest=false"
+          ---
+          apiVersion: infra.isovalent.com/v1alpha1
+          kind: LoadBalancer
+          metadata:
+            name: ${{ steps.vars.outputs.lb_name }}
+            namespace: ${{ steps.vars.outputs.lb_name }}
+          spec:
+            machines:
+              t1Replicas: 1
+              t2Replicas: 1
+              auxNodes: 1
+            version: ${{ steps.helm-chart.outputs.chart_version }}
+            providerConfig:
+              name: ${{ steps.vars.outputs.lb_name }}
+              namespace: kube-system
+            configuration:
+              defaultIPPool: "100.64.0.0/16"
+              controlPlaneStaticIP: ${{ steps.vars.outputs.control_plane_ip }}
+              infrastructureCIDR: "172.20.0.0/16"
+              controlPlaneCIDRs: ["10.20.10.0/24", "10.20.20.0/24"]
+          EOF
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Deploy LoadBalancer (vsphere)
+        id: deploy-lb
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          kubectl apply -f lb.yaml
+
+          echo "waiting for LB to be ready"
+          kubectl --namespace ${{ steps.vars.outputs.lb_name }} wait --for=condition=LoadBalancerReady --timeout=15m  loadbalancer ${{ steps.vars.outputs.lb_name }}
+
+          # write kubeconfig and test a request
+          LB_KUBECONFIG_PATH="$(pwd)/${{ steps.vars.outputs.lb_name }}"
+          kubectl -n ${{ steps.vars.outputs.lb_name }} get secret infra-kubeconfig -ojson | jq -r '.data.value' | base64 -d > ${LB_KUBECONFIG_PATH}
+
+          echo "LB deployment complete"
+          echo lb_kubeconfig_path=${LB_KUBECONFIG_PATH} >> $GITHUB_OUTPUT
+
+      - name: Run e2e tests
+        shell: bash
+        env:
+          KUBECONFIG: ${{ steps.deploy-lb.outputs.lb_kubeconfig_path }}
+        run: |
+          # Using rakyll/gotest to colorize the "go test" output.
+          # It's also possible to use plain "go test" to execute the LB E2E tests.
+          go install github.com/rakyll/gotest@latest
+          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotest -test.v -test.timeout=30m ./enterprise/test/ilb --mode=single-node
+
+      - name: Run "cilium lb status"
+        if: ${{ steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        env:
+          KUBECONFIG: ${{ steps.deploy-lb.outputs.lb_kubeconfig_path }}
+        run: |
+          cilium lb status
+
+      - name: Fetch artifacts
+        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          mkdir -p cilium-sysdumps
+          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdumps-${{ matrix.name }}
+          path: cilium-sysdump-*.zip
+
+      - name: Cleanup LoadBalancer
+        if: ${{ always() && inputs.skip-cleanup != 'true' }}
+        shell: bash
+        run: |
+          kubectl delete -f lb.yaml
+          kubectl -n isovalent-operator-system delete configmap ${{ steps.helm-chart.outputs.versioned_name }}
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: [self-hosted, vsphere]
+    needs: setup-and-test
+    steps:
+      - name: Merge Sysdumps
+        if: ${{ needs.setup-and-test.result == 'failure' }}
+        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          retention-days: 5
+          delete-merged: true
+        continue-on-error: true
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: [self-hosted, vsphere]
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}

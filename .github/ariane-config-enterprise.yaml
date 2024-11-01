@@ -16,6 +16,7 @@ triggers:
     #- enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
     - enterprise-encryption-policy.yaml
+    - enterprise-lb-vsphere.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
@@ -49,6 +50,10 @@ triggers:
   /ci-lb:
     workflows:
     - enterprise-lb.yaml
+    - enterprise-lb-vsphere.yaml
+  /ci-lb-vsphere:
+    workflows:
+    - enterprise-lb-vsphere.yaml
   /scale-encryption-policy:
     workflows:
     - enterprise-scale-encryption-policy.yaml
@@ -77,3 +82,5 @@ workflows:
     paths-ignore-regex: Documentation/
   enterprise-encryption-policy.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
+  enterprise-lb-vsphere.yaml:
+    paths-ignore-regex: Documentation/
