@@ -1,0 +1,49 @@
+on:
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        description: 'git reference'
+        required: true
+  push:
+    tags:
+      - 'v*'
+
+name: Create a Hubble CLI Release
+
+env:
+  # renovate: datasource=golang-version depName=go
+  go_version: 1.23.3
+
+jobs:
+  build:
+    name: Create a Hubble CLI Release
+    runs-on: ubuntu-latest
+    environment: release-hubble-cli
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.ref_name || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Generate Artifacts
+        run: |
+          make -C hubble release
+
+      - name: Publish a Draft Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
+        with:
+          repository: ${{ vars.HUBBLE_RELEASES_REPO }}
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          token: ${{ secrets.HUBBLE_RELEASES_REPO_WRITE }}
+          draft: true
+          files: |
+            hubble/release/*
+          body: |
+            TODO: Replace with actual release notes.
