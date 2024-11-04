@@ -80,3 +80,9 @@ grpc-rbac
 grpc
 {{- end -}}
 {{- end }}
+
+{{/*
+Allow packagers to add extra configuration to certgen.
+*/}}
+{{- define "certgen.config.extra" -}}
+{{- end }}
