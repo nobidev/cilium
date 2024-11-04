@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -106,7 +107,7 @@ func collectLocalNodeIPs(ifaces []netlink.Link, family int) deviceToIPMap {
 	for _, iface := range ifaces {
 		scopedLog := log.WithField(logfields.Interface, iface.Attrs().Name)
 
-		addrs, err := netlink.AddrList(iface, family)
+		addrs, err := safenetlink.AddrList(iface, family)
 		if err != nil {
 			scopedLog.
 				WithError(err).
@@ -187,7 +188,7 @@ func extractNodeIPsforNetworks(networks []*iso_v1alpha1.IsovalentPodNetwork, nod
 // be pushed to both the KVStore and the CiliumNode objects.
 // This is run periodically by the localNodeSyncController controller.
 func (m *localNetworkIPCollector) updateNodeIPAddresses(sysctl sysctl.Sysctl) error {
-	ifaces, err := netlink.LinkList()
+	ifaces, err := safenetlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("failed to list node interfaces: %w", err)
 	}

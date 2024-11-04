@@ -7,8 +7,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -35,15 +33,14 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.K8sSvcName:   event.ID.Name,
-			logfields.K8sNamespace: event.ID.Namespace,
-			"action":               event.Action.String(),
-			"service":              event.Service.String(),
-			"endpoints":            event.Endpoints.String(),
-			"shared":               event.Service.Shared,
-		})
-		scopedLog.Debug("Kubernetes service definition changed")
+		log.Debug("Kubernetes service definition changed",
+			logfields.K8sSvcName, event.ID.Name,
+			logfields.K8sNamespace, event.ID.Namespace,
+			"action", event.Action,
+			"service", event.Service,
+			"endpoints", event.Endpoints,
+			"shared", event.Service.Shared,
+		)
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
@@ -56,7 +53,11 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
-				scopedLog.WithError(err).Warning("Failed synchronizing service")
+				log.Warn("Failed synchronizing service",
+					logfields.Error, err,
+					logfields.K8sSvcName, event.ID.Name,
+					logfields.K8sNamespace, event.ID.Namespace,
+				)
 			}
 
 		case k8s.DeleteService:

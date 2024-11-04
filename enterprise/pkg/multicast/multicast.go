@@ -20,11 +20,11 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
@@ -790,7 +790,7 @@ func ParseMulticastAddr(addrStr string) (netip.Addr, error) {
 
 // GetIfIndex returns ifindex of the given device.
 func GetIfIndex(name string) (int, error) {
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return 0, err
 	}
