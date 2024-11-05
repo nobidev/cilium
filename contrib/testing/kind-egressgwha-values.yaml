@@ -2,5 +2,9 @@ bpf:
   masquerade: true
 kubeProxyReplacement: true
 enterprise:
+  featureGate:
+    approved:
+    - EgressGatewayHA
+    - EgressGatewayIPv4
   egressGatewayHA:
     enabled: true
