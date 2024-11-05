@@ -45,7 +45,13 @@ type FlowAggregator interface {
 		filters []string,
 		ignoreSourcePort bool,
 		ttl time.Duration,
-		renewTTL bool) (context.Context, error)
+		renewTTL bool,
+	) (context.Context, error)
+	NewContext(
+		ctx context.Context,
+		aggregator types.Aggregator,
+		aggregation *aggregationpb.Aggregation,
+	) context.Context
 	OnGetFlows(context.Context, *observer.GetFlowsRequest) (context.Context, error)
 	OnFlowDelivery(context.Context, *flow.Flow) (bool, error)
 }
@@ -114,6 +120,15 @@ func (p *flowAggregation) OnGetFlows(ctx context.Context, req *observer.GetFlows
 	return ctx, nil
 }
 
+// Ugly but quick way to bypass GetAggregationContext.
+// Reasoning: When using hive, we don't want goroutines to be started under us outside of lifecycle hooks.
+func (p *flowAggregation) NewContext(ctx context.Context, aggregator types.Aggregator, aggregation *aggregationpb.Aggregation) context.Context {
+	return context.WithValue(ctx, ctxKey, &aggregatorCtx{
+		aggregator:  aggregator,
+		aggregation: aggregation,
+	})
+}
+
 func (p *flowAggregation) newContext(ctx context.Context, agg *aggregationpb.Aggregation) (context.Context, error) {
 	aggregator, err := ConfigureAggregator(p.clock, agg.Aggregators)
 	p.logger.Debugf("Configured flow aggregator %#v", aggregator)
@@ -127,10 +142,7 @@ func (p *flowAggregation) newContext(ctx context.Context, agg *aggregationpb.Agg
 
 	go aggregator.Start(ctx)
 
-	return context.WithValue(ctx, ctxKey, &aggregatorCtx{
-		aggregator:  aggregator,
-		aggregation: agg,
-	}), nil
+	return p.NewContext(ctx, aggregator, agg), nil
 }
 
 func (p *flowAggregation) OnFlowDelivery(ctx context.Context, f *flow.Flow) (bool, error) {
