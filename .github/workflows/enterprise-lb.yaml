@@ -213,7 +213,6 @@ jobs:
              --helm-set-string=extraConfig.enable-ipip-termination=true \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
-             --helm-set=enterprise.featureGates="{BGPControlPlane}" \
              $EXTRA
 
           cilium status --wait
