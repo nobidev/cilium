@@ -59,7 +59,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 	ops.logger.Debug("Adding address", "egress IP", entry.Addr, "interface", entry.Interface)
 
 	if err := netlink.AddrAdd(iface, addrForEgressIP(entry.Addr)); err != nil && !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("failed to add egress IP %s to interface %s", entry.Addr, iface.Attrs().Name)
+		return fmt.Errorf("failed to add egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
 	err = garp.SendOnInterfaceIdx(iface.Attrs().Index, entry.Addr)
@@ -84,7 +84,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 		netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to lookup existing routes for egress IP %s and interface %s", entry.Addr, iface.Attrs().Name)
+		return fmt.Errorf("failed to lookup existing routes for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
 	// delete stale routes
@@ -101,7 +101,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 			ops.logger.Debug("Deleting stale route", "egress IP", entry.Addr, "destination", r.Dst, "interface", iface.Attrs().Name)
 
 			if err := route.DeleteV4(routeForEgressIP(entry.Addr, ipNetToPrefix(*r.Dst), iface)); err != nil && !errors.Is(err, syscall.ESRCH) {
-				return fmt.Errorf("failed to delete route for egress IP %s and interface %s", entry.Addr, iface.Attrs().Name)
+				return fmt.Errorf("failed to delete route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 			}
 		}
 	}
@@ -120,7 +120,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 			ops.logger.Debug("Upserting route", "egress IP", entry.Addr, "destination", dest, "interface", iface.Attrs().Name)
 
 			if err := route.Upsert(routeForEgressIP(entry.Addr, dest, iface)); err != nil {
-				return fmt.Errorf("failed to append route for egress IP %s and interface %s", entry.Addr, iface.Attrs().Name)
+				return fmt.Errorf("failed to append route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 			}
 		}
 	}
@@ -137,7 +137,7 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 	ops.logger.Debug("Deleting address", "egress IP", entry.Addr, "interface", entry.Interface)
 
 	if err := netlink.AddrDel(iface, addrForEgressIP(entry.Addr)); err != nil && !errors.Is(err, unix.EADDRNOTAVAIL) {
-		return fmt.Errorf("failed to delete egress IP %s to interface %s", entry.Addr, iface.Attrs().Name)
+		return fmt.Errorf("failed to delete egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
 	ops.logger.Debug("Deleting rule", "egress IP", entry.Addr)
@@ -186,7 +186,7 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 
 		prefix, ok := netipx.FromStdIPNet(rule.Src)
 		if !ok {
-			return fmt.Errorf("failed to convert netlink rule src")
+			return fmt.Errorf("failed to convert netlink rule src: %s", rule.Src.String())
 		}
 		addr := prefix.Masked().Addr()
 		if _, ok := egressRoutes[addr]; ok {
@@ -207,14 +207,14 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 
 		addr, ok := netipx.FromStdIP(r.Src)
 		if !ok {
-			return fmt.Errorf("failed to convert netlink route src")
+			return fmt.Errorf("failed to convert netlink route src: %s", r.Src.String())
 		}
 
 		inUse := false
 		if _, ok := egressRoutes[addr]; ok {
 			dst, ok := netipx.FromStdIPNet(r.Dst)
 			if !ok {
-				return fmt.Errorf("failed to convert netlink route dst")
+				return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
 			}
 			inUse = slices.Contains(egressRoutes[addr], dst)
 		}
