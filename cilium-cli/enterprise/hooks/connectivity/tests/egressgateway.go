@@ -162,7 +162,7 @@ func waitForAllocatedEgressIP(ctx context.Context, t *check.Test, policyName str
 		group := p.Status.GroupStatuses[egressGroup]
 		masqueradeIP, found := group.EgressIPByGatewayIP[gatewayIP]
 		if !found {
-			return nil, fmt.Errorf("no egress ip allocated for gateway node with address %s", gatewayIP)
+			return nil, fmt.Errorf("no egress ip allocated for gateway node with address %s in egressIPByGatewayIP map: %v", gatewayIP, group.EgressIPByGatewayIP)
 		}
 
 		return net.ParseIP(masqueradeIP), nil
