@@ -137,6 +137,10 @@ cilium sysdump --node-list node-a,node-b,node-c`
 			lbCmd.AddCommand(cmd)
 		}
 
+		if cmd.Name() == "bgp" {
+			cmd.AddCommand(cli.NewCmdBGPRenderAPI())
+		}
+
 		if cmd.Name() == "sysdump" {
 			cmd.Flags().StringVar(&eh.Opts.HubbleUINamespace,
 				"hubble-ui-namespace", eh.Opts.HubbleUINamespace,
