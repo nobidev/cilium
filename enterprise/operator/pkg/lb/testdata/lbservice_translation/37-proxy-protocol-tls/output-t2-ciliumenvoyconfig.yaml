@@ -61,7 +61,7 @@ spec:
                 mergeSlashes: true
                 routeConfig: {}
                 stripMatchingHostPort: true
-                useRemoteAddress: true
+                useRemoteAddress: false
                 statPrefix: frontend_listener_healthcheck_http
         - filterChainMatch:
             serverNames:

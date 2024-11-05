@@ -73,13 +73,6 @@ spec:
             - name: envoy.filters.network.http_connection_manager
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                accessLog:
-                  - name: stdout
-                    typedConfig:
-                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
-                      logFormat:
-                        textFormatSource:
-                          inlineString: "\n"
                 generateRequestId: false
                 commonHttpProtocolOptions:
                   headersWithUnderscoresAction: REJECT_REQUEST
