@@ -184,6 +184,12 @@ func (r lbService) usesHTTPJWTAuth() bool {
 		r.applications.httpProxy.auth.jwtAuth != nil
 }
 
+func (r lbService) usesHTTPSJWTAuth() bool {
+	return r.applications.httpsProxy != nil &&
+		r.applications.httpsProxy.auth != nil &&
+		r.applications.httpsProxy.auth.jwtAuth != nil
+}
+
 func (r lbApplications) getHTTPHTTPConfig() *lbServiceHTTPConfig {
 	if r.httpProxy == nil {
 		return nil

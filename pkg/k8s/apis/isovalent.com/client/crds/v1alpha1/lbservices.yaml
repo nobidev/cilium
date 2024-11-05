@@ -1023,6 +1023,11 @@ spec:
                     required:
                     - routes
                     type: object
+                    x-kubernetes-validations:
+                    - message: Application-wide and per-route auth type must be matched
+                      rule: '!has(self.auth) || (has(self.auth.basic) && self.routes.all(r,
+                        !has(r.auth) || has(r.auth.basic))) || (has(self.auth.jwt)   &&
+                        self.routes.all(r, !has(r.auth) || has(r.auth.jwt)))'
                   tcpProxy:
                     description: |-
                       Defining this stanza enables TCPProxy application that proxies the

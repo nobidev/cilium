@@ -145,6 +145,7 @@ type LBServiceApplicationHTTPProxy struct {
 	Routes []LBServiceHTTPRoute `json:"routes"`
 }
 
+// +kubebuilder:validation:XValidation:message="Application-wide and per-route auth type must be matched",rule="!has(self.auth) || (has(self.auth.basic) && self.routes.all(r, !has(r.auth) || has(r.auth.basic))) || (has(self.auth.jwt)   && self.routes.all(r, !has(r.auth) || has(r.auth.jwt)))"
 type LBServiceApplicationHTTPSProxy struct {
 	// The application-wide HTTP configuration.
 	//
@@ -1115,6 +1116,17 @@ func (r *LBService) AllReferencedJWTAuthSecretNames() []string {
 		r.Spec.Applications.HTTPProxy.Auth != nil &&
 		r.Spec.Applications.HTTPProxy.Auth.JWT != nil {
 		for _, provider := range r.Spec.Applications.HTTPProxy.Auth.JWT.Providers {
+			if provider.JWKS.SecretRef == nil {
+				continue
+			}
+			secretNames = append(secretNames, provider.JWKS.SecretRef.Name)
+		}
+	}
+
+	if r.Spec.Applications.HTTPSProxy != nil &&
+		r.Spec.Applications.HTTPSProxy.Auth != nil &&
+		r.Spec.Applications.HTTPSProxy.Auth.JWT != nil {
+		for _, provider := range r.Spec.Applications.HTTPSProxy.Auth.JWT.Providers {
 			if provider.JWKS.SecretRef == nil {
 				continue
 			}

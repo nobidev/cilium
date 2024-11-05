@@ -1,0 +1,28 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBService
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  vipRef:
+    name: lb-1
+  port: 80
+  applications:
+    httpsProxy:
+      auth:
+        jwt:
+          providers:
+          - name: provider0
+            jwks:
+              secretRef:
+                name: lb-1
+          - name: provider1
+            jwks:
+              secretRef:
+                name: lb-2
+      routes:
+        - auth:
+            jwt:
+              disabled: true
+          backendRef:
+            name: lb-1

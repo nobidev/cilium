@@ -1,0 +1,206 @@
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  namespace: default
+  name: lbfe-lb-1
+spec:
+  nodeSelector:
+    matchLabels:
+      service.cilium.io/node: t2
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      address:
+        socketAddress:
+          address: 100.64.0.100
+          portValue: 80
+      filterChains:
+        - filterChainMatch:
+            directSourcePrefixRanges:
+              - addressPrefix: 172.18.0.0
+                prefixLen: 32
+              - addressPrefix: 172.18.0.1
+                prefixLen: 32
+            transportProtocol: raw_buffer
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
+                generateRequestId: true
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
+                httpFilters:
+                  - name: envoy.filters.http.health_check
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
+                      clusterMinHealthyPercentages:
+                        backend_cluster_lb-1:
+                          value: 20
+                      headers:
+                        - name: :path
+                          stringMatch:
+                            exact: /health
+                        - name: :method
+                          stringMatch:
+                            exact: GET
+                        - name: user-agent
+                          stringMatch:
+                            prefix: cilium-probe/
+                      passThroughMode: false
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
+                mergeSlashes: true
+                normalizePath: true
+                routeConfig: {}
+                serverName: ilb
+                statPrefix: frontend_listener_healthcheck_http
+                stripMatchingHostPort: true
+                useRemoteAddress: false
+        - filterChainMatch:
+            transportProtocol: tls
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                alpnProtocols:
+                - h2
+                - http/1.1
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                generateRequestId: false
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
+                httpFilters:
+                  - name: envoy.filters.http.jwt_authn
+                    typedConfig:
+                      '@type': type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        provider0:
+                          forward: true
+                          localJwks:
+                            inlineString: '{"keys":[{"crv":"Ed25519","kty":"OKP","x":"QuZuTBM9jCnHnfTN0B_4W2SXCNvQJPDphRFxH9vTSvs"}],"kid":"provider00"}'
+                        provider1:
+                          forward: true
+                          localJwks:
+                            inlineString: '{"keys":[{"crv":"Ed25519","kty":"OKP","x":"QuZuTBM9jCnHnfTN0B_4W2SXCNvQJPDphRFxH9vTSvs"}],"kid":"provider00"}'
+                      rules:
+                      - match:
+                          prefix: /
+                        requires:
+                          requiresAny:
+                            requirements:
+                            - providerName: provider0
+                            - providerName: provider1
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
+                normalizePath: true
+                mergeSlashes: true
+                stripMatchingHostPort: true
+                useRemoteAddress: false
+                rds:
+                  routeConfigName: frontend_routeconfig_https
+                serverName: ilb
+                statPrefix: frontend_listener_https
+      listenerFilters:
+        - name: envoy.filters.listener.tls_inspector
+          typedConfig:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+        - name: cilium.bpf_metadata
+          typedConfig:
+            "@type": type.googleapis.com/cilium.BpfMetadata
+      perConnectionBufferLimitBytes: 32768
+      name: frontend_listener
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: frontend_routeconfig_https
+      virtualHosts:
+        - domains:
+            - "*"
+          name: frontend_virtualhost_https_wildcard
+          responseHeadersToRemove:
+            - x-envoy-upstream-service-time
+            - x-envoy-overloaded
+          requestHeadersToRemove:
+            - x-envoy-internal
+            - x-envoy-external-address
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: backend_cluster_lb-1
+              typedPerFilterConfig:
+                envoy.filters.http.jwt_authn:
+                  '@type': type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.PerRouteConfig
+                  disabled: true
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      healthChecks:
+        - healthyThreshold: 1
+          httpHealthCheck:
+            host: lb
+            path: /healthz
+          interval: 30s
+          noTrafficInterval: 30s
+          timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
+      name: backend_cluster_lb-1
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}
+      perConnectionBufferLimitBytes: 32768
+      roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+    - '@type': type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+      clusterName: backend_cluster_lb-1
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              socketAddress:
+                address: 172.18.0.5
+                portValue: 8080
+          loadBalancingWeight: 1
+        - endpoint:
+            address:
+              socketAddress:
+                address: 172.18.0.6
+                portValue: 8080
+          loadBalancingWeight: 1
