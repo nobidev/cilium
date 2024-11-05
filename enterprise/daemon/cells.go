@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
+	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
@@ -96,6 +97,8 @@ var (
 		config.Cell,
 
 		lbMetrics.Cell,
+
+		hubble.Cell,
 	)
 
 	Datapath = cell.Module(

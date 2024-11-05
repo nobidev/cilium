@@ -84,6 +84,15 @@ cilium-agent hive dot-graph [flags]
       --envoy-keep-cap-netbindservice                                Keep capability NET_BIND_SERVICE for Envoy process
       --envoy-log string                                             Path to a separate Envoy log file, if any
       --envoy-secrets-namespace string                               EnvoySecretsNamespace is the namespace having secrets used by CEC
+      --export-aggregation strings                                   Perform aggregation pre-storage ('connection', 'identity')
+      --export-aggregation-ignore-source-port                        Ignore source port during aggregation (default true)
+      --export-aggregation-renew-ttl                                 Renew flow TTL when a new flow is observed (default true)
+      --export-aggregation-state-filter strings                      The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])
+      --export-aggregation-ttl duration                              TTL for flow aggregation (default 30s)
+      --export-file-rotation-interval duration                       Interval at which to rotate JSON export files in addition to rotating them by size
+      --export-format-version string                                 Default to v1 format. Set to '' to use the legacy format (default "v1")
+      --export-node-name string                                      Override the node_name field in exported flows
+      --export-rate-limit int                                        Rate limit (per minute) for flow exports. Set to -1 to disable (default -1)
       --external-dns-proxy                                           Enable Cilium agent to use an external DNS proxy
       --fallback-routing-mode string                                 Enable fallback routing mode, used in case of mismatch between source and destination node (supported: tunnel)
       --feature-gates-approved strings                               Features approved to be enabled regardless of maturity level
