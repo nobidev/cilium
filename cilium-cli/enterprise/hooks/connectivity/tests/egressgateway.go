@@ -172,7 +172,7 @@ func waitForAllocatedEgressIP(ctx context.Context, t *check.Test, policyName str
 		masqueradeIP, err := ensureGroupEgressIP()
 		if err != nil {
 			if err := w.Retry(err); err != nil {
-				t.Fatal("Failed to ensure egress gateway policy map is properly populated:", err)
+				t.Fatal("Failed to ensure egress IP allocation for active gateway:", err)
 			}
 
 			continue
