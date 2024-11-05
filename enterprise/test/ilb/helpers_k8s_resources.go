@@ -536,6 +536,19 @@ func withHttpsBasicAuth(secretRef string) httpsApplicationOption {
 	}
 }
 
+func withHttpsJWTAuth(opts ...httpJWTAuthOption) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.Auth = &isovalentv1alpha1.LBServiceHTTPAuth{
+			JWT: &isovalentv1alpha1.LBServiceHTTPJWTAuth{
+				Providers: []isovalentv1alpha1.LBServiceHTTPJWTProvider{},
+			},
+		}
+		for _, opt := range opts {
+			opt(o.Auth.JWT)
+		}
+	}
+}
+
 func withTLSPassthroughApplication(opts ...tlsPassthroughApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		app := &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{}
