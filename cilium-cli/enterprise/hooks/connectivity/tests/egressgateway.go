@@ -97,7 +97,7 @@ func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 			cmd := strings.Split("cilium bpf egress-ha list -o json", " ")
 			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				t.Fatal("failed to run cilium bpf egress list command: %w", err)
+				t.Fatal("failed to run cilium bpf egress-ha list command: %w", err)
 			}
 
 			entries := []bpfEgressGatewayPolicyEntry{}
@@ -319,7 +319,7 @@ func getGatewayNodeInternalIP(ct *check.ConnectivityTest, egressGatewayNode stri
 //	"client-ip": "b"
 //	}
 //
-// and returns a slice of individual blobls:
+// and returns a slice of individual blobs:
 //
 //	[{"client-ip": "a"}, {"client-ip": "b"}]
 func splitJsonBlobs(s string) []string {
