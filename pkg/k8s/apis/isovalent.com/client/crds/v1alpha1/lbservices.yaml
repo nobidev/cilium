@@ -127,6 +127,22 @@ spec:
                                     jwks:
                                       description: The JWT authentication configuration.
                                       properties:
+                                        httpURI:
+                                          description: Get JWKS from remote server
+                                            with HTTP.
+                                          properties:
+                                            uri:
+                                              description: The remote HTTP URI. The
+                                                scheme must be http or https.
+                                              format: uri
+                                              type: string
+                                              x-kubernetes-validations:
+                                              - message: The scheme must be http or
+                                                  https
+                                                rule: self.startsWith('http') || self.startsWith('https')
+                                          required:
+                                          - uri
+                                          type: object
                                         secretRef:
                                           description: |-
                                             The reference to the k8s Secret contains JWKS. The Secret must be an
@@ -145,7 +161,8 @@ spec:
                                       x-kubernetes-validations:
                                       - message: Either secretRef or httpURI must
                                           be specified
-                                        rule: has(self.secretRef)
+                                        rule: (has(self.secretRef) && !has(self.httpURI))
+                                          || (!has(self.secretRef) && has(self.httpURI))
                                     name:
                                       description: The name of the provider.
                                       type: string
@@ -153,6 +170,7 @@ spec:
                                   - jwks
                                   - name
                                   type: object
+                                maxItems: 8
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -565,6 +583,22 @@ spec:
                                     jwks:
                                       description: The JWT authentication configuration.
                                       properties:
+                                        httpURI:
+                                          description: Get JWKS from remote server
+                                            with HTTP.
+                                          properties:
+                                            uri:
+                                              description: The remote HTTP URI. The
+                                                scheme must be http or https.
+                                              format: uri
+                                              type: string
+                                              x-kubernetes-validations:
+                                              - message: The scheme must be http or
+                                                  https
+                                                rule: self.startsWith('http') || self.startsWith('https')
+                                          required:
+                                          - uri
+                                          type: object
                                         secretRef:
                                           description: |-
                                             The reference to the k8s Secret contains JWKS. The Secret must be an
@@ -583,7 +617,8 @@ spec:
                                       x-kubernetes-validations:
                                       - message: Either secretRef or httpURI must
                                           be specified
-                                        rule: has(self.secretRef)
+                                        rule: (has(self.secretRef) && !has(self.httpURI))
+                                          || (!has(self.secretRef) && has(self.httpURI))
                                     name:
                                       description: The name of the provider.
                                       type: string
@@ -591,6 +626,7 @@ spec:
                                   - jwks
                                   - name
                                   type: object
+                                maxItems: 8
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-map-keys:

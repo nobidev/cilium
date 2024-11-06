@@ -240,6 +240,7 @@ type LBServiceHTTPJWTAuth struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
 	// +listType=map
 	// +listMapKey=name
 	Providers []LBServiceHTTPJWTProvider `json:"providers"`
@@ -279,7 +280,7 @@ type LBServiceHTTPJWTProvider struct {
 	JWKS LBServiceHTTPJWTAuthJWKS `json:"jwks"`
 }
 
-// +kubebuilder:validation:XValidation:message="Either secretRef or httpURI must be specified",rule="has(self.secretRef)"
+// +kubebuilder:validation:XValidation:message="Either secretRef or httpURI must be specified",rule="(has(self.secretRef) && !has(self.httpURI)) || (!has(self.secretRef) && has(self.httpURI))"
 type LBServiceHTTPJWTAuthJWKS struct {
 	// The reference to the k8s Secret contains JWKS. The Secret must be an
 	// Opaque Secret with "jwks" key and base64-encoded JWKS string as a
@@ -287,11 +288,25 @@ type LBServiceHTTPJWTAuthJWKS struct {
 	//
 	// +kubebuilder:validation:Optional
 	SecretRef *LBServiceSecretRef `json:"secretRef,omitempty"`
+
+	// Get JWKS from remote server with HTTP.
+	//
+	// +kubebuilder:validation:Optional
+	HTTPURI *LBServiceHTTPURI `json:"httpURI,omitempty"`
 }
 
 const (
 	LBServiceJWKSSecretKey = "jwks"
 )
+
+type LBServiceHTTPURI struct {
+	// The remote HTTP URI. The scheme must be http or https.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:XValidation:message="The scheme must be http or https",rule="self.startsWith('http') || self.startsWith('https')"
+	URI string `json:"uri,omitempty"`
+}
 
 type LBServiceHTTPBasicAuthUser struct {
 	// The reference to the k8s secret that contains the username and
