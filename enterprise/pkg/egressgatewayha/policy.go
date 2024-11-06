@@ -16,10 +16,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"net/netip"
 	"slices"
-	"sort"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -28,7 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
-	"golang.org/x/exp/maps"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -357,8 +356,8 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	// using a target zone name as a seed to make the result deterministic.
 	nonLocalActiveGatewayIPs := func(targetAz string, maxGW int, currentActiveNonLocalGWs []netip.Addr) ([]netip.Addr, error) {
 		// sort the AZs lexicographically
-		sortedAZs := maps.Keys(healthyGatewayIPsByAZ)
-		sort.Strings(sortedAZs)
+		sortedAZs := slices.Collect(maps.Keys(healthyGatewayIPsByAZ))
+		slices.Sort(sortedAZs)
 
 		var healthyNonLocalGWs []netip.Addr
 		for _, az := range sortedAZs {
@@ -713,7 +712,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		// cannot be assigned. Therefore, we remove each gateway IP without an egress IP from
 		// both the list of active gateways and the map of active gateways by affinity zones
 		for i := range groupStatuses {
-			updActiveGws := maps.Keys(groupStatuses[i].egressIPByGatewayIP)
+			updActiveGws := slices.Collect(maps.Keys(groupStatuses[i].egressIPByGatewayIP))
 			slices.SortFunc(updActiveGws, func(a, b netip.Addr) int {
 				return a.Compare(b)
 			})

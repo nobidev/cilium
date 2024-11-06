@@ -11,13 +11,14 @@
 package reconciler
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
-	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -25,7 +26,6 @@ import (
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/exp/maps"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -373,12 +373,12 @@ func (r *bfdReconciler) getDesiredBFDPeerConfig(peer *v1alpha1.BFDNodePeerConfig
 
 // sortedPeerConfigValues returns a sorted slice with peerConfig values from a map.
 func (r *bfdReconciler) sortedPeerConfigValues(cfgMap map[string]*peerConfig) []*peerConfig {
-	values := maps.Values(cfgMap)
-	sort.Slice(values, func(i, j int) bool {
-		if values[i].nodeConfigName != values[j].nodeConfigName {
-			return values[i].nodeConfigName < values[j].nodeConfigName
+	values := slices.Collect(maps.Values(cfgMap))
+	slices.SortFunc(values, func(a, b *peerConfig) int {
+		if a.nodeConfigName != b.nodeConfigName {
+			return cmp.Compare(a.nodeConfigName, b.nodeConfigName)
 		}
-		return values[i].peerName < values[j].peerName
+		return cmp.Compare(a.peerName, b.peerName)
 	})
 	return values
 }

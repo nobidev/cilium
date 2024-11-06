@@ -11,9 +11,10 @@
 package reconcilerv2
 
 import (
+	"maps"
 	"net/netip"
+	"slices"
 
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -111,7 +112,7 @@ func newMockResourceStore[T runtime.Object]() *mockResourceStore[T] {
 func (mds *mockResourceStore[T]) List() []T {
 	mds.objMu.Lock()
 	defer mds.objMu.Unlock()
-	return maps.Values(mds.objects)
+	return slices.Collect(maps.Values(mds.objects))
 }
 
 func (mds *mockResourceStore[T]) IterKeys() resource.KeyIter {

@@ -11,13 +11,14 @@
 package bfd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -119,9 +120,9 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *isovalentv1alpha1.IsovalentBGP
 	}
 
 	// sort peers to generate deterministic order
-	peers := maps.Values(peersMap)
-	sort.Slice(peers, func(i, j int) bool {
-		return peers[i].peerAddress < peers[j].peerAddress
+	peers := slices.Collect(maps.Values(peersMap))
+	slices.SortFunc(peers, func(a, b *bfdPeerConfig) int {
+		return cmp.Compare(a.peerAddress, b.peerAddress)
 	})
 	return peers, nil
 }

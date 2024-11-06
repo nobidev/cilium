@@ -6,13 +6,13 @@ package multinetwork
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -131,8 +131,8 @@ func extractNodeIPsforNetworks(networks []*iso_v1alpha1.IsovalentPodNetwork, nod
 	nodeIPByNetworkName := make(map[string]nodeIPPair, len(networks))
 
 	// ensure deterministic iteration order
-	nodeIPv4Devices := maps.Keys(nodeIPv4)
-	nodeIPv6Devices := maps.Keys(nodeIPv6)
+	nodeIPv4Devices := slices.Collect(maps.Keys(nodeIPv4))
+	nodeIPv6Devices := slices.Collect(maps.Keys(nodeIPv6))
 	slices.Sort(nodeIPv4Devices)
 	slices.Sort(nodeIPv6Devices)
 

@@ -13,9 +13,9 @@ package bgpv2
 import (
 	"context"
 	"errors"
+	"maps"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"

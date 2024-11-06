@@ -10,7 +10,7 @@
 
 package dnsresolver
 
-import "golang.org/x/exp/slices"
+import "slices"
 
 // status is a type that represents the internal status of a manager. It
 // contains a map of IsovalentFQDNGroup names to their respective list of

@@ -15,7 +15,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -23,8 +25,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -353,7 +353,7 @@ func (m *sidManager) reconcileSpec(r *v1alpha1.IsovalentSRv6SIDManager) (bool, e
 		}
 	}
 
-	for _, poolRef := range maps.Keys(m.allocators) {
+	for poolRef := range maps.Keys(m.allocators) {
 		if _, ok := pools[poolRef]; ok {
 			continue
 		}
