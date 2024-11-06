@@ -81,7 +81,7 @@ _If you need help: ask in #enterprise-release._
   - [ ] Go to https://github.com/isovalent/cilium/actions/workflows/enterprise-build-images-tiered-releases.yaml and run workflow with `vX.Y.Z-cee.1` in `Tag to release tiered images for` field.
   - [ ] Click on the started action and approve deployment (it should be approvable by `release-manager` team)
   - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.
-- [ ] Generate FIPs images
+- [ ] Generate FIPs images (for `>=v1.15-ce`)
   - [ ] Go to https://github.com/isovalent/cilium/actions/workflows/enterprise-build-images-releases-fips.yaml. You should see the commit title for the tag.
   - [ ] Click on the action and approve deployment (it should be approvable by `release-manager` team)
   - [ ] Check in after some time to see whether the action succeeded. If it didn't, raise this issue in #enterprise-release slack channel.
