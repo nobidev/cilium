@@ -451,14 +451,19 @@ type lbServiceHTTPJWTAuth struct {
 }
 
 type jwtProvider struct {
-	name      string
-	issuer    *string
-	audiences []string
-	localJWKS *localJWKS
+	name       string
+	issuer     *string
+	audiences  []string
+	localJWKS  *localJWKS
+	remoteJWKS *remoteJWKS
 }
 
 type localJWKS struct {
 	jwksStr string
+}
+
+type remoteJWKS struct {
+	httpURI string
 }
 
 type lbServiceUserPassword struct {

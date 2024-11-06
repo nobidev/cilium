@@ -91,8 +91,25 @@ spec:
                             inlineString: '{"keys":[{"crv":"Ed25519","kty":"OKP","x":"QuZuTBM9jCnHnfTN0B_4W2SXCNvQJPDphRFxH9vTSvs"}],"kid":"provider00"}'
                         provider1:
                           forward: true
-                          localJwks:
-                            inlineString: '{"keys":[{"crv":"Ed25519","kty":"OKP","x":"QuZuTBM9jCnHnfTN0B_4W2SXCNvQJPDphRFxH9vTSvs"}],"kid":"provider00"}'
+                          remoteJwks:
+                            httpUri:
+                              cluster: default/lbfe-lb-1/jwks_cluster_http_provider1
+                              uri: "https://example.com/oauth/v1/certs"
+                              timeout: 3s
+                        provider2:
+                          forward: true
+                          remoteJwks:
+                            httpUri:
+                              cluster: default/lbfe-lb-1/jwks_cluster_http_provider2
+                              uri: "http://example.com/oauth/v1/certs"
+                              timeout: 3s
+                        provider3:
+                          forward: true
+                          remoteJwks:
+                            httpUri:
+                              cluster: default/lbfe-lb-1/jwks_cluster_http_provider3
+                              uri: "http://example.com:8080/oauth/v1/certs"
+                              timeout: 3s
                       rules:
                       - match:
                           prefix: /
@@ -101,6 +118,8 @@ spec:
                             requirements:
                             - providerName: provider0
                             - providerName: provider1
+                            - providerName: provider2
+                            - providerName: provider3
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -184,6 +203,46 @@ spec:
             name: envoy.transport_sockets.raw_buffer
             typedConfig:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+    - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+      loadAssignment:
+        clusterName: jwks_cluster_http_provider1
+        endpoints:
+        - lbEndpoints:
+          - endpoint:
+              address:
+                socketAddress:
+                  address: example.com
+                  portValue: 443
+      name: jwks_cluster_http_provider1
+      type: STRICT_DNS
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+    - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+      loadAssignment:
+        clusterName: jwks_cluster_http_provider2
+        endpoints:
+        - lbEndpoints:
+          - endpoint:
+              address:
+                socketAddress:
+                  address: example.com
+                  portValue: 80
+      name: jwks_cluster_http_provider2
+      type: STRICT_DNS
+    - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+      loadAssignment:
+        clusterName: jwks_cluster_http_provider3
+        endpoints:
+        - lbEndpoints:
+          - endpoint:
+              address:
+                socketAddress:
+                  address: example.com
+                  portValue: 8080
+      name: jwks_cluster_http_provider3
+      type: STRICT_DNS
     - '@type': type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_lb-1
       endpoints:

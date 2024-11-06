@@ -999,28 +999,32 @@ func (r *ingestor) toHTTPJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPJWTAuth
 	}
 
 	for _, provider := range jwtAuth.Providers {
-		if provider.JWKS.SecretRef == nil {
-			continue
-		}
-
-		secret, ok := referencedSecrets[provider.JWKS.SecretRef.Name]
-		if !ok {
-			continue
-		}
-
-		jwksStr, ok := secret.Data[isovalentv1alpha1.LBServiceJWKSSecretKey]
-		if !ok {
-			continue
-		}
-
-		ja.providers = append(ja.providers, jwtProvider{
+		p := jwtProvider{
 			name:      provider.Name,
 			issuer:    provider.Issuer,
 			audiences: provider.Audiences,
-			localJWKS: &localJWKS{
+		}
+		switch {
+		case provider.JWKS.SecretRef != nil:
+			secret, ok := referencedSecrets[provider.JWKS.SecretRef.Name]
+			if !ok {
+				continue
+			}
+
+			jwksStr, ok := secret.Data[isovalentv1alpha1.LBServiceJWKSSecretKey]
+			if !ok {
+				continue
+			}
+
+			p.localJWKS = &localJWKS{
 				jwksStr: string(jwksStr),
-			},
-		})
+			}
+		case provider.JWKS.HTTPURI != nil:
+			p.remoteJWKS = &remoteJWKS{
+				httpURI: provider.JWKS.HTTPURI.URI,
+			}
+		}
+		ja.providers = append(ja.providers, p)
 	}
 
 	return ja

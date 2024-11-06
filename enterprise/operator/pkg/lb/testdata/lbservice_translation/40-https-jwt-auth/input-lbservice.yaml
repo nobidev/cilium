@@ -22,8 +22,16 @@ spec:
                 name: lb-1
           - name: provider1
             jwks:
-              secretRef:
-                name: lb-2
+              httpURI:
+                uri: "https://example.com/oauth/v1/certs"
+          - name: provider2
+            jwks:
+              httpURI:
+                uri: "http://example.com/oauth/v1/certs"
+          - name: provider3
+            jwks:
+              httpURI:
+                uri: "http://example.com:8080/oauth/v1/certs"
       routes:
         - auth:
             jwt:

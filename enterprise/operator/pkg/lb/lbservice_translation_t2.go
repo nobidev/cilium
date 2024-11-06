@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -462,7 +464,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 			Name: "envoy.filters.http.jwt_authn",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(r.toJWTAuthentication(model.applications.httpProxy.auth.jwtAuth)),
+				TypedConfig: toAny(r.toJWTAuthentication(model.namespace, model.name, httpTypeHTTP, model.applications.httpProxy.auth.jwtAuth)),
 			},
 		})
 	}
@@ -477,7 +479,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 	return httpFilters
 }
 
-func (r *lbServiceT2Translator) toJWTAuthentication(auth *lbServiceHTTPJWTAuth) *envoy_extensions_filters_http_jwt_authn_v3.JwtAuthentication {
+func (r *lbServiceT2Translator) toJWTAuthentication(namespace, name, httpType string, auth *lbServiceHTTPJWTAuth) *envoy_extensions_filters_http_jwt_authn_v3.JwtAuthentication {
 	providers := map[string]*envoy_extensions_filters_http_jwt_authn_v3.JwtProvider{}
 	providerNameRequirements := []*envoy_extensions_filters_http_jwt_authn_v3.JwtRequirement{}
 	for _, provider := range auth.providers {
@@ -500,6 +502,22 @@ func (r *lbServiceT2Translator) toJWTAuthentication(auth *lbServiceHTTPJWTAuth) 
 				LocalJwks: &envoy_config_core_v3.DataSource{
 					Specifier: &envoy_config_core_v3.DataSource_InlineString{
 						InlineString: provider.localJWKS.jwksStr,
+					},
+				},
+			}
+		}
+
+		if provider.remoteJWKS != nil {
+			p.JwksSourceSpecifier = &envoy_extensions_filters_http_jwt_authn_v3.JwtProvider_RemoteJwks{
+				RemoteJwks: &envoy_extensions_filters_http_jwt_authn_v3.RemoteJwks{
+					HttpUri: &envoy_config_core_v3.HttpUri{
+						Uri: provider.remoteJWKS.httpURI,
+						HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
+							Cluster: r.jwksClusterNameQualified(namespace, name, httpType, provider.name),
+						},
+						// The long-enough timeout to fetch the JWKS from the remote store.
+						// We can make this configurable as needed.
+						Timeout: &durationpb.Duration{Seconds: 3},
 					},
 				},
 			}
@@ -546,6 +564,16 @@ func (r *lbServiceT2Translator) toJWTAuthentication(auth *lbServiceHTTPJWTAuth) 
 			},
 		},
 	}
+}
+
+// Cilium appends namespace/name to the original Cluster name. However, the
+// properties that refers the Cluster doesn't know about it.
+func (r *lbServiceT2Translator) jwksClusterNameQualified(namespace, name, httpType, providerName string) string {
+	return fmt.Sprintf("%s/%s/jwks_cluster_%s_%s", namespace, getOwningResourceName(name), httpType, providerName)
+}
+
+func (r *lbServiceT2Translator) jwksClusterName(httpType, providerName string) string {
+	return fmt.Sprintf("jwks_cluster_%s_%s", httpType, providerName)
 }
 
 func (r *lbServiceT2Translator) toHTPasswdString(auth *lbServiceHTTPBasicAuth) string {
@@ -854,7 +882,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 			Name: "envoy.filters.http.jwt_authn",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(r.toJWTAuthentication(model.applications.httpsProxy.auth.jwtAuth)),
+				TypedConfig: toAny(r.toJWTAuthentication(model.namespace, model.name, httpTypeHTTPS, model.applications.httpsProxy.auth.jwtAuth)),
 			},
 		})
 	}
@@ -1268,7 +1296,106 @@ func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_
 		clusters = append(clusters, r.desiredEnvoyCluster(r.getClusterName(bn), model.referencedBackends[bn]))
 	}
 
+	clusters = append(clusters, r.desiredJWKSEnvoyClusters(model)...)
+
 	return clusters
+}
+
+func (r *lbServiceT2Translator) desiredJWKSEnvoyClusters(model *lbService) []*envoy_config_cluster_v3.Cluster {
+	clusters := []*envoy_config_cluster_v3.Cluster{}
+
+	if model.usesHTTPJWTAuth() {
+		for _, provider := range model.applications.httpProxy.auth.jwtAuth.providers {
+			if cluster := r.desiredJWKSEnvoyCluster(httpTypeHTTP, provider); cluster != nil {
+				clusters = append(clusters, cluster)
+			}
+		}
+	}
+
+	if model.usesHTTPSJWTAuth() {
+		for _, provider := range model.applications.httpsProxy.auth.jwtAuth.providers {
+			if cluster := r.desiredJWKSEnvoyCluster(httpTypeHTTPS, provider); cluster != nil {
+				clusters = append(clusters, cluster)
+			}
+		}
+	}
+
+	return clusters
+}
+
+func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(httpType string, provider jwtProvider) *envoy_config_cluster_v3.Cluster {
+	if provider.remoteJWKS == nil {
+		return nil
+	}
+
+	uri, err := url.ParseRequestURI(provider.remoteJWKS.httpURI)
+	if err != nil {
+		// The API validation (format=uri) guarantees that the
+		// given URI can be parsed with url.ParseRequestURI.
+		// So, this shouldn't happen.
+		r.logger.Error("BUG: Cannot parse JWKS URI", "uri", provider.remoteJWKS.httpURI)
+		return nil
+	}
+
+	var port uint32
+	if uri.Port() == "" {
+		// Port unspecified. Set default values.
+		switch uri.Scheme {
+		case "http":
+			port = 80
+		case "https":
+			port = 443
+		}
+	} else {
+		// port number is 16bit
+		port64, err := strconv.ParseUint(uri.Port(), 10, 16)
+		if err != nil {
+			return nil
+		}
+		// Envoy takes port number as uint32
+		port = uint32(port64)
+	}
+
+	var transportSocket *envoy_config_core_v3.TransportSocket
+	if uri.Scheme == "https" {
+		transportSocket = &envoy_config_core_v3.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_transportsockets_tls_v3.UpstreamTlsContext{}),
+			},
+		}
+	}
+
+	return &envoy_config_cluster_v3.Cluster{
+		Name: r.jwksClusterName(httpType, provider.name),
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STRICT_DNS,
+		},
+		TransportSocket: transportSocket,
+		LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: r.jwksClusterName(httpType, provider.name),
+			Endpoints: []*envoy_config_endpoint_v3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*envoy_config_endpoint_v3.LbEndpoint{
+						{
+							HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{
+								Endpoint: &envoy_config_endpoint_v3.Endpoint{
+									Address: &envoy_config_core_v3.Address{
+										Address: &envoy_config_core_v3.Address_SocketAddress{
+											SocketAddress: &envoy_config_core_v3.SocketAddress{
+												Address:       uri.Hostname(),
+												PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: port},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(healthCheckConfig lbBackendHealthCheckConfig) []*envoy_config_cluster_v3.Cluster_TransportSocketMatch {
