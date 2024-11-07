@@ -1126,6 +1126,11 @@ func (in *IsovalentBGPNodeConfigPeerOverride) DeepCopyInto(out *IsovalentBGPNode
 		*out = new(string)
 		**out = **in
 	}
+	if in.Interface != nil {
+		in, out := &in.Interface, &out.Interface
+		*out = new(string)
+		**out = **in
+	}
 	if in.LocalPort != nil {
 		in, out := &in.LocalPort, &out.LocalPort
 		*out = new(int32)
@@ -1222,6 +1227,11 @@ func (in *IsovalentBGPNodePeer) DeepCopyInto(out *IsovalentBGPNodePeer) {
 	if in.PeerASN != nil {
 		in, out := &in.PeerASN, &out.PeerASN
 		*out = new(int64)
+		**out = **in
+	}
+	if in.Interface != nil {
+		in, out := &in.Interface, &out.Interface
+		*out = new(string)
 		**out = **in
 	}
 	if in.LocalAddress != nil {
@@ -1340,6 +1350,11 @@ func (in *IsovalentBGPPeer) DeepCopyInto(out *IsovalentBGPPeer) {
 	if in.PeerASN != nil {
 		in, out := &in.PeerASN, &out.PeerASN
 		*out = new(int64)
+		**out = **in
+	}
+	if in.Interface != nil {
+		in, out := &in.Interface, &out.Interface
+		*out = new(string)
 		**out = **in
 	}
 	if in.PeerConfigRef != nil {

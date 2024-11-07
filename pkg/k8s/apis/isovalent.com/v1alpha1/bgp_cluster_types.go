@@ -109,10 +109,26 @@ type IsovalentBGPPeer struct {
 	// PeerASN is the ASN of the peer BGP router.
 	// Supports extended 32bit ASNs.
 	//
+	// If peerASN is unspecified or 0, the BGP OPEN message validation of ASN
+	// will be disabled and ASN will be determined based on peer's OPEN message.
+	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:default=0
 	PeerASN *int64 `json:"peerASN,omitempty"`
+
+	// Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+	// This configuration is required when we do not want to specify the peerAddress
+	// and rely on IPv6 link-local address of the specified interface for peering.
+	//
+	// By default, BGP unnumbered peering is disabled and BGP packets are sent out of the interface
+	// based on routing resolution of peerAddress.
+	//
+	// If the interface is set, the peerAddress field is ignored.
+	//
+	// +kubebuilder:validation:Optional
+	Interface *string `json:"interface,omitempty"`
 
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.

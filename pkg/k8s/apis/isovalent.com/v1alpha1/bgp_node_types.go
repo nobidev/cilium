@@ -128,9 +128,14 @@ type IsovalentBGPNodePeer struct {
 	// Supports extended 32bit ASNs
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN *int64 `json:"peerASN,omitempty"`
+
+	// Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+	//
+	// +kubebuilder:validation:Optional
+	Interface *string `json:"interface,omitempty"`
 
 	// LocalAddress is the IP address of the local interface to use for the peering session.
 	// This configuration is derived from IsovalentBGPNodeConfigOverride resource. If not specified, the local address will be used for setting up peering.

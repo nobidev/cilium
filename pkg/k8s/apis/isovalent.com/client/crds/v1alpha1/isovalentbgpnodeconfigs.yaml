@@ -86,6 +86,10 @@ spec:
                         virtual router
                       items:
                         properties:
+                          interface:
+                            description: Interface is the name of an interface on
+                              the Cilium node to use for BGP unnumbered peering.
+                            type: string
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
@@ -102,7 +106,7 @@ spec:
                               Supports extended 32bit ASNs
                             format: int64
                             maximum: 4294967295
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           peerAddress:
                             description: |-

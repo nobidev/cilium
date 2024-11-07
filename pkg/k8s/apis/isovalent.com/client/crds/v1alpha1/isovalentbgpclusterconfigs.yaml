@@ -76,6 +76,17 @@ spec:
                         virtual router
                       items:
                         properties:
+                          interface:
+                            description: |-
+                              Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+                              This configuration is required when we do not want to specify the peerAddress
+                              and rely on IPv6 link-local address of the specified interface for peering.
+
+                              By default, BGP unnumbered peering is disabled and BGP packets are sent out of the interface
+                              based on routing resolution of peerAddress.
+
+                              If the interface is set, the peerAddress field is ignored.
+                            type: string
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.
@@ -83,12 +94,16 @@ spec:
                             minLength: 1
                             type: string
                           peerASN:
+                            default: 0
                             description: |-
                               PeerASN is the ASN of the peer BGP router.
                               Supports extended 32bit ASNs.
+
+                              If peerASN is unspecified or 0, the BGP OPEN message validation of ASN
+                              will be disabled and ASN will be determined based on peer's OPEN message.
                             format: int64
                             maximum: 4294967295
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           peerAddress:
                             description: |-

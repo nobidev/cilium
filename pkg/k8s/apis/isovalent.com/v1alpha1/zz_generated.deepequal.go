@@ -955,6 +955,14 @@ func (in *IsovalentBGPNodeConfigPeerOverride) DeepEqual(other *IsovalentBGPNodeC
 		}
 	}
 
+	if (in.Interface == nil) != (other.Interface == nil) {
+		return false
+	} else if in.Interface != nil {
+		if *in.Interface != *other.Interface {
+			return false
+		}
+	}
+
 	if (in.LocalPort == nil) != (other.LocalPort == nil) {
 		return false
 	} else if in.LocalPort != nil {
@@ -1081,6 +1089,14 @@ func (in *IsovalentBGPNodePeer) DeepEqual(other *IsovalentBGPNodePeer) bool {
 		return false
 	} else if in.PeerASN != nil {
 		if *in.PeerASN != *other.PeerASN {
+			return false
+		}
+	}
+
+	if (in.Interface == nil) != (other.Interface == nil) {
+		return false
+	} else if in.Interface != nil {
+		if *in.Interface != *other.Interface {
 			return false
 		}
 	}
@@ -1243,6 +1259,14 @@ func (in *IsovalentBGPPeer) DeepEqual(other *IsovalentBGPPeer) bool {
 		return false
 	} else if in.PeerASN != nil {
 		if *in.PeerASN != *other.PeerASN {
+			return false
+		}
+	}
+
+	if (in.Interface == nil) != (other.Interface == nil) {
+		return false
+	} else if in.Interface != nil {
+		if *in.Interface != *other.Interface {
 			return false
 		}
 	}

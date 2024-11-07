@@ -73,6 +73,10 @@ spec:
                         description: IsovalentBGPNodeConfigPeerOverride defines configuration
                           options which can be overridden for a specific peer.
                         properties:
+                          interface:
+                            description: Interface is the name of an interface on
+                              the Cilium node to use for BGP unnumbered peering.
+                            type: string
                           localAddress:
                             description: LocalAddress is the IP address to use for
                               connecting to this peer.

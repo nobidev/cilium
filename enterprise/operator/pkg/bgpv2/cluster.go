@@ -144,12 +144,14 @@ func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, over
 				Name:          bgpInstancePeer.Name,
 				PeerAddress:   bgpInstancePeer.PeerAddress,
 				PeerASN:       bgpInstancePeer.PeerASN,
+				Interface:     bgpInstancePeer.Interface,
 				PeerConfigRef: bgpInstancePeer.PeerConfigRef,
 			}
 
 			// find BGPResourceManager Peer override for this instance
 			for _, overrideBGPPeer := range override.Peers {
 				if overrideBGPPeer.Name == bgpInstancePeer.Name {
+					nodePeer.Interface = overrideBGPPeer.Interface
 					nodePeer.LocalAddress = overrideBGPPeer.LocalAddress
 					break
 				}
