@@ -1,0 +1,98 @@
+{{$action := .action}}
+{{$restartName := .restartName}}
+
+steps:
+  - name: {{$action}} metrics after restart {{$restartName}}
+    measurements:
+    - Identifier: CiliumBootstrapTime{{$restartName}}
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Bootstrap Time After Restart {{$restartName}}
+        metricVersion: v1
+        unit: s
+        queries:
+        - name: Perc99
+          query: quantile(0.99, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+        - name: Perc90
+          query: quantile(0.90, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+        - name: Perc50
+          query: quantile(0.5, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+
+    - Identifier: CloudproberPodNetworkRestart{{$restartName}}
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Outgoing Requests Pod Network Restart {{$restartName}}
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: Total Github
+          query: sum(increase(total{job="cloudprober", dst="github"}[%v]))
+        - name: Total Gitlab
+          query: sum(increase(total{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Total Google
+          query: sum(increase(total{job="cloudprober", dst="google"}[%v]))
+        - name: Total GS
+          query: sum(increase(total{job="cloudprober", dst="gs"}[%v]))
+        - name: Total deny GS
+          query: sum(increase(total{job="cloudprober", dst="gsfail"}[%v]))
+        - name: Success Github
+          query: sum(increase(success{job="cloudprober", dst="github"}[%v]))
+        - name: Success Gitlab
+          query: sum(increase(success{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Success Google
+          query: sum(increase(success{job="cloudprober", dst="google"}[%v]))
+        - name: Success GS
+          query: sum(increase(success{job="cloudprober", dst="gs"}[%v]))
+        - name: Success deny GS
+          query: sum(increase(success{job="cloudprober", dst="gsfail"}[%v]))
+        - name: Failure Github
+          query: sum(increase(failure{job="cloudprober", dst="github"}[%v]))
+        - name: Failure Gitlab
+          query: sum(increase(failure{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Failure Google
+          query: sum(increase(failure{job="cloudprober", dst="google"}[%v]))
+        - name: Failure GS
+          query: sum(increase(failure{job="cloudprober", dst="gs"}[%v]))
+        - name: Failure deny GS
+          query: sum(increase(failure{job="cloudprober", dst="gsfail"}[%v]))
+
+    - Identifier: CloudproberHostNetworkRestart{{$restartName}}
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Outgoing Requests Host Network Restart {{$restartName}}
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: Total Github
+          query: sum(increase(total{job="cloudprober-host", dst="github"}[%v]))
+        - name: Total Gitlab
+          query: sum(increase(total{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Total Google
+          query: sum(increase(total{job="cloudprober-host", dst="google"}[%v]))
+        - name: Total GS
+          query: sum(increase(total{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Total deny GS
+          query: sum(increase(total{job="cloudprober-host", dst="gsfail"}[%v]))
+        - name: Success Github
+          query: sum(increase(success{job="cloudprober-host", dst="github"}[%v]))
+        - name: Success Gitlab
+          query: sum(increase(success{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Success Google
+          query: sum(increase(success{job="cloudprober-host", dst="google"}[%v]))
+        - name: Success GS
+          query: sum(increase(success{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Success deny GS
+          query: sum(increase(success{job="cloudprober-host", dst="gsfail"}[%v]))
+        - name: Failure Github
+          query: sum(increase(failure{job="cloudprober-host", dst="github"}[%v]))
+        - name: Failure Gitlab
+          query: sum(increase(failure{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Failure Google
+          query: sum(increase(failure{job="cloudprober-host", dst="google"}[%v]))
+        - name: Failure GS
+          query: sum(increase(failure{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Failure deny GS
+          query: sum(increase(failure{job="cloudprober-host", dst="gsfail"}[%v]))

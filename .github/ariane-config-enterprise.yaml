@@ -62,6 +62,9 @@ triggers:
   /ci-openshift ( ?.*=?.*)*:
     workflows:
     - enterprise-conformance-openshift.yaml
+  /ci-panda-scale:
+    workflows:
+    - enterprise-panda-scale.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:

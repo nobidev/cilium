@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudprober
+spec:
+  selector:
+    matchLabels:
+      app: cloudprober
+  template:
+    metadata:
+      labels:
+        app: cloudprober
+    spec:
+      volumes:
+        - name: cloudprober-config
+          configMap:
+            name: cloudprober-config
+        - name: ca-config
+          configMap:
+            name: ca-config
+      containers:
+        - name: cloudprober
+          image: cloudprober/cloudprober:v0.13.8-1
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - cat /cert/ca-config >> /etc/ssl/certs/ca-certificates.crt; ls /cfg/; /cloudprober --config_file /cfg/cloudprober.cfg --cloud_metadata=none --disable_cloud_logging=true --logtostderr
+          volumeMounts:
+            - name: cloudprober-config
+              mountPath: /cfg
+            - name: ca-config
+              mountPath: /cert
+          ports:
+            - name: http
+              containerPort: 9313
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudprober
+  labels:
+    app: cloudprober
+spec:
+  ports:
+    - port: 9313
+      protocol: TCP
+      targetPort: 9313
+  selector:
+    app: cloudprober
+  type: ClusterIP

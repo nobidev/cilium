@@ -1,0 +1,417 @@
+name: Panda Scale Test (panda-scale)
+
+on:
+#  schedule:
+#    - cron: '39 0 * * 1-5'
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: false
+
+env:
+  # renovate: datasource=golang-version depName=go
+  go_version: 1.23.2
+  cilium_cli_ci_version:
+  # Adding k8s.local to the end makes kops happy-
+  # has stricter DNS naming requirements.
+  test_name: panda-scale
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 499.0.0
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  install-and-scaletest:
+    runs-on: ubuntu-latest
+    name: Install and Scale Test
+    timeout-minutes: 150
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          # Adding k8s.local to the end makes kops happy
+          # has stricter DNS naming requirements.
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
+
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --set pprof.enabled=true \
+            --helm-set=prometheus.enabled=true \
+            --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
+            --helm-set=k8sServicePort=443 \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=healthChecking=false \
+            --helm-set=monitor.enabled=false \
+            --helm-set=routingMode=tunnel \
+            --helm-set=operator.replicas=1 \
+            --helm-set=envoyConfig.enabled=true \
+            --helm-set=envoy.enabled=true \
+            --helm-set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
+            --helm-set-string=extraConfig.external-dns-proxy=true \
+            --helm-set=localRedirectPolicy=true \
+            --helm-set=dnsProxy.proxyResponseMaxDelay=250ms \
+            --helm-set=bpf.policyMapMax=65536 \
+            --helm-set=dnsProxy.minTtl=300 \
+            --helm-set=hubble.enabled=true \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=updateStrategy.rollingUpdate.maxUnavailable=10% \
+            --wait=false"
+
+          CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+          --helm-set=image.useDigest=false \
+          --helm-set=image.tag=${SHA} \
+          --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+          --helm-set=operator.image.suffix=-ci \
+          --helm-set=operator.image.tag=${SHA} \
+          --helm-set=operator.image.useDigest=false \
+          --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+          --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+          --helm-set=clustermesh.apiserver.image.useDigest=false \
+          --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+          --helm-set=hubble.relay.image.tag=${SHA} \
+          --helm-set=hubble.relay.image.useDigest=false"
+
+          echo SHA=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci cilium-dnsproxy-ci; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Install Kops
+        uses: cilium/scale-tests-action/install-kops@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+
+      - name: Setup gcloud credentials
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a # v2.1.2
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Clone ClusterLoader2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: kubernetes/perf-tests
+          # Avoid using renovate to update this dependency because: (1)
+          # perf-tests does not tag or release, so renovate will pull
+          # all updates to the default branch and (2) continually
+          # updating CL2 may impact the stability of the scale test
+          # results.
+          ref: ce821d6232cee6719dd86e7e68eee361e337e92a
+          persist-credentials: false
+          sparse-checkout: clusterloader2
+          path: perf-tests
+
+      - name: Setup CL2
+        run: |
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
+          # Copy the custom configs to the folder where CL2 expects them.
+          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
+
+          cd ./perf-tests/clusterloader2
+
+          go build ./cmd/clusterloader.go
+
+      - name: Deploy cluster
+        id: deploy-cluster
+        uses: cilium/scale-tests-action/create-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          control_plane_size: n1-standard-8
+          control_plane_count: 1
+          node_size: e2-standard-8
+          node_count: 1
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          kube_proxy_enabled: false
+
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@d3ecfd83003f3e9c98ba125ca14933401d44918f  # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        with:
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- cilium-cli ---"
+          cilium version --client
+          echo "--- kops ---"
+          ./kops version
+          echo "--- gcloud ---"
+          gcloud version
+
+      - name: Install Cilium
+        run: |
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Install Cilium DNS proxy
+        run: |
+          helm install -n kube-system cilium-dnsproxy ./enterprise/fqdn-proxy/installation \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-dnsproxy-ci \
+            --set image.tag=${{ steps.vars.outputs.sha }} \
+            --set metrics.enabled=true \
+            --set debug=true
+          kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 20
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          interval: 10s
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Run CL2 to setup prometheus
+        shell: bash
+        working-directory: ./perf-tests/clusterloader2
+        env:
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+        timeout-minutes: 10
+        run: |
+          # Don't run any tasks at this point, just setup the monitoring stack
+          ./clusterloader \
+            -v=2 \
+            --prometheus-additional-monitors-path=./testing/custom/panda/monitors/ \
+            --testconfig=./testing/custom/common/setup.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --provider=gce \
+            --enable-exec-service=false \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --kubeconfig=$HOME/.kube/config \
+            2>&1 | tee cl2-setup.txt
+
+      - name: Setup LRP
+        run: |
+          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" ./examples/kubernetes-local-redirect/node-local-dns.yaml
+          kubectl apply -f ./examples/kubernetes-local-redirect/node-local-dns.yaml
+          kubectl rollout status daemonset node-local-dns -n kube-system
+          kubectl apply -f ./examples/kubernetes-local-redirect/node-local-dns-lrp.yaml
+
+      - name: Setup Certificates and Cloudprober
+        run: |
+          openssl genrsa -out ca.key 2048
+          openssl req -x509 -new -nodes -key ca.key -sha256 -days 1825 -out ca.crt -subj "/CN=ServiceMesh/"
+          openssl genrsa -out internal.key 2048
+          openssl req -new -key internal.key -out internal.csr -addext "subjectAltName = DNS.1:www.google.com,DNS.2:about.gitlab.com,DNS.3:storage.googleapis.com,DNS.4:login.microsoftonline.com" -subj '/CN=ServiceMesh/O=MyComp/C=PL'
+          openssl x509 -req -days 360 -in internal.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out internal.crt -sha256 -copy_extensions copy
+          kubectl create -f https://raw.githubusercontent.com/cilium/cilium/1.16.3/examples/kubernetes-dns/dns-sw-app.yaml
+          kubectl wait pod/mediabot --for=condition=Ready --timeout=120s
+          kubectl create secret tls tls-data -n cilium-secrets --cert=internal.crt --key=internal.key
+          kubectl cp ca.crt default/mediabot:/usr/local/share/ca-certificates/ca.crt
+          kubectl exec mediabot -- update-ca-certificates
+          kubectl cp default/mediabot:/etc/ssl/certs/ca-certificates.crt ca-certificates.crt
+          kubectl create secret generic tls-orig-data -n cilium-secrets --from-file=ca.crt=./ca-certificates.crt
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/policy.yaml
+          kubectl create configmap ca-config --from-file=ca-config=ca.crt
+          kubectl create configmap cloudprober-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.cfg
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.yaml
+          kubectl rollout status daemonset cloudprober
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober-host.yaml
+          kubectl rollout status daemonset cloudprober-host
+          kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/1.16.3/examples/kubernetes-dns/dns-sw-app.yaml
+
+      - name: Create Instance Group for workload deployments
+        uses: cilium/scale-tests-action/create-instance-group@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 100
+          ig_name: workloads
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 20
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          interval: 10s
+
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          create_native_routing_firewall: 'false'
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
+          kubectl rollout status daemonset cloudprober-host
+          kubectl rollout status daemonset cloudprober
+          kubectl rollout status daemonset node-local-dns -n kube-system
+
+      - name: Run CL2
+        id: run-cl2
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 60
+        env:
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+        run: |
+          ./clusterloader \
+            -v=2 \
+            --prometheus-additional-monitors-path=./testing/panda/monitors/ \
+            --testconfig=./testing/custom/panda/config.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --provider=gce \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --nodes=100 \
+            --report-dir=./report \
+            --experimental-prometheus-snapshot-to-report-dir=true \
+            --kubeconfig=$HOME/.kube/config \
+            2>&1 | tee cl2-output.txt
+
+      - name: Get sysdump
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+          sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        uses: cilium/scale-tests-action/cleanup-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Export results and sysdump to GS bucket
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        with:
+          test_name: ${{ env.test_name }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/*
+          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: install-and-scaletest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.install-and-scaletest.result }}

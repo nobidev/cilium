@@ -1,0 +1,127 @@
+{{$action := .action}}
+
+steps:
+  - name: {{$action}} metrics during test
+    measurements:
+    - Identifier: CiliumCPUUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Average CPU Usage
+        metricVersion: v1
+        unit: cpu
+        queries:
+        - name: Perc99
+          query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        - name: Perc90
+          query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        - name: Perc50
+          query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+
+    - Identifier: CiliumMemUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Max Memory Usage
+        metricVersion: v1
+        unit: MB
+        queries:
+        - name: Perc99
+          query: quantile(0.99, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        - name: Perc90
+          query: quantile(0.90, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        - name: Perc50
+          query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+
+    - Identifier: EndpointRegenerationDelay
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Endpoint Regeneration Delay
+        metricVersion: v1
+        unit: s
+        queries:
+        - name: Perc99
+          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
+        - name: Perc90
+          query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
+        - name: Perc50
+          query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
+
+    - Identifier: CloudproberPodNetwork
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Outgoing Requests Pod Network
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: Total Github
+          query: sum(increase(total{job="cloudprober", dst="github"}[%v]))
+        - name: Total Gitlab
+          query: sum(increase(total{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Total Google
+          query: sum(increase(total{job="cloudprober", dst="google"}[%v]))
+        - name: Total GS
+          query: sum(increase(total{job="cloudprober", dst="gs"}[%v]))
+        - name: Total deny GS
+          query: sum(increase(total{job="cloudprober", dst="gsfail"}[%v]))
+        - name: Success Github
+          query: sum(increase(success{job="cloudprober", dst="github"}[%v]))
+        - name: Success Gitlab
+          query: sum(increase(success{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Success Google
+          query: sum(increase(success{job="cloudprober", dst="google"}[%v]))
+        - name: Success GS
+          query: sum(increase(success{job="cloudprober", dst="gs"}[%v]))
+        - name: Success deny GS
+          query: sum(increase(success{job="cloudprober", dst="gsfail"}[%v]))
+        - name: Failure Github
+          query: sum(increase(failure{job="cloudprober", dst="github"}[%v]))
+        - name: Failure Gitlab
+          query: sum(increase(failure{job="cloudprober", dst="gitlab"}[%v]))
+        - name: Failure Google
+          query: sum(increase(failure{job="cloudprober", dst="google"}[%v]))
+        - name: Failure GS
+          query: sum(increase(failure{job="cloudprober", dst="gs"}[%v]))
+        - name: Failure deny GS
+          query: sum(increase(failure{job="cloudprober", dst="gsfail"}[%v]))
+
+    - Identifier: CloudproberHostNetwork
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Outgoing Requests Host Network
+        metricVersion: v1
+        unit: count
+        queries:
+        - name: Total Github
+          query: sum(increase(total{job="cloudprober-host", dst="github"}[%v]))
+        - name: Total Gitlab
+          query: sum(increase(total{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Total Google
+          query: sum(increase(total{job="cloudprober-host", dst="google"}[%v]))
+        - name: Total GS
+          query: sum(increase(total{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Total deny GS
+          query: sum(increase(total{job="cloudprober-host", dst="gsfail"}[%v]))
+        - name: Success Github
+          query: sum(increase(success{job="cloudprober-host", dst="github"}[%v]))
+        - name: Success Gitlab
+          query: sum(increase(success{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Success Google
+          query: sum(increase(success{job="cloudprober-host", dst="google"}[%v]))
+        - name: Success GS
+          query: sum(increase(success{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Success deny GS
+          query: sum(increase(success{job="cloudprober-host", dst="gsfail"}[%v]))
+        - name: Failure Github
+          query: sum(increase(failure{job="cloudprober-host", dst="github"}[%v]))
+        - name: Failure Gitlab
+          query: sum(increase(failure{job="cloudprober-host", dst="gitlab"}[%v]))
+        - name: Failure Google
+          query: sum(increase(failure{job="cloudprober-host", dst="google"}[%v]))
+        - name: Failure GS
+          query: sum(increase(failure{job="cloudprober-host", dst="gs"}[%v]))
+        - name: Failure deny GS
+          query: sum(increase(failure{job="cloudprober-host", dst="gsfail"}[%v]))

@@ -1,0 +1,133 @@
+{{$PODS_PER_NODE := 10}}
+{{$PODS_PER_DEPLOYMENT := 1}}
+{{$namespaces := MaxInt (DivideInt .Nodes 10) 1}}
+{{$TimeToLoad := MultiplyInt $namespaces 1}}
+
+{{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
+{{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
+{{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
+
+name: panda
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: default
+  globalQPSLoad:
+    qps: 1
+    burst: 1
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$TimeToLoad}}m
+
+steps:
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/metrics.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      tuningSet: RandomizedSaturationTimeLimited
+      operationTimeout: 15m
+      replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+
+- module:
+    path:  /modules/metrics.yaml
+    params:
+      action: gather
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path:  /modules/metrics-restart.yaml
+    params:
+      action: start
+      restartName: Agent
+
+- name: Restart Agent
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 1m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl rollout restart daemonset cilium -n kube-system"
+
+- name: Wait for restarting Agent
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 10m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl rollout status daemonset cilium -n kube-system"
+
+- name: Sleep Agent
+  measurements:
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- module:
+    path:  /modules/metrics-restart.yaml
+    params:
+      action: gather
+      restartName: Agent
+
+- module:
+    path:  /modules/metrics-restart.yaml
+    params:
+      action: start
+      restartName: Envoy
+
+- name: Restart Envoy
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 1m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl rollout restart daemonset cilium-envoy -n kube-system"
+
+- name: Wait for restarting Envoy
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 10m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl rollout status daemonset cilium-envoy -n kube-system"
+
+- name: Sleep Envoy
+  measurements:
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- module:
+    path:  /modules/metrics-restart.yaml
+    params:
+      action: gather
+      restartName: Envoy

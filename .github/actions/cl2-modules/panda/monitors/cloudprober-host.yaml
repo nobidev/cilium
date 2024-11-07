@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    app: cloudprober-host
+  name: cloudprober-host
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10s
+      port: http
+  jobLabel: app
+  selector:
+    matchLabels:
+      app: cloudprober-host
+  namespaceSelector:
+    matchNames:
+    - default
