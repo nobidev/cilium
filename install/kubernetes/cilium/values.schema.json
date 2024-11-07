@@ -3609,6 +3609,40 @@
             },
             "ttl": {
               "type": "string"
+            },
+            "vector": {
+              "properties": {
+                "image": {
+                  "properties": {
+                    "digest": {
+                      "type": "string"
+                    },
+                    "override": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "pullPolicy": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "tag": {
+                      "type": "string"
+                    },
+                    "useDigest": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "resources": {
+                  "type": "object"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
@@ -5862,216 +5896,6 @@
         "null",
         "string"
       ]
-    },
-    "vector": {
-      "properties": {
-        "commonLabels": {
-          "properties": {
-            "app.kubernetes.io/name": {
-              "type": "string"
-            },
-            "app.kubernetes.io/part-of": {
-              "type": "string"
-            },
-            "k8s-app": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "customConfig": {
-          "properties": {
-            "api": {
-              "properties": {
-                "address": {
-                  "type": "string"
-                },
-                "enabled": {
-                  "type": "boolean"
-                },
-                "playground": {
-                  "type": "boolean"
-                }
-              },
-              "type": "object"
-            },
-            "data_dir": {
-              "type": "string"
-            },
-            "sinks": {
-              "properties": {
-                "http_push_timescape": {
-                  "properties": {
-                    "batch": {
-                      "properties": {
-                        "max_size": {
-                          "type": "string"
-                        },
-                        "timeout_secs": {
-                          "type": "integer"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "encoding": {
-                      "properties": {
-                        "codec": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "framing": {
-                      "properties": {
-                        "method": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "inputs": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          }
-                        ]
-                      },
-                      "type": "array"
-                    },
-                    "type": {
-                      "type": "string"
-                    },
-                    "uri": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
-                "prom_exporter": {
-                  "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "inputs": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          }
-                        ]
-                      },
-                      "type": "array"
-                    },
-                    "type": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              },
-              "type": "object"
-            },
-            "sources": {
-              "properties": {
-                "hubble_logs": {
-                  "properties": {
-                    "include": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "string"
-                          }
-                        ]
-                      },
-                      "type": "array"
-                    },
-                    "type": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
-                "internal_metrics": {
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              },
-              "type": "object"
-            }
-          },
-          "type": "object"
-        },
-        "extraVolumeMounts": {
-          "items": {
-            "anyOf": [
-              {
-                "properties": {
-                  "mountPath": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "readOnly": {
-                    "type": "boolean"
-                  }
-                }
-              }
-            ]
-          },
-          "type": "array"
-        },
-        "extraVolumes": {
-          "items": {
-            "anyOf": [
-              {
-                "properties": {
-                  "hostPath": {
-                    "properties": {
-                      "path": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "name": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          },
-          "type": "array"
-        },
-        "fullnameOverride": {
-          "type": "string"
-        },
-        "persistence": {
-          "properties": {
-            "hostPath": {
-              "properties": {
-                "path": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            }
-          },
-          "type": "object"
-        },
-        "role": {
-          "type": "string"
-        }
-      },
-      "type": "object"
     },
     "vtep": {
       "properties": {

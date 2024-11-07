@@ -588,7 +588,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.relay.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}` | hubble-relay update strategy |
 | hubble.skipUnknownCGroupIDs | bool | `true` | Skip Hubble events with unknown cgroup ids |
 | hubble.socketPath | string | `"/var/run/cilium/hubble.sock"` | Unix domain socket path to listen to when Hubble is enabled. |
-| hubble.timescape | object | `{"clickhouse":{"image":{"digest":"sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.4.13-alpine","useDigest":true}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.5.0-rc.0","useDigest":false},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":null,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"ttl":"24h"}` | Enables experimental support for using integrated Hubble Timescape. |
+| hubble.timescape | object | `{"clickhouse":{"image":{"digest":"sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.4.13-alpine","useDigest":true}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.5.0-rc.0","useDigest":false},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":null,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"ttl":"24h","vector":{"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"timberio/vector","tag":"0.38.0-distroless-libc","useDigest":false},"resources":{}}}` | Enables experimental support for using integrated Hubble Timescape. |
 | hubble.timescape.tls.server.existingSecret | string | `""` | Name of the Secret containing the certificate and key for the Hubble metrics server. If specified, cert and key are ignored. |
 | hubble.timescape.tls.server.extraDnsNames | list | `[]` | Extra DNS names added to certificate when it's auto generated |
 | hubble.timescape.tls.server.extraIpAddresses | list | `[]` | Extra IP addresses added to certificate when it's auto generated |
@@ -920,35 +920,6 @@ contributors across the globe, there is almost always someone available to help.
 | tunnelProtocol | string | `"vxlan"` | Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve |
 | updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}` | Cilium agent update strategy |
 | upgradeCompatibility | string | `nil` | upgradeCompatibility helps users upgrading to ensure that the configMap for Cilium will not change critical values to ensure continued operation This flag is not required for new installations. For example: '1.7', '1.8', '1.9' |
-| vector.commonLabels."app.kubernetes.io/name" | string | `"cilium-vector"` |  |
-| vector.commonLabels."app.kubernetes.io/part-of" | string | `"cilium"` |  |
-| vector.commonLabels.k8s-app | string | `"cilium-vector"` |  |
-| vector.customConfig.api.address | string | `"127.0.0.1:8686"` |  |
-| vector.customConfig.api.enabled | bool | `true` |  |
-| vector.customConfig.api.playground | bool | `false` |  |
-| vector.customConfig.data_dir | string | `"/vector-data-dir"` |  |
-| vector.customConfig.sinks.http_push_timescape.batch.max_size | string | `"50MB"` |  |
-| vector.customConfig.sinks.http_push_timescape.batch.timeout_secs | int | `5` |  |
-| vector.customConfig.sinks.http_push_timescape.encoding.codec | string | `"raw_message"` |  |
-| vector.customConfig.sinks.http_push_timescape.framing.method | string | `"newline_delimited"` |  |
-| vector.customConfig.sinks.http_push_timescape.inputs[0] | string | `"hubble_logs"` |  |
-| vector.customConfig.sinks.http_push_timescape.type | string | `"http"` |  |
-| vector.customConfig.sinks.http_push_timescape.uri | string | `"http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push"` |  |
-| vector.customConfig.sinks.prom_exporter.address | string | `"0.0.0.0:9090"` |  |
-| vector.customConfig.sinks.prom_exporter.inputs[0] | string | `"internal_metrics"` |  |
-| vector.customConfig.sinks.prom_exporter.type | string | `"prometheus_exporter"` |  |
-| vector.customConfig.sources.hubble_logs.include[0] | string | `"/var/run/cilium/hubble/hubble.log"` |  |
-| vector.customConfig.sources.hubble_logs.include[1] | string | `"/var/run/cilium/hubble/k8s-events.log"` |  |
-| vector.customConfig.sources.hubble_logs.type | string | `"file"` |  |
-| vector.customConfig.sources.internal_metrics.type | string | `"internal_metrics"` |  |
-| vector.extraVolumeMounts[0].mountPath | string | `"/var/run/cilium/hubble"` |  |
-| vector.extraVolumeMounts[0].name | string | `"hubble-logs"` |  |
-| vector.extraVolumeMounts[0].readOnly | bool | `true` |  |
-| vector.extraVolumes[0].hostPath.path | string | `"/var/run/cilium/hubble"` |  |
-| vector.extraVolumes[0].name | string | `"hubble-logs"` |  |
-| vector.fullnameOverride | string | `"cilium-vector"` |  |
-| vector.persistence.hostPath.path | string | `"/var/lib/vector-cilium"` |  |
-| vector.role | string | `"Agent"` |  |
 | vtep.cidr | string | `""` | A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24" |
 | vtep.enabled | bool | `false` | Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel. |
 | vtep.endpoint | string | `""` | A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1" |

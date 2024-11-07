@@ -20,11 +20,6 @@ sources:
 links:
   - name: eBPF.io
     url: https://ebpf.io/
-dependencies:
-  - name: vector
-    version: 0.33.0
-    repository: https://helm.vector.dev
-    condition: hubble.timescape.enabled
 annotations:
   artifacthub.io/crds: |
     - kind: CiliumNetworkPolicy

@@ -1916,6 +1916,18 @@ hubble:
         extraDnsNames: []
         # -- Extra IP addresses added to certificate when it's auto generated
         extraIpAddresses: []
+    vector:
+      image:
+        # @schema
+        # type: [null, string]
+        # @schema
+        override: ~
+        repository: timberio/vector
+        tag: 0.38.0-distroless-libc
+        digest: ""
+        useDigest: false
+        pullPolicy: "Always"
+      resources: {}
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:
@@ -3942,58 +3954,3 @@ enterprise:
   loadbalancer:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
-# Currently only used when hubble.timescape.enabled is true.
-vector:
-  fullnameOverride: cilium-vector
-  commonLabels:
-    app.kubernetes.io/part-of: cilium
-    app.kubernetes.io/name: cilium-vector
-    k8s-app: cilium-vector
-  persistence:
-    hostPath:
-      # Change from the default in case the user is already running vector
-      path: /var/lib/vector-cilium
-  # Mount the log directory containing flows and tetragon events.
-  extraVolumes:
-    - name: hubble-logs
-      hostPath:
-        path: /var/run/cilium/hubble
-  extraVolumeMounts:
-    - name: hubble-logs
-      mountPath: /var/run/cilium/hubble
-      readOnly: true
-  # Run as a daemonset
-  role: Agent
-  # Custom configuration to read hubble flow logs, and k8s exporter events
-  customConfig:
-    api:
-      address: 127.0.0.1:8686
-      enabled: true
-      playground: false
-    data_dir: /vector-data-dir
-    sources:
-      hubble_logs:
-        include:
-          - /var/run/cilium/hubble/hubble.log
-          - /var/run/cilium/hubble/k8s-events.log
-        type: file
-      internal_metrics:
-        type: internal_metrics
-    sinks:
-      http_push_timescape:
-        type: http
-        uri: "http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push"
-        batch:
-          max_size: 50MB
-          timeout_secs: 5
-        encoding:
-          codec: raw_message
-        framing:
-          method: newline_delimited
-        inputs:
-          - hubble_logs
-      prom_exporter:
-        address: 0.0.0.0:9090
-        inputs:
-          - internal_metrics
-        type: prometheus_exporter
