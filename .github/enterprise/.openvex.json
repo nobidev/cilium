@@ -459,7 +459,7 @@
         }
       ],
       "status": "not_affected",
-      "status_notes": "Reported for libcilium.so, loopback binary, gops, grpc_health_probe, and v1.13-ce Cilium binaries, none of which are affected",
+      "status_notes": "Reported for libcilium.so, loopback binary, gops, grpc_health_probe, none of which are affected",
       "justification": "vulnerable_code_not_in_execute_path"
     },
     {
@@ -484,7 +484,7 @@
         }
       ],
       "status": "not_affected",
-      "status_notes": "Reported for libcilium.so, loopback binary, gops, grpc_health_probe, and v1.13-ce Cilium binaries, none of which are affected",
+      "status_notes": "Reported for libcilium.so, loopback binary, gops, grpc_health_probe, none of which are affected",
       "justification": "vulnerable_code_not_in_execute_path"
     },
     {
