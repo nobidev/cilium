@@ -525,6 +525,32 @@
       "status": "not_affected",
       "status_notes": "Flags on functionality that is not used by Cilium",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-3596"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Flags on functionality that is not used by Cilium",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-34155"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "None of the binaries on which this issue flags are vulnerable to it.",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
