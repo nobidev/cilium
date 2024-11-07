@@ -2769,6 +2769,31 @@ func (in *LBServiceHTTPJWTProvider) DeepEqual(other *LBServiceHTTPJWTProvider) b
 	if in.Name != other.Name {
 		return false
 	}
+	if (in.Issuer == nil) != (other.Issuer == nil) {
+		return false
+	} else if in.Issuer != nil {
+		if *in.Issuer != *other.Issuer {
+			return false
+		}
+	}
+
+	if ((in.Audiences != nil) && (other.Audiences != nil)) || ((in.Audiences == nil) != (other.Audiences == nil)) {
+		in, other := &in.Audiences, &other.Audiences
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if !in.JWKS.DeepEqual(&other.JWKS) {
 		return false
 	}

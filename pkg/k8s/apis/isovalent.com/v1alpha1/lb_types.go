@@ -258,6 +258,21 @@ type LBServiceHTTPJWTProvider struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
+	// An expected issuer (iss) of the JWT. If specified, it has to match
+	// the iss claim in the JWT. Otherwise, the iss field is not checked.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Issuer *string `json:"issuer,omitempty"`
+
+	// List of expected audiences. If specified, one of the audience has to
+	// match the aud claim in the JWT. Otherwise, the aud field is not
+	// checked.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=8
+	Audiences []string `json:"audiences,omitempty"`
+
 	// The JWT authentication configuration.
 	//
 	// +kubebuilder:validation:Required

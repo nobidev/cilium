@@ -109,6 +109,21 @@ spec:
                                   be specified.
                                 items:
                                   properties:
+                                    audiences:
+                                      description: |-
+                                        List of expected audiences. If specified, one of the audience has to
+                                        match the aud claim in the JWT. Otherwise, the aud field is not
+                                        checked.
+                                      items:
+                                        type: string
+                                      maxItems: 8
+                                      type: array
+                                    issuer:
+                                      description: |-
+                                        An expected issuer (iss) of the JWT. If specified, it has to match
+                                        the iss claim in the JWT. Otherwise, the iss field is not checked.
+                                      minLength: 1
+                                      type: string
                                     jwks:
                                       description: The JWT authentication configuration.
                                       properties:
@@ -532,6 +547,21 @@ spec:
                                   be specified.
                                 items:
                                   properties:
+                                    audiences:
+                                      description: |-
+                                        List of expected audiences. If specified, one of the audience has to
+                                        match the aud claim in the JWT. Otherwise, the aud field is not
+                                        checked.
+                                      items:
+                                        type: string
+                                      maxItems: 8
+                                      type: array
+                                    issuer:
+                                      description: |-
+                                        An expected issuer (iss) of the JWT. If specified, it has to match
+                                        the iss claim in the JWT. Otherwise, the iss field is not checked.
+                                      minLength: 1
+                                      type: string
                                     jwks:
                                       description: The JWT authentication configuration.
                                       properties:
