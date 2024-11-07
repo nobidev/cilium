@@ -1014,7 +1014,9 @@ func (r *ingestor) toHTTPJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPJWTAuth
 		}
 
 		ja.providers = append(ja.providers, jwtProvider{
-			name: provider.Name,
+			name:      provider.Name,
+			issuer:    provider.Issuer,
+			audiences: provider.Audiences,
 			localJWKS: &localJWKS{
 				jwksStr: string(jwksStr),
 			},

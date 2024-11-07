@@ -13,6 +13,10 @@ spec:
         jwt:
           providers:
           - name: provider0
+            issuer: "foo@example.com"
+            audiences:
+            - "bar@example.com"
+            - "baz@example.com"
             jwks:
               secretRef:
                 name: lb-1

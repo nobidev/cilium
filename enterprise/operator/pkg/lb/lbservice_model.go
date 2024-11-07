@@ -452,6 +452,8 @@ type lbServiceHTTPJWTAuth struct {
 
 type jwtProvider struct {
 	name      string
+	issuer    *string
+	audiences []string
 	localJWKS *localJWKS
 }
 

@@ -487,6 +487,14 @@ func (r *lbServiceT2Translator) toJWTAuthentication(auth *lbServiceHTTPJWTAuth) 
 			Forward: true,
 		}
 
+		if provider.issuer != nil {
+			p.Issuer = *provider.issuer
+		}
+
+		if len(provider.audiences) != 0 {
+			p.Audiences = provider.audiences
+		}
+
 		if provider.localJWKS != nil {
 			p.JwksSourceSpecifier = &envoy_extensions_filters_http_jwt_authn_v3.JwtProvider_LocalJwks{
 				LocalJwks: &envoy_config_core_v3.DataSource{

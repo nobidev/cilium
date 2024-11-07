@@ -83,6 +83,10 @@ spec:
                       providers:
                         provider0:
                           forward: true
+                          issuer: foo@example.com
+                          audiences:
+                          - bar@example.com
+                          - baz@example.com
                           localJwks:
                             inlineString: '{"keys":[{"crv":"Ed25519","kty":"OKP","x":"QuZuTBM9jCnHnfTN0B_4W2SXCNvQJPDphRFxH9vTSvs"}],"kid":"provider00"}'
                         provider1:
