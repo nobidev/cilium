@@ -22,6 +22,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -76,18 +77,22 @@ func newJWTProvider(name string) (*jwtProvider, error) {
 	}, nil
 }
 
-func (p *jwtProvider) Issue(issuer string, audiences []string) ([]byte, error) {
+func (p *jwtProvider) Issue(t *testing.T, issuer string, audiences []string) []byte {
 	token, err := jwt.NewBuilder().Issuer(issuer).Audience(audiences).IssuedAt(time.Now()).Build()
 	if err != nil {
-		return nil, err
+		t.Fatalf("Failed to build token: %v", err)
 	}
 
 	signed, err := jwt.Sign(token, jwt.WithKey(jwa.EdDSA, p.priv))
 	if err != nil {
-		return nil, err
+		t.Fatalf("Failed to sign token: %v", err)
 	}
 
-	return signed, nil
+	return signed
+}
+
+func (p *jwtProvider) Name() string {
+	return p.name
 }
 
 func (p *jwtProvider) JWKS() []byte {
@@ -101,8 +106,10 @@ func TestJWTAuth(t *testing.T) {
 			testName := "jwt-auth-" + proto
 			testK8sNamespace := "default"
 			hostName := "jwt.acme.io"
-			issuer := "test@jwt.acme.io"
-			audiences := []string{"audience0@jwt.acme.io", "audience1@jwt.acme.io"}
+			validIssuer := "valid-issuer@jwt.acme.io"
+			validAudiences := []string{"valid-audiences@jwt.acme.io"}
+			invalidIssuer := "invalid-issuer@jwt.acme.io"
+			invalidAudiences := []string{"invalid-audiences@jwt.acme.io"}
 
 			ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 			dockerCli := newDockerCli(t)
@@ -135,27 +142,28 @@ func TestJWTAuth(t *testing.T) {
 
 			t.Log("Creating JWT auth secret...")
 
-			provider0, err := newJWTProvider("provider0")
+			validProvider0, err := newJWTProvider("valid-provider0")
 			if err != nil {
 				t.Fatal(err)
 			}
+			validProvider0Secret := scenario.createJWKSSecret(ctx, validProvider0.Name(), validProvider0.JWKS())
 
-			validToken, err := provider0.Issue(issuer, audiences)
+			validProvider1, err := newJWTProvider("valid-provider1")
 			if err != nil {
 				t.Fatal(err)
 			}
+			validProvider1Secret := scenario.createJWKSSecret(ctx, validProvider1.Name(), validProvider1.JWKS())
 
-			provider1, err := newJWTProvider("provider1")
+			validProvider2, err := newJWTProvider("valid-provider2")
 			if err != nil {
 				t.Fatal(err)
 			}
+			validProvider2Secret := scenario.createJWKSSecret(ctx, validProvider2.Name(), validProvider2.JWKS())
 
-			invalidToken, err := provider1.Issue(issuer, audiences)
+			invalidProvider, err := newJWTProvider("invalid-provider")
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			secretName := scenario.createJWTAuthSecret(ctx, provider0.JWKS())
 
 			t.Logf("Creating LB Service resources...")
 
@@ -164,7 +172,29 @@ func TestJWTAuth(t *testing.T) {
 				// HTTP
 				service = lbService(testK8sNamespace, testName, withHTTPProxyApplication(
 					// Enable application-wide jwt auth
-					withHttpJWTAuth(withJWTProvider("provider0", secretName)),
+					withHttpJWTAuth(
+						// Only matches to the validProvider0's key. Check issuer and audiences.
+						withJWTProvider(
+							"valid-provider0",
+							ptr.To(validIssuer),
+							validAudiences,
+							validProvider0Secret,
+						),
+						// Only matches to the validProvider1's key. Check issuer, not audiences.
+						withJWTProvider(
+							"valid-provider1",
+							ptr.To(validIssuer),
+							[]string{},
+							validProvider1Secret,
+						),
+						// Only matches to the validProvider2's key. Check audiences, not issuers.
+						withJWTProvider(
+							"valid-provider2",
+							nil,
+							validAudiences,
+							validProvider2Secret,
+						),
+					),
 					// Set per-route exception
 					withHttpRoute(testName,
 						withHttpPath("/no-auth"),
@@ -180,7 +210,29 @@ func TestJWTAuth(t *testing.T) {
 					// Enable application-wide jwt auth
 					withHTTPSProxyApplication(
 						// Enable application-wide jwt auth
-						withHttpsJWTAuth(withJWTProvider("provider0", secretName)),
+						withHttpsJWTAuth(
+							// Only matches to the validProvider0's key. Check issuer and audiences.
+							withJWTProvider(
+								"valid-provider0",
+								ptr.To(validIssuer),
+								validAudiences,
+								validProvider0Secret,
+							),
+							// Only matches to the validProvider1's key. Check issuer, not audiences.
+							withJWTProvider(
+								"valid-provider1",
+								ptr.To(validIssuer),
+								[]string{},
+								validProvider1Secret,
+							),
+							// Only matches to the validProvider2's key. Check audiences, not issuers.
+							withJWTProvider(
+								"valid-provider2",
+								nil,
+								validAudiences,
+								validProvider2Secret,
+							),
+						),
 						// Set per-route exception
 						withHttpsRoute(testName,
 							withHttpPath("/no-auth"),
@@ -206,10 +258,31 @@ func TestJWTAuth(t *testing.T) {
 			}
 
 			t.Run("ValidToken", func(t *testing.T) {
-				cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(validToken), proto, hostName))
-				stdout, stderr, err := client.Exec(ctx, cmd)
-				if err != nil {
-					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+				tests := []struct {
+					name  string
+					token []byte
+				}{
+					{
+						name:  "ValidateIssuerAndAudiences",
+						token: validProvider0.Issue(t, validIssuer, validAudiences),
+					},
+					{
+						name:  "ValidateIssuerOnly",
+						token: validProvider1.Issue(t, validIssuer, invalidAudiences),
+					},
+					{
+						name:  "ValidateAudiencesOnly",
+						token: validProvider2.Issue(t, invalidIssuer, validAudiences),
+					},
+				}
+				for _, tt := range tests {
+					t.Run(tt.name, func(t *testing.T) {
+						cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName))
+						stdout, stderr, err := client.Exec(ctx, cmd)
+						if err != nil {
+							t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+						}
+					})
 				}
 			})
 
@@ -224,12 +297,41 @@ func TestJWTAuth(t *testing.T) {
 			})
 
 			t.Run("InvalidToken", func(t *testing.T) {
-				stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(invalidToken), proto, hostName)))
-				if err == nil {
-					t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+				tests := []struct {
+					name  string
+					token []byte
+					code  string
+				}{
+					{
+						name:  "InvalidKey",
+						token: invalidProvider.Issue(t, validIssuer, validAudiences),
+						code:  "401",
+					},
+					{
+						name:  "InvalidIssuer",
+						token: validProvider0.Issue(t, invalidIssuer, validAudiences),
+						code:  "401",
+					},
+					{
+						name:  "InvalidAudience",
+						token: validProvider0.Issue(t, validIssuer, invalidAudiences),
+						// Envoy returns "Unauthorized" error for invalid audience (https://github.com/envoyproxy/envoy/pull/7679)
+						code: "403",
+					},
 				}
-				if stdout != "401" {
-					t.Fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+
+				for _, tt := range tests {
+					t.Run(tt.name, func(t *testing.T) {
+						stdout, stderr, err := client.Exec(ctx, curlCmd(
+							fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName)),
+						)
+						if err == nil {
+							t.Fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+						}
+						if stdout != tt.code {
+							t.Fatalf("unexpected error (expect: %s, got: %s): %v\nstderr: %q", tt.code, stdout, err, stderr)
+						}
+					})
 				}
 			})
 

@@ -611,10 +611,10 @@ func (r *lbTestScenario) createBasicAuthSecret(ctx context.Context, creds []basi
 	return sec.Name
 }
 
-func (r *lbTestScenario) createJWTAuthSecret(ctx context.Context, jwks []byte) string {
+func (r *lbTestScenario) createJWKSSecret(ctx context.Context, providerName string, jwks []byte) string {
 	sec := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.testName + "-jwt-auth",
+			Name: r.testName + "-" + providerName + "-jwt-auth",
 		},
 		StringData: map[string]string{
 			isovalentv1alpha1.LBServiceJWKSSecretKey: string(jwks),
