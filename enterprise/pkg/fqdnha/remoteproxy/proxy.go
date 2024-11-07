@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -306,8 +305,6 @@ func (r *RemoteFQDNProxy) Start(_ cell.HookContext) error {
 			r.local = p
 		}
 
-		timer, done := inctimer.New()
-		defer done()
 		for {
 			log.Debug("trying to connect to remote proxy...")
 			// create a new connection from the agent to the remote fqdn proxy
@@ -332,7 +329,7 @@ func (r *RemoteFQDNProxy) Start(_ cell.HookContext) error {
 			select {
 			case <-r.done:
 				return
-			case <-timer.After(30 * time.Second):
+			case <-time.After(30 * time.Second):
 				continue
 			}
 		}

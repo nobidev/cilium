@@ -21,11 +21,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type ciliumCli struct {
@@ -119,7 +119,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 		}
 
 		select {
-		case <-inctimer.After(pollInterval):
+		case <-time.After(pollInterval):
 		case <-ctx.Done():
 			return "",
 				fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (last error: %w)",

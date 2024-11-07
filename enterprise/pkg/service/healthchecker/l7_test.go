@@ -21,7 +21,6 @@ import (
 	"time"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/inctimer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -248,7 +247,7 @@ func TestL7Probe(t *testing.T) {
 			var res ProbeData
 			select {
 			case res = <-probeChan:
-			case <-inctimer.After(5 * time.Second):
+			case <-time.After(5 * time.Second):
 				t.Fatalf("timeout reading from probe channel")
 			}
 

@@ -344,12 +344,21 @@ Helm Options
   ``hubble.ui.tls.client.cert``, and ``hubble.ui.tls.client.key`` have been
   deprecated in favor of the associated ``existingSecret`` options and will be
   removed in a future release.
+* The default value of ``hubble.tls.auto.certValidityDuration`` has been
+  lowered from 1095 days to 365 days because recent versions of MacOS will fail
+  to validate certificates with expirations longer than 825 days.
 
 Agent Options
 ~~~~~~~~~~~~~
 
 * The ``CONNTRACK_LOCAL`` option has been deprecated and will be removed in a
   future release.
+
+Bugtool Options
+~~~~~~~~~~~~~~~
+
+* The flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
+  have been deprecated and will be removed in a Cilium 1.18. Cilium CLI should be used to gather a sysdump from a K8s cluster.
 
 Added Metrics
 ~~~~~~~~~~~~~
@@ -368,6 +377,17 @@ Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 * ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
 * ``cilium_node_connectivity_latency_seconds`` is now deprecated. Please use ``cilium_node_health_connectivity_latency_seconds`` instead.
+
+Hubble CLI
+~~~~~~~~~~
+
+* the ``--cluster`` behavior changed to show flows emitted from nodes outside of
+  the provided cluster name (either coming from or going to the target cluster).
+  This change brings consistency between the ``--cluster`` and ``--namespace``
+  flags and removed the incompatibility between the ``--cluster`` and
+  ``--node-name`` flags. The previous behavior of ``--cluster foo`` can be
+  reproduced with ``--node-name foo/`` (shows all flows emitted from a node in
+  cluster ``foo``).
 
 Advanced
 ========

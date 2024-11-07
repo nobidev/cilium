@@ -325,6 +325,7 @@ eth
 ethernet
 ethtool
 existingSecret
+expirations
 extTrafficPolicy
 extern
 externalIPs
@@ -804,6 +805,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upstreamed
 uptime
 uretprobes
 url

@@ -42,6 +42,8 @@ rbac:
 imagePullSecrets: []
 # - name: "image-pull-secret"
 
+# -- Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
+iptablesRandomFully: false
 # -- (string) Kubernetes config path
 # @default -- `"~/.kube/config"`
 kubeConfigPath: ""
@@ -597,7 +599,7 @@ bpf:
   # @schema
   # type: [null, boolean]
   # @schema
-  # -- (bool) Configure the eBPF-based TPROXY to reduce reliance on iptables rules
+  # -- (bool) Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules
   # for implementing Layer 7 policy.
   # @default -- `false`
   tproxy: ~
@@ -1082,6 +1084,8 @@ socketLB:
   # hostNamespaceOnly: false
   # -- Enable terminating pod connections to deleted service backends.
   # terminatePodConnections: true
+  # -- Enables tracing for socket-based load balancing.
+  # tracing: true
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to
@@ -1359,7 +1363,10 @@ hubble:
       # - certmanager:  This method use cert-manager to generate & rotate certificates.
       method: helm
       # -- Generated certificates validity duration in days.
-      certValidityDuration: 1095
+      #
+      # Defaults to 365 days (1 year) because MacOS does not accept
+      # self-signed certificates with expirations > 825 days.
+      certValidityDuration: 365
       # -- Schedule for certificates regeneration (regardless of their expiration date).
       # Only used if method is "cronJob". If nil, then no recurring job will be created.
       # Instead, only the one-shot job is deployed to generate the certificates at
@@ -2221,7 +2228,7 @@ loadBalancer:
   # endpoints filtering
   # serviceTopology: false
 
-  # -- experimental enables support for the experimental load-balancing 
+  # -- experimental enables support for the experimental load-balancing
   # control-plane.
   experimental: false
   # -- L7 LoadBalancer
@@ -2397,6 +2404,8 @@ envoy:
     defaultLevel: ~
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
+  # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
+  initialFetchTimeoutSeconds: 30
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2415,9 +2424,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.30.6-1729774282-0fdfdb63f28d1701595e9374931c4c570a7f8771"
+    tag: "v1.30.7-1730450803-0a83534f8c57b4d24405b213ed4b65e4e4987d8d"
     pullPolicy: "Always"
-    digest: "sha256:668b7a20971ff54b0e6d82a9019f608cee670515912fcacec48136b04252453e"
+    digest: "sha256:f89267235e105c008e00e8cac1c11b325b69dc25473c4170e2f1dfbe72303bc8"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2696,7 +2705,6 @@ routingMode: ""
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
 # -- Configure what the response should be to traffic for a service without backends.
-# "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop".
 # Possible values:
 #  - reject (default)
 #  - drop

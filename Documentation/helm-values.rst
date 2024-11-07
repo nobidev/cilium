@@ -425,7 +425,7 @@
      - string
      - ``"/sys/fs/bpf"``
    * - :spelling:ignore:`bpf.tproxy`
-     - Configure the eBPF-based TPROXY to reduce reliance on iptables rules for implementing Layer 7 policy.
+     - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy.
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.vlanBypass`
@@ -1391,7 +1391,11 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:668b7a20971ff54b0e6d82a9019f608cee670515912fcacec48136b04252453e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1729774282-0fdfdb63f28d1701595e9374931c4c570a7f8771","useDigest":true}``
+     - ``{"digest":"sha256:f89267235e105c008e00e8cac1c11b325b69dc25473c4170e2f1dfbe72303bc8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.7-1730450803-0a83534f8c57b4d24405b213ed4b65e4e4987d8d","useDigest":true}``
+   * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
+     - Time in seconds after which the initial fetch on an xDS stream is considered timed out
+     - int
+     - ``30``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -2167,19 +2171,19 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
    * - :spelling:ignore:`hubble.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.tls.auto.certValidityDuration`
-     - Generated certificates validity duration in days.
+     - Generated certificates validity duration in days.  Defaults to 365 days (1 year) because MacOS does not accept self-signed certificates with expirations > 825 days.
      - int
-     - ``1095``
+     - ``365``
    * - :spelling:ignore:`hubble.tls.auto.enabled`
      - Auto-generate certificates. When set to true, automatically generate a CA and certificates to enable mTLS between Hubble server and Hubble Relay instances. If set to false, the certs for Hubble server need to be provided by setting appropriate values below.
      - bool
@@ -2560,6 +2564,10 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - float
      - ``4.0``
+   * - :spelling:ignore:`iptablesRandomFully`
+     - Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
+     - bool
+     - ``false``
    * - :spelling:ignore:`ipv4.enabled`
      - Enable IPv4 support.
      - bool
@@ -2697,7 +2705,7 @@
      - string
      - ``"disabled"``
    * - :spelling:ignore:`loadBalancer.experimental`
-     - experimental enables support for the experimental load-balancing  control-plane.
+     - experimental enables support for the experimental load-balancing control-plane.
      - bool
      - ``false``
    * - :spelling:ignore:`loadBalancer.l7`
@@ -3341,7 +3349,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`serviceNoBackendResponse`
-     - Configure what the response should be to traffic for a service without backends. "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop". Possible values:  - reject (default)  - drop
+     - Configure what the response should be to traffic for a service without backends. Possible values:  - reject (default)  - drop
      - string
      - ``"reject"``
    * - :spelling:ignore:`sleepAfterInit`

@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -406,7 +405,7 @@ func assertStateTransition(t *testing.T, ch <-chan types.BFDPeerStatus, expState
 	select {
 	case e := <-ch:
 		require.Equal(t, expState.String(), e.Local.State.String())
-	case <-inctimer.After(5 * time.Duration(slowDesiredMinTxInterval) * time.Microsecond):
+	case <-time.After(5 * time.Duration(slowDesiredMinTxInterval) * time.Microsecond):
 		require.Failf(t, "missed state change", "%s expected", expState)
 	}
 }
@@ -418,7 +417,7 @@ func assertEventualState(t *testing.T, ch <-chan types.BFDPeerStatus, expState t
 			if expState == e.Local.State && expDiagnostic == e.Local.Diagnostic {
 				return
 			}
-		case <-inctimer.After(5 * time.Duration(slowDesiredMinTxInterval) * time.Microsecond):
+		case <-time.After(5 * time.Duration(slowDesiredMinTxInterval) * time.Microsecond):
 			require.Failf(t, "missed state change", "%s (%s) expected", expState, expDiagnostic)
 		}
 	}
