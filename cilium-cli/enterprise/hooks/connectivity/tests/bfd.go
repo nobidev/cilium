@@ -14,7 +14,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"strings"
 	"text/template"
@@ -518,27 +520,33 @@ func waitForCiliumBFDPeersState(ctx context.Context, a *check.Action, ciliumPod 
 	defer w.Cancel()
 
 	ensureBFDPeersState := func() ([]types.BFDPeerStatus, error) {
-		// TODO: replace with "cilium-dbg statedb bfd-peers -o json" once supported
-		cmd := strings.Split("cilium-dbg statedb dump", " ")
+		cmd := strings.Split("cilium-dbg shell -- db show -format=json bfd-peers", " ")
 		stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
 			a.Fatalf("failed to run cilium-dbg command: %v", err)
 		}
+		var peers []types.BFDPeerStatus
 
-		stateDBInfo := struct {
-			BFDPeers []types.BFDPeerStatus `json:"bfd-peers"`
-		}{}
-		err = json.Unmarshal(stdout.Bytes(), &stateDBInfo)
-		if err != nil {
-			a.Fatalf("failed to unmarshall statdeb info: %v", err)
+		// The output from "db show --format=json" is an object stream, so we'll need
+		// to decode the object one at a time.
+		dec := json.NewDecoder(&stdout)
+		for {
+			var peer types.BFDPeerStatus
+			if err := dec.Decode(&peer); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				a.Fatalf("failed to unmarshal BFD peer: %s", err)
+			}
+			peers = append(peers, peer)
 		}
 
-		for _, peer := range stateDBInfo.BFDPeers {
+		for _, peer := range peers {
 			if peer.Local.State != expState {
 				return nil, fmt.Errorf("peer %s: expected %s state, got %s", peer.PeerAddress, expState, peer.Local.State)
 			}
 		}
-		return stateDBInfo.BFDPeers, nil
+		return peers, nil
 	}
 
 	for {

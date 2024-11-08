@@ -11,6 +11,8 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/cilium-dbg/cmd"
@@ -28,7 +30,9 @@ var bfdPeersCmd = &cobra.Command{
 	Aliases: []string{"sessions"},
 	Short:   "List state of BFD peers",
 	Long:    "List current state of all configured BFD peers",
-	Run:     bfdStatedbTableCmd.Run,
+	Run: func(_ *cobra.Command, args []string) {
+		cmd.ShellExchange(os.Stdout, "db show bfd-peers")
+	},
 }
 
 func init() {

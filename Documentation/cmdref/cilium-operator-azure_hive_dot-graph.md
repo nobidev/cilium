@@ -54,6 +54,7 @@ cilium-operator-azure hive dot-graph [flags]
       --enable-multi-network                                         Enable support for multiple pod networks
       --enable-node-ipam                                             Enable Node IPAM
       --enable-node-port                                             Enable NodePort type services by Cilium
+      --enable-policy-secrets-sync                                   Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
       --enforce-ingress-https                                        Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --feature-gates-approved strings                               Features approved to be enabled regardless of maturity level
       --feature-gates-minimum-maturity string                        Minimum feature maturity level to approve a feature (default "Stable")
@@ -117,6 +118,7 @@ cilium-operator-azure hive dot-graph [flags]
       --operator-pprof-address string                                Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                                   Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                        Address to serve Prometheus metrics (default ":9963")
+      --policy-secrets-namespace string                              Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --skip-crd-creation                                            When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                    Enable SRv6 locator pool in Cilium
       --validate-network-policy                                      Whether to enable or disable the informational network policy validator (default true)

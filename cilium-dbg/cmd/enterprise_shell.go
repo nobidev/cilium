@@ -10,11 +10,11 @@
 
 package cmd
 
-import (
-	"github.com/cilium/cilium/cilium-dbg/cmd"
-	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
-)
+import "io"
 
-func init() {
-	cmd.StatedbCmd.AddCommand(cmd.StatedbTableCommand[*encryptionPolicy.EncryptionPolicyEntry](encryptionPolicy.EncryptionPolicyTableName))
+// ShellExchange exports the shellExchange function for use in
+// enterprise/cilium-dbg until it has been exported in OSS and can be removed
+// here.
+func ShellExchange(w io.Writer, format string, args ...any) error {
+	return shellExchange(w, format, args...)
 }
