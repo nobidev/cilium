@@ -369,6 +369,7 @@ Makefile* @cilium/build
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/contributing/development/reviewers_committers/review_vendor.rst @cilium/vendor
 /Documentation/crdlist.rst
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
@@ -533,7 +534,6 @@ Makefile* @cilium/build
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
-/pkg/inctimer/ @cilium/sig-agent
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam

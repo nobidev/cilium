@@ -354,7 +354,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DirectRoutingSkipUnreachableName, defaults.EnableDirectRoutingSkipUnreachable, "Enable skipping L2 routes between nodes on different subnets")
 	option.BindEnv(vp, option.DirectRoutingSkipUnreachableName)
 
-	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
+	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection (beta), if support available")
 	option.BindEnv(vp, option.EnableBPFTProxy)
 
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
@@ -1743,13 +1743,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if params.WGAgent != nil {
 		go func() {
-			select {
-			case <-d.nodeDiscovery.Registered:
-				// Wait until the kvstore synchronization completed, to avoid
-				// causing connectivity blips due incorrectly removing
-				// WireGuard peers that have not yet been discovered. The
-				// Registered channel is immediately closed in CRD mode.
-			case <-d.ctx.Done():
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := d.nodeDiscovery.WaitForKVStoreSync(d.ctx); err != nil {
 				return
 			}
 
@@ -1758,7 +1756,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// the collection of stale AllowedIPs entries too early, leading to
 			// the disruption of otherwise valid long running connections.
 			if option.Config.KVStore != "" {
-				ipcache.WaitForKVStoreSync()
+				if err := ipcache.WaitForKVStoreSync(d.ctx); err != nil {
+					return
+				}
 			}
 
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {

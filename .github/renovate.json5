@@ -21,6 +21,7 @@
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
+    ".github/actions/ipsec/configs.yml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "cilium-cli/**",
@@ -53,10 +54,7 @@
     // 'google/oss-fuzz' is ignored from the updates because it's currently
     // unversioned and it would be receiving an update every time the upstream
     // repository would receive a new commit.
-    "google/oss-fuzz",
-    // Do not update GoBGP until https://github.com/osrg/gobgp/issues/2844
-    // is resolved and a new version is released.
-    "github.com/osrg/gobgp/v3"
+    "google/oss-fuzz"
   ],
   "pinDigests": true,
   "ignorePresets": [":prHourlyLimit2"],
@@ -87,7 +85,7 @@
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make generate-apis$"
+    "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -573,7 +571,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make generate-apis"
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
         ],
         "executionMode": "update"
       }
@@ -712,13 +710,14 @@
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- \'higher than (?<currentValue>.*) and lower than.+"
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- \'equal or higher than (?<currentValue>.*) and lower than.+"
       ],
     },
     {
       "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$"
+        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
+        "^\\.github/actions/ipsec/[^/]+\\.ya?ml$"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
