@@ -419,7 +419,7 @@ func Test_Mapping(t *testing.T) {
 				assert.Equal(c, tt.expectedOSSClusterConfig.Name, ossClusterConfig.Name)
 				assert.Equal(c, tt.expectedOSSClusterConfig.Labels, ossClusterConfig.Labels)
 				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoClusterConfig.ResourceVersion}, ossClusterConfig.Annotations)
-				assert.True(c, tt.expectedOSSClusterConfig.Spec.DeepEqual(&tt.expectedOSSClusterConfig.Spec))
+				assert.True(c, tt.expectedOSSClusterConfig.Spec.DeepEqual(&ossClusterConfig.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -442,7 +442,7 @@ func Test_Mapping(t *testing.T) {
 				assert.Equal(c, tt.expectedOSSPeerConfig.Name, ossPeerConfig.Name)
 				assert.Equal(c, tt.expectedOSSPeerConfig.Labels, ossPeerConfig.Labels)
 				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoPeerConfig.ResourceVersion}, ossPeerConfig.Annotations)
-				assert.True(c, tt.expectedOSSPeerConfig.Spec.DeepEqual(&tt.expectedOSSPeerConfig.Spec))
+				assert.True(c, tt.expectedOSSPeerConfig.Spec.DeepEqual(&ossPeerConfig.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -465,7 +465,7 @@ func Test_Mapping(t *testing.T) {
 				assert.Equal(c, tt.expectedOSSAdvert.Name, ossAdvert.Name)
 				assert.Equal(c, tt.expectedOSSAdvert.Labels, ossAdvert.Labels)
 				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoAdvert.ResourceVersion}, ossAdvert.Annotations)
-				assert.True(c, tt.expectedOSSAdvert.Spec.DeepEqual(&tt.expectedOSSAdvert.Spec))
+				assert.True(c, tt.expectedOSSAdvert.Spec.DeepEqual(&ossAdvert.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -488,7 +488,7 @@ func Test_Mapping(t *testing.T) {
 				assert.Equal(c, tt.expectedOSSNodeConfigOR.Name, ossNodeConfigOR.Name)
 				assert.Equal(c, tt.expectedOSSNodeConfigOR.Labels, ossNodeConfigOR.Labels)
 				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoNodeConfigOR.ResourceVersion}, ossNodeConfigOR.Annotations)
-				assert.True(c, tt.expectedOSSNodeConfigOR.Spec.DeepEqual(&tt.expectedOSSNodeConfigOR.Spec))
+				assert.True(c, tt.expectedOSSNodeConfigOR.Spec.DeepEqual(&ossNodeConfigOR.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 		})
 	}
