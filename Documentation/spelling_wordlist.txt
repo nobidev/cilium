@@ -387,6 +387,7 @@ hostonlyifs
 hostscope
 hq
 http
+httpbin
 httpd
 https
 hubble
@@ -695,6 +696,7 @@ scalable
 sctl
 seccomp
 secretName
+secretsBackend
 secretsNamespace
 selftest
 selftests

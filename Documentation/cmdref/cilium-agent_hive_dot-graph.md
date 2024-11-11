@@ -71,6 +71,7 @@ cilium-agent hive dot-graph [flags]
       --enable-monitor                                               Enable the monitor unix domain socket server (default true)
       --enable-multi-network                                         Enable support for multiple pod networks
       --enable-phantom-services                                      Enable phantom services handling (default true)
+      --enable-policy-secrets-sync                                   Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                            Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                      Enable support for service topology aware hints
       --encryption-policy-map-max int                                Maximum number of entries in encryption policy map (default 16384)
@@ -163,6 +164,7 @@ cilium-agent hive dot-graph [flags]
       --nat-map-stats-entries int                                    Number k top stats entries to store locally in statedb (default 32)
       --nat-map-stats-interval duration                              Interval upon which nat maps are iterated for stats (default 30s)
       --nodeport-addresses strings                                   A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
+      --policy-secrets-namespace string                              PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --pprof                                                        Enable serving pprof debugging API
       --pprof-address string                                         Address that pprof listens on (default "localhost")
       --pprof-port uint16                                            Port that pprof listens on (default 6060)
