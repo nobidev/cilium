@@ -41,6 +41,7 @@ type lbTestScenario struct {
 	dockerCli *dockerCli
 
 	coreDNSContainer *coreDNSContainer
+	nginxContainer   *nginxContainer
 
 	backendApps         map[string]*hcAppContainer
 	frrClients          map[string]*frrContainer
@@ -120,6 +121,35 @@ func (r *lbTestScenario) addCoreDNS(ctx context.Context) *coreDNSContainer {
 	}
 
 	r.coreDNSContainer = container
+
+	maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+
+	return container
+}
+
+func (r *lbTestScenario) addNginx(ctx context.Context) *nginxContainer {
+	if r.nginxContainer != nil {
+		return r.nginxContainer
+	}
+
+	name := fmt.Sprintf("%s-nginx", r.testName)
+
+	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagNginxImage, nil, containerNetwork, false, nil, nil)
+	if err != nil {
+		r.t.Fatalf("cannot create Nginx container: %s", err)
+	}
+
+	container := &nginxContainer{
+		dockerContainer: dockerContainer{
+			t:         r.t,
+			id:        id,
+			ip:        ip,
+			port:      18080,
+			dockerCli: r.dockerCli,
+		},
+	}
+
+	r.nginxContainer = container
 
 	maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
 

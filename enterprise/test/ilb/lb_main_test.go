@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 	ciliumCli, k8sCli := newCiliumAndK8sCli(pf)
 	dockerCli := newDockerCli(pf)
 
-	for _, img := range []string{*flagAppImage, *flagClientImage, *flagCoreDNSImage} {
+	for _, img := range []string{*flagAppImage, *flagClientImage, *flagCoreDNSImage, *flagNginxImage} {
 		if err := dockerCli.ensureImage(context.Background(), img); err != nil {
 			pf.Fatalf("failed to ensure Docker image %s: %s", img, err)
 		}

@@ -20,6 +20,7 @@ var (
 	flagClientImage  = flag.String("client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.3", "client container image name")
 	flagUtilsImage   = flag.String("utils-image", "busybox:1.37.0-musl", "utils container image name")
 	flagCoreDNSImage = flag.String("coredns-image", "coredns/coredns:1.11.1", "coredns container image name")
+	flagNginxImage   = flag.String("nginx-image", "library/nginx:1.27.2", "nginx container image name")
 )
 
 const (
