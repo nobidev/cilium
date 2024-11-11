@@ -140,6 +140,9 @@ func TestJWTAuth(t *testing.T) {
 			t.Logf("Creating LB BackendPool resources...")
 			scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
 
+			t.Log("Creating Nginx to serve remote provider's JWKS")
+			nginx := scenario.addNginx(ctx)
+
 			t.Log("Creating JWT auth secret...")
 
 			validProvider0, err := newJWTProvider("valid-provider0")
@@ -165,6 +168,23 @@ func TestJWTAuth(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// An issuer that serves JWKS with remote server
+			remoteProvider0, err := newJWTProvider("remote-provider0")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// URI of the JWKS of the provider. Use HTTP as we
+			// cannot provide custom CA certificate and use IP
+			// address as a host name as we cannot provide custom
+			// DNS resolver.
+			remoteProvider0URI := fmt.Sprintf("http://%s/remote-provider0.jwks", nginx.IP())
+
+			// Serve JWKS with Nginx container
+			if err := nginx.UploadContent(ctx, remoteProvider0.JWKS(), "remote-provider0.jwks"); err != nil {
+				t.Fatal(err)
+			}
+
 			t.Logf("Creating LB Service resources...")
 
 			var service *isovalentv1alpha1.LBService
@@ -174,25 +194,32 @@ func TestJWTAuth(t *testing.T) {
 					// Enable application-wide jwt auth
 					withHttpJWTAuth(
 						// Only matches to the validProvider0's key. Check issuer and audiences.
-						withJWTProvider(
+						withJWTProviderWithLocalJWKS(
 							"valid-provider0",
 							ptr.To(validIssuer),
 							validAudiences,
 							validProvider0Secret,
 						),
 						// Only matches to the validProvider1's key. Check issuer, not audiences.
-						withJWTProvider(
+						withJWTProviderWithLocalJWKS(
 							"valid-provider1",
 							ptr.To(validIssuer),
 							[]string{},
 							validProvider1Secret,
 						),
 						// Only matches to the validProvider2's key. Check audiences, not issuers.
-						withJWTProvider(
+						withJWTProviderWithLocalJWKS(
 							"valid-provider2",
 							nil,
 							validAudiences,
 							validProvider2Secret,
+						),
+						// Only matches to the remoteProvider0's key.
+						withJWTProviderWithRemoteJWKS(
+							"remote-provider0",
+							ptr.To(validIssuer),
+							validAudiences,
+							remoteProvider0URI,
 						),
 					),
 					// Set per-route exception
@@ -212,25 +239,32 @@ func TestJWTAuth(t *testing.T) {
 						// Enable application-wide jwt auth
 						withHttpsJWTAuth(
 							// Only matches to the validProvider0's key. Check issuer and audiences.
-							withJWTProvider(
+							withJWTProviderWithLocalJWKS(
 								"valid-provider0",
 								ptr.To(validIssuer),
 								validAudiences,
 								validProvider0Secret,
 							),
 							// Only matches to the validProvider1's key. Check issuer, not audiences.
-							withJWTProvider(
+							withJWTProviderWithLocalJWKS(
 								"valid-provider1",
 								ptr.To(validIssuer),
 								[]string{},
 								validProvider1Secret,
 							),
 							// Only matches to the validProvider2's key. Check audiences, not issuers.
-							withJWTProvider(
+							withJWTProviderWithLocalJWKS(
 								"valid-provider2",
 								nil,
 								validAudiences,
 								validProvider2Secret,
+							),
+							// Only matches to the remoteProvider0's key.
+							withJWTProviderWithRemoteJWKS(
+								"remote-provider0",
+								ptr.To(validIssuer),
+								validAudiences,
+								remoteProvider0URI,
 							),
 						),
 						// Set per-route exception
@@ -273,6 +307,10 @@ func TestJWTAuth(t *testing.T) {
 					{
 						name:  "ValidateAudiencesOnly",
 						token: validProvider2.Issue(t, invalidIssuer, validAudiences),
+					},
+					{
+						name:  "RemoteProvider",
+						token: remoteProvider0.Issue(t, validIssuer, validAudiences),
 					},
 				}
 				for _, tt := range tests {

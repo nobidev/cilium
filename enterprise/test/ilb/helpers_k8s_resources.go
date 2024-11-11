@@ -387,7 +387,7 @@ func withHttpJWTAuth(opts ...httpJWTAuthOption) httpApplicationOption {
 
 type httpJWTAuthOption func(o *isovalentv1alpha1.LBServiceHTTPJWTAuth)
 
-func withJWTProvider(name string, issuer *string, audiences []string, jwkSecretRef string) httpJWTAuthOption {
+func withJWTProviderWithLocalJWKS(name string, issuer *string, audiences []string, jwksSecretRef string) httpJWTAuthOption {
 	return func(o *isovalentv1alpha1.LBServiceHTTPJWTAuth) {
 		o.Providers = append(o.Providers, isovalentv1alpha1.LBServiceHTTPJWTProvider{
 			Name:      name,
@@ -395,7 +395,22 @@ func withJWTProvider(name string, issuer *string, audiences []string, jwkSecretR
 			Audiences: audiences,
 			JWKS: isovalentv1alpha1.LBServiceHTTPJWTAuthJWKS{
 				SecretRef: &isovalentv1alpha1.LBServiceSecretRef{
-					Name: jwkSecretRef,
+					Name: jwksSecretRef,
+				},
+			},
+		})
+	}
+}
+
+func withJWTProviderWithRemoteJWKS(name string, issuer *string, audiences []string, uri string) httpJWTAuthOption {
+	return func(o *isovalentv1alpha1.LBServiceHTTPJWTAuth) {
+		o.Providers = append(o.Providers, isovalentv1alpha1.LBServiceHTTPJWTProvider{
+			Name:      name,
+			Issuer:    issuer,
+			Audiences: audiences,
+			JWKS: isovalentv1alpha1.LBServiceHTTPJWTAuthJWKS{
+				HTTPURI: &isovalentv1alpha1.LBServiceHTTPURI{
+					URI: uri,
 				},
 			},
 		})
