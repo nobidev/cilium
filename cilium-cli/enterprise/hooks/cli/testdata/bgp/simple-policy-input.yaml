@@ -1,0 +1,21 @@
+# simple CiliumBGPPeeringPolicy, should render the simplest output
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: tor
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65001
+      exportPodCIDR: true
+      serviceSelector:
+        matchExpressions:
+          - { key: somekey, operator: NotIn, values: [ 'never-used-value' ] }
+      neighbors:
+        - peerAddress: "172.0.0.1/32"
+          peerASN: 65000
+        - peerAddress: "172.0.0.2/32"
+          peerASN: 65000

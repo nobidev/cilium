@@ -1,0 +1,33 @@
+# should generate error by rendering - multiple advertisedPathAttributes with the same selectorType
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: tor
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65001
+      podIPPoolSelector:
+        matchLabels:
+          environment: test
+      neighbors:
+        - peerAddress: "172.0.0.1/32"
+          peerASN: 65000
+          advertisedPathAttributes:
+            - selectorType: CiliumPodIPPool
+              selector:
+                matchLabels:
+                  environment: test
+                communities:
+                  standard:
+                    - 100:150
+            - selectorType: CiliumPodIPPool
+              selector:
+                matchLabels:
+                  environment: test
+                communities:
+                  standard:
+                    - 200:250

@@ -1,0 +1,43 @@
+# should render distinct IsovalentBGPPeerConfig and IsovalentBGPAdvertisement for each peer
+# since peering configuration and advertisedPathAttributes are different
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: tor
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65001
+      exportPodCIDR: true
+      podIPPoolSelector:
+        matchLabels:
+          environment: test
+      neighbors:
+        - peerAddress: "172.0.0.1/32"
+          peerASN: 65000
+          advertisedPathAttributes:
+          - selectorType: PodCIDR
+            communities:
+              standard:
+              - 100:150
+          - selectorType: CiliumPodIPPool
+            selector:
+              matchLabels:
+                environment: test
+            communities:
+              standard:
+                - 200:250
+        - peerAddress: "fd00:10:0:1::1/128"
+          peerASN: 65000
+          advertisedPathAttributes:
+          - selectorType: PodCIDR
+            communities:
+              wellKnown:
+              - no-export
+          - selectorType: CiliumPodIPPool
+            communities:
+              large:
+                - 64512:100:50

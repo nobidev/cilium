@@ -1,0 +1,53 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPAdvertisement
+metadata:
+  creationTimestamp: null
+  labels:
+    advertise: worker
+  name: worker
+spec:
+  advertisements:
+  - advertisementType: EgressGateway
+    attributes:
+      communities:
+        standard:
+        - 100:150
+    selector:
+      matchLabels:
+        egw: enabled
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPPeerConfig
+metadata:
+  creationTimestamp: null
+  name: worker
+spec:
+  families:
+  - advertisements:
+      matchLabels:
+        advertise: worker
+    afi: ipv4
+    safi: unicast
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPClusterConfig
+metadata:
+  creationTimestamp: null
+  name: worker
+spec:
+  bgpInstances:
+  - localASN: 65002
+    name: instance-65002
+    peers:
+    - name: peer-10.1.2.1
+      peerASN: 65000
+      peerAddress: 10.1.2.1
+      peerConfigRef:
+        group: isovalent.com
+        kind: IsovalentBGPPeerConfig
+        name: worker
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+status: {}

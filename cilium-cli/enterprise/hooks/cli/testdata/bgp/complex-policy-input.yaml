@@ -1,0 +1,81 @@
+# Should render a different IsovalentBGPPeerConfig with various peering config options for each peer across virtual routers.
+# For each virtual router there should be one IsovalentBGPAdvertisement rendered.
+# Should also render IsovalentBGPNodeConfigOverride objects based on BGP node annotations.
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: tor
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65001
+      exportPodCIDR: true
+      neighbors:
+        - peerAddress: "172.0.0.1/32"
+          peerASN: 65010
+          peerPort: 1179
+          families:
+            - afi: ipv4
+              safi: unicast
+        - peerAddress: "fd00:10:0:1::1/128"
+          peerASN: 65000
+          connectRetryTimeSeconds: 10
+          holdTimeSeconds: 9
+          keepAliveTimeSeconds: 3
+          gracefulRestart:
+            enabled: true
+            restartTimeSeconds: 120
+          families:
+            - afi: ipv6
+              safi: unicast
+    - localASN: 65002
+      serviceSelector:
+        matchLabels:
+          app: foo
+      serviceAdvertisements:
+      - LoadBalancerIP
+      - ClusterIP
+      neighbors:
+        - peerAddress: "172.0.0.2/32"
+          peerASN: 65020
+          eBGPMultihopTTL: 4
+          families:
+            - afi: ipv4
+              safi: unicast
+        - peerAddress: "fd00:10:0:1::2/128"
+          peerASN: 65000
+          authSecretRef: "bgp-password"
+          families:
+            - afi: ipv6
+              safi: unicast
+---
+apiVersion: v1
+kind: Node
+metadata:
+  labels:
+    bgp: enabled
+  annotations:
+    cilium.io/bgp-virtual-router.65001: local-port=179,router-id=10.0.0.1
+    cilium.io/bgp-virtual-router.65002: router-id=10.0.0.1
+  name: node-1
+spec:
+  podCIDR: 10.255.0.0/24
+  podCIDRs:
+    - 10.255.0.0/24
+---
+apiVersion: v1
+kind: Node
+metadata:
+  labels:
+    bgp: enabled
+  annotations:
+    cilium.io/bgp-virtual-router.65001: local-port=179,router-id=10.0.0.2
+    cilium.io/bgp-virtual-router.65002: router-id=10.0.0.2
+  name: node-2
+spec:
+  podCIDR: 10.255.1.0/24
+  podCIDRs:
+    - 10.255.1.0/24

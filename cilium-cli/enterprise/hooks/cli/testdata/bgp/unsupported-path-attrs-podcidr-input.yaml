@@ -1,0 +1,25 @@
+# should generate error by rendering - selector for PodCIDR selectorType is not supported
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: tor
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65001
+      exportPodCIDR: true
+      neighbors:
+        - peerAddress: "172.0.0.1/32"
+          peerASN: 65000
+          advertisedPathAttributes:
+            - selectorType: PodCIDR
+              selector:               # selector for PodCIDR selectorType is not supported
+                matchLabels:
+                  bgp: enabled
+              localPreference: 150
+              communities:
+                standard:
+                  - 100:150

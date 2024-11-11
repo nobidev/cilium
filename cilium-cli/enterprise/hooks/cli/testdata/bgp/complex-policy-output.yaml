@@ -1,0 +1,167 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPAdvertisement
+metadata:
+  creationTimestamp: null
+  labels:
+    advertise: tor-65001
+  name: tor-65001
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPPeerConfig
+metadata:
+  creationTimestamp: null
+  name: tor-65001-peer-172.0.0.1
+spec:
+  families:
+  - advertisements:
+      matchLabels:
+        advertise: tor-65001
+    afi: ipv4
+    safi: unicast
+  transport:
+    peerPort: 1179
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPPeerConfig
+metadata:
+  creationTimestamp: null
+  name: tor-65001-peer-fd00.10.0.1-1
+spec:
+  families:
+  - advertisements:
+      matchLabels:
+        advertise: tor-65001
+    afi: ipv6
+    safi: unicast
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 120
+  timers:
+    connectRetryTimeSeconds: 10
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPAdvertisement
+metadata:
+  creationTimestamp: null
+  labels:
+    advertise: tor-65002
+  name: tor-65002
+spec:
+  advertisements:
+  - advertisementType: Service
+    selector:
+      matchLabels:
+        app: foo
+    service:
+      addresses:
+      - LoadBalancerIP
+      - ClusterIP
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPPeerConfig
+metadata:
+  creationTimestamp: null
+  name: tor-65002-peer-172.0.0.2
+spec:
+  ebgpMultihop: 4
+  families:
+  - advertisements:
+      matchLabels:
+        advertise: tor-65002
+    afi: ipv4
+    safi: unicast
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPPeerConfig
+metadata:
+  creationTimestamp: null
+  name: tor-65002-peer-fd00.10.0.1-2
+spec:
+  authSecretRef: bgp-password
+  families:
+  - advertisements:
+      matchLabels:
+        advertise: tor-65002
+    afi: ipv6
+    safi: unicast
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPClusterConfig
+metadata:
+  creationTimestamp: null
+  name: tor
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: instance-65001
+    peers:
+    - name: peer-172.0.0.1
+      peerASN: 65010
+      peerAddress: 172.0.0.1
+      peerConfigRef:
+        group: isovalent.com
+        kind: IsovalentBGPPeerConfig
+        name: tor-65001-peer-172.0.0.1
+    - name: peer-fd00.10.0.1-1
+      peerASN: 65000
+      peerAddress: fd00:10:0:1::1
+      peerConfigRef:
+        group: isovalent.com
+        kind: IsovalentBGPPeerConfig
+        name: tor-65001-peer-fd00.10.0.1-1
+  - localASN: 65002
+    name: instance-65002
+    peers:
+    - name: peer-172.0.0.2
+      peerASN: 65020
+      peerAddress: 172.0.0.2
+      peerConfigRef:
+        group: isovalent.com
+        kind: IsovalentBGPPeerConfig
+        name: tor-65002-peer-172.0.0.2
+    - name: peer-fd00.10.0.1-2
+      peerASN: 65000
+      peerAddress: fd00:10:0:1::2
+      peerConfigRef:
+        group: isovalent.com
+        kind: IsovalentBGPPeerConfig
+        name: tor-65002-peer-fd00.10.0.1-2
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+status: {}
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPNodeConfigOverride
+metadata:
+  creationTimestamp: null
+  name: node-1
+spec:
+  bgpInstances:
+  - localPort: 179
+    name: instance-65001
+    routerID: 10.0.0.1
+  - name: instance-65002
+    routerID: 10.0.0.1
+---
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPNodeConfigOverride
+metadata:
+  creationTimestamp: null
+  name: node-2
+spec:
+  bgpInstances:
+  - localPort: 179
+    name: instance-65001
+    routerID: 10.0.0.2
+  - name: instance-65002
+    routerID: 10.0.0.2

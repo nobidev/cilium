@@ -1,0 +1,29 @@
+# should render an IsovalentBGPAdvertisement with advertisementType and the community in path attributes
+
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: worker
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: enabled
+  virtualRouters:
+    - localASN: 65002
+      egressGatewayPolicySelector:
+        matchLabels:
+          egw: enabled
+      neighbors:
+        - peerAddress: "10.1.2.1/32"
+          peerASN: 65000
+          families:
+          - afi: ipv4
+            safi: unicast
+          advertisedPathAttributes:
+          - selectorType: IsovalentEgressGatewayPolicy
+            selector:
+              matchLabels:
+                egw: enabled
+            communities:
+              standard:
+                - 100:150
