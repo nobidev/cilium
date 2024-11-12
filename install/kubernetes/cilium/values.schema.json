@@ -2730,6 +2730,115 @@
           },
           "type": "object"
         },
+        "k8sExporter": {
+          "properties": {
+            "affinity": {
+              "type": "object"
+            },
+            "enabled": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "export": {
+              "properties": {
+                "fileCompression": {
+                  "type": "boolean"
+                },
+                "filePath": {
+                  "type": "string"
+                },
+                "fileRotationInterval": {
+                  "type": "string"
+                },
+                "maxFileBackups": {
+                  "type": "integer"
+                },
+                "maxFileSize": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "image": {
+              "properties": {
+                "digest": {
+                  "type": "string"
+                },
+                "override": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "pullPolicy": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "useDigest": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "nodeSelector": {
+              "properties": {
+                "kubernetes.io/os": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "podAnnotations": {
+              "type": "object"
+            },
+            "podSecurityContext": {
+              "properties": {
+                "fsGroup": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "resources": {
+              "type": "object"
+            },
+            "securityContext": {
+              "properties": {
+                "capabilities": {
+                  "properties": {
+                    "drop": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "runAsUser": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "tolerations": {
+              "items": {},
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
         "listenAddress": {
           "type": "string"
         },
@@ -5625,6 +5734,23 @@
           "type": "object"
         },
         "envoy": {
+          "properties": {
+            "annotations": {
+              "type": "object"
+            },
+            "automount": {
+              "type": "boolean"
+            },
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "hubbleK8sExporter": {
           "properties": {
             "annotations": {
               "type": "object"
