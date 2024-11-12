@@ -27,6 +27,7 @@ type IsovalentBGPPeerConfigList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgppeerconfig",path="isovalentbgppeerconfigs",scope="Cluster",shortName={ibgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
 type IsovalentBGPPeerConfig struct {
@@ -37,6 +38,11 @@ type IsovalentBGPPeerConfig struct {
 
 	// Spec is the specification of the desired behavior of the IsovalentBGPPeerConfig.
 	Spec IsovalentBGPPeerConfigSpec `json:"spec"`
+
+	// Status is the running status of the IsovalentBGPPeerConfig
+	//
+	// +kubebuilder:validation:Optional
+	Status IsovalentBGPPeerConfigStatus `json:"status"`
 }
 
 type IsovalentBGPPeerConfigSpec struct {
@@ -47,4 +53,14 @@ type IsovalentBGPPeerConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	BFDProfileRef *string `json:"bfdProfileRef,omitempty"`
+}
+
+type IsovalentBGPPeerConfigStatus struct {
+	// The current conditions of the CiliumBGPPeerConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

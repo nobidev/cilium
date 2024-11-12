@@ -26,6 +26,8 @@ type IsovalentBGPPeerConfigsGetter interface {
 type IsovalentBGPPeerConfigInterface interface {
 	Create(ctx context.Context, isovalentBGPPeerConfig *v1alpha1.IsovalentBGPPeerConfig, opts v1.CreateOptions) (*v1alpha1.IsovalentBGPPeerConfig, error)
 	Update(ctx context.Context, isovalentBGPPeerConfig *v1alpha1.IsovalentBGPPeerConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBGPPeerConfig, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, isovalentBGPPeerConfig *v1alpha1.IsovalentBGPPeerConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBGPPeerConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentBGPPeerConfig, error)
