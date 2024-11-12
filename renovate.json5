@@ -10,7 +10,8 @@
   "includePaths": [
     ".github/actions/set-env-variables/enterprise-overrides.sh",
     ".github/workflows/enterprise-*",
-    "images/cilium/download-hubble-enterprise.sh"
+    "images/cilium/download-hubble-enterprise.sh",
+    "install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl",
   ],
   "pinDigests": true,
   "ignorePresets": [":prHourlyLimit2"],
@@ -35,6 +36,10 @@
     // those dependencies that are relevant to end users.
     "release-note/ignore",
   ],
+  // Extend the default fileMatch so that it matches enterprise values too.
+  "helm-values": {
+    "fileMatch": [".*values\\.yaml\\.tmpl$"]
+  },
   "stopUpdatingLabel": "renovate/stop-updating",
   "packageRules": [
     {
@@ -148,6 +153,15 @@
         "quay.io/cilium/kindest-node"
       ],
       "ignoreUnstable": false,
+    },
+    {
+      // Disable dep updates for clickhouse until we sort out how to manage it
+      "enabled": false,
+      "groupName": "clickhouse server",
+      "matchDepNames": [
+        "docker.io/clickhouse/clickhouse-server",
+        "clickhouse/clickhouse-server"
+      ],
     },
   ],
   "regexManagers": [
