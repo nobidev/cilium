@@ -19,6 +19,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -34,15 +39,33 @@ var Cell = cell.Module(
 	),
 
 	cell.ProvidePrivate(
+		newSecretResource,
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride],
 		store.NewBGPCPResourceStore[*cilium_v2.CiliumNode],
+		store.NewBGPCPResourceStore[*slim_core_v1.Secret],
 	),
 
 	cell.ProvidePrivate(signaler.NewBGPCPSignaler),
 
 	cell.Config(config.DefaultConfig),
-	cell.Invoke(RegisterBGPResourceMapper),
+	cell.Invoke(
+		RegisterBGPResourceMapper,
+		registerPeerConfigStatusReconciler,
+	),
 )
+
+func newSecretResource(lc cell.Lifecycle, c client.Clientset, cc config.Config, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
+	if !c.IsEnabled() || !cc.Enabled {
+		return nil
+	}
+	if dc.BGPSecretsNamespace == "" {
+		return nil
+	}
+	return resource.New[*slim_core_v1.Secret](
+		lc, utils.ListerWatcherFromTyped(
+			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
+		))
+}

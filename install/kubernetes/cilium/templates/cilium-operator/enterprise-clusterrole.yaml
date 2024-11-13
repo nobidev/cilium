@@ -121,6 +121,7 @@ rules:
   - isovalent.com
   resources:
   - isovalentbgpclusterconfigs/status
+  - isovalentbgppeerconfigs/status
   verbs:
   - update
 {{- end }}

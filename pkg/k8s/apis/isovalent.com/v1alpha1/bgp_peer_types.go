@@ -64,3 +64,9 @@ type IsovalentBGPPeerConfigStatus struct {
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+// Conditions for IsovalentBGPPeerConfig
+const (
+	// Referenced auth secret is missing
+	BGPPeerConfigConditionMissingAuthSecret = "isovalent.com/MissingAuthSecret"
+)

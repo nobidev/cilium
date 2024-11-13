@@ -31,6 +31,7 @@ import (
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -65,7 +66,8 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	}
 
 	var resourceWatch = map[string]*watchSync{
-		cilium_v2.CNPluralName:                            {watchCh: make(chan struct{})},
+		"secrets":              {watchCh: make(chan struct{})},
+		cilium_v2.CNPluralName: {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
@@ -76,21 +78,23 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	f := &fixture{}
 	f.fakeClientSet, _ = k8s_client.NewFakeClientset()
 
-	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
-		w := action.(k8sTesting.WatchAction)
-		gvr := w.GetResource()
-		ns := w.GetNamespace()
-		watchTracker, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
-		if err != nil {
-			return false, nil, err
-		}
-		watchSync, exists := resourceWatch[w.GetResource().Resource]
-		if !exists {
-			return false, watchTracker, nil
-		}
+	watchReactor := func(tracker k8sTesting.ObjectTracker) func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+			w := action.(k8sTesting.WatchAction)
+			gvr := w.GetResource()
+			ns := w.GetNamespace()
+			watchTracker, err := tracker.Watch(gvr, ns)
+			if err != nil {
+				return false, nil, err
+			}
+			watchSync, exists := resourceWatch[w.GetResource().Resource]
+			if !exists {
+				return false, watchTracker, nil
+			}
 
-		watchSync.once.Do(func() { close(watchSync.watchCh) })
-		return true, watchTracker, nil
+			watchSync.once.Do(func() { close(watchSync.watchCh) })
+			return true, watchTracker, nil
+		}
 	}
 
 	watcherReadyFn := func() {
@@ -126,7 +130,8 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	// node client
 	f.nodeClient = f.fakeClientSet.CiliumV2().CiliumNodes()
 
-	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
+	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.CiliumFakeClientset.Tracker()))
+	f.fakeClientSet.SlimFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.SlimFakeClientset.Tracker()))
 
 	f.hive = hive.New(
 		cell.Provide(
@@ -139,11 +144,20 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 
 		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_v2.CiliumNode] {
 			return resource.New[*cilium_v2.CiliumNode](
-				lc, utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](
+				lc, utils.ListerWatcherFromTyped(
 					c.CiliumV2().CiliumNodes(),
 				),
 			)
 		}),
+
+		cell.Provide(
+			func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableBGPControlPlane: true,
+					BGPSecretsNamespace:   "kube-system",
+				}
+			},
+		),
 
 		cell.Provide(func() k8s_client.Clientset {
 			return f.fakeClientSet
