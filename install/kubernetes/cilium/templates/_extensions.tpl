@@ -106,5 +106,15 @@ Allow packagers to add extra configuration to certgen.
   - server auth
   - client auth # needed for grpc health probe
   validity: {{ $certValidityStr }}
+- name: hubble-timescape-client-certs
+  namespace: {{ include "cilium.namespace" . }}
+  commonName: "hubble-timescape-client"
+  hosts:
+  - "hubble-timescape"
+  usage:
+  - signing
+  - key encipherment
+  - client auth # needed for grpc health probe
+  validity: {{ $certValidityStr }}
 {{- end }}
 {{- end }}

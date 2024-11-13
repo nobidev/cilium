@@ -39,7 +39,15 @@ data:
         inputs:
         - hubble_logs
         type: http
+        {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+        uri: https://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push
+        tls:
+          ca_file: "/var/lib/hubble/tls/ca.crt"
+          crt_file: "/var/lib/hubble/tls/client.crt"
+          key_file: "/var/lib/hubble/tls/client.key"
+        {{- else }}
         uri: http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push
+        {{- end }}
       prom_exporter:
         address: 0.0.0.0:9090
         inputs:
@@ -131,10 +139,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: PROCFS_ROOT
-              value: "/host/proc"
-            - name: SYSFS_ROOT
-              value: "/host/sys"
           ports:
             - name: api
               containerPort: 8686
@@ -149,21 +153,14 @@ spec:
             - name: config
               mountPath: "/etc/vector/"
               readOnly: true
-            - mountPath: /var/log/
-              name: var-log
-              readOnly: true
-            - mountPath: /var/lib
-              name: var-lib
-              readOnly: true
-            - mountPath: /host/proc
-              name: procfs
-              readOnly: true
-            - mountPath: /host/sys
-              name: sysfs
-              readOnly: true
             - mountPath: /var/run/cilium/hubble
               name: hubble-logs
               readOnly: true
+            {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+            - mountPath: "/var/lib/hubble/tls"
+              name: hubble-tls
+              readOnly: true
+            {{- end }}
       terminationGracePeriodSeconds: 60
       volumes:
         - name: config
@@ -175,18 +172,21 @@ spec:
           hostPath:
             path: "/var/lib/vector-cilium"
         - hostPath:
-            path: /var/log/
-          name: var-log
-        - hostPath:
-            path: /var/lib/
-          name: var-lib
-        - hostPath:
-            path: /proc
-          name: procfs
-        - hostPath:
-            path: /sys
-          name: sysfs
-        - hostPath:
             path: /var/run/cilium/hubble
           name: hubble-logs
+        {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+        - name: hubble-tls
+          projected:
+            defaultMode: 0400
+            sources:
+            - secret:
+                items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+                - key: ca.crt
+                  path: ca.crt
+                name: {{ .Values.hubble.timescape.tls.client.existingSecret | default "hubble-timescape-client-certs" }}
+        {{- end }}
 {{- end }}
