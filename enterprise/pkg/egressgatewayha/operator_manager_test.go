@@ -1984,8 +1984,8 @@ func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
 		},
 		egressIPByGatewayIP: map[string]string{
 			node1IP: "10.100.255.48",
-			node2IP: "10.100.255.49",
-			node3IP: "10.100.255.50",
+			node2IP: "10.100.255.50",
+			node3IP: "10.100.255.49",
 			node4IP: "10.100.255.51",
 		},
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
@@ -2017,17 +2017,19 @@ func TestEgressCIDRAllocationWithAZAffinityPoolExhausted(t *testing.T) {
 		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels}},
 	})
 
-	// only node1 and node2 are listed in activeGatewayIPs and activeGatewayIPsByAZ
-	// since they are the only two gateways with an assigned egress IP
+	// since we can allocate 2 addresses and there are 2 zones, we should
+	// have one active gateway for each affinity zone.
+	// Moreover, no gateway without an allocated egress IP should appear in either
+	// activeGatewayIPs and activeGatewayIPsByAZ.
 	k.assertIegpGatewayStatus(t, gatewayStatus{
-		activeGatewayIPs: []string{node1IP, node2IP},
+		activeGatewayIPs: []string{node1IP, node3IP},
 		activeGatewayIPsByAZ: map[string][]string{
-			"az-1": {node1IP, node2IP},
-			"az-2": {},
+			"az-1": {node1IP},
+			"az-2": {node3IP},
 		},
 		egressIPByGatewayIP: map[string]string{
 			node1IP: "10.100.255.48",
-			node2IP: "10.100.255.49",
+			node3IP: "10.100.255.49",
 		},
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 	})
