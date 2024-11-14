@@ -13,13 +13,20 @@ permission is obtained from Isovalent Inc.
 package helm
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
+
 	helmaction "helm.sh/helm/v3/pkg/action"
 	helmchart "helm.sh/helm/v3/pkg/chart"
+	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	helmcli "helm.sh/helm/v3/pkg/cli"
+
+	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
 )
 
-func Install(chart *helmchart.Chart, logger logr.Logger) error {
+// Install creates the required helm action and runs it
+func Install(chart *helmchart.Chart, values map[string]interface{}, logger logr.Logger) error {
 	settings := helmcli.New()
 	actionConfig := new(helmaction.Configuration)
 	if err := actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), "", func(msg string, v ...interface{}) {
@@ -33,9 +40,18 @@ func Install(chart *helmchart.Chart, logger logr.Logger) error {
 	// TODO: the release may only get prepared
 	// and manifests compared to what is available to avoid hot looping
 	// instAction.DryRun = true
-	_, err := instAction.Run(chart, map[string]interface{}{})
+	_, err := instAction.Run(chart, values)
 	if err != nil {
 		logger.Error(err, "Failed to run install")
 	}
 	return nil
+}
+
+// Values extracts the helm values from the CiliumConfig custom resource
+func Values(ccfg *ciliumiov1alpha1.CiliumConfig) (helmchartutil.Values, error) {
+	hv, err := helmchartutil.ReadValues(ccfg.Spec.Raw)
+	if err != nil {
+		return nil, fmt.Errorf("helm values cannot be read from CiliumConfig: %v", err)
+	}
+	return hv, nil
 }

@@ -63,9 +63,9 @@ type CiliumConfigReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=resourcequotas,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete;bind;escalate
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete;bind;escalate
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
@@ -111,11 +111,12 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// NewActionClientGetter.
 	// Owner references are currently not set. This needs to be amended
 
-	// TODO: add logic here
-	// - Load the values into vals map[string]interface{}, passed to Install()
-	//		- defaults provided by values.yaml
-	//		- overrides provided by the CiliumConfig
-	helm.Install(r.Chart, logger)
+	hv, err := helm.Values(ccfg)
+	logger.V(3).Info("helm", "values", hv)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	helm.Install(r.Chart, hv, logger)
 	return ctrl.Result{}, nil
 }
 
