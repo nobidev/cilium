@@ -128,6 +128,70 @@ func TestAllocateEgressIPsForGroup(t *testing.T) {
 			},
 			expectedError: true,
 		},
+		{
+			name: "rebalanced allocations",
+			cidrs: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.8/30"),
+			},
+			gatewaysByAZ: map[string][]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"),
+					netip.MustParseAddr("10.0.0.2"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.3"),
+					netip.MustParseAddr("10.0.0.4"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.5"),
+					netip.MustParseAddr("10.0.0.6"),
+				},
+			},
+			prevAllocs: map[netip.Addr]netip.Addr{
+				netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				netip.MustParseAddr("10.0.0.2"): netip.MustParseAddr("192.168.0.9"),
+				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddr("192.168.0.10"),
+				netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.11"),
+			},
+			// zone-1 should give up an address in favor of zone-3
+			expected: map[netip.Addr]netip.Addr{
+				netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddr("192.168.0.10"),
+				netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.11"),
+				netip.MustParseAddr("10.0.0.5"): netip.MustParseAddr("192.168.0.9"),
+			},
+			expectedError: true,
+		},
+		{
+			name: "allocations not rebalanced",
+			cidrs: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.8/31"),
+			},
+			gatewaysByAZ: map[string][]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"),
+					netip.MustParseAddr("10.0.0.2"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.3"),
+					netip.MustParseAddr("10.0.0.4"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.5"),
+					netip.MustParseAddr("10.0.0.6"),
+				},
+			},
+			prevAllocs: map[netip.Addr]netip.Addr{
+				netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddr("192.168.0.9"),
+			},
+			// not enough addresses to cover all zones, thus no rebalance
+			expected: map[netip.Addr]netip.Addr{
+				netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddr("192.168.0.9"),
+			},
+			expectedError: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -143,6 +207,143 @@ func TestAllocateEgressIPsForGroup(t *testing.T) {
 			}
 
 			require.Equal(t, tc.expected, allocs)
+		})
+	}
+}
+
+func TestEnsureZonesCoverage(t *testing.T) {
+	testCases := []struct {
+		name          string
+		gatewaysByAZ  map[string][]netip.Addr
+		egressIPsByAZ map[string]map[netip.Addr]netip.Addr
+		expected      map[string]map[netip.Addr]netip.Addr
+	}{
+		{
+			name: "one zone to cover",
+			gatewaysByAZ: map[string][]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"),
+					netip.MustParseAddr("10.0.0.2"),
+					netip.MustParseAddr("10.0.0.3"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"),
+					netip.MustParseAddr("10.0.0.5"),
+					netip.MustParseAddr("10.0.0.6"),
+					netip.MustParseAddr("10.0.0.7"),
+					netip.MustParseAddr("10.0.0.8"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.9"),
+					netip.MustParseAddr("10.0.0.10"),
+				},
+			},
+			egressIPsByAZ: map[string]map[netip.Addr]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.9"),
+					netip.MustParseAddr("10.0.0.5"): netip.MustParseAddr("192.168.0.10"),
+					netip.MustParseAddr("10.0.0.6"): netip.MustParseAddr("192.168.0.11"),
+					netip.MustParseAddr("10.0.0.7"): netip.MustParseAddr("192.168.0.12"),
+				},
+				"zone-3": {},
+			},
+			expected: map[string]map[netip.Addr]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.8"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.9"),
+					netip.MustParseAddr("10.0.0.5"): netip.MustParseAddr("192.168.0.10"),
+					netip.MustParseAddr("10.0.0.6"): netip.MustParseAddr("192.168.0.11"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.9"): netip.MustParseAddr("192.168.0.12"),
+				},
+			},
+		},
+		{
+			name: "multiple zones to cover",
+			gatewaysByAZ: map[string][]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"),
+					netip.MustParseAddr("10.0.0.2"),
+					netip.MustParseAddr("10.0.0.3"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"),
+					netip.MustParseAddr("10.0.0.5"),
+					netip.MustParseAddr("10.0.0.6"),
+					netip.MustParseAddr("10.0.0.7"),
+					netip.MustParseAddr("10.0.0.8"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.9"),
+					netip.MustParseAddr("10.0.0.10"),
+				},
+				"zone-4": {
+					netip.MustParseAddr("10.0.0.11"),
+					netip.MustParseAddr("10.0.0.12"),
+				},
+				"zone-5": {
+					netip.MustParseAddr("10.0.0.13"),
+					netip.MustParseAddr("10.0.0.14"),
+				},
+				"zone-6": {
+					netip.MustParseAddr("10.0.0.15"),
+					netip.MustParseAddr("10.0.0.16"),
+					netip.MustParseAddr("10.0.0.17"),
+					netip.MustParseAddr("10.0.0.18"),
+				},
+			},
+			egressIPsByAZ: map[string]map[netip.Addr]netip.Addr{
+				"zone-1": {},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.9"),
+					netip.MustParseAddr("10.0.0.5"): netip.MustParseAddr("192.168.0.10"),
+					netip.MustParseAddr("10.0.0.6"): netip.MustParseAddr("192.168.0.11"),
+					netip.MustParseAddr("10.0.0.7"): netip.MustParseAddr("192.168.0.12"),
+					netip.MustParseAddr("10.0.0.8"): netip.MustParseAddr("192.168.0.13"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.9"): netip.MustParseAddr("192.168.0.14"),
+				},
+				"zone-4": {},
+				"zone-5": {
+					netip.MustParseAddr("10.0.0.13"): netip.MustParseAddr("192.168.0.15"),
+				},
+				"zone-6": {},
+			},
+			expected: map[string]map[netip.Addr]netip.Addr{
+				"zone-1": {
+					netip.MustParseAddr("10.0.0.1"): netip.MustParseAddr("192.168.0.13"),
+				},
+				"zone-2": {
+					netip.MustParseAddr("10.0.0.4"): netip.MustParseAddr("192.168.0.9"),
+					netip.MustParseAddr("10.0.0.5"): netip.MustParseAddr("192.168.0.10"),
+				},
+				"zone-3": {
+					netip.MustParseAddr("10.0.0.9"): netip.MustParseAddr("192.168.0.14"),
+				},
+				"zone-4": {
+					netip.MustParseAddr("10.0.0.11"): netip.MustParseAddr("192.168.0.12"),
+				},
+				"zone-5": {
+					netip.MustParseAddr("10.0.0.13"): netip.MustParseAddr("192.168.0.15"),
+				},
+				"zone-6": {
+					netip.MustParseAddr("10.0.0.15"): netip.MustParseAddr("192.168.0.11"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			allocsByAZ := ensureZonesCoverage(tc.gatewaysByAZ, tc.egressIPsByAZ)
+			require.Equal(t, tc.expected, allocsByAZ)
 		})
 	}
 }

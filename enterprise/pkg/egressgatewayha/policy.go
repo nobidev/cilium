@@ -740,6 +740,14 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 			gw := newActiveGatewayIPsByAZ[zone][0]
 			egressIP, err := egressPool.allocateNext()
 			if err != nil {
+				// no more available addresses. In case of
+				// previously allocated addresses that could be an
+				// imbalance that could leave one or more zones
+				// uncovered (i.e: without any IP).
+				// Try to balance the allocations to guarantee that
+				// all zones will have at least one allocated address,
+				// if possible.
+				egressIPsByAZ = ensureZonesCoverage(activeGatewayIPsByAZ, egressIPsByAZ)
 				return foldAllocations(egressIPsByAZ), err
 			}
 			egressIPsByAZ[zone][gw] = egressIP
@@ -800,6 +808,61 @@ func allocsHistogram(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) []alloc
 	})
 
 	return hist
+}
+
+func ensureZonesCoverage(
+	activeGatewayIPsByAZ map[string][]netip.Addr,
+	egressIPsByAZ map[string]map[netip.Addr]netip.Addr,
+) map[string]map[netip.Addr]netip.Addr {
+	hist := allocsHistogram(egressIPsByAZ)
+
+	// If total # of available egress IPs is less than the # of zones,
+	// there is no possible assignment to cover all the zones.
+	// If so, we avoid altering the current assignment to keep previous
+	// allocations stable and not breaking existing connections.
+	total := 0
+	for _, allocs := range egressIPsByAZ {
+		total += len(allocs)
+	}
+	if total < len(egressIPsByAZ) {
+		return egressIPsByAZ
+	}
+
+	// loop until there is at least one zone without any IP
+	for hist[0].nAllocs == 0 {
+		// the zone that needs an allocation
+		dstZone := hist[0].zones[0]
+		// the zone that will give up an allocation
+		srcZone := hist[len(hist)-1].zones[0]
+
+		// fetch the list of gateways in the src zone
+		srcGWs := slices.Collect(maps.Keys(egressIPsByAZ[srcZone]))
+		slices.SortFunc(srcGWs, func(a, b netip.Addr) int {
+			return a.Compare(b)
+		})
+
+		// release the egress IP allocation for the last
+		// listed gateway in the src zone
+		srcGW := srcGWs[len(srcGWs)-1]
+		egressIP := egressIPsByAZ[srcZone][srcGW]
+		delete(egressIPsByAZ[srcZone], srcGW)
+
+		// fetch the list of gateways in the dst zone
+		dstGWs := activeGatewayIPsByAZ[dstZone]
+		slices.SortFunc(dstGWs, func(a, b netip.Addr) int {
+			return a.Compare(b)
+		})
+
+		// allocate the released address to the first listed
+		// gateway in the dst zone
+		dstGW := dstGWs[0]
+		egressIPsByAZ[dstZone][dstGW] = egressIP
+
+		// recalculate allocations histogram
+		hist = allocsHistogram(egressIPsByAZ)
+	}
+
+	return egressIPsByAZ
 }
 
 func foldAllocations(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) map[netip.Addr]netip.Addr {
