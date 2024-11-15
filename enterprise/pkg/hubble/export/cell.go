@@ -12,6 +12,7 @@ package export
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/cilium/hive/cell"
@@ -127,11 +128,17 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 		Compress:   params.Config.FileCompress,
 	}
 
+	// register flow metrics
+	metricsHandler := &metricsHandler{}
+	registerMetricsHandler(metricsHandler)
+
 	// setup exporter options
 	exporterOpts := []exporter.Option{
 		exporter.WithAllowList(params.Logger, allowlist),
 		exporter.WithDenyList(params.Logger, denylist),
 		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
+			var writer io.WriteCloser = writer
+			writer = metricsHandler.WrapWriter(writer)
 			return writer, nil
 		}),
 		exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
@@ -144,6 +151,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 		}),
 		exporter.WithOnExportEvent(params.EnterpriseAggregator),
 	}
+
 	// setup rate-limiting
 	if params.Config.RateLimit >= 0 {
 		ratelimiter, err := newEnterpriseRateLimiter(params.Config, params.Logger)
@@ -155,6 +163,23 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 			exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
 		}
 	}
+
+	// setup flow metrics reporting
+	//
+	// NOTE: make sure this is always the last exporter option so it remains accurate
+	// when aggregation/rate-limiting is performed
+	exporterOpts = append(exporterOpts, exporter.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporter.Encoder) (bool, error) {
+		flow := ev.GetFlow()
+		if flow == nil {
+			// we only care about flow events
+			return false, nil
+		}
+		err := metricsHandler.UpdateMetrics(ctx, flow)
+		if err != nil {
+			return false, fmt.Errorf("failed to update flow metrics: %w", err)
+		}
+		return false, nil
+	}))
 
 	staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 	if err != nil {
