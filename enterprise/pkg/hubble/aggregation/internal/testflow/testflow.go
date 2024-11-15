@@ -14,7 +14,7 @@ import (
 	"hash/adler32"
 	"net"
 
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
 )
 
 // Peer is a peer for test flows

@@ -7,12 +7,11 @@
 package extensions
 
 import (
-	reflect "reflect"
-	sync "sync"
-
-	aggregation "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
+	aggregation "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (

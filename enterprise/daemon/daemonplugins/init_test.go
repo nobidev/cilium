@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
-	aggregation "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
 	export "github.com/cilium/cilium/enterprise/plugins/hubble-flow-export"
 )
 

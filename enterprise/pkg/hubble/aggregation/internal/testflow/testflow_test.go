@@ -17,7 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
 )
 
 var (

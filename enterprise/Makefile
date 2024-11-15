@@ -2,7 +2,7 @@ include ../Makefile.defs
 
 .PHONY: enterprise-proto
 enterprise-proto:
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C plugins/hubble-flow-aggregation/api/aggregation
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/hubble/aggregation/api/aggregation
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/extensions
 
 generate-enterprise-api: api/v1/openapi.yaml ## Generate enterprise client, model and server code from openapi spec.

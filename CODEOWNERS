@@ -815,6 +815,8 @@ Makefile* @cilium/build
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
 /enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
+/enterprise/pkg/hubble/ @isovalent/hubble
+/enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
@@ -826,8 +828,6 @@ Makefile* @cilium/build
 /enterprise/pkg/service/healthchecker/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/nat/ @isovalent/egress-gateway
-/enterprise/plugins/ @isovalent/hubble
-/enterprise/plugins/hubble-flow-aggregation/api @isovalent/hubble-api
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble

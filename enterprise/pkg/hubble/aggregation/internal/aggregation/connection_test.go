@@ -14,15 +14,15 @@ import (
 	"context"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/observer"
-	aggregationpb "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/testflow"
+	aggregationpb "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/testflow"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

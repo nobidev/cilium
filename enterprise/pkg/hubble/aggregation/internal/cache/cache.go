@@ -12,14 +12,14 @@ package cache
 
 import (
 	"context"
-	"time"
 
 	"github.com/jonboulle/clockwork"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 
-	aggregationpb "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
+	aggregationpb "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func (c *Cache) aggregateFlow(a *types.AggregatedFlow, f types.AggregatableFlow) (r *types.Result) {

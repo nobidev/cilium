@@ -18,8 +18,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/enterprise/plugins"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/aggregator"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"

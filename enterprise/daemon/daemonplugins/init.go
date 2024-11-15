@@ -19,8 +19,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
 	"github.com/cilium/cilium/enterprise/plugins"
-	aggregation "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation"
 	export "github.com/cilium/cilium/enterprise/plugins/hubble-flow-export"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/option"

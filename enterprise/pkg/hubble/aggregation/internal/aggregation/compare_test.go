@@ -18,9 +18,9 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 
-	aggregationpb "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/cache"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/testflow"
+	aggregationpb "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/cache"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/testflow"
 )
 
 var (

@@ -12,10 +12,10 @@ package types
 
 import (
 	"context"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Hash is a hash value of a flow. The definition of the hash depends on the

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
 )
 
 // AggregationChain is a chain of aggregators. The result of the last

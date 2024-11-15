@@ -23,9 +23,9 @@ import (
 	"github.com/spf13/viper"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/enterprise/plugins"
-	aggregation "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/aggregator"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	metricsAPI "github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/logging"

@@ -13,7 +13,6 @@ package aggregator
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
@@ -25,10 +24,11 @@ import (
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/enterprise/api/extensions"
-	aggregationpb "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/chain"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
+	aggregationpb "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/chain"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type aggregatorContextKey struct{}

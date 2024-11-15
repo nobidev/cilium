@@ -13,7 +13,7 @@ EXTENSIONS_PROTO_SOURCES := \
 EXTENSIONS_GO_TARGETS := $(EXTENSIONS_PROTO_SOURCES:.proto=.pb.go) $(EXTENSIONS_PROTO_SOURCES:.proto=.pb.json.go)
 
 EXTENSIONS_PROTO_PATH := .
-AGGREGATION_PROTO_PATH := ../../plugins/hubble-flow-aggregation/api
+AGGREGATION_PROTO_PATH := ../../pkg/hubble/aggregation/api
 
 EXTENSIONS_PROTOC_PLUGINS := --plugin=$(GOPATH)/bin/protoc-gen-doc
 EXTENSIONS_PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go-grpc

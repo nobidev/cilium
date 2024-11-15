@@ -15,8 +15,8 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/aggregation/types"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/internal/cache"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/cache"
 )
 
 // Name is the name of the compare aggregator

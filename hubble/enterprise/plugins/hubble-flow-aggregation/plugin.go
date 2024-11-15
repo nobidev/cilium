@@ -22,8 +22,8 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/enterprise/api/extensions"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/aggregator"
-	aggregationpb "github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/api/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
+	aggregationpb "github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
 	"github.com/cilium/cilium/hubble/cmd/common/conn"
 	"github.com/cilium/cilium/hubble/cmd/common/validate"
 	"github.com/cilium/cilium/hubble/enterprise/plugins"

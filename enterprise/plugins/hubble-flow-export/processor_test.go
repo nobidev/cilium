@@ -30,7 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/enterprise/plugins/hubble-flow-aggregation/aggregator"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )

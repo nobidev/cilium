@@ -10,4 +10,4 @@
 
 include ../../daemon/Makefile
 
-enterprise-proto: ../plugins/hubble-flow-aggregation/api/aggregation ../api/extensions
+enterprise-proto: ../pkg/hubble/aggregation/api/aggregation ../api/extensions
