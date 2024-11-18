@@ -116,7 +116,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	helm.Install(r.Chart, hv, logger)
+	helm.Install(r.Chart, hv, ccfg, logger)
 	return ctrl.Result{}, nil
 }
 
