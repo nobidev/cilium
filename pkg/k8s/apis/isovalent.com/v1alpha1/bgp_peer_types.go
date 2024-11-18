@@ -69,4 +69,6 @@ type IsovalentBGPPeerConfigStatus struct {
 const (
 	// Referenced auth secret is missing
 	BGPPeerConfigConditionMissingAuthSecret = "isovalent.com/MissingAuthSecret"
+	// Referenced BFDProfile is missing
+	BGPPeerConfigConditionMissingBFDProfile = "isovalent.com/MissingBFDProfile"
 )

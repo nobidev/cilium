@@ -95,7 +95,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(ctx, req)
+			f, ready := newFixture(ctx, req, fixtureConfig{})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
@@ -122,6 +122,127 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cond := meta.FindStatusCondition(
 					pc.Status.Conditions,
 					v1alpha1.BGPPeerConfigConditionMissingAuthSecret,
+				)
+				if !assert.NotNil(ct, cond, "Condition not found") {
+					return
+				}
+				assert.Equal(ct, tt.expectedState, cond.Status, "Unexpected condition status")
+			}, time.Second*3, time.Millisecond*100)
+		})
+	}
+}
+
+func TestMissingBFDProfileCondition(t *testing.T) {
+	peerConfigName := "peer-config0"
+
+	bfdProfile := &v1alpha1.IsovalentBFDProfile{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "bfd-profile0",
+		},
+	}
+
+	tests := []struct {
+		name          string
+		peerConfig    *v1alpha1.IsovalentBGPPeerConfig
+		expectedState meta_v1.ConditionStatus
+		enableBFD     bool
+	}{
+		{
+			name: "MissingBFDProfile False",
+			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+					BFDProfileRef: &bfdProfile.Name,
+				},
+			},
+			expectedState: meta_v1.ConditionFalse,
+			enableBFD:     true,
+		},
+		{
+			name: "MissingBFDProfile False nil BFDProfileRef",
+			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{},
+			},
+			expectedState: meta_v1.ConditionFalse,
+			enableBFD:     true,
+		},
+		{
+			name: "MissingBFDProfile True",
+			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+					BFDProfileRef: ptr.To(bfdProfile.Name + "foo"),
+				},
+			},
+			expectedState: meta_v1.ConditionTrue,
+			enableBFD:     true,
+		},
+		{
+			name: "MissingBFDProfile False disable BFD",
+			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+					// This BFD profile doesn't exist, but
+					// since the BFD itself is disabled,
+					// the condition will be always false.
+					BFDProfileRef: ptr.To(bfdProfile.Name + "foo"),
+				},
+			},
+			expectedState: meta_v1.ConditionFalse,
+			enableBFD:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+			testLogger := hivetest.Logger(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			t.Cleanup(func() {
+				cancel()
+			})
+
+			f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: tt.enableBFD})
+
+			f.hive.Start(testLogger, ctx)
+			t.Cleanup(func() {
+				f.hive.Stop(testLogger, ctx)
+			})
+
+			ready()
+
+			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(
+				ctx,
+				tt.peerConfig,
+				meta_v1.CreateOptions{},
+			)
+			req.NoError(err)
+
+			_, err = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBFDProfiles().Create(
+				ctx,
+				bfdProfile,
+				meta_v1.CreateOptions{},
+			)
+			req.NoError(err)
+
+			req.EventuallyWithT(func(ct *assert.CollectT) {
+				pc, err := f.isoPeerConfClient.Get(ctx, peerConfigName, meta_v1.GetOptions{})
+				if !assert.NoError(ct, err, "Failed to get PeerConfig") {
+					return
+				}
+				cond := meta.FindStatusCondition(
+					pc.Status.Conditions,
+					v1alpha1.BGPPeerConfigConditionMissingBFDProfile,
 				)
 				if !assert.NotNil(ct, cond, "Condition not found") {
 					return

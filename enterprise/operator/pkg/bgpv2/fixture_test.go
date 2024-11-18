@@ -19,7 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	bfdTypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -59,7 +61,11 @@ type fixture struct {
 	nodeClient cilium_client_v2.CiliumNodeInterface
 }
 
-func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func()) {
+type fixtureConfig struct {
+	enableBFD bool
+}
+
+func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) (*fixture, func()) {
 	type watchSync struct {
 		once    sync.Once
 		watchCh chan struct{}
@@ -73,6 +79,10 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPNodeConfigPluralName:         {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
+	}
+
+	if fc.enableBFD {
+		resourceWatch[v1alpha1.IsovalentBFDProfilePluralName] = &watchSync{watchCh: make(chan struct{})}
 	}
 
 	f := &fixture{}
@@ -163,10 +173,13 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 			return f.fakeClientSet
 		}),
 
+		bfd.Cell,
+
 		Cell,
 	)
 
 	hive.AddConfigOverride(f.hive, func(cfg *config.Config) { cfg.Enabled = true })
+	hive.AddConfigOverride(f.hive, func(cfg *bfdTypes.BFDConfig) { cfg.BFDEnabled = fc.enableBFD })
 
 	return f, watcherReadyFn
 }

@@ -40,12 +40,12 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(
 		newSecretResource,
+		k8s.IsovalentBFDProfileResource,
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride],
 		store.NewBGPCPResourceStore[*cilium_v2.CiliumNode],
-		store.NewBGPCPResourceStore[*slim_core_v1.Secret],
 	),
 
 	cell.ProvidePrivate(signaler.NewBGPCPSignaler),

@@ -398,7 +398,7 @@ func Test_Mapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
-			f, watcherReady := newFixture(ctx, req)
+			f, watcherReady := newFixture(ctx, req, fixtureConfig{})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
