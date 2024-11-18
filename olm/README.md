@@ -112,3 +112,46 @@ TODO:
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+### Running the controller locally
+
+For quicker feedback loop and easy debugging from IDEs during the development phase it is possible to run the controller locally.
+Therefore the controller can be started direcly from an IDE or the command line by configuring a few environment variables and
+passing a few parameters.
+
+Environment variables:
+- KUBECONFIG: The location of a kubeconfig file providing access to a development cluster, possibly a kind cluster.
+- NAMESPACE: the namespace where the Cilium resources get created, e.g. "cilium".
+
+Parameters:
+- --helm-path: the location of the helm files, e.g. ./manifests
+- --zap-log-level: the log level (logr). 4 or higher would give a higher level of details convenient for troubleshooting.
+
+Hence the controller can be started from the command line with something similar to this:
+
+```sh
+KUBECONFIG=/tmp/kind.kubeconfig;NAMESPACE=cilium; ./bin/manager --helm-path "./manifests" --zap-log-level 6
+```
+
+The following configuration can be used in VS Code:
+
+```json
+{
+    "name": "Debug CLife",
+    "type": "go",
+    "request": "launch",
+    "mode": "debug",
+    "program": "${fileDirname}",
+    "env": {
+        "KUBECONFIG": "/tmp/kind.kubeconfig",
+        "NAMESPACE": "cilium"
+    },
+    "cwd": "${workspaceFolder}",
+    "args": [
+        "--helm-path",
+        "${workspaceFolder}/manifests",
+        "--zap-log-level",
+        "6"
+    ]
+}
+```
+
