@@ -58,6 +58,23 @@ jobs:
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.2
+
+      - name: Configure Git to be able to access isovalent repositories
+        run: |
+          git config --global url."https://${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}:@github.com/".insteadOf "https://github.com/"
+          git config --global --add url."https://${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}:@github.com/".insteadOf "git@github.com:"
+
+      - name: Run go mod tidy in enterprise/hubble-timescape
+        run: |
+          cd enterprise/hubble-timescape
+          go mod tidy
+          test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy' and submit your changes"; exit 1)
+
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
@@ -73,12 +90,6 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
-        with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.23.2
 
       - name: Wait for Helm dev chart to be available
         timeout-minutes: 30
@@ -112,7 +123,8 @@ jobs:
         env:
           TEST_HUBBLE_OBSERVE_TLS: true
         run: |
-          go test -tags enterprise_integrated_timescape_e2e ./enterprise/test/integrated-timescape
+          cd enterprise/hubble-timescape
+          go test -tags enterprise_integrated_timescape_e2e ./tests/...
         shell: bash
 
       - name: Cleanup

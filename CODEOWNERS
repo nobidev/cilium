@@ -831,7 +831,7 @@ Makefile* @cilium/build
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
 /enterprise/test/ilb/ @isovalent/isovalent-loadbalancer
-/enterprise/test/integrated-timescape/ @isovalent/hubble
+/enterprise/hubble-timescape/ @isovalent/hubble
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /hubble/Makefile.override @isovalent/hubble
 /hubble/enterprise/ @isovalent/hubble

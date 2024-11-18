@@ -161,8 +161,6 @@ github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b h1
 github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.6.1 h1:cLkNx1nkF0b0pPW79JaQxaI5oG2/rBzRKpp0YUg1fTA=
 github.com/cilium/fake v0.6.1/go.mod h1:V9lCbbcsnSf3vB6sdOP7Q0bsUUJ/jyHPZxnFAw5nPUc=
-github.com/cilium/fake/flow v0.6.1 h1:qOVCy1WbKlrdoSmdweV5PmCrqcHmDui2INfT8DyUzSo=
-github.com/cilium/fake/flow v0.6.1/go.mod h1:Swb+fhIw8JDSCQtkgR2qDS29AbEycRVpJP4gCrZxPTQ=
 github.com/cilium/hive v0.0.0-20241021113747-bb8f3c0bede4 h1:dTnQNUDijFP+hf7soSZtoBYZ1OTV7qATqE+qbb//zUQ=
 github.com/cilium/hive v0.0.0-20241021113747-bb8f3c0bede4/go.mod h1:pI2GJ1n3SLKIQVFrKF7W6A6gb6BQkZ+3Hp4PAEo5SuI=
 github.com/cilium/linters v0.1.0 h1:ABdLyPBtF+X6oTlTE0AAJbkuo2s1OYaEsP2jb9+7BGY=
