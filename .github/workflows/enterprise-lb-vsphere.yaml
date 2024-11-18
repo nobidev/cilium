@@ -129,26 +129,20 @@ jobs:
           echo control_plane_ip="172.20.128.${SHORT_ID}" >> $GITHUB_OUTPUT
           echo lb_kubeconfig=${LB_NAME}.kubeconfig >> $GITHUB_OUTPUT
 
+          # Helm chart related variables
+          VERSION=$(cat VERSION)
+          # append the sha to the version string to ensure the chart is uniquely identifiable
+          echo chart_version="${VERSION}.${SHA_SHORT}" >> $GITHUB_OUTPUT
+          echo versioned_chart_name="cilium-${VERSION}.${SHA_SHORT}" >> $GITHUB_OUTPUT
+
       - name: Package and copy Helm chart
         id: helm-chart
         shell: bash
         run: |
-          export VERSION=$(cat VERSION)
-          # append the sha to the version string to ensure the chart is uniquely identifiable
-          export CHART_VERSION="${VERSION}.${{ steps.vars.outputs.sha_short }}"
-          export VERSIONED_NAME="cilium-${CHART_VERSION}"
-
-          sed -i "s/version: ${VERSION}/version: ${CHART_VERSION}/" install/kubernetes/cilium/Chart.yaml
-
-          cat install/kubernetes/cilium/Chart.yaml
-
-          # package and copy the chart to the operator's charts directory
-          helm dependency update install/kubernetes/cilium
-          helm package install/kubernetes/cilium
-          kubectl -n isovalent-operator-system create configmap ${VERSIONED_NAME} --from-file="${VERSIONED_NAME}.tgz"
-
-          echo versioned_name=${VERSIONED_NAME} >> $GITHUB_OUTPUT
-          echo chart_version=${CHART_VERSION} >> $GITHUB_OUTPUT
+          # Create a ConfigMap containing the Cilium chart. The isovalent-operator will look for a
+          # ConfigMap correlating to the LoadBalancer version and use this to deploy Cilium.
+          helm package --dependency-update install/kubernetes/cilium --version ${{ steps.vars.outputs.chart_version }} --app-version ${{ steps.vars.outputs.chart_version }}
+          kubectl -n isovalent-operator-system create configmap ${{ steps.vars.outputs.versioned_chart_name }} --from-file="${{ steps.vars.outputs.versioned_chart_name }}.tgz"
 
       - name: Generate LoadBalancer manifests (vsphere)
         shell: bash
@@ -189,7 +183,7 @@ jobs:
               t1Replicas: 1
               t2Replicas: 1
               auxNodes: 1
-            version: ${{ steps.helm-chart.outputs.chart_version }}
+            version: ${{ steps.vars.outputs.chart_version }}
             providerConfig:
               name: ${{ steps.vars.outputs.lb_name }}
               namespace: kube-system
@@ -264,7 +258,7 @@ jobs:
         shell: bash
         run: |
           kubectl delete -f lb.yaml
-          kubectl -n isovalent-operator-system delete configmap ${{ steps.helm-chart.outputs.versioned_name }}
+          kubectl -n isovalent-operator-system delete configmap ${{ steps.vars.outputs.versioned_chart_name }}
 
   merge-upload:
     if: ${{ always() }}
