@@ -66,6 +66,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var helmPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -75,6 +76,7 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&helmPath, "helm-path", "./manifests", "The path to the helm manifests.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -133,16 +135,21 @@ func main() {
 
 	// TODO: the manifests directory is a copy of install/kubernetes/cilium directory that will need to be synced
 	// Docker does not support symbolic links with targets outside of the root directory.
-	chart, err := helmloader.LoadDir("./manifests")
+	chart, err := helmloader.LoadDir(helmPath)
 	if err != nil {
 		setupLog.Error(err, "Charts can't be loaded")
 		os.Exit(1)
 	}
 
+	ns := os.Getenv("NAMESPACE")
+	if ns == "" {
+		ns = "cilium"
+	}
 	if err = (&controller.CiliumConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Chart:  chart,
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Chart:     chart,
+		Namespace: ns,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CiliumConfig")
 		os.Exit(1)

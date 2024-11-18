@@ -8,11 +8,16 @@ metadata:
 spec:
   group: cilium.io
   names:
+    categories:
+    - all
     kind: CiliumConfig
     listKind: CiliumConfigList
     plural: ciliumconfigs
+    shortNames:
+    - cconf
+    - cconfs
     singular: ciliumconfig
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:

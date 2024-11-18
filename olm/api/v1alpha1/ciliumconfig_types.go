@@ -37,8 +37,9 @@ type CiliumConfigStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=ciliumconfigs,scope=Cluster,categories={all},shortName={cconf,cconfs}
+// +kubebuilder:subresource:status
 
 // CiliumConfig is the Schema for the ciliumconfigs API
 type CiliumConfig struct {
@@ -49,7 +50,7 @@ type CiliumConfig struct {
 	Status CiliumConfigStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // CiliumConfigList contains a list of CiliumConfig
 type CiliumConfigList struct {

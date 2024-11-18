@@ -35,16 +35,16 @@ import (
 )
 
 // Install creates the required helm action and runs it
-func Install(chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliumiov1alpha1.CiliumConfig, logger logr.Logger) error {
+func Install(chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliumiov1alpha1.CiliumConfig, ns string, logger logr.Logger) error {
 	settings := helmcli.New()
 	actionConfig := new(helmaction.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), "", func(msg string, v ...interface{}) {
+	if err := actionConfig.Init(settings.RESTClientGetter(), ns, "", func(msg string, v ...interface{}) {
 		logger.V(4).Info(msg, v)
 	}); err != nil {
 		return err
 	}
 	instAction := helmaction.NewInstall(actionConfig)
-	instAction.Namespace = settings.Namespace()
+	instAction.Namespace = ns
 	instAction.ReleaseName = "cilium-release"
 	instAction.PostRenderer = postRenderer{
 		client: actionConfig.KubeClient,

@@ -14,6 +14,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,6 +25,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	amtypes "k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/discovery"
 
@@ -45,8 +47,9 @@ import (
 // CiliumConfigReconciler reconciles a CiliumConfig object
 type CiliumConfigReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Chart  *helmchart.Chart
+	Scheme    *runtime.Scheme
+	Chart     *helmchart.Chart
+	Namespace string
 }
 
 // TODO: The controller is missing some rights
@@ -86,7 +89,10 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Get the CiliumConfig
 	ccfg := &ciliumiov1alpha1.CiliumConfig{}
-	nsn := req.NamespacedName
+	nsn := amtypes.NamespacedName{
+		Namespace: r.Namespace,
+		Name:      req.Name,
+	}
 	err := r.Client.Get(ctx, nsn, ccfg)
 	if err != nil {
 		// TODO: this does not seem the best UX
@@ -97,6 +103,8 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// and to uninstall only when a very clear attribute is set in CiliumConfig.
 		// - to allow the uninstall by removing the custom resource only when an
 		// environment variable has been set in the operator deployment.
+		// note: this is currently happening outside of the reconciliation any way
+		// due to the owner references being now set and cascade deletion.
 		if apierrors.IsNotFound(err) {
 			// TODO err = UninstallCilium(restConfig, nsn, logger)
 			return ctrl.Result{}, nil
@@ -112,12 +120,26 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Owner references are currently not set. This needs to be amended
 
 	hv, err := helm.Values(ccfg)
-	logger.V(3).Info("helm", "values", hv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	helm.Install(r.Chart, hv, ccfg, logger)
-	return ctrl.Result{}, nil
+	logger.V(3).Info("helm", "values", hv)
+	// Check the existence of the helm secret to decide between new install and update
+	secList := corev1.SecretList{}
+	opts := client.MatchingLabels{
+		"name": "cilium-release",
+	}
+	err = r.Client.List(ctx, &secList, opts)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("query of the helm secret failed: %v", err)
+	}
+	if len(secList.Items) > 0 {
+		// TODO: Dealing with updates is not yet implemented
+		// Terminating the reconcilation for now
+		return ctrl.Result{}, nil
+	}
+	err = helm.Install(r.Chart, hv, ccfg, r.Namespace, logger)
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
