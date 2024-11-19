@@ -123,6 +123,8 @@ func (s *LoadbalancerClient) getType(service isovalentv1alpha1.LBService) string
 		return "TLS Proxy"
 	case service.Spec.Applications.TCPProxy != nil:
 		return "TCP Proxy"
+	case service.Spec.Applications.UDPProxy != nil:
+		return "UDP Proxy"
 	}
 
 	return "N/A"
@@ -278,8 +280,15 @@ func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeSe
 }
 
 func (s *LoadbalancerClient) isT1Only(lbsvc isovalentv1alpha1.LBService) bool {
-	return lbsvc.Spec.Applications.TCPProxy != nil &&
-		(lbsvc.Spec.Applications.TCPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeAuto, isovalentv1alpha1.LBTCPProxyForceModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceMode))
+	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeAuto, isovalentv1alpha1.LBTCPProxyForceModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceMode)) {
+		return true
+	}
+
+	if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBUDPProxyForceModeType{isovalentv1alpha1.LBUDPProxyForceModeAuto, isovalentv1alpha1.LBUDPProxyForceModeT1}, *lbsvc.Spec.Applications.UDPProxy.ForceMode)) {
+		return true
+	}
+
+	return false
 }
 
 func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
