@@ -737,6 +737,7 @@ Makefile* @cilium/build
 * @isovalent/core-structure
 **/*enterprise* @isovalent/void
 /.github/**/*enterprise* @isovalent/infrastructure
+/.github/ISSUE_TEMPLATE/enterprise_hubble_cli_release_template.md @isovalent/hubble
 /.github/ISSUE_TEMPLATE/enterprise_release_template.md @isovalent/release-managers
 /.github/enterprise/.grype.yaml @isovalent/security
 /.github/enterprise/.openvex.json @isovalent/security
