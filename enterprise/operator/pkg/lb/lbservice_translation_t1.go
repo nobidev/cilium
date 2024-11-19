@@ -32,6 +32,22 @@ type lbServiceT1Translator struct {
 	config reconcilerConfig
 }
 
+func (r *lbServiceT1Translator) toServicePort(model *lbService) *corev1.ServicePort {
+	if model.isUDPProxy() {
+		return &corev1.ServicePort{
+			Name:     strings.ToLower(string(corev1.ProtocolUDP)),
+			Protocol: corev1.ProtocolUDP,
+			Port:     model.port,
+		}
+	}
+
+	return &corev1.ServicePort{
+		Name:     strings.ToLower(string(corev1.ProtocolTCP)),
+		Protocol: corev1.ProtocolTCP,
+		Port:     model.port,
+	}
+}
+
 func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service {
 	if model.vip.assignedIPv4 == nil {
 		return nil
@@ -77,13 +93,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 		Spec: corev1.ServiceSpec{
 			Type:                          corev1.ServiceTypeLoadBalancer,
 			AllocateLoadBalancerNodePorts: ptr.To(false),
-			Ports: []corev1.ServicePort{
-				{
-					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-					Protocol: corev1.ProtocolTCP,
-					Port:     model.port,
-				},
-			},
+			Ports:                         []corev1.ServicePort{*r.toServicePort(model)},
 		},
 	}
 }
@@ -91,7 +101,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[string]string {
 	annotations := map[string]string{}
 
-	if !model.isTCPProxyT1OnlyMode() {
+	if !model.isTCPProxyT1OnlyMode() && !model.isUDPProxyT1OnlyMode() {
 		// The presence of these annotations will enable HTTP-based
 		// health checking from T1 to T2 nodes
 		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
@@ -148,7 +158,7 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) []c
 	}
 }
 
-func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
+func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
 	epAddresses := []corev1.EndpointAddress{}
 	port := uint32(0)
 
@@ -186,6 +196,44 @@ func (r *lbServiceT1Translator) endpointSubsetsFromBackends(model *lbService) []
 	}
 }
 
+func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
+	epAddresses := []corev1.EndpointAddress{}
+	port := uint32(0)
+
+	for _, tr := range model.applications.udpProxy.routes {
+		backend, ok := model.referencedBackends[tr.backendRef.name]
+		if ok {
+			for _, b := range backend.lbBackends {
+				if port == 0 {
+					port = b.port
+				}
+				if port != b.port {
+					r.logger.Debug("Skipping incompatible backend",
+						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
+						"ip", b.address,
+						"port", b.port,
+						"reason", "T1-only service does not support backends with different ports")
+					continue
+				}
+				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
+			}
+		}
+	}
+
+	return []corev1.EndpointSubset{
+		{
+			Addresses: epAddresses,
+			Ports: []corev1.EndpointPort{
+				{
+					Name:     strings.ToLower(string(corev1.ProtocolUDP)),
+					Protocol: corev1.ProtocolUDP,
+					Port:     int32(port),
+				},
+			},
+		},
+	}
+}
+
 func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) *corev1.Endpoints {
 	if model.vip.assignedIPv4 == nil {
 		return nil
@@ -194,7 +242,9 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) *corev1.Endpo
 	var epSubsets []corev1.EndpointSubset
 
 	if model.isTCPProxyT1OnlyMode() {
-		epSubsets = r.endpointSubsetsFromBackends(model)
+		epSubsets = r.tcpEndpointSubsetsFromBackends(model)
+	} else if model.isUDPProxyT1OnlyMode() {
+		epSubsets = r.udpEndpointSubsetsFromBackends(model)
 	} else {
 		epSubsets = r.endpointSubsetsFromT2Nodes(model)
 	}
@@ -209,7 +259,7 @@ func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) *corev1.Endpo
 }
 
 func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
-	if model.isTCPProxyT1OnlyMode() {
+	if model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
 		return string(loadbalancer.SVCForwardingModeSNAT)
 	}
 

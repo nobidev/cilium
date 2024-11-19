@@ -305,7 +305,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// as this would result in a loop when the same services is created in the next
 	// reconciliation.
 	// Creating/Updating the T1 Service will trigger an additional reconciliation.
-	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() {
+	if !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
 		if err = r.ensureCECDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
 		}
@@ -760,6 +760,9 @@ func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *
 		}
 	}
 
+	// if the 'persistentBackend' property is added to udpProxy,
+	// then fix the implementation here
+
 	for b := range backendsUsedForPersistentBackend {
 		for _, configuredBackend := range backends {
 			if b == configuredBackend.Name && (configuredBackend.Spec.Loadbalancing == nil || configuredBackend.Spec.Loadbalancing.Algorithm.ConsistentHashing == nil) {
@@ -781,6 +784,13 @@ func (*lbServiceReconciler) getIncompatibleT1MultipleBackendPorts(lbsvc *isovale
 		*lbsvc.Spec.Applications.TCPProxy.ForceMode == isovalentv1alpha1.LBTCPProxyForceModeAuto) { // TODO: remove auto from condition once we support T2 proxy
 
 		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
+			backendsUsedAsT1OnlyBackend[t1r.BackendRef.Name] = struct{}{}
+		}
+	} else if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceMode == nil ||
+		*lbsvc.Spec.Applications.UDPProxy.ForceMode == isovalentv1alpha1.LBUDPProxyForceModeT1 ||
+		*lbsvc.Spec.Applications.UDPProxy.ForceMode == isovalentv1alpha1.LBUDPProxyForceModeAuto) { // TODO: remove auto from condition once we support T2 proxy
+
+		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
 			backendsUsedAsT1OnlyBackend[t1r.BackendRef.Name] = struct{}{}
 		}
 	}

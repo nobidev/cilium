@@ -77,7 +77,7 @@ type lbServiceT2Translator struct {
 }
 
 func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*ciliumv2.CiliumEnvoyConfig, error) {
-	if model.vip.assignedIPv4 == nil || !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() {
+	if model.vip.assignedIPv4 == nil || !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
 		return nil, nil
 	}
 

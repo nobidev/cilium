@@ -286,6 +286,10 @@ type lbApplicationUDPProxy struct {
 	routes   []lbRouteUDPProxy
 }
 
+func (r lbService) isUDPProxy() bool {
+	return r.applications.udpProxy != nil
+}
+
 func (r lbService) isUDPProxyT1OnlyMode() bool {
 	return r.applications.udpProxy != nil && r.applications.udpProxy.tierMode == tierModeT1
 }
