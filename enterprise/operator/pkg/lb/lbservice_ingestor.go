@@ -156,6 +156,7 @@ func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referenced
 		tlsPassthrough: r.toApplicationTLSPassthrough(lbsvc, referencedBackends),
 		tlsProxy:       r.toApplicationTLSProxy(lbsvc, referencedBackends),
 		tcpProxy:       r.toApplicationTCPProxy(lbsvc, referencedBackends),
+		udpProxy:       r.toApplicationUDPProxy(lbsvc, referencedBackends),
 	}
 }
 
@@ -362,6 +363,30 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 
 	return &lbApplicationTCPProxy{
 		tierMode: r.mapTCPProxyTierMode(app),
+		routes:   routes,
+	}
+}
+
+func (r *ingestor) toApplicationUDPProxy(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend) *lbApplicationUDPProxy {
+	app := lbsvc.Spec.Applications.UDPProxy
+	if app == nil {
+		return nil
+	}
+
+	routes := []lbRouteUDPProxy{}
+	for _, lr := range app.Routes {
+		if _, ok := referencedBackends[lr.BackendRef.Name]; !ok {
+			// backend not present yet
+			continue
+		}
+
+		routes = append(routes, lbRouteUDPProxy{
+			backendRef: backendRef{name: lr.BackendRef.Name},
+		})
+	}
+
+	return &lbApplicationUDPProxy{
+		tierMode: r.mapUDPProxyTierMode(app),
 		routes:   routes,
 	}
 }
@@ -924,6 +949,25 @@ func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 	case isovalentv1alpha1.LBTCPProxyForceModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBTCPProxyForceModeT2:
+		return tierModeT2
+	default:
+		return tierModeT2
+	}
+}
+
+func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy) tierModeType {
+	forceMode := isovalentv1alpha1.LBUDPProxyForceModeAuto
+
+	if app.ForceMode != nil {
+		forceMode = *app.ForceMode
+	}
+
+	switch forceMode {
+	case isovalentv1alpha1.LBUDPProxyForceModeAuto:
+		return tierModeT1
+	case isovalentv1alpha1.LBUDPProxyForceModeT1:
+		return tierModeT1
+	case isovalentv1alpha1.LBUDPProxyForceModeT2:
 		return tierModeT2
 	default:
 		return tierModeT2

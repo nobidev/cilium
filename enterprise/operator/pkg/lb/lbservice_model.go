@@ -84,6 +84,7 @@ type lbApplications struct {
 	tlsPassthrough *lbApplicationTLSPassthrough
 	tlsProxy       *lbApplicationTLSProxy
 	tcpProxy       *lbApplicationTCPProxy
+	udpProxy       *lbApplicationUDPProxy
 }
 
 func (r lbApplications) isHTTPProxyConfigured() bool {
@@ -280,6 +281,15 @@ func (r lbService) isTCPProxyT1OnlyMode() bool {
 	return r.applications.tcpProxy != nil && r.applications.tcpProxy.tierMode == tierModeT1
 }
 
+type lbApplicationUDPProxy struct {
+	tierMode tierModeType
+	routes   []lbRouteUDPProxy
+}
+
+func (r lbService) isUDPProxyT1OnlyMode() bool {
+	return r.applications.udpProxy != nil && r.applications.udpProxy.tierMode == tierModeT1
+}
+
 type lbRouteHTTP struct {
 	match             lbRouteHTTPMatch
 	backendRef        backendRef
@@ -435,6 +445,10 @@ type lbRouteTCPConnectionFiltering struct {
 
 type lbRouteTCPConnectionFilteringRule struct {
 	sourceCIDR *lbRouteRequestFilteringSourceCIDR
+}
+
+type lbRouteUDPProxy struct {
+	backendRef backendRef
 }
 
 type lbServiceHTTPAuth struct {
