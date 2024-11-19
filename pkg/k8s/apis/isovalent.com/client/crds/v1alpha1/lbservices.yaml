@@ -1649,18 +1649,77 @@ spec:
                     required:
                     - routes
                     type: object
+                  udpProxy:
+                    description: |-
+                      Defining this stanza enables UDPProxy application that proxies the
+                      UDP traffic to the backends by terminating the UDP.
+                    properties:
+                      forceMode:
+                        description: |-
+                          Enforces specific implementation to be used to realize
+                          UDPProxy application. This configuration should be used
+                          only when there's a performance issue or bugs in the
+                          implementation chosen by the default "auto" option.
+
+                          Following options are available:
+
+                          auto    : The LB controller automatically chooses the most
+                                    efficient implementation for given configuration.
+
+                          t1-only : Enforces UDPProxy to be realized in T1 nodes only.
+                                    If there is any LBService or LBBackendPool configuration
+                                    incompatible with T1 capability, an error will be
+                                    reported.
+
+                          force-t2: Enforces UDPProxy to be realized in T1 and T2 nodes
+                                    even if it can be fully realized in T1 nodes only.
+
+                          Optional, Default: auto
+                        enum:
+                        - auto
+                        - t1-only
+                        - force-t2
+                        type: string
+                      routes:
+                        description: The UDP proxy routing configuration.
+                        items:
+                          properties:
+                            backendRef:
+                              description: |-
+                                The reference to the LBBackendPool resource that this route should
+                                forward the traffic to when the route is matched. The referred
+                                LBBackendPool must exist in the same namespace as the LBService.
+                              properties:
+                                name:
+                                  description: The name of the LBBackendPool resource.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                          required:
+                          - backendRef
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - routes
+                    type: object
                 type: object
                 x-kubernetes-validations:
                 - message: Exactly one application must be specified
                   rule: (has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy)
-                    && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)
-                    && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy)
-                    && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy))
+                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
+                    || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough)
+                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
+                    || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough)
+                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
                     || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy)
-                    && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy)
-                    && has(self.tcpProxy))
+                    && has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
+                    || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
+                    && !has(self.tlsProxy) && has(self.tcpProxy) && !has(self.udpProxy))
+                    || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
+                    && !has(self.tlsProxy) && !has(self.tcpProxy) && has(self.udpProxy))
               port:
                 description: The port that this service should listen on.
                 format: int32

@@ -80,7 +80,7 @@ type LBServiceProxyProtocolConfig struct {
 	PassthroughTLVs []LBProxyProtocolTLV `json:"passthroughTLVs,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy) && !has(self.tcpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && has(self.tcpProxy))"
+// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && has(self.udpProxy))"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
@@ -111,6 +111,12 @@ type LBServiceApplications struct {
 	//
 	// +kubebuilder:validation:Optional
 	TCPProxy *LBServiceApplicationTCPProxy `json:"tcpProxy,omitempty"`
+
+	// Defining this stanza enables UDPProxy application that proxies the
+	// UDP traffic to the backends by terminating the UDP.
+	//
+	// +kubebuilder:validation:Optional
+	UDPProxy *LBServiceApplicationUDPProxy `json:"udpProxy,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="Application-wide and per-route auth type must be matched",rule="!has(self.auth) || (has(self.auth.basic) && self.routes.all(r, !has(r.auth) || has(r.auth.basic))) || (has(self.auth.jwt)   && self.routes.all(r, !has(r.auth) || has(r.auth.jwt)))"
@@ -518,6 +524,55 @@ const (
 	LBTCPProxyForceModeAuto LBTCPProxyForceModeType = "auto"
 	LBTCPProxyForceModeT1   LBTCPProxyForceModeType = "t1-only"
 	LBTCPProxyForceModeT2   LBTCPProxyForceModeType = "force-t2"
+)
+
+type LBServiceApplicationUDPProxy struct {
+	// Enforces specific implementation to be used to realize
+	// UDPProxy application. This configuration should be used
+	// only when there's a performance issue or bugs in the
+	// implementation chosen by the default "auto" option.
+	//
+	// Following options are available:
+	//
+	// auto    : The LB controller automatically chooses the most
+	//           efficient implementation for given configuration.
+	//
+	// t1-only : Enforces UDPProxy to be realized in T1 nodes only.
+	//           If there is any LBService or LBBackendPool configuration
+	//           incompatible with T1 capability, an error will be
+	//           reported.
+	//
+	// force-t2: Enforces UDPProxy to be realized in T1 and T2 nodes
+	//           even if it can be fully realized in T1 nodes only.
+	//
+	// Optional, Default: auto
+	//
+	// +kubebuilder:validation:Optional
+	ForceMode *LBUDPProxyForceModeType `json:"forceMode,omitempty"`
+
+	// The UDP proxy routing configuration.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Routes []LBServiceUDPRoute `json:"routes"`
+}
+
+type LBServiceUDPRoute struct {
+	// The reference to the LBBackendPool resource that this route should
+	// forward the traffic to when the route is matched. The referred
+	// LBBackendPool must exist in the same namespace as the LBService.
+	//
+	// +kubebuilder:validation:Required
+	BackendRef LBServiceBackendRef `json:"backendRef"`
+}
+
+// +kubebuilder:validation:Enum=auto;t1-only;force-t2
+type LBUDPProxyForceModeType string
+
+const (
+	LBUDPProxyForceModeAuto LBUDPProxyForceModeType = "auto"
+	LBUDPProxyForceModeT1   LBUDPProxyForceModeType = "t1-only"
+	LBUDPProxyForceModeT2   LBUDPProxyForceModeType = "force-t2"
 )
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
@@ -1193,6 +1248,11 @@ func (r *LBService) AllReferencedBackendNames() []string {
 	}
 	if r.Spec.Applications.TCPProxy != nil {
 		for _, lr := range r.Spec.Applications.TCPProxy.Routes {
+			backends = append(backends, lr.BackendRef.Name)
+		}
+	}
+	if r.Spec.Applications.UDPProxy != nil {
+		for _, lr := range r.Spec.Applications.UDPProxy.Routes {
 			backends = append(backends, lr.BackendRef.Name)
 		}
 	}
