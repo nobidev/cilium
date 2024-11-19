@@ -12,7 +12,9 @@ helm repo update
 
 kubectl create namespace monitoring
 
-kubectl -n monitoring create configmap grafana-dashboards --from-file=t1.json=enterprise/grafana/loadbalancer/t1.json
+kubectl -n monitoring create configmap grafana-dashboards \
+	--from-file=t1.json=enterprise/grafana/loadbalancer/t1.json \
+	--from-file=t2.json=enterprise/grafana/loadbalancer/t2.json
 kubectl -n monitoring label configmap grafana-dashboards grafana_dashboard=1
 
 helm upgrade --install prometheus \
