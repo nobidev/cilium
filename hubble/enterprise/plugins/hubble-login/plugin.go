@@ -417,6 +417,17 @@ func GetSupportedGrants(provider *oidc.Provider) (SupportedGrants, error) {
 		return grants, fmt.Errorf("unable to unmarshal OIDC well-known metadata: %w", err)
 	}
 
+	if len(providerMetadata.GrantTypesSupported) == 0 {
+		// https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata
+		// grant_types_supported
+		// OPTIONAL. JSON array containing a list of the OAuth 2.0 Grant Type
+		// values that this OP supports. Dynamic OpenID Providers MUST support the
+		// authorization_code and implicit Grant Type values and MAY support other
+		// Grant Types.
+		// If omitted, the default value is ["authorization_code", "implicit"].
+		providerMetadata.GrantTypesSupported = []string{"authorization_code", "implicit"}
+	}
+
 	// preserve the original list so we can log the full list of supported grant
 	// types, even the ones we don't use/support.
 	grants.grantTypesSupported = providerMetadata.GrantTypesSupported
