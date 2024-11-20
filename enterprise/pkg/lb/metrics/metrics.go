@@ -31,8 +31,9 @@ import (
 )
 
 type serviceCacheEntry struct {
-	name   string
-	revNat uint16
+	namespace string
+	name      string
+	revNat    uint16
 }
 
 // lbMetricsCollector implements Prometheus Collector interface and store the state of the metrics collector
@@ -162,7 +163,7 @@ func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event r
 
 			switch event.Kind {
 			case resource.Upsert:
-				mc.lbServiceCache[frontendAddr] = serviceCacheEntry{name: service.Name}
+				mc.lbServiceCache[frontendAddr] = serviceCacheEntry{namespace: service.Namespace, name: service.Name}
 			case resource.Delete:
 				delete(mc.lbServiceCache, frontendAddr)
 			}
@@ -224,15 +225,15 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			return
 		}
 
-		frontendNameAndAddr := fmt.Sprintf("%s (%s)", service.name, frontendAddr)
+		frontendFullName := fmt.Sprintf("%s_%s", service.namespace, service.name)
 
 		// and update the health status of the service's backend
-		serviceBackends, ok := mc.lbHealthcheckStatus[frontendNameAndAddr]
+		serviceBackends, ok := mc.lbHealthcheckStatus[frontendFullName]
 		if !ok {
 			serviceBackends = make(map[string]bool)
 		}
 		serviceBackends[serviceBackend.Address.String()] = serviceVal.GetFlags() == 0
-		mc.lbHealthcheckStatus[frontendNameAndAddr] = serviceBackends
+		mc.lbHealthcheckStatus[frontendFullName] = serviceBackends
 	}
 	if err := lbmap.Service4MapV2.DumpWithCallback(serviceCallback); err != nil {
 		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
@@ -274,23 +275,23 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			deltaPackets -= prevCtValue.Packets
 		}
 
-		frontendNameAndAddr := fmt.Sprintf("%s (%s)", service.name, frontendAddr)
+		frontendFullName := fmt.Sprintf("%s_%s", service.namespace, service.name)
 		backendAddr := backend.Address.String()
 
 		// and increment the bytes and packets counters by the related deltas
-		lbBytesBackends, ok := mc.lbBytes[frontendNameAndAddr]
+		lbBytesBackends, ok := mc.lbBytes[frontendFullName]
 		if !ok {
 			lbBytesBackends = make(map[string]uint64)
 		}
 		lbBytesBackends[backendAddr] += deltaBytes
-		mc.lbBytes[frontendNameAndAddr] = lbBytesBackends
+		mc.lbBytes[frontendFullName] = lbBytesBackends
 
-		lbPacketsBackends, ok := mc.lbPackets[frontendNameAndAddr]
+		lbPacketsBackends, ok := mc.lbPackets[frontendFullName]
 		if !ok {
 			lbPacketsBackends = make(map[string]uint64)
 		}
 		lbPacketsBackends[backendAddr] += deltaPackets
-		mc.lbPackets[frontendNameAndAddr] = lbPacketsBackends
+		mc.lbPackets[frontendFullName] = lbPacketsBackends
 
 		mc.lbOpenConnections += 1
 	}
