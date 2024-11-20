@@ -169,6 +169,8 @@ func TestHTTPClientIP(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+			maybeSysdump(t, testName, "")
+
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(*xffNumTrustedHops), vipIP))
 				t.Logf("Testing %q...", testCmd)

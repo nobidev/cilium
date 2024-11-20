@@ -165,6 +165,8 @@ func TestHTTPProxyProtocol(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+			maybeSysdump(t, testName, "")
+
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))
 				t.Logf("Testing %q...", testCmd)

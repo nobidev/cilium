@@ -61,6 +61,8 @@ func TestTLSProxyRatelimiting(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 

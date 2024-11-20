@@ -284,6 +284,8 @@ func TestJWTAuth(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+			maybeSysdump(t, testName, "")
+
 			var curlOpt string
 			if proto == "http" {
 				curlOpt = fmt.Sprintf("--resolve %s:80:%s", hostName, vipIP)

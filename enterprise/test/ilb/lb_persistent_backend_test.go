@@ -60,6 +60,8 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. Test persistent backend selection with cookie
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
@@ -116,6 +118,8 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
 
 	// 1. Test persistent backend selection with source IP
 	{

@@ -256,6 +256,8 @@ func TestHTTPRequestFiltering(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+			maybeSysdump(t, testName, "")
+
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path))
 				t.Logf("Testing %q...", testCmd)

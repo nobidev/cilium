@@ -170,6 +170,8 @@ func TestDNSBackend(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", vip.Name)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
 
+			maybeSysdump(t, testName, "")
+
 			var testCmd string
 			if tt.serviceTLS {
 				testCmd = curlCmd(fmt.Sprintf(`-k --max-time 10 -H "Content-Type: application/json" --resolve %s:%d:%s https://%s:%d/`, tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))

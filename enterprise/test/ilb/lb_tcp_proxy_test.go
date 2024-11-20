@@ -58,6 +58,8 @@ func TestTCPProxy(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
 	t.Logf("Testing %q...", testCmd)

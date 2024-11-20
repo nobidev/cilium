@@ -54,6 +54,8 @@ func TestHTTPAndT2HealthChecks(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:81/", vipIP))
 	t.Logf("Testing %q...", testCmd)
@@ -146,6 +148,8 @@ func TestHTTP2(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
 	t.Logf("Testing %q...", testCmd)
@@ -199,6 +203,8 @@ func TestHTTPPath(t *testing.T) {
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	{
@@ -270,6 +276,8 @@ func TestHTTPRoutes(t *testing.T) {
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {

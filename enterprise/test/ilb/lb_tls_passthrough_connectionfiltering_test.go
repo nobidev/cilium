@@ -103,6 +103,8 @@ func TestTLSPassthroughConnectionFiltering(t *testing.T) {
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+			maybeSysdump(t, testName, "")
+
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", tt.hostName+".crt", tt.hostName, vipIP, tt.hostName))
 				t.Logf("Testing %q...", testCmd)

@@ -48,6 +48,8 @@ func TestBGPHealthCheck(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. HC Down
 	t.Logf("Setting T2 HC to fail...")
 	backend.SetHC(ctx, hcFail)

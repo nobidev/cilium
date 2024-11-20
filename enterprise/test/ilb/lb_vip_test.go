@@ -56,6 +56,8 @@ func TestSharedVIP(t *testing.T) {
 	t.Logf("Waiting for full VIP connectivity of %q...", sharedVIPName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, sharedVIPName)
 
+	maybeSysdump(t, testName, "")
+
 	// 1. Send two HTTP requests on VIP for both services
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
@@ -112,6 +114,8 @@ func TestRequestedVIP(t *testing.T) {
 
 	t.Logf("Waiting for full VIP connectivity of %q...", testName)
 	_ = scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
 
 	// 1. Send HTTP request to requested VIP
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", requestedVIP))
