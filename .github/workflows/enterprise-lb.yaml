@@ -84,15 +84,19 @@ jobs:
       max-parallel: 4
       matrix:
         include:
-          - mode: "multi-node"
+          - name: "0"
+            mode: "multi-node"
             kernel: "6.1-20240710.064909"
-          - mode: "single-node"
+          - name: "1"
+            mode: "single-node"
             kernel: "6.1-20240710.064909"
-          - mode: "single-node"
+          - name: "2"
+            mode: "single-node"
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 1
-          - mode: "single-node"
+          - name: "3"
+            mode: "single-node"
             kernel: "6.1-20240710.064909"
             use-remote-address: "false"
             xff-num-trusted-hops: 2
@@ -233,17 +237,12 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          PARAMS=""
+          PARAMS="--sysdump-on-failure=true"
           if [ "${{ matrix.mode }}" == "single-node" ]; then
             export DOCKER_HOST="tcp://127.0.0.1:22376"
             PARAMS="--mode=single-node"
           else
             export DOCKER_HOST="tcp://127.0.0.1:22375"
-            # Ideally, we want to replicate real world use cases as much as possible in the tests.
-            # Hence we don't remove LB services after each test case run. This is not possible
-            # in --mode=single-node due to all client/app containers running in the same
-            # netns (port clashes).
-            PARAMS="--cleanup=false"
           fi
 
           if [ "${{ matrix.use-remote-address }}" == "false" ]; then
@@ -266,37 +265,13 @@ jobs:
         run: |
           cilium lb status
 
-      - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
-        shell: bash
-        run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-
-  merge-upload:
-    if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-latest
-    needs: setup-and-test
-    steps:
-      - name: Merge Sysdumps
-        if: ${{ needs.setup-and-test.result == 'failure' }}
-        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
+          path: enterprise/test/ilb/cilium-sysdump-*.zip
           retention-days: 5
-          delete-merged: true
-        continue-on-error: true
 
   commit-status-final:
     if: ${{ always() }}
