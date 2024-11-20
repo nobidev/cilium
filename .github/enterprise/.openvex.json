@@ -551,6 +551,19 @@
       "status": "not_affected",
       "status_notes": "None of the binaries on which this issue flags are vulnerable to it.",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-10963"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not in use in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
