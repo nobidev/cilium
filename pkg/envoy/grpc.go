@@ -30,7 +30,7 @@ var (
 // startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
 // Returns a function that stops the GRPC server when called.
-func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]*xds.ResourceTypeConfiguration) context.CancelFunc {
+func (s *xdsServer) startXDSGRPCServer(config map[string]*xds.ResourceTypeConfiguration) context.CancelFunc {
 	grpcServer := grpc.NewServer()
 
 	// xdsServer optionally pauses serving any resources until endpoints have been restored
@@ -50,14 +50,37 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	reflection.Register(grpcServer)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
+		if s.restorerPromise != nil {
+			restorer, err := s.restorerPromise.Await(ctx)
+			if err == nil && restorer != nil {
+				log.Infof("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+				err = restorer.WaitForEndpointRestore(ctx)
+			}
+			if errors.Is(err, context.Canceled) {
+				log.Debug("Envoy: xDS server stopped before started serving")
+				return
+			}
+		}
+
+		// Have to start listening after restoration has completed to avoid initial fetch
+		// timeouts on Envoy side.
+		listener, err := s.newSocketListener()
+		if err != nil {
+			log.WithError(err).Fatal("Envoy: Failed to create socket listener")
+		}
+
 		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
 		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
 		}
 	}()
 
-	return grpcServer.Stop
+	return func() {
+		cancel()
+		grpcServer.Stop()
+	}
 }
 
 // xdsGRPCServer handles gRPC streaming discovery requests for the

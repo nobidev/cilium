@@ -22,6 +22,7 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // encryptionRule represent a policy rule. All fields are immutable and must
@@ -105,7 +106,7 @@ func enqueueIdentityChange(slice, elems []identity.NumericIdentity) []identity.N
 // IdentitySelectionUpdated is invoked if the identities of the rule selector
 // have changed. We enqueue such changes, so they can later
 // (when IdentitySelectionCommit is called) be used to update affected tuples in StateDB.
-func (n *identityNotifier) IdentitySelectionUpdated(selector networkPolicy.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (n *identityNotifier) IdentitySelectionUpdated(selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
 	if selector.IsWildcard() {
 		return // skip updates for selection changes to wildcard selector
 	}
@@ -137,6 +138,10 @@ func (n *identityNotifier) IdentitySelectionCommit(tx *versioned.Tx) {
 
 	n.queuedAdds = nil
 	n.queuedDels = nil
+}
+
+func (n *identityNotifier) IsPeerSelector() bool {
+	return true
 }
 
 func (e *Engine) newIdentityNotifier(rule *encryptionRule, isSubject bool) *identityNotifier {

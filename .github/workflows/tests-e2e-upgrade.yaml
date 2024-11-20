@@ -114,7 +114,7 @@ jobs:
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20241104.124130'
+            kernel: '5.4-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
@@ -122,15 +122,16 @@ jobs:
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241104.124130'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            kvstore: 'true'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241104.124130'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -139,10 +140,11 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241104.124130'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -152,10 +154,11 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             host-fw: 'false' # enabling breaks downgrading (missed tail calls)
+            ingress-controller: 'true'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20241104.124130'
+            kernel: '6.1-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -169,7 +172,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20241105.013305'
+            kernel: 'bpf-next-20241118.013900'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -184,7 +187,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20241105.013305'
+            kernel: 'bpf-next-20241118.013900'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -195,7 +198,7 @@ jobs:
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20241104.124130'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -206,10 +209,11 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241104.124130'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
@@ -219,10 +223,11 @@ jobs:
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            kvstore: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20241104.124130'
+            kernel: '6.1-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -239,7 +244,7 @@ jobs:
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20241105.013305'
+            kernel: 'bpf-next-20241118.013900'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -266,7 +271,7 @@ jobs:
             # explains why 5.4 might cause north-south-loadbalancing tests to
             # fail.
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241104.124130'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -279,7 +284,7 @@ jobs:
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20241105.013305'
+            kernel: 'bpf-next-20241118.013900'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -293,7 +298,7 @@ jobs:
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20241104.124130'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -308,7 +313,7 @@ jobs:
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -320,7 +325,7 @@ jobs:
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -332,7 +337,7 @@ jobs:
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -340,10 +345,11 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+            kvstore: 'true'
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -354,7 +360,7 @@ jobs:
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -365,7 +371,7 @@ jobs:
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -376,7 +382,7 @@ jobs:
 
           - name: '23'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241105.013305'
+            kernel: 'bpf-20241118.013900'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -390,7 +396,7 @@ jobs:
 
           - name: '24'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20241105.013305'
+            kernel: 'bpf-net-20241118.013900'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -398,11 +404,12 @@ jobs:
             tunnel: 'disabled'
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
+            ingress-controller: 'true'
             skip-upgrade: 'true'
 
           - name: '25'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20241105.013305'
+            kernel: 'bpf-net-20241118.013900'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -410,13 +417,14 @@ jobs:
             tunnel: 'disabled'
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
+            ingress-controller: 'true'
             skip-upgrade: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
           #   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #   kernel: 'bpf-20241105.013305'
+          #   kernel: 'bpf-20241118.013900'
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
 
@@ -521,6 +529,19 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
         with:
@@ -556,9 +577,9 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }}
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }}
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
           fi
 
           cilium status --wait
@@ -591,7 +612,8 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-newest-config.outputs.config }}
+            ${{ steps.cilium-newest-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -658,7 +680,8 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-stable-config.outputs.config }}
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -699,6 +722,12 @@ jobs:
           cilium status
           mkdir -p cilium-sysdumps
           cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Upload artifacts
         if: ${{ !success() }}

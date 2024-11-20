@@ -229,14 +229,12 @@ func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCac
 
 // start configures and starts the xDS GRPC server.
 func (s *xdsServer) start() error {
-	socketListener, err := s.newSocketListener()
-	if err != nil {
-		return fmt.Errorf("failed to create socket listener: %w", err)
-	}
+	// Remove/Unlink the old unix domain socket, if any.
+	_ = os.Remove(s.socketPath)
 
 	resourceConfig := s.initializeXdsConfigs()
 
-	s.stopFunc = s.startXDSGRPCServer(socketListener, resourceConfig)
+	s.stopFunc = s.startXDSGRPCServer(resourceConfig)
 
 	return nil
 }
@@ -646,6 +644,18 @@ func (s *xdsServer) AddAdminListener(port uint16, wg *completion.WaitGroup) {
 					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 				},
 			}},
+			InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
+				UnixSockets: false,
+				// only RFC1918 IP addresses will be considered internal
+				// https://datatracker.ietf.org/doc/html/rfc1918
+				CidrRanges: []*envoy_config_core.CidrRange{
+					{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+					{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+					{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+					{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+					{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
+				},
+			},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 				RouteConfig: &envoy_config_route.RouteConfiguration{
@@ -713,6 +723,18 @@ func (s *xdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 				},
 			}},
+			InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
+				UnixSockets: false,
+				// only RFC1918 IP addresses will be considered internal
+				// https://datatracker.ietf.org/doc/html/rfc1918
+				CidrRanges: []*envoy_config_core.CidrRange{
+					{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+					{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+					{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+					{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+					{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
+				},
+			},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 				RouteConfig: &envoy_config_route.RouteConfiguration{

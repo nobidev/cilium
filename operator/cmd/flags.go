@@ -255,6 +255,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.CiliumPodLabels, "k8s-app=cilium", "Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false")
 	option.BindEnv(vp, operatorOption.CiliumPodLabels)
 
+	flags.Int(operatorOption.TaintSyncWorkers, 10, "Number of workers used to synchronize node tains and conditions")
+	option.BindEnv(vp, operatorOption.TaintSyncWorkers)
+
 	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
 	option.BindEnv(vp, operatorOption.RemoveCiliumNodeTaints)
 
@@ -267,9 +270,16 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
 
+	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure")
+	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
+
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
 	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
+
+	flags.Bool(option.KVstorePodNetworkSupport, defaults.KVstorePodNetworkSupport, "Enable the support for running the Cilium KVstore in pod network")
+	flags.MarkHidden(option.KVstorePodNetworkSupport)
+	option.BindEnv(vp, option.KVstorePodNetworkSupport)
 
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)

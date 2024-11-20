@@ -20,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -369,10 +370,6 @@ type Endpoint struct {
 
 	hasBPFProgram chan struct{}
 
-	// selectorPolicy represents a reference to the shared SelectorPolicy
-	// for all endpoints that have the same Identity.
-	selectorPolicy policy.SelectorPolicy
-
 	// desiredPolicy is the policy calculated during regeneration. After
 	// successful regeneration, it is copied to realizedPolicy
 	// To write, both ep.mutex and ep.buildMutex must be held.
@@ -581,6 +578,8 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		logLimiter:       logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		noTrackPort:      0,
 		properties:       map[string]interface{}{},
+
+		forcePolicyCompute: true,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -916,8 +915,6 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("failed to parse restored endpoint: %w", err)
 	}
 
-	ep.initDNSHistoryTrigger()
-
 	// Set default options, unsupported options were already dropped by
 	// ep.Options.UnmarshalJSON
 	ep.SetDefaultOpts(nil)
@@ -926,6 +923,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
+	ep.forcePolicyCompute = true
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
@@ -1725,6 +1723,15 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		return false, nil
 	}
 
+	filterResolveMetadataError := func(err error) error {
+		if restoredEndpoint && k8sErrors.IsNotFound(err) {
+			e.getLogger().WithError(err).Info("Unable to resolve metadata during endpoint restoration. Is the pod still running?")
+			return nil
+		}
+
+		return err
+	}
+
 	// copy the base labels into this local variable
 	// so that we don't override 'baseLabels'.
 	controllerBaseLabels := labels.NewFrom(baseLabels)
@@ -1734,6 +1741,10 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	pod, k8sMetadata, err := resolveMetadata(ns, podName)
 	switch {
 	case err != nil:
+		if filterResolveMetadataError(err) == nil {
+			break
+		}
+
 		e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 		fallthrough
 	case e.K8sUID != "" && e.K8sUID != string(pod.GetUID()):
@@ -1765,7 +1776,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 		po, _, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", err
+			return "", filterResolveMetadataError(err)
 		}
 		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
 		return value, nil
@@ -1773,7 +1784,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
 		_, k8sMetadata, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", err
+			return "", filterResolveMetadataError(err)
 		}
 		return k8sMetadata.Annotations[bandwidth.EgressBandwidth], nil
 	})

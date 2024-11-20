@@ -19,13 +19,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/testutils"
+)
+
+const (
+	AuthTypeSpire      = types.AuthTypeSpire
+	AuthTypeAlwaysFail = types.AuthTypeAlwaysFail
+	AuthTypeDisabled   = types.AuthTypeDisabled
 )
 
 var (
@@ -35,8 +41,8 @@ var (
 
 func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
-
 }
+
 func TestCacheManagement(t *testing.T) {
 	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
 	cache := repo.policyCache
@@ -48,9 +54,14 @@ func TestCacheManagement(t *testing.T) {
 	require.False(t, deleted)
 
 	// Insert identity twice. Should be the same policy.
-	policy1 := cache.insert(identity)
-	policy2 := cache.insert(identity)
-	require.Equal(t, policy2, policy1)
+	policy1, updated, err := cache.updateSelectorPolicy(identity)
+	require.NoError(t, err)
+	require.True(t, updated)
+	policy2, updated, err := cache.updateSelectorPolicy(identity)
+	require.NoError(t, err)
+	require.False(t, updated)
+	// must be same pointer
+	require.Same(t, policy2, policy1)
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
@@ -65,12 +76,14 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1 = cache.insert(identity)
-	policy3 := cache.insert(identity3)
-	require.NotEqual(t, policy3, policy1)
-	_ = cache.delete(identity)
-	policy3 = cache.lookupOrCreate(identity3, false)
+	policy1, _, _ = cache.updateSelectorPolicy(identity)
+	require.NotNil(t, policy1)
+	policy3, _, _ := cache.updateSelectorPolicy(identity3)
 	require.NotNil(t, policy3)
+	require.NotSame(t, policy3, policy1)
+	_ = cache.delete(identity)
+	_, updated, _ = cache.updateSelectorPolicy(identity3)
+	require.False(t, updated)
 }
 
 func TestCachePopulation(t *testing.T) {
@@ -80,52 +93,34 @@ func TestCachePopulation(t *testing.T) {
 
 	identity1 := ep1.GetSecurityIdentity()
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
-	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
-	updated, err := cache.updateSelectorPolicy(identity1)
+	policy1, updated, err := cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.True(t, updated)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	_, updated, err = cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2 := cache.insert(identity1)
-	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
-	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
-	require.Equal(t, idp2, idp1)
+	policy2, _, _ := cache.updateSelectorPolicy(identity1)
+	require.NotNil(t, policy2)
+	require.Same(t, policy1, policy2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	updated, err = cache.updateSelectorPolicy(identity1)
-	require.Error(t, err)
+	_, updated, _ = cache.updateSelectorPolicy(identity1)
+	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
-	require.Error(t, err)
-	require.False(t, updated)
-
-	// Insert endpoint with different identity and observe that the cache
-	// is different from ep1, ep2
-	policy1 = cache.insert(identity1)
-	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
-	require.NotNil(t, idp1)
-	identity3 := ep3.GetSecurityIdentity()
-	policy3 := cache.insert(identity3)
-	require.NotEqual(t, policy1, policy3)
-	updated, err = cache.updateSelectorPolicy(identity3)
+	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
 	require.NoError(t, err)
 	require.True(t, updated)
-	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
-	require.NotEqual(t, idp1, idp3)
 
-	// If there's an error during policy resolution, update should fail
-	//repo.err = fmt.Errorf("not implemented!")
-	//repo.revision++
-	//_, err = cache.updateSelectorPolicy(identity3)
-	//require.Error(t, err)
+	// policy3 must be different from ep1, ep2
+	require.NoError(t, err)
+	require.NotEqual(t, policy1, policy3)
 }
 
 // Distillery integration tests
@@ -352,18 +347,19 @@ var (
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
+		return newAllowEntry().withLabels(lbls)
 	}
-	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, ExplicitAuthType, at)
+	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+		return newAllowEntry().withLabels(lbls).withExplicitAuth(at)
+	}
+	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+		return newAllowEntry().withLabels(lbls).withDerivedAuth(at)
 	}
 	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, true, DefaultAuthType, AuthTypeDisabled)
+		return newDenyEntry().withLabels(lbls)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
-		entry := newMapStateEntry(nil, lbls, 1, 0, false, DefaultAuthType, AuthTypeDisabled)
-		entry.ProxyPort = 1
-		return entry
+		return newAllowEntry().withLabels(lbls).withProxyPort(1)
 	}
 )
 
@@ -404,12 +400,14 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
-func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (*mapState, error) {
-	sp := d.Repository.GetPolicyCache().insert(identity)
-	d.Repository.GetPolicyCache().UpdatePolicy(identity)
-	epp := sp.Consume(DummyOwner{}, testRedirects)
+func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (mapState, error) {
+	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
+	if err != nil {
+		return newMapState(), fmt.Errorf("failed to calculate policy: %w", err)
+	}
+	epp := sp.DistillPolicy(owner, testRedirects)
 	if epp == nil {
-		return nil, errors.New("policy distillation failure")
+		return newMapState(), errors.New("policy distillation failure")
 	}
 
 	// Remove the allow-all egress entry that's generated by default. This is
@@ -456,7 +454,7 @@ func Test_Perm(t *testing.T) {
 	assert.Equal(t, expected, res, "invalid permutations")
 }
 
-func testMapState(initMap map[Key]mapStateEntry) *mapState {
+func testMapState(initMap map[Key]mapStateEntry) mapState {
 	return newMapState().withState(initMap)
 }
 
@@ -478,7 +476,7 @@ func Test_MergeL3(t *testing.T) {
 	tests := []struct {
 		test   int
 		rules  api.Rules
-		result *mapState
+		result mapState
 		auths  authResult
 	}{
 		{
@@ -510,7 +508,7 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -521,9 +519,9 @@ func Test_MergeL3(t *testing.T) {
 			3,
 			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth, rule__L4__AllowAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllow___L4: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls__L4__Allow),
 				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
@@ -535,7 +533,7 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{rule____AllowAll, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -546,8 +544,8 @@ func Test_MergeL3(t *testing.T) {
 			5,
 			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -558,8 +556,8 @@ func Test_MergeL3(t *testing.T) {
 			6,
 			api.Rules{rule____AllowAllAuth, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7DerivedAuth_(AuthTypeSpire, lbls__L4__Allow),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -570,9 +568,9 @@ func Test_MergeL3(t *testing.T) {
 			7,
 			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7DerivedAuth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7DerivedAuth_(AuthTypeDisabled, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -583,9 +581,9 @@ func Test_MergeL3(t *testing.T) {
 			8,
 			api.Rules{rule____AllowAll, ruleL3__AllowBar, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{},
@@ -596,10 +594,9 @@ func Test_MergeL3(t *testing.T) {
 			9,
 			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -610,10 +607,10 @@ func Test_MergeL3(t *testing.T) {
 			10, // Same as 9, but the L3L4 entry is created by an explicit rule.
 			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth, ruleL3L4AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lblsL3L4AllowBar, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBarL4: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3L4AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -642,7 +639,7 @@ func Test_MergeL3(t *testing.T) {
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
-				if equal := assert.True(t, mapstate.equalsWithLabels(tt.result), mapstate.diff(tt.result)); !equal {
+				if equal := assert.True(t, mapstate.equalsWithLabels(&tt.result), mapstate.diff(&tt.result)); !equal {
 					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 					t.Errorf("Policy obtained didn't match expected for endpoint %s:\nObtained: %v\nExpected: %v", labelsFoo, mapstate, tt.result)
@@ -741,16 +738,16 @@ func parseTable(test string) generatedBPFKey {
 // function and non unit-test code should be seen as coincidental.
 // The algorithm represented in this function should be the source of truth
 // of our expectations when enforcing multiple types of policies.
-func testCaseToMapState(t generatedBPFKey) *mapState {
+func testCaseToMapState(t generatedBPFKey) mapState {
 	m := newMapState()
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny())
+			m.upsert(mapKeyDeny_Foo__, mapEntryL7Deny())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None_())
+				m.upsert(mapKeyAllowFoo__, mapEntryL7None_())
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -758,47 +755,40 @@ func testCaseToMapState(t generatedBPFKey) *mapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny())
+			m.upsert(mapKeyDeny____L4, mapEntryL7Deny())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None_())
+				m.upsert(mapKeyAllow___L4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Proxy())
+				m.upsert(mapKeyAllow___L4, mapEntryL7Proxy())
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny())
+			m.upsert(mapKeyDeny_FooL4, mapEntryL7Deny())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None_())
+				m.upsert(mapKeyAllowFooL4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Proxy())
+					m.upsert(mapKeyAllowFooL4, mapEntryL7Proxy())
 				}
 			}
 		}
 	}
 
-	// Add dependency deny-L3->deny-L3L4 if allow-L4 exists
-	denyL3, denyL3exists := m.denies.Lookup(mapKeyDeny_Foo__)
-	denyL3L4, denyL3L4exists := m.denies.Lookup(mapKeyDeny_FooL4)
-	allowL4, allowL4exists := m.allows.Lookup(mapKeyAllow___L4)
-	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, ChangeState{})
-	}
 	return m
 }
 
-func generateMapStates() []*mapState {
+func generateMapStates() []mapState {
 	rawTestTable := []string{
 		"X	X	X	X	X	X	X	X	X	X	X	X", // 0
 		"X	X	X	X	X	X	X	X	1	0	0	0",
@@ -1064,7 +1054,7 @@ func generateMapStates() []*mapState {
 		"X	X	X	X	1	1	0	1	1	0	0	1",
 		"X	X	X	X	1	1	0	1	1	0	0	1",
 	}
-	mapStates := make([]*mapState, 0, len(rawTestTable))
+	mapStates := make([]mapState, 0, len(rawTestTable))
 	for _, rawTest := range rawTestTable {
 		testCase := parseTable(rawTest)
 		mapState := testCaseToMapState(testCase)
@@ -1118,7 +1108,7 @@ func Test_MergeRules(t *testing.T) {
 	tests := []struct {
 		test     int
 		rules    api.Rules
-		expected *mapState
+		expected mapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1166,7 +1156,7 @@ func Test_MergeRules(t *testing.T) {
 			struct {
 				test     int
 				rules    api.Rules
-				expected *mapState
+				expected mapState
 			}{
 				test:     i,
 				rules:    generateRule(i),
@@ -1193,7 +1183,7 @@ func Test_MergeRules(t *testing.T) {
 			// Ignore generated rules as they lap LabelArrayList which would
 			// make the tests fail.
 			if i < generatedIdx {
-				if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
+				if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 					require.EqualExportedValuesf(t, tt.expected, mapstate, "Policy obtained didn't match expected for endpoint %s", labelsFoo)
 					t.Logf("Rules:\n%s\n\n", tt.rules.String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
@@ -1231,7 +1221,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	tests := []struct {
 		test     int
 		rules    api.Rules
-		expected *mapState
+		expected mapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1285,8 +1275,8 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			require.Truef(t, mapstate.equalsWithLabels(tt.expected),
-				"Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, mapstate.diff(tt.expected))
+			require.Truef(t, mapstate.equalsWithLabels(&tt.expected),
+				"Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, mapstate.diff(&tt.expected))
 		})
 	}
 }
@@ -1310,7 +1300,7 @@ func Test_AllowAll(t *testing.T) {
 		test     int
 		selector api.EndpointSelector
 		rules    api.Rules
-		expected *mapState
+		expected mapState
 	}{
 		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, testMapState(map[Key]mapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)})},
 		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, testMapState(map[Key]mapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)})},
@@ -1331,7 +1321,7 @@ func Test_AllowAll(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
@@ -1457,7 +1447,7 @@ var (
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
 	mapKeyL3UnknownIngress            = IngressKey()
-	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, ExplicitAuthType, AuthTypeDisabled)
+	mapEntryL3UnknownIngress          = newAllowEntryWithLabels(LabelsAllowAnyIngress)
 	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
@@ -1643,7 +1633,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	tests := []struct {
 		test     string
 		rules    api.Rules
-		expected *mapState
+		expected mapState
 	}{
 		{"deny_world_no_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorld, ruleL3AllowWorldIP}, testMapState(map[Key]mapStateEntry{
 			mapKeyAnyIngress:             mapEntryAllow,
@@ -1764,7 +1754,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
@@ -1845,7 +1835,7 @@ func Test_Allowception(t *testing.T) {
 	if err != nil {
 		t.Errorf("Policy resolution failure: %s", err)
 	}
-	if equal := assert.True(t, mapstate.equalsWithLabels(computedMapStateForAllowCeption), mapstate.diff(computedMapStateForAllowCeption)); !equal {
+	if equal := assert.True(t, mapstate.equalsWithLabels(&computedMapStateForAllowCeption), mapstate.diff(&computedMapStateForAllowCeption)); !equal {
 		t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 		t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 	}
@@ -1871,7 +1861,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	tests := []struct {
 		test     string
 		rules    api.Rules
-		expected *mapState
+		expected mapState
 	}{
 		{"host_cidr_select", api.Rules{ruleL3AllowHostEgress}, newMapState().withState(map[Key]mapStateEntry{
 			mapKeyL3UnknownIngress: mapEntryL3UnknownIngress,
@@ -1893,7 +1883,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
@@ -1901,26 +1891,10 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	}
 }
 
-func mapStateAllowsKey(ms *mapState, key Key) bool {
-	var ok bool
-	ms.denies.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is[key.Identity]; exists {
-				ok = true
-			}
-			return true
-		})
-	if ok {
-		return false
-	}
-	ms.allows.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is[key.Identity]; exists {
-				ok = true
-			}
-			return true
-		})
-	return ok
+// allowsKey returns returns true if 'ms' allows "traffic" with 'key'
+func (ms *mapState) allowsKey(key Key) bool {
+	entry, _ := ms.Lookup(key)
+	return !entry.IsDeny
 }
 
 func TestEgressPortRangePrecedence(t *testing.T) {
@@ -2065,12 +2039,11 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 					if rt.isAllow {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-
-						require.Truef(t, mapStateAllowsKey(mapstate, key), "key (%v) not allowed", key)
+						require.Truef(t, mapstate.allowsKey(key), "key (%v) not allowed", key)
 					} else {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Denied.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-						require.Falsef(t, mapStateAllowsKey(mapstate, key), "key (%v) allowed", key)
+						require.Falsef(t, mapstate.allowsKey(key), "key (%v) allowed", key)
 
 					}
 				}
@@ -2078,4 +2051,17 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 		})
 	}
+}
+
+type dummyPolicyStats struct {
+	waitingForPolicyRepository spanstat.SpanStat
+	policyCalculation          spanstat.SpanStat
+}
+
+func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
+	return &s.waitingForPolicyRepository
+}
+
+func (s *dummyPolicyStats) PolicyCalculation() *spanstat.SpanStat {
+	return &s.policyCalculation
 }
