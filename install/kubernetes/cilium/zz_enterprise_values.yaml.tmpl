@@ -97,6 +97,13 @@ enterprise:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
 
+serviceAccounts:
+  hubbleK8sExporter:
+    create: true
+    name: hubble-k8s-exporter
+    automount: true
+    annotations: {}
+
 hubble:
   # -- Enables experimental support for using integrated Hubble Timescape.
   timescape:
@@ -169,6 +176,56 @@ hubble:
         useDigest: false
         pullPolicy: "Always"
       resources: {}
+  # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
+  # The exporter is enabled by default when using integrated Hubble Timescape
+  k8sExporter:
+    # @schema
+    # type: [null, string]
+    # @schema
+    enabled: ~
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: quay.io/isovalent/hubble-k8s-exporter
+      tag: "v1.5.1"
+      digest: ""
+      useDigest: false
+      pullPolicy: "Always"
+    # -- Specifies the resources for the hubble-k8s-exporter pods
+    resources: {}
+    # -- Affinity for hubble-k8s-exporter
+    affinity: {}
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    nodeSelector:
+      kubernetes.io/os: linux
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    tolerations: []
+    # -- Annotations to be added to hubble-k8s-exporter pods
+    podAnnotations: {}
+    podSecurityContext:
+      fsGroup: 65532
+    # -- hubble-k8s-exporter container security context
+    securityContext:
+      # readOnlyRootFilesystem: true
+      runAsUser: 0
+      capabilities:
+        drop:
+          - ALL
+    export:
+      # Absolute path of the export file location
+      filePath: "/var/run/cilium/hubble/k8s-events.log"
+      # Compress rotated files
+      fileCompression: true
+      # Interval at which to rotate JSON export files in addition to rotating them by size
+      fileRotationInterval: 0s
+      # Maximum size of the file in megabytes
+      maxFileSize: 50
+      # Number of rotated files to keep
+      maxFileBackups: 3
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:

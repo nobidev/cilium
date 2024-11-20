@@ -1764,6 +1764,34 @@
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
      - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}``
+   * - :spelling:ignore:`hubble.k8sExporter`
+     - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
+     - object
+     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.5.1","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
+   * - :spelling:ignore:`hubble.k8sExporter.affinity`
+     - Affinity for hubble-k8s-exporter
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.k8sExporter.nodeSelector`
+     - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`hubble.k8sExporter.podAnnotations`
+     - Annotations to be added to hubble-k8s-exporter pods
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.k8sExporter.resources`
+     - Specifies the resources for the hubble-k8s-exporter pods
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.k8sExporter.securityContext`
+     - hubble-k8s-exporter container security context
+     - object
+     - ``{"capabilities":{"drop":["ALL"]},"runAsUser":0}``
+   * - :spelling:ignore:`hubble.k8sExporter.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
