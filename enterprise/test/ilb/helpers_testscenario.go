@@ -18,10 +18,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -399,52 +402,70 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 	}, r.t)
 }
 
+// Fixed interval with jitter. Jittered, but fixed (non-exponential) interval
+// backoff up to 5 times.
+var bgpUpdateBackoff = wait.Backoff{
+	Duration: time.Second,
+	Factor:   1.0,
+	Jitter:   1.0,
+	Steps:    5,
+	Cap:      time.Second * 2, // This backoff will never hit the cap
+}
+
 func (r *lbTestScenario) doBGPPeeringForClient(ctx context.Context, name string, clientIP string) error {
-	cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
+	return retry.RetryOnConflict(bgpUpdateBackoff, func() error {
+		cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
+		}
 
-	cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
-		isovalentv1alpha1.IsovalentBGPPeer{
-			Name:        "peer-" + clientIP,
-			PeerAddress: &clientIP,
-			PeerASN:     ptr.To[int64](64512),
-			PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
-				Name: r.testName,
-			},
-		})
+		cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
+			isovalentv1alpha1.IsovalentBGPPeer{
+				Name:        "peer-" + clientIP,
+				PeerAddress: &clientIP,
+				PeerASN:     ptr.To[int64](64512),
+				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+					Name: r.testName,
+				},
+			})
 
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
-		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
+		if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+			// According to the document of retry.RetryOnConflict
+			// > You have to return err itself here (not wrapped inside another error)
+			// > so that RetryOnConflict can identify it correctly.
+			return err
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (r *lbTestScenario) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
-	cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
-
-	peers := cc.Spec.BGPInstances[0].Peers
-
-	updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
-	for _, peer := range peers {
-		if *peer.PeerAddress != clientIP {
-			updatedPeers = append(updatedPeers, peer)
+	return retry.RetryOnConflict(bgpUpdateBackoff, func() error {
+		cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
-	}
 
-	cc.Spec.BGPInstances[0].Peers = updatedPeers
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
-		// TODO(brb) handle conflict+retry (once we start running tests in parallel)
-		return fmt.Errorf("failed to update BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
-	}
+		peers := cc.Spec.BGPInstances[0].Peers
 
-	return nil
+		updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
+		for _, peer := range peers {
+			if *peer.PeerAddress != clientIP {
+				updatedPeers = append(updatedPeers, peer)
+			}
+		}
+
+		cc.Spec.BGPInstances[0].Peers = updatedPeers
+		if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+			// According to the document of retry.RetryOnConflict
+			// > You have to return err itself here (not wrapped inside another error)
+			// > so that RetryOnConflict can identify it correctly.
+			return err
+		}
+
+		return nil
+	})
 }
 
 type frrClientConfig struct {
