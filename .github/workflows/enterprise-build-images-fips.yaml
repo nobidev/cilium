@@ -68,6 +68,10 @@ jobs:
       image_cilium_arm64: ${{ steps.pass_image.outputs.cilium-arm64 }}
       manifest_cilium_primary: ${{ steps.pass_image.outputs.cilium-primary }}
       manifest_cilium_secondary: ${{ steps.pass_image.outputs.cilium-secondary }}
+      image_hubble_relay_amd64: ${{ steps.pass_image.outputs.hubble-relay-amd64 }}
+      image_hubble_relay_arm64: ${{ steps.pass_image.outputs.hubble-relay-arm64 }}
+      manifest_hubble_relay_primary: ${{ steps.pass_image.outputs.hubble-relay-primary }}
+      manifest_hubble_relay_secondary: ${{ steps.pass_image.outputs.hubble-relay-secondary }}
       image_operator_aws_amd64: ${{ steps.pass_image.outputs.operator-aws-amd64 }}
       image_operator_aws_arm64: ${{ steps.pass_image.outputs.operator-aws-arm64 }}
       manifest_operator_aws_primary: ${{ steps.pass_image.outputs.operator-aws-primary }}
@@ -88,6 +92,7 @@ jobs:
       matrix:
         name:
           - cilium
+          - hubble-relay
           - operator-aws
           - operator-azure
           - operator-alibabacloud
@@ -104,6 +109,10 @@ jobs:
             # Space separated list of binaries to verify
             # usage of the correct crypto libraries.
             binaries: "cilium-agent"
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            binaries: "hubble-relay"
 
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
@@ -351,6 +360,7 @@ jobs:
         # This matrix must be synced with the previous job's matrix.
         name:
           - cilium
+          - hubble-relay
           - operator-aws
           - operator-alibabacloud
           - operator-azure
@@ -386,6 +396,13 @@ jobs:
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_cilium_primary }}"
             if [ ! -z "${{ needs.build-and-push.outputs.manifest_cilium_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_cilium_secondary }}"
+            fi
+          elif [ "${image_name}" == "hubble-relay" ]; then
+            platform_tags="${{ needs.build-and-push.outputs.image_hubble_relay_amd64 }} ${{ needs.build-and-push.outputs.image_hubble_relay_arm64 }}"
+            primary_tag="${{ needs.build-and-push.outputs.manifest_hubble_relay_primary }}"
+            image_tags="-t ${{ needs.build-and-push.outputs.manifest_hubble_relay_primary }}"
+            if [ ! -z "${{ needs.build-and-push.outputs.manifest_hubble_relay_secondary }}" ]; then
+              image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_hubble_relay_secondary }}"
             fi
           elif [ "${image_name}" == "operator-aws" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_operator_aws_amd64 }} ${{ needs.build-and-push.outputs.image_operator_aws_arm64 }}"
