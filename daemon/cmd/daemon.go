@@ -396,6 +396,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		hubble:            params.Hubble,
 	}
 
+	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
+	// can wait on it to get closed and not block forever if they happen so start
+	// waiting when it is not yet initialized (which causes them to block forever).
+	if option.Config.RestoreState {
+		d.endpointRestoreComplete = make(chan struct{})
+	}
+
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.
 	if option.Config.RestoreState && !option.Config.DryMode {
@@ -533,12 +540,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
-	}
-	// Restore all proxy ports from datapath, if possible
-	// Must be run before d.bootstrapFQDN(), which depends
-	// on the ports having been restored.
-	if d.l7Proxy != nil {
-		d.l7Proxy.RestoreProxyPorts()
 	}
 	bootstrapStats.restore.End(true)
 

@@ -456,7 +456,7 @@ func (ec *EnterpriseConnectivity) addMulticastTests(ct *check.ConnectivityTest) 
 
 func (ec *EnterpriseConnectivity) addBGPTests(ct *check.ConnectivityTest) (err error) {
 	// disable OSS BGPv2 tests if enterprise BGP CP is enabled (OSS CRDs can not be used if enterprise CP is enabled)
-	if ossv2Test, err := ct.GetTest("bgp-control-plane-v2"); err == nil {
+	if ossv2Test, err := ct.GetTest("seq-bgp-control-plane-v2"); err == nil {
 		ossv2Test.WithFeatureRequirements(
 			features.RequireDisabled(enterpriseFeatures.EnterpriseBGPControlPlane),
 		)
