@@ -335,13 +335,9 @@ data:
       enable-push-api: true
       push-api-listen-address: :4260
       {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-      {{/*
-      TODO: enable TLS for push API once configuring Vector via Cilium's helm
-      values is figured out.
-      */}}
-      # push-api-tls-enabled: true
-      # push-api-tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
-      # push-api-tls-key-file: /var/lib/hubble-timescape/tls/server.key
+      push-api-tls-enabled: true
+      push-api-tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
+      push-api-tls-key-file: /var/lib/hubble-timescape/tls/server.key
       {{- end }}
       push-api-async-insert: "true"
       push-api-async-insert-busy-timeout: 2s

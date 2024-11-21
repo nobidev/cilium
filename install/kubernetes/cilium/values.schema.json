@@ -3691,6 +3691,14 @@
             },
             "tls": {
               "properties": {
+                "client": {
+                  "properties": {
+                    "existingSecret": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "enabled": {
                   "type": [
                     "null",

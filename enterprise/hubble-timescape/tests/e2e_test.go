@@ -8,7 +8,7 @@
 // information or reproduction of this material is strictly forbidden unless
 // prior written permission is obtained from Isovalent Inc.
 
-//--go:build enterprise_integrated_timescape_e2e
+//go:build enterprise_integrated_timescape_e2e
 
 package tests
 
@@ -80,11 +80,21 @@ func TestPushFlows(t *testing.T) {
 	inputFlows := genFakeExportFlows(t, 4, now, nodeName)
 	flowBuf := encodeGetFlowsResponse(t, inputFlows)
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	pushURL := "http://localhost:4260/push"
+	if strings.ToLower(os.Getenv("TEST_HUBBLE_OBSERVE_TLS")) == "true" {
+		pushURL = "https://localhost:4260/push"
+	}
+
 	// Push the flows
-	http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:4260/push", flowBuf)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:4260/push", flowBuf)
+	http.NewRequestWithContext(ctx, http.MethodPost, pushURL, flowBuf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, pushURL, flowBuf)
 	require.NoError(t, err, "Should succeed creating request")
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	require.NoError(t, err)
 	require.NoError(t, err, "Should succeed pushing flows to timescape push API")
 	res.Body.Close()
