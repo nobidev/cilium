@@ -266,7 +266,6 @@ func TestHTTPSRequestFiltering(t *testing.T) {
 			opts = append(opts, withCertificate(testName+"-adminmoresecure"))
 			opts = append(opts, withCertificate(testName+"-secure2"))
 			opts = append(opts, withCertificate(testName+"-adminsecure2"))
-			opts = append(opts, withCertificate(testName))
 			service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))
 			scenario.createLBService(ctx, service)
 
@@ -276,7 +275,7 @@ func TestHTTPSRequestFiltering(t *testing.T) {
 			maybeSysdump(t, testName, "")
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
+				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
 				t.Logf("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
