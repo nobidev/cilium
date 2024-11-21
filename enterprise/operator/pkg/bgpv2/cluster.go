@@ -44,7 +44,7 @@ func (m *BGPResourceMapper) reconcileClusterConfigs(ctx context.Context) error {
 
 func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *v1alpha1.IsovalentBGPClusterConfig) error {
 	// get nodes which match node selector for given cluster config
-	matchingNodes, err := m.getMatchingNodes(config.Spec.NodeSelector, config.Name)
+	matchingNodes, err := m.getMatchingNodes(config)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 	}
 
 	// delete node configs for this cluster that are not in the matching nodes
-	dErr := m.deleteStaleNodeConfigs(ctx, matchingNodes, config.Name)
+	dErr := m.deleteStaleNodeConfigs(ctx, matchingNodes, config)
 	if dErr != nil {
 		err = errors.Join(err, dErr)
 	}
@@ -254,9 +254,9 @@ func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, over
 }
 
 // deleteStaleNodeConfigs deletes node configs that are not in the expected list for given cluster.
-func (m *BGPResourceMapper) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], clusterRef string) (err error) {
+func (m *BGPResourceMapper) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], config *v1alpha1.IsovalentBGPClusterConfig) (err error) {
 	for _, existingNode := range m.nodeConfigStore.List() {
-		if expectedNodes.Has(existingNode.Name) || !IsOwner(existingNode.GetOwnerReferences(), clusterRef) {
+		if expectedNodes.Has(existingNode.Name) || !isOwner(existingNode.GetOwnerReferences(), config) {
 			continue
 		}
 
@@ -267,8 +267,8 @@ func (m *BGPResourceMapper) deleteStaleNodeConfigs(ctx context.Context, expected
 			err = errors.Join(err, dErr)
 		} else {
 			m.logger.WithFields(logrus.Fields{
-				"node config":    existingNode.Name,
-				"cluster config": clusterRef,
+				"node_config":    existingNode.Name,
+				"cluster_config": config.Name,
 			}).Debug("Deleting Isovalent BGP node config")
 		}
 	}
@@ -276,8 +276,8 @@ func (m *BGPResourceMapper) deleteStaleNodeConfigs(ctx context.Context, expected
 }
 
 // getMatchingNodes returns a map of node names that match the given cluster config's node selector.
-func (m *BGPResourceMapper) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSelector, configName string) (sets.Set[string], error) {
-	labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(nodeSelector)
+func (m *BGPResourceMapper) getMatchingNodes(config *v1alpha1.IsovalentBGPClusterConfig) (sets.Set[string], error) {
+	labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(config.Spec.NodeSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -292,8 +292,8 @@ func (m *BGPResourceMapper) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSel
 
 	for _, n := range ciliumNodes {
 		// nil node selector means match all nodes
-		if nodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
-			err := m.validNodeSelection(n, configName)
+		if config.Spec.NodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
+			err := m.validNodeSelection(n, config)
 			if err != nil {
 				m.logger.WithError(err).Errorf("skipping node %s", n.Name)
 				continue
@@ -306,23 +306,23 @@ func (m *BGPResourceMapper) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSel
 }
 
 // validNodeSelection checks if the node is already present in another cluster config.
-func (m *BGPResourceMapper) validNodeSelection(node *cilium_v2.CiliumNode, expectedOwnerName string) error {
+func (m *BGPResourceMapper) validNodeSelection(node *cilium_v2.CiliumNode, config *v1alpha1.IsovalentBGPClusterConfig) error {
 	existingBGPNodeConfig, exists, err := m.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
 	if err != nil {
 		return err
 	}
 
-	if exists && !IsOwner(existingBGPNodeConfig.GetOwnerReferences(), expectedOwnerName) {
+	if exists && !isOwner(existingBGPNodeConfig.GetOwnerReferences(), config) {
 		return fmt.Errorf("BGP node config %s already exist", existingBGPNodeConfig.Name)
 	}
 
 	return nil
 }
 
-// IsOwner checks if the expected is present in owners list.
-func IsOwner(owners []meta_v1.OwnerReference, expected string) bool {
+// isOwner checks if the expected is present in owners list.
+func isOwner(owners []meta_v1.OwnerReference, config *v1alpha1.IsovalentBGPClusterConfig) bool {
 	for _, owner := range owners {
-		if owner.Name == expected {
+		if owner.UID == config.GetUID() {
 			return true
 		}
 	}
