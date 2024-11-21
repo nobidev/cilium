@@ -62,8 +62,20 @@ env:
   # has stricter DNS naming requirements.
   test_name: panda-scale
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
+  # Domain name for GCP nodes. Used for TLS auth in the kvstore.
+  # Project is set up with zonal DNS, but reverse lookups on IPs
+  # return global DNS names without the zone. Since etcd will perform
+  # a reverse lookup on connecting peers to check if their DNS name
+  # matches a SAN wildcard, the zone is left off of the domain.
+  # For more information, see
+  # https://cloud.google.com/compute/docs/internal-dns and
+  # https://etcd.io/docs/v3.4/op-guide/security/ (search
+  # 'server supports reverse-lookup on wildcard DNS SAN').
+  domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 499.0.0
+  # renovate: datasource=docker depName=bitnamicharts/etcd
+  etcd_chart_version: 10.5.3
 
 jobs:
   echo-inputs:
@@ -74,6 +86,7 @@ jobs:
       - name: Echo Workflow Dispatch Inputs
         run: |
           echo '${{ tojson(inputs) }}'
+
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-latest
@@ -208,25 +221,6 @@ jobs:
 
           go build ./cmd/clusterloader.go
 
-      - name: Deploy cluster
-        id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
-          node_size: e2-standard-8
-          node_count: 1
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
-          kube_proxy_enabled: false
-
-      - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@d3ecfd83003f3e9c98ba125ca14933401d44918f  # main
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
         with:
@@ -245,10 +239,171 @@ jobs:
           echo "--- gcloud ---"
           gcloud version
 
+      - name: Deploy cluster
+        id: deploy-cluster
+        uses: cilium/scale-tests-action/create-cluster@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          control_plane_size: n1-standard-8
+          control_plane_count: 1
+          node_size: e2-standard-8
+          node_count: 1
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          kube_proxy_enabled: false
+
+      - name: Create instance group for etcd
+        uses: cilium/scale-tests-action/create-instance-group@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          node_size: e2-standard-8
+          node_count: 3
+          ig_name: etcd
+          node_volume_size: 50
+
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          create_native_routing_firewall: 'false'
+
+      - name: Wait for etcd nodes to join the cluster
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          set -x
+
+          # "catch exit status 1" grep wrapper
+          # https://stackoverflow.com/questions/6550484/prevent-grep-returning-an-error-when-input-doesnt-match/49627999#49627999
+          c1grep() { grep "$@" || test $? = 1; }
+
+          while true; do
+            n="$(kubectl get nodes | c1grep etcd | wc -l)"
+            if [ "$n" != "3" ]; then
+              kubectl get nodes -o wide
+              sleep 5
+            else
+              break
+            fi
+          done
+
+      # This step is based off of .github/actions/kvstore/action.yaml but with
+      # some changes, since we're not deploying to kind and we're not using clustermesh.
+      - name: Create etcd Certificates
+        shell: bash
+        run: |
+          set -x
+          DIR=$(mktemp -d)
+
+          # Generate the TLS certificates
+          openssl genrsa 4096 >$DIR/kvstore-ca-key.pem
+          openssl genrsa 4096 >$DIR/kvstore-server-key.pem
+          openssl genrsa 4096 >$DIR/kvstore-client-key.pem
+
+          openssl req -new -x509 -nodes -days 1 -subj "/CN=KVStore CA/" \
+            -key $DIR/kvstore-ca-key.pem -out $DIR/kvstore-ca-crt.pem
+
+          # The SAN used here is based off of the DNS names assigned to
+          # the internal IPs of the GCP nodes which will run etcd.
+          # Since we're running on the host network, these names can be
+          # reused here.
+          openssl req -new -x509 -nodes -days 1 -subj "/CN=etcd/" \
+            -addext "subjectAltName=DNS:*.${{ env.domain }}" \
+            -key $DIR/kvstore-server-key.pem -out $DIR/kvstore-server-crt.pem \
+            -CA $DIR/kvstore-ca-crt.pem -CAkey $DIR/kvstore-ca-key.pem
+
+          # For the client cert, set the CN to "root" to enable easy RBAC.
+          # See https://etcd.io/docs/v3.5/op-guide/authentication/rbac/.
+          openssl req -new -x509 -nodes -days 1 -subj "/CN=root/" \
+            -key $DIR/kvstore-client-key.pem -out $DIR/kvstore-client-crt.pem \
+            -CA $DIR/kvstore-ca-crt.pem -CAkey $DIR/kvstore-ca-key.pem
+
+          # The client files are named based off of what cilium expects.
+          kubectl create secret generic -n kube-system cilium-etcd-secrets \
+            --from-file etcd-client-ca.crt=$DIR/kvstore-ca-crt.pem \
+            --from-file etcd-client.crt=$DIR/kvstore-client-crt.pem \
+            --from-file etcd-client.key=$DIR/kvstore-client-key.pem
+          # This is just for etcd, but follows the same naming pattern.
+          kubectl create secret generic -n kube-system etcd-server-secrets \
+            --from-file etcd-server-ca.crt=$DIR/kvstore-ca-crt.pem \
+            --from-file etcd-server.crt=$DIR/kvstore-server-crt.pem \
+            --from-file etcd-server.key=$DIR/kvstore-server-key.pem
+
+      - name: Deploy etcd
+        id: etcd
+        shell: bash
+        run: |
+          set -x
+
+          # This is for brevity in the blocks below.
+          domain="${{ env.domain }}"
+
+          # Passed to etcd's --initial-cluster argument.
+          etcd_initial_cluster=""
+          # Extra arguments to pass to the cilium install command.
+          helm_args=""
+          # Space-separated list of nodes in the cluster that will
+          # have etcd deployed onto.
+          # See below for usage, this saves some repetitive work.
+          nodes=""
+
+          i=0
+          for name in $(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers | grep etcd); do
+
+            # Build the cluster list for the advertise urls.
+            if [ -n "$etcd_initial_cluster" ]; then
+              etcd_initial_cluster+=","
+            fi
+            etcd_initial_cluster+="${name}=https://${name}.${domain}:2380"
+
+            # Build the helm arguments for cilium.
+            helm_args+="--helm-set=etcd.endpoints[${i}]=https://${name}.${domain}:2379 "
+
+            # Build the node list for deploying the etcd pods.
+            if [ -n "$nodes" ]; then
+              nodes+=" "
+            fi
+            nodes+="$name.${domain}"
+
+            # Label and taint the node to reserve it for etcd.
+            kubectl label node $name cilium.io/no-schedule=true app=etcd
+            kubectl taint node $name etcd-ig:NoSchedule
+
+            i=$((i+1))
+          done
+
+          echo "helm_args=${helm_args}" >> $GITHUB_OUTPUT
+
+          # Deploy etcd.
+          cat ./.github/actions/cl2-modules/panda/kvstore/etcd-pod.yaml | \
+            sed "s|#REPLACE_ME_INITIAL_CLUSTER|${etcd_initial_cluster}|g" | \
+            sed "s/#REPLACE_ME_DOMAIN/${domain}/g" | \
+            kubectl apply -f -
+
+      - name: Wait for the etcd cluster to be ready
+        shell: bash
+        run: |
+          set -x
+          if ! kubectl rollout status --timeout=30m -n kube-system statefulset/etcd; then
+            kubectl get pods -A -o yaml
+            kubectl describe -n kube-system statefulset/etcd -o yaml
+            kubectl logs -n kube-system statefulset/etcd
+            exit 1
+          fi
+
       - name: Install Cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set=identityAllocationMode=kvstore \
+            --helm-set=etcd.enabled=true \
+            --helm-set=etcd.ssl=true \
+            ${{ steps.etcd.outputs.helm_args }}"
+
+          cilium install --dry-run-helm-values $cilium_install_args
+          cilium install $cilium_install_args
 
       - name: Install Cilium DNS proxy
         run: |
@@ -342,6 +497,8 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           interval: 10s
 
+      # Need to rerun this action, as the firewall rule is reset after
+      # an instance group is created.
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
         with:
