@@ -227,6 +227,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: hubble-timescape-clickhouse-data
+  namespace: {{ include "cilium.namespace" . }}
   labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
 spec:
   accessModes:
