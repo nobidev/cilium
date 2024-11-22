@@ -171,6 +171,24 @@
       "ignoreUnstable": false,
     },
     {
+      "matchFileNames": [
+        "install/kubernetes/**"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C install/kubernetes",
+          "make -C Documentation update-helm-values"
+        ],
+        "fileFilters": [
+          "install/kubernetes/Makefile.values",
+          "install/kubernetes/cilium/README.md",
+          "install/kubernetes/cilium/values.yaml",
+          "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       // Disable dep updates for clickhouse until we sort out how to manage it
       "enabled": false,
       "groupName": "clickhouse server",
