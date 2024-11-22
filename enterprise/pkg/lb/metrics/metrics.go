@@ -163,7 +163,11 @@ func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event r
 
 			switch event.Kind {
 			case resource.Upsert:
-				mc.lbServiceCache[frontendAddr] = serviceCacheEntry{namespace: service.Namespace, name: service.Name}
+				if len(service.OwnerReferences) == 0 {
+					mc.logger.Warn("Service is missing reference to LBService owner")
+				} else {
+					mc.lbServiceCache[frontendAddr] = serviceCacheEntry{namespace: service.Namespace, name: service.OwnerReferences[0].Name}
+				}
 			case resource.Delete:
 				delete(mc.lbServiceCache, frontendAddr)
 			}
