@@ -7,6 +7,15 @@ app.kubernetes.io/part-of: cilium
 {{- end }}
 {{- end }}
 
+{{- define "hubble.timescape.ttl" -}}
+{{- $defaultTTL := "6h0m0s" }}
+{{- if not .Values.hubble.timescape.persistence.enabled -}}
+{{/* use even lower default ttl if there is no persistent clickhouse database */}}
+{{- $defaultTTL = "1h0m0s" }}
+{{- end }}
+{{- .Values.hubble.timescape.ttl | default $defaultTTL | quote }}
+{{- end }}
+
 {{ if .Values.hubble.timescape.enabled }}
 ---
 apiVersion: v1
@@ -209,7 +218,8 @@ spec:
         persistentVolumeClaim:
           claimName: hubble-timescape-clickhouse-data
         {{- else }}
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 5Gi
         {{- end }}
 {{- if .Values.hubble.timescape.persistence.enabled }}
 ---
@@ -315,8 +325,8 @@ data:
     pprof-port: "6060"
     gops: true
     gops-port: "9898"
-    flows-ttl: "{{ .Values.hubble.timescape.ttl }}"
-    k8s-ttl: "{{ .Values.hubble.timescape.ttl }}"
+    flows-ttl: {{ include "hubble.timescape.ttl" . }}
+    k8s-ttl: {{ include "hubble.timescape.ttl" . }}
     use-distributed-tables: false
     use-distributed-ddl: false
     enable-clickhouse-server-logs: false

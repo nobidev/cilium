@@ -3783,7 +3783,10 @@
               "type": "object"
             },
             "ttl": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
             },
             "vector": {
               "properties": {
