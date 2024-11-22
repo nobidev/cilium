@@ -3,10 +3,19 @@
   "extends": [
     "config:base",
     ":gitSignOff",
+    ":dependencyDashboard",
     "helpers:pinGitHubActionDigests"
   ],
+  "username": "isovalent-renovate[bot]",
+  "repositories": ["isovalent/cilium"],
+  // renovate first reads this configuration, then reads the repository
+  // configuration, since we don't split between the self-hosted and the
+  // repository configuration, this can lead to duplicate of some areas of the
+  // config, for example the regex. See:
+  // https://docs.renovatebot.com/self-hosted-configuration/#requireconfig
+  "requireConfig": "ignored",
   // This ensures that the gitAuthor and gitSignOff fields match
-  "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
+  "gitAuthor": "isovalent-renovate[bot] <141654053+isovalent-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/set-env-variables/enterprise-overrides.sh",
     ".github/workflows/enterprise-*",
@@ -41,6 +50,13 @@
     "fileMatch": [".*values\\.yaml\\.tmpl$"]
   },
   "stopUpdatingLabel": "renovate/stop-updating",
+  "allowedPostUpgradeCommands": [
+    "^make -C install/kubernetes$",
+    "^make -C Documentation update-helm-values$",
+    "^make generate-k8s-api$",
+    "^make manifests$",
+    "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis$"
+  ],
   "packageRules": [
     {
       "groupName": "Cilium CLI Enterprise",
