@@ -70,18 +70,38 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- end }}
 {{- end }}
 
+
+# If user did not provide any extraConfig or didn't provide export-file-path,
+# use the default value for export and aggregation. 
+
+{{- $defaultExportFilePath := "" }}
+{{- $defaultExportAggregation := "" }}
+{{- $defaultExportAggregationStateFilter := "" }}
+
+# For cilium version <1.16 we enable export to /var/run/cilium/hubble by
+# default.
+{{- if semverCompare "<1.16" (default "1.16" .Values.upgradeCompatibility)}}
+{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
+{{- end }}
+
+# If integrated Timescape is enabled we enable export and export aggregation by
+# default. If the export-file-path is set by the user we do not enable export
+# aggregation by default to not change the existing behavior.
+{{- if and .Values.hubble.timescape.enabled (or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path")))}}
+{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
+{{- $defaultExportAggregation = "connection" }}
+{{- $defaultExportAggregationStateFilter = "new error" }}
+{{- end }}
+
 {{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
-    # If user did not provide any extraConfig or didn't provide export-file-path, use the default value
-    {{- $defaultExportFilePath := "/var/run/cilium/hubble/hubble.log"}}
-    {{- if
-      and
-      (semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility))
-      (not .Values.hubble.timescape.enabled)
-    }}
-        {{- $defaultExportFilePath = "" }}
-    {{- end }}
 export-file-path: {{ $defaultExportFilePath | quote }}
-  {{- end }}
+{{- end }}
+{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation"))}}
+export-aggregation: {{ $defaultExportAggregation | quote }}
+{{- end }}
+{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation-state-filter"))}}
+export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
+{{- end }}
 
 enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabled | quote}}
 
