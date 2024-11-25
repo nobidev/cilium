@@ -86,6 +86,7 @@ runs:
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --helm-set=enterprise.featureGate.strict=false \
+            --helm-set='enterprise.featureGate.minimumMaturity=Alpha' \
             --set='${{ inputs.misc }}'"
 
           IMAGE=""

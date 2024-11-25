@@ -34,7 +34,7 @@ runs:
           --helm-set=hubble.relay.retryTimeout=5s"
 
         # Enterprise specific defaults
-        CILIUM_INSTALL_DEFAULTS+=" --helm-set='enterprise.featureGate.strict=false' \
+        CILIUM_INSTALL_DEFAULTS+=" --helm-set='enterprise.featureGate.minimumMaturity=Alpha' \
         --helm-set=enterprise.clustermesh.phantomServices.enabled=true" # this is needed because we are using OSS workflow to test phantom services
 
         # only add SHA to the image tags if it was set

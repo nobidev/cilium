@@ -53,6 +53,9 @@ fallback-routing-mode: tunnel
 
 feature-gates-approved: {{ .Values.enterprise.featureGate.approved | join "," | quote }}
 feature-gates-strict: {{ .Values.enterprise.featureGate.strict | quote }}
+{{- with .Values.enterprise.featureGate.minimumMaturity }}
+feature-gates-minimum-maturity: {{ . | quote }}
+{{- end }}
 
 {{- if .Values.enterprise.multiNetwork.enabled }}
 # Multi-network support
