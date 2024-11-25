@@ -4348,10 +4348,6 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		}
 	}
 
-	if res := kub.ExecMiddle("helm dependency update " + chartDir); !res.WasSuccessful() {
-		return res
-	}
-
 	return kub.ExecMiddle("helm template --dependency-update --validate " +
 		chartDir + " " +
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))

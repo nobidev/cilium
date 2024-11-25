@@ -49,7 +49,6 @@ all: update-versions check-values-yaml docs lint extra_all
 extra_all: $(EXTRA_ALL)
 
 update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
-	$(QUIET) helm dep update $(CILIUM_CHARTS)
 	$(ECHO_GEN)cilium/Chart.yaml
 	$(QUIET)grep -lR -e 'version:' -e 'appVersion:' $(CILIUM_CHARTS)/ \
 		| xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 '$(VERSION)'/g'

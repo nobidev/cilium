@@ -65,7 +65,6 @@ cilium-helm-install(){
         ciliumVersion=${1}
         cd $SRC/install/kubernetes
         CILIUM_CI_TAG="${1}"
-        helm dependency update ./cilium
         helm template cilium ./cilium \
           --namespace kube-system \
           --set debug.enabled=true \
