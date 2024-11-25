@@ -50,7 +50,7 @@ const (
 	localSubField  = "localSubscriber"
 )
 
-// addrMapType generic map definition for multicast group addresses and node IP addresses.
+// addrMapType generic map definition for multicast group addresses or node IP addresses.
 type addrMapType map[netip.Addr]struct{}
 
 type MulticastManagerParams struct {
@@ -389,14 +389,23 @@ func (m *MulticastManager) reconcile(ctx context.Context) (err error) {
 		}
 	}
 
+	// get groups from k8s store only once during reconcile loop, as groups
+	// can change in the middle of reconciliation. Next reconcile loop will
+	// get updated groups.
+	var k8sGroups addrMapType
+	k8sGroups, err = m.getGroupsFromStore()
+	if err != nil {
+		return err
+	}
+
 	// 1. reconcile groups
-	err = m.reconcileGroups()
+	err = m.reconcileGroups(k8sGroups)
 	if err != nil {
 		return err
 	}
 
 	// 2. reconcile remote subscribers in each group
-	err = m.reconcileRemoteSubscribers()
+	err = m.reconcileRemoteSubscribers(k8sGroups)
 	if err != nil {
 		return err
 	}
@@ -411,17 +420,8 @@ func (m *MulticastManager) reconcile(ctx context.Context) (err error) {
 	return m.updateNodeStatus(ctx)
 }
 
-func (m *MulticastManager) reconcileGroups() (err error) {
-	var (
-		bpfGroups, k8sGroups addrMapType
-	)
-
-	bpfGroups, err = m.getGroupsFromBPF()
-	if err != nil {
-		return err
-	}
-
-	k8sGroups, err = m.getGroupsFromStore()
+func (m *MulticastManager) reconcileGroups(k8sGroups addrMapType) error {
+	bpfGroups, err := m.getGroupsFromBPF()
 	if err != nil {
 		return err
 	}
@@ -474,8 +474,8 @@ func (m *MulticastManager) reconcileGroupsInBPF(fromBPF, fromK8s addrMapType) (e
 }
 
 // reconcileRemoteSubscribers reconciles BPF maps with known remote subscribers from k8s IsovalentMulticastNode objects.
-func (m *MulticastManager) reconcileRemoteSubscribers() (err error) {
-	groups, err := m.getGroupRemoteSubscribersFromK8s()
+func (m *MulticastManager) reconcileRemoteSubscribers(k8Groups addrMapType) error {
+	groups, err := m.getGroupRemoteSubscribersFromK8s(k8Groups)
 	if err != nil {
 		return err
 	}
@@ -483,7 +483,7 @@ func (m *MulticastManager) reconcileRemoteSubscribers() (err error) {
 	for groupAddr, fromK8s := range groups {
 		fromBPF, err := m.getRemoteSubscribersFromBPF(groupAddr)
 		if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
-			// corner case if group does not exist in BPF, we ignore that group.
+			// error case if group does not exist in BPF, we ignore that group.
 			m.Logger.WithError(err).WithField(groupAddrField, groupAddr).Warn("Group not found in BPF map")
 			continue
 		}
@@ -677,15 +677,10 @@ func (m *MulticastManager) getGroupsFromBPF() (addrMapType, error) {
 }
 
 // getGroupRemoteSubscribersFromK8s returns remote subscribers for all groups from k8s IsovalentMulticastNode objects.
-func (m *MulticastManager) getGroupRemoteSubscribersFromK8s() (map[netip.Addr]addrMapType, error) {
+func (m *MulticastManager) getGroupRemoteSubscribersFromK8s(k8Groups addrMapType) (map[netip.Addr]addrMapType, error) {
 	res := make(map[netip.Addr]addrMapType) // key is group address
 
-	// populate expected groups from store.
-	groupAddrs, err := m.getGroupsFromStore()
-	if err != nil {
-		return nil, err
-	}
-	for groupAddr := range groupAddrs {
+	for groupAddr := range k8Groups {
 		res[groupAddr] = make(addrMapType)
 	}
 
