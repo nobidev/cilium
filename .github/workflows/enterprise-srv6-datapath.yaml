@@ -155,7 +155,6 @@ jobs:
             --helm-set=endpointRoutes.enabled=true \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=routingMode=native \
-            --helm-set=securityContext.privileged=true \
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=ipam.operator.clusterPoolIPv4PodCIDRList="{10.244.0.0/16}" \
             --helm-set=ipam.operator.clusterPoolIPv4MaskSize=24 \
