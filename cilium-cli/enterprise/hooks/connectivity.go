@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/enterprise/defaults"
 	enterpriseCheck "github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/check"
@@ -49,11 +50,16 @@ type EnterpriseConnectivity struct {
 }
 
 func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.ConnectivityTest) error {
+	templates, err := renderTemplates(cts[0].ClusterName)
+	if err != nil {
+		return fmt.Errorf("cannot render templates: %w", err)
+	}
+
 	if err := ec.addHubbleVersionTests(cts...); err != nil {
 		return err
 	}
 
-	if err := ec.addExternalCiliumDNSProxyTests(cts[0]); err != nil {
+	if err := ec.addExternalCiliumDNSProxyTests(cts[0], templates); err != nil {
 		return err
 	}
 
@@ -62,7 +68,7 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 	}
 
 	if cts[0].Params().IncludeUnsafeTests {
-		if err := ec.addEgressGatewayHATests(cts[0]); err != nil {
+		if err := ec.addEgressGatewayHATests(cts[0], templates); err != nil {
 			return err
 		}
 	}
@@ -104,9 +110,9 @@ func (ec *EnterpriseConnectivity) addHubbleVersionTests(cts ...*check.Connectivi
 	return nil
 }
 
-func (ec *EnterpriseConnectivity) addExternalCiliumDNSProxyTests(ct *check.ConnectivityTest) error {
+func (ec *EnterpriseConnectivity) addExternalCiliumDNSProxyTests(ct *check.ConnectivityTest, templates map[string]string) error {
 	test := check.NewTest("cilium-dns-proxy-ha", ct.Params().Verbose, ct.Params().Debug)
-	ct.AddTest(test).WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
+	ct.AddTest(test).WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
 		WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.CiliumDNSProxyHA)).
 		WithScenarios(enterpriseTests.ExternalCiliumDNSProxy(ec.externalCiliumDNSProxyPods)).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 		return check.ResultOK.ExpectMetricsIncrease(enterpriseTests.ExternalCiliumDNSProxySource(ec.externalCiliumDNSProxyPods), "isovalent_external_dns_proxy_policy_l7_total"),
@@ -147,7 +153,7 @@ func (ec *EnterpriseConnectivity) addPhantomServiceTests(cts ...*check.Connectiv
 	return
 }
 
-func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.ConnectivityTest) (err error) {
+func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.ConnectivityTest, templates map[string]string) (err error) {
 	newTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
 			NewEnterpriseTest(name).
@@ -185,8 +191,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				EgressGroup:     enterpriseCheck.SingleGateway,
 			}).
 			WithCiliumPolicy(clientEgressICMPYAML).
-			WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).  // DNS resolution only
-			WithCiliumPolicy(clientEgressL7HTTPAnywhereYAML). // L7 allow policy with HTTP introspection
+			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+			WithCiliumPolicy(clientEgressL7HTTPAnywhereYAML).             // L7 allow policy with HTTP introspection
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 			WithScenarios(enterpriseTests.EgressGatewayHA())
@@ -221,8 +227,8 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				EgressGroup:     enterpriseCheck.AllCiliumNodes,
 			}).
 			WithCiliumPolicy(clientEgressICMPYAML).
-			WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).  // DNS resolution only
-			WithCiliumPolicy(clientEgressL7HTTPAnywhereYAML). // L7 allow policy with HTTP introspection
+			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+			WithCiliumPolicy(clientEgressL7HTTPAnywhereYAML).             // L7 allow policy with HTTP introspection
 			WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 			WithScenarios(enterpriseTests.EgressGatewayMultipleGateways())
 	}
@@ -526,4 +532,24 @@ func mustGetTest(testName string, cts ...*check.ConnectivityTest) *check.Test {
 		}
 	}
 	panic(fmt.Errorf("failed to get test %s: %w", testName, err))
+}
+
+func renderTemplates(clusterName string) (map[string]string, error) {
+	templates := map[string]string{
+		"clientEgressOnlyDNSPolicyYAML": clientEgressOnlyDNSPolicyYAML,
+	}
+
+	renderedTemplates := map[string]string{}
+	for key, temp := range templates {
+		val, err := template.Render(temp, struct {
+			ClusterName string
+		}{
+			ClusterName: clusterName,
+		})
+		if err != nil {
+			return nil, err
+		}
+		renderedTemplates[key] = val
+	}
+	return renderedTemplates, nil
 }
