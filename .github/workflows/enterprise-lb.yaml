@@ -87,15 +87,14 @@ jobs:
           - name: "0"
             mode: "multi-node"
             kernel: "6.1-20240710.064909"
+            use-remote-address: "true"
+            xff-num-trusted-hops: 0
           - name: "1"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
-          - name: "2"
-            mode: "single-node"
-            kernel: "6.1-20240710.064909"
             use-remote-address: "true"
-            xff-num-trusted-hops: 1
-          - name: "3"
+            xff-num-trusted-hops: 0
+          - name: "2"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
             use-remote-address: "false"
@@ -181,12 +180,11 @@ jobs:
         shell: bash
         run: |
           EXTRA=""
-          if [ "${{ matrix.use-remote-address }}" == "false" ]; then
-            EXTRA+=" --helm-set-string=extraConfig.use-remote-address=false"
+          if [ "${{ matrix.use-remote-address }}" != "" ]; then
+            EXTRA+=" --helm-set-string=extraConfig.use-remote-address=${{ matrix.use-remote-address }}"
           fi
 
           if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
-            EXTRA+=" --helm-set-string=extraConfig.loadbalancer-cp-t2-use-remote-address=false"
             EXTRA+=" --helm-set-string=extraConfig.loadbalancer-cp-t2-xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
@@ -245,8 +243,8 @@ jobs:
             export DOCKER_HOST="tcp://127.0.0.1:22375"
           fi
 
-          if [ "${{ matrix.use-remote-address }}" == "false" ]; then
-            PARAMS+=" --use-remote-address=false"
+          if [ "${{ matrix.use-remote-address }}" != "" ]; then
+            PARAMS+=" --use-remote-address=${{ matrix.use-remote-address }}"
           fi
 
           if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
