@@ -253,11 +253,11 @@ jobs:
             PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
-          # Using rakyll/gotest to colorize the "go test" output.
-          # It's also possible to use plain "go test" to execute the LB E2E tests.
-          go install github.com/rakyll/gotest@latest
+          # Using gotestsum to generate JUnit XML. It also allows generating
+          # test logs with the GHA log grouping format.
+          go install gotest.tools/gotestsum@latest
 
-          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotest -test.v -test.timeout=30m ./enterprise/test/ilb $PARAMS
+          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotestsum --format github-actions --junitfile cilium-junits-${{ matrix.name }}.xml ./enterprise/test/ilb -test.timeout=30m $PARAMS
 
       - name: Run "cilium lb status"
         if: ${{ steps.run-tests.outcome != 'skipped' }}
@@ -265,13 +265,35 @@ jobs:
         run: |
           cilium lb status
 
-      - name: Upload artifacts
+      - name: Upload sysdumps
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: enterprise/test/ilb/cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload JUnit reports
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: cilium-junits-${{ matrix.name }}
+          path: cilium-junits-*.xml
+          retention-days: 5
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: setup-and-test
+    steps:
+      - name: Merge JUnits
+        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          retention-days: 5
+          delete-merged: true
+        continue-on-error: true
 
   commit-status-final:
     if: ${{ always() }}
