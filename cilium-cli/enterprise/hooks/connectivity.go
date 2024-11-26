@@ -31,9 +31,6 @@ const (
 	testNoPolicies = "no-policies"
 )
 
-//go:embed manifests/allow-all-dns-loookups-policy.yaml
-var allowAllDNSLookupsPolicyYAML string
-
 //go:embed manifests/client-egress-icmp.yaml
 var clientEgressICMPYAML string
 
@@ -109,7 +106,7 @@ func (ec *EnterpriseConnectivity) addHubbleVersionTests(cts ...*check.Connectivi
 
 func (ec *EnterpriseConnectivity) addExternalCiliumDNSProxyTests(ct *check.ConnectivityTest) error {
 	test := check.NewTest("cilium-dns-proxy-ha", ct.Params().Verbose, ct.Params().Debug)
-	ct.AddTest(test).WithCiliumPolicy(allowAllDNSLookupsPolicyYAML).
+	ct.AddTest(test).WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.CiliumDNSProxyHA)).
 		WithScenarios(enterpriseTests.ExternalCiliumDNSProxy(ec.externalCiliumDNSProxyPods)).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 		return check.ResultOK.ExpectMetricsIncrease(enterpriseTests.ExternalCiliumDNSProxySource(ec.externalCiliumDNSProxyPods), "isovalent_external_dns_proxy_policy_l7_total"),
