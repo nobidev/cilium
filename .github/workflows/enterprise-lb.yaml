@@ -259,12 +259,6 @@ jobs:
 
           DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotestsum --format github-actions --junitfile cilium-junits-${{ matrix.name }}.xml ./enterprise/test/ilb -test.timeout=30m $PARAMS
 
-      - name: Run "cilium lb status"
-        if: ${{ steps.run-tests.outcome != 'skipped' }}
-        shell: bash
-        run: |
-          cilium lb status
-
       - name: Upload sysdumps
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
