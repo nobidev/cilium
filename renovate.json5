@@ -51,7 +51,7 @@
   },
   "stopUpdatingLabel": "renovate/stop-updating",
   "allowedPostUpgradeCommands": [
-    "^make -C install/kubernetes$",
+    "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
     "^make manifests$",
@@ -176,7 +176,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make -C install/kubernetes",
+          "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' -C install/kubernetes$",
           "make -C Documentation update-helm-values"
         ],
         "fileFilters": [
