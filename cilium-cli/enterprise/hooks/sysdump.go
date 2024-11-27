@@ -283,7 +283,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting logs and metrics from 'cilium-dnsproxy' pods",
+			Description:     "Collecting logs, metrics and gops stats from 'cilium-dnsproxy' pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				p, err := collector.Client.ListPods(ctx, collector.Options.CiliumNamespace, metav1.ListOptions{
@@ -292,13 +292,25 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				if err != nil {
 					return fmt.Errorf("failed to get logs from 'cilium-dnsproxy' pods: %w", err)
 				}
-				if err = collector.SubmitLogsTasks(sysdump.FilterPods(p, collector.NodeList),
+
+				pods := sysdump.FilterPods(p, collector.NodeList)
+				if err = collector.SubmitLogsTasks(pods,
 					collector.Options.LogsSinceTime, collector.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'cilium-dnsproxy' pods: %w", err)
 				}
-				if err = collector.SubmitMetricsSubtask(sysdump.FilterPods(p, collector.NodeList),
+				if err = collector.SubmitMetricsSubtask(pods,
 					dnsProxyContainerName, dnsProxyMetricsPortName); err != nil {
 					return fmt.Errorf("failed to collect metrics from 'cilium-dnsproxy' pods: %w", err)
+				}
+
+				if err = collector.SubmitGopsSubtasks(pods, dnsProxyContainerName); err != nil {
+					return fmt.Errorf("failed to collect gops stats from 'cilium-dnsproxy' pods: %w", err)
+				}
+
+				if collector.Options.Profiling {
+					if err = collector.SubmitProfilingGopsSubtasks(pods, dnsProxyContainerName); err != nil {
+						return fmt.Errorf("failed to collect profiles from 'cilium-dnsproxy' pods: %w", err)
+					}
 				}
 
 				return nil
