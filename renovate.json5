@@ -176,7 +176,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' -C install/kubernetes$",
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' -C install/kubernetes",
           "make -C Documentation update-helm-values"
         ],
         "fileFilters": [
