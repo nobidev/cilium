@@ -66,7 +66,7 @@ env:
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 499.0.0
+  gcloud_version: 502.0.0
 
 jobs:
   echo-inputs:
@@ -275,12 +275,25 @@ jobs:
           cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output
           sudo chmod -R +r ./output
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
       - name: Get sysdump
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
           sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json
 
       - name: Clean up GKE
         if: ${{ always() }}

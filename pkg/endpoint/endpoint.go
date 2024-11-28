@@ -196,6 +196,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	containerIfName string
 
+	// parentIfIndex is the interface index of the network device over which traffic
+	// with the source endpoints IP should egress when that traffic is not masqueraded.
+	parentIfIndex int
+
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
 	// (container name, container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
@@ -481,6 +485,11 @@ func (e *Endpoint) UpdateController(name string, params controller.ControllerPar
 // GetIfIndex returns the ifIndex for this endpoint.
 func (e *Endpoint) GetIfIndex() int {
 	return e.ifIndex
+}
+
+// GetParentIfIndex returns the parentIfIndex for this endpoint.
+func (e *Endpoint) GetParentIfIndex() int {
+	return e.parentIfIndex
 }
 
 // LXCMac returns the LXCMac for this endpoint.
@@ -2205,7 +2214,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	// continue even if the parent has given up. Enforce a timeout of two
 	// minutes to avoid blocking forever but give plenty of time to release
 	// the identity.
-	releaseCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
+	releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {

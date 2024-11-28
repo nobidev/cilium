@@ -58,9 +58,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 499.0.0
+  gcloud_version: 502.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: aef7e189051b219dc2f544957130adcfc7db22c7
+  cmapisrv_mock_ref: 8158e8b960aa9238d4acdd899d065ba079628e6c
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -368,11 +368,25 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-output.txt
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
+          sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}

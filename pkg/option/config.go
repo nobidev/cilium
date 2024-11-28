@@ -269,6 +269,10 @@ const (
 	// Alias to NodePortAlg
 	LoadBalancerAlg = "bpf-lb-algorithm"
 
+	// LoadBalancerAlgAnnotation tells whether controller should check service
+	// level annotation for configuring bpf loadbalancing algorithm.
+	LoadBalancerAlgAnnotation = "bpf-lb-algorithm-annotation"
+
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
@@ -737,9 +741,6 @@ const (
 	// EnableBPFTProxy option supports enabling or disabling BPF TProxy.
 	EnableBPFTProxy = "enable-bpf-tproxy"
 
-	// EnableXTSocketFallbackName is the name of the EnableXTSocketFallback option
-	EnableXTSocketFallbackName = "enable-xt-socket-fallback"
-
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
@@ -1086,6 +1087,9 @@ const (
 
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
+
+	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
+	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
 
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
@@ -1735,10 +1739,6 @@ type DaemonConfig struct {
 	// between the DNS proxy and the upstream server to be closed.
 	DNSProxySocketLingerTimeout int
 
-	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
-	// sysctl option if `xt_socket` kernel module is not available.
-	EnableXTSocketFallback bool
-
 	// EnableBPFTProxy enables implementing proxy redirection via BPF
 	// mechanisms rather than iptables rules.
 	EnableBPFTProxy bool
@@ -1868,6 +1868,10 @@ type DaemonConfig struct {
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	NodePortAlg string
+
+	// LoadBalancerAlgAnnotation tells whether controller should check service
+	// level annotation for configuring bpf load balancing algorithm.
+	LoadBalancerAlgAnnotation bool
 
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
@@ -2178,6 +2182,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
+
+	// Enables BGP control plane status reporting.
+	EnableBGPControlPlaneStatusReport bool
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -2839,7 +2846,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
-	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
@@ -3277,6 +3283,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
+	// Enable BGP control plane status reporting
+	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
+
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
@@ -3312,6 +3321,7 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
 	c.NodePortAlg = vp.GetString(LoadBalancerAlg)
+	c.LoadBalancerAlgAnnotation = vp.GetBool(LoadBalancerAlgAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {

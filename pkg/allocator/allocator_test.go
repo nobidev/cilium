@@ -227,10 +227,6 @@ func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, 
 	return nil, nil, nil
 }
 
-func (d *dummyBackend) Status() (string, error) {
-	return "", nil
-}
-
 type TestAllocatorKey string
 
 func (t TestAllocatorKey) GetKey() string { return string(t) }
@@ -532,7 +528,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	var wg sync.WaitGroup
 	var synced atomic.Bool
 
-	run := func(ctx context.Context, rc *RemoteCache) context.CancelFunc {
+	run := func(ctx context.Context, rc RemoteIDCache) context.CancelFunc {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
@@ -548,7 +544,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 		synced.Store(false)
 	}
 
-	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
+	global := Allocator{remoteCaches: make(map[string]*remoteCache)}
 	events := make(AllocatorEventChan, 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
