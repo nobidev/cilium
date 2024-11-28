@@ -21,6 +21,7 @@ import (
 var (
 	applicationLogConnectionIDsFilter []string
 	applicationLogPodNameFilter       string
+	applicationLogFollow              bool
 )
 
 func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
@@ -47,7 +48,7 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 
 				errGrp.Go(func() error {
 					r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
-						Follow: true,
+						Follow: applicationLogFollow,
 					})
 					s, err := r.Stream(ctx)
 					if err != nil {
@@ -84,6 +85,8 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 
 	cmd.Flags().StringSliceVar(&applicationLogConnectionIDsFilter, "connection-ids", []string{}, "List of connection ids to filter the application log for")
 	cmd.Flags().StringVar(&applicationLogPodNameFilter, "pod", "", "Filter the application log for a given Envoy Pod Name")
+
+	cmd.Flags().BoolVar(&applicationLogFollow, "follow", false, "Specify if the logs should be streamed")
 
 	return cmd
 }

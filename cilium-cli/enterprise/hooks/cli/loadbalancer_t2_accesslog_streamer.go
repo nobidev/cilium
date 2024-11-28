@@ -24,6 +24,7 @@ var (
 	accessLogGenericFilters               []string
 	accessLogProtocolsFilter              []string
 	accessLogIncludeHTTPHealthCheckFilter bool
+	accessLogFollow                       bool
 )
 
 func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
@@ -46,7 +47,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			for _, p := range pods.Items {
 				errGrp.Go(func() error {
 					r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
-						Follow: true,
+						Follow: accessLogFollow,
 					})
 					s, err := r.Stream(ctx)
 					if err != nil {
@@ -86,6 +87,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 	cmd.Flags().StringSliceVar(&accessLogGenericFilters, "filters", []string{}, "Attribute filters to filter the access log for (attribute=value,attribute2=value2). All of the filters must match.")
 	cmd.Flags().StringSliceVar(&accessLogProtocolsFilter, "protocols", []string{"tcp", "tls", "http"}, "Filter for the provided protocols")
 	cmd.Flags().BoolVar(&accessLogIncludeHTTPHealthCheckFilter, "healthcheck", false, "Include HTTP Healthcheck accesslog")
+	cmd.Flags().BoolVar(&accessLogFollow, "follow", false, "Specify if the logs should be streamed")
 
 	return cmd
 }
