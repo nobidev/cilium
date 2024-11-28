@@ -140,7 +140,6 @@ func main() {
 		setupLog.Error(err, "Charts can't be loaded")
 		os.Exit(1)
 	}
-
 	ns := os.Getenv("NAMESPACE")
 	if ns == "" {
 		ns = "cilium"

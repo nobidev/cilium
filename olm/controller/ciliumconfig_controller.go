@@ -24,7 +24,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	amtypes "k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/discovery"
@@ -52,7 +54,7 @@ type CiliumConfigReconciler struct {
 	Namespace string
 }
 
-// TODO: The controller is missing some rights
+// TODO: Double check that the controller has all the necessary rights and ownership
 
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs/status,verbs=get;update;patch
@@ -102,44 +104,38 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// - to have the default configuration applied if there is no CiliumConfig
 		// and to uninstall only when a very clear attribute is set in CiliumConfig.
 		// - to allow the uninstall by removing the custom resource only when an
-		// environment variable has been set in the operator deployment.
+		// environment variable has been set in the operator deployment or on the custom resource.
 		// note: this is currently happening outside of the reconciliation any way
 		// due to the owner references being now set and cascade deletion.
 		if apierrors.IsNotFound(err) {
-			// TODO err = UninstallCilium(restConfig, nsn, logger)
+			// TODO Generate an event
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to retrieve CiliumConfig")
 		return ctrl.Result{}, err
 	}
 
-	// TODO:
-	// DefaultPostRendererFunc returns a post-renderer that applies owner references to compatible objects
-	// in a helm release manifest. This is the default post-renderer used by ActionClients created with
-	// NewActionClientGetter.
-	// Owner references are currently not set. This needs to be amended
-
 	hv, err := helm.Values(ccfg)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	logger.V(3).Info("helm", "values", hv)
-	// Check the existence of the helm secret to decide between new install and update
-	secList := corev1.SecretList{}
-	opts := client.MatchingLabels{
-		"name": "cilium-release",
-	}
-	err = r.Client.List(ctx, &secList, opts)
+	current, err := currentState(ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("query of the helm secret failed: %v", err)
+		return ctrl.Result{}, err
 	}
-	if len(secList.Items) > 0 {
-		// TODO: Dealing with updates is not yet implemented
-		// Terminating the reconcilation for now
-		return ctrl.Result{}, nil
+	desired, err := helm.Generate(r.Chart, hv, ccfg, r.Namespace, logger)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	err = helm.Install(r.Chart, hv, ccfg, r.Namespace, logger)
-	return ctrl.Result{}, err
+	toApply, toRemove := Compare(desired, current)
+	for _, a := range toApply {
+		r.Patch(ctx, a, client.Apply, client.ForceOwnership, client.FieldOwner("clife"))
+	}
+	for _, d := range toRemove {
+		r.Client.Delete(ctx, d)
+	}
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -191,4 +187,115 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		logger.Info("Cert-manager resource definitions are not available. Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.")
 	}
 	return builder.Complete(r)
+}
+
+// currentState retrieve all the resources managed by the operator and populate a map with them
+// the map key is kind/namespace/name
+func currentState(ctx context.Context, crClient client.Client) (map[string]*unstructured.Unstructured, error) {
+	objects := map[string]*unstructured.Unstructured{}
+	opts := client.MatchingLabels{
+		"isovalent.io/managed-by": "clife",
+	}
+	gvks := []schema.GroupVersionKind{
+		{
+			Group:   "",
+			Kind:    "NamespaceList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "SecretList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "ConfigMapList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "ServiceList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "ResourceQuotaList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "ServiceAccountList",
+			Version: "v1",
+		},
+		{
+			Group:   "apps",
+			Kind:    "DeploymentList",
+			Version: "v1",
+		},
+		{
+			Group:   "apps",
+			Kind:    "StatefulSetList",
+			Version: "v1",
+		},
+		{
+			Group:   "apps",
+			Kind:    "DaemonSetList",
+			Version: "v1",
+		},
+		{
+			Group:   "rbac.authorization.k8s.io",
+			Kind:    "ClusterRoleList",
+			Version: "v1",
+		},
+		{
+			Group:   "rbac.authorization.k8s.io",
+			Kind:    "ClusterRoleBindingList",
+			Version: "v1",
+		},
+		{
+			Group:   "rbac.authorization.k8s.io",
+			Kind:    "RoleList",
+			Version: "v1",
+		},
+		{
+			Group:   "rbac.authorization.k8s.io",
+			Kind:    "RoleBindingList",
+			Version: "v1",
+		},
+		{
+			Group:   "batch",
+			Kind:    "JobList",
+			Version: "v1",
+		},
+		{
+			Group:   "batch",
+			Kind:    "CronJobList",
+			Version: "v1",
+		},
+		{
+			Group:   "policy",
+			Kind:    "PodDisruptionBudgetList",
+			Version: "v1",
+		},
+		{
+			Group:   "networking.k8s.io",
+			Kind:    "IngressClassList",
+			Version: "v1",
+		},
+	}
+	for _, gvk := range gvks {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Kind:    gvk.Kind,
+			Version: gvk.Version,
+		})
+		if err := crClient.List(ctx, list, opts); err != nil {
+			return nil, err
+		}
+		for _, item := range list.Items {
+			objects[fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())] = &item
+		}
+	}
+	return objects, nil
 }
