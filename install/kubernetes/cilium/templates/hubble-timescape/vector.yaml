@@ -2,6 +2,9 @@
 k8s-app: cilium-vector
 app.kubernetes.io/name: cilium-vector
 app.kubernetes.io/part-of: cilium
+{{ with .Values.commonLabels }}
+{{- toYaml . }}
+{{- end }}
 {{- end }}
 
 {{- if .Values.hubble.timescape.enabled }}

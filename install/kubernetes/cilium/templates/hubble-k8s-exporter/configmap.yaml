@@ -6,6 +6,9 @@ metadata:
   namespace: {{ include "cilium.namespace" . }}
   labels:
     {{- include "hubble.k8s-exporter.labels" . | nindent 4 }}
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 data:
   config.yaml: |
     debug: {{ .Values.hubble.k8sExporter.debug | default false }}

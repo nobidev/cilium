@@ -6,6 +6,9 @@ metadata:
   namespace: {{ include "cilium.namespace" . }}
   labels:
     {{- include "hubble.k8s-exporter.labels" . | nindent 4 }}
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   replicas: 1
   selector:
@@ -23,6 +26,9 @@ spec:
         k8s-app: hubble-k8s-exporter
         app.kubernetes.io/name: hubble-k8s-exporter
         app.kubernetes.io/part-of: cilium
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
