@@ -25,16 +25,15 @@ endef
 
 all: update-versions
 
-update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
+update-chart: # Update chart versions to point to the current version.
 	$(ECHO_GEN)enterprise/fqdn-proxy/Chart.yaml
 	$(QUIET)grep -lR -e 'version:' -e 'appVersion:' $(DNSPROXY_CHARTS)/ \
 		| xargs -L 1 $(SED) -i -e 's/'$(DNSPROXY_CHART_REGEX)'/\1 '$(VERSION)'/g'
 
-values.yaml: $(VALUES_TMPL_FILE_NAME) $(ROOT_DIR)/VERSION $(MAKEFILE_VALUES)
+values.yaml: # Update the Helm values file to point to the current version.
 	$(ECHO_GEN)$@
 	$(call generate_values_yaml,$(VALUES_TMPL_FILE_NAME),$@)
-.PHONY: values.yaml
 
-update-versions: update-chart values.yaml # Update the Helm values file to point to the current version.
+update-versions: update-chart values.yaml
 
-.PHONY: all update-chart
+.PHONY: all update-chart update-versions values.yaml
