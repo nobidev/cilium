@@ -65,6 +65,7 @@ func TestExporter(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
+	//nolint: testifylint
 	assert.Equal(t, `{"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 {"agent_event":{},"node_name":"my-node","time":"1970-01-01T00:00:02Z"}
 {"debug_event":{},"node_name":"my-node","time":"1970-01-01T00:00:03Z"}
@@ -155,7 +156,7 @@ func TestExporterWithFilters(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-	assert.Equal(t,
+	assert.JSONEq(t,
 		`{"flow":{"time":"1970-01-01T00:00:13Z","source":{"namespace":"namespace-a","pod_name":"x"}},"time":"1970-01-01T00:00:13Z"}
 `, buf.String())
 }
@@ -278,6 +279,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	//nolint: testifylint
 	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
 {"flow":{}}
 `, buf.String())
@@ -365,6 +367,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	assert.Falsef(t, hookNoOpFuncCalledAfterAbort, "hook no-op func was called after abort requested by previous hook")
 
 	// ensure that aborting OnExportEvent hook processing works (debug_event should not be exported)
+	//nolint: testifylint
 	assert.Equal(t, `{"Timestamp":{"seconds":3},"Event":{}}
 {"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 `, buf.String())

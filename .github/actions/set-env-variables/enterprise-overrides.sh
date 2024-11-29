@@ -33,5 +33,5 @@ echo "PUSH_TO_DOCKER_HUB=false" >> "$GITHUB_ENV"
 echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results-cee" >> "$GITHUB_ENV"
 
 # CE feature gate specific overrides
-echo "CILIUM_GINKGO_EXTRA_ARGS=-cilium.install-helm-overrides=enterprise.featureGate.strict=false" >> "$GITHUB_ENV"
-echo "CILIUM_RUNTIME_EXTRA_ARGS=--feature-gates-strict=false" >> "$GITHUB_ENV"
+echo "CILIUM_GINKGO_EXTRA_ARGS=-cilium.install-helm-overrides=enterprise.featureGate.minimumMaturity=Alpha" >> "$GITHUB_ENV"
+echo "CILIUM_RUNTIME_EXTRA_ARGS=--feature-gates-minimum-maturity=Alpha" >> "$GITHUB_ENV"

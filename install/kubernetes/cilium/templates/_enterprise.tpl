@@ -18,6 +18,8 @@ srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | defau
 enable-enterprise-bgp-control-plane: "true"
 enable-bgp-control-plane: "true"
 bgp-secrets-namespace: {{ .Values.enterprise.bgpControlPlane.secretsNamespace.name | quote }}
+# enable-bgp-control-plane-status-report should be set to "false" after we sync the https://github.com/cilium/cilium/pull/36245 to main-ce.
+enable-bgp-control-plane-status-report: "true"
 # Service health-checking integration in BGP control plane
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
 {{- end }}
@@ -53,6 +55,9 @@ fallback-routing-mode: tunnel
 
 feature-gates-approved: {{ .Values.enterprise.featureGate.approved | join "," | quote }}
 feature-gates-strict: {{ .Values.enterprise.featureGate.strict | quote }}
+{{- with .Values.enterprise.featureGate.minimumMaturity }}
+feature-gates-minimum-maturity: {{ . | quote }}
+{{- end }}
 
 {{- if .Values.enterprise.multiNetwork.enabled }}
 # Multi-network support
