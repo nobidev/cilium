@@ -23,7 +23,7 @@ echo -e "# This file is based on $(RELATIVE_DIR)/cilium/$(VALUES_TMPL_FILE_NAME)
 cat $(1) | envsubst >> $(2)
 endef
 
-all: update-versions
+all: update-versions update-readme
 
 update-chart: # Update chart versions to point to the current version.
 	$(ECHO_GEN)enterprise/fqdn-proxy/Chart.yaml
@@ -36,4 +36,8 @@ values.yaml: # Update the Helm values file to point to the current version.
 
 update-versions: update-chart values.yaml
 
-.PHONY: all update-chart update-versions values.yaml
+update-readme: update-versions update-chart # Update README.md
+	$(ECHO_GEN)enterprise/fqdn-proxy/README.md
+	$(QUIET)$(DNSPROXY_CHARTS)/test.sh
+
+.PHONY: all update-chart update-versions update-readme values.yaml
