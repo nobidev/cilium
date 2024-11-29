@@ -48,5 +48,3 @@ func Compare(desired []*unstructured.Unstructured, current map[string]*unstructu
 	}
 	return
 }
-
-// TODO: Write unit tests for the above, at least one positive and one negative and to cover the secret scenarios
