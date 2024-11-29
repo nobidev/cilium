@@ -13,6 +13,7 @@ package reconcilerv2
 import ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 
 const (
+	LinkLocalReconcilerName        = "LinkLocal"
 	BFDStateReconcilerName         = "BFDState"
 	ServiceReconcilerName          = ossreconcilerv2.ServiceReconcilerName // needs to match the name of the OSS reconciler we are overriding
 	EgressGatewayIPsReconcilerName = "EgressGatewayIPs"
@@ -26,7 +27,8 @@ const (
 // order in which reconcilers are called. Reconcilers are called from lowest to highest on
 // each Reconcile event.
 const (
-	BFDStateReconcilerPriority = 100 // low priority, let the configuration reconcilers do their work first
+	LinkLocalReconcilerPriority = 5   // highest priority, must run before any neighbor or advertisement reconcilers, as it sets the peering address in BGPNodeInstance
+	BFDStateReconcilerPriority  = 100 // low priority, let the configuration reconcilers do their work first
 	// VPNRoutePolicyReconcilerPriority should be before the OSS Neighbor reconciler,
 	// so gobgp will already have desired VPN policies in place.
 	VPNRoutePolicyReconcilerPriority   = ossreconcilerv2.NeighborReconcilerPriority - 1

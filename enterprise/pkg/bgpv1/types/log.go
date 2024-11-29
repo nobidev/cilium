@@ -34,4 +34,10 @@ const (
 
 	// ToWithdrawLogField is used as a key for count of items to withdraw in the log field.
 	ToWithdrawLogField = "to_withdraw"
+
+	// InterfaceLogField is used as key for interface name in the log field.
+	InterfaceLogField = "interface"
+
+	// LinkIndexLogField is used as key for link index in the log field.
+	LinkIndexLogField = "link_index"
 )
