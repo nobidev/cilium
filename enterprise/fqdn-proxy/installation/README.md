@@ -1,6 +1,6 @@
 # cilium-dnsproxy
 
-![Version: 1.16.0-dev](https://img.shields.io/badge/Version-1.16.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.16.0-dev](https://img.shields.io/badge/AppVersion-1.16.0--dev-informational?style=flat-square)
+![Version: 1.17.0-dev](https://img.shields.io/badge/Version-1.17.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.17.0-dev](https://img.shields.io/badge/AppVersion-1.17.0--dev-informational?style=flat-square)
 
 Cilium DNS Proxy
 
@@ -28,10 +28,12 @@ Cilium DNS Proxy
 | metrics.serviceMonitor.scrapeInterval | string | `"10s"` | Scrape interval. |
 | podLabels | object | `{}` | Labels to be added to cilium-dnsproxy pods |
 | podSecurityContext | object | `{}` |  |
+| pprof.enabled | bool | `false` |  |
 | priorityClassName | string | `""` | The priority class to use for cilium-dnsproxy pods |
 | resources | object | `{}` |  |
 | runPath | string | `"/var/run/cilium"` |  |
 | securityContext.capabilities.add[0] | string | `"NET_ADMIN"` |  |
+| securityContext.capabilities.add[1] | string | `"NET_RAW"` |  |
 | serviceAccount.annotations | object | `{}` |  |
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |
