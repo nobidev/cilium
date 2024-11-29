@@ -73,5 +73,8 @@ func DecodeAny(manifest io.Reader) (*unstructured.Unstructured, error) {
 	if err := yaml.Unmarshal(b, u); err != nil {
 		return nil, err
 	}
+	if u.GetKind() == "" {
+		return nil, runtime.NewMissingKindErr("unstructured object has no kind")
+	}
 	return u, nil
 }
