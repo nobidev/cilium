@@ -140,7 +140,7 @@ func TestCompare(t *testing.T) {
 	current["Secret/cilium/hubble-relay-server-certs"] = sec[0].DeepCopy()
 	newLabels = current["Secret/cilium/hubble-relay-server-certs"].GetLabels()
 	newLabels["app.kubernetes.io/part-of"] = "cilium-revival"
-	newLabels["app.kubernetes.io/version"] = "0.0.1"
+	newLabels[VersionLabelKey] = "0.0.1"
 	current["Secret/cilium/hubble-relay-server-certs"].SetLabels(newLabels)
 	a, r = Compare(desired, current)
 	require.Len(t, a, 1, "expect the secret to be applied")

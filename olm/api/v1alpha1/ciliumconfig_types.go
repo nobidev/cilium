@@ -20,6 +20,24 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Run "make" to regenerate code after modifying this file
 
+const (
+	APINotAvailableCondition = "APINotAvailable"
+	ValuesErrorsCondition    = "ValuesError"
+	ProcessingErrorCondition = "ProcessingError"
+)
+
+const (
+	APIMissingReason                    = "APIMissing"
+	APINotMissingReason                 = "APINotMissing"
+	ValuesNotReadableReason             = "ValuesNotReadable"
+	ValuesReadableReason                = "ValuesReadable"
+	ValuesNotProcessedReason            = "ValuesNotProcessed"
+	NoProcessingErrorReason             = "NoProcessingError"
+	StateRetrievalProcessingErrorReason = "StateRetrievalError"
+	HelmProcessingErrorReason           = "HelmError"
+	APIProcessingErrorReason            = "APIProcessingError"
+)
+
 // CiliumConfigSpec defines the desired state of CiliumConfig
 type CiliumConfigSpec struct {
 	// wraps raw helm values
@@ -27,7 +45,6 @@ type CiliumConfigSpec struct {
 }
 
 // CiliumConfigStatus defines the observed state of CiliumConfig
-// +kubebuilder:subresource:status
 type CiliumConfigStatus struct {
 	// Conditions provides details on the state of the component
 	// +listType=atomic

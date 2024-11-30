@@ -96,15 +96,6 @@ make build-installer IMG=<some-registry>/clife:tag
 kubectl apply -f https://raw.githubusercontent.com/<org>/olm/<tag or branch>/dist/install.yaml
 ```
 
-## Operator Lifecycle Manager
-
-TODO:
-- Provide instructions for installing OLM on a kind cluster
-- Provide instructions for generating OLM manifests
-- Provide instructions for building and pushing an OLM bundle
-- Provide instructions for building and pushing an OLM catalog
-- Provide instructions for deploying clife using OLM
-
 ## Contributing
 
 > [!TIP]

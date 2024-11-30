@@ -29,7 +29,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -42,6 +44,10 @@ import (
 	"github.com/isovalent/cilium/olm/controller"
 	// "github.com/isovalent/cilium/olm/helm"
 	//+kubebuilder:scaffold:imports
+)
+
+const (
+	DefaultNamespace = "cilium"
 )
 
 var (
@@ -142,7 +148,7 @@ func main() {
 	}
 	ns := os.Getenv("NAMESPACE")
 	if ns == "" {
-		ns = "cilium"
+		ns = DefaultNamespace
 	}
 	if err = (&controller.CiliumConfigReconciler{
 		Client:    mgr.GetClient(),

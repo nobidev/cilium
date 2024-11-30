@@ -34,8 +34,8 @@ func Compare(desired []*unstructured.Unstructured, current map[string]*unstructu
 				toApply = append(toApply, d)
 			} else {
 				labels, ok := val.Object["metadata"].(map[string]interface{})["labels"]
-				if !ok || !apiequality.Semantic.DeepEqual(d.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["app.kubernetes.io/version"],
-					labels.(map[string]interface{})["app.kubernetes.io/version"]) {
+				if !ok || !apiequality.Semantic.DeepEqual(d.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})[VersionLabelKey],
+					labels.(map[string]interface{})[VersionLabelKey]) {
 					toApply = append(toApply, d)
 				}
 			}

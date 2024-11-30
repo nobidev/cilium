@@ -15,6 +15,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,6 +26,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,8 +35,10 @@ import (
 	"k8s.io/client-go/discovery"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -46,12 +51,19 @@ import (
 	"github.com/isovalent/cilium/olm/helm"
 )
 
+const (
+	ManagedByLabelKey   = "isovalent.io/managed-by"
+	ManagedByLabelValue = "clife"
+	VersionLabelKey     = "app.kubernetes.io/version"
+)
+
 // CiliumConfigReconciler reconciles a CiliumConfig object
 type CiliumConfigReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	Chart     *helmchart.Chart
-	Namespace string
+	Scheme            *runtime.Scheme
+	Chart             *helmchart.Chart
+	Namespace         string
+	StartingCondition metav1.Condition
 }
 
 // TODO: Double check that the controller has all the necessary rights and ownership
@@ -111,29 +123,110 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// TODO Generate an event
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to retrieve CiliumConfig")
+		return ctrl.Result{}, fmt.Errorf("failed to retrieve CiliumConfig: %v", err)
+	}
+	// Reinitialize the status with the starting conditions
+	conditions := initConditions(r.StartingCondition)
+
+	// Get the helm values
+	hv, err := helm.Values(ccfg)
+	if err != nil {
+		conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
+			Type:               ciliumiov1alpha1.ValuesErrorsCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.ValuesNotReadableReason,
+			Message:            "values in CiliumConfig cannot not be read, please check that they have been correctly formatted",
+		}
+		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+		}
+		return ctrl.Result{}, err
+	} else {
+		conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
+			Type:               ciliumiov1alpha1.ValuesErrorsCondition,
+			Status:             metav1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.ValuesReadableReason,
+			Message:            "success",
+		}
+	}
+	logger.V(3).Info("helm", "values", hv)
+
+	// Get the current state
+	current, err := currentState(ctx, r.Client)
+	if err != nil {
+		conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+			Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.StateRetrievalProcessingErrorReason,
+			Message:            fmt.Sprintf("current state cannot be retrieved: %v", err),
+		}
+		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+		}
 		return ctrl.Result{}, err
 	}
 
-	hv, err := helm.Values(ccfg)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	logger.V(3).Info("helm", "values", hv)
-	current, err := currentState(ctx, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	// Generate the desired state
 	desired, err := helm.Generate(r.Chart, hv, ccfg, r.Namespace, logger)
 	if err != nil {
+		conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+			Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.HelmProcessingErrorReason,
+			Message:            fmt.Sprintf("helm cannot generate manifests: %v", err),
+		}
+		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+		}
 		return ctrl.Result{}, err
 	}
+
+	// Compare the current and desire states and align
 	toApply, toRemove := Compare(desired, current)
 	for _, a := range toApply {
-		r.Patch(ctx, a, client.Apply, client.ForceOwnership, client.FieldOwner("clife"))
+		err = r.Patch(ctx, a, client.Apply, client.ForceOwnership, client.FieldOwner("clife"))
+		if err != nil {
+			conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+				Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             ciliumiov1alpha1.APIProcessingErrorReason,
+				Message:            fmt.Sprintf("resource could not be applied: %v", err),
+			}
+			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
+				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+			}
+			return ctrl.Result{}, err
+		}
 	}
 	for _, d := range toRemove {
-		r.Client.Delete(ctx, d)
+		err = r.Client.Delete(ctx, d)
+		if err != nil {
+			conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+				Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             ciliumiov1alpha1.APIProcessingErrorReason,
+				Message:            fmt.Sprintf("resource could not be deleted: %v", err),
+			}
+			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
+				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+			}
+			return ctrl.Result{}, err
+		}
+	}
+	ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+	if err := r.Status().Update(ctx, ccfg); err != nil {
+		return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v", err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -142,7 +235,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("setup")
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&ciliumiov1alpha1.CiliumConfig{}).
+		For(&ciliumiov1alpha1.CiliumConfig{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.DaemonSet{}).
@@ -161,16 +254,14 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&policyv1.PodDisruptionBudget{}).
 		Owns(&networkingv1.IngressClass{})
 	d := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
-	// TODO: Absence of API should be recorded in the CiliumConfigReconciler struct
-	// and used to set a condition in the CiliumConfig custom resource
-	// prompting the user to install them and to restart CLife if they want to
-	// use the related features, i.e. Gateway API, Prometheus.
+	apisMissing := []string{}
 	if _, err := d.ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1"); err == nil {
 		builder = builder.Owns(&gatewayv1.GatewayClass{})
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error(err, "Discovery of Gateway API resource definitions failed")
 	} else {
 		logger.Info("Gateway API resource definitions are not available. Please install the CRDs if you wish to use the Gateway API.")
+		apisMissing = append(apisMissing, "Gateway API resource definitions are not available. Please install the CRDs if you wish to use the Gateway API.")
 	}
 	if _, err := d.ServerResourcesForGroupVersion("monitoring.coreos.com/v1"); err == nil {
 		builder = builder.Owns(&monitoringv1.ServiceMonitor{})
@@ -178,6 +269,8 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		logger.Error(err, "Discovery of Prometheus resource definitions failed")
 	} else {
 		logger.Info("Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
+		apisMissing = append(apisMissing, "Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
+
 	}
 	if _, err := d.ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1"); err == nil {
 		builder = builder.Owns(&certmanagerv1.Certificate{})
@@ -185,6 +278,24 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		logger.Error(err, "Discovery of Cert-manager resource definitions failed")
 	} else {
 		logger.Info("Cert-manager resource definitions are not available. Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.")
+		apisMissing = append(apisMissing, "Cert-manager resource definitions are not available. Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.")
+	}
+	if len(apisMissing) > 0 {
+		r.StartingCondition = metav1.Condition{
+			Type:               ciliumiov1alpha1.APINotAvailableCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.APIMissingReason,
+			Message:            fmt.Sprintf("APIs not available: %v", apisMissing),
+		}
+	} else {
+		r.StartingCondition = metav1.Condition{
+			Type:               ciliumiov1alpha1.APINotAvailableCondition,
+			Status:             metav1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ciliumiov1alpha1.APINotMissingReason,
+			Message:            "All required APIs are available",
+		}
 	}
 	return builder.Complete(r)
 }
@@ -194,7 +305,7 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func currentState(ctx context.Context, crClient client.Client) (map[string]*unstructured.Unstructured, error) {
 	objects := map[string]*unstructured.Unstructured{}
 	opts := client.MatchingLabels{
-		"isovalent.io/managed-by": "clife",
+		ManagedByLabelKey: ManagedByLabelValue,
 	}
 	gvks := []schema.GroupVersionKind{
 		{
@@ -298,4 +409,26 @@ func currentState(ctx context.Context, crClient client.Client) (map[string]*unst
 		}
 	}
 	return objects, nil
+}
+
+// initConditions generates a map with the conditions initialized at the beginning of the reconciliation
+func initConditions(startingCondition metav1.Condition) map[string]metav1.Condition {
+	conditions := map[string]metav1.Condition{}
+	conditions[startingCondition.Type] = startingCondition
+	conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
+		Type:               ciliumiov1alpha1.ValuesErrorsCondition,
+		Status:             metav1.ConditionUnknown,
+		LastTransitionTime: metav1.Now(),
+		Reason:             ciliumiov1alpha1.ValuesNotProcessedReason,
+		Message:            "values not yet processed",
+	}
+	conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+		Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+		Status:             metav1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		Reason:             ciliumiov1alpha1.NoProcessingErrorReason,
+		Message:            "success",
+	}
+
+	return conditions
 }
