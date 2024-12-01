@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentMulticastGroups.
 type IsovalentMulticastGroupInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentMulticastGroupLister
+	Lister() isovalentcomv1alpha1.IsovalentMulticastGroupLister
 }
 
 type isovalentMulticastGroupInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentMulticastGroupInformer(client versioned.Interface, resy
 				return client.IsovalentV1alpha1().IsovalentMulticastGroups().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentMulticastGroup{},
+		&apisisovalentcomv1alpha1.IsovalentMulticastGroup{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentMulticastGroupInformer) defaultInformer(client versioned.Inter
 }
 
 func (f *isovalentMulticastGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentMulticastGroup{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentMulticastGroup{}, f.defaultInformer)
 }
 
-func (f *isovalentMulticastGroupInformer) Lister() v1alpha1.IsovalentMulticastGroupLister {
-	return v1alpha1.NewIsovalentMulticastGroupLister(f.Informer().GetIndexer())
+func (f *isovalentMulticastGroupInformer) Lister() isovalentcomv1alpha1.IsovalentMulticastGroupLister {
+	return isovalentcomv1alpha1.NewIsovalentMulticastGroupLister(f.Informer().GetIndexer())
 }

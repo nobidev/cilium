@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentBGPNodeConfigOverrideLister helps list IsovalentBGPNodeConfigOverrides.
@@ -17,19 +17,19 @@ import (
 type IsovalentBGPNodeConfigOverrideLister interface {
 	// List lists all IsovalentBGPNodeConfigOverrides in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentBGPNodeConfigOverride, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, err error)
 	// Get retrieves the IsovalentBGPNodeConfigOverride from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentBGPNodeConfigOverride, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, error)
 	IsovalentBGPNodeConfigOverrideListerExpansion
 }
 
 // isovalentBGPNodeConfigOverrideLister implements the IsovalentBGPNodeConfigOverrideLister interface.
 type isovalentBGPNodeConfigOverrideLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentBGPNodeConfigOverride]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride]
 }
 
 // NewIsovalentBGPNodeConfigOverrideLister returns a new IsovalentBGPNodeConfigOverrideLister.
 func NewIsovalentBGPNodeConfigOverrideLister(indexer cache.Indexer) IsovalentBGPNodeConfigOverrideLister {
-	return &isovalentBGPNodeConfigOverrideLister{listers.New[*v1alpha1.IsovalentBGPNodeConfigOverride](indexer, v1alpha1.Resource("isovalentbgpnodeconfigoverride"))}
+	return &isovalentBGPNodeConfigOverrideLister{listers.New[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride](indexer, isovalentcomv1alpha1.Resource("isovalentbgpnodeconfigoverride"))}
 }

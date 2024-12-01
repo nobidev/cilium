@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	apisisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentEgressGatewayPolicies.
 type IsovalentEgressGatewayPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.IsovalentEgressGatewayPolicyLister
+	Lister() isovalentcomv1.IsovalentEgressGatewayPolicyLister
 }
 
 type isovalentEgressGatewayPolicyInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentEgressGatewayPolicyInformer(client versioned.Interface,
 				return client.IsovalentV1().IsovalentEgressGatewayPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1.IsovalentEgressGatewayPolicy{},
+		&apisisovalentcomv1.IsovalentEgressGatewayPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentEgressGatewayPolicyInformer) defaultInformer(client versioned.
 }
 
 func (f *isovalentEgressGatewayPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1.IsovalentEgressGatewayPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1.IsovalentEgressGatewayPolicy{}, f.defaultInformer)
 }
 
-func (f *isovalentEgressGatewayPolicyInformer) Lister() v1.IsovalentEgressGatewayPolicyLister {
-	return v1.NewIsovalentEgressGatewayPolicyLister(f.Informer().GetIndexer())
+func (f *isovalentEgressGatewayPolicyInformer) Lister() isovalentcomv1.IsovalentEgressGatewayPolicyLister {
+	return isovalentcomv1.NewIsovalentEgressGatewayPolicyLister(f.Informer().GetIndexer())
 }

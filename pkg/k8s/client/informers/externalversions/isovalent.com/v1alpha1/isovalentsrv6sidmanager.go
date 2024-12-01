@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentSRv6SIDManagers.
 type IsovalentSRv6SIDManagerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentSRv6SIDManagerLister
+	Lister() isovalentcomv1alpha1.IsovalentSRv6SIDManagerLister
 }
 
 type isovalentSRv6SIDManagerInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentSRv6SIDManagerInformer(client versioned.Interface, resy
 				return client.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentSRv6SIDManager{},
+		&apisisovalentcomv1alpha1.IsovalentSRv6SIDManager{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentSRv6SIDManagerInformer) defaultInformer(client versioned.Inter
 }
 
 func (f *isovalentSRv6SIDManagerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentSRv6SIDManager{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentSRv6SIDManager{}, f.defaultInformer)
 }
 
-func (f *isovalentSRv6SIDManagerInformer) Lister() v1alpha1.IsovalentSRv6SIDManagerLister {
-	return v1alpha1.NewIsovalentSRv6SIDManagerLister(f.Informer().GetIndexer())
+func (f *isovalentSRv6SIDManagerInformer) Lister() isovalentcomv1alpha1.IsovalentSRv6SIDManagerLister {
+	return isovalentcomv1alpha1.NewIsovalentSRv6SIDManagerLister(f.Informer().GetIndexer())
 }

@@ -16,91 +16,91 @@ type FakeIsovalentV1alpha1 struct {
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBFDNodeConfigs() v1alpha1.IsovalentBFDNodeConfigInterface {
-	return &FakeIsovalentBFDNodeConfigs{c}
+	return newFakeIsovalentBFDNodeConfigs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBFDNodeConfigOverrides() v1alpha1.IsovalentBFDNodeConfigOverrideInterface {
-	return &FakeIsovalentBFDNodeConfigOverrides{c}
+	return newFakeIsovalentBFDNodeConfigOverrides(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBFDProfiles() v1alpha1.IsovalentBFDProfileInterface {
-	return &FakeIsovalentBFDProfiles{c}
+	return newFakeIsovalentBFDProfiles(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPAdvertisements() v1alpha1.IsovalentBGPAdvertisementInterface {
-	return &FakeIsovalentBGPAdvertisements{c}
+	return newFakeIsovalentBGPAdvertisements(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPClusterConfigs() v1alpha1.IsovalentBGPClusterConfigInterface {
-	return &FakeIsovalentBGPClusterConfigs{c}
+	return newFakeIsovalentBGPClusterConfigs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPNodeConfigs() v1alpha1.IsovalentBGPNodeConfigInterface {
-	return &FakeIsovalentBGPNodeConfigs{c}
+	return newFakeIsovalentBGPNodeConfigs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPNodeConfigOverrides() v1alpha1.IsovalentBGPNodeConfigOverrideInterface {
-	return &FakeIsovalentBGPNodeConfigOverrides{c}
+	return newFakeIsovalentBGPNodeConfigOverrides(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPPeerConfigs() v1alpha1.IsovalentBGPPeerConfigInterface {
-	return &FakeIsovalentBGPPeerConfigs{c}
+	return newFakeIsovalentBGPPeerConfigs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentBGPVRFConfigs() v1alpha1.IsovalentBGPVRFConfigInterface {
-	return &FakeIsovalentBGPVRFConfigs{c}
+	return newFakeIsovalentBGPVRFConfigs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentClusterwideEncryptionPolicies() v1alpha1.IsovalentClusterwideEncryptionPolicyInterface {
-	return &FakeIsovalentClusterwideEncryptionPolicies{c}
+	return newFakeIsovalentClusterwideEncryptionPolicies(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentFQDNGroups() v1alpha1.IsovalentFQDNGroupInterface {
-	return &FakeIsovalentFQDNGroups{c}
+	return newFakeIsovalentFQDNGroups(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentMeshEndpoints(namespace string) v1alpha1.IsovalentMeshEndpointInterface {
-	return &FakeIsovalentMeshEndpoints{c, namespace}
+	return newFakeIsovalentMeshEndpoints(c, namespace)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentMulticastGroups() v1alpha1.IsovalentMulticastGroupInterface {
-	return &FakeIsovalentMulticastGroups{c}
+	return newFakeIsovalentMulticastGroups(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentMulticastNodes() v1alpha1.IsovalentMulticastNodeInterface {
-	return &FakeIsovalentMulticastNodes{c}
+	return newFakeIsovalentMulticastNodes(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentPodNetworks() v1alpha1.IsovalentPodNetworkInterface {
-	return &FakeIsovalentPodNetworks{c}
+	return newFakeIsovalentPodNetworks(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentSRv6EgressPolicies() v1alpha1.IsovalentSRv6EgressPolicyInterface {
-	return &FakeIsovalentSRv6EgressPolicies{c}
+	return newFakeIsovalentSRv6EgressPolicies(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentSRv6LocatorPools() v1alpha1.IsovalentSRv6LocatorPoolInterface {
-	return &FakeIsovalentSRv6LocatorPools{c}
+	return newFakeIsovalentSRv6LocatorPools(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentSRv6SIDManagers() v1alpha1.IsovalentSRv6SIDManagerInterface {
-	return &FakeIsovalentSRv6SIDManagers{c}
+	return newFakeIsovalentSRv6SIDManagers(c)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentVRFs() v1alpha1.IsovalentVRFInterface {
-	return &FakeIsovalentVRFs{c}
+	return newFakeIsovalentVRFs(c)
 }
 
 func (c *FakeIsovalentV1alpha1) LBBackendPools(namespace string) v1alpha1.LBBackendPoolInterface {
-	return &FakeLBBackendPools{c, namespace}
+	return newFakeLBBackendPools(c, namespace)
 }
 
 func (c *FakeIsovalentV1alpha1) LBServices(namespace string) v1alpha1.LBServiceInterface {
-	return &FakeLBServices{c, namespace}
+	return newFakeLBServices(c, namespace)
 }
 
 func (c *FakeIsovalentV1alpha1) LBVIPs(namespace string) v1alpha1.LBVIPInterface {
-	return &FakeLBVIPs{c, namespace}
+	return newFakeLBVIPs(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

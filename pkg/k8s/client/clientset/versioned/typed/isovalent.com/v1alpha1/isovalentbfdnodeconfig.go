@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,38 @@ type IsovalentBFDNodeConfigsGetter interface {
 
 // IsovalentBFDNodeConfigInterface has methods to work with IsovalentBFDNodeConfig resources.
 type IsovalentBFDNodeConfigInterface interface {
-	Create(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.CreateOptions) (*v1alpha1.IsovalentBFDNodeConfig, error)
-	Update(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBFDNodeConfig, error)
+	Create(ctx context.Context, isovalentBFDNodeConfig *isovalentcomv1alpha1.IsovalentBFDNodeConfig, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfig, error)
+	Update(ctx context.Context, isovalentBFDNodeConfig *isovalentcomv1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfig, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBFDNodeConfig, error)
+	UpdateStatus(ctx context.Context, isovalentBFDNodeConfig *isovalentcomv1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentBFDNodeConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentBFDNodeConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBFDNodeConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBFDNodeConfig, err error)
 	IsovalentBFDNodeConfigExpansion
 }
 
 // isovalentBFDNodeConfigs implements IsovalentBFDNodeConfigInterface
 type isovalentBFDNodeConfigs struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentBFDNodeConfig, *v1alpha1.IsovalentBFDNodeConfigList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList]
 }
 
 // newIsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigs
 func newIsovalentBFDNodeConfigs(c *IsovalentV1alpha1Client) *isovalentBFDNodeConfigs {
 	return &isovalentBFDNodeConfigs{
-		gentype.NewClientWithList[*v1alpha1.IsovalentBFDNodeConfig, *v1alpha1.IsovalentBFDNodeConfigList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList](
 			"isovalentbfdnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentBFDNodeConfig { return &v1alpha1.IsovalentBFDNodeConfig{} },
-			func() *v1alpha1.IsovalentBFDNodeConfigList { return &v1alpha1.IsovalentBFDNodeConfigList{} }),
+			func() *isovalentcomv1alpha1.IsovalentBFDNodeConfig {
+				return &isovalentcomv1alpha1.IsovalentBFDNodeConfig{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentBFDNodeConfigList {
+				return &isovalentcomv1alpha1.IsovalentBFDNodeConfigList{}
+			},
+		),
 	}
 }

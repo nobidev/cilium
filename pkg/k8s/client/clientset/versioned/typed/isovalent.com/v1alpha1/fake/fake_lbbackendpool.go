@@ -6,129 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeLBBackendPools implements LBBackendPoolInterface
-type FakeLBBackendPools struct {
+// fakeLBBackendPools implements LBBackendPoolInterface
+type fakeLBBackendPools struct {
+	*gentype.FakeClientWithList[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList]
 	Fake *FakeIsovalentV1alpha1
-	ns   string
 }
 
-var lbbackendpoolsResource = v1alpha1.SchemeGroupVersion.WithResource("lbbackendpools")
-
-var lbbackendpoolsKind = v1alpha1.SchemeGroupVersion.WithKind("LBBackendPool")
-
-// Get takes name of the lBBackendPool, and returns the corresponding lBBackendPool object, and an error if there is any.
-func (c *FakeLBBackendPools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LBBackendPool, err error) {
-	emptyResult := &v1alpha1.LBBackendPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(lbbackendpoolsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeLBBackendPools(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.LBBackendPoolInterface {
+	return &fakeLBBackendPools{
+		gentype.NewFakeClientWithList[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("lbbackendpools"),
+			v1alpha1.SchemeGroupVersion.WithKind("LBBackendPool"),
+			func() *v1alpha1.LBBackendPool { return &v1alpha1.LBBackendPool{} },
+			func() *v1alpha1.LBBackendPoolList { return &v1alpha1.LBBackendPoolList{} },
+			func(dst, src *v1alpha1.LBBackendPoolList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.LBBackendPoolList) []*v1alpha1.LBBackendPool {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.LBBackendPoolList, items []*v1alpha1.LBBackendPool) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.LBBackendPool), err
-}
-
-// List takes label and field selectors, and returns the list of LBBackendPools that match those selectors.
-func (c *FakeLBBackendPools) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LBBackendPoolList, err error) {
-	emptyResult := &v1alpha1.LBBackendPoolList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(lbbackendpoolsResource, lbbackendpoolsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.LBBackendPoolList{ListMeta: obj.(*v1alpha1.LBBackendPoolList).ListMeta}
-	for _, item := range obj.(*v1alpha1.LBBackendPoolList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested lBBackendPools.
-func (c *FakeLBBackendPools) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(lbbackendpoolsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a lBBackendPool and creates it.  Returns the server's representation of the lBBackendPool, and an error, if there is any.
-func (c *FakeLBBackendPools) Create(ctx context.Context, lBBackendPool *v1alpha1.LBBackendPool, opts v1.CreateOptions) (result *v1alpha1.LBBackendPool, err error) {
-	emptyResult := &v1alpha1.LBBackendPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(lbbackendpoolsResource, c.ns, lBBackendPool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBBackendPool), err
-}
-
-// Update takes the representation of a lBBackendPool and updates it. Returns the server's representation of the lBBackendPool, and an error, if there is any.
-func (c *FakeLBBackendPools) Update(ctx context.Context, lBBackendPool *v1alpha1.LBBackendPool, opts v1.UpdateOptions) (result *v1alpha1.LBBackendPool, err error) {
-	emptyResult := &v1alpha1.LBBackendPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(lbbackendpoolsResource, c.ns, lBBackendPool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBBackendPool), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeLBBackendPools) UpdateStatus(ctx context.Context, lBBackendPool *v1alpha1.LBBackendPool, opts v1.UpdateOptions) (result *v1alpha1.LBBackendPool, err error) {
-	emptyResult := &v1alpha1.LBBackendPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(lbbackendpoolsResource, "status", c.ns, lBBackendPool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBBackendPool), err
-}
-
-// Delete takes name of the lBBackendPool and deletes it. Returns an error if one occurs.
-func (c *FakeLBBackendPools) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(lbbackendpoolsResource, c.ns, name, opts), &v1alpha1.LBBackendPool{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeLBBackendPools) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(lbbackendpoolsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.LBBackendPoolList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched lBBackendPool.
-func (c *FakeLBBackendPools) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LBBackendPool, err error) {
-	emptyResult := &v1alpha1.LBBackendPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(lbbackendpoolsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBBackendPool), err
 }

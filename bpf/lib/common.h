@@ -902,26 +902,27 @@ enum ct_status {
 
 /* Service flags (lb{4,6}_service->flags) */
 enum {
-	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* External IPs */
-	SVC_FLAG_NODEPORT     = (1 << 1),  /* NodePort service */
-	SVC_FLAG_EXT_LOCAL_SCOPE = (1 << 2), /* externalTrafficPolicy=Local */
-	SVC_FLAG_HOSTPORT     = (1 << 3),  /* hostPort forwarding */
-	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
-	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
-	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
-	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
+	SVC_FLAG_EXTERNAL_IP     = (1 << 0),	/* External IPs */
+	SVC_FLAG_NODEPORT        = (1 << 1),	/* NodePort service */
+	SVC_FLAG_EXT_LOCAL_SCOPE = (1 << 2),	/* externalTrafficPolicy=Local */
+	SVC_FLAG_HOSTPORT        = (1 << 3),	/* hostPort forwarding */
+	SVC_FLAG_AFFINITY        = (1 << 4),	/* sessionAffinity=clientIP */
+	SVC_FLAG_LOADBALANCER    = (1 << 5),	/* LoadBalancer service */
+	SVC_FLAG_ROUTABLE        = (1 << 6),	/* Not a surrogate/ClusterIP entry */
+	SVC_FLAG_SOURCE_RANGE    = (1 << 7),	/* Check LoadBalancer source range */
 };
 
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
-	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* Local redirect service */
-	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
-	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
-	SVC_FLAG_LOOPBACK       = (1 << 3),  /* HostPort with a loopback hostIP */
-	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
-	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* Two sets of backends are used for external/internal connections */
-	SVC_FLAG_QUARANTINED    = (1 << 6),  /* Backend slot (key: backend_slot > 0) is quarantined */
-	SVC_FLAG_FWD_MODE_DSR   = (1 << 7),  /* If bit is set, use DSR instead of SNAT in annotation mode */
+	SVC_FLAG_LOCALREDIRECT     = (1 << 0),	/* Local redirect service */
+	SVC_FLAG_NAT_46X64         = (1 << 1),	/* NAT-46/64 entry */
+	SVC_FLAG_L7LOADBALANCER    = (1 << 2),	/* tproxy redirect to local l7 loadbalancer */
+	SVC_FLAG_LOOPBACK          = (1 << 3),	/* HostPort with a loopback hostIP */
+	SVC_FLAG_INT_LOCAL_SCOPE   = (1 << 4),	/* internalTrafficPolicy=Local */
+	SVC_FLAG_TWO_SCOPES        = (1 << 5),	/* Two sets of backends are used for external/internal connections */
+	SVC_FLAG_QUARANTINED       = (1 << 6),	/* Backend slot (key: backend_slot > 0) is quarantined */
+	SVC_FLAG_SOURCE_RANGE_DENY = (1 << 6),	/* Master slot: LoadBalancer source range check is inverted */
+	SVC_FLAG_FWD_MODE_DSR      = (1 << 7),	/* If bit is set, use DSR instead of SNAT in annotation mode */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
@@ -1011,29 +1012,19 @@ struct lb6_key {
 	__u8 pad[2];
 };
 
-/* See lb4_service comments */
+/* See lb4_service comments for all fields. */
 struct lb6_service {
 	union {
-		__u32 backend_id;	/* Backend ID in lb6_backends */
-		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
-		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
+		__u32 backend_id;
+		/* See lb4_service for storage internals. */
+		__u32 affinity_timeout;
+		__u32 l7_lb_proxy_port;
 	};
 	__u16 count;
 	__u16 rev_nat_index;
 	__u8 flags;
 	__u8 flags2;
-	/* For the service frontend, qcount denotes number of service backend
-	 * slots under quarantine (otherwise zero).
-	 */
 	__u16 qcount;
-#ifdef LB_ALG_PER_SERVICE
-    /* Load balancer algorithm
-     * 1 - random
-     * 2 - maglev
-     */
-    __u8 lb_alg;
-    __u8 pad[3];
-#endif
 };
 
 /* See lb4_backend comments */
@@ -1081,11 +1072,28 @@ struct lb4_key {
 	__u8 pad[2];
 };
 
+#define LB_ALGORITHM_SHIFT	24
+#define AFFINITY_TIMEOUT_MASK	((1 << LB_ALGORITHM_SHIFT) - 1)
+
 struct lb4_service {
 	union {
-		__u32 backend_id;	/* Backend ID in lb4_backends */
-		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
-		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
+		/* Non-master entry: backend ID in lb4_backends */
+		__u32 backend_id;
+		/* For master entry:
+		 * - Upper  8 bits: load balancer algorithm,
+		 *                  values:
+		 *                     1 - random
+		 *                     2 - maglev
+		 * - Lower 24 bits: timeout in seconds
+		 * Note: We don't use bitfield here given storage is
+		 * compiler implementation dependent and the map needs
+		 * to be populated from Go.
+		 */
+		__u32 affinity_timeout;
+		/* For master entry: proxy port in host byte order,
+		 * only when flags2 & SVC_FLAG_L7LOADBALANCER is set.
+		 */
+		__u32 l7_lb_proxy_port;
 	};
 	/* For the service frontend, count denotes number of service backend
 	 * slots (otherwise zero).
@@ -1098,14 +1106,6 @@ struct lb4_service {
 	 * slots under quarantine (otherwise zero).
 	 */
 	__u16 qcount;
-#ifdef LB_ALG_PER_SERVICE
-    /* Load balancer algorithm
-     * 1 - random
-     * 2 - maglev
-     */
-    __u8 lb_alg;
-    __u8 pad[3];
-#endif
 };
 
 struct lb4_backend {

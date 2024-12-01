@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentMulticastNodes.
 type IsovalentMulticastNodeInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentMulticastNodeLister
+	Lister() isovalentcomv1alpha1.IsovalentMulticastNodeLister
 }
 
 type isovalentMulticastNodeInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentMulticastNodeInformer(client versioned.Interface, resyn
 				return client.IsovalentV1alpha1().IsovalentMulticastNodes().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentMulticastNode{},
+		&apisisovalentcomv1alpha1.IsovalentMulticastNode{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentMulticastNodeInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *isovalentMulticastNodeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentMulticastNode{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentMulticastNode{}, f.defaultInformer)
 }
 
-func (f *isovalentMulticastNodeInformer) Lister() v1alpha1.IsovalentMulticastNodeLister {
-	return v1alpha1.NewIsovalentMulticastNodeLister(f.Informer().GetIndexer())
+func (f *isovalentMulticastNodeInformer) Lister() isovalentcomv1alpha1.IsovalentMulticastNodeLister {
+	return isovalentcomv1alpha1.NewIsovalentMulticastNodeLister(f.Informer().GetIndexer())
 }

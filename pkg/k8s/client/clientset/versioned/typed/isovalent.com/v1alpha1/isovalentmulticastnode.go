@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,38 @@ type IsovalentMulticastNodesGetter interface {
 
 // IsovalentMulticastNodeInterface has methods to work with IsovalentMulticastNode resources.
 type IsovalentMulticastNodeInterface interface {
-	Create(ctx context.Context, isovalentMulticastNode *v1alpha1.IsovalentMulticastNode, opts v1.CreateOptions) (*v1alpha1.IsovalentMulticastNode, error)
-	Update(ctx context.Context, isovalentMulticastNode *v1alpha1.IsovalentMulticastNode, opts v1.UpdateOptions) (*v1alpha1.IsovalentMulticastNode, error)
+	Create(ctx context.Context, isovalentMulticastNode *isovalentcomv1alpha1.IsovalentMulticastNode, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentMulticastNode, error)
+	Update(ctx context.Context, isovalentMulticastNode *isovalentcomv1alpha1.IsovalentMulticastNode, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentMulticastNode, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, isovalentMulticastNode *v1alpha1.IsovalentMulticastNode, opts v1.UpdateOptions) (*v1alpha1.IsovalentMulticastNode, error)
+	UpdateStatus(ctx context.Context, isovalentMulticastNode *isovalentcomv1alpha1.IsovalentMulticastNode, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentMulticastNode, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentMulticastNode, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentMulticastNodeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentMulticastNode, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentMulticastNodeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentMulticastNode, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentMulticastNode, err error)
 	IsovalentMulticastNodeExpansion
 }
 
 // isovalentMulticastNodes implements IsovalentMulticastNodeInterface
 type isovalentMulticastNodes struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentMulticastNode, *isovalentcomv1alpha1.IsovalentMulticastNodeList]
 }
 
 // newIsovalentMulticastNodes returns a IsovalentMulticastNodes
 func newIsovalentMulticastNodes(c *IsovalentV1alpha1Client) *isovalentMulticastNodes {
 	return &isovalentMulticastNodes{
-		gentype.NewClientWithList[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentMulticastNode, *isovalentcomv1alpha1.IsovalentMulticastNodeList](
 			"isovalentmulticastnodes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentMulticastNode { return &v1alpha1.IsovalentMulticastNode{} },
-			func() *v1alpha1.IsovalentMulticastNodeList { return &v1alpha1.IsovalentMulticastNodeList{} }),
+			func() *isovalentcomv1alpha1.IsovalentMulticastNode {
+				return &isovalentcomv1alpha1.IsovalentMulticastNode{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentMulticastNodeList {
+				return &isovalentcomv1alpha1.IsovalentMulticastNodeList{}
+			},
+		),
 	}
 }

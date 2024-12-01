@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentBFDNodeConfigLister helps list IsovalentBFDNodeConfigs.
@@ -17,19 +17,19 @@ import (
 type IsovalentBFDNodeConfigLister interface {
 	// List lists all IsovalentBFDNodeConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentBFDNodeConfig, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentBFDNodeConfig, err error)
 	// Get retrieves the IsovalentBFDNodeConfig from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentBFDNodeConfig, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentBFDNodeConfig, error)
 	IsovalentBFDNodeConfigListerExpansion
 }
 
 // isovalentBFDNodeConfigLister implements the IsovalentBFDNodeConfigLister interface.
 type isovalentBFDNodeConfigLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentBFDNodeConfig]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentBFDNodeConfig]
 }
 
 // NewIsovalentBFDNodeConfigLister returns a new IsovalentBFDNodeConfigLister.
 func NewIsovalentBFDNodeConfigLister(indexer cache.Indexer) IsovalentBFDNodeConfigLister {
-	return &isovalentBFDNodeConfigLister{listers.New[*v1alpha1.IsovalentBFDNodeConfig](indexer, v1alpha1.Resource("isovalentbfdnodeconfig"))}
+	return &isovalentBFDNodeConfigLister{listers.New[*isovalentcomv1alpha1.IsovalentBFDNodeConfig](indexer, isovalentcomv1alpha1.Resource("isovalentbfdnodeconfig"))}
 }

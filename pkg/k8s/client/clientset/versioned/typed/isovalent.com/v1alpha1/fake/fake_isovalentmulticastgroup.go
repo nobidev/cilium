@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentMulticastGroups implements IsovalentMulticastGroupInterface
-type FakeIsovalentMulticastGroups struct {
+// fakeIsovalentMulticastGroups implements IsovalentMulticastGroupInterface
+type fakeIsovalentMulticastGroups struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentMulticastGroup, *v1alpha1.IsovalentMulticastGroupList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentmulticastgroupsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentmulticastgroups")
-
-var isovalentmulticastgroupsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentMulticastGroup")
-
-// Get takes name of the isovalentMulticastGroup, and returns the corresponding isovalentMulticastGroup object, and an error if there is any.
-func (c *FakeIsovalentMulticastGroups) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentMulticastGroup, err error) {
-	emptyResult := &v1alpha1.IsovalentMulticastGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentmulticastgroupsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentMulticastGroups(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentMulticastGroupInterface {
+	return &fakeIsovalentMulticastGroups{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentMulticastGroup, *v1alpha1.IsovalentMulticastGroupList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentmulticastgroups"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentMulticastGroup"),
+			func() *v1alpha1.IsovalentMulticastGroup { return &v1alpha1.IsovalentMulticastGroup{} },
+			func() *v1alpha1.IsovalentMulticastGroupList { return &v1alpha1.IsovalentMulticastGroupList{} },
+			func(dst, src *v1alpha1.IsovalentMulticastGroupList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentMulticastGroupList) []*v1alpha1.IsovalentMulticastGroup {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentMulticastGroupList, items []*v1alpha1.IsovalentMulticastGroup) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentMulticastGroup), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentMulticastGroups that match those selectors.
-func (c *FakeIsovalentMulticastGroups) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentMulticastGroupList, err error) {
-	emptyResult := &v1alpha1.IsovalentMulticastGroupList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentmulticastgroupsResource, isovalentmulticastgroupsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentMulticastGroupList{ListMeta: obj.(*v1alpha1.IsovalentMulticastGroupList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentMulticastGroupList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentMulticastGroups.
-func (c *FakeIsovalentMulticastGroups) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentmulticastgroupsResource, opts))
-}
-
-// Create takes the representation of a isovalentMulticastGroup and creates it.  Returns the server's representation of the isovalentMulticastGroup, and an error, if there is any.
-func (c *FakeIsovalentMulticastGroups) Create(ctx context.Context, isovalentMulticastGroup *v1alpha1.IsovalentMulticastGroup, opts v1.CreateOptions) (result *v1alpha1.IsovalentMulticastGroup, err error) {
-	emptyResult := &v1alpha1.IsovalentMulticastGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentmulticastgroupsResource, isovalentMulticastGroup, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMulticastGroup), err
-}
-
-// Update takes the representation of a isovalentMulticastGroup and updates it. Returns the server's representation of the isovalentMulticastGroup, and an error, if there is any.
-func (c *FakeIsovalentMulticastGroups) Update(ctx context.Context, isovalentMulticastGroup *v1alpha1.IsovalentMulticastGroup, opts v1.UpdateOptions) (result *v1alpha1.IsovalentMulticastGroup, err error) {
-	emptyResult := &v1alpha1.IsovalentMulticastGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentmulticastgroupsResource, isovalentMulticastGroup, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMulticastGroup), err
-}
-
-// Delete takes name of the isovalentMulticastGroup and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentMulticastGroups) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentmulticastgroupsResource, name, opts), &v1alpha1.IsovalentMulticastGroup{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentMulticastGroups) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentmulticastgroupsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentMulticastGroupList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentMulticastGroup.
-func (c *FakeIsovalentMulticastGroups) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentMulticastGroup, err error) {
-	emptyResult := &v1alpha1.IsovalentMulticastGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentmulticastgroupsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMulticastGroup), err
 }

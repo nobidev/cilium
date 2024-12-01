@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type IsovalentSRv6EgressPoliciesGetter interface {
 
 // IsovalentSRv6EgressPolicyInterface has methods to work with IsovalentSRv6EgressPolicy resources.
 type IsovalentSRv6EgressPolicyInterface interface {
-	Create(ctx context.Context, isovalentSRv6EgressPolicy *v1alpha1.IsovalentSRv6EgressPolicy, opts v1.CreateOptions) (*v1alpha1.IsovalentSRv6EgressPolicy, error)
-	Update(ctx context.Context, isovalentSRv6EgressPolicy *v1alpha1.IsovalentSRv6EgressPolicy, opts v1.UpdateOptions) (*v1alpha1.IsovalentSRv6EgressPolicy, error)
+	Create(ctx context.Context, isovalentSRv6EgressPolicy *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, error)
+	Update(ctx context.Context, isovalentSRv6EgressPolicy *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentSRv6EgressPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentSRv6EgressPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentSRv6EgressPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, err error)
 	IsovalentSRv6EgressPolicyExpansion
 }
 
 // isovalentSRv6EgressPolicies implements IsovalentSRv6EgressPolicyInterface
 type isovalentSRv6EgressPolicies struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentSRv6EgressPolicy, *v1alpha1.IsovalentSRv6EgressPolicyList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList]
 }
 
 // newIsovalentSRv6EgressPolicies returns a IsovalentSRv6EgressPolicies
 func newIsovalentSRv6EgressPolicies(c *IsovalentV1alpha1Client) *isovalentSRv6EgressPolicies {
 	return &isovalentSRv6EgressPolicies{
-		gentype.NewClientWithList[*v1alpha1.IsovalentSRv6EgressPolicy, *v1alpha1.IsovalentSRv6EgressPolicyList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList](
 			"isovalentsrv6egresspolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentSRv6EgressPolicy { return &v1alpha1.IsovalentSRv6EgressPolicy{} },
-			func() *v1alpha1.IsovalentSRv6EgressPolicyList { return &v1alpha1.IsovalentSRv6EgressPolicyList{} }),
+			func() *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy {
+				return &isovalentcomv1alpha1.IsovalentSRv6EgressPolicy{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList {
+				return &isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList{}
+			},
+		),
 	}
 }

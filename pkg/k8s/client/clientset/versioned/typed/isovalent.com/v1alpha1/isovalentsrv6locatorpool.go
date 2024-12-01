@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type IsovalentSRv6LocatorPoolsGetter interface {
 
 // IsovalentSRv6LocatorPoolInterface has methods to work with IsovalentSRv6LocatorPool resources.
 type IsovalentSRv6LocatorPoolInterface interface {
-	Create(ctx context.Context, isovalentSRv6LocatorPool *v1alpha1.IsovalentSRv6LocatorPool, opts v1.CreateOptions) (*v1alpha1.IsovalentSRv6LocatorPool, error)
-	Update(ctx context.Context, isovalentSRv6LocatorPool *v1alpha1.IsovalentSRv6LocatorPool, opts v1.UpdateOptions) (*v1alpha1.IsovalentSRv6LocatorPool, error)
+	Create(ctx context.Context, isovalentSRv6LocatorPool *isovalentcomv1alpha1.IsovalentSRv6LocatorPool, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, error)
+	Update(ctx context.Context, isovalentSRv6LocatorPool *isovalentcomv1alpha1.IsovalentSRv6LocatorPool, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentSRv6LocatorPool, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentSRv6LocatorPoolList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentSRv6LocatorPool, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6LocatorPool, err error)
 	IsovalentSRv6LocatorPoolExpansion
 }
 
 // isovalentSRv6LocatorPools implements IsovalentSRv6LocatorPoolInterface
 type isovalentSRv6LocatorPools struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList]
 }
 
 // newIsovalentSRv6LocatorPools returns a IsovalentSRv6LocatorPools
 func newIsovalentSRv6LocatorPools(c *IsovalentV1alpha1Client) *isovalentSRv6LocatorPools {
 	return &isovalentSRv6LocatorPools{
-		gentype.NewClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList](
 			"isovalentsrv6locatorpools",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentSRv6LocatorPool { return &v1alpha1.IsovalentSRv6LocatorPool{} },
-			func() *v1alpha1.IsovalentSRv6LocatorPoolList { return &v1alpha1.IsovalentSRv6LocatorPoolList{} }),
+			func() *isovalentcomv1alpha1.IsovalentSRv6LocatorPool {
+				return &isovalentcomv1alpha1.IsovalentSRv6LocatorPool{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList {
+				return &isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList{}
+			},
+		),
 	}
 }

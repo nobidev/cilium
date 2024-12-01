@@ -6,116 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentMeshEndpoints implements IsovalentMeshEndpointInterface
-type FakeIsovalentMeshEndpoints struct {
+// fakeIsovalentMeshEndpoints implements IsovalentMeshEndpointInterface
+type fakeIsovalentMeshEndpoints struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentMeshEndpoint, *v1alpha1.IsovalentMeshEndpointList]
 	Fake *FakeIsovalentV1alpha1
-	ns   string
 }
 
-var isovalentmeshendpointsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentmeshendpoints")
-
-var isovalentmeshendpointsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentMeshEndpoint")
-
-// Get takes name of the isovalentMeshEndpoint, and returns the corresponding isovalentMeshEndpoint object, and an error if there is any.
-func (c *FakeIsovalentMeshEndpoints) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentMeshEndpoint, err error) {
-	emptyResult := &v1alpha1.IsovalentMeshEndpoint{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(isovalentmeshendpointsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentMeshEndpoints(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.IsovalentMeshEndpointInterface {
+	return &fakeIsovalentMeshEndpoints{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentMeshEndpoint, *v1alpha1.IsovalentMeshEndpointList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentmeshendpoints"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentMeshEndpoint"),
+			func() *v1alpha1.IsovalentMeshEndpoint { return &v1alpha1.IsovalentMeshEndpoint{} },
+			func() *v1alpha1.IsovalentMeshEndpointList { return &v1alpha1.IsovalentMeshEndpointList{} },
+			func(dst, src *v1alpha1.IsovalentMeshEndpointList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentMeshEndpointList) []*v1alpha1.IsovalentMeshEndpoint {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentMeshEndpointList, items []*v1alpha1.IsovalentMeshEndpoint) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentMeshEndpoint), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentMeshEndpoints that match those selectors.
-func (c *FakeIsovalentMeshEndpoints) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentMeshEndpointList, err error) {
-	emptyResult := &v1alpha1.IsovalentMeshEndpointList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(isovalentmeshendpointsResource, isovalentmeshendpointsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentMeshEndpointList{ListMeta: obj.(*v1alpha1.IsovalentMeshEndpointList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentMeshEndpointList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentMeshEndpoints.
-func (c *FakeIsovalentMeshEndpoints) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(isovalentmeshendpointsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a isovalentMeshEndpoint and creates it.  Returns the server's representation of the isovalentMeshEndpoint, and an error, if there is any.
-func (c *FakeIsovalentMeshEndpoints) Create(ctx context.Context, isovalentMeshEndpoint *v1alpha1.IsovalentMeshEndpoint, opts v1.CreateOptions) (result *v1alpha1.IsovalentMeshEndpoint, err error) {
-	emptyResult := &v1alpha1.IsovalentMeshEndpoint{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(isovalentmeshendpointsResource, c.ns, isovalentMeshEndpoint, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMeshEndpoint), err
-}
-
-// Update takes the representation of a isovalentMeshEndpoint and updates it. Returns the server's representation of the isovalentMeshEndpoint, and an error, if there is any.
-func (c *FakeIsovalentMeshEndpoints) Update(ctx context.Context, isovalentMeshEndpoint *v1alpha1.IsovalentMeshEndpoint, opts v1.UpdateOptions) (result *v1alpha1.IsovalentMeshEndpoint, err error) {
-	emptyResult := &v1alpha1.IsovalentMeshEndpoint{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(isovalentmeshendpointsResource, c.ns, isovalentMeshEndpoint, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMeshEndpoint), err
-}
-
-// Delete takes name of the isovalentMeshEndpoint and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentMeshEndpoints) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(isovalentmeshendpointsResource, c.ns, name, opts), &v1alpha1.IsovalentMeshEndpoint{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentMeshEndpoints) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(isovalentmeshendpointsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentMeshEndpointList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentMeshEndpoint.
-func (c *FakeIsovalentMeshEndpoints) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentMeshEndpoint, err error) {
-	emptyResult := &v1alpha1.IsovalentMeshEndpoint{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(isovalentmeshendpointsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentMeshEndpoint), err
 }

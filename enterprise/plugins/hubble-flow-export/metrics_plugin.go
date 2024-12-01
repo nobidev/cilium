@@ -12,13 +12,16 @@ package export
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	metricsAPI "github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -48,14 +51,20 @@ type metricsHandler struct {
 	flowsExportedBytesTotal prometheus.Counter
 	flowsExportTimestamp    prometheus.Gauge
 	context                 *metricsAPI.ContextOptions
+	AllowList               filters.FilterFuncs
+	DenyList                filters.FilterFuncs
 }
 
-func (h *metricsHandler) Init(registry *prometheus.Registry, options []*metricsAPI.ContextOptionConfig) error {
-	c, err := metricsAPI.ParseContextOptions(options)
+func (h *metricsHandler) Init(registry *prometheus.Registry, options *metricsAPI.MetricConfig) error {
+	c, err := metricsAPI.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
+	err = h.HandleConfigurationUpdate(options)
+	if err != nil {
+		return err
+	}
 
 	labels := h.getLabelNames()
 
@@ -100,6 +109,37 @@ func (h *metricsHandler) Context() *metricsAPI.ContextOptions {
 // ProcessFlow is intentioanlly a no-op, as we handle the metric in the
 // (*export).exportFlow method
 func (h *metricsHandler) ProcessFlow(_ context.Context, _ *flowpb.Flow) error { return nil }
+
+func (h *metricsHandler) Deinit(registry *prometheus.Registry) error {
+	var errs error
+	if !registry.Unregister(h.flowsExportedTotal) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "flows_exported_total"))
+	}
+	if !registry.Unregister(h.flowsExportedBytesTotal) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "flows_exported_bytes_total"))
+	}
+	if !registry.Unregister(h.flowsExportTimestamp) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "flows_last_exported_timestamp"))
+	}
+	return errs
+}
+
+func (h *metricsHandler) HandleConfigurationUpdate(cfg *metricsAPI.MetricConfig) error {
+	return h.SetFilters(cfg)
+}
+
+func (h *metricsHandler) SetFilters(cfg *metricsAPI.MetricConfig) error {
+	var err error
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (h *metricsHandler) getLabelNames() []string {
 	labels := []string{"protocol", "type", "subtype", "verdict"}

@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentPodNetworks implements IsovalentPodNetworkInterface
-type FakeIsovalentPodNetworks struct {
+// fakeIsovalentPodNetworks implements IsovalentPodNetworkInterface
+type fakeIsovalentPodNetworks struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentPodNetwork, *v1alpha1.IsovalentPodNetworkList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentpodnetworksResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentpodnetworks")
-
-var isovalentpodnetworksKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentPodNetwork")
-
-// Get takes name of the isovalentPodNetwork, and returns the corresponding isovalentPodNetwork object, and an error if there is any.
-func (c *FakeIsovalentPodNetworks) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentPodNetwork, err error) {
-	emptyResult := &v1alpha1.IsovalentPodNetwork{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentpodnetworksResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentPodNetworks(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentPodNetworkInterface {
+	return &fakeIsovalentPodNetworks{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentPodNetwork, *v1alpha1.IsovalentPodNetworkList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentpodnetworks"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentPodNetwork"),
+			func() *v1alpha1.IsovalentPodNetwork { return &v1alpha1.IsovalentPodNetwork{} },
+			func() *v1alpha1.IsovalentPodNetworkList { return &v1alpha1.IsovalentPodNetworkList{} },
+			func(dst, src *v1alpha1.IsovalentPodNetworkList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentPodNetworkList) []*v1alpha1.IsovalentPodNetwork {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentPodNetworkList, items []*v1alpha1.IsovalentPodNetwork) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentPodNetwork), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentPodNetworks that match those selectors.
-func (c *FakeIsovalentPodNetworks) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentPodNetworkList, err error) {
-	emptyResult := &v1alpha1.IsovalentPodNetworkList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentpodnetworksResource, isovalentpodnetworksKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentPodNetworkList{ListMeta: obj.(*v1alpha1.IsovalentPodNetworkList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentPodNetworkList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentPodNetworks.
-func (c *FakeIsovalentPodNetworks) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentpodnetworksResource, opts))
-}
-
-// Create takes the representation of a isovalentPodNetwork and creates it.  Returns the server's representation of the isovalentPodNetwork, and an error, if there is any.
-func (c *FakeIsovalentPodNetworks) Create(ctx context.Context, isovalentPodNetwork *v1alpha1.IsovalentPodNetwork, opts v1.CreateOptions) (result *v1alpha1.IsovalentPodNetwork, err error) {
-	emptyResult := &v1alpha1.IsovalentPodNetwork{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentpodnetworksResource, isovalentPodNetwork, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentPodNetwork), err
-}
-
-// Update takes the representation of a isovalentPodNetwork and updates it. Returns the server's representation of the isovalentPodNetwork, and an error, if there is any.
-func (c *FakeIsovalentPodNetworks) Update(ctx context.Context, isovalentPodNetwork *v1alpha1.IsovalentPodNetwork, opts v1.UpdateOptions) (result *v1alpha1.IsovalentPodNetwork, err error) {
-	emptyResult := &v1alpha1.IsovalentPodNetwork{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentpodnetworksResource, isovalentPodNetwork, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentPodNetwork), err
-}
-
-// Delete takes name of the isovalentPodNetwork and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentPodNetworks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentpodnetworksResource, name, opts), &v1alpha1.IsovalentPodNetwork{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentPodNetworks) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentpodnetworksResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentPodNetworkList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentPodNetwork.
-func (c *FakeIsovalentPodNetworks) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentPodNetwork, err error) {
-	emptyResult := &v1alpha1.IsovalentPodNetwork{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentpodnetworksResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentPodNetwork), err
 }

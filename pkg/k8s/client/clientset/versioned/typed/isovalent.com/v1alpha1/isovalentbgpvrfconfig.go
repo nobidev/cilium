@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type IsovalentBGPVRFConfigsGetter interface {
 
 // IsovalentBGPVRFConfigInterface has methods to work with IsovalentBGPVRFConfig resources.
 type IsovalentBGPVRFConfigInterface interface {
-	Create(ctx context.Context, isovalentBGPVRFConfig *v1alpha1.IsovalentBGPVRFConfig, opts v1.CreateOptions) (*v1alpha1.IsovalentBGPVRFConfig, error)
-	Update(ctx context.Context, isovalentBGPVRFConfig *v1alpha1.IsovalentBGPVRFConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBGPVRFConfig, error)
+	Create(ctx context.Context, isovalentBGPVRFConfig *isovalentcomv1alpha1.IsovalentBGPVRFConfig, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentBGPVRFConfig, error)
+	Update(ctx context.Context, isovalentBGPVRFConfig *isovalentcomv1alpha1.IsovalentBGPVRFConfig, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBGPVRFConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentBGPVRFConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentBGPVRFConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentBGPVRFConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPVRFConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBGPVRFConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPVRFConfig, err error)
 	IsovalentBGPVRFConfigExpansion
 }
 
 // isovalentBGPVRFConfigs implements IsovalentBGPVRFConfigInterface
 type isovalentBGPVRFConfigs struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentBGPVRFConfig, *v1alpha1.IsovalentBGPVRFConfigList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList]
 }
 
 // newIsovalentBGPVRFConfigs returns a IsovalentBGPVRFConfigs
 func newIsovalentBGPVRFConfigs(c *IsovalentV1alpha1Client) *isovalentBGPVRFConfigs {
 	return &isovalentBGPVRFConfigs{
-		gentype.NewClientWithList[*v1alpha1.IsovalentBGPVRFConfig, *v1alpha1.IsovalentBGPVRFConfigList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList](
 			"isovalentbgpvrfconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentBGPVRFConfig { return &v1alpha1.IsovalentBGPVRFConfig{} },
-			func() *v1alpha1.IsovalentBGPVRFConfigList { return &v1alpha1.IsovalentBGPVRFConfigList{} }),
+			func() *isovalentcomv1alpha1.IsovalentBGPVRFConfig {
+				return &isovalentcomv1alpha1.IsovalentBGPVRFConfig{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentBGPVRFConfigList {
+				return &isovalentcomv1alpha1.IsovalentBGPVRFConfigList{}
+			},
+		),
 	}
 }

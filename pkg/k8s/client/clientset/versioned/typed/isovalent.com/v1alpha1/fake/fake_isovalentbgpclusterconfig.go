@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentBGPClusterConfigs implements IsovalentBGPClusterConfigInterface
-type FakeIsovalentBGPClusterConfigs struct {
+// fakeIsovalentBGPClusterConfigs implements IsovalentBGPClusterConfigInterface
+type fakeIsovalentBGPClusterConfigs struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentBGPClusterConfig, *v1alpha1.IsovalentBGPClusterConfigList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentbgpclusterconfigsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentbgpclusterconfigs")
-
-var isovalentbgpclusterconfigsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentBGPClusterConfig")
-
-// Get takes name of the isovalentBGPClusterConfig, and returns the corresponding isovalentBGPClusterConfig object, and an error if there is any.
-func (c *FakeIsovalentBGPClusterConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentbgpclusterconfigsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentBGPClusterConfigs(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentBGPClusterConfigInterface {
+	return &fakeIsovalentBGPClusterConfigs{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentBGPClusterConfig, *v1alpha1.IsovalentBGPClusterConfigList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentbgpclusterconfigs"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentBGPClusterConfig"),
+			func() *v1alpha1.IsovalentBGPClusterConfig { return &v1alpha1.IsovalentBGPClusterConfig{} },
+			func() *v1alpha1.IsovalentBGPClusterConfigList { return &v1alpha1.IsovalentBGPClusterConfigList{} },
+			func(dst, src *v1alpha1.IsovalentBGPClusterConfigList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentBGPClusterConfigList) []*v1alpha1.IsovalentBGPClusterConfig {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentBGPClusterConfigList, items []*v1alpha1.IsovalentBGPClusterConfig) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentBGPClusterConfigs that match those selectors.
-func (c *FakeIsovalentBGPClusterConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentBGPClusterConfigList, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfigList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentbgpclusterconfigsResource, isovalentbgpclusterconfigsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentBGPClusterConfigList{ListMeta: obj.(*v1alpha1.IsovalentBGPClusterConfigList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentBGPClusterConfigList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentBGPClusterConfigs.
-func (c *FakeIsovalentBGPClusterConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentbgpclusterconfigsResource, opts))
-}
-
-// Create takes the representation of a isovalentBGPClusterConfig and creates it.  Returns the server's representation of the isovalentBGPClusterConfig, and an error, if there is any.
-func (c *FakeIsovalentBGPClusterConfigs) Create(ctx context.Context, isovalentBGPClusterConfig *v1alpha1.IsovalentBGPClusterConfig, opts v1.CreateOptions) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentbgpclusterconfigsResource, isovalentBGPClusterConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
-}
-
-// Update takes the representation of a isovalentBGPClusterConfig and updates it. Returns the server's representation of the isovalentBGPClusterConfig, and an error, if there is any.
-func (c *FakeIsovalentBGPClusterConfigs) Update(ctx context.Context, isovalentBGPClusterConfig *v1alpha1.IsovalentBGPClusterConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentbgpclusterconfigsResource, isovalentBGPClusterConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeIsovalentBGPClusterConfigs) UpdateStatus(ctx context.Context, isovalentBGPClusterConfig *v1alpha1.IsovalentBGPClusterConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(isovalentbgpclusterconfigsResource, "status", isovalentBGPClusterConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
-}
-
-// Delete takes name of the isovalentBGPClusterConfig and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentBGPClusterConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentbgpclusterconfigsResource, name, opts), &v1alpha1.IsovalentBGPClusterConfig{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentBGPClusterConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentbgpclusterconfigsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentBGPClusterConfigList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentBGPClusterConfig.
-func (c *FakeIsovalentBGPClusterConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBGPClusterConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPClusterConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentbgpclusterconfigsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPClusterConfig), err
 }

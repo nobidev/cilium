@@ -6,9 +6,9 @@
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,38 @@ type IsovalentEgressGatewayPoliciesGetter interface {
 
 // IsovalentEgressGatewayPolicyInterface has methods to work with IsovalentEgressGatewayPolicy resources.
 type IsovalentEgressGatewayPolicyInterface interface {
-	Create(ctx context.Context, isovalentEgressGatewayPolicy *v1.IsovalentEgressGatewayPolicy, opts metav1.CreateOptions) (*v1.IsovalentEgressGatewayPolicy, error)
-	Update(ctx context.Context, isovalentEgressGatewayPolicy *v1.IsovalentEgressGatewayPolicy, opts metav1.UpdateOptions) (*v1.IsovalentEgressGatewayPolicy, error)
+	Create(ctx context.Context, isovalentEgressGatewayPolicy *isovalentcomv1.IsovalentEgressGatewayPolicy, opts metav1.CreateOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicy, error)
+	Update(ctx context.Context, isovalentEgressGatewayPolicy *isovalentcomv1.IsovalentEgressGatewayPolicy, opts metav1.UpdateOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, isovalentEgressGatewayPolicy *v1.IsovalentEgressGatewayPolicy, opts metav1.UpdateOptions) (*v1.IsovalentEgressGatewayPolicy, error)
+	UpdateStatus(ctx context.Context, isovalentEgressGatewayPolicy *isovalentcomv1.IsovalentEgressGatewayPolicy, opts metav1.UpdateOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicy, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.IsovalentEgressGatewayPolicy, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.IsovalentEgressGatewayPolicyList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicy, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.IsovalentEgressGatewayPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *isovalentcomv1.IsovalentEgressGatewayPolicy, err error)
 	IsovalentEgressGatewayPolicyExpansion
 }
 
 // isovalentEgressGatewayPolicies implements IsovalentEgressGatewayPolicyInterface
 type isovalentEgressGatewayPolicies struct {
-	*gentype.ClientWithList[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList]
+	*gentype.ClientWithList[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList]
 }
 
 // newIsovalentEgressGatewayPolicies returns a IsovalentEgressGatewayPolicies
 func newIsovalentEgressGatewayPolicies(c *IsovalentV1Client) *isovalentEgressGatewayPolicies {
 	return &isovalentEgressGatewayPolicies{
-		gentype.NewClientWithList[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList](
+		gentype.NewClientWithList[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList](
 			"isovalentegressgatewaypolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1.IsovalentEgressGatewayPolicy { return &v1.IsovalentEgressGatewayPolicy{} },
-			func() *v1.IsovalentEgressGatewayPolicyList { return &v1.IsovalentEgressGatewayPolicyList{} }),
+			func() *isovalentcomv1.IsovalentEgressGatewayPolicy {
+				return &isovalentcomv1.IsovalentEgressGatewayPolicy{}
+			},
+			func() *isovalentcomv1.IsovalentEgressGatewayPolicyList {
+				return &isovalentcomv1.IsovalentEgressGatewayPolicyList{}
+			},
+		),
 	}
 }

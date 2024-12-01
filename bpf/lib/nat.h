@@ -108,6 +108,7 @@ struct ipv4_nat_target {
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
 	bool needs_ct;
+	__u32 ifindex; /* Obtained from EGW policy */
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -315,8 +316,29 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 		struct ipv4_ct_tuple rtuple = {};
 
+		set_v4_rtuple(tuple, *state, &rtuple);
 		if (target->addr == (*state)->to_saddr &&
 		    needs_ct == (*state)->common.needs_ct) {
+			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
+			 * eviction), it must be restored before returning.
+			 */
+			struct ipv4_nat_entry rstate;
+			struct ipv4_nat_entry *lookup_result;
+
+			lookup_result = __snat_lookup(map, &rtuple);
+			if (!lookup_result) {
+				memset(&rstate, 0, sizeof(rstate));
+				rstate.to_daddr = tuple->saddr;
+				rstate.to_dport = tuple->sport;
+				rstate.common.needs_ct = needs_ct;
+				rstate.common.created = bpf_mono_now();
+				ret = __snat_create(map, &rtuple, &rstate);
+				if (ret < 0) {
+					if (ext_err)
+						*ext_err = (__s8)ret;
+					return DROP_NAT_NO_MAPPING;
+				}
+			}
 			barrier_data(*state);
 			return 0;
 		}
@@ -329,7 +351,6 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 
-		set_v4_rtuple(tuple, *state, &rtuple);
 		*state = __snat_lookup(map, &rtuple);
 		if (*state)
 			/* snat_v4_new_mapping will create new RevSNAT entry even if deleting
@@ -617,7 +638,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (is_reply)
 		goto skip_egress_gateway;
 
-	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr)) {
+	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
+				       &target->ifindex)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 			return DROP_NO_EGRESS_IP;
 
@@ -730,13 +752,18 @@ snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHOREPLY. */
-		if (ctx_load_bytes(ctx, icmpoff, &type,
-				   sizeof(type)) < 0 ||
-		    type != ICMP_ECHOREPLY)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
-		port_off = offsetof(struct icmphdr, un.echo.id);
+		switch (type) {
+		case ICMP_ECHO:
+			return NAT_PUNT_TO_STACK;
+		case ICMP_ECHOREPLY:
+			port_off = offsetof(struct icmphdr, un.echo.id);
+			break;
+		default:
+			return DROP_UNKNOWN_ICMP_CODE;
+		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
 				   &tuple.sport, sizeof(tuple.sport)) < 0)
@@ -901,12 +928,18 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHO. */
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
-		    type != ICMP_ECHO)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
-		port_off = offsetof(struct icmphdr, un.echo.id);
+		switch (type) {
+		case ICMP_ECHO:
+			port_off = offsetof(struct icmphdr, un.echo.id);
+			break;
+		case ICMP_ECHOREPLY:
+			return NAT_PUNT_TO_STACK;
+		default:
+			return DROP_UNKNOWN_ICMP_CODE;
+		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
 				   &tuple.dport, sizeof(tuple.dport)) < 0)
@@ -1229,8 +1262,29 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 		struct ipv6_ct_tuple rtuple = {};
 
+		set_v6_rtuple(tuple, *state, &rtuple);
 		if (ipv6_addr_equals(&target->addr, &(*state)->to_saddr) &&
 		    needs_ct == (*state)->common.needs_ct) {
+			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
+			 * eviction), it must be restored before returning.
+			 */
+			struct ipv6_nat_entry rstate;
+			struct ipv6_nat_entry *lookup_result;
+
+			lookup_result = snat_v6_lookup(&rtuple);
+			if (!lookup_result) {
+				memset(&rstate, 0, sizeof(rstate));
+				rstate.to_daddr = tuple->saddr;
+				rstate.to_dport = tuple->sport;
+				rstate.common.needs_ct = needs_ct;
+				rstate.common.created = bpf_mono_now();
+				ret = __snat_create(&SNAT_MAPPING_IPV6, &rtuple, &rstate);
+				if (ret < 0) {
+					if (ext_err)
+						*ext_err = (__s8)ret;
+					return DROP_NAT_NO_MAPPING;
+				}
+			}
 			barrier_data(*state);
 			return 0;
 		}
@@ -1240,7 +1294,6 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 
-		set_v6_rtuple(tuple, *state, &rtuple);
 		*state = snat_v6_lookup(&rtuple);
 		if (*state)
 			__snat_delete(&SNAT_MAPPING_IPV6, &rtuple);

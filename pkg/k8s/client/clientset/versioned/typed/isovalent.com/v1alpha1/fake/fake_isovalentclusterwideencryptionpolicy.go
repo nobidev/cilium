@@ -6,108 +6,38 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentClusterwideEncryptionPolicies implements IsovalentClusterwideEncryptionPolicyInterface
-type FakeIsovalentClusterwideEncryptionPolicies struct {
+// fakeIsovalentClusterwideEncryptionPolicies implements IsovalentClusterwideEncryptionPolicyInterface
+type fakeIsovalentClusterwideEncryptionPolicies struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentclusterwideencryptionpoliciesResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentclusterwideencryptionpolicies")
-
-var isovalentclusterwideencryptionpoliciesKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentClusterwideEncryptionPolicy")
-
-// Get takes name of the isovalentClusterwideEncryptionPolicy, and returns the corresponding isovalentClusterwideEncryptionPolicy object, and an error if there is any.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentClusterwideEncryptionPolicy, err error) {
-	emptyResult := &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentclusterwideencryptionpoliciesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentClusterwideEncryptionPolicies(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyInterface {
+	return &fakeIsovalentClusterwideEncryptionPolicies{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentclusterwideencryptionpolicies"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentClusterwideEncryptionPolicy"),
+			func() *v1alpha1.IsovalentClusterwideEncryptionPolicy {
+				return &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
+			},
+			func() *v1alpha1.IsovalentClusterwideEncryptionPolicyList {
+				return &v1alpha1.IsovalentClusterwideEncryptionPolicyList{}
+			},
+			func(dst, src *v1alpha1.IsovalentClusterwideEncryptionPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentClusterwideEncryptionPolicyList) []*v1alpha1.IsovalentClusterwideEncryptionPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentClusterwideEncryptionPolicyList, items []*v1alpha1.IsovalentClusterwideEncryptionPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentClusterwideEncryptionPolicies that match those selectors.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentClusterwideEncryptionPolicyList, err error) {
-	emptyResult := &v1alpha1.IsovalentClusterwideEncryptionPolicyList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentclusterwideencryptionpoliciesResource, isovalentclusterwideencryptionpoliciesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentClusterwideEncryptionPolicyList{ListMeta: obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentClusterwideEncryptionPolicies.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentclusterwideencryptionpoliciesResource, opts))
-}
-
-// Create takes the representation of a isovalentClusterwideEncryptionPolicy and creates it.  Returns the server's representation of the isovalentClusterwideEncryptionPolicy, and an error, if there is any.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Create(ctx context.Context, isovalentClusterwideEncryptionPolicy *v1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.CreateOptions) (result *v1alpha1.IsovalentClusterwideEncryptionPolicy, err error) {
-	emptyResult := &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentclusterwideencryptionpoliciesResource, isovalentClusterwideEncryptionPolicy, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicy), err
-}
-
-// Update takes the representation of a isovalentClusterwideEncryptionPolicy and updates it. Returns the server's representation of the isovalentClusterwideEncryptionPolicy, and an error, if there is any.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Update(ctx context.Context, isovalentClusterwideEncryptionPolicy *v1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.UpdateOptions) (result *v1alpha1.IsovalentClusterwideEncryptionPolicy, err error) {
-	emptyResult := &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentclusterwideencryptionpoliciesResource, isovalentClusterwideEncryptionPolicy, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicy), err
-}
-
-// Delete takes name of the isovalentClusterwideEncryptionPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentclusterwideencryptionpoliciesResource, name, opts), &v1alpha1.IsovalentClusterwideEncryptionPolicy{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentclusterwideencryptionpoliciesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentClusterwideEncryptionPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentClusterwideEncryptionPolicy.
-func (c *FakeIsovalentClusterwideEncryptionPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentClusterwideEncryptionPolicy, err error) {
-	emptyResult := &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentclusterwideencryptionpoliciesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentClusterwideEncryptionPolicy), err
 }

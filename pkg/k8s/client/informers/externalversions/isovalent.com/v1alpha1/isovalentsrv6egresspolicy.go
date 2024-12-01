@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentSRv6EgressPolicies.
 type IsovalentSRv6EgressPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentSRv6EgressPolicyLister
+	Lister() isovalentcomv1alpha1.IsovalentSRv6EgressPolicyLister
 }
 
 type isovalentSRv6EgressPolicyInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentSRv6EgressPolicyInformer(client versioned.Interface, re
 				return client.IsovalentV1alpha1().IsovalentSRv6EgressPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentSRv6EgressPolicy{},
+		&apisisovalentcomv1alpha1.IsovalentSRv6EgressPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentSRv6EgressPolicyInformer) defaultInformer(client versioned.Int
 }
 
 func (f *isovalentSRv6EgressPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentSRv6EgressPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentSRv6EgressPolicy{}, f.defaultInformer)
 }
 
-func (f *isovalentSRv6EgressPolicyInformer) Lister() v1alpha1.IsovalentSRv6EgressPolicyLister {
-	return v1alpha1.NewIsovalentSRv6EgressPolicyLister(f.Informer().GetIndexer())
+func (f *isovalentSRv6EgressPolicyInformer) Lister() isovalentcomv1alpha1.IsovalentSRv6EgressPolicyLister {
+	return isovalentcomv1alpha1.NewIsovalentSRv6EgressPolicyLister(f.Informer().GetIndexer())
 }

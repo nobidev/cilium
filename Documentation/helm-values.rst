@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:768e5c6f5cb6db0794eec98dc7a967f40631746c32232b78a3105fb946f3ab83","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:db142d433cdde11f10ae479dbf92f3b13d693fd1c91053da9979728cceb1dc68","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -374,6 +374,10 @@
      - ``true``
    * - :spelling:ignore:`bpf.hostLegacyRouting`
      - Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bpf.lbAlgorithmAnnotation`
+     - Enable the option to define the load balancing algorithm on a per-service basis through service.cilium.io/lb-algorithm annotation.
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.lbExternalClusterIP`
@@ -1403,7 +1407,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:f7901213136b1a03d6e8143a22f1f1a14ce8f3209cefd5d8b3c7cc07af7543af","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-1731891150-9a53218a187b032b9b841e1f910fc879502e9f1f","useDigest":true}``
+     - ``{"digest":"sha256:49ffbc7f3813f2b76268769570d4cffa1dbc53e3140ea0d47f2ac096110b691b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-f09ed995abccd4d360c769d256a781f1874c2f3b","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1811,11 +1815,23 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
      - ``{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}``
+   * - :spelling:ignore:`hubble.metrics.dynamic.config.configMapName`
+     - -- Name of configmap with configuration that may be altered to reconfigure metric handlers within a running agent.
+     - string
+     - ``"cilium-dynamic-metrics-config"``
+   * - :spelling:ignore:`hubble.metrics.dynamic.config.content`
+     - -- Exporters configuration in YAML format.
+     - list
+     - ``[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}]``
+   * - :spelling:ignore:`hubble.metrics.dynamic.config.createConfigMap`
+     - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
+     - bool
+     - ``true``
    * - :spelling:ignore:`hubble.metrics.enableOpenMetrics`
      - Enables exporting hubble metrics in OpenMetrics format.
      - bool
@@ -1973,7 +1989,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.relay.dialTimeout`
-     - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+     - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").  This option has been deprecated and is a no-op.
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.relay.enabled`
@@ -2580,6 +2596,10 @@
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string
      - ``"cluster-pool"``
+   * - :spelling:ignore:`ipam.multiPoolPreAllocation`
+     - Pre-allocation settings for IPAM in Multi-Pool mode
+     - string
+     - ``""``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object

@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentSRv6LocatorPools implements IsovalentSRv6LocatorPoolInterface
-type FakeIsovalentSRv6LocatorPools struct {
+// fakeIsovalentSRv6LocatorPools implements IsovalentSRv6LocatorPoolInterface
+type fakeIsovalentSRv6LocatorPools struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentsrv6locatorpoolsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6locatorpools")
-
-var isovalentsrv6locatorpoolsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentSRv6LocatorPool")
-
-// Get takes name of the isovalentSRv6LocatorPool, and returns the corresponding isovalentSRv6LocatorPool object, and an error if there is any.
-func (c *FakeIsovalentSRv6LocatorPools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentSRv6LocatorPool, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6LocatorPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentsrv6locatorpoolsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentSRv6LocatorPools(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentSRv6LocatorPoolInterface {
+	return &fakeIsovalentSRv6LocatorPools{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6locatorpools"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentSRv6LocatorPool"),
+			func() *v1alpha1.IsovalentSRv6LocatorPool { return &v1alpha1.IsovalentSRv6LocatorPool{} },
+			func() *v1alpha1.IsovalentSRv6LocatorPoolList { return &v1alpha1.IsovalentSRv6LocatorPoolList{} },
+			func(dst, src *v1alpha1.IsovalentSRv6LocatorPoolList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentSRv6LocatorPoolList) []*v1alpha1.IsovalentSRv6LocatorPool {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentSRv6LocatorPoolList, items []*v1alpha1.IsovalentSRv6LocatorPool) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentSRv6LocatorPool), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentSRv6LocatorPools that match those selectors.
-func (c *FakeIsovalentSRv6LocatorPools) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentSRv6LocatorPoolList, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6LocatorPoolList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentsrv6locatorpoolsResource, isovalentsrv6locatorpoolsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentSRv6LocatorPoolList{ListMeta: obj.(*v1alpha1.IsovalentSRv6LocatorPoolList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentSRv6LocatorPoolList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentSRv6LocatorPools.
-func (c *FakeIsovalentSRv6LocatorPools) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentsrv6locatorpoolsResource, opts))
-}
-
-// Create takes the representation of a isovalentSRv6LocatorPool and creates it.  Returns the server's representation of the isovalentSRv6LocatorPool, and an error, if there is any.
-func (c *FakeIsovalentSRv6LocatorPools) Create(ctx context.Context, isovalentSRv6LocatorPool *v1alpha1.IsovalentSRv6LocatorPool, opts v1.CreateOptions) (result *v1alpha1.IsovalentSRv6LocatorPool, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6LocatorPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentsrv6locatorpoolsResource, isovalentSRv6LocatorPool, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6LocatorPool), err
-}
-
-// Update takes the representation of a isovalentSRv6LocatorPool and updates it. Returns the server's representation of the isovalentSRv6LocatorPool, and an error, if there is any.
-func (c *FakeIsovalentSRv6LocatorPools) Update(ctx context.Context, isovalentSRv6LocatorPool *v1alpha1.IsovalentSRv6LocatorPool, opts v1.UpdateOptions) (result *v1alpha1.IsovalentSRv6LocatorPool, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6LocatorPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentsrv6locatorpoolsResource, isovalentSRv6LocatorPool, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6LocatorPool), err
-}
-
-// Delete takes name of the isovalentSRv6LocatorPool and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentSRv6LocatorPools) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentsrv6locatorpoolsResource, name, opts), &v1alpha1.IsovalentSRv6LocatorPool{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentSRv6LocatorPools) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentsrv6locatorpoolsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentSRv6LocatorPoolList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentSRv6LocatorPool.
-func (c *FakeIsovalentSRv6LocatorPools) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentSRv6LocatorPool, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6LocatorPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentsrv6locatorpoolsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6LocatorPool), err
 }

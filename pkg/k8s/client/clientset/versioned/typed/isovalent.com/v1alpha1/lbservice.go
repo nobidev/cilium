@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,34 @@ type LBServicesGetter interface {
 
 // LBServiceInterface has methods to work with LBService resources.
 type LBServiceInterface interface {
-	Create(ctx context.Context, lBService *v1alpha1.LBService, opts v1.CreateOptions) (*v1alpha1.LBService, error)
-	Update(ctx context.Context, lBService *v1alpha1.LBService, opts v1.UpdateOptions) (*v1alpha1.LBService, error)
+	Create(ctx context.Context, lBService *isovalentcomv1alpha1.LBService, opts v1.CreateOptions) (*isovalentcomv1alpha1.LBService, error)
+	Update(ctx context.Context, lBService *isovalentcomv1alpha1.LBService, opts v1.UpdateOptions) (*isovalentcomv1alpha1.LBService, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, lBService *v1alpha1.LBService, opts v1.UpdateOptions) (*v1alpha1.LBService, error)
+	UpdateStatus(ctx context.Context, lBService *isovalentcomv1alpha1.LBService, opts v1.UpdateOptions) (*isovalentcomv1alpha1.LBService, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LBService, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.LBServiceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.LBService, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.LBServiceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LBService, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.LBService, err error)
 	LBServiceExpansion
 }
 
 // lBServices implements LBServiceInterface
 type lBServices struct {
-	*gentype.ClientWithList[*v1alpha1.LBService, *v1alpha1.LBServiceList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.LBService, *isovalentcomv1alpha1.LBServiceList]
 }
 
 // newLBServices returns a LBServices
 func newLBServices(c *IsovalentV1alpha1Client, namespace string) *lBServices {
 	return &lBServices{
-		gentype.NewClientWithList[*v1alpha1.LBService, *v1alpha1.LBServiceList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.LBService, *isovalentcomv1alpha1.LBServiceList](
 			"lbservices",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.LBService { return &v1alpha1.LBService{} },
-			func() *v1alpha1.LBServiceList { return &v1alpha1.LBServiceList{} }),
+			func() *isovalentcomv1alpha1.LBService { return &isovalentcomv1alpha1.LBService{} },
+			func() *isovalentcomv1alpha1.LBServiceList { return &isovalentcomv1alpha1.LBServiceList{} },
+		),
 	}
 }

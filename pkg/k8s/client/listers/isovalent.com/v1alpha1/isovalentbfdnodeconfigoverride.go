@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentBFDNodeConfigOverrideLister helps list IsovalentBFDNodeConfigOverrides.
@@ -17,19 +17,19 @@ import (
 type IsovalentBFDNodeConfigOverrideLister interface {
 	// List lists all IsovalentBFDNodeConfigOverrides in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentBFDNodeConfigOverride, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentBFDNodeConfigOverride, err error)
 	// Get retrieves the IsovalentBFDNodeConfigOverride from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentBFDNodeConfigOverride, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentBFDNodeConfigOverride, error)
 	IsovalentBFDNodeConfigOverrideListerExpansion
 }
 
 // isovalentBFDNodeConfigOverrideLister implements the IsovalentBFDNodeConfigOverrideLister interface.
 type isovalentBFDNodeConfigOverrideLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentBFDNodeConfigOverride]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentBFDNodeConfigOverride]
 }
 
 // NewIsovalentBFDNodeConfigOverrideLister returns a new IsovalentBFDNodeConfigOverrideLister.
 func NewIsovalentBFDNodeConfigOverrideLister(indexer cache.Indexer) IsovalentBFDNodeConfigOverrideLister {
-	return &isovalentBFDNodeConfigOverrideLister{listers.New[*v1alpha1.IsovalentBFDNodeConfigOverride](indexer, v1alpha1.Resource("isovalentbfdnodeconfigoverride"))}
+	return &isovalentBFDNodeConfigOverrideLister{listers.New[*isovalentcomv1alpha1.IsovalentBFDNodeConfigOverride](indexer, isovalentcomv1alpha1.Resource("isovalentbfdnodeconfigoverride"))}
 }

@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,34 @@ type IsovalentBFDProfilesGetter interface {
 
 // IsovalentBFDProfileInterface has methods to work with IsovalentBFDProfile resources.
 type IsovalentBFDProfileInterface interface {
-	Create(ctx context.Context, isovalentBFDProfile *v1alpha1.IsovalentBFDProfile, opts v1.CreateOptions) (*v1alpha1.IsovalentBFDProfile, error)
-	Update(ctx context.Context, isovalentBFDProfile *v1alpha1.IsovalentBFDProfile, opts v1.UpdateOptions) (*v1alpha1.IsovalentBFDProfile, error)
+	Create(ctx context.Context, isovalentBFDProfile *isovalentcomv1alpha1.IsovalentBFDProfile, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentBFDProfile, error)
+	Update(ctx context.Context, isovalentBFDProfile *isovalentcomv1alpha1.IsovalentBFDProfile, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBFDProfile, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentBFDProfile, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentBFDProfileList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentBFDProfile, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBFDProfileList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBFDProfile, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBFDProfile, err error)
 	IsovalentBFDProfileExpansion
 }
 
 // isovalentBFDProfiles implements IsovalentBFDProfileInterface
 type isovalentBFDProfiles struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList]
 }
 
 // newIsovalentBFDProfiles returns a IsovalentBFDProfiles
 func newIsovalentBFDProfiles(c *IsovalentV1alpha1Client) *isovalentBFDProfiles {
 	return &isovalentBFDProfiles{
-		gentype.NewClientWithList[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList](
 			"isovalentbfdprofiles",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentBFDProfile { return &v1alpha1.IsovalentBFDProfile{} },
-			func() *v1alpha1.IsovalentBFDProfileList { return &v1alpha1.IsovalentBFDProfileList{} }),
+			func() *isovalentcomv1alpha1.IsovalentBFDProfile { return &isovalentcomv1alpha1.IsovalentBFDProfile{} },
+			func() *isovalentcomv1alpha1.IsovalentBFDProfileList {
+				return &isovalentcomv1alpha1.IsovalentBFDProfileList{}
+			},
+		),
 	}
 }
