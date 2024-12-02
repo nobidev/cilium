@@ -689,8 +689,8 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	// UDP send/receive blocks only when the buffer is full, so we need not set
 	// the timeout here. But just in case...
 	conn.SetDeadline(time.Now().Add(config.ProbeTimeout))
-	if _, err = conn.Write([]byte("t")); err != nil {
-		pr.logger.Debug("Write() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
+	if _, err = conn.Write([]byte("")); err != nil {
+		pr.logger.Info("Write() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
@@ -705,8 +705,8 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 			return
 		}
 	} else if os.IsTimeout(err) {
-		pr.logger.Debug("probe failed", "backend-addr", beAddr, logfields.Error, err)
-		probeOut <- getProbeData(fmt.Errorf("error: %w", err))
+		pr.logger.Debug("probe timeout", "backend-addr", beAddr, logfields.Error, err)
+		probeOut <- getProbeData(nil)
 		return
 	}
 
