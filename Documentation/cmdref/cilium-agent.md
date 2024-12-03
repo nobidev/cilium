@@ -103,7 +103,7 @@ cilium-agent [flags]
       --egress-gateway-ha-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-gateway-policy-map-max int                            Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration      Time between triggers of egress gateway state reconciliations (default 1s)
-      --egress-masquerade-interfaces strings                         Limit iptables-based egress masquerading to interface selector
+      --egress-masquerade-interfaces string                          Limit iptables-based egress masquerading to interfaces selector
       --egress-multi-home-ip-rule-compat                             Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.
       --enable-active-connection-tracking                            Count open and active connections to services, grouped by zones defined in fixed-zone-mapping.
       --enable-active-lb-health-checking                             Enable active health checking on loadbalancer services
@@ -249,6 +249,7 @@ cilium-agent [flags]
       --hubble-drop-events                                           Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                         Minimum time between emitting same events (default 2m0s)
       --hubble-drop-events-reasons strings                           Drop reasons to emit events for (default [auth_required,policy_denied])
+      --hubble-dynamic-metrics-config-path string                    Filepath with dynamic configuration of hubble metrics
       --hubble-event-buffer-capacity int                             Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                                  Buffer size of the channel to receive monitor events.
       --hubble-export-allowlist strings                              Specify allowlist as JSON encoded FlowFilters to Hubble exporter.

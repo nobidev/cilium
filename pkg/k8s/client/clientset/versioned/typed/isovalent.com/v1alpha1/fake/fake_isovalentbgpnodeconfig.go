@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentBGPNodeConfigs implements IsovalentBGPNodeConfigInterface
-type FakeIsovalentBGPNodeConfigs struct {
+// fakeIsovalentBGPNodeConfigs implements IsovalentBGPNodeConfigInterface
+type fakeIsovalentBGPNodeConfigs struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentBGPNodeConfig, *v1alpha1.IsovalentBGPNodeConfigList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentbgpnodeconfigsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigs")
-
-var isovalentbgpnodeconfigsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentBGPNodeConfig")
-
-// Get takes name of the isovalentBGPNodeConfig, and returns the corresponding isovalentBGPNodeConfig object, and an error if there is any.
-func (c *FakeIsovalentBGPNodeConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentBGPNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentbgpnodeconfigsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentBGPNodeConfigs(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentBGPNodeConfigInterface {
+	return &fakeIsovalentBGPNodeConfigs{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentBGPNodeConfig, *v1alpha1.IsovalentBGPNodeConfigList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigs"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentBGPNodeConfig"),
+			func() *v1alpha1.IsovalentBGPNodeConfig { return &v1alpha1.IsovalentBGPNodeConfig{} },
+			func() *v1alpha1.IsovalentBGPNodeConfigList { return &v1alpha1.IsovalentBGPNodeConfigList{} },
+			func(dst, src *v1alpha1.IsovalentBGPNodeConfigList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentBGPNodeConfigList) []*v1alpha1.IsovalentBGPNodeConfig {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentBGPNodeConfigList, items []*v1alpha1.IsovalentBGPNodeConfig) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentBGPNodeConfig), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentBGPNodeConfigs that match those selectors.
-func (c *FakeIsovalentBGPNodeConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentBGPNodeConfigList, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfigList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentbgpnodeconfigsResource, isovalentbgpnodeconfigsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentBGPNodeConfigList{ListMeta: obj.(*v1alpha1.IsovalentBGPNodeConfigList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentBGPNodeConfigList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentBGPNodeConfigs.
-func (c *FakeIsovalentBGPNodeConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentbgpnodeconfigsResource, opts))
-}
-
-// Create takes the representation of a isovalentBGPNodeConfig and creates it.  Returns the server's representation of the isovalentBGPNodeConfig, and an error, if there is any.
-func (c *FakeIsovalentBGPNodeConfigs) Create(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.CreateOptions) (result *v1alpha1.IsovalentBGPNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentbgpnodeconfigsResource, isovalentBGPNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPNodeConfig), err
-}
-
-// Update takes the representation of a isovalentBGPNodeConfig and updates it. Returns the server's representation of the isovalentBGPNodeConfig, and an error, if there is any.
-func (c *FakeIsovalentBGPNodeConfigs) Update(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBGPNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentbgpnodeconfigsResource, isovalentBGPNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPNodeConfig), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeIsovalentBGPNodeConfigs) UpdateStatus(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBGPNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(isovalentbgpnodeconfigsResource, "status", isovalentBGPNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPNodeConfig), err
-}
-
-// Delete takes name of the isovalentBGPNodeConfig and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentBGPNodeConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentbgpnodeconfigsResource, name, opts), &v1alpha1.IsovalentBGPNodeConfig{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentBGPNodeConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentbgpnodeconfigsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentBGPNodeConfigList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentBGPNodeConfig.
-func (c *FakeIsovalentBGPNodeConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBGPNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBGPNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentbgpnodeconfigsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBGPNodeConfig), err
 }

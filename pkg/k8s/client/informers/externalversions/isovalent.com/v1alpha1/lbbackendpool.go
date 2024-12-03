@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // LBBackendPools.
 type LBBackendPoolInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.LBBackendPoolLister
+	Lister() isovalentcomv1alpha1.LBBackendPoolLister
 }
 
 type lBBackendPoolInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredLBBackendPoolInformer(client versioned.Interface, namespace stri
 				return client.IsovalentV1alpha1().LBBackendPools(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.LBBackendPool{},
+		&apisisovalentcomv1alpha1.LBBackendPool{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *lBBackendPoolInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *lBBackendPoolInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.LBBackendPool{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.LBBackendPool{}, f.defaultInformer)
 }
 
-func (f *lBBackendPoolInformer) Lister() v1alpha1.LBBackendPoolLister {
-	return v1alpha1.NewLBBackendPoolLister(f.Informer().GetIndexer())
+func (f *lBBackendPoolInformer) Lister() isovalentcomv1alpha1.LBBackendPoolLister {
+	return isovalentcomv1alpha1.NewLBBackendPoolLister(f.Informer().GetIndexer())
 }

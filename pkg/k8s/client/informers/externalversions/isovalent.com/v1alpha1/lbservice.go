@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // LBServices.
 type LBServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.LBServiceLister
+	Lister() isovalentcomv1alpha1.LBServiceLister
 }
 
 type lBServiceInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredLBServiceInformer(client versioned.Interface, namespace string, 
 				return client.IsovalentV1alpha1().LBServices(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.LBService{},
+		&apisisovalentcomv1alpha1.LBService{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *lBServiceInformer) defaultInformer(client versioned.Interface, resyncPe
 }
 
 func (f *lBServiceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.LBService{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.LBService{}, f.defaultInformer)
 }
 
-func (f *lBServiceInformer) Lister() v1alpha1.LBServiceLister {
-	return v1alpha1.NewLBServiceLister(f.Informer().GetIndexer())
+func (f *lBServiceInformer) Lister() isovalentcomv1alpha1.LBServiceLister {
+	return isovalentcomv1alpha1.NewLBServiceLister(f.Informer().GetIndexer())
 }

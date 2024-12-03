@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentVRFs implements IsovalentVRFInterface
-type FakeIsovalentVRFs struct {
+// fakeIsovalentVRFs implements IsovalentVRFInterface
+type fakeIsovalentVRFs struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentvrfsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentvrfs")
-
-var isovalentvrfsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentVRF")
-
-// Get takes name of the isovalentVRF, and returns the corresponding isovalentVRF object, and an error if there is any.
-func (c *FakeIsovalentVRFs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentVRF, err error) {
-	emptyResult := &v1alpha1.IsovalentVRF{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentvrfsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentVRFs(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentVRFInterface {
+	return &fakeIsovalentVRFs{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentvrfs"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentVRF"),
+			func() *v1alpha1.IsovalentVRF { return &v1alpha1.IsovalentVRF{} },
+			func() *v1alpha1.IsovalentVRFList { return &v1alpha1.IsovalentVRFList{} },
+			func(dst, src *v1alpha1.IsovalentVRFList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentVRFList) []*v1alpha1.IsovalentVRF {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentVRFList, items []*v1alpha1.IsovalentVRF) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentVRF), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentVRFs that match those selectors.
-func (c *FakeIsovalentVRFs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentVRFList, err error) {
-	emptyResult := &v1alpha1.IsovalentVRFList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentvrfsResource, isovalentvrfsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentVRFList{ListMeta: obj.(*v1alpha1.IsovalentVRFList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentVRFList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentVRFs.
-func (c *FakeIsovalentVRFs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentvrfsResource, opts))
-}
-
-// Create takes the representation of a isovalentVRF and creates it.  Returns the server's representation of the isovalentVRF, and an error, if there is any.
-func (c *FakeIsovalentVRFs) Create(ctx context.Context, isovalentVRF *v1alpha1.IsovalentVRF, opts v1.CreateOptions) (result *v1alpha1.IsovalentVRF, err error) {
-	emptyResult := &v1alpha1.IsovalentVRF{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentvrfsResource, isovalentVRF, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentVRF), err
-}
-
-// Update takes the representation of a isovalentVRF and updates it. Returns the server's representation of the isovalentVRF, and an error, if there is any.
-func (c *FakeIsovalentVRFs) Update(ctx context.Context, isovalentVRF *v1alpha1.IsovalentVRF, opts v1.UpdateOptions) (result *v1alpha1.IsovalentVRF, err error) {
-	emptyResult := &v1alpha1.IsovalentVRF{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentvrfsResource, isovalentVRF, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentVRF), err
-}
-
-// Delete takes name of the isovalentVRF and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentVRFs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentvrfsResource, name, opts), &v1alpha1.IsovalentVRF{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentVRFs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentvrfsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentVRFList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentVRF.
-func (c *FakeIsovalentVRFs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentVRF, err error) {
-	emptyResult := &v1alpha1.IsovalentVRF{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentvrfsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentVRF), err
 }

@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,38 @@ type IsovalentBGPNodeConfigsGetter interface {
 
 // IsovalentBGPNodeConfigInterface has methods to work with IsovalentBGPNodeConfig resources.
 type IsovalentBGPNodeConfigInterface interface {
-	Create(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.CreateOptions) (*v1alpha1.IsovalentBGPNodeConfig, error)
-	Update(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBGPNodeConfig, error)
+	Create(ctx context.Context, isovalentBGPNodeConfig *isovalentcomv1alpha1.IsovalentBGPNodeConfig, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfig, error)
+	Update(ctx context.Context, isovalentBGPNodeConfig *isovalentcomv1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfig, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, isovalentBGPNodeConfig *v1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (*v1alpha1.IsovalentBGPNodeConfig, error)
+	UpdateStatus(ctx context.Context, isovalentBGPNodeConfig *isovalentcomv1alpha1.IsovalentBGPNodeConfig, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentBGPNodeConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentBGPNodeConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBGPNodeConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfig, err error)
 	IsovalentBGPNodeConfigExpansion
 }
 
 // isovalentBGPNodeConfigs implements IsovalentBGPNodeConfigInterface
 type isovalentBGPNodeConfigs struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentBGPNodeConfig, *v1alpha1.IsovalentBGPNodeConfigList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList]
 }
 
 // newIsovalentBGPNodeConfigs returns a IsovalentBGPNodeConfigs
 func newIsovalentBGPNodeConfigs(c *IsovalentV1alpha1Client) *isovalentBGPNodeConfigs {
 	return &isovalentBGPNodeConfigs{
-		gentype.NewClientWithList[*v1alpha1.IsovalentBGPNodeConfig, *v1alpha1.IsovalentBGPNodeConfigList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList](
 			"isovalentbgpnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentBGPNodeConfig { return &v1alpha1.IsovalentBGPNodeConfig{} },
-			func() *v1alpha1.IsovalentBGPNodeConfigList { return &v1alpha1.IsovalentBGPNodeConfigList{} }),
+			func() *isovalentcomv1alpha1.IsovalentBGPNodeConfig {
+				return &isovalentcomv1alpha1.IsovalentBGPNodeConfig{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentBGPNodeConfigList {
+				return &isovalentcomv1alpha1.IsovalentBGPNodeConfigList{}
+			},
+		),
 	}
 }

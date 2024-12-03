@@ -160,7 +160,7 @@ func Test_export_OnDecodedFlow(t *testing.T) {
 			}
 			promRegistry := prometheus.NewRegistry()
 			metricsHandler := exportPlugin.NewHandler()
-			metricsHandler.Init(promRegistry, []*api.ContextOptionConfig{})
+			metricsHandler.Init(promRegistry, &api.MetricConfig{})
 
 			labelNames := exportPlugin.metricsHandler.getLabelNames()
 			labelValues, err := exportPlugin.metricsHandler.getLabelValues(&flow.Flow{})
@@ -256,7 +256,7 @@ func Test_rateLimitJSON(t *testing.T) {
 	}
 	b, err := json.Marshal(ev)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"rate_limit_info":{"number_of_dropped_events":10},"node_name":"my-node","time":"0001-01-01T00:00:00Z"}`, string(b))
+	assert.JSONEq(t, `{"rate_limit_info":{"number_of_dropped_events":10},"node_name":"my-node","time":"0001-01-01T00:00:00Z"}`, string(b))
 }
 
 func Test_rateLimitExport(t *testing.T) {

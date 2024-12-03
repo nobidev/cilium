@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentBGPNodeConfigOverrides.
 type IsovalentBGPNodeConfigOverrideInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentBGPNodeConfigOverrideLister
+	Lister() isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideLister
 }
 
 type isovalentBGPNodeConfigOverrideInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentBGPNodeConfigOverrideInformer(client versioned.Interfac
 				return client.IsovalentV1alpha1().IsovalentBGPNodeConfigOverrides().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride{},
+		&apisisovalentcomv1alpha1.IsovalentBGPNodeConfigOverride{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentBGPNodeConfigOverrideInformer) defaultInformer(client versione
 }
 
 func (f *isovalentBGPNodeConfigOverrideInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentBGPNodeConfigOverride{}, f.defaultInformer)
 }
 
-func (f *isovalentBGPNodeConfigOverrideInformer) Lister() v1alpha1.IsovalentBGPNodeConfigOverrideLister {
-	return v1alpha1.NewIsovalentBGPNodeConfigOverrideLister(f.Informer().GetIndexer())
+func (f *isovalentBGPNodeConfigOverrideInformer) Lister() isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideLister {
+	return isovalentcomv1alpha1.NewIsovalentBGPNodeConfigOverrideLister(f.Informer().GetIndexer())
 }

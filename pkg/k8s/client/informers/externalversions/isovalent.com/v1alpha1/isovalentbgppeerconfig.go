@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentBGPPeerConfigs.
 type IsovalentBGPPeerConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentBGPPeerConfigLister
+	Lister() isovalentcomv1alpha1.IsovalentBGPPeerConfigLister
 }
 
 type isovalentBGPPeerConfigInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentBGPPeerConfigInformer(client versioned.Interface, resyn
 				return client.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentBGPPeerConfig{},
+		&apisisovalentcomv1alpha1.IsovalentBGPPeerConfig{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentBGPPeerConfigInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *isovalentBGPPeerConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentBGPPeerConfig{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentBGPPeerConfig{}, f.defaultInformer)
 }
 
-func (f *isovalentBGPPeerConfigInformer) Lister() v1alpha1.IsovalentBGPPeerConfigLister {
-	return v1alpha1.NewIsovalentBGPPeerConfigLister(f.Informer().GetIndexer())
+func (f *isovalentBGPPeerConfigInformer) Lister() isovalentcomv1alpha1.IsovalentBGPPeerConfigLister {
+	return isovalentcomv1alpha1.NewIsovalentBGPPeerConfigLister(f.Informer().GetIndexer())
 }

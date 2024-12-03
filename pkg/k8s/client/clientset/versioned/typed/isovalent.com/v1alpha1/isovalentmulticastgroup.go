@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type IsovalentMulticastGroupsGetter interface {
 
 // IsovalentMulticastGroupInterface has methods to work with IsovalentMulticastGroup resources.
 type IsovalentMulticastGroupInterface interface {
-	Create(ctx context.Context, isovalentMulticastGroup *v1alpha1.IsovalentMulticastGroup, opts v1.CreateOptions) (*v1alpha1.IsovalentMulticastGroup, error)
-	Update(ctx context.Context, isovalentMulticastGroup *v1alpha1.IsovalentMulticastGroup, opts v1.UpdateOptions) (*v1alpha1.IsovalentMulticastGroup, error)
+	Create(ctx context.Context, isovalentMulticastGroup *isovalentcomv1alpha1.IsovalentMulticastGroup, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentMulticastGroup, error)
+	Update(ctx context.Context, isovalentMulticastGroup *isovalentcomv1alpha1.IsovalentMulticastGroup, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentMulticastGroup, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentMulticastGroup, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentMulticastGroupList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentMulticastGroup, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentMulticastGroupList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentMulticastGroup, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentMulticastGroup, err error)
 	IsovalentMulticastGroupExpansion
 }
 
 // isovalentMulticastGroups implements IsovalentMulticastGroupInterface
 type isovalentMulticastGroups struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentMulticastGroup, *v1alpha1.IsovalentMulticastGroupList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentMulticastGroup, *isovalentcomv1alpha1.IsovalentMulticastGroupList]
 }
 
 // newIsovalentMulticastGroups returns a IsovalentMulticastGroups
 func newIsovalentMulticastGroups(c *IsovalentV1alpha1Client) *isovalentMulticastGroups {
 	return &isovalentMulticastGroups{
-		gentype.NewClientWithList[*v1alpha1.IsovalentMulticastGroup, *v1alpha1.IsovalentMulticastGroupList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentMulticastGroup, *isovalentcomv1alpha1.IsovalentMulticastGroupList](
 			"isovalentmulticastgroups",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentMulticastGroup { return &v1alpha1.IsovalentMulticastGroup{} },
-			func() *v1alpha1.IsovalentMulticastGroupList { return &v1alpha1.IsovalentMulticastGroupList{} }),
+			func() *isovalentcomv1alpha1.IsovalentMulticastGroup {
+				return &isovalentcomv1alpha1.IsovalentMulticastGroup{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentMulticastGroupList {
+				return &isovalentcomv1alpha1.IsovalentMulticastGroupList{}
+			},
+		),
 	}
 }

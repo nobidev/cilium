@@ -16,7 +16,7 @@ type FakeIsovalentV1 struct {
 }
 
 func (c *FakeIsovalentV1) IsovalentEgressGatewayPolicies() v1.IsovalentEgressGatewayPolicyInterface {
-	return &FakeIsovalentEgressGatewayPolicies{c}
+	return newFakeIsovalentEgressGatewayPolicies(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

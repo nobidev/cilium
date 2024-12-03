@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,34 @@ type LBVIPsGetter interface {
 
 // LBVIPInterface has methods to work with LBVIP resources.
 type LBVIPInterface interface {
-	Create(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.CreateOptions) (*v1alpha1.LBVIP, error)
-	Update(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.UpdateOptions) (*v1alpha1.LBVIP, error)
+	Create(ctx context.Context, lBVIP *isovalentcomv1alpha1.LBVIP, opts v1.CreateOptions) (*isovalentcomv1alpha1.LBVIP, error)
+	Update(ctx context.Context, lBVIP *isovalentcomv1alpha1.LBVIP, opts v1.UpdateOptions) (*isovalentcomv1alpha1.LBVIP, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, lBVIP *v1alpha1.LBVIP, opts v1.UpdateOptions) (*v1alpha1.LBVIP, error)
+	UpdateStatus(ctx context.Context, lBVIP *isovalentcomv1alpha1.LBVIP, opts v1.UpdateOptions) (*isovalentcomv1alpha1.LBVIP, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LBVIP, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.LBVIPList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.LBVIP, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.LBVIPList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LBVIP, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.LBVIP, err error)
 	LBVIPExpansion
 }
 
 // lBVIPs implements LBVIPInterface
 type lBVIPs struct {
-	*gentype.ClientWithList[*v1alpha1.LBVIP, *v1alpha1.LBVIPList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.LBVIP, *isovalentcomv1alpha1.LBVIPList]
 }
 
 // newLBVIPs returns a LBVIPs
 func newLBVIPs(c *IsovalentV1alpha1Client, namespace string) *lBVIPs {
 	return &lBVIPs{
-		gentype.NewClientWithList[*v1alpha1.LBVIP, *v1alpha1.LBVIPList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.LBVIP, *isovalentcomv1alpha1.LBVIPList](
 			"lbvips",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.LBVIP { return &v1alpha1.LBVIP{} },
-			func() *v1alpha1.LBVIPList { return &v1alpha1.LBVIPList{} }),
+			func() *isovalentcomv1alpha1.LBVIP { return &isovalentcomv1alpha1.LBVIP{} },
+			func() *isovalentcomv1alpha1.LBVIPList { return &isovalentcomv1alpha1.LBVIPList{} },
+		),
 	}
 }

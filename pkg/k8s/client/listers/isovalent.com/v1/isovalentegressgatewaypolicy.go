@@ -6,10 +6,10 @@
 package v1
 
 import (
-	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentEgressGatewayPolicyLister helps list IsovalentEgressGatewayPolicies.
@@ -17,19 +17,19 @@ import (
 type IsovalentEgressGatewayPolicyLister interface {
 	// List lists all IsovalentEgressGatewayPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.IsovalentEgressGatewayPolicy, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1.IsovalentEgressGatewayPolicy, err error)
 	// Get retrieves the IsovalentEgressGatewayPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.IsovalentEgressGatewayPolicy, error)
+	Get(name string) (*isovalentcomv1.IsovalentEgressGatewayPolicy, error)
 	IsovalentEgressGatewayPolicyListerExpansion
 }
 
 // isovalentEgressGatewayPolicyLister implements the IsovalentEgressGatewayPolicyLister interface.
 type isovalentEgressGatewayPolicyLister struct {
-	listers.ResourceIndexer[*v1.IsovalentEgressGatewayPolicy]
+	listers.ResourceIndexer[*isovalentcomv1.IsovalentEgressGatewayPolicy]
 }
 
 // NewIsovalentEgressGatewayPolicyLister returns a new IsovalentEgressGatewayPolicyLister.
 func NewIsovalentEgressGatewayPolicyLister(indexer cache.Indexer) IsovalentEgressGatewayPolicyLister {
-	return &isovalentEgressGatewayPolicyLister{listers.New[*v1.IsovalentEgressGatewayPolicy](indexer, v1.Resource("isovalentegressgatewaypolicy"))}
+	return &isovalentEgressGatewayPolicyLister{listers.New[*isovalentcomv1.IsovalentEgressGatewayPolicy](indexer, isovalentcomv1.Resource("isovalentegressgatewaypolicy"))}
 }

@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentPodNetworks.
 type IsovalentPodNetworkInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentPodNetworkLister
+	Lister() isovalentcomv1alpha1.IsovalentPodNetworkLister
 }
 
 type isovalentPodNetworkInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentPodNetworkInformer(client versioned.Interface, resyncPe
 				return client.IsovalentV1alpha1().IsovalentPodNetworks().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentPodNetwork{},
+		&apisisovalentcomv1alpha1.IsovalentPodNetwork{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentPodNetworkInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *isovalentPodNetworkInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentPodNetwork{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentPodNetwork{}, f.defaultInformer)
 }
 
-func (f *isovalentPodNetworkInformer) Lister() v1alpha1.IsovalentPodNetworkLister {
-	return v1alpha1.NewIsovalentPodNetworkLister(f.Informer().GetIndexer())
+func (f *isovalentPodNetworkInformer) Lister() isovalentcomv1alpha1.IsovalentPodNetworkLister {
+	return isovalentcomv1alpha1.NewIsovalentPodNetworkLister(f.Informer().GetIndexer())
 }

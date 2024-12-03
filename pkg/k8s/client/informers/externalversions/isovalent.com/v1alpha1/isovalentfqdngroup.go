@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentFQDNGroups.
 type IsovalentFQDNGroupInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentFQDNGroupLister
+	Lister() isovalentcomv1alpha1.IsovalentFQDNGroupLister
 }
 
 type isovalentFQDNGroupInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentFQDNGroupInformer(client versioned.Interface, resyncPer
 				return client.IsovalentV1alpha1().IsovalentFQDNGroups().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentFQDNGroup{},
+		&apisisovalentcomv1alpha1.IsovalentFQDNGroup{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentFQDNGroupInformer) defaultInformer(client versioned.Interface,
 }
 
 func (f *isovalentFQDNGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentFQDNGroup{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentFQDNGroup{}, f.defaultInformer)
 }
 
-func (f *isovalentFQDNGroupInformer) Lister() v1alpha1.IsovalentFQDNGroupLister {
-	return v1alpha1.NewIsovalentFQDNGroupLister(f.Informer().GetIndexer())
+func (f *isovalentFQDNGroupInformer) Lister() isovalentcomv1alpha1.IsovalentFQDNGroupLister {
+	return isovalentcomv1alpha1.NewIsovalentFQDNGroupLister(f.Informer().GetIndexer())
 }

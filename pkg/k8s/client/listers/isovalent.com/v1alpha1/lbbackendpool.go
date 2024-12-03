@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // LBBackendPoolLister helps list LBBackendPools.
@@ -17,7 +17,7 @@ import (
 type LBBackendPoolLister interface {
 	// List lists all LBBackendPools in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBBackendPool, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBBackendPool, err error)
 	// LBBackendPools returns an object that can list and get LBBackendPools.
 	LBBackendPools(namespace string) LBBackendPoolNamespaceLister
 	LBBackendPoolListerExpansion
@@ -25,17 +25,17 @@ type LBBackendPoolLister interface {
 
 // lBBackendPoolLister implements the LBBackendPoolLister interface.
 type lBBackendPoolLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBBackendPool]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBBackendPool]
 }
 
 // NewLBBackendPoolLister returns a new LBBackendPoolLister.
 func NewLBBackendPoolLister(indexer cache.Indexer) LBBackendPoolLister {
-	return &lBBackendPoolLister{listers.New[*v1alpha1.LBBackendPool](indexer, v1alpha1.Resource("lbbackendpool"))}
+	return &lBBackendPoolLister{listers.New[*isovalentcomv1alpha1.LBBackendPool](indexer, isovalentcomv1alpha1.Resource("lbbackendpool"))}
 }
 
 // LBBackendPools returns an object that can list and get LBBackendPools.
 func (s *lBBackendPoolLister) LBBackendPools(namespace string) LBBackendPoolNamespaceLister {
-	return lBBackendPoolNamespaceLister{listers.NewNamespaced[*v1alpha1.LBBackendPool](s.ResourceIndexer, namespace)}
+	return lBBackendPoolNamespaceLister{listers.NewNamespaced[*isovalentcomv1alpha1.LBBackendPool](s.ResourceIndexer, namespace)}
 }
 
 // LBBackendPoolNamespaceLister helps list and get LBBackendPools.
@@ -43,15 +43,15 @@ func (s *lBBackendPoolLister) LBBackendPools(namespace string) LBBackendPoolName
 type LBBackendPoolNamespaceLister interface {
 	// List lists all LBBackendPools in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBBackendPool, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBBackendPool, err error)
 	// Get retrieves the LBBackendPool from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.LBBackendPool, error)
+	Get(name string) (*isovalentcomv1alpha1.LBBackendPool, error)
 	LBBackendPoolNamespaceListerExpansion
 }
 
 // lBBackendPoolNamespaceLister implements the LBBackendPoolNamespaceLister
 // interface.
 type lBBackendPoolNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBBackendPool]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBBackendPool]
 }

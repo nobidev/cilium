@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentBFDNodeConfigs implements IsovalentBFDNodeConfigInterface
-type FakeIsovalentBFDNodeConfigs struct {
+// fakeIsovalentBFDNodeConfigs implements IsovalentBFDNodeConfigInterface
+type fakeIsovalentBFDNodeConfigs struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentBFDNodeConfig, *v1alpha1.IsovalentBFDNodeConfigList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentbfdnodeconfigsResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentbfdnodeconfigs")
-
-var isovalentbfdnodeconfigsKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentBFDNodeConfig")
-
-// Get takes name of the isovalentBFDNodeConfig, and returns the corresponding isovalentBFDNodeConfig object, and an error if there is any.
-func (c *FakeIsovalentBFDNodeConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentBFDNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentbfdnodeconfigsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentBFDNodeConfigs(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentBFDNodeConfigInterface {
+	return &fakeIsovalentBFDNodeConfigs{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentBFDNodeConfig, *v1alpha1.IsovalentBFDNodeConfigList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentbfdnodeconfigs"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentBFDNodeConfig"),
+			func() *v1alpha1.IsovalentBFDNodeConfig { return &v1alpha1.IsovalentBFDNodeConfig{} },
+			func() *v1alpha1.IsovalentBFDNodeConfigList { return &v1alpha1.IsovalentBFDNodeConfigList{} },
+			func(dst, src *v1alpha1.IsovalentBFDNodeConfigList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentBFDNodeConfigList) []*v1alpha1.IsovalentBFDNodeConfig {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentBFDNodeConfigList, items []*v1alpha1.IsovalentBFDNodeConfig) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentBFDNodeConfig), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentBFDNodeConfigs that match those selectors.
-func (c *FakeIsovalentBFDNodeConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentBFDNodeConfigList, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfigList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentbfdnodeconfigsResource, isovalentbfdnodeconfigsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentBFDNodeConfigList{ListMeta: obj.(*v1alpha1.IsovalentBFDNodeConfigList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentBFDNodeConfigList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentBFDNodeConfigs.
-func (c *FakeIsovalentBFDNodeConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentbfdnodeconfigsResource, opts))
-}
-
-// Create takes the representation of a isovalentBFDNodeConfig and creates it.  Returns the server's representation of the isovalentBFDNodeConfig, and an error, if there is any.
-func (c *FakeIsovalentBFDNodeConfigs) Create(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.CreateOptions) (result *v1alpha1.IsovalentBFDNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentbfdnodeconfigsResource, isovalentBFDNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBFDNodeConfig), err
-}
-
-// Update takes the representation of a isovalentBFDNodeConfig and updates it. Returns the server's representation of the isovalentBFDNodeConfig, and an error, if there is any.
-func (c *FakeIsovalentBFDNodeConfigs) Update(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBFDNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentbfdnodeconfigsResource, isovalentBFDNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBFDNodeConfig), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeIsovalentBFDNodeConfigs) UpdateStatus(ctx context.Context, isovalentBFDNodeConfig *v1alpha1.IsovalentBFDNodeConfig, opts v1.UpdateOptions) (result *v1alpha1.IsovalentBFDNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(isovalentbfdnodeconfigsResource, "status", isovalentBFDNodeConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBFDNodeConfig), err
-}
-
-// Delete takes name of the isovalentBFDNodeConfig and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentBFDNodeConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentbfdnodeconfigsResource, name, opts), &v1alpha1.IsovalentBFDNodeConfig{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentBFDNodeConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentbfdnodeconfigsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentBFDNodeConfigList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentBFDNodeConfig.
-func (c *FakeIsovalentBFDNodeConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentBFDNodeConfig, err error) {
-	emptyResult := &v1alpha1.IsovalentBFDNodeConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentbfdnodeconfigsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentBFDNodeConfig), err
 }

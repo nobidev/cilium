@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type IsovalentMeshEndpointsGetter interface {
 
 // IsovalentMeshEndpointInterface has methods to work with IsovalentMeshEndpoint resources.
 type IsovalentMeshEndpointInterface interface {
-	Create(ctx context.Context, isovalentMeshEndpoint *v1alpha1.IsovalentMeshEndpoint, opts v1.CreateOptions) (*v1alpha1.IsovalentMeshEndpoint, error)
-	Update(ctx context.Context, isovalentMeshEndpoint *v1alpha1.IsovalentMeshEndpoint, opts v1.UpdateOptions) (*v1alpha1.IsovalentMeshEndpoint, error)
+	Create(ctx context.Context, isovalentMeshEndpoint *isovalentcomv1alpha1.IsovalentMeshEndpoint, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentMeshEndpoint, error)
+	Update(ctx context.Context, isovalentMeshEndpoint *isovalentcomv1alpha1.IsovalentMeshEndpoint, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentMeshEndpoint, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentMeshEndpoint, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentMeshEndpointList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentMeshEndpoint, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentMeshEndpointList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentMeshEndpoint, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentMeshEndpoint, err error)
 	IsovalentMeshEndpointExpansion
 }
 
 // isovalentMeshEndpoints implements IsovalentMeshEndpointInterface
 type isovalentMeshEndpoints struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentMeshEndpoint, *v1alpha1.IsovalentMeshEndpointList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentMeshEndpoint, *isovalentcomv1alpha1.IsovalentMeshEndpointList]
 }
 
 // newIsovalentMeshEndpoints returns a IsovalentMeshEndpoints
 func newIsovalentMeshEndpoints(c *IsovalentV1alpha1Client, namespace string) *isovalentMeshEndpoints {
 	return &isovalentMeshEndpoints{
-		gentype.NewClientWithList[*v1alpha1.IsovalentMeshEndpoint, *v1alpha1.IsovalentMeshEndpointList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentMeshEndpoint, *isovalentcomv1alpha1.IsovalentMeshEndpointList](
 			"isovalentmeshendpoints",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.IsovalentMeshEndpoint { return &v1alpha1.IsovalentMeshEndpoint{} },
-			func() *v1alpha1.IsovalentMeshEndpointList { return &v1alpha1.IsovalentMeshEndpointList{} }),
+			func() *isovalentcomv1alpha1.IsovalentMeshEndpoint {
+				return &isovalentcomv1alpha1.IsovalentMeshEndpoint{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentMeshEndpointList {
+				return &isovalentcomv1alpha1.IsovalentMeshEndpointList{}
+			},
+		),
 	}
 }

@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentSRv6SIDManagerLister helps list IsovalentSRv6SIDManagers.
@@ -17,19 +17,19 @@ import (
 type IsovalentSRv6SIDManagerLister interface {
 	// List lists all IsovalentSRv6SIDManagers in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentSRv6SIDManager, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentSRv6SIDManager, err error)
 	// Get retrieves the IsovalentSRv6SIDManager from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentSRv6SIDManager, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentSRv6SIDManager, error)
 	IsovalentSRv6SIDManagerListerExpansion
 }
 
 // isovalentSRv6SIDManagerLister implements the IsovalentSRv6SIDManagerLister interface.
 type isovalentSRv6SIDManagerLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentSRv6SIDManager]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentSRv6SIDManager]
 }
 
 // NewIsovalentSRv6SIDManagerLister returns a new IsovalentSRv6SIDManagerLister.
 func NewIsovalentSRv6SIDManagerLister(indexer cache.Indexer) IsovalentSRv6SIDManagerLister {
-	return &isovalentSRv6SIDManagerLister{listers.New[*v1alpha1.IsovalentSRv6SIDManager](indexer, v1alpha1.Resource("isovalentsrv6sidmanager"))}
+	return &isovalentSRv6SIDManagerLister{listers.New[*isovalentcomv1alpha1.IsovalentSRv6SIDManager](indexer, isovalentcomv1alpha1.Resource("isovalentsrv6sidmanager"))}
 }

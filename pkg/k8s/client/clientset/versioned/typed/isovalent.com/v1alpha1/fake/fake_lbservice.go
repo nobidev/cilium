@@ -6,129 +6,32 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeLBServices implements LBServiceInterface
-type FakeLBServices struct {
+// fakeLBServices implements LBServiceInterface
+type fakeLBServices struct {
+	*gentype.FakeClientWithList[*v1alpha1.LBService, *v1alpha1.LBServiceList]
 	Fake *FakeIsovalentV1alpha1
-	ns   string
 }
 
-var lbservicesResource = v1alpha1.SchemeGroupVersion.WithResource("lbservices")
-
-var lbservicesKind = v1alpha1.SchemeGroupVersion.WithKind("LBService")
-
-// Get takes name of the lBService, and returns the corresponding lBService object, and an error if there is any.
-func (c *FakeLBServices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LBService, err error) {
-	emptyResult := &v1alpha1.LBService{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(lbservicesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeLBServices(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.LBServiceInterface {
+	return &fakeLBServices{
+		gentype.NewFakeClientWithList[*v1alpha1.LBService, *v1alpha1.LBServiceList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("lbservices"),
+			v1alpha1.SchemeGroupVersion.WithKind("LBService"),
+			func() *v1alpha1.LBService { return &v1alpha1.LBService{} },
+			func() *v1alpha1.LBServiceList { return &v1alpha1.LBServiceList{} },
+			func(dst, src *v1alpha1.LBServiceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.LBServiceList) []*v1alpha1.LBService { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1alpha1.LBServiceList, items []*v1alpha1.LBService) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.LBService), err
-}
-
-// List takes label and field selectors, and returns the list of LBServices that match those selectors.
-func (c *FakeLBServices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LBServiceList, err error) {
-	emptyResult := &v1alpha1.LBServiceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(lbservicesResource, lbservicesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.LBServiceList{ListMeta: obj.(*v1alpha1.LBServiceList).ListMeta}
-	for _, item := range obj.(*v1alpha1.LBServiceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested lBServices.
-func (c *FakeLBServices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(lbservicesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a lBService and creates it.  Returns the server's representation of the lBService, and an error, if there is any.
-func (c *FakeLBServices) Create(ctx context.Context, lBService *v1alpha1.LBService, opts v1.CreateOptions) (result *v1alpha1.LBService, err error) {
-	emptyResult := &v1alpha1.LBService{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(lbservicesResource, c.ns, lBService, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBService), err
-}
-
-// Update takes the representation of a lBService and updates it. Returns the server's representation of the lBService, and an error, if there is any.
-func (c *FakeLBServices) Update(ctx context.Context, lBService *v1alpha1.LBService, opts v1.UpdateOptions) (result *v1alpha1.LBService, err error) {
-	emptyResult := &v1alpha1.LBService{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(lbservicesResource, c.ns, lBService, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBService), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeLBServices) UpdateStatus(ctx context.Context, lBService *v1alpha1.LBService, opts v1.UpdateOptions) (result *v1alpha1.LBService, err error) {
-	emptyResult := &v1alpha1.LBService{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(lbservicesResource, "status", c.ns, lBService, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBService), err
-}
-
-// Delete takes name of the lBService and deletes it. Returns an error if one occurs.
-func (c *FakeLBServices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(lbservicesResource, c.ns, name, opts), &v1alpha1.LBService{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeLBServices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(lbservicesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.LBServiceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched lBService.
-func (c *FakeLBServices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LBService, err error) {
-	emptyResult := &v1alpha1.LBService{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(lbservicesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LBService), err
 }

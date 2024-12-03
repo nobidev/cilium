@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentBGPAdvertisementLister helps list IsovalentBGPAdvertisements.
@@ -17,19 +17,19 @@ import (
 type IsovalentBGPAdvertisementLister interface {
 	// List lists all IsovalentBGPAdvertisements in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentBGPAdvertisement, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentBGPAdvertisement, err error)
 	// Get retrieves the IsovalentBGPAdvertisement from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentBGPAdvertisement, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentBGPAdvertisement, error)
 	IsovalentBGPAdvertisementListerExpansion
 }
 
 // isovalentBGPAdvertisementLister implements the IsovalentBGPAdvertisementLister interface.
 type isovalentBGPAdvertisementLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentBGPAdvertisement]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentBGPAdvertisement]
 }
 
 // NewIsovalentBGPAdvertisementLister returns a new IsovalentBGPAdvertisementLister.
 func NewIsovalentBGPAdvertisementLister(indexer cache.Indexer) IsovalentBGPAdvertisementLister {
-	return &isovalentBGPAdvertisementLister{listers.New[*v1alpha1.IsovalentBGPAdvertisement](indexer, v1alpha1.Resource("isovalentbgpadvertisement"))}
+	return &isovalentBGPAdvertisementLister{listers.New[*isovalentcomv1alpha1.IsovalentBGPAdvertisement](indexer, isovalentcomv1alpha1.Resource("isovalentbgpadvertisement"))}
 }

@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // LBServiceLister helps list LBServices.
@@ -17,7 +17,7 @@ import (
 type LBServiceLister interface {
 	// List lists all LBServices in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBService, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBService, err error)
 	// LBServices returns an object that can list and get LBServices.
 	LBServices(namespace string) LBServiceNamespaceLister
 	LBServiceListerExpansion
@@ -25,17 +25,17 @@ type LBServiceLister interface {
 
 // lBServiceLister implements the LBServiceLister interface.
 type lBServiceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBService]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBService]
 }
 
 // NewLBServiceLister returns a new LBServiceLister.
 func NewLBServiceLister(indexer cache.Indexer) LBServiceLister {
-	return &lBServiceLister{listers.New[*v1alpha1.LBService](indexer, v1alpha1.Resource("lbservice"))}
+	return &lBServiceLister{listers.New[*isovalentcomv1alpha1.LBService](indexer, isovalentcomv1alpha1.Resource("lbservice"))}
 }
 
 // LBServices returns an object that can list and get LBServices.
 func (s *lBServiceLister) LBServices(namespace string) LBServiceNamespaceLister {
-	return lBServiceNamespaceLister{listers.NewNamespaced[*v1alpha1.LBService](s.ResourceIndexer, namespace)}
+	return lBServiceNamespaceLister{listers.NewNamespaced[*isovalentcomv1alpha1.LBService](s.ResourceIndexer, namespace)}
 }
 
 // LBServiceNamespaceLister helps list and get LBServices.
@@ -43,15 +43,15 @@ func (s *lBServiceLister) LBServices(namespace string) LBServiceNamespaceLister 
 type LBServiceNamespaceLister interface {
 	// List lists all LBServices in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBService, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBService, err error)
 	// Get retrieves the LBService from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.LBService, error)
+	Get(name string) (*isovalentcomv1alpha1.LBService, error)
 	LBServiceNamespaceListerExpansion
 }
 
 // lBServiceNamespaceLister implements the LBServiceNamespaceLister
 // interface.
 type lBServiceNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBService]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBService]
 }

@@ -13,6 +13,7 @@ generators=(
     "enterprise/daemon/cilium-agent cmdref"
     "bugtool/cilium-bugtool cmdref -d"
     "cilium-health/cilium-health --cmdref"
+    "clustermesh-apiserver/clustermesh-apiserver cmdref"
     "enterprise/operator/cilium-operator --cmdref"
     "enterprise/operator/cilium-operator-aws --cmdref"
     "enterprise/operator/cilium-operator-azure --cmdref"

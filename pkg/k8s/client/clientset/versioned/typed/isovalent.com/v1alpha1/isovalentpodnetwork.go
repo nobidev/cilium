@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,34 @@ type IsovalentPodNetworksGetter interface {
 
 // IsovalentPodNetworkInterface has methods to work with IsovalentPodNetwork resources.
 type IsovalentPodNetworkInterface interface {
-	Create(ctx context.Context, isovalentPodNetwork *v1alpha1.IsovalentPodNetwork, opts v1.CreateOptions) (*v1alpha1.IsovalentPodNetwork, error)
-	Update(ctx context.Context, isovalentPodNetwork *v1alpha1.IsovalentPodNetwork, opts v1.UpdateOptions) (*v1alpha1.IsovalentPodNetwork, error)
+	Create(ctx context.Context, isovalentPodNetwork *isovalentcomv1alpha1.IsovalentPodNetwork, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentPodNetwork, error)
+	Update(ctx context.Context, isovalentPodNetwork *isovalentcomv1alpha1.IsovalentPodNetwork, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentPodNetwork, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentPodNetwork, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentPodNetworkList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentPodNetwork, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentPodNetworkList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentPodNetwork, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentPodNetwork, err error)
 	IsovalentPodNetworkExpansion
 }
 
 // isovalentPodNetworks implements IsovalentPodNetworkInterface
 type isovalentPodNetworks struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentPodNetwork, *v1alpha1.IsovalentPodNetworkList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentPodNetwork, *isovalentcomv1alpha1.IsovalentPodNetworkList]
 }
 
 // newIsovalentPodNetworks returns a IsovalentPodNetworks
 func newIsovalentPodNetworks(c *IsovalentV1alpha1Client) *isovalentPodNetworks {
 	return &isovalentPodNetworks{
-		gentype.NewClientWithList[*v1alpha1.IsovalentPodNetwork, *v1alpha1.IsovalentPodNetworkList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentPodNetwork, *isovalentcomv1alpha1.IsovalentPodNetworkList](
 			"isovalentpodnetworks",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentPodNetwork { return &v1alpha1.IsovalentPodNetwork{} },
-			func() *v1alpha1.IsovalentPodNetworkList { return &v1alpha1.IsovalentPodNetworkList{} }),
+			func() *isovalentcomv1alpha1.IsovalentPodNetwork { return &isovalentcomv1alpha1.IsovalentPodNetwork{} },
+			func() *isovalentcomv1alpha1.IsovalentPodNetworkList {
+				return &isovalentcomv1alpha1.IsovalentPodNetworkList{}
+			},
+		),
 	}
 }

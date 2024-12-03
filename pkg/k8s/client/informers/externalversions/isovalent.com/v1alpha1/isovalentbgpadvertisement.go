@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentBGPAdvertisements.
 type IsovalentBGPAdvertisementInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentBGPAdvertisementLister
+	Lister() isovalentcomv1alpha1.IsovalentBGPAdvertisementLister
 }
 
 type isovalentBGPAdvertisementInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentBGPAdvertisementInformer(client versioned.Interface, re
 				return client.IsovalentV1alpha1().IsovalentBGPAdvertisements().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentBGPAdvertisement{},
+		&apisisovalentcomv1alpha1.IsovalentBGPAdvertisement{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentBGPAdvertisementInformer) defaultInformer(client versioned.Int
 }
 
 func (f *isovalentBGPAdvertisementInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentBGPAdvertisement{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentBGPAdvertisement{}, f.defaultInformer)
 }
 
-func (f *isovalentBGPAdvertisementInformer) Lister() v1alpha1.IsovalentBGPAdvertisementLister {
-	return v1alpha1.NewIsovalentBGPAdvertisementLister(f.Informer().GetIndexer())
+func (f *isovalentBGPAdvertisementInformer) Lister() isovalentcomv1alpha1.IsovalentBGPAdvertisementLister {
+	return isovalentcomv1alpha1.NewIsovalentBGPAdvertisementLister(f.Informer().GetIndexer())
 }

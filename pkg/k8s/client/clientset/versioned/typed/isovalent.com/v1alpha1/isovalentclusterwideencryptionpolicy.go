@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,35 +24,36 @@ type IsovalentClusterwideEncryptionPoliciesGetter interface {
 
 // IsovalentClusterwideEncryptionPolicyInterface has methods to work with IsovalentClusterwideEncryptionPolicy resources.
 type IsovalentClusterwideEncryptionPolicyInterface interface {
-	Create(ctx context.Context, isovalentClusterwideEncryptionPolicy *v1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.CreateOptions) (*v1alpha1.IsovalentClusterwideEncryptionPolicy, error)
-	Update(ctx context.Context, isovalentClusterwideEncryptionPolicy *v1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.UpdateOptions) (*v1alpha1.IsovalentClusterwideEncryptionPolicy, error)
+	Create(ctx context.Context, isovalentClusterwideEncryptionPolicy *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, error)
+	Update(ctx context.Context, isovalentClusterwideEncryptionPolicy *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentClusterwideEncryptionPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentClusterwideEncryptionPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentClusterwideEncryptionPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, err error)
 	IsovalentClusterwideEncryptionPolicyExpansion
 }
 
 // isovalentClusterwideEncryptionPolicies implements IsovalentClusterwideEncryptionPolicyInterface
 type isovalentClusterwideEncryptionPolicies struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList]
 }
 
 // newIsovalentClusterwideEncryptionPolicies returns a IsovalentClusterwideEncryptionPolicies
 func newIsovalentClusterwideEncryptionPolicies(c *IsovalentV1alpha1Client) *isovalentClusterwideEncryptionPolicies {
 	return &isovalentClusterwideEncryptionPolicies{
-		gentype.NewClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList](
 			"isovalentclusterwideencryptionpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentClusterwideEncryptionPolicy {
-				return &v1alpha1.IsovalentClusterwideEncryptionPolicy{}
+			func() *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy {
+				return &isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy{}
 			},
-			func() *v1alpha1.IsovalentClusterwideEncryptionPolicyList {
-				return &v1alpha1.IsovalentClusterwideEncryptionPolicyList{}
-			}),
+			func() *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList {
+				return &isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList{}
+			},
+		),
 	}
 }

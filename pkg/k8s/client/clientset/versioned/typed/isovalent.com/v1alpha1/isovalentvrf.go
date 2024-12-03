@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,32 @@ type IsovalentVRFsGetter interface {
 
 // IsovalentVRFInterface has methods to work with IsovalentVRF resources.
 type IsovalentVRFInterface interface {
-	Create(ctx context.Context, isovalentVRF *v1alpha1.IsovalentVRF, opts v1.CreateOptions) (*v1alpha1.IsovalentVRF, error)
-	Update(ctx context.Context, isovalentVRF *v1alpha1.IsovalentVRF, opts v1.UpdateOptions) (*v1alpha1.IsovalentVRF, error)
+	Create(ctx context.Context, isovalentVRF *isovalentcomv1alpha1.IsovalentVRF, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentVRF, error)
+	Update(ctx context.Context, isovalentVRF *isovalentcomv1alpha1.IsovalentVRF, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentVRF, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentVRF, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentVRFList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentVRF, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentVRFList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentVRF, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentVRF, err error)
 	IsovalentVRFExpansion
 }
 
 // isovalentVRFs implements IsovalentVRFInterface
 type isovalentVRFs struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentVRF, *isovalentcomv1alpha1.IsovalentVRFList]
 }
 
 // newIsovalentVRFs returns a IsovalentVRFs
 func newIsovalentVRFs(c *IsovalentV1alpha1Client) *isovalentVRFs {
 	return &isovalentVRFs{
-		gentype.NewClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentVRF, *isovalentcomv1alpha1.IsovalentVRFList](
 			"isovalentvrfs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentVRF { return &v1alpha1.IsovalentVRF{} },
-			func() *v1alpha1.IsovalentVRFList { return &v1alpha1.IsovalentVRFList{} }),
+			func() *isovalentcomv1alpha1.IsovalentVRF { return &isovalentcomv1alpha1.IsovalentVRF{} },
+			func() *isovalentcomv1alpha1.IsovalentVRFList { return &isovalentcomv1alpha1.IsovalentVRFList{} },
+		),
 	}
 }

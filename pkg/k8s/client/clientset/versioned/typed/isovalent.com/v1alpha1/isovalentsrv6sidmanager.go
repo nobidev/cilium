@@ -6,9 +6,9 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,38 @@ type IsovalentSRv6SIDManagersGetter interface {
 
 // IsovalentSRv6SIDManagerInterface has methods to work with IsovalentSRv6SIDManager resources.
 type IsovalentSRv6SIDManagerInterface interface {
-	Create(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.CreateOptions) (*v1alpha1.IsovalentSRv6SIDManager, error)
-	Update(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (*v1alpha1.IsovalentSRv6SIDManager, error)
+	Create(ctx context.Context, isovalentSRv6SIDManager *isovalentcomv1alpha1.IsovalentSRv6SIDManager, opts v1.CreateOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManager, error)
+	Update(ctx context.Context, isovalentSRv6SIDManager *isovalentcomv1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManager, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (*v1alpha1.IsovalentSRv6SIDManager, error)
+	UpdateStatus(ctx context.Context, isovalentSRv6SIDManager *isovalentcomv1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManager, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.IsovalentSRv6SIDManager, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IsovalentSRv6SIDManagerList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManager, error)
+	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManagerList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentSRv6SIDManager, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6SIDManager, err error)
 	IsovalentSRv6SIDManagerExpansion
 }
 
 // isovalentSRv6SIDManagers implements IsovalentSRv6SIDManagerInterface
 type isovalentSRv6SIDManagers struct {
-	*gentype.ClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList]
 }
 
 // newIsovalentSRv6SIDManagers returns a IsovalentSRv6SIDManagers
 func newIsovalentSRv6SIDManagers(c *IsovalentV1alpha1Client) *isovalentSRv6SIDManagers {
 	return &isovalentSRv6SIDManagers{
-		gentype.NewClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList](
 			"isovalentsrv6sidmanagers",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.IsovalentSRv6SIDManager { return &v1alpha1.IsovalentSRv6SIDManager{} },
-			func() *v1alpha1.IsovalentSRv6SIDManagerList { return &v1alpha1.IsovalentSRv6SIDManagerList{} }),
+			func() *isovalentcomv1alpha1.IsovalentSRv6SIDManager {
+				return &isovalentcomv1alpha1.IsovalentSRv6SIDManager{}
+			},
+			func() *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList {
+				return &isovalentcomv1alpha1.IsovalentSRv6SIDManagerList{}
+			},
+		),
 	}
 }

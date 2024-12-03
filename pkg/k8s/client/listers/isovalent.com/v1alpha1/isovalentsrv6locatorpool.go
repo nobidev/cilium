@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentSRv6LocatorPoolLister helps list IsovalentSRv6LocatorPools.
@@ -17,19 +17,19 @@ import (
 type IsovalentSRv6LocatorPoolLister interface {
 	// List lists all IsovalentSRv6LocatorPools in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentSRv6LocatorPool, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, err error)
 	// Get retrieves the IsovalentSRv6LocatorPool from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentSRv6LocatorPool, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, error)
 	IsovalentSRv6LocatorPoolListerExpansion
 }
 
 // isovalentSRv6LocatorPoolLister implements the IsovalentSRv6LocatorPoolLister interface.
 type isovalentSRv6LocatorPoolLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentSRv6LocatorPool]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool]
 }
 
 // NewIsovalentSRv6LocatorPoolLister returns a new IsovalentSRv6LocatorPoolLister.
 func NewIsovalentSRv6LocatorPoolLister(indexer cache.Indexer) IsovalentSRv6LocatorPoolLister {
-	return &isovalentSRv6LocatorPoolLister{listers.New[*v1alpha1.IsovalentSRv6LocatorPool](indexer, v1alpha1.Resource("isovalentsrv6locatorpool"))}
+	return &isovalentSRv6LocatorPoolLister{listers.New[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool](indexer, isovalentcomv1alpha1.Resource("isovalentsrv6locatorpool"))}
 }

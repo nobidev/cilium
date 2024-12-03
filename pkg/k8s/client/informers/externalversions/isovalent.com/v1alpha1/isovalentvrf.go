@@ -6,13 +6,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	apisisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/isovalent.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // IsovalentVRFs.
 type IsovalentVRFInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IsovalentVRFLister
+	Lister() isovalentcomv1alpha1.IsovalentVRFLister
 }
 
 type isovalentVRFInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredIsovalentVRFInformer(client versioned.Interface, resyncPeriod ti
 				return client.IsovalentV1alpha1().IsovalentVRFs().Watch(context.TODO(), options)
 			},
 		},
-		&isovalentcomv1alpha1.IsovalentVRF{},
+		&apisisovalentcomv1alpha1.IsovalentVRF{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *isovalentVRFInformer) defaultInformer(client versioned.Interface, resyn
 }
 
 func (f *isovalentVRFInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&isovalentcomv1alpha1.IsovalentVRF{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisisovalentcomv1alpha1.IsovalentVRF{}, f.defaultInformer)
 }
 
-func (f *isovalentVRFInformer) Lister() v1alpha1.IsovalentVRFLister {
-	return v1alpha1.NewIsovalentVRFLister(f.Informer().GetIndexer())
+func (f *isovalentVRFInformer) Lister() isovalentcomv1alpha1.IsovalentVRFLister {
+	return isovalentcomv1alpha1.NewIsovalentVRFLister(f.Informer().GetIndexer())
 }

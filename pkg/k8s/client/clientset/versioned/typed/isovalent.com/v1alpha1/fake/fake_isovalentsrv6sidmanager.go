@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeIsovalentSRv6SIDManagers implements IsovalentSRv6SIDManagerInterface
-type FakeIsovalentSRv6SIDManagers struct {
+// fakeIsovalentSRv6SIDManagers implements IsovalentSRv6SIDManagerInterface
+type fakeIsovalentSRv6SIDManagers struct {
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-var isovalentsrv6sidmanagersResource = v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6sidmanagers")
-
-var isovalentsrv6sidmanagersKind = v1alpha1.SchemeGroupVersion.WithKind("IsovalentSRv6SIDManager")
-
-// Get takes name of the isovalentSRv6SIDManager, and returns the corresponding isovalentSRv6SIDManager object, and an error if there is any.
-func (c *FakeIsovalentSRv6SIDManagers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.IsovalentSRv6SIDManager, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManager{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(isovalentsrv6sidmanagersResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeIsovalentSRv6SIDManagers(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentSRv6SIDManagerInterface {
+	return &fakeIsovalentSRv6SIDManagers{
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6sidmanagers"),
+			v1alpha1.SchemeGroupVersion.WithKind("IsovalentSRv6SIDManager"),
+			func() *v1alpha1.IsovalentSRv6SIDManager { return &v1alpha1.IsovalentSRv6SIDManager{} },
+			func() *v1alpha1.IsovalentSRv6SIDManagerList { return &v1alpha1.IsovalentSRv6SIDManagerList{} },
+			func(dst, src *v1alpha1.IsovalentSRv6SIDManagerList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.IsovalentSRv6SIDManagerList) []*v1alpha1.IsovalentSRv6SIDManager {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.IsovalentSRv6SIDManagerList, items []*v1alpha1.IsovalentSRv6SIDManager) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.IsovalentSRv6SIDManager), err
-}
-
-// List takes label and field selectors, and returns the list of IsovalentSRv6SIDManagers that match those selectors.
-func (c *FakeIsovalentSRv6SIDManagers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.IsovalentSRv6SIDManagerList, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManagerList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(isovalentsrv6sidmanagersResource, isovalentsrv6sidmanagersKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.IsovalentSRv6SIDManagerList{ListMeta: obj.(*v1alpha1.IsovalentSRv6SIDManagerList).ListMeta}
-	for _, item := range obj.(*v1alpha1.IsovalentSRv6SIDManagerList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested isovalentSRv6SIDManagers.
-func (c *FakeIsovalentSRv6SIDManagers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(isovalentsrv6sidmanagersResource, opts))
-}
-
-// Create takes the representation of a isovalentSRv6SIDManager and creates it.  Returns the server's representation of the isovalentSRv6SIDManager, and an error, if there is any.
-func (c *FakeIsovalentSRv6SIDManagers) Create(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.CreateOptions) (result *v1alpha1.IsovalentSRv6SIDManager, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManager{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(isovalentsrv6sidmanagersResource, isovalentSRv6SIDManager, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6SIDManager), err
-}
-
-// Update takes the representation of a isovalentSRv6SIDManager and updates it. Returns the server's representation of the isovalentSRv6SIDManager, and an error, if there is any.
-func (c *FakeIsovalentSRv6SIDManagers) Update(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (result *v1alpha1.IsovalentSRv6SIDManager, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManager{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(isovalentsrv6sidmanagersResource, isovalentSRv6SIDManager, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6SIDManager), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeIsovalentSRv6SIDManagers) UpdateStatus(ctx context.Context, isovalentSRv6SIDManager *v1alpha1.IsovalentSRv6SIDManager, opts v1.UpdateOptions) (result *v1alpha1.IsovalentSRv6SIDManager, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManager{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(isovalentsrv6sidmanagersResource, "status", isovalentSRv6SIDManager, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6SIDManager), err
-}
-
-// Delete takes name of the isovalentSRv6SIDManager and deletes it. Returns an error if one occurs.
-func (c *FakeIsovalentSRv6SIDManagers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(isovalentsrv6sidmanagersResource, name, opts), &v1alpha1.IsovalentSRv6SIDManager{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeIsovalentSRv6SIDManagers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(isovalentsrv6sidmanagersResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.IsovalentSRv6SIDManagerList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched isovalentSRv6SIDManager.
-func (c *FakeIsovalentSRv6SIDManagers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.IsovalentSRv6SIDManager, err error) {
-	emptyResult := &v1alpha1.IsovalentSRv6SIDManager{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(isovalentsrv6sidmanagersResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.IsovalentSRv6SIDManager), err
 }

@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // IsovalentBGPPeerConfigLister helps list IsovalentBGPPeerConfigs.
@@ -17,19 +17,19 @@ import (
 type IsovalentBGPPeerConfigLister interface {
 	// List lists all IsovalentBGPPeerConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.IsovalentBGPPeerConfig, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.IsovalentBGPPeerConfig, err error)
 	// Get retrieves the IsovalentBGPPeerConfig from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.IsovalentBGPPeerConfig, error)
+	Get(name string) (*isovalentcomv1alpha1.IsovalentBGPPeerConfig, error)
 	IsovalentBGPPeerConfigListerExpansion
 }
 
 // isovalentBGPPeerConfigLister implements the IsovalentBGPPeerConfigLister interface.
 type isovalentBGPPeerConfigLister struct {
-	listers.ResourceIndexer[*v1alpha1.IsovalentBGPPeerConfig]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.IsovalentBGPPeerConfig]
 }
 
 // NewIsovalentBGPPeerConfigLister returns a new IsovalentBGPPeerConfigLister.
 func NewIsovalentBGPPeerConfigLister(indexer cache.Indexer) IsovalentBGPPeerConfigLister {
-	return &isovalentBGPPeerConfigLister{listers.New[*v1alpha1.IsovalentBGPPeerConfig](indexer, v1alpha1.Resource("isovalentbgppeerconfig"))}
+	return &isovalentBGPPeerConfigLister{listers.New[*isovalentcomv1alpha1.IsovalentBGPPeerConfig](indexer, isovalentcomv1alpha1.Resource("isovalentbgppeerconfig"))}
 }

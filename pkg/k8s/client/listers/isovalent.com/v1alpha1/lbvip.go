@@ -6,10 +6,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // LBVIPLister helps list LBVIPs.
@@ -17,7 +17,7 @@ import (
 type LBVIPLister interface {
 	// List lists all LBVIPs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBVIP, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBVIP, err error)
 	// LBVIPs returns an object that can list and get LBVIPs.
 	LBVIPs(namespace string) LBVIPNamespaceLister
 	LBVIPListerExpansion
@@ -25,17 +25,17 @@ type LBVIPLister interface {
 
 // lBVIPLister implements the LBVIPLister interface.
 type lBVIPLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBVIP]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBVIP]
 }
 
 // NewLBVIPLister returns a new LBVIPLister.
 func NewLBVIPLister(indexer cache.Indexer) LBVIPLister {
-	return &lBVIPLister{listers.New[*v1alpha1.LBVIP](indexer, v1alpha1.Resource("lbvip"))}
+	return &lBVIPLister{listers.New[*isovalentcomv1alpha1.LBVIP](indexer, isovalentcomv1alpha1.Resource("lbvip"))}
 }
 
 // LBVIPs returns an object that can list and get LBVIPs.
 func (s *lBVIPLister) LBVIPs(namespace string) LBVIPNamespaceLister {
-	return lBVIPNamespaceLister{listers.NewNamespaced[*v1alpha1.LBVIP](s.ResourceIndexer, namespace)}
+	return lBVIPNamespaceLister{listers.NewNamespaced[*isovalentcomv1alpha1.LBVIP](s.ResourceIndexer, namespace)}
 }
 
 // LBVIPNamespaceLister helps list and get LBVIPs.
@@ -43,15 +43,15 @@ func (s *lBVIPLister) LBVIPs(namespace string) LBVIPNamespaceLister {
 type LBVIPNamespaceLister interface {
 	// List lists all LBVIPs in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LBVIP, err error)
+	List(selector labels.Selector) (ret []*isovalentcomv1alpha1.LBVIP, err error)
 	// Get retrieves the LBVIP from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.LBVIP, error)
+	Get(name string) (*isovalentcomv1alpha1.LBVIP, error)
 	LBVIPNamespaceListerExpansion
 }
 
 // lBVIPNamespaceLister implements the LBVIPNamespaceLister
 // interface.
 type lBVIPNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LBVIP]
+	listers.ResourceIndexer[*isovalentcomv1alpha1.LBVIP]
 }
