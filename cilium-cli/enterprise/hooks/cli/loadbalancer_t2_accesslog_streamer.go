@@ -5,9 +5,11 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,7 +27,54 @@ var (
 	accessLogProtocolsFilter              []string
 	accessLogIncludeHTTPHealthCheckFilter bool
 	accessLogFollow                       bool
+	accessLogFiles                        []string
 )
+
+type reader struct {
+	r    io.ReadCloser
+	name string
+}
+
+func podReaders(ctx context.Context) ([]reader, error) {
+	var readers []reader
+
+	k8sClient, _ := api.GetK8sClientContextValue(ctx)
+
+	pods, err := k8sClient.ListPods(ctx, "kube-system", metav1.ListOptions{
+		LabelSelector: "name=cilium-envoy",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list T2 Envoy pods: %w", err)
+	}
+
+	for _, p := range pods.Items {
+		r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
+			Follow: accessLogFollow,
+		})
+		s, err := r.Stream(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open log stream for pod %q: %w", p.Name, err)
+		}
+
+		readers = append(readers, reader{r: s, name: p.Name})
+	}
+
+	return readers, nil
+}
+
+func fileReaders() ([]reader, error) {
+	var readers []reader
+
+	for _, file := range accessLogFiles {
+		f, err := os.Open(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file %q: %w", file, err)
+		}
+		readers = append(readers, reader{r: f, name: filepath.Base(file)})
+	}
+
+	return readers, nil
+}
 
 func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 	cmd := &cobra.Command{
@@ -33,29 +82,27 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 		Short: "Display Loadbalancer T2 access log",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
-			k8sClient, _ := api.GetK8sClientContextValue(c.Context())
-
-			pods, err := k8sClient.ListPods(c.Context(), "kube-system", metav1.ListOptions{
-				LabelSelector: "name=cilium-envoy",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to list T2 Envoy pods: %w", err)
-			}
-
+			var readers []reader
+			var err error
 			errGrp, ctx := errgroup.WithContext(c.Context())
 
-			for _, p := range pods.Items {
-				errGrp.Go(func() error {
-					r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
-						Follow: accessLogFollow,
-					})
-					s, err := r.Stream(ctx)
-					if err != nil {
-						return fmt.Errorf("failed to open log stream for pod %q: %w", p.Name, err)
-					}
+			if len(accessLogFiles) == 0 {
+				readers, err = podReaders(ctx)
+			} else {
+				readers, err = fileReaders()
+			}
+			if err != nil {
+				return err
+			}
+			defer func() {
+				for _, r := range readers {
+					r.r.Close()
+				}
+			}()
 
-					defer s.Close()
-					scanner := bufio.NewScanner(s)
+			for _, r := range readers {
+				errGrp.Go(func() error {
+					scanner := bufio.NewScanner(r.r)
 					for scanner.Scan() {
 						logLine := scanner.Text()
 
@@ -64,7 +111,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 						}
 
 						if includeAccesslogLine(logLine) {
-							if _, err = io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", p.Name, logLine))); err != nil {
+							if _, err := io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", r.name, logLine))); err != nil {
 								return fmt.Errorf("failed to copy: %w", err)
 							}
 						}
@@ -75,13 +122,14 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			}
 
 			if err := errGrp.Wait(); err != nil {
-				return fmt.Errorf("failed to stream logs: %w", err)
+				return fmt.Errorf("failed to read logs: %w", err)
 			}
 
 			return nil
 		},
 	}
 
+	cmd.Flags().StringSliceVar(&accessLogFiles, "files", nil, "Comma-separated list of access log files. If empty, logs will be retrieved from ILB Envoy pods")
 	cmd.Flags().StringVar(&accessLogRequestIdFilter, "request-id", "", "Request id to filter the access log for")
 	cmd.Flags().StringVar(&accessLogVIPAndPortFilter, "vip-and-port", "", "VIP and Port to filter the access log for (VIP:PORT)")
 	cmd.Flags().StringSliceVar(&accessLogGenericFilters, "filters", []string{}, "Attribute filters to filter the access log for (attribute=value,attribute2=value2). All of the filters must match.")
