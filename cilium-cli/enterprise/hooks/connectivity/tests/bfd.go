@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -148,7 +149,7 @@ func (s *bfdStandAlone) Run(ctx context.Context, t *check.Test) {
 				waitForFRRBFDPeersState(ctx, t, a, &frr, frrPeers, "up")
 			}
 			for _, ciliumPod := range ct.CiliumPods() {
-				waitForCiliumBFDPeersState(ctx, a, &ciliumPod, types.BFDStateUp)
+				waitForCiliumBFDPeersState(ctx, t, a, &ciliumPod, types.BFDStateUp)
 			}
 		})
 
@@ -201,7 +202,7 @@ func (s *bfdStandAlone) Run(ctx context.Context, t *check.Test) {
 			}
 			// check peering is Down on Cilium
 			for _, ciliumPod := range ct.CiliumPods() {
-				waitForCiliumBFDPeersState(ctx, a, &ciliumPod, types.BFDStateDown)
+				waitForCiliumBFDPeersState(ctx, t, a, &ciliumPod, types.BFDStateDown)
 			}
 		})
 	})
@@ -275,7 +276,7 @@ func (s *bfdWithBGP) Run(ctx context.Context, t *check.Test) {
 				waitForFRRBFDPeersState(ctx, t, a, &frr, frrPeers, "up")
 			}
 			for _, ciliumPod := range ct.CiliumPods() {
-				waitForCiliumBFDPeersState(ctx, a, &ciliumPod, types.BFDStateUp)
+				waitForCiliumBFDPeersState(ctx, t, a, &ciliumPod, types.BFDStateUp)
 			}
 		})
 
@@ -298,7 +299,7 @@ func (s *bfdWithBGP) Run(ctx context.Context, t *check.Test) {
 			}
 			// check BFD peering is Down on Cilium
 			for _, ciliumPod := range ct.CiliumPods() {
-				waitForCiliumBFDPeersState(ctx, a, &ciliumPod, types.BFDStateDown)
+				waitForCiliumBFDPeersState(ctx, t, a, &ciliumPod, types.BFDStateDown)
 			}
 			// BGP should be Up again, verify it has been reset
 			for _, frr := range ct.FRRPods() {
@@ -515,30 +516,47 @@ func getFRRBFDPeers(ctx context.Context, t *check.Test, frrPod *check.Pod) (frrB
 }
 
 // waitForCiliumBFDPeersState waits until all BFD peers on provided cilium pod reach the provided state.
-func waitForCiliumBFDPeersState(ctx context.Context, a *check.Action, ciliumPod *check.Pod, expState types.BFDState) []types.BFDPeerStatus {
+func waitForCiliumBFDPeersState(ctx context.Context, t *check.Test, a *check.Action, ciliumPod *check.Pod, expState types.BFDState) []types.BFDPeerStatus {
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
 	defer w.Cancel()
 
 	ensureBFDPeersState := func() ([]types.BFDPeerStatus, error) {
-		cmd := strings.Split("cilium-dbg shell -- db show -format=json bfd-peers", " ")
-		stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
-		if err != nil {
-			a.Fatalf("failed to run cilium-dbg command: %v", err)
-		}
 		var peers []types.BFDPeerStatus
-
-		// The output from "db show --format=json" is an object stream, so we'll need
-		// to decode the object one at a time.
-		dec := json.NewDecoder(&stdout)
-		for {
-			var peer types.BFDPeerStatus
-			if err := dec.Decode(&peer); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				a.Fatalf("failed to unmarshal BFD peer: %s", err)
+		if versioncheck.MustCompile(">=1.17.0")(t.Context().CiliumVersion) {
+			// use "cilium-dbg shell" to retrieve peers for newer versions
+			cmd := strings.Split("cilium-dbg shell -- db show -format=json bfd-peers", " ")
+			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+			if err != nil {
+				a.Fatalf("failed to run cilium-dbg command: %v", err)
 			}
-			peers = append(peers, peer)
+			// The output from "db show --format=json" is an object stream, so we'll need
+			// to decode the object one at a time.
+			dec := json.NewDecoder(&stdout)
+			for {
+				var peer types.BFDPeerStatus
+				if err := dec.Decode(&peer); err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					a.Fatalf("failed to unmarshal BFD peer: %s", err)
+				}
+				peers = append(peers, peer)
+			}
+		} else {
+			// use "cilium-dbg statedb dump" for compatibility with older versions (<1.17.0)
+			cmd := strings.Split("cilium-dbg statedb dump", " ")
+			stateDBInfo := struct {
+				BFDPeers []types.BFDPeerStatus `json:"bfd-peers"`
+			}{}
+			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+			if err != nil {
+				a.Fatalf("failed to run cilium-dbg command: %v", err)
+			}
+			err = json.Unmarshal(stdout.Bytes(), &stateDBInfo)
+			if err != nil {
+				a.Fatalf("failed to unmarshall statdeb info: %v", err)
+			}
+			peers = stateDBInfo.BFDPeers
 		}
 
 		for _, peer := range peers {
