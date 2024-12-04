@@ -2033,7 +2033,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.6.0
+      tag: v1.6.1
       digest: ""
       useDigest: false
       pullPolicy: "Always"
