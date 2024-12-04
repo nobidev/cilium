@@ -443,16 +443,6 @@ l2podAnnouncements:
   enabled: false
   # -- Interface used for sending Gratuitous ARP pod announcements
   interface: "eth0"
-# -- Configure BGP
-bgp:
-  # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
-  # cilium-agent and cilium-operator
-  enabled: false
-  announce:
-    # -- Enable allocation and announcement of service LoadBalancer IPs
-    loadbalancerIP: false
-    # -- Enable announcement of node pod CIDR
-    podCIDR: false
 # -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:
@@ -597,6 +587,10 @@ bpf:
   # a per-service basis through service.cilium.io/lb-algorithm annotation.
   # @default -- `false`
   lbAlgorithmAnnotation: false
+  # -- (bool) Enable the option to define the load balancing mode (SNAT or DSR)
+  # on a per-service basis through service.cilium.io/forwarding-mode annotation.
+  # @default -- `false`
+  lbModeAnnotation: false
   # @schema
   # type: [null, boolean]
   # @schema
@@ -1093,6 +1087,8 @@ gke:
 healthChecking: true
 # -- TCP port for the agent health API. This is not the port for cilium-health.
 healthPort: 9879
+# -- Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
+healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
@@ -2131,7 +2127,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid, annotation
+  # e.g. snat, dsr, hybrid
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP

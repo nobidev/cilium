@@ -455,25 +455,6 @@
       },
       "type": "object"
     },
-    "bgp": {
-      "properties": {
-        "announce": {
-          "properties": {
-            "loadbalancerIP": {
-              "type": "boolean"
-            },
-            "podCIDR": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "bgpControlPlane": {
       "properties": {
         "enabled": {
@@ -598,6 +579,9 @@
             "null",
             "integer"
           ]
+        },
+        "lbModeAnnotation": {
+          "type": "boolean"
         },
         "lbSourceRangeAllTypes": {
           "type": "boolean"
@@ -2602,6 +2586,9 @@
     },
     "global": {
       "type": "object"
+    },
+    "healthCheckICMPFailureThreshold": {
+      "type": "integer"
     },
     "healthChecking": {
       "type": "boolean"

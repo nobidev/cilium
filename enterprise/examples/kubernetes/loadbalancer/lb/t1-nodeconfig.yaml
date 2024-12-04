@@ -10,8 +10,10 @@ spec:
   defaults:
     datapath-mode: lb-only
     bpf-lb-acceleration: native
-    bpf-lb-algorithm: maglev
-    bpf-lb-mode: annotation
+    bpf-lb-algorithm: random
+    bpf-lb-mode-annotation: "true"
+    bpf-lb-algorithm-annotation: "true"
+    bpf-lb-mode: snat
     bpf-lb-dsr-dispatch: ipip
     enable-ipip-termination: "false"
     enable-envoy-config: "false"

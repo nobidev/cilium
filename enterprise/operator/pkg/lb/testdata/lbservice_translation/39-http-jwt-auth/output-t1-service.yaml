@@ -12,6 +12,7 @@ metadata:
     service.cilium.io/health-check-quarantine-timeout: 0s
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
+    service.cilium.io/lb-algorithm: maglev
     service.cilium.io/node: t1
     service.cilium.io/type: "LoadBalancer"
     service.cilium.io/forwarding-mode: dsr

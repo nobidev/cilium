@@ -268,22 +268,6 @@
      - Enable bandwidth manager infrastructure (also prerequirement for BBR)
      - bool
      - ``false``
-   * - :spelling:ignore:`bgp`
-     - Configure BGP
-     - object
-     - ``{"announce":{"loadbalancerIP":false,"podCIDR":false},"enabled":false}``
-   * - :spelling:ignore:`bgp.announce.loadbalancerIP`
-     - Enable allocation and announcement of service LoadBalancer IPs
-     - bool
-     - ``false``
-   * - :spelling:ignore:`bgp.announce.podCIDR`
-     - Enable announcement of node pod CIDR
-     - bool
-     - ``false``
-   * - :spelling:ignore:`bgp.enabled`
-     - Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside cilium-agent and cilium-operator
-     - bool
-     - ``false``
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
@@ -388,6 +372,10 @@
      - Configure the maximum number of service entries in the load balancer maps.
      - int
      - ``65536``
+   * - :spelling:ignore:`bpf.lbModeAnnotation`
+     - Enable the option to define the load balancing mode (SNAT or DSR) on a per-service basis through service.cilium.io/forwarding-mode annotation.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.lbSourceRangeAllTypes`
      - Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter.
      - bool
@@ -1407,7 +1395,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:49ffbc7f3813f2b76268769570d4cffa1dbc53e3140ea0d47f2ac096110b691b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-f09ed995abccd4d360c769d256a781f1874c2f3b","useDigest":true}``
+     - ``{"digest":"sha256:3865d1b9d8d7ef0446a86b9f1235d075e89ddc7618e6499fe60c83d83b9ebd58","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-1733209796-c52558e2b9517b51ad5cf71f5cd0965c81cf08e8","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1700,6 +1688,10 @@
      - Enable Google Kubernetes Engine integration
      - bool
      - ``false``
+   * - :spelling:ignore:`healthCheckICMPFailureThreshold`
+     - Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
+     - int
+     - ``3``
    * - :spelling:ignore:`healthChecking`
      - Enable connectivity health checking.
      - bool
