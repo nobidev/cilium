@@ -21,18 +21,28 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -42,7 +52,6 @@ import (
 
 	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
 	"github.com/isovalent/cilium/olm/controller"
-	// "github.com/isovalent/cilium/olm/helm"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -111,6 +120,7 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	labelsSelector := labels.SelectorFromSet(labels.Set{"isovalent.io/managed-by": "clife"})
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -133,6 +143,28 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Secret{}:                {Label: labelsSelector},
+				&corev1.ConfigMap{}:             {Label: labelsSelector},
+				&corev1.Namespace{}:             {Label: labelsSelector},
+				&corev1.Service{}:               {Label: labelsSelector},
+				&corev1.Endpoints{}:             {Label: labelsSelector},
+				&corev1.ResourceQuota{}:         {Label: labelsSelector},
+				&corev1.ServiceAccount{}:        {Label: labelsSelector},
+				&appsv1.Deployment{}:            {Label: labelsSelector},
+				&appsv1.StatefulSet{}:           {Label: labelsSelector},
+				&appsv1.DaemonSet{}:             {Label: labelsSelector},
+				&rbacv1.ClusterRole{}:           {Label: labelsSelector},
+				&rbacv1.ClusterRoleBinding{}:    {Label: labelsSelector},
+				&rbacv1.Role{}:                  {Label: labelsSelector},
+				&rbacv1.RoleBinding{}:           {Label: labelsSelector},
+				&batchv1.Job{}:                  {Label: labelsSelector},
+				&batchv1.CronJob{}:              {Label: labelsSelector},
+				&policyv1.PodDisruptionBudget{}: {Label: labelsSelector},
+				&networkingv1.IngressClass{}:    {Label: labelsSelector},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
