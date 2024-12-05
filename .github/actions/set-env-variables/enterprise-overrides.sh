@@ -30,7 +30,8 @@ echo "CILIUM_CLI_SKIP_BUILD=false" >> $GITHUB_ENV
 
 echo "PUSH_TO_DOCKER_HUB=false" >> "$GITHUB_ENV"
 
-echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results-cee" >> "$GITHUB_ENV"
+# CE Scalability specific overrides
+source ./.github/actions/set-env-variables/enterprise-scalability-overrides.sh
 
 # CE feature gate specific overrides
 echo "CILIUM_GINKGO_EXTRA_ARGS=-cilium.install-helm-overrides=enterprise.featureGate.minimumMaturity=Alpha" >> "$GITHUB_ENV"

@@ -740,6 +740,8 @@ Makefile* @cilium/build
 /.github/ISSUE_TEMPLATE/enterprise_release_template.md @isovalent/release-managers
 /.github/enterprise/.grype.yaml @isovalent/security
 /.github/enterprise/.openvex.json @isovalent/security
+/.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
+/.github/actions/cl2-modules/**/enterprise* @isovalent/scalability-performance
 /.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
@@ -755,7 +757,6 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-fqdn-ha-perf.yaml @isovalent/dns-proxy @isovalent/scalability-performance
 /.github/workflows/enterprise-scale-encryption-policy.yaml @isovalent/encryption
 /.github/workflows/release-hubble-cli.yaml @isovalent/hubble
-/.github/actions/cl2-modules/**/enterprise* @isovalent/scalability-performance
 /.github/workflows/enterprise-encryption-policy.yaml @isovalent/encryption
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
