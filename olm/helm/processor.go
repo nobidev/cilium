@@ -62,7 +62,7 @@ func Generate(chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliu
 	instAction.DryRun = true
 	release, err := instAction.Run(chart, values)
 	if err != nil {
-		return nil, fmt.Errorf("error processing charts: %v", err)
+		return nil, fmt.Errorf("error processing charts: %w", err)
 	}
 	logger.V(4).Info("update", "manifests", release.Manifest)
 	return Decode(strings.NewReader(release.Manifest))
@@ -72,7 +72,7 @@ func Generate(chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliu
 func Values(ccfg *ciliumiov1alpha1.CiliumConfig) (helmchartutil.Values, error) {
 	hv, err := helmchartutil.ReadValues(ccfg.Spec.Raw)
 	if err != nil {
-		return nil, fmt.Errorf("helm values cannot be read from CiliumConfig: %v", err)
+		return nil, fmt.Errorf("helm values cannot be read from CiliumConfig: %w", err)
 	}
 	return hv, nil
 }

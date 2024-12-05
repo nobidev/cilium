@@ -78,6 +78,7 @@ type CiliumConfigReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=resourcequotas,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete;bind;escalate
@@ -123,7 +124,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// TODO Generate an event
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to retrieve CiliumConfig: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to retrieve CiliumConfig: %w", err)
 	}
 	// Reinitialize the status with the starting conditions
 	conditions := initConditions(r.StartingCondition)
@@ -140,7 +141,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
 		}
 		return ctrl.Result{}, err
 	} else {
@@ -166,7 +167,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
 		}
 		return ctrl.Result{}, err
 	}
@@ -183,7 +184,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
 		}
 		return ctrl.Result{}, err
 	}
@@ -202,7 +203,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
 			}
 			return ctrl.Result{}, err
 		}
@@ -219,14 +220,14 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v, original error: %v", sErr, err)
+				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
 			}
 			return ctrl.Result{}, err
 		}
 	}
 	ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
 	if err := r.Status().Update(ctx, ccfg); err != nil {
-		return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %v", err)
+		return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w", err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -243,6 +244,7 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
+		Owns(&corev1.Endpoints{}).
 		Owns(&corev1.ResourceQuota{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).
