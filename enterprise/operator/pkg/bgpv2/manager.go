@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -27,20 +29,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
-	// retry options used in reconcileWithRetry method.
-	// steps will repeat for ~8.5 minutes.
-	bo = wait.Backoff{
-		Duration: 1 * time.Second,
-		Factor:   2,
-		Jitter:   0,
-		Steps:    10,
-		Cap:      0,
-	}
-
 	// maxErrorLen is the maximum length of error message to be logged.
 	maxErrorLen = 1024
 )
@@ -170,11 +163,29 @@ func (m *BGPResourceMapper) Run(ctx context.Context) {
 }
 
 func (m *BGPResourceMapper) reconcileWithRetry(ctx context.Context) error {
+	// retry options used in reconcileWithRetry method.
+	// steps will repeat for ~8.5 minutes.
+	bo := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2,
+		Jitter:   0,
+		Steps:    10,
+		Cap:      0,
+	}
+	attempts := 0
+
 	retryFn := func(ctx context.Context) (bool, error) {
+		attempts++
+
 		err := m.reconcile(ctx)
 		if err != nil {
-			// log error, continue retry
-			m.logger.WithError(TrimError(err, maxErrorLen)).Debug("BGP reconciliation error")
+			if isRetryableError(err) && attempts%5 != 0 {
+				// for retryable error print warning only every 5th attempt
+				m.logger.Debug("Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+			} else {
+				// log warning, continue retry
+				m.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+			}
 			return false, nil
 		}
 
@@ -204,4 +215,13 @@ func TrimError(err error, maxLen int) error {
 		return fmt.Errorf("%s... ", err.Error()[:maxLen])
 	}
 	return err
+}
+
+// isRetryableError returns true if the error returned by reconcile
+// is likely transient, and will be addressed by a subsequent iteration.
+func isRetryableError(err error) bool {
+	return k8serrors.IsAlreadyExists(err) ||
+		k8serrors.IsConflict(err) ||
+		k8serrors.IsNotFound(err) ||
+		(k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause))
 }
