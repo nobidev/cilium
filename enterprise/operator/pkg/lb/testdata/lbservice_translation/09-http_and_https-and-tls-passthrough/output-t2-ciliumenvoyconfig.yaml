@@ -58,7 +58,7 @@ spec:
                 mergeSlashes: true
                 normalizePath: true
                 routeConfig: {}
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -93,7 +93,7 @@ spec:
                 useRemoteAddress: false
                 rds:
                   routeConfigName: frontend_routeconfig_http
-                statPrefix: frontend_listener_http
+                statPrefix: http_default_lb-1
         - filterChainMatch:
             serverNames:
               - foo.acme.io
@@ -128,7 +128,7 @@ spec:
                 useRemoteAddress: false
                 rds:
                   routeConfigName: frontend_routeconfig_https
-                statPrefix: frontend_listener_https
+                statPrefix: https_default_lb-1
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -156,7 +156,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 cluster: backend_cluster_lb-1
-                statPrefix: frontend_listener_tls_passthrough_0
+                statPrefix: tls_passthrough_default_lb-1_0
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -165,6 +165,7 @@ spec:
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
       name: frontend_listener
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http

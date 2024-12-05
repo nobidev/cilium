@@ -61,7 +61,7 @@ spec:
                 normalizePath: true
                 routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -72,7 +72,7 @@ spec:
             - name: envoy.filters.network.local_ratelimit
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.local_ratelimit.v3.LocalRateLimit
-                statPrefix: network_ratelimit
+                statPrefix: default_lb-1
                 tokenBucket:
                   fillInterval: 60s
                   maxTokens: 100
@@ -99,7 +99,7 @@ spec:
                   - name: envoy.filters.http.local_ratelimit
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
-                      statPrefix: http_ratelimit
+                      statPrefix: default_lb-1
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -111,7 +111,7 @@ spec:
                 rds:
                   routeConfigName: frontend_routeconfig_https
                 serverName: ilb
-                statPrefix: frontend_listener_https
+                statPrefix: https_default_lb-1
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -128,6 +128,7 @@ spec:
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
       name: frontend_listener
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_https
@@ -153,7 +154,7 @@ spec:
                     defaultValue: {}
                   filterEnforced:
                     defaultValue: {}
-                  statPrefix: http_ratelimit
+                  statPrefix: default_lb-1
                   tokenBucket:
                     fillInterval: 60s
                     maxTokens: 100
@@ -181,7 +182,7 @@ spec:
                   filterEnforced:
                     defaultValue:
                       numerator: 100
-                  statPrefix: http_ratelimit
+                  statPrefix: default_lb-1
                   tokenBucket:
                     fillInterval: 120s
                     maxTokens: 200

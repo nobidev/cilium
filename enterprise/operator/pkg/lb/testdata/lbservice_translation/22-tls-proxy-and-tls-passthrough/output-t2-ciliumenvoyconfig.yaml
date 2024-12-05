@@ -59,7 +59,7 @@ spec:
                 normalizePath: true
                 routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -78,7 +78,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 cluster: backend_cluster_lb-1
-                statPrefix: frontend_listener_tls_passthrough_0
+                statPrefix: tls_passthrough_default_lb-1_0
         - filterChainMatch:
             serverNames:
               - foo.acme.io
@@ -95,7 +95,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 cluster: backend_cluster_lb-1
-                statPrefix: frontend_listener_tls_proxy_0
+                statPrefix: tls_proxy_default_lb-1_0
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -113,6 +113,7 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

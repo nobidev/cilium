@@ -61,7 +61,7 @@ spec:
                 normalizePath: true
                 routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -86,7 +86,7 @@ spec:
                         - remoteIp:
                             addressPrefix: 100.64.0.101
                             prefixLen: 32
-                statPrefix: http_proxy_request_filtering
+                statPrefix: http_default_lb-1
             - name: envoy.filters.network.http_connection_manager
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
@@ -120,7 +120,7 @@ spec:
                 rds:
                   routeConfigName: frontend_routeconfig_http
                 serverName: ilb
-                statPrefix: frontend_listener_http
+                statPrefix: http_default_lb-1
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -129,6 +129,7 @@ spec:
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
       name: frontend_listener
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http

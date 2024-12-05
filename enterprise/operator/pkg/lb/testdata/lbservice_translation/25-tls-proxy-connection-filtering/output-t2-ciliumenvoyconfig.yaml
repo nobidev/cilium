@@ -61,7 +61,7 @@ spec:
                 normalizePath: true
                 routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -80,7 +80,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 cluster: backend_cluster_lb-1
-                statPrefix: frontend_listener_tls_proxy_0
+                statPrefix: tls_proxy_default_lb-1_0
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -124,7 +124,7 @@ spec:
                         - remoteIp:
                             addressPrefix: 100.64.0.101
                             prefixLen: 32
-                statPrefix: tls_passthrough_request_filtering
+                statPrefix: tls_default_lb-1
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
@@ -136,7 +136,7 @@ spec:
                         textFormatSource:
                           inlineString: "\n"
                 cluster: backend_cluster_lb-2
-                statPrefix: frontend_listener_tls_proxy_1
+                statPrefix: tls_proxy_default_lb-1_1
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
@@ -163,6 +163,7 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

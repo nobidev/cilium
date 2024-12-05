@@ -61,7 +61,7 @@ spec:
                 normalizePath: true
                 routeConfig: {}
                 serverName: ilb
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -98,7 +98,7 @@ spec:
                 rds:
                   routeConfigName: frontend_routeconfig_https
                 serverName: ilb
-                statPrefix: frontend_listener_https
+                statPrefix: https_default_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
           transportSocket:
@@ -121,6 +121,7 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
       perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_https
       virtualHosts:

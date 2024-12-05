@@ -59,7 +59,7 @@ spec:
                 mergeSlashes: true
                 normalizePath: true
                 routeConfig: {}
-                statPrefix: frontend_listener_healthcheck_http
+                statPrefix: healthcheck_http_special-namespace_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
         - filterChainMatch:
@@ -92,7 +92,7 @@ spec:
                 normalizePath: true
                 rds:
                   routeConfigName: frontend_routeconfig_http
-                statPrefix: frontend_listener_http
+                statPrefix: http_special-namespace_lb-1
                 stripMatchingHostPort: true
                 useRemoteAddress: false
       listenerFilters:
@@ -104,6 +104,7 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener
       perConnectionBufferLimitBytes: 32768
+      statPrefix: special-namespace_lb-1
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: frontend_routeconfig_http
       virtualHosts:
