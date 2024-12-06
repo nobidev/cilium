@@ -14,57 +14,64 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestTCPProxy(t *testing.T) {
-	ctx := context.Background()
-	testName := "tcp-proxy"
-	testK8sNamespace := "default"
+	for _, mode := range []v1alpha1.LBTCPProxyForceModeType{v1alpha1.LBTCPProxyForceModeT1, v1alpha1.LBTCPProxyForceModeT2} {
+		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+		dockerCli := newDockerCli(t)
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+		testK8sNamespace := "default"
 
-	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		t.Run("Test TCPProxy force mode "+string(mode), func(t *testing.T) {
+			ctx := context.Background()
+			testName := "tcp-proxy-" + string(mode)
 
-	t.Log("Creating backend apps...")
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	backendNum := 2
-	// TCPProxy does not support backends with different ports, so create just 1 backend.
-	if isSingleNode() {
-		backendNum = 1
-	}
-	scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
+			t.Log("Creating backend apps...")
 
-	t.Log("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+			backendNum := 2
+			// TCPProxy does not support backends with different ports, so create just 1 backend.
+			if isSingleNode() {
+				backendNum = 1
+			}
+			scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
 
-	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+			t.Log("Creating clients and add BGP peering ...")
+			client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
-	t.Logf("Creating LB BackendPool resources...")
-	backends := []backendPoolOption{}
-	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
-	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
+			t.Logf("Creating LB VIP resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(ctx, vip)
 
-	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(backendPool.Name))
-	scenario.createLBService(ctx, service)
+			t.Logf("Creating LB BackendPool resources...")
+			backends := []backendPoolOption{}
+			for _, b := range scenario.backendApps {
+				backends = append(backends, withIPBackend(b.ip, b.port))
+			}
+			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+			t.Logf("Creating LB Service resources...")
+			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(backendPool.Name, mode))
+			scenario.createLBService(ctx, service)
 
-	maybeSysdump(t, testName, "")
+			t.Logf("Waiting for full VIP connectivity of %q...", testName)
+			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
-	t.Logf("Testing %q...", testCmd)
-	stdout, stderr, err := client.Exec(ctx, testCmd)
-	if err != nil {
-		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			maybeSysdump(t, testName, "")
+
+			// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+			t.Logf("Testing %q...", testCmd)
+			stdout, stderr, err := client.Exec(ctx, testCmd)
+			if err != nil {
+				t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
+		})
 	}
 }
