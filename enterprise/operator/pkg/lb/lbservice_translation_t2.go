@@ -262,6 +262,11 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilterChains(model *lbServic
 		filterChains = append(filterChains, tlsProxyFilterChains...)
 	}
 
+	if model.applications.isT2TCPProxyConfigured() {
+		tcpProxyFilterChains := r.desiredEnvoyListenerTCPProxyFilterChains(model)
+		filterChains = append(filterChains, tcpProxyFilterChains...)
+	}
+
 	return filterChains
 }
 
@@ -932,7 +937,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("tls_passthrough_%s_%s_%d", model.namespace, model.name, i),
-					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
+					HashPolicy: r.toTCPProxyHashpolicyForTLS(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 						Cluster: r.getClusterName(tr.backendRef.name),
 					},
@@ -988,7 +993,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
 					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("tls_proxy_%s_%s_%d", model.namespace, model.name, i),
-					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
+					HashPolicy: r.toTCPProxyHashpolicyForTLS(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
 						Cluster: r.getClusterName(tr.backendRef.name),
 					},
@@ -1027,6 +1032,56 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 	}
 
 	return tlsProxyFilterChains
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyListenerTCPProxyFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
+	tcpProxyFilterChains := []*envoy_config_listener_v3.FilterChain{}
+	for i, tr := range model.applications.tcpProxy.routes {
+		networkFilters := []*envoy_config_listener_v3.Filter{}
+
+		if tr.connectionFiltering != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.rbac",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toTCPRouteRBACFilter(tr.connectionFiltering, model.namespace, model.name)),
+				},
+			})
+		}
+
+		if tr.rateLimits != nil {
+			networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+				Name: "envoy.filters.network.local_ratelimit",
+				ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+					TypedConfig: toAny(r.toNetworkRateLimitFilter(tr.rateLimits, model.namespace, model.name)),
+				},
+			})
+		}
+
+		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
+			Name: "envoy.filters.network.tcp_proxy",
+			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
+					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP),
+					StatPrefix: fmt.Sprintf("tcp_proxy_%s_%s_%d", model.namespace, model.name, i),
+					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
+					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
+						Cluster: r.getClusterName(tr.backendRef.name),
+					},
+				}),
+			},
+		})
+
+		f := &envoy_config_listener_v3.FilterChain{
+			FilterChainMatch: &envoy_config_listener_v3.FilterChainMatch{
+				TransportProtocol: "raw_buffer",
+			},
+			Filters: networkFilters,
+		}
+
+		tcpProxyFilterChains = append(tcpProxyFilterChains, f)
+	}
+
+	return tcpProxyFilterChains
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(textFormatString string, jsonFormatString string) []*envoy_config_accesslog_v3.AccessLog {
@@ -1761,7 +1816,27 @@ func (r *lbServiceT2Translator) toHTTPRouteHashpolicy(persistentBackendConfig *l
 	return hashPolicy
 }
 
-func (r *lbServiceT2Translator) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTLSPersistentBackend) []*envoy_type_v3.HashPolicy {
+func (r *lbServiceT2Translator) toTCPProxyHashpolicyForTLS(persistentBackendConfig *lbRouteTLSPersistentBackend) []*envoy_type_v3.HashPolicy {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	hashPolicy := []*envoy_type_v3.HashPolicy{}
+
+	if persistentBackendConfig.sourceIP {
+		hashPolicy = append(hashPolicy, &envoy_type_v3.HashPolicy{
+			PolicySpecifier: &envoy_type_v3.HashPolicy_SourceIp_{SourceIp: &envoy_type_v3.HashPolicy_SourceIp{}},
+		})
+	}
+
+	if len(hashPolicy) == 0 {
+		return nil
+	}
+
+	return hashPolicy
+}
+
+func (r *lbServiceT2Translator) toTCPProxyHashpolicy(persistentBackendConfig *lbRouteTCPPersistentBackend) []*envoy_type_v3.HashPolicy {
 	if persistentBackendConfig == nil {
 		return nil
 	}
@@ -1938,6 +2013,45 @@ func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectio
 
 	return &envoy_extensions_filters_network_rbac_v3.RBAC{
 		StatPrefix: fmt.Sprintf("tls_%s_%s", namespace, name),
+		Rules: &envoy_config_rbac_v3.RBAC{
+			Action:   action,
+			Policies: policies,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toTCPRouteRBACFilter(config *lbRouteTCPConnectionFiltering, namespace string, name string) *envoy_extensions_filters_network_rbac_v3.RBAC {
+	if config == nil {
+		return nil
+	}
+
+	policies := map[string]*envoy_config_rbac_v3.Policy{}
+	action := r.toRBACAction(config.ruleType)
+
+	for i, rr := range config.rules {
+		permissions := []*envoy_config_rbac_v3.Permission{}
+		principals := []*envoy_config_rbac_v3.Principal{}
+
+		if rr.sourceCIDR != nil {
+			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+		}
+
+		if len(principals) == 0 {
+			principals = append(principals, r.toRBACPrincipalAny())
+		}
+
+		if len(permissions) == 0 {
+			permissions = append(permissions, r.toRBACPermissionAny())
+		}
+
+		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
+			Permissions: permissions,
+			Principals:  principals,
+		}
+	}
+
+	return &envoy_extensions_filters_network_rbac_v3.RBAC{
+		StatPrefix: fmt.Sprintf("tcp_%s_%s", namespace, name),
 		Rules: &envoy_config_rbac_v3.RBAC{
 			Action:   action,
 			Policies: policies,

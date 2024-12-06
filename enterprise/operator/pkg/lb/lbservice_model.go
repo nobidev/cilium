@@ -103,6 +103,10 @@ func (r lbApplications) isTLSProxyConfigured() bool {
 	return r.tlsProxy != nil
 }
 
+func (r lbApplications) isT2TCPProxyConfigured() bool {
+	return r.tcpProxy != nil && r.tcpProxy.tierMode == tierModeT2
+}
+
 func (r lbService) usesHTTPRequestFiltering() bool {
 	a := r.applications
 
