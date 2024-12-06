@@ -778,6 +778,7 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
 /.github/workflows/enterprise-container-scan.yaml @isovalent/security
+/.github/workflows/enterprise-*egress-gateway*.yaml @isovalent/egress-gateway
 /.github/workflows/enterprise-*fqdn-ha*.yaml @isovalent/dns-proxy
 /.github/workflows/enterprise-kind.yaml @isovalent/dns-proxy
 /.github/workflows/enterprise-kind-hubble-rbac.yaml @isovalent/hubble
