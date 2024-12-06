@@ -436,6 +436,7 @@ type lbRouteTCPProxy struct {
 	backendRef          backendRef
 	persistentBackend   *lbRouteTCPPersistentBackend
 	connectionFiltering *lbRouteTCPConnectionFiltering
+	rateLimits          *lbServiceConnectionRateLimit
 }
 
 type lbRouteTCPPersistentBackend struct {

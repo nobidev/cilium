@@ -358,6 +358,7 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 			backendRef:          backendRef{name: lr.BackendRef.Name},
 			persistentBackend:   r.toTCPPersistentBackendConfig(lr.PersistentBackend),
 			connectionFiltering: r.toTCPRequestFilteringConfig(lr.ConnectionFiltering),
+			rateLimits:          r.toTCPRateLimits(lr.RateLimits),
 		})
 	}
 
@@ -924,6 +925,19 @@ func (*ingestor) toHTTPRouteRateLimits(rateLimits *isovalentv1alpha1.LBServiceHT
 }
 
 func (*ingestor) toTLSRateLimits(rateLimits *isovalentv1alpha1.LBServiceTLSRouteRateLimits) *lbServiceConnectionRateLimit {
+	if rateLimits == nil {
+		return nil
+	}
+
+	return &lbServiceConnectionRateLimit{
+		connections: lbServiceRateLimit{
+			limit:             rateLimits.Connections.Limit,
+			timePeriodSeconds: rateLimits.Connections.TimePeriodSeconds,
+		},
+	}
+}
+
+func (*ingestor) toTCPRateLimits(rateLimits *isovalentv1alpha1.LBServiceTCPRouteRateLimits) *lbServiceConnectionRateLimit {
 	if rateLimits == nil {
 		return nil
 	}

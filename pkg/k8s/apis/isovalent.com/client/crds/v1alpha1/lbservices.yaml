@@ -1205,6 +1205,30 @@ spec:
                               x-kubernetes-validations:
                               - message: At least one attribute must be configured
                                 rule: (has(self.sourceIP))
+                            rateLimits:
+                              description: |-
+                                Optional per-route rate limit configuration.
+                                Currently, this is only a local rate limit (enforced on each LB node individually).
+                              properties:
+                                connections:
+                                  description: |-
+                                    Configure max allowed connections for the TCP route.
+                                    It is applied and enforced when the connection is established.
+                                  properties:
+                                    limit:
+                                      minimum: 1
+                                      type: integer
+                                    timePeriodSeconds:
+                                      minimum: 1
+                                      type: integer
+                                  required:
+                                  - limit
+                                  - timePeriodSeconds
+                                  type: object
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one rate limit must be configured
+                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object

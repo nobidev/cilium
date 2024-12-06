@@ -483,6 +483,12 @@ type LBServiceTCPRoute struct {
 	//
 	// +kubebuilder:validation:Optional
 	ConnectionFiltering *LBServiceTCPRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
+
+	// Optional per-route rate limit configuration.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceTCPRouteRateLimits `json:"rateLimits,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
@@ -760,6 +766,15 @@ type LBServiceHTTPRouteRateLimits struct {
 // +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
 type LBServiceTLSRouteRateLimits struct {
 	// Configure max allowed connections for the TLS route.
+	// It is applied and enforced when the connection is established.
+	//
+	// +kubebuilder:validation:Optional
+	Connections *LBServiceRateLimit `json:"connections"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
+type LBServiceTCPRouteRateLimits struct {
+	// Configure max allowed connections for the TCP route.
 	// It is applied and enforced when the connection is established.
 	//
 	// +kubebuilder:validation:Optional
