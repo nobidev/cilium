@@ -453,6 +453,9 @@ data:
 {{- if hasKey .Values.bpf "lbAlgorithmAnnotation" }}
   bpf-lb-algorithm-annotation: {{ .Values.bpf.lbAlgorithmAnnotation | quote }}
 {{- end }}
+{{- if hasKey .Values.bpf "lbModeAnnotation" }}
+  bpf-lb-mode-annotation: {{ .Values.bpf.lbModeAnnotation | quote }}
+{{- end }}
 
   bpf-events-drop-enabled: {{ .Values.bpf.events.drop.enabled | quote }}
   bpf-events-policy-verdict-enabled: {{ .Values.bpf.events.policyVerdict.enabled | quote }}
@@ -896,6 +899,9 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
+{{- if .Values.healthCheckICMPFailureThreshold }}
+  health-check-icmp-failure-threshold: {{ .Values.healthCheckICMPFailureThreshold | quote }}
+{{- end }}
 {{- if .Values.wellKnownIdentities.enabled }}
   enable-well-known-identities: "true"
 {{- else }}
@@ -1151,18 +1157,6 @@ data:
   enable-l2-pod-announcements: {{ .Values.l2podAnnouncements.enabled | quote }}
   l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
 {{- end }}
-
-{{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
-  {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
-{{- end }}
-
-{{- if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
-  bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
-{{- end }}
-
-{{- if and .Values.bgp.enabled .Values.bgp.announce.podCIDR }}
-  bgp-announce-pod-cidr: {{ .Values.bgp.announce.podCIDR | quote }}
-{{- end}}
 
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"

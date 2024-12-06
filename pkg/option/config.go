@@ -257,6 +257,10 @@ const (
 	// Alias to NodePortMode
 	LoadBalancerMode = "bpf-lb-mode"
 
+	// LoadBalancerModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf loadbalancing method (snat vs dsr).
+	LoadBalancerModeAnnotation = "bpf-lb-mode-annotation"
+
 	// Alias to DSR dispatch method
 	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
 
@@ -841,6 +845,9 @@ const (
 	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
 	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
 
+	// HealthCheckICMPFailureThreshold is the name of the HealthCheckICMPFailureThreshold option
+	HealthCheckICMPFailureThreshold = "health-check-icmp-failure-threshold"
+
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
@@ -1028,16 +1035,6 @@ const (
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
-	BGPAnnounceLBIP = "bgp-announce-lb-ip"
-
-	// BGPAnnouncePodCIDR announces the node's pod CIDR via BGP
-	BGPAnnouncePodCIDR = "bgp-announce-pod-cidr"
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath = "bgp-config-path"
-
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace = "bgp-secrets-namespace"
 
@@ -1214,10 +1211,6 @@ const (
 
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
-
-	// NodePortModeAnnotation is a dual mode of dsr and snat, specified through the
-	// service.cilium.io/dispatch annotation on the K8s service object
-	NodePortModeAnnotation = "annotation"
 
 	// NodePortAlgRandom is for randomly selecting a backend
 	NodePortAlgRandom = "random"
@@ -1771,6 +1764,11 @@ type DaemonConfig struct {
 	// by cilium
 	EnableHealthCheckLoadBalancerIP bool
 
+	// HealthCheckICMPFailureThreshold is the number of ICMP packets sent for each health
+	// checking run. If at least an ICMP response is received, the node or endpoint
+	// is marked as healthy.
+	HealthCheckICMPFailureThreshold int
+
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -1864,6 +1862,10 @@ type DaemonConfig struct {
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
+
+	// LoadBalancerModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf load balancing algorithm.
+	LoadBalancerModeAnnotation bool
 
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
@@ -2107,16 +2109,6 @@ type DaemonConfig struct {
 	// metrics.
 	EnableCustomCalls bool
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
-	BGPAnnounceLBIP bool
-
-	// BGPAnnouncePodCIDR announces the node's pod CIDR via BGP.
-	BGPAnnouncePodCIDR bool
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath string
-
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace string
 
@@ -2268,6 +2260,7 @@ var (
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
 		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
 		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
+		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
 		EnableIPv4:                      defaults.EnableIPv4,
 		EnableIPv6:                      defaults.EnableIPv6,
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
@@ -2542,7 +2535,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 func (c *DaemonConfig) LoadBalancerUsesDSR() bool {
 	return c.NodePortMode == NodePortModeDSR ||
 		c.NodePortMode == NodePortModeHybrid ||
-		c.NodePortMode == NodePortModeAnnotation
+		c.LoadBalancerModeAnnotation
 }
 
 // KVstoreEnabledWithoutPodNetworkSupport returns whether Cilium is configured to connect
@@ -2851,6 +2844,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
 	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
 	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
+	c.HealthCheckICMPFailureThreshold = vp.GetInt(HealthCheckICMPFailureThreshold)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
@@ -2949,9 +2943,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
-	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
-	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
-	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
@@ -3318,6 +3309,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
+	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
 	c.NodePortAlg = vp.GetString(LoadBalancerAlgorithm)
 	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them

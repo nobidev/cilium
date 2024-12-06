@@ -23,9 +23,6 @@ cilium-agent [flags]
       --arping-refresh-period duration                               Period for remote node ARP entry refresh (set 0 to disable) (default 30s)
       --auto-create-cilium-node-resource                             Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                                      Enable automatic L2 routing between nodes
-      --bgp-announce-lb-ip                                           Announces service IPs of type LoadBalancer via BGP
-      --bgp-announce-pod-cidr                                        Announces the node's pod CIDR via BGP
-      --bgp-config-path string                                       Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --bpf-auth-map-max int                                         Maximum number of entries in auth map (default 524288)
       --bpf-conntrack-accounting                                     Enable CT accounting for packets and bytes (default false)
       --bpf-ct-global-any-max int                                    Maximum number of entries in non-TCP CT table (default 262144)
@@ -43,13 +40,14 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                                    Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                                   BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                      BPF load balancing algorithm ("random", "maglev") (default "random")
-      --bpf-lb-algorithm-annotation                                  Tells whether controller should check service level annotation for configuring bpf load balancing algorithm.
+      --bpf-lb-algorithm-annotation                                  Enable service-level annotation for configuring BPF load balancing algorithm
       --bpf-lb-dsr-dispatch string                                   BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-external-clusterip                                    Enable external access to ClusterIP services (default false)
       --bpf-lb-maglev-hash-seed string                               Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                                Maglev per service backend table size (parameter M) (default 16381)
       --bpf-lb-map-max int                                           Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-lb-mode string                                           BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
+      --bpf-lb-mode-annotation                                       Enable service-level annotation for configuring BPF load balancing mode
       --bpf-lb-proto-diff                                            Enable support for service protocol differentiation (TCP, UDP, SCTP) (default true)
       --bpf-lb-rss-ipv4-src-cidr string                              BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP
       --bpf-lb-rss-ipv6-src-cidr string                              BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP
@@ -238,6 +236,7 @@ cilium-agent [flags]
       --force-device-detection                                       Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                         GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                             Port for gops server to listen on (default 9890)
+      --health-check-icmp-failure-threshold int                      Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
   -h, --help                                                         help for cilium-agent
       --http-idle-timeout uint                                       Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                                   Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)

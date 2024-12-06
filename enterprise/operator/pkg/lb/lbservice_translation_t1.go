@@ -59,6 +59,9 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// T1 -> {T2 | Backend} forwarding mode
 	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
+	// T1 -> T2 loadbalancing algorithm
+	annotations[ossannotation.ServiceLoadBalancingAlgorithm] = "maglev"
+
 	// T1 -> {T2 | Backend} health checking
 	maps.Copy(annotations, r.getHealthCheckAnnotations(model))
 

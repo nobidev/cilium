@@ -1098,19 +1098,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 #ifdef ENABLE_IPSEC
 	if (!from_host) {
-#ifdef ENABLE_ENCRYPTED_OVERLAY
-		/* EncryptedOverlay XFRM policies set the output mark to the literal
-		 * MARK_MAGIC_DECRYPTED_OVERLAY value.
-		 *
-		 * If we see this here, its decrypted overlay traffic from these
-		 * XFRM policies. We can punt this directly to ingress side of vxlan
-		 * interface for decap.
-		 */
-		if (ctx->mark == MARK_MAGIC_DECRYPTED_OVERLAY) {
-			ret = ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
-			return ret;
-		}
-#endif /* ENABLED_ENCRYPTED_OVERLAY */
 		/* If the packet needs decryption, we want to send it straight to the
 		 * stack. There's no need to run service handling logic, host firewall,
 		 * etc. on an encrypted packet.
@@ -1290,18 +1277,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		int ret = DROP_UNSUPPORTED_L2;
 		__u32 id = WORLD_ID;
 		__u32 sec_label = SECLABEL;
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		switch (proto) {
-		case bpf_htons(ETH_P_IP):
-			id = WORLD_IPV4_ID;
-			sec_label = SECLABEL_IPV4;
-			break;
-		case bpf_htons(ETH_P_IPV6):
-			id = WORLD_IPV6_ID;
-			sec_label = SECLABEL_IPV6;
-			break;
-		}
-#endif
+
 		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
@@ -1513,7 +1489,7 @@ skip_host_firewall:
 			 */
 			send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity,
 					  dst_sec_identity,
-					  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
+					  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 					  TRACE_REASON_ENCRYPT_OVERLAY, 0);
 			return ret;
 		}
@@ -1651,7 +1627,7 @@ exit:
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN,
-			  NATIVE_DEV_IFINDEX, trace.reason, trace.monitor);
+			  THIS_INTERFACE_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 

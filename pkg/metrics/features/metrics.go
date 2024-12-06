@@ -142,7 +142,6 @@ var (
 	defaultNodePortModes = []string{
 		option.NodePortModeSNAT,
 		option.NodePortModeDSR,
-		option.NodePortModeAnnotation,
 		option.NodePortModeHybrid,
 	}
 
@@ -410,10 +409,10 @@ func NewMetrics(withDefaults bool) Metrics {
 		}),
 
 		ACLBBGPEnabled: metric.NewGauge(metric.GaugeOpts{
-			Help:      "BGP Advertisement enabled on the agent",
+			Help:      "BGP enabled on the agent",
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemACLB,
-			Name:      "bgp_advertisement_enabled",
+			Name:      "bgp_enabled",
 		}),
 
 		ACLBEgressGatewayEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -601,7 +600,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	m.ACLBNodePortConfig.WithLabelValues(config.NodePortMode, config.NodePortAlg, config.NodePortAcceleration).Add(1)
 
-	if config.BGPAnnouncePodCIDR || config.BGPAnnounceLBIP || config.EnableBGPControlPlane {
+	if config.EnableBGPControlPlane {
 		m.ACLBBGPEnabled.Add(1)
 	}
 
