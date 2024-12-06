@@ -76,7 +76,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	annotations[ossannotation.ServiceForwardingMode] = r.getServiceForwardingMode(model)
 
 	// T1 -> T2 loadbalancing algorithm
-	annotations[ossannotation.ServiceLoadBalancingAlgorithm] = "maglev"
+	annotations[ossannotation.ServiceLoadBalancingAlgorithm] = r.getServiceLoadBalancingAlgorithm(model)
 
 	// T1 -> {T2 | Backend} health checking
 	maps.Copy(annotations, r.getHealthCheckAnnotations(model))
@@ -264,4 +264,12 @@ func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) strin
 	}
 
 	return string(loadbalancer.SVCForwardingModeDSR)
+}
+
+func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbService) string {
+	if model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
+		return "random"
+	}
+
+	return "maglev"
 }
