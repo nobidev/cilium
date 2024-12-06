@@ -205,6 +205,16 @@ jobs:
             ipsec: false,
             owner: U04GD9ACYTE # Philip
           },
+          {
+            repo: jpmc,
+            dir: aws-eks-eni,
+            umbrella: false,
+            oss: false,
+            region: us-west-2,
+            deploy: cute,
+            ipsec: false,
+            owner: D06BY0MJ6HZ # James Strong
+          },
         ]
     runs-on: ubuntu-24.04
     steps:
