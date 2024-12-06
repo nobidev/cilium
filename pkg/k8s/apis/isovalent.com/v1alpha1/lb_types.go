@@ -560,6 +560,7 @@ type LBServiceApplicationUDPProxy struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
 	Routes []LBServiceUDPRoute `json:"routes"`
 }
 
