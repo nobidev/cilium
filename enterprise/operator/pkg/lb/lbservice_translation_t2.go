@@ -1563,13 +1563,13 @@ func (r *lbServiceT2Translator) wrapWithProxyProtocolTransport(ts *envoy_config_
 	case proxyProtocolVersionV1:
 		ppUpstreamTransport.Config = &envoy_config_core_v3.ProxyProtocolConfig{
 			Version: envoy_config_core_v3.ProxyProtocolConfig_V1,
-			PassThroughTlvs: &envoy_config_core_v3.ProxyProtocolPassThroughTLVs{
-				TlvType: proxyProtocol.passthroughTLVs,
-			},
 		}
 	case proxyProtocolVersionV2:
 		ppUpstreamTransport.Config = &envoy_config_core_v3.ProxyProtocolConfig{
 			Version: envoy_config_core_v3.ProxyProtocolConfig_V2,
+			PassThroughTlvs: &envoy_config_core_v3.ProxyProtocolPassThroughTLVs{
+				TlvType: proxyProtocol.passthroughTLVs,
+			},
 		}
 	}
 	ppUpstreamTransport.TransportSocket = ts

@@ -21,7 +21,7 @@ spec:
       host: lb
       path: /healthz
   proxyProtocolConfig:
-    version: 1
+    version: 2
     passthroughTLVs:
       - 4
       - 5

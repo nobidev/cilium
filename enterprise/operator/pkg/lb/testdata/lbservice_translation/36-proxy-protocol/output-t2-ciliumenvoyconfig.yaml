@@ -95,14 +95,14 @@ spec:
             "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
         - name: envoy.filters.listener.proxy_protocol
           typedConfig:
-            '@type': type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
             allowRequestsWithoutProxyProtocol: true
             disallowedVersions:
-            - V1
+              - V1
             passThroughTlvs:
               tlvType:
-              - 123
-              - 456
+                - 123
+                - 456
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
@@ -158,17 +158,18 @@ spec:
       transportSocket:
         name: envoy.transport_sockets.proxy_protocol
         typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
           config:
             passThroughTlvs:
               tlvType:
-              - 1
-              - 2
-              - 3
+                - 1
+                - 2
+                - 3
+            version: V2
           transportSocket:
             name: envoy.transport_sockets.raw_buffer
             typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       transportSocketMatches:
         - match:
             type: healthcheck
@@ -177,19 +178,19 @@ spec:
             name: envoy.transport_sockets.raw_buffer
             typedConfig:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
-    - '@type': type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_lb-1
       endpoints:
-      - lbEndpoints:
-        - endpoint:
-            address:
-              socketAddress:
-                address: 172.18.0.5
-                portValue: 8080
-          loadBalancingWeight: 1
-        - endpoint:
-            address:
-              socketAddress:
-                address: 172.18.0.6
-                portValue: 8080
-          loadBalancingWeight: 1
+        - lbEndpoints:
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.5
+                    portValue: 8080
+              loadBalancingWeight: 1
+            - endpoint:
+                address:
+                  socketAddress:
+                    address: 172.18.0.6
+                    portValue: 8080
+              loadBalancingWeight: 1

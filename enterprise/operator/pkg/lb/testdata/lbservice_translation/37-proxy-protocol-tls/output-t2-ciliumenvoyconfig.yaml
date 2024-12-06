@@ -87,14 +87,14 @@ spec:
             "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
         - name: envoy.filters.listener.proxy_protocol
           typedConfig:
-            '@type': type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
             allowRequestsWithoutProxyProtocol: true
             disallowedVersions:
-            - V1
+              - V1
             passThroughTlvs:
               tlvType:
-              - 123
-              - 456
+                - 123
+                - 456
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
@@ -122,17 +122,12 @@ spec:
       transportSocket:
         name: envoy.transport_sockets.proxy_protocol
         typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
-          config:
-            passThroughTlvs:
-              tlvType:
-              - 1
-              - 2
-              - 3
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
+          config: {}
           transportSocket:
             name: envoy.transport_sockets.tls
             typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
               commonTlsContext:
                 tlsParams: {}
       transportSocketMatches:
@@ -177,17 +172,18 @@ spec:
       transportSocket:
         name: envoy.transport_sockets.proxy_protocol
         typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
           config:
             passThroughTlvs:
               tlvType:
-              - 4
-              - 5
-              - 6
+                - 4
+                - 5
+                - 6
+            version: V2
           transportSocket:
             name: envoy.transport_sockets.raw_buffer
             typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       transportSocketMatches:
         - match:
             type: healthcheck
