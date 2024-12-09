@@ -31,10 +31,26 @@ func TestValues(t *testing.T) {
 		},
 		Spec: ciliumiov1alpha1.CiliumConfigSpec{
 			RawExtension: runtime.RawExtension{
-				Raw: []byte(`{"securityContext": {"privileged": "true"}, "ipam":{"mode": "cluster-pool"}, "cni": {"binPath": "/var/lib/cni/bin", "confPath": "/var/run/multus/cni/net.d"}}`),
+				Raw: []byte(`{"securityContext": {"privileged": true}, "ipam":{"mode": "cluster-pool"}, "cni": {"binPath": "/var/lib/cni/bin", "confPath": "/var/run/multus/cni/net.d"}}`),
 			},
 		},
 	}
 	_, err := Values(ccfg)
-	require.NoError(t, err, "Error getting helm values")
+	require.NoError(t, err, "expected no error getting helm values")
+}
+
+func TestInvalidValues(t *testing.T) {
+	ccfg := &ciliumiov1alpha1.CiliumConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "config",
+			Namespace: "cilium",
+		},
+		Spec: ciliumiov1alpha1.CiliumConfigSpec{
+			RawExtension: runtime.RawExtension{
+				Raw: []byte(`invalid`),
+			},
+		},
+	}
+	_, err := Values(ccfg)
+	require.Error(t, err, "expected an error getting invalid helm values")
 }
