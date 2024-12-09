@@ -1,0 +1,80 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "namespaced-cnp"
+specs:
+- egress:
+  - toFQDNs:
+    - matchPattern: about.gitlab.com
+    - matchPattern: www.google.com
+    toPorts:
+    - originatingTLS:
+        secret:
+          name: tls-orig-data
+          namespace: cilium-secrets
+      ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+      terminatingTLS:
+        secret:
+          name: tls-data
+          namespace: cilium-secrets
+  - toFQDNs:
+    - matchPattern: storage.googleapis.com
+    toPorts:
+    - originatingTLS:
+        secret:
+          name: tls-orig-data
+          namespace: cilium-secrets
+      ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+      rules:
+        http:
+        - path: /chromium-browser-snapshots\/.*
+      terminatingTLS:
+        secret:
+          name: tls-data
+          namespace: cilium-secrets
+  - toFQDNs:
+    - matchPattern: '*.github.com'
+    - matchPattern: 'github.com'
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: ANY
+    - ports:
+      - port: "443"
+        protocol: ANY
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: node-local-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: '*'
+  - toEntities:
+    - init
+    - health
+    - unmanaged
+    - host
+    - remote-node
+    - cluster
+    - kube-apiserver
+  endpointSelector:
+    matchLabels:
+      {}

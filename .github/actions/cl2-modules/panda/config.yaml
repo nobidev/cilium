@@ -1,7 +1,7 @@
 {{$PODS_PER_NODE := 10}}
 {{$PODS_PER_DEPLOYMENT := 1}}
-{{$namespaces := MaxInt (DivideInt .Nodes 10) 1}}
-{{$TimeToLoad := MultiplyInt $namespaces 1}}
+{{$namespaces := 100 }}
+{{$TimeToLoad := 10 }}
 
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
 {{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
@@ -13,8 +13,8 @@ namespace:
 tuningSets:
 - name: default
   globalQPSLoad:
-    qps: 1
-    burst: 1
+    qps: 50
+    burst: 50
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$TimeToLoad}}m
@@ -36,9 +36,17 @@ steps:
       actionName: "create"
       namespaces: {{$namespaces}}
       tuningSet: RandomizedSaturationTimeLimited
+      fixedTuningSet: default
       operationTimeout: 15m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+
+- name: Sleep After reconcile
+  measurements:
+  - Identifier: WaitAfterReconcile
+    Method: Sleep
+    Params:
+      duration: 2m
 
 - module:
     path:  /modules/metrics.yaml

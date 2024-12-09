@@ -1,6 +1,9 @@
+{{$PER_NAMESPACE_CNPS := DefaultParam .CL2_PER_NAMESPACE_CNPS false}}
+
 {{$actionName := printf "%s objects" .actionName}}
 {{$namespaces := .namespaces}}
 {{$tuningSet := .tuningSet}}
+{{$fixedTuningSet := .fixedTuningSet}}
 {{$operationTimeout := .operationTimeout}}
 {{$deploymentsPerNamespace := .deploymentsPerNamespace}}
 {{$replicasPerDeployment := .replicasPerDeployment}}
@@ -40,3 +43,18 @@ steps:
     - Identifier: WaitForRunningDeployments
     Params:
       action: gather
+
+ {{if $PER_NAMESPACE_CNPS }}
+- name: {{$actionName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: {{$fixedTuningSet}}
+    objectBundle:
+    - basename: cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        Replicas: 1
+{{ end }}
