@@ -697,6 +697,22 @@ func withTCPProxyApplication(backendRef string, forceMode isovalentv1alpha1.LBTC
 	}
 }
 
+func withUDPProxyApplication(backendRef string) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
+			UDPProxy: &isovalentv1alpha1.LBServiceApplicationUDPProxy{
+				Routes: []isovalentv1alpha1.LBServiceUDPRoute{
+					{
+						BackendRef: isovalentv1alpha1.LBServiceBackendRef{
+							Name: backendRef,
+						},
+					},
+				},
+			},
+		}
+	}
+}
+
 func lbService(namespace string, name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
 	svc := &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{

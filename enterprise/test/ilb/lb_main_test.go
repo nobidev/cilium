@@ -29,7 +29,7 @@ import (
 // Flags:
 //
 //  -app-image string
-//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.8")
+//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.9")
 //  -cleanup
 //        Cleanup created resources after each test case run (default true)
 //  -client-image string
