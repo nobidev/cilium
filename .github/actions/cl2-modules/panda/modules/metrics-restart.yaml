@@ -27,16 +27,6 @@ steps:
         metricVersion: v1
         unit: count
         queries:
-        - name: Total Github
-          query: sum(increase(total{job="cloudprober", dst="github"}[%v]))
-        - name: Total Gitlab
-          query: sum(increase(total{job="cloudprober", dst="gitlab"}[%v]))
-        - name: Total Google
-          query: sum(increase(total{job="cloudprober", dst="google"}[%v]))
-        - name: Total GS
-          query: sum(increase(total{job="cloudprober", dst="gs"}[%v]))
-        - name: Total deny GS
-          query: sum(increase(total{job="cloudprober", dst="gsfail"}[%v]))
         - name: Success Github
           query: sum(increase(success{job="cloudprober", dst="github"}[%v]))
         - name: Success Gitlab
@@ -66,16 +56,6 @@ steps:
         metricVersion: v1
         unit: count
         queries:
-        - name: Total Github
-          query: sum(increase(total{job="cloudprober-host", dst="github"}[%v]))
-        - name: Total Gitlab
-          query: sum(increase(total{job="cloudprober-host", dst="gitlab"}[%v]))
-        - name: Total Google
-          query: sum(increase(total{job="cloudprober-host", dst="google"}[%v]))
-        - name: Total GS
-          query: sum(increase(total{job="cloudprober-host", dst="gs"}[%v]))
-        - name: Total deny GS
-          query: sum(increase(total{job="cloudprober-host", dst="gsfail"}[%v]))
         - name: Success Github
           query: sum(increase(success{job="cloudprober-host", dst="github"}[%v]))
         - name: Success Gitlab
