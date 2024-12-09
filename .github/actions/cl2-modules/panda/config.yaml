@@ -64,6 +64,17 @@ steps:
       action: start
       restartName: Agent
 
+- name: Collect sysdump
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 10m
+      command:
+      - /bin/sh
+      - -c
+      - "cilium sysdump --output-filename cilium-sysdump-middle"
+
 - name: Restart Agent
   measurements:
   - Identifier: ExecCommand

@@ -543,7 +543,7 @@ jobs:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
-          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt ./perf-tests/clusterloader2/cilium-sysdump-middle.zip
 
   commit-status-final:
     if: ${{ always() }}
