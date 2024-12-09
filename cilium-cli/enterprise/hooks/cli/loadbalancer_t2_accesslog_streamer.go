@@ -5,19 +5,13 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium/cilium-cli/api"
 )
 
 var (
@@ -30,52 +24,6 @@ var (
 	accessLogFiles                        []string
 )
 
-type reader struct {
-	r    io.ReadCloser
-	name string
-}
-
-func podReaders(ctx context.Context) ([]reader, error) {
-	var readers []reader
-
-	k8sClient, _ := api.GetK8sClientContextValue(ctx)
-
-	pods, err := k8sClient.ListPods(ctx, "kube-system", metav1.ListOptions{
-		LabelSelector: "name=cilium-envoy",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list T2 Envoy pods: %w", err)
-	}
-
-	for _, p := range pods.Items {
-		r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
-			Follow: accessLogFollow,
-		})
-		s, err := r.Stream(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open log stream for pod %q: %w", p.Name, err)
-		}
-
-		readers = append(readers, reader{r: s, name: p.Name})
-	}
-
-	return readers, nil
-}
-
-func fileReaders() ([]reader, error) {
-	var readers []reader
-
-	for _, file := range accessLogFiles {
-		f, err := os.Open(file)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open file %q: %w", file, err)
-		}
-		readers = append(readers, reader{r: f, name: filepath.Base(file)})
-	}
-
-	return readers, nil
-}
-
 func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "accesslog",
@@ -87,9 +35,9 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			errGrp, ctx := errgroup.WithContext(c.Context())
 
 			if len(accessLogFiles) == 0 {
-				readers, err = podReaders(ctx)
+				readers, err = podReaders(ctx, "", accessLogFollow)
 			} else {
-				readers, err = fileReaders()
+				readers, err = fileReaders(accessLogFiles)
 			}
 			if err != nil {
 				return err

@@ -12,16 +12,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium/cilium-cli/api"
 )
 
 var (
 	applicationLogConnectionIDsFilter []string
 	applicationLogPodNameFilter       string
 	applicationLogFollow              bool
+	applicationLogFiles               []string
 )
 
 func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
@@ -30,33 +27,27 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 		Short: "Display Loadbalancer T2 application log",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
-			k8sClient, _ := api.GetK8sClientContextValue(c.Context())
-
-			pods, err := k8sClient.ListPods(c.Context(), "kube-system", metav1.ListOptions{
-				LabelSelector: "name=cilium-envoy",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to list T2 Envoy pods: %w", err)
-			}
-
+			var readers []reader
+			var err error
 			errGrp, ctx := errgroup.WithContext(c.Context())
 
-			for _, p := range pods.Items {
-				if applicationLogPodNameFilter != "" && p.Name != applicationLogPodNameFilter {
-					continue
+			if len(applicationLogFiles) == 0 {
+				readers, err = podReaders(ctx, applicationLogPodNameFilter, applicationLogFollow)
+			} else {
+				readers, err = fileReaders(applicationLogFiles)
+			}
+			if err != nil {
+				return err
+			}
+			defer func() {
+				for _, r := range readers {
+					r.r.Close()
 				}
+			}()
 
+			for _, r := range readers {
 				errGrp.Go(func() error {
-					r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
-						Follow: applicationLogFollow,
-					})
-					s, err := r.Stream(ctx)
-					if err != nil {
-						return fmt.Errorf("failed to open log stream for pod %q: %w", p.Name, err)
-					}
-
-					defer s.Close()
-					scanner := bufio.NewScanner(s)
+					scanner := bufio.NewScanner(r.r)
 					for scanner.Scan() {
 						logLine := scanner.Text()
 
@@ -65,7 +56,7 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 						}
 
 						if includeApplicationlogLine(logLine) {
-							if _, err = io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", p.Name, logLine))); err != nil {
+							if _, err = io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", r.name, logLine))); err != nil {
 								return fmt.Errorf("failed to copy: %w", err)
 							}
 						}
@@ -76,13 +67,14 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 			}
 
 			if err := errGrp.Wait(); err != nil {
-				return fmt.Errorf("failed to stream logs: %w", err)
+				return fmt.Errorf("failed to read logs: %w", err)
 			}
 
 			return nil
 		},
 	}
 
+	cmd.Flags().StringSliceVar(&applicationLogFiles, "files", nil, "Comma-separated list of application log files. If empty, logs will be retrieved from ILB Envoy pods")
 	cmd.Flags().StringSliceVar(&applicationLogConnectionIDsFilter, "connection-ids", []string{}, "List of connection ids to filter the application log for")
 	cmd.Flags().StringVar(&applicationLogPodNameFilter, "pod", "", "Filter the application log for a given Envoy Pod Name")
 
