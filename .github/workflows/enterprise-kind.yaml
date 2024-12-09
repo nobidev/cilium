@@ -19,7 +19,7 @@ concurrency:
 
 env:
   helm_chart_repo: oci://quay.io/isovalent-charts-dev/cilium
-  kind_config: .github/kind-config.yaml
+  kind_config: .github/kind-config-enterprise-dual.yaml
   # renovate: datasource=github-releases depName=yannh/kubeconform
   kubeconform_version: v0.6.7
 
@@ -106,7 +106,8 @@ jobs:
             --version ${{ steps.vars.outputs.version }} \
             --set-string extraConfig.external-dns-proxy=true \
             --set=enterprise.featureGate.strict=true \
-            --set='enterprise.featureGate.approved={DNSProxyHA}'
+            --set='enterprise.featureGate.approved={DNSProxyHA,DatapathIPModeDualStack}' \
+            --set=ipv6.enabled=true
           kubectl rollout status -n kube-system ds/cilium --watch
 
       - name: Install FQDN proxy
