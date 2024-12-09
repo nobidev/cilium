@@ -77,6 +77,20 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 		updateStatus = true
 	}
 
+	// validate VRFs and VRFConfigs if SRv6 is enabled
+	if m.dc.EnableSRv6 {
+		missingVRFs := m.missingVRFs(config)
+		missingVRFConfigs := m.missingVRFConfigs(config)
+
+		if changed := m.updateMissingVRFsCondition(config, missingVRFs); changed {
+			updateStatus = true
+		}
+
+		if changed := m.updateMissingVRFConfigsCondition(config, missingVRFConfigs); changed {
+			updateStatus = true
+		}
+	}
+
 	// Sort conditions to the stable order
 	slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
 		return strings.Compare(a.Type, b.Type)
@@ -113,6 +127,43 @@ func (m *BGPResourceMapper) missingPeerConfigs(config *v1alpha1.IsovalentBGPClus
 			// be a network issue, or something else, but we are
 			// only interested in detecting the invalid reference
 			// here.
+		}
+	}
+	slices.Sort(missing)
+	return slices.Compact(missing)
+}
+
+// missingVRFs returns a IsovalentVRF which is referenced from
+// the ClusterConfig, but doesn't exist. The returned slice is sorted and
+// deduplicated for output stability.
+func (m *BGPResourceMapper) missingVRFs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+	missing := []string{}
+	for _, instance := range config.Spec.BGPInstances {
+		for _, vrf := range instance.VRFs {
+			_, exists, _ := m.vrf.GetByKey(resource.Key{Name: vrf.VRFRef})
+			if !exists {
+				missing = append(missing, vrf.VRFRef)
+			}
+		}
+	}
+	slices.Sort(missing)
+	return slices.Compact(missing)
+}
+
+// missingVRFConfigs returns a IsovalentBGPVRFConfig which is referenced from
+// the ClusterConfig, but doesn't exist. The returned slice is sorted and
+// deduplicated for output stability.
+func (m *BGPResourceMapper) missingVRFConfigs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+	missing := []string{}
+	for _, instance := range config.Spec.BGPInstances {
+		for _, vrf := range instance.VRFs {
+			if vrf.ConfigRef == nil {
+				continue
+			}
+			_, exists, _ := m.vrfConfig.GetByKey(resource.Key{Name: *vrf.ConfigRef})
+			if !exists {
+				missing = append(missing, *vrf.ConfigRef)
+			}
 		}
 	}
 	slices.Sort(missing)
@@ -160,6 +211,36 @@ func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1alpha1.Isova
 	}
 	if !noMatchingNode {
 		cond.Status = meta_v1.ConditionFalse
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
+}
+
+func (m *BGPResourceMapper) updateMissingVRFsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingVRFs []string) bool {
+	cond := meta_v1.Condition{
+		Type:               v1alpha1.BGPClusterConfigConditionMissingVRFs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "MissingVRF",
+	}
+	if len(missingVRFs) != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Referenced IsovalentVRF(s) are missing: %v", missingVRFs)
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
+}
+
+func (m *BGPResourceMapper) updateMissingVRFConfigsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingVRFConfigs []string) bool {
+	cond := meta_v1.Condition{
+		Type:               v1alpha1.BGPClusterConfigConditionMissingVRFConfigs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "MissingBGPVRFConfig",
+	}
+	if len(missingVRFConfigs) != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Referenced IsovalentBGPVRFConfig(s) are missing: %v", missingVRFConfigs)
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }

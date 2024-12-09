@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -43,12 +44,15 @@ type BGPResourceMapper struct {
 	jobs      job.Group
 	signal    *signaler.BGPCPSignaler
 	clientSet client.Clientset
+	dc        *option.DaemonConfig
 
 	// BGPv2 Resources
 	clusterConfig      store.BGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig]
 	peerConfig         store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
 	advertisements     store.BGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement]
 	nodeConfigOverride store.BGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride]
+	vrf                store.BGPCPResourceStore[*v1alpha1.IsovalentVRF]
+	vrfConfig          store.BGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig]
 
 	// for BGP node config, we do not need to trigger reconciliation on changes. So,
 	// we use store.Resource instead of store.BGPCPResourceStore.
@@ -72,12 +76,15 @@ type BGPResourceManagerParams struct {
 	Config    config.Config
 	Signal    *signaler.BGPCPSignaler
 	ClientSet client.Clientset
+	DaemonCfg *option.DaemonConfig
 
 	// BGPv2 Resources
 	ClusterConfig      store.BGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig]
 	PeerConfig         store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
 	Advertisements     store.BGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement]
 	NodeConfigOverride store.BGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride]
+	VRF                store.BGPCPResourceStore[*v1alpha1.IsovalentVRF]
+	VRFConfig          store.BGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig]
 	NodeConfig         resource.Resource[*v1alpha1.IsovalentBGPNodeConfig]
 
 	// BGPv2 OSS Resources
@@ -100,11 +107,14 @@ func RegisterBGPResourceMapper(in BGPResourceManagerParams) error {
 		jobs:               in.Jobs,
 		signal:             in.Signal,
 		clientSet:          in.ClientSet,
+		dc:                 in.DaemonCfg,
 		clusterConfig:      in.ClusterConfig,
 		peerConfig:         in.PeerConfig,
 		advertisements:     in.Advertisements,
 		nodeConfigOverride: in.NodeConfigOverride,
 		ciliumNode:         in.CiliumNode,
+		vrf:                in.VRF,
+		vrfConfig:          in.VRFConfig,
 	}
 
 	in.Jobs.Add(

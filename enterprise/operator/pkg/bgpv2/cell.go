@@ -36,6 +36,8 @@ var Cell = cell.Module(
 		k8s.IsovalentBGPAdvertisementResource,
 		k8s.IsovalentBGPNodeConfigResource,
 		k8s.IsovalentBGPNodeConfigOverrideResource,
+		k8s.IsovalentVRFResource,
+		k8s.IsovalentBGPVRFConfigResource,
 	),
 
 	cell.ProvidePrivate(
@@ -45,6 +47,8 @@ var Cell = cell.Module(
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride],
+		store.NewBGPCPResourceStore[*v1alpha1.IsovalentVRF],
+		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig],
 		store.NewBGPCPResourceStore[*cilium_v2.CiliumNode],
 	),
 

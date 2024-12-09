@@ -266,6 +266,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 func TestClusterConfigConditions(t *testing.T) {
 	clusterConfigName := "cluster-config0"
 	peerConfigName := "peer-config0"
+	vrfName := "vrf0"
+	bgpVrfConfigName := "vrf0-bgp-config"
 
 	node := cilium_v2.CiliumNode{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -279,6 +281,18 @@ func TestClusterConfigConditions(t *testing.T) {
 	peerConfig := v1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: peerConfigName,
+		},
+	}
+
+	vrf := v1alpha1.IsovalentVRF{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: vrfName,
+		},
+	}
+
+	bgpVrfConfig := v1alpha1.IsovalentBGPVRFConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: bgpVrfConfigName,
 		},
 	}
 
@@ -412,6 +426,78 @@ func TestClusterConfigConditions(t *testing.T) {
 				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
 			},
 		},
+		{
+			name: "MissingVRF and MissingVRFConfig False",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							VRFs: []v1alpha1.BGPVRF{
+								{
+									VRFRef:    vrfName,
+									ConfigRef: ptr.To[string](bgpVrfConfigName),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionFalse,
+				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingVRF True, MissingVRFConfig False",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							VRFs: []v1alpha1.BGPVRF{
+								{
+									VRFRef:    "foo",
+									ConfigRef: ptr.To[string](bgpVrfConfigName),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
+				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingVRF True, MissingVRFConfig True",
+			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						{
+							VRFs: []v1alpha1.BGPVRF{
+								{
+									VRFRef:    "foo",
+									ConfigRef: ptr.To[string]("bar"),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
+				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionTrue,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -433,6 +519,8 @@ func TestClusterConfigConditions(t *testing.T) {
 			upsertNode(req, ctx, f, &node)
 			upsertIsoBGPCC(req, ctx, f, tt.clusterConfig)
 			upsertIsoBGPPC(req, ctx, f, &peerConfig)
+			upsertIsoVrf(req, ctx, f, &vrf)
+			upsertIsoBGPVrfConfig(req, ctx, f, &bgpVrfConfig)
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				// Check conditions

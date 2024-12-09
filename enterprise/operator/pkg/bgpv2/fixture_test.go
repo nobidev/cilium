@@ -49,6 +49,8 @@ type fixture struct {
 	isoAdvertClient        isovalent_client_v1alpha1.IsovalentBGPAdvertisementInterface
 	isoBGPNodeConfClient   isovalent_client_v1alpha1.IsovalentBGPNodeConfigInterface
 	isoBGPNodeConfORClient isovalent_client_v1alpha1.IsovalentBGPNodeConfigOverrideInterface
+	isoVrfClient           isovalent_client_v1alpha1.IsovalentVRFInterface
+	isoBGPVrfClient        isovalent_client_v1alpha1.IsovalentBGPVRFConfigInterface
 
 	// oss clients
 	ossClusterClient    cilium_client_v2alpha1.CiliumBGPClusterConfigInterface
@@ -79,6 +81,8 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPNodeConfigPluralName:         {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
+		v1alpha1.VRFPluralName:                            {watchCh: make(chan struct{})},
+		v1alpha1.IsovalentBGPVRFConfigPluralName:          {watchCh: make(chan struct{})},
 	}
 
 	if fc.enableBFD {
@@ -129,6 +133,8 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 	f.isoAdvertClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPAdvertisements()
 	f.isoBGPNodeConfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs()
 	f.isoBGPNodeConfORClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigOverrides()
+	f.isoVrfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentVRFs()
+	f.isoBGPVrfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPVRFConfigs()
 
 	// oss clients
 	f.ossClusterClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPClusterConfigs()
@@ -164,6 +170,7 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
 					EnableBGPControlPlane: true,
+					EnableSRv6:            true,
 					BGPSecretsNamespace:   "kube-system",
 				}
 			},

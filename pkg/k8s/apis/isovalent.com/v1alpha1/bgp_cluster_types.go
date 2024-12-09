@@ -212,6 +212,10 @@ const (
 	BGPClusterConfigConditionNoMatchingNode = "isovalent.com/NoMatchingNode"
 	// Referenced peer configs are missing
 	BGPClusterConfigConditionMissingPeerConfigs = "isovalent.com/MissingPeerConfigs"
+	// Referenced vrfs are missing
+	BGPClusterConfigConditionMissingVRFs = "isovalent.com/MissingVRFs"
+	// Referenced vrf configs are missing
+	BGPClusterConfigConditionMissingVRFConfigs = "isovalent.com/MissingBGPVRFConfigs"
 	// ClusterConfig with conflicting nodeSelector present
 	BGPClusterConfigConditionConflictingClusterConfigs = "isovalent.com/ConflictingClusterConfig"
 )

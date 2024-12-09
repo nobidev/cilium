@@ -138,3 +138,13 @@ func IsovalentSRv6LocatorPoolResource(lc cell.Lifecycle, c client.Clientset, bgp
 			c.IsovalentV1alpha1().IsovalentSRv6LocatorPools(),
 		), resource.WithMetric("IsovalentSRv6LocatorPool"))
 }
+
+func IsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, bgpConfig config.Config, c client.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentVRF] {
+	if !c.IsEnabled() || !dc.EnableSRv6 || !bgpConfig.Enabled {
+		return nil
+	}
+	return resource.New[*isovalent_api_v1alpha1.IsovalentVRF](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentVRFList](
+			c.IsovalentV1alpha1().IsovalentVRFs(),
+		), resource.WithMetric("IsovalentVRFResource"))
+}

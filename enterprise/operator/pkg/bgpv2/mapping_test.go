@@ -572,3 +572,35 @@ func upsertIsoBGPNodeConfigOR(req *require.Assertions, ctx context.Context, f *f
 	}
 	req.NoError(err)
 }
+
+func upsertIsoVrf(req *require.Assertions, ctx context.Context, f *fixture, vrf *v1alpha1.IsovalentVRF) {
+	if vrf == nil {
+		return
+	}
+
+	_, err := f.isoVrfClient.Get(ctx, vrf.Name, meta_v1.GetOptions{})
+	if err != nil && k8s_errors.IsNotFound(err) {
+		_, err = f.isoVrfClient.Create(ctx, vrf, meta_v1.CreateOptions{})
+	} else if err != nil {
+		req.Fail(err.Error())
+	} else {
+		_, err = f.isoVrfClient.Update(ctx, vrf, meta_v1.UpdateOptions{})
+	}
+	req.NoError(err)
+}
+
+func upsertIsoBGPVrfConfig(req *require.Assertions, ctx context.Context, f *fixture, vrfConfig *v1alpha1.IsovalentBGPVRFConfig) {
+	if vrfConfig == nil {
+		return
+	}
+
+	_, err := f.isoBGPVrfClient.Get(ctx, vrfConfig.Name, meta_v1.GetOptions{})
+	if err != nil && k8s_errors.IsNotFound(err) {
+		_, err = f.isoBGPVrfClient.Create(ctx, vrfConfig, meta_v1.CreateOptions{})
+	} else if err != nil {
+		req.Fail(err.Error())
+	} else {
+		_, err = f.isoBGPVrfClient.Update(ctx, vrfConfig, meta_v1.UpdateOptions{})
+	}
+	req.NoError(err)
+}
