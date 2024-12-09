@@ -8,13 +8,36 @@ on:
       - v1.[0-9]+-ce
     tags:
       - v[0-9]+.[0-9]+.[0-9]+-*
-
+  workflow_dispatch:
+    inputs:
+      build-cilium:
+        type: boolean
+        default: false
+      build-hubble-relay:
+        type: boolean
+        default: false
+      build-operator-aws:
+        type: boolean
+        default: false
+      build-operator-azure:
+        type: boolean
+        default: false
+      build-operator-alibabacloud:
+        type: boolean
+        default: false
+      build-operator-generic:
+        type: boolean
+        default: false
 
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+
+# Avoid building/pushing images for the same ref concurrently.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
 
 env:
   # renovate: datasource=golang-version depName=go
@@ -35,8 +58,8 @@ jobs:
     steps:
       - name: Sanity checks
         run: |
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "Sanity check failed, should only build on pushes"
+          if [ "${{ github.event_name }}" != "push" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Sanity check failed, should only build on pushes and workfow_dispatch"
             exit 1
           fi
 
@@ -45,12 +68,71 @@ jobs:
             exit 1
           fi
 
+  build-image-list:
+    timeout-minutes: 1
+    name: Build image list
+    runs-on: ubuntu-24.04
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+      image_names: ${{ steps.images.outputs.image_names }}
+    env:
+      BUILD_CILIUM: ${{ github.event_name == 'push' || github.event.inputs.build-cilium }}
+      BUILD_HUBBLE_RELAY: ${{ github.event_name == 'push' || github.event.inputs.build-hubble-relay }}
+      BUILD_OPERATOR_AWS: ${{ github.event_name == 'push' || github.event.inputs.build-operator-aws }}
+      BUILD_OPERATOR_AZURE: ${{ github.event_name == 'push' || github.event.inputs.build-operator-azure }}
+      BUILD_OPERATOR_ALIBABACLOUD: ${{ github.event_name == 'push' || github.event.inputs.build-operator-alibabacloud }}
+      BUILD_OPERATOR_GENERIC: ${{ github.event_name == 'push' || github.event.inputs.build-operator-generic }}
+    steps:
+      - name: Build image list
+        id: images
+        run: |
+          images=()
+          if [ "${BUILD_CILIUM}" = "true" ]; then
+            images+=('{"name": "cilium", "dockerfile": "./images/cilium/Dockerfile", "binaries": "cilium-agent"}')
+          fi
+          if [ "${BUILD_HUBBLE_RELAY}" = "true" ]; then
+            images+=('{"name": "hubble-relay", "dockerfile": "./images/hubble-relay/Dockerfile", "binaries": "hubble-relay"}')
+          fi
+          if [ "${BUILD_OPERATOR_AWS}" = "true" ]; then
+            images+=('{"name": "operator-aws", "dockerfile": "./images/operator/Dockerfile", "binaries": "cilium-operator-aws"}')
+          fi
+          if [ "${BUILD_OPERATOR_AZURE}" = "true" ]; then
+            images+=('{"name": "operator-azure", "dockerfile": "./images/operator/Dockerfile", "binaries": "cilium-operator-azure"}')
+          fi
+          if [ "${BUILD_OPERATOR_ALIBABACLOUD}" = "true" ]; then
+            images+=('{"name": "operator-alibabacloud", "dockerfile": "./images/operator/Dockerfile", "binaries": "cilium-operator-alibabacloud"}')
+          fi
+          if [ "${BUILD_OPERATOR_GENERIC}" = "true" ]; then
+            images+=('{"name": "operator-generic", "dockerfile": "./images/operator/Dockerfile", "binaries": "cilium-operator-generic"}')
+          fi
+
+          images=$(echo "${images[@]}" | jq -s -c)
+          image_names=$(echo "${images}" | jq -c '[.[].name]')
+          echo "Images:"
+          echo "${images}" | jq
+          echo "images=$images" >> $GITHUB_OUTPUT
+          echo "image_names=$image_names" >> $GITHUB_OUTPUT
+
   build-and-push:
     timeout-minutes: 45
-    name: Build and Push Images
-    environment: ${{ startsWith(github.event.ref, 'refs/tags/v') && 'release' || '' }}
+    name: Build and Push Image (${{ matrix.name }}, ${{ matrix.platform }})
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
     runs-on: ubuntu-24.04
-    needs: sanity-checks
+    needs: [sanity-checks, build-image-list]
+    if: ${{ needs.build-image-list.outputs.images != '[]' }}
+    strategy:
+      # Use matrix.include to provide a dynamically built list of image objects
+      # containing build attributes. Because of the way matrix.include works, we
+      # also need to have each image name listed in the matrix for include to
+      # correctly match. We choose not to include platform as part of the image
+      # list so that we can re-use the same outputs in the create-manifest job
+      # below, which should only execute once per image.
+      matrix:
+        name: ${{ fromJSON(needs.build-image-list.outputs.image_names) }}
+        platform:
+          - amd64
+          - arm64
+        include: ${{ fromJSON(needs.build-image-list.outputs.images) }}
     outputs:
       # The digests of the per-platform images are combined in the next job with the
       # manifest tag(s), so they need to be made available. As a result, the variables
@@ -88,47 +170,6 @@ jobs:
       image_operator_generic_arm64: ${{ steps.pass_image.outputs.operator-generic-arm64 }}
       manifest_operator_generic_primary: ${{ steps.pass_image.outputs.operator-generic-primary }}
       manifest_operator_generic_secondary: ${{ steps.pass_image.outputs.operator-generic-secondary }}
-    strategy:
-      matrix:
-        name:
-          - cilium
-          - hubble-relay
-          - operator-aws
-          - operator-azure
-          - operator-alibabacloud
-          - operator-generic
-        platform:
-          - amd64
-          - arm64
-        # This matrix must be synced with the next job's matrix.
-        include:
-            # Name of the image.
-          - name: cilium
-            # Path to the image's Dockerfile
-            dockerfile: ./images/cilium/Dockerfile
-            # Space separated list of binaries to verify
-            # usage of the correct crypto libraries.
-            binaries: "cilium-agent"
-
-          - name: hubble-relay
-            dockerfile: ./images/hubble-relay/Dockerfile
-            binaries: "hubble-relay"
-
-          - name: operator-aws
-            dockerfile: ./images/operator/Dockerfile
-            binaries: "cilium-operator-aws"
-
-          - name: operator-azure
-            dockerfile: ./images/operator/Dockerfile
-            binaries: "cilium-operator-azure"
-
-          - name: operator-alibabacloud
-            dockerfile: ./images/operator/Dockerfile
-            binaries: "cilium-operator-alibabacloud"
-
-          - name: operator-generic
-            dockerfile: ./images/operator/Dockerfile
-            binaries: "cilium-operator-generic"
 
     steps:
       - name: Checkout main branch to access local actions
@@ -160,7 +201,7 @@ jobs:
         id: tags
         run: |
           # Ensure that this logic is synced with the logic in the next job!
-          if [ "${{ startsWith(github.event.ref, 'refs/tags/v') }}" == "true" ]; then
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
             target=${{ matrix.name }}
             echo target=$target >> $GITHUB_OUTPUT
 
@@ -186,7 +227,7 @@ jobs:
             tag=${{ github.sha }}-fips
             echo tag=$tag >> $GITHUB_OUTPUT
 
-            if [ "${{ github.event.ref_name }}" == "main-ce" ]; then
+            if [ "${{ github.ref_name }}" == "main-ce" ]; then
               floating_tag="latest-fips"
             else
               ft="${{ github.ref_name }}"
@@ -219,7 +260,7 @@ jobs:
           echo "${{ steps.tags.outputs.image_tag_platform }}"
 
       - name: Login to quay.io - release
-        if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
@@ -228,7 +269,7 @@ jobs:
 
       - name: Login to quay.io - non-release
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: ${{ ! startsWith(github.event.ref, 'refs/tags/') }}
+        if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -351,23 +392,18 @@ jobs:
 
   create-manifest:
     timeout-minutes: 45
-    name: Create final manifest
-    environment: ${{ startsWith(github.event.ref, 'refs/tags/v') && 'release' || '' }}
+    name: Create final manifest ${{ matrix.name }}
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
     runs-on: ubuntu-24.04
-    needs: build-and-push
+    needs: [build-image-list, build-and-push]
+    if: ${{ needs.build-image-list.outputs.images != '[]' }}
     strategy:
       matrix:
-        # This matrix must be synced with the previous job's matrix.
-        name:
-          - cilium
-          - hubble-relay
-          - operator-aws
-          - operator-alibabacloud
-          - operator-azure
-          - operator-generic
+        name: ${{ fromJSON(needs.build-image-list.outputs.image_names) }}
+        include: ${{ fromJSON(needs.build-image-list.outputs.images) }}
     steps:
       - name: Login to quay.io - release
-        if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
@@ -376,7 +412,7 @@ jobs:
 
       - name: Login to quay.io - non-release
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: ${{ ! startsWith(github.event.ref, 'refs/tags/') }}
+        if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -485,7 +521,7 @@ jobs:
         id: tag
         run: |
           # Ensure that this logic is synced with the logic in the previous jobs!
-          if [ "${{ startsWith(github.event.ref, 'refs/tags/v') }}" == "true" ]; then
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
             tag=${GITHUB_REF##*/}-fips
             echo tag=$tag >> $GITHUB_OUTPUT
           else
