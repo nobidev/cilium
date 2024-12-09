@@ -8,7 +8,7 @@
 {{- end }}
 name: {{ include "container.rbac.name" . }}
 image: {{ include "cilium.image" .Values.hubble.rbac.image | quote }}
-imagePullPolicy: {{ .Values.hubble.rbac.pullPolicy }}
+imagePullPolicy: {{ .Values.hubble.rbac.image.pullPolicy }}
 terminationMessagePolicy: FallbackToLogsOnError
 securityContext:
   {{- toYaml .Values.hubble.rbac.securityContext | nindent 4 }}

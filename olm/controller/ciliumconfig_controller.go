@@ -82,6 +82,7 @@ type CiliumConfigReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=resourcequotas,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete;bind;escalate
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete;bind;escalate
@@ -248,6 +249,7 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Endpoints{}).
 		Owns(&corev1.ResourceQuota{}).
 		Owns(&corev1.ServiceAccount{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
 		Owns(&rbacv1.Role{}).
@@ -255,6 +257,7 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&batchv1.Job{}).
 		Owns(&batchv1.CronJob{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
+		Owns(&networkingv1.Ingress{}).
 		Owns(&networkingv1.IngressClass{})
 	d := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
 	apisMissing := []string{}
@@ -273,9 +276,8 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	} else {
 		logger.Info("Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
 		apisMissing = append(apisMissing, "Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
-
 	}
-	if _, err := d.ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1"); err == nil {
+	if _, err := d.ServerResourcesForGroupVersion("cert-manager.io/v1"); err == nil {
 		builder = builder.Owns(&certmanagerv1.Certificate{})
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error(err, "Discovery of Cert-manager resource definitions failed")
@@ -333,12 +335,22 @@ func currentState(ctx context.Context, crClient client.Client) (map[string]*unst
 		},
 		{
 			Group:   "",
+			Kind:    "EndpointsList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
 			Kind:    "ResourceQuotaList",
 			Version: "v1",
 		},
 		{
 			Group:   "",
 			Kind:    "ServiceAccountList",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Kind:    "PersistentVolumeClaimList",
 			Version: "v1",
 		},
 		{
@@ -393,10 +405,17 @@ func currentState(ctx context.Context, crClient client.Client) (map[string]*unst
 		},
 		{
 			Group:   "networking.k8s.io",
+			Kind:    "IngressList",
+			Version: "v1",
+		},
+		{
+			Group:   "networking.k8s.io",
 			Kind:    "IngressClassList",
 			Version: "v1",
 		},
 	}
+	// TODO: this does not reconcile optional APIs: Gateway API, Prometheus, cert-manager
+	// Optional APIs should be recorded in the struct and queried here depending on their availability.
 	for _, gvk := range gvks {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(schema.GroupVersionKind{

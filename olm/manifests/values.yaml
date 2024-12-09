@@ -9,6 +9,11 @@
 # This property allows to use Cilium as part of an Umbrella Chart with different targets.
 namespaceOverride: ""
 # @schema
+# type: [null, object]
+# @schema
+# -- commonLabels allows users to add common labels for all Cilium resources.
+commonLabels: {}
+# @schema
 # type: [null, string]
 # @schema
 # -- upgradeCompatibility helps users upgrading to ensure that the configMap for
@@ -42,6 +47,8 @@ rbac:
 imagePullSecrets: []
 # - name: "image-pull-secret"
 
+# -- Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
+iptablesRandomFully: false
 # -- (string) Kubernetes config path
 # @default -- `"~/.kube/config"`
 kubeConfigPath: ""
@@ -167,6 +174,11 @@ serviceAccounts:
   hubblecertgen:
     create: true
     name: hubble-generate-certs
+    automount: true
+    annotations: {}
+  hubbleK8sExporter:
+    create: true
+    name: hubble-k8s-exporter
     automount: true
     annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
@@ -435,16 +447,6 @@ l2podAnnouncements:
   enabled: false
   # -- Interface used for sending Gratuitous ARP pod announcements
   interface: "eth0"
-# -- Configure BGP
-bgp:
-  # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
-  # cilium-agent and cilium-operator
-  enabled: false
-  announce:
-    # -- Enable allocation and announcement of service LoadBalancer IPs
-    loadbalancerIP: false
-    # -- Enable announcement of node pod CIDR
-    podCIDR: false
 # -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:
@@ -456,6 +458,12 @@ bgpControlPlane:
     create: false
     # -- The name of the secret namespace to which Cilium agents are given read access
     name: kube-system
+  # -- Status reporting settings (BGPv2 only)
+  statusReport:
+    # -- Enable/Disable BGPv2 status reporting
+    # It is recommended to enable status reporting in general, but if you have any issue
+    # such as high API server load, you can disable it by setting this to false.
+    enabled: true
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -570,8 +578,23 @@ bpf:
   # -- Configure which TCP flags trigger notifications when seen for the
   # first time in a connection.
   monitorFlags: "all"
-  # -- Allow cluster external access to ClusterIP services.
+  # -- (bool) Allow cluster external access to ClusterIP services.
+  # @default -- `false`
   lbExternalClusterIP: false
+  # -- (bool) Enable loadBalancerSourceRanges CIDR filtering for all service
+  # types, not just LoadBalancer services. The corresponding NodePort and
+  # ClusterIP (if enabled for cluster-external traffic) will also apply the
+  # CIDR filter.
+  # @default -- `false`
+  lbSourceRangeAllTypes: false
+  # -- (bool) Enable the option to define the load balancing algorithm on
+  # a per-service basis through service.cilium.io/lb-algorithm annotation.
+  # @default -- `false`
+  lbAlgorithmAnnotation: false
+  # -- (bool) Enable the option to define the load balancing mode (SNAT or DSR)
+  # on a per-service basis through service.cilium.io/forwarding-mode annotation.
+  # @default -- `false`
+  lbModeAnnotation: false
   # @schema
   # type: [null, boolean]
   # @schema
@@ -590,7 +613,7 @@ bpf:
   # @schema
   # type: [null, boolean]
   # @schema
-  # -- (bool) Configure the eBPF-based TPROXY to reduce reliance on iptables rules
+  # -- (bool) Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules
   # for implementing Layer 7 policy.
   # @default -- `false`
   tproxy: ~
@@ -747,6 +770,14 @@ daemon:
   #
   # By default, all keys may be overridden.
   blockedConfigOverrides: ~
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- enableSourceIPVerification is a boolean flag to enable or disable the Source IP verification
+  # of endpoints. This flag is useful when Cilium is chained with other CNIs.
+  #
+  # By default, this functionality is enabled
+  enableSourceIPVerification: true
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
 # masqueraded (to an output device IPv4 address), if the output device runs the
@@ -1052,6 +1083,8 @@ gke:
 healthChecking: true
 # -- TCP port for the agent health API. This is not the port for cilium-health.
 healthPort: 9879
+# -- Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
+healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
@@ -1067,11 +1100,15 @@ socketLB:
   # hostNamespaceOnly: false
   # -- Enable terminating pod connections to deleted service backends.
   # terminatePodConnections: true
+  # -- Enables tracing for socket-based load balancing.
+  # tracing: true
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to
 # (re)generate any certificates not provided manually.
 certgen:
+  # -- When set to true the certificate authority secret is created.
+  generateCA: true
   image:
     # @schema
     # type: [null, string]
@@ -1090,6 +1127,12 @@ certgen:
   annotations:
     job: {}
     cronJob: {}
+  # -- Node selector for certgen
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+  nodeSelector: {}
+  # -- Priority class for certgen
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+  priorityClassName: ""
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []
@@ -1215,6 +1258,21 @@ hubble:
       namespace: ~
       labelValue: "1"
       annotations: {}
+    # Dynamic metrics  may be reconfigured without a need of agent restarts.
+    dynamic:
+      enabled: false
+      config:
+        # ---- Name of configmap with configuration that may be altered to reconfigure metric handlers within a running agent.
+        configMapName: cilium-dynamic-metrics-config
+        # ---- True if helm installer should create config map.
+        # Switch to false if you want to self maintain the file content.
+        createConfigMap: true
+        # ---- Exporters configuration in YAML format.
+        content:
+          - name: all
+            contextOptions: []
+            includeFilters: []
+            excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables redacting sensitive information present in Layer 7 flows.
@@ -1336,7 +1394,10 @@ hubble:
       # - certmanager:  This method use cert-manager to generate & rotate certificates.
       method: helm
       # -- Generated certificates validity duration in days.
-      certValidityDuration: 1095
+      #
+      # Defaults to 365 days (1 year) because MacOS does not accept
+      # self-signed certificates with expirations > 825 days.
+      certValidityDuration: 365
       # -- Schedule for certificates regeneration (regardless of their expiration date).
       # Only used if method is "cronJob". If nil, then no recurring job will be created.
       # Instead, only the one-shot job is deployed to generate the certificates at
@@ -1519,6 +1580,8 @@ hubble:
     # type: [null, string]
     # @schema
     # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+    #
+    # This option has been deprecated and is a no-op.
     dialTimeout: ~
     # @schema
     # type: [null, string]
@@ -1827,6 +1890,134 @@ hubble:
     reasons:
       - auth_required
       - policy_denied
+  # -- Enables experimental support for using integrated Hubble Timescape.
+  timescape:
+    enabled: false
+    persistence:
+      enabled: false
+      volumeSize: 10Gi
+      # @schema
+      # type: [null, string]
+      # @schema
+      storageClassName: ~
+    ttl: 24h
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: quay.io/isovalent/hubble-timescape
+      tag: v1.5.1
+      digest: ""
+      useDigest: false
+      pullPolicy: "Always"
+    clickhouse:
+      image:
+        # @schema
+        # type: [null, string]
+        # @schema
+        override: ~
+        repository: docker.io/clickhouse/clickhouse-server
+        tag: 24.8.4.13-alpine
+        digest: "sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c"
+        useDigest: true
+        pullPolicy: "Always"
+    priorityClassName: null
+    podSecurityContext:
+      fsGroup: 65532
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      capabilities:
+        drop:
+          - ALL
+    tls:
+      # Enable hubble timescape server TLS. Defaults to true if hubble.tls.enabled is true.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      enabled: ~
+      # Configure hubble timescape server TLS.
+      server:
+        # -- Name of the Secret containing the certificate and key for the Hubble Timescape server.
+        # If specified, the certificate and key need to be managed separately
+        # and no certificate or key will be generated by the chart.
+        existingSecret: ""
+        # -- Extra DNS names added to certificate when it's auto generated
+        extraDnsNames: []
+        # -- Extra IP addresses added to certificate when it's auto generated
+        extraIpAddresses: []
+      # Configure hubble timescape client TLS for the PushAPI
+      client:
+        # -- Name of the Secret containing the certificate and key for the Timescape PushAPI client.
+        # If specified, the certificate and key need to be managed separately
+        # and no certificate or key will be generated by the chart.
+        existingSecret: ""
+    vector:
+      image:
+        # @schema
+        # type: [null, string]
+        # @schema
+        override: ~
+        repository: timberio/vector
+        tag: 0.43.0-distroless-libc
+        digest: ""
+        useDigest: false
+        pullPolicy: "Always"
+      resources: {}
+  # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
+  # The exporter is enabled by default when using integrated Hubble Timescape
+  k8sExporter:
+    # @schema
+    # type: [null, string]
+    # @schema
+    enabled: ~
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: quay.io/isovalent/hubble-k8s-exporter
+      tag: "v1.5.1"
+      digest: ""
+      useDigest: false
+      pullPolicy: "Always"
+    # -- Specifies the resources for the hubble-k8s-exporter pods
+    resources: {}
+    # -- Affinity for hubble-k8s-exporter
+    affinity: {}
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    nodeSelector:
+      kubernetes.io/os: linux
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    tolerations: []
+    # -- Annotations to be added to hubble-k8s-exporter pods
+    podAnnotations: {}
+    podSecurityContext:
+      fsGroup: 65532
+    # -- hubble-k8s-exporter container security context
+    securityContext:
+      # readOnlyRootFilesystem: true
+      runAsUser: 0
+      capabilities:
+        drop:
+          - ALL
+    export:
+      # Absolute path of the export file location
+      filePath: "/var/run/cilium/hubble/k8s-events.log"
+      # Compress rotated files
+      fileCompression: true
+      # Interval at which to rotate JSON export files in addition to rotating them by size
+      fileRotationInterval: 0s
+      # Maximum size of the file in megabytes
+      maxFileSize: 50
+      # Number of rotated files to keep
+      maxFileBackups: 3
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:
@@ -1838,7 +2029,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.6.0
+      tag: v1.6.1
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -1918,6 +2109,8 @@ ipam:
   mode: "cluster-pool"
   # -- Maximum rate at which the CiliumNode custom resource is updated.
   ciliumNodeUpdateRate: "15s"
+  # -- Pre-allocation settings for IPAM in Multi-Pool mode
+  multiPoolPreAllocation: ""
   operator:
     # @schema
     # type: [array, string]
@@ -2129,7 +2322,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid, annotation
+  # e.g. snat, dsr, hybrid
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP
@@ -2146,7 +2339,7 @@ loadBalancer:
   # endpoints filtering
   # serviceTopology: false
 
-  # -- experimental enables support for the experimental load-balancing 
+  # -- experimental enables support for the experimental load-balancing
   # control-plane.
   experimental: false
   # -- L7 LoadBalancer
@@ -2218,6 +2411,7 @@ pprof:
   port: 6060
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
+  metricsService: false
   enabled: false
   port: 9962
   serviceMonitor:
@@ -2290,8 +2484,24 @@ envoy:
   # Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
   baseID: 0
   log:
-    # -- The format string to use for laying out the log message metadata of Envoy.
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- The format string to use for laying out the log message metadata of Envoy. If specified, Envoy will use text format output.
+    # This setting is mutually exclusive with envoy.log.format_json.
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- The JSON logging format to use for Envoy. This setting is mutually exclusive with envoy.log.format.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/bootstrap/v3/bootstrap.proto#envoy-v3-api-field-config-bootstrap-v3-bootstrap-applicationlogconfig-logformat-json-format
+    format_json: null
+    # date: "%Y-%m-%dT%T.%e"
+    # thread_id: "%t"
+    # source_line: "%s:%#"
+    # level: "%l"
+    # logger: "%n"
+    # message: "%j"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
     # @schema
@@ -2306,6 +2516,8 @@ envoy:
     defaultLevel: ~
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
+  # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
+  initialFetchTimeoutSeconds: 30
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2324,9 +2536,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.30.6-1728346971-e2dfcc576d5152c967479115e0e0a3905be766bb"
+    tag: "v1.31.3-1733209796-c52558e2b9517b51ad5cf71f5cd0965c81cf08e8"
     pullPolicy: "Always"
-    digest: "sha256:8ce0d0514a70a4d9141d946491c9bfe5fd479c1992ab6ef06f9af99ab938d1d9"
+    digest: "sha256:3865d1b9d8d7ef0446a86b9f1235d075e89ddc7618e6499fe60c83d83b9ebd58"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2553,6 +2765,17 @@ tls:
   #   - local
   #   - k8s
   secretsBackend: local
+  # -- Configures settings for synchronization of TLS Interception Secrets
+  secretSync:
+    # -- Enable synchronization of Secrets for TLS Interception. If disabled and
+    # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+    enabled: true
+    # -- This configures secret synchronization for secrets used in CiliumNetworkPolicies
+    secretsNamespace:
+      # -- Create secrets namespace for TLS Interception secrets.
+      create: true
+      # -- Name of TLS Interception secret namespace.
+      name: cilium-secrets
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
   # It is neither required nor used when cert-manager is used to generate the certificates.
@@ -2605,7 +2828,6 @@ routingMode: ""
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
 # -- Configure what the response should be to traffic for a service without backends.
-# "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop".
 # Possible values:
 #  - reject (default)
 #  - drop
@@ -2772,6 +2994,7 @@ operator:
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
   prometheus:
+    metricsService: false
     enabled: true
     port: 9963
     serviceMonitor:
@@ -3538,7 +3761,7 @@ sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
 # -- Enable Non-Default-Deny policies
-enableNonDefaultDenyPolicies: true
+enableNonDefaultDenyPolicies: false
 # Configuration for types of authentication for Cilium (beta)
 authentication:
   # -- Enable authentication processing and garbage collection.
@@ -3582,11 +3805,13 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:768e5c6f5cb6db0794eec98dc7a967f40631746c32232b78a3105fb946f3ab83"
+          digest: "sha256:db142d433cdde11f10ae479dbf92f3b13d693fd1c91053da9979728cceb1dc68"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration
         agent:
+          # -- The priority class to use for the spire agent
+          priorityClassName: ""
           # -- SPIRE agent image
           image:
             # @schema
@@ -3640,6 +3865,8 @@ authentication:
           # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
           securityContext: {}
         server:
+          # -- The priority class to use for the spire server
+          priorityClassName: ""
           # -- SPIRE server image
           image:
             # @schema
@@ -3735,18 +3962,13 @@ enableInternalTrafficPolicy: true
 enableLBIPAM: true
 # Enterprise-only settings
 enterprise:
-  # featureGates is a list of feature IDs that are allowed to be enabled.
-  # Enabling a feature without adding it to this list will cause the agent or
-  # operator to fail to start.
-  # Note: This list is not used to enable features, but to allow features to be
-  # enabled via their respective configuration options.
-  #
-  # To allow all Alpha, Beta and Limited features you can pass AllowAlphaFeatures,
-  # AllowBetaFeatures and AllowLimitedFeatures respectively.
-  #
-  # Example usage: featureGates: [AllBetaFeatures, DatapathModeIPDualStack]
-  # would allow all beta features and the DatapathModeIPDualStack feature.
-  featureGates: []
+  featureGate:
+    # -- List of features that are approved.
+    approved: []
+    # -- Enable strict feature gate validation. Will cause agent and/or operator to
+    # not start if non-approved features are enabled.
+    # In non-strict mode failure will be logged as a warning.
+    strict: false
   clustermesh:
     # -- Enable overlapping PodCIDR support
     enableOverlappingPodCIDRSupport: false
@@ -3761,7 +3983,7 @@ enterprise:
       enabled: false
     phantomServices:
       # -- Enable Phantom Services support
-      enabled: true
+      enabled: false
   # -- Enables egress gateway HA
   egressGatewayHA:
     enabled: false
@@ -3812,3 +4034,14 @@ enterprise:
     policy:
       # -- Enables support for encryption policies
       enabled: false
+      # -- Defines the behavior for traffic which is not selected by an encryption policy.
+      # Currently the only supported value is "plaintext", which also needs to be explicitly
+      # provided for forward-compatibility with future Cilium versions (as future versions
+      # might implement a different default fallback behavior).
+      # @schema
+      # type: [null, string]
+      # @schema
+      fallbackBehavior: ~
+  loadbalancer:
+    # -- Enables Loadbalancer mode (Control Plane)
+    enabled: false

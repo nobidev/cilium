@@ -1,6 +1,7 @@
 {{/*
 Enterprise-only cilium-config entries
 */}}
+
 {{- define "enterprise.cilium-config" }}
 
 # Configuration options to enable overlapping PodCIDR support for clustermesh
@@ -17,6 +18,8 @@ srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | defau
 enable-enterprise-bgp-control-plane: "true"
 enable-bgp-control-plane: "true"
 bgp-secrets-namespace: {{ .Values.enterprise.bgpControlPlane.secretsNamespace.name | quote }}
+# enable-bgp-control-plane-status-report should be set to "false" after we sync the https://github.com/cilium/cilium/pull/36245 to main-ce.
+enable-bgp-control-plane-status-report: "true"
 # Service health-checking integration in BGP control plane
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
 {{- end }}
@@ -49,8 +52,12 @@ egress-gateway-ha-healthcheck-timeout: {{ .Values.egressGateway.healthcheckTimeo
 fallback-routing-mode: tunnel
 {{- end }}
 
-# Allows Cilium to enable features marked as alpha.
-feature-gates: {{ .Values.enterprise.featureGates | join "," | quote }}
+
+feature-gates-approved: {{ .Values.enterprise.featureGate.approved | join "," | quote }}
+feature-gates-strict: {{ .Values.enterprise.featureGate.strict | quote }}
+{{- with .Values.enterprise.featureGate.minimumMaturity }}
+feature-gates-minimum-maturity: {{ . | quote }}
+{{- end }}
 
 {{- if .Values.enterprise.multiNetwork.enabled }}
 # Multi-network support
@@ -66,7 +73,11 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
     # If user did not provide any extraConfig or didn't provide export-file-path, use the default value
     {{- $defaultExportFilePath := "/var/run/cilium/hubble/hubble.log"}}
-    {{- if semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility)}}
+    {{- if
+      and
+      (semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility))
+      (not .Values.hubble.timescape.enabled)
+    }}
         {{- $defaultExportFilePath = "" }}
     {{- end }}
 export-file-path: {{ $defaultExportFilePath | quote }}
@@ -76,6 +87,13 @@ enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabl
 
 {{- if .Values.enterprise.encryption.policy.enabled }}
 enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quote }}
+{{- end }}
+
+{{- if .Values.enterprise.loadbalancer.enabled }}
+loadbalancer-cp-enabled: "true"
+loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+loadbalancer-metrics-enabled: "true"
+enable-active-lb-health-checking: "true"
 {{- end }}
 
 {{- end }}

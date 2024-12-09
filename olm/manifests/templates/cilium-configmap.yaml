@@ -90,6 +90,10 @@ kind: ConfigMap
 metadata:
   name: cilium-config
   namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
 {{- include "enterprise.cilium-config" . | indent 2 }}
 
@@ -285,6 +289,11 @@ data:
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
+{{- if and (eq "k8s" .Values.tls.secretsBackend) .Values.tls.secretSync.enabled }}
+  enable-policy-secrets-sync: "true"
+  policy-secrets-namespace: {{ .Values.tls.secretSync.secretsNamespace.name | quote}}
+{{- end }}
+
 {{- if hasKey .Values "loadBalancer" }}
 {{- if eq .Values.loadBalancer.l7.backend "envoy" }}
   loadbalancer-l7: "envoy"
@@ -438,6 +447,15 @@ data:
 {{- if hasKey .Values.bpf "lbExternalClusterIP" }}
   bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
 {{- end }}
+{{- if hasKey .Values.bpf "lbSourceRangeAllTypes" }}
+  bpf-lb-source-range-all-types: {{ .Values.bpf.lbSourceRangeAllTypes | quote }}
+{{- end }}
+{{- if hasKey .Values.bpf "lbAlgorithmAnnotation" }}
+  bpf-lb-algorithm-annotation: {{ .Values.bpf.lbAlgorithmAnnotation | quote }}
+{{- end }}
+{{- if hasKey .Values.bpf "lbModeAnnotation" }}
+  bpf-lb-mode-annotation: {{ .Values.bpf.lbModeAnnotation | quote }}
+{{- end }}
 
   bpf-events-drop-enabled: {{ .Values.bpf.events.drop.enabled | quote }}
   bpf-events-policy-verdict-enabled: {{ .Values.bpf.events.policyVerdict.enabled | quote }}
@@ -478,25 +496,15 @@ data:
   {{- if ne (.Values.routingMode | default "native") "native" }}
     {{- fail (printf "RoutingMode must be set to native when gke.enabled=true" )}}
   {{- end }}
-  routing-mode: "native"
   enable-endpoint-routes: "true"
 {{- else if .Values.aksbyocni.enabled }}
   {{- if ne (.Values.routingMode | default "tunnel") "tunnel" }}
     {{- fail (printf "RoutingMode must be set to tunnel when aksbyocni.enabled=true" )}}
   {{- end }}
-  routing-mode: "tunnel"
-  tunnel-protocol: "vxlan"
-{{- else if .Values.routingMode }}
-  routing-mode: {{ .Values.routingMode | quote }}
-{{- else }}
-  # Default case
-  routing-mode: "tunnel"
-  tunnel-protocol: "vxlan"
 {{- end }}
 
-{{- if .Values.tunnelProtocol }}
-  tunnel-protocol: {{ .Values.tunnelProtocol | quote }}
-{{- end }}
+  routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" .Values.gke.enabled) | quote }}
+  tunnel-protocol: {{ .Values.tunnelProtocol | default "vxlan" | quote }}
 
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
@@ -726,13 +734,17 @@ data:
 {{- if $socketLB }}
 {{- if hasKey $socketLB "enabled" }}
   bpf-lb-sock: {{ $socketLB.enabled | quote }}
-  bpf-lb-sock-terminate-pod-connections: {{ $socketLB.enabled | quote }}
 {{- end }}
 {{- if hasKey $socketLB "hostNamespaceOnly" }}
   bpf-lb-sock-hostns-only: {{ $socketLB.hostNamespaceOnly | quote }}
 {{- end }}
 {{- if hasKey $socketLB "terminatePodConnections" }}
   bpf-lb-sock-terminate-pod-connections: {{ $socketLB.terminatePodConnections | quote }}
+{{- else if hasKey $socketLB "enabled" }}
+  bpf-lb-sock-terminate-pod-connections: {{ $socketLB.enabled | quote }}
+{{- end }}
+{{- if hasKey $socketLB "tracing" }}
+  trace-sock: {{ $socketLB.tracing | quote }}
 {{- end }}
 {{- end }}
 
@@ -887,6 +899,9 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
+{{- if .Values.healthCheckICMPFailureThreshold }}
+  health-check-icmp-failure-threshold: {{ .Values.healthCheckICMPFailureThreshold | quote }}
+{{- end }}
 {{- if .Values.wellKnownIdentities.enabled }}
   enable-well-known-identities: "true"
 {{- else }}
@@ -983,6 +998,10 @@ data:
   hubble-flowlogs-config-path: /flowlog-config/flowlogs.yaml
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.metrics.dynamic.enabled }}
+  hubble-dynamic-metrics-config-path: /dynamic-metrics-config/dynamic-metrics.yaml
+  hubble-metrics-server: ":{{ .Values.hubble.metrics.port }}"
+{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}
@@ -1015,6 +1034,9 @@ data:
   ipam: "cluster-pool"
 {{- else }}
   ipam: {{ $ipam | quote }}
+{{- end }}
+{{- if hasKey .Values.ipam "multiPoolPreAllocation" }}
+  ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation }}
 {{- end }}
 
 {{- if .Values.ipam.ciliumNodeUpdateRate }}
@@ -1136,21 +1158,10 @@ data:
   l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
 {{- end }}
 
-{{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
-  {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
-{{- end }}
-
-{{- if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
-  bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
-{{- end }}
-
-{{- if and .Values.bgp.enabled .Values.bgp.announce.podCIDR }}
-  bgp-announce-pod-cidr: {{ .Values.bgp.announce.podCIDR | quote }}
-{{- end}}
-
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
+  enable-bgp-control-plane-status-report: {{ .Values.bgpControlPlane.statusReport.enabled | quote }}
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}
@@ -1308,6 +1319,7 @@ data:
   proxy-xff-num-trusted-hops-ingress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyIngress | quote }}
   proxy-xff-num-trusted-hops-egress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyEgress | quote }}
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
+  proxy-initial-fetch-timeout: {{ .Values.envoy.initialFetchTimeoutSeconds | quote }}
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
@@ -1335,6 +1347,10 @@ data:
   enable-internal-traffic-policy: {{ .Values.enableInternalTrafficPolicy | quote }}
   enable-lb-ipam: {{ .Values.enableLBIPAM | quote }}
   enable-non-default-deny-policies: {{ .Values.enableNonDefaultDenyPolicies | quote }}
+
+{{- if hasKey .Values.daemon "enableSourceIPVerification" }}
+  enable-source-ip-verification: {{ .Values.daemon.enableSourceIPVerification | quote }}
+{{- end }}
 
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.

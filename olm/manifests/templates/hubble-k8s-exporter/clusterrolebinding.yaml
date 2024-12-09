@@ -1,0 +1,24 @@
+{{- if and
+  .Values.hubble.enabled 
+  ( .Values.hubble.k8sExporter.enabled | default .Values.hubble.timescape.enabled )
+  .Values.serviceAccounts.hubbleK8sExporter.create
+  .Values.rbac.create
+}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hubble-k8s-exporter
+  labels:
+    {{- include "hubble.k8s-exporter.labels" . | nindent 4 }}
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hubble-k8s-exporter
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.hubbleK8sExporter.name }}
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}
