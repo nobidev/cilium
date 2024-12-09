@@ -50,9 +50,10 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(store.MetricsProvider()),
 
-		Logger:        logrus.New(),
-		Metrics:       clustermesh.NewMetrics(),
-		CommonMetrics: cmcommon.MetricsProvider("foo")(),
+		Logger:         logrus.New(),
+		Metrics:        clustermesh.NewMetrics(),
+		CommonMetrics:  cmcommon.MetricsProvider("foo")(),
+		FeatureMetrics: NewClusterMeshMetricsNoop(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 
@@ -128,9 +129,10 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(store.MetricsProvider()),
 
-		Logger:        logrus.New(),
-		Metrics:       clustermesh.NewMetrics(),
-		CommonMetrics: cmcommon.MetricsProvider("foo")(),
+		Logger:         logrus.New(),
+		Metrics:        clustermesh.NewMetrics(),
+		CommonMetrics:  cmcommon.MetricsProvider("foo")(),
+		FeatureMetrics: NewClusterMeshMetricsNoop(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 
@@ -177,4 +179,16 @@ func TestClusterIDManagerReserved(t *testing.T) {
 	require.Error(t, mgr.ReserveClusterID(cinfo.ID), "Reserving the local ClusterID should fail")
 	require.False(t, maps.CT().Has(cinfo.ID), "CT maps should not be created for the local ClusterID")
 	require.False(t, maps.NAT().Has(cinfo.ID), "CT maps should not be created for the local ClusterID")
+}
+
+type clusterMeshMetricsNoop struct{}
+
+func (m clusterMeshMetricsNoop) AddClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func (m clusterMeshMetricsNoop) DelClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func NewClusterMeshMetricsNoop() clustermesh.ClusterMeshMetrics {
+	return &clusterMeshMetricsNoop{}
 }

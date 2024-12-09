@@ -95,6 +95,8 @@ const (
 	ConnectRetry      = 3
 	ConnectRetryDelay = 3 * time.Second
 
+	CurlParallel = 0
+
 	ConnectTimeout = 2 * time.Second
 	RequestTimeout = 10 * time.Second
 
@@ -118,10 +120,6 @@ const (
 )
 
 var (
-	// Version is the default Cilium version to be installed. It is set during build based on
-	// the version in stable.txt.
-	Version string
-
 	// HelmRepository specifies Helm repository to download Cilium charts from.
 	HelmRepoIDLen    = 4
 	HelmRepository   = "https://helm.cilium.io"

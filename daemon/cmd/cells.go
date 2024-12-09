@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
@@ -67,6 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -195,6 +197,9 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
+		// Maglev table computtations
+		maglev.Cell,
+
 		// Experimental control-plane for configuring service load-balancing.
 		loadbalancer_experimental.Cell,
 
@@ -306,6 +311,9 @@ var (
 		// configuration to describe, in form of prometheus metrics, which
 		// features are enabled on the agent.
 		features.Cell,
+
+		// Determines priorities of data sources.
+		source.Cell,
 	)
 )
 

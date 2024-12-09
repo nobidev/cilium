@@ -139,12 +139,11 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
             tunnel: 'disabled'
             ipFamily: 'dual'
             encryption: 'ipsec'
-            kube-proxy: 'iptables'
+            kube-proxy: 'none'
             mode: 'kvstoremesh'
             tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
@@ -166,7 +165,6 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
             tunnel: 'disabled'
             ipFamily: 'dual'
@@ -201,7 +199,6 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
             tunnel: 'vxlan'
             ipFamily: 'dual'
@@ -389,7 +386,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
+        uses: cilium/cilium-cli@0d4e1f9275194d6bfcd35bc30f2b3971cbbdc78b # v0.16.21
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

@@ -95,6 +95,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Installation and Migration Test
     timeout-minutes: 30
+    env:
+      job_name: "Installation and Migration Test"
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -141,7 +143,7 @@ jobs:
           misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
+        uses: cilium/cilium-cli@0d4e1f9275194d6bfcd35bc30f2b3971cbbdc78b # v0.16.21
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

@@ -31,6 +31,7 @@ type PerfParameters struct {
 	RR          bool
 	UDP         bool
 	Image       string
+	NetQos      bool
 }
 
 type Parameters struct {
@@ -113,6 +114,7 @@ type Parameters struct {
 	ConnectTimeout time.Duration
 	RequestTimeout time.Duration
 	CurlInsecure   bool
+	CurlParallel   uint
 
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options

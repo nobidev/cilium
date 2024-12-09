@@ -29,12 +29,12 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cilium/charts v0.0.0-20241120095330-9c4cd49dd9e6 // indirect
+	github.com/cilium/charts v0.0.0-20241127112225-7cea2b4f120f // indirect
 	github.com/cilium/ebpf v0.16.1-0.20241119131019-e2607b570f29 // indirect
-	github.com/cilium/hive v0.0.0-20241122120553-e90d0875ae01 // indirect
+	github.com/cilium/hive v0.0.0-20241129122706-af5052cfd6d4 // indirect
 	github.com/cilium/proxy v0.0.0-20241115112946-fb67566cbd95 // indirect
-	github.com/cilium/statedb v0.3.3 // indirect
-	github.com/cilium/stream v0.0.0-20240816054136-71321e385273 // indirect
+	github.com/cilium/statedb v0.3.4 // indirect
+	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744 // indirect
 	github.com/cilium/workerpool v1.2.0 // indirect
 	github.com/cloudflare/cfssl v1.6.5 // indirect
 	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
@@ -77,7 +77,7 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
@@ -196,13 +196,13 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.16.3 // indirect
-	k8s.io/api v0.32.0-rc.0 // indirect
-	k8s.io/apiextensions-apiserver v0.32.0-rc.0 // indirect
-	k8s.io/apimachinery v0.32.0-rc.0 // indirect
-	k8s.io/apiserver v0.32.0-rc.0 // indirect
-	k8s.io/cli-runtime v0.32.0-rc.0 // indirect
-	k8s.io/client-go v0.32.0-rc.0 // indirect
-	k8s.io/component-base v0.32.0-rc.0 // indirect
+	k8s.io/api v0.32.0-rc.2 // indirect
+	k8s.io/apiextensions-apiserver v0.32.0-rc.2 // indirect
+	k8s.io/apimachinery v0.32.0-rc.2 // indirect
+	k8s.io/apiserver v0.32.0-rc.2 // indirect
+	k8s.io/cli-runtime v0.32.0-rc.2 // indirect
+	k8s.io/client-go v0.32.0-rc.2 // indirect
+	k8s.io/component-base v0.32.0-rc.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/kubectl v0.31.3 // indirect

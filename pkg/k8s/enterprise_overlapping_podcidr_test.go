@@ -48,7 +48,7 @@ func TestMergeExternalServiceUpdateClusterAware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svcMerger := NewCEServiceMerger(NewServiceCache(nil, nil), tt.cmcfg)
+			svcMerger := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), tt.cmcfg)
 
 			k8sSvc := slim_corev1.Service{
 				ObjectMeta: slim_metav1.ObjectMeta{

@@ -1037,6 +1037,8 @@ endpointRoutes:
 k8sNetworkPolicy:
   # -- Enable support for K8s NetworkPolicy
   enabled: true
+# -- Enable endpoint lockdown on policy map overflow.
+endpointLockdownOnMapOverflow: false
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
@@ -1914,6 +1916,8 @@ ipam:
   ciliumNodeUpdateRate: "15s"
   # -- Pre-allocation settings for IPAM in Multi-Pool mode
   multiPoolPreAllocation: ""
+  # -- Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
+  installUplinkRoutesForDelegatedIPAM: false
   operator:
     # @schema
     # type: [array, string]
@@ -2325,6 +2329,10 @@ envoy:
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
   initialFetchTimeoutSeconds: 30
+  # -- Maximum number of concurrent retries on Envoy clusters
+  maxConcurrentRetries: 128
+  # -- Maximum number of retries for each HTTP request
+  httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -3554,7 +3562,7 @@ dnsProxy:
   # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
   enableDnsCompression: true
   # -- Maximum number of IPs to maintain per FQDN name for each endpoint.
-  endpointMaxIpPerHostname: 50
+  endpointMaxIpPerHostname: 1000
   # -- Time during which idle but previously active connections with expired DNS lookups are still considered alive.
   idleConnectionGracePeriod: 0s
   # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.

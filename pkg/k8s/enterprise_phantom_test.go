@@ -77,7 +77,7 @@ func TestPhantomServiceMutator(t *testing.T) {
 }
 
 func TestPhantomServiceUpdate(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil), cmcfg.Config{
+	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
@@ -132,7 +132,7 @@ func TestPhantomServiceUpdate(t *testing.T) {
 }
 
 func TestPhantomServiceDelete(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil), cmcfg.Config{
+	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
@@ -179,7 +179,7 @@ func TestPhantomServiceDelete(t *testing.T) {
 }
 
 func TestPhantomServiceDisabled(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil), cmcfg.Config{
+	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        false,
@@ -222,7 +222,7 @@ func TestPhantomServiceDisabled(t *testing.T) {
 }
 
 func TestGlobalToPhantomToGlobalService(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil), cmcfg.Config{
+	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
