@@ -59,7 +59,7 @@ spec:
         #   type: RuntimeDefault
       containers:
       - command:
-        - /manager
+        - /clife-manager
         args:
         - --leader-elect
         env:

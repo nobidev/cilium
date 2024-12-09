@@ -64,6 +64,7 @@ type CiliumConfigReconciler struct {
 	Chart             *helmchart.Chart
 	Namespace         string
 	StartingCondition metav1.Condition
+	HelmClientGetter  *helm.RESTClientGetter
 }
 
 // TODO: Double check that the controller has all the necessary rights and ownership
@@ -173,7 +174,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Generate the desired state
-	desired, err := helm.Generate(r.Chart, hv, ccfg, r.Namespace, logger)
+	desired, err := helm.Generate(r.HelmClientGetter, r.Chart, hv, ccfg, r.Namespace, logger)
 	if err != nil {
 		conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
 			Type:               ciliumiov1alpha1.ProcessingErrorCondition,

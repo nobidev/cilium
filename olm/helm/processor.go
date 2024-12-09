@@ -24,12 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 
 	helmaction "helm.sh/helm/v3/pkg/action"
 	helmchart "helm.sh/helm/v3/pkg/chart"
 	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
-	helmcli "helm.sh/helm/v3/pkg/cli"
 	helmkube "helm.sh/helm/v3/pkg/kube"
 
 	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
@@ -41,10 +41,9 @@ const (
 
 // Generate creates the required helm action and makes a dry run of it.
 // It then converts the produced manifests into a slice of unstructured.Unstructured references.
-func Generate(chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliumiov1alpha1.CiliumConfig, ns string, logger logr.Logger) ([]*unstructured.Unstructured, error) {
-	settings := helmcli.New()
+func Generate(helmClientGetter genericclioptions.RESTClientGetter, chart *helmchart.Chart, values map[string]interface{}, ccfg *ciliumiov1alpha1.CiliumConfig, ns string, logger logr.Logger) ([]*unstructured.Unstructured, error) {
 	actionConfig := new(helmaction.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), ns, "", func(msg string, v ...interface{}) {
+	if err := actionConfig.Init(helmClientGetter, ns, "", func(msg string, v ...interface{}) {
 		logger.V(4).Info(msg, "values", v)
 	}); err != nil {
 		return nil, err
