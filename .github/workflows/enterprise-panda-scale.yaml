@@ -136,6 +136,7 @@ jobs:
             --helm-set=envoy.enabled=true \
             --helm-set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
             --helm-set-string=extraConfig.external-dns-proxy=true \
+            --helm-set-string=extraConfig.kvstore-pod-network-support=false \
             --helm-set=localRedirectPolicy=true \
             --helm-set=dnsProxy.proxyResponseMaxDelay=250ms \
             --helm-set=bpf.policyMapMax=65536 \
