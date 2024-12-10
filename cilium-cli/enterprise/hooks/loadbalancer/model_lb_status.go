@@ -21,6 +21,7 @@ type LoadbalancerStatusModelService struct {
 	VIP               string                               `json:"vip"`
 	Port              uint                                 `json:"port"`
 	Type              string                               `json:"type"`
+	DeploymentMode    string                               `json:"deploymentMode"`
 	BGPPeerStatus     LoadbalancerStatusModelSimpleStatus  `json:"bgpPeerStatus"`
 	BGPNodeStatus     LoadbalancerStatusModelSimpleStatus  `json:"bgpNodeStatus"`
 	T1NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1NodeStatus"`

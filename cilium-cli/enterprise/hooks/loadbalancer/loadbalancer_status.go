@@ -68,6 +68,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			VIP:               s.getVIP(f),
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
+			DeploymentMode:    s.getDeploymentMode(f),
 			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers),
 			BGPNodeStatus:     s.getBGPNodeStatus(f, bgpRoutes),
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
@@ -128,6 +129,22 @@ func (s *LoadbalancerClient) getType(service isovalentv1alpha1.LBService) string
 	}
 
 	return "N/A"
+}
+
+func (s *LoadbalancerClient) getDeploymentMode(service isovalentv1alpha1.LBService) string {
+	switch {
+	case service.Spec.Applications.TCPProxy != nil:
+		if service.Status.Applications.TCPProxy == nil {
+			return "N/A"
+		}
+
+		if service.Status.Applications.TCPProxy.DeploymentMode != nil &&
+			*service.Status.Applications.TCPProxy.DeploymentMode == isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only {
+			return "T1"
+		}
+	}
+
+	return "T1-T2"
 }
 
 func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
