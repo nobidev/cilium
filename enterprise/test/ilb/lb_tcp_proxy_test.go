@@ -15,11 +15,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestTCPProxy(t *testing.T) {
-	for _, mode := range []v1alpha1.LBTCPProxyForceModeType{v1alpha1.LBTCPProxyForceModeT1, v1alpha1.LBTCPProxyForceModeT2} {
+	for _, mode := range []isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeT1, isovalentv1alpha1.LBTCPProxyForceModeT2, isovalentv1alpha1.LBTCPProxyForceModeAuto} {
 		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 		dockerCli := newDockerCli(t)
 
