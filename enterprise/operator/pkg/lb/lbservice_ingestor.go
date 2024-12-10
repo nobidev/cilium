@@ -965,7 +965,7 @@ func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 	case isovalentv1alpha1.LBTCPProxyForceModeT2:
 		return tierModeT2
 	default:
-		return tierModeT2
+		return tierModeT1
 	}
 }
 
@@ -984,7 +984,7 @@ func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 	case isovalentv1alpha1.LBUDPProxyForceModeT2:
 		return tierModeT2
 	default:
-		return tierModeT2
+		return tierModeT1
 	}
 }
 
