@@ -74,8 +74,6 @@ env:
   domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 499.0.0
-  # renovate: datasource=docker depName=bitnamicharts/etcd
-  etcd_chart_version: 10.5.3
 
 jobs:
   echo-inputs:
@@ -345,10 +343,6 @@ jobs:
           etcd_initial_cluster=""
           # Extra arguments to pass to the cilium install command.
           helm_args=""
-          # Space-separated list of nodes in the cluster that will
-          # have etcd deployed onto.
-          # See below for usage, this saves some repetitive work.
-          nodes=""
 
           i=0
           for name in $(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers | grep etcd); do
@@ -361,12 +355,6 @@ jobs:
 
             # Build the helm arguments for cilium.
             helm_args+="--helm-set=etcd.endpoints[${i}]=https://${name}.${domain}:2379 "
-
-            # Build the node list for deploying the etcd pods.
-            if [ -n "$nodes" ]; then
-              nodes+=" "
-            fi
-            nodes+="$name.${domain}"
 
             # Label and taint the node to reserve it for etcd.
             kubectl label node $name cilium.io/no-schedule=true app=etcd
