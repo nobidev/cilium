@@ -74,6 +74,10 @@ func newUpgraderMock(n *v1alpha1.IsovalentBGPNodeInstance) paramUpgrader {
 	}
 }
 
+func (u *upgraderMock) setNodeInstance(n *v1alpha1.IsovalentBGPNodeInstance) {
+	u.bgpNodeInstance = n
+}
+
 func (u *upgraderMock) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error) {
 	return EnterpriseReconcileParams{
 		BGPInstance: &EnterpriseBGPInstance{

@@ -966,9 +966,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 	}
 
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil // peer address not known yet
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPLoadBalancerIPAddr)
@@ -1018,9 +1021,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 
 func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil // peer address not known yet
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPExternalIPAddr)
@@ -1080,9 +1086,12 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 
 func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil // peer address not known yet
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPClusterIPAddr)

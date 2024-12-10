@@ -331,9 +331,12 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 	desiredRoutePolicies := make(reconcilerv2.ResourceRoutePolicyMap)
 
 	for peer, peerFamilyAdverts := range desiredFamilyAdverts {
-		peerAddr, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
+		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get peer address: %w", err)
+		}
+		if !peerAddrExists {
+			return nil, nil // peer address not known yet
 		}
 
 		for family, familyAdverts := range peerFamilyAdverts {

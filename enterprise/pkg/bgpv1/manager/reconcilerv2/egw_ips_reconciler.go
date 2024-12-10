@@ -264,9 +264,12 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 	desiredRoutePolicies := make(reconcilerv2.ResourceRoutePolicyMap)
 
 	for peer, egwFamilyAdverts := range desiredFamilyAdverts {
-		peerAddr, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
+		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get peer address: %w", err)
+		}
+		if !peerAddrExists {
+			continue // peer address not known yet
 		}
 
 		for family, familyAdverts := range egwFamilyAdverts {

@@ -23,35 +23,40 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 var (
-	peerConfigIPv4Unicast = &v2alpha1.CiliumBGPPeerConfig{
+	peerConfigIPv4Unicast = &v1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-ipv4-unicast",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "unicast",
+		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
 					},
 				},
 			},
 		},
 	}
 
-	peerConfigIPv4VPN = &v2alpha1.CiliumBGPPeerConfig{
+	peerConfigIPv4VPN = &v1alpha1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-ipv4-mpls_vpn",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "mpls_vpn",
+		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "mpls_vpn",
+						},
 					},
 				},
 			},
@@ -100,26 +105,22 @@ func TestVPNRoutePolicy(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	tests := []struct {
-		name                string
-		preRPs              reconcilerv2.RoutePolicyMap
-		peerConfigs         []*v2alpha1.CiliumBGPPeerConfig
-		testBGPNodeInstance *v2alpha1.CiliumBGPNodeInstance
-		expectedRPs         reconcilerv2.RoutePolicyMap
+		name        string
+		preRPs      reconcilerv2.RoutePolicyMap
+		peerConfigs []*v1alpha1.IsovalentBGPPeerConfig
+		peers       []v1alpha1.IsovalentBGPNodePeer
+		expectedRPs reconcilerv2.RoutePolicyMap
 	}{
 		{
 			name:        "ipv4-unicast peer, no policy",
 			preRPs:      nil,
-			peerConfigs: []*v2alpha1.CiliumBGPPeerConfig{peerConfigIPv4Unicast},
-			testBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
-				Name:     "bgp-65001",
-				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name:        "red-peer-65001",
-						PeerAddress: ptr.To[string]("192.168.0.10"),
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Name: "peer-config-ipv4-unicast",
-						},
+			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1alpha1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1alpha1.PeerConfigReference{
+						Name: "peer-config-ipv4-unicast",
 					},
 				},
 			},
@@ -128,17 +129,13 @@ func TestVPNRoutePolicy(t *testing.T) {
 		{
 			name:        "ipv4-vpn peer, policies applied",
 			preRPs:      nil,
-			peerConfigs: []*v2alpha1.CiliumBGPPeerConfig{peerConfigIPv4VPN},
-			testBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
-				Name:     "bgp-65001",
-				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name:        "red-peer-65001",
-						PeerAddress: ptr.To[string]("192.168.0.10"),
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Name: "peer-config-ipv4-mpls_vpn",
-						},
+			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4VPN},
+			peers: []v1alpha1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1alpha1.PeerConfigReference{
+						Name: "peer-config-ipv4-mpls_vpn",
 					},
 				},
 			},
@@ -153,17 +150,13 @@ func TestVPNRoutePolicy(t *testing.T) {
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
-			peerConfigs: []*v2alpha1.CiliumBGPPeerConfig{peerConfigIPv4Unicast},
-			testBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
-				Name:     "bgp-65001",
-				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name:        "red-peer-65001",
-						PeerAddress: ptr.To[string]("192.168.0.10"),
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Name: "peer-config-ipv4-unicast",
-						},
+			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1alpha1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1alpha1.PeerConfigReference{
+						Name: "peer-config-ipv4-unicast",
 					},
 				},
 			},
@@ -175,17 +168,13 @@ func TestVPNRoutePolicy(t *testing.T) {
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
-			peerConfigs: []*v2alpha1.CiliumBGPPeerConfig{peerConfigIPv4Unicast},
-			testBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
-				Name:     "bgp-65001",
-				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
-					{
-						Name:        "red-peer-65001",
-						PeerAddress: ptr.To[string]("192.168.0.10"),
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Name: "no_matching_peer_config",
-						},
+			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1alpha1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1alpha1.PeerConfigReference{
+						Name: "no_matching_peer_config",
 					},
 				},
 			},
@@ -198,15 +187,38 @@ func TestVPNRoutePolicy(t *testing.T) {
 			req := require.New(t)
 
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testBGPInstance := &EnterpriseBGPInstance{
+				Name:   testOSSBGPInstance.Name,
+				Router: testOSSBGPInstance.Router,
+			}
+			iNodeInstance := &v1alpha1.IsovalentBGPNodeInstance{
+				Name:     "test-instance",
+				LocalASN: ptr.To[int64](65001),
+				Peers:    tt.peers,
+			}
+			ossNodeInstance := &v2alpha1.CiliumBGPNodeInstance{
+				Name:     iNodeInstance.Name,
+				LocalASN: iNodeInstance.LocalASN,
+			}
+			for _, peer := range iNodeInstance.Peers {
+				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2alpha1.CiliumBGPNodePeer{
+					Name:        peer.Name,
+					PeerAddress: peer.PeerAddress,
+					PeerConfigRef: &v2alpha1.PeerConfigReference{
+						Name: peer.PeerConfigRef.Name,
+					},
+				})
+			}
 
 			reconciler := &VPNRoutePolicyReconciler{
-				Logger:          logger,
-				PeerConfigStore: newMockResourceStore[*v2alpha1.CiliumBGPPeerConfig](),
+				logger:          logger,
+				peerConfigStore: newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig](),
 				metadata:        make(map[string]VPNRoutePolicyMetadata),
+				upgrader:        newUpgraderMock(iNodeInstance),
 			}
 
 			if len(tt.peerConfigs) > 0 {
-				reconciler.PeerConfigStore = InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfigs)
+				reconciler.peerConfigStore = InitMockStore[*v1alpha1.IsovalentBGPPeerConfig](tt.peerConfigs)
 			}
 
 			reconciler.Init(testOSSBGPInstance)
@@ -214,7 +226,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 			reconciler.initialized.Store(true)
 
 			// set preconfigured route policies
-			reconciler.SetMetadata(testOSSBGPInstance, VPNRoutePolicyMetadata{
+			reconciler.SetMetadata(testBGPInstance, VPNRoutePolicyMetadata{
 				VPNPolicies: tt.preRPs,
 			})
 
@@ -222,12 +234,12 @@ func TestVPNRoutePolicy(t *testing.T) {
 			for i := 0; i < 2; i++ {
 				err := reconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance:   testOSSBGPInstance,
-					DesiredConfig: tt.testBGPNodeInstance,
+					DesiredConfig: ossNodeInstance,
 				})
 				req.NoError(err)
 			}
 
-			req.Equal(tt.expectedRPs, reconciler.GetMetadata(testOSSBGPInstance).VPNPolicies)
+			req.Equal(tt.expectedRPs, reconciler.GetMetadata(testBGPInstance).VPNPolicies)
 		})
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -39,7 +39,8 @@ type VPNRoutePolicyReconcilerIn struct {
 
 	Logger          logrus.FieldLogger
 	Config          config.Config
-	PeerConfigStore resource.Resource[*v2alpha1.CiliumBGPPeerConfig]
+	Upgrader        paramUpgrader
+	PeerConfigStore resource.Resource[*v1alpha1.IsovalentBGPPeerConfig]
 	Group           job.Group
 }
 
@@ -48,8 +49,9 @@ type VPNRoutePolicyReconcilerIn struct {
 //   - export route policy per peer allowing VPNv4 routes from loc-rib to adj-out.
 type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
-	Logger          logrus.FieldLogger
-	PeerConfigStore resource.Store[*v2alpha1.CiliumBGPPeerConfig]
+	logger          logrus.FieldLogger
+	upgrader        paramUpgrader
+	peerConfigStore resource.Store[*v1alpha1.IsovalentBGPPeerConfig]
 	metadata        map[string]VPNRoutePolicyMetadata
 }
 
@@ -64,7 +66,8 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 
 	rp := &VPNRoutePolicyReconciler{
 		metadata: make(map[string]VPNRoutePolicyMetadata),
-		Logger:   in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
+		logger:   in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
+		upgrader: in.Upgrader,
 	}
 
 	in.Group.Add(job.OneShot("init-vpn-route-policy", func(ctx context.Context, health cell.Health) error {
@@ -73,7 +76,7 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 			return err
 		}
 
-		rp.PeerConfigStore = pcs
+		rp.peerConfigStore = pcs
 		rp.initialized.Store(true)
 		return nil
 	}))
@@ -111,7 +114,7 @@ func (r *VPNRoutePolicyReconciler) Cleanup(i *instance.BGPInstance) {
 
 func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	if !r.initialized.Load() {
-		r.Logger.Debug("Not initialized yet, skipping VPN route policy reconciliation")
+		r.logger.Debug("Not initialized yet, skipping VPN route policy reconciliation")
 		return nil
 	}
 
@@ -119,13 +122,18 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 		return fmt.Errorf("BUG: passed nil desired config to VPN route policy reconciler")
 	}
 
-	desiredPolicies, err := r.getDesiredRoutePolicies(p.DesiredConfig)
+	iParams, err := r.upgrader.upgrade(p)
+	if err != nil {
+		return err
+	}
+
+	desiredPolicies, err := r.getDesiredRoutePolicies(iParams.DesiredConfig)
 	if err != nil {
 		return err
 	}
 
 	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-		Logger: r.Logger.WithFields(
+		Logger: r.logger.WithFields(
 			logrus.Fields{
 				types.InstanceLogField: p.DesiredConfig.Name,
 			},
@@ -133,39 +141,42 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredPolicies,
-		CurrentPolicies: r.GetMetadata(p.BGPInstance).VPNPolicies,
+		CurrentPolicies: r.GetMetadata(iParams.BGPInstance).VPNPolicies,
 	})
 
-	r.SetMetadata(p.BGPInstance, VPNRoutePolicyMetadata{
+	r.SetMetadata(iParams.BGPInstance, VPNRoutePolicyMetadata{
 		VPNPolicies: updatedPolicies,
 	})
 
 	return err
 }
 
-func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v2alpha1.CiliumBGPNodeInstance) (reconcilerv2.RoutePolicyMap, error) {
+func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1alpha1.IsovalentBGPNodeInstance) (reconcilerv2.RoutePolicyMap, error) {
 	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
 
 	for _, peer := range desiredConfig.Peers {
 		// get peer address
-		peerAddr, err := reconcilerv2.GetPeerAddressFromConfig(desiredConfig, peer.Name)
+		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(desiredConfig, peer.Name)
 		if err != nil {
 			return nil, err
+		}
+		if !peerAddrExists {
+			return nil, nil
 		}
 
 		// get the peer config
 		if peer.PeerConfigRef == nil {
-			r.Logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config reference not set, skipping peer for import policy inspection")
+			r.logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config reference not set, skipping peer for import policy inspection")
 			continue
 		}
 
-		peerConfig, exists, err := r.PeerConfigStore.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
+		peerConfig, exists, err := r.peerConfigStore.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
 			return nil, err
 		}
 
 		if !exists {
-			r.Logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config not found, skipping peer for import policy inspection")
+			r.logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config not found, skipping peer for import policy inspection")
 			continue
 		}
 
@@ -219,10 +230,10 @@ func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr n
 	}
 }
 
-func (r *VPNRoutePolicyReconciler) GetMetadata(i *instance.BGPInstance) VPNRoutePolicyMetadata {
+func (r *VPNRoutePolicyReconciler) GetMetadata(i *EnterpriseBGPInstance) VPNRoutePolicyMetadata {
 	return r.metadata[i.Name]
 }
 
-func (r *VPNRoutePolicyReconciler) SetMetadata(i *instance.BGPInstance, m VPNRoutePolicyMetadata) {
+func (r *VPNRoutePolicyReconciler) SetMetadata(i *EnterpriseBGPInstance, m VPNRoutePolicyMetadata) {
 	r.metadata[i.Name] = m
 }

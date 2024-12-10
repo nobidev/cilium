@@ -33,21 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-type LinkLocalReconciler struct {
-	logger   logrus.FieldLogger
-	signaler *signaler.BGPCPSignaler
-	upgrader paramUpgrader
-
-	db            *statedb.DB
-	neighborTable statedb.Table[*tables.Neighbor]
-	deviceTable   statedb.Table[*tables.Device]
-
-	// processNeighborEvents is used to mark if statedb neighbor events triggering BGP reconciliation should be processed.
-	// Used to not trigger unnecessary reconciliation events upon neighbor table changes
-	// if there was no unnumbered peer config ever seen for this node.
-	processNeighborEvents atomic.Bool
-}
-
 type LinkLocalReconcilerIn struct {
 	cell.In
 	JobGroup  job.Group
@@ -67,6 +52,28 @@ type LinkLocalReconcilerOut struct {
 	Reconciler ossreconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
 }
 
+type LinkLocalReconciler struct {
+	logger   logrus.FieldLogger
+	signaler *signaler.BGPCPSignaler
+	upgrader paramUpgrader
+
+	db            *statedb.DB
+	neighborTable statedb.Table[*tables.Neighbor]
+	deviceTable   statedb.Table[*tables.Device]
+
+	metadata map[string]LinkLocalReconcilerMetadata
+
+	// instancesWithUnnumberedPeers is used to count the instances with unnumbered peers.
+	// Used to not trigger unnecessary reconciliation events upon neighbor table changes
+	// if there is no unnumbered peer configured for this node.
+	instancesWithUnnumberedPeers atomic.Int32
+}
+
+type LinkLocalReconcilerMetadata struct {
+	hasUnnumberedPeers bool              // used to mark if unnumbered peers are used for this instance
+	linkLocalNeighbors map[string]string // cache of interface to link-local neighbor addresses
+}
+
 func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut {
 	if !params.BGPConfig.Enabled {
 		return LinkLocalReconcilerOut{}
@@ -80,6 +87,7 @@ func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut
 		db:            params.DB,
 		neighborTable: params.NeighborTable,
 		deviceTable:   params.DeviceTable,
+		metadata:      make(map[string]LinkLocalReconcilerMetadata),
 	}
 
 	params.JobGroup.Add(
@@ -101,11 +109,25 @@ func (r *LinkLocalReconciler) Priority() int {
 	return LinkLocalReconcilerPriority
 }
 
-func (r *LinkLocalReconciler) Init(_ *instance.BGPInstance) error {
+func (r *LinkLocalReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = LinkLocalReconcilerMetadata{
+		hasUnnumberedPeers: false,
+		linkLocalNeighbors: make(map[string]string),
+	}
 	return nil
 }
 
-func (r *LinkLocalReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *LinkLocalReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		if r.metadata[i.Name].hasUnnumberedPeers {
+			r.instancesWithUnnumberedPeers.Add(-1)
+		}
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
@@ -117,12 +139,35 @@ func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.R
 		return err
 	}
 
+	metadata := r.getMetadata(iParams.BGPInstance)
+
 	if r.hasUnnumberedPeer(iParams.DesiredConfig) {
+		if !metadata.hasUnnumberedPeers {
+			// if we are not yet processing statedb neighbor events, start from now
+			r.instancesWithUnnumberedPeers.Add(1)
+			metadata.hasUnnumberedPeers = true
+		}
 		// update peer address in BGPNodeInstance's DesiredConfig for unnumbered peers
-		return r.updateUnnumberedPeerAddresses(iParams, p)
+		err = r.updateUnnumberedPeerAddresses(iParams, p, &metadata)
+	} else {
+		// no unnumbered peers configured for this instance
+		if metadata.hasUnnumberedPeers {
+			// if we were processing statedb neighbor events, stop from now
+			r.instancesWithUnnumberedPeers.Add(-1)
+			metadata.hasUnnumberedPeers = false
+		}
 	}
 
-	return nil
+	r.setMetadata(iParams.BGPInstance, metadata)
+	return err
+}
+
+func (r *LinkLocalReconciler) getMetadata(i *EnterpriseBGPInstance) LinkLocalReconcilerMetadata {
+	return r.metadata[i.Name]
+}
+
+func (r *LinkLocalReconciler) setMetadata(i *EnterpriseBGPInstance, m LinkLocalReconcilerMetadata) {
+	r.metadata[i.Name] = m
 }
 
 func (r *LinkLocalReconciler) hasUnnumberedPeer(nodeInstance *v1alpha1.IsovalentBGPNodeInstance) bool {
@@ -136,13 +181,8 @@ func (r *LinkLocalReconciler) hasUnnumberedPeer(nodeInstance *v1alpha1.Isovalent
 
 // updateUnnumberedPeerAddresses sets the peer address in BGPNodeInstance's DesiredConfig for unnumbered peers.
 // PeerAddress is then referenced from various other reconcilers.
-func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseReconcileParams, oParams ossreconcilerv2.ReconcileParams) error {
+func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseReconcileParams, oParams ossreconcilerv2.ReconcileParams, metadata *LinkLocalReconcilerMetadata) error {
 	l := r.logger.WithField(osstypes.InstanceLogField, iParams.DesiredConfig.Name)
-
-	// If not yet processing statedb neighbor events, start from now. This must be set to true
-	// before obtaining the statedb transaction to not miss any event.
-	r.processNeighborEvents.Store(true)
-
 	txn := r.db.ReadTxn()
 
 	for i, peer := range iParams.DesiredConfig.Peers {
@@ -159,17 +199,24 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 				continue
 			}
 			if !found {
-				// Link-local peer not (yet) found.
-				//
-				// NOTE: if the peer address was set previously and the neighbor entry was deleted after it
-				// (e.g. router went down), we keep the previously set peer address, so that the BGP peer remains
-				// present with down state, rather than deleting the peer completely.
-				// If the peer re-appears with a different link-local address, the old peer will be removed
-				// and the new one added.
-				peerLog.Debug("Link-local address for the peer not found")
-				continue
+				// Try to look up the peer address in the reconciler's metadata cache.
+				// If the LL peer address was known previously and the neighbor entry was deleted after it
+				// (e.g. router/link went down temporarily, or neighbor table was flushed manually to debug an issue),
+				// we keep the previously set peer address, so that the BGP peer remains configured.
+				// We will leave it upto BGP keepalive mechanism to manage the peering state.
+				// If the LL address changes, the peering will be reconfigured as soon as we get a new neighbor entry for it.
+				peerAddress, found = metadata.linkLocalNeighbors[*peer.Interface]
+				if !found {
+					// The LL address is not in the neighbor table nor in the cache - we skip this peer
+					// (it will not be configured on the underlying router instance by the neighbor reconciler).
+					peerLog.Debug("Link-local address for the peer not found")
+					continue
+				}
 			}
 			peerLog.Debugf("Setting peer address to %s", peerAddress)
+
+			// update address in the cache
+			metadata.linkLocalNeighbors[*peer.Interface] = peerAddress
 
 			// update the peer address in CEE desired config
 			iParams.DesiredConfig.Peers[i].PeerAddress = &peerAddress
@@ -229,9 +276,8 @@ func (r *LinkLocalReconciler) processStateDBNeighborEvents(ctx context.Context) 
 	ch := stream.ToChannel[statedb.Change[*tables.Neighbor]](ctx, observable)
 
 	for ev := range ch {
-		if !r.processNeighborEvents.Load() {
-			// do not process neighbor events if there was no unnumbered BGP peer config seen yet
-			continue
+		if r.instancesWithUnnumberedPeers.Load() < 1 {
+			continue // do not process neighbor events if there is no unnumbered BGP peer config used on this node
 		}
 		neighbor := ev.Object
 		if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() {

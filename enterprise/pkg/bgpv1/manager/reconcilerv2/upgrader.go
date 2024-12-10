@@ -169,7 +169,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 				Config: nil,
 				Router: params.BGPInstance.Router,
 			},
-			DesiredConfig: &nc.Spec.BGPInstances[i],
+			DesiredConfig: nc.Spec.BGPInstances[i].DeepCopy(), // deep copy the NodeInstance, as we modify it in LinkLocal reconciler
 			CiliumNode:    params.CiliumNode,
 		}, nil
 	}
