@@ -22,6 +22,7 @@ bgp-secrets-namespace: {{ .Values.enterprise.bgpControlPlane.secretsNamespace.na
 enable-bgp-control-plane-status-report: "true"
 # Service health-checking integration in BGP control plane
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
+enable-statedb-neighbor-sync: "true"
 {{- end }}
 
 # BFD subsystem
