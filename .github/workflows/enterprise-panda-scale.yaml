@@ -1,4 +1,4 @@
-name: Panda Scale Test (panda-scale)
+name: Panda Scale Test (ci-panda-scale)
 
 on:
 #  schedule:
