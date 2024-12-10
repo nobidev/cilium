@@ -252,6 +252,8 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs, referencedSecrets)
 
 	r.updateAssignedIpInStatus(model, lbsvc)
+	r.updateDeploymentModeInStatus(model, lbsvc)
+
 	// Stop reconciliation if assigned IP is not available yet. Also, we
 	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
@@ -656,6 +658,24 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 	lbsvc.Status.Addresses.IPv4 = assignedIPv4
 
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
+}
+
+func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
+	appStatus := isovalentv1alpha1.LBServiceApplicationsStatus{}
+
+	if model.isTCPProxy() {
+		tcpProxyDeploymentMode := isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2
+
+		if model.isTCPProxyT1OnlyMode() {
+			tcpProxyDeploymentMode = isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only
+		}
+
+		appStatus.TCPProxy = &isovalentv1alpha1.LBServiceApplicationTCPProxyStatus{
+			DeploymentMode: &tcpProxyDeploymentMode,
+		}
+	}
+
+	lbsvc.Status.Applications = appStatus
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {

@@ -281,6 +281,10 @@ type lbApplicationTCPProxy struct {
 	routes   []lbRouteTCPProxy
 }
 
+func (r lbService) isTCPProxy() bool {
+	return r.applications.tcpProxy != nil
+}
+
 func (r lbService) isTCPProxyT1OnlyMode() bool {
 	return r.applications.tcpProxy != nil && r.applications.tcpProxy.tierMode == tierModeT1
 }

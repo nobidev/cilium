@@ -1077,6 +1077,13 @@ type LBServiceStatus struct {
 	// +kubebuilder:validation:Required
 	Addresses LBServiceVIPAddresses `json:"addresses"`
 
+	// Contains additional status information for the configured applications.
+	// While the name is plural, only one application can be specified
+	// currently.
+	//
+	// +kubebuilder:validation:Required
+	Applications LBServiceApplicationsStatus `json:"applications"`
+
 	// The current conditions of the LBService.
 	//
 	// +optional
@@ -1090,6 +1097,29 @@ type LBServiceStatus struct {
 	// +kubebuilder:validation:Required
 	Status LBResourceStatus `json:"status"`
 }
+
+type LBServiceApplicationsStatus struct {
+	// Status information of the TCPProxy application.
+	TCPProxy *LBServiceApplicationTCPProxyStatus `json:"tcpProxy,omitempty"`
+}
+
+type LBServiceApplicationTCPProxyStatus struct {
+	// The applied deployment mode of the TCPProxy application.
+	//
+	// This depends on the configured forceMode on the TCPProxy application.
+	// This is especially important for the mode `auto` where the actual
+	// deployment mode is evaluated based on other configuration / enabled
+	// features.
+	DeploymentMode *LBTCPProxyDeploymentModeType `json:"deploymentMode,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=t1-only;t1-t2
+type LBTCPProxyDeploymentModeType string
+
+const (
+	LBTCPProxyDeploymentModeTypeT1Only LBTCPProxyDeploymentModeType = "t1-only"
+	LBTCPProxyDeploymentModeTypeT1T2   LBTCPProxyDeploymentModeType = "t1-t2"
+)
 
 const (
 	ConditionTypeIPAssigned         = "lb.cilium.io/IPAssigned"

@@ -1808,6 +1808,29 @@ spec:
                     description: IPv4 VIP assigned to the LBService.
                     type: string
                 type: object
+              applications:
+                description: |-
+                  Contains additional status information for the configured applications.
+                  While the name is plural, only one application can be specified
+                  currently.
+                properties:
+                  tcpProxy:
+                    description: Status information of the TCPProxy application.
+                    properties:
+                      deploymentMode:
+                        description: |-
+                          The applied deployment mode of the TCPProxy application.
+
+                          This depends on the configured forceMode on the TCPProxy application.
+                          This is especially important for the mode `auto` where the actual
+                          deployment mode is evaluated based on other configuration / enabled
+                          features.
+                        enum:
+                        - t1-only
+                        - t1-t2
+                        type: string
+                    type: object
+                type: object
               conditions:
                 description: The current conditions of the LBService.
                 items:
@@ -1876,6 +1899,7 @@ spec:
                 type: string
             required:
             - addresses
+            - applications
             - status
             type: object
         required:
