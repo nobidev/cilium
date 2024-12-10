@@ -950,7 +950,7 @@ func (*ingestor) toTCPRateLimits(rateLimits *isovalentv1alpha1.LBServiceTCPRoute
 	}
 }
 
-func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
+func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
 	forceMode := isovalentv1alpha1.LBTCPProxyForceModeAuto
 
 	if app.ForceMode != nil {
@@ -959,14 +959,24 @@ func (*ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 
 	switch forceMode {
 	case isovalentv1alpha1.LBTCPProxyForceModeAuto:
-		return tierModeT1
+		return r.evaluateTCPProxyAutoTierMode(app)
 	case isovalentv1alpha1.LBTCPProxyForceModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBTCPProxyForceModeT2:
 		return tierModeT2
 	default:
-		return tierModeT1
+		return r.evaluateTCPProxyAutoTierMode(app)
 	}
+}
+
+func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
+	for _, ar := range app.Routes {
+		if ar.RateLimits != nil || ar.PersistentBackend != nil || ar.ConnectionFiltering != nil {
+			return tierModeT2
+		}
+	}
+
+	return tierModeT1
 }
 
 func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy) tierModeType {
