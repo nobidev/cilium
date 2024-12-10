@@ -146,3 +146,32 @@ The following configuration can be used in VS Code:
 }
 ```
 
+### Running end-to-end tests
+
+Binaries for etcd and the API server need to be available for running end-to-end tests.
+A make target has been created for the purpose. An environment variable may need to point to the installation location.
+
+```sh
+make envtest
+./bin/setup-envtest use 1.31.0
+/home/<user>/.local/share/kubebuilder-envtest/k8s/1.31.0-linux-amd64
+# using the output from the previous command
+export KUBEBUILDER_ASSETS="/home/<user>/.local/share/kubebuilder-envtest/k8s/1.31.0-linux-amd64/"
+```
+
+Afterwards the E2E tests can simply be run with
+
+```sh
+make test-e2e
+```
+
+Alternatively they can be run from VS Code by configuring settings.json
+
+```json
+{
+    "go.testEnvVars": {
+        "KUBEBUILDER_ASSETS": "/home/<user>/.local/share/kubebuilder-envtest/k8s/1.31.0-linux-amd64/"
+    },
+    "go.testTimeout": "120s"
+}
+
