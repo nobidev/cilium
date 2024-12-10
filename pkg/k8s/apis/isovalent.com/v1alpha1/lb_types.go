@@ -426,6 +426,7 @@ type LBServiceSecretRef struct {
 	Name string `json:"name"`
 }
 
+// +kubebuilder:validation:XValidation:message="Force mode t1-only isn't compatible with connection filtering, persistent backends and/or rate limits", rule="(!has(self.forceMode) || self.forceMode == 'auto' || self.forceMode == 'force-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.connectionFiltering) && !has(x.rateLimits)) )"
 type LBServiceApplicationTCPProxy struct {
 	// Enforces specific implementation to be used to realize
 	// TCPProxy application. This configuration should be used
