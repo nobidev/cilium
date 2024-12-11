@@ -116,6 +116,37 @@ jobs:
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
+          cat<<'EOF' > values-export-aggregation.yaml
+          extraConfig:
+            export-aggregation: connection
+            export-aggregation-ignore-source-port: "true"
+            export-aggregation-state-filter: new closed established error
+            export-flow-allowlist: |-
+              {"verdict":["DROPPED", "ERROR"]}
+              {"event_type":[{"type":5}]}
+              {"destination_identity":[2]}
+            export-flow-denylist: |-
+              {"reply":[true], "event_type":[{"type":4}]}
+              {"source_label":["reserved:health"]}
+              {"destination_label":["reserved:health"]}
+              {"dns_query":[".*\\.local\\.$", ".*\\.internal\\.$"]}
+              {"verdict":["DROPPED"],"event_type":[{"type":1,"match_sub_type":true,"sub_type":139}]}
+              {"destination_ip":["10.0.0.0/8"]}
+              {"source_label":["k8s:app.kubernetes.io/name=cloudprober"]}
+              {"source_label":["reserved:host"]}
+              {"source_label":["k8s:app.kubernetes.io/name=network-monitor"]}
+              {"source_label":["k8s:app=victoriametrics"]}
+          EOF
+
+          cat<<'EOF' > values-hubble-metrics.yaml
+          hubble:
+            metrics:
+              enabled:
+              - policy:labelsContext=source_namespace,source_workload,source_app,destination_namespace,destination_workload,destination_app,traffic_direction;sourceContext=dns|reserved-identity;destinationContext=dns|reserved-identity
+              - drop:labelsContext=source_namespace,source_workload,source_app,destination_namespace,destination_workload,destination_app,traffic_direction;sourceContext=dns|reserved-identity;destinationContext=dns|reserved-identity
+              - httpV2:exemplars=true;labelsContext=source_namespace,source_workload,source_app,destination_namespace,destination_workload,destination_app,traffic_direction;sourceContext=dns|reserved-identity;destinationContext=dns|reserved-identity
+          EOF
+
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
@@ -134,6 +165,7 @@ jobs:
             --helm-set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
             --helm-set-string=extraConfig.external-dns-proxy=true \
             --helm-set-string=extraConfig.kvstore-pod-network-support=false \
+            --helm-set-string=extraConfig.monitor-aggregation-interval=10m \
             --helm-set=localRedirectPolicy=true \
             --helm-set=dnsProxy.proxyResponseMaxDelay=250ms \
             --helm-set=bpf.policyMapMax=65536 \
@@ -141,6 +173,8 @@ jobs:
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=updateStrategy.rollingUpdate.maxUnavailable=10% \
+            --values=values-export-aggregation.yaml \
+            --values=values-hubble-metrics.yaml \
             --wait=false"
 
           CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
