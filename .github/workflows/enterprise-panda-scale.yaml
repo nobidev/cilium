@@ -120,6 +120,7 @@ jobs:
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=operator.prometheus.enabled=true \
+            --helm-set=envoy.prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
             --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
             --helm-set=k8sServicePort=443 \
