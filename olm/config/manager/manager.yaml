@@ -5,6 +5,7 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: clife
     app.kubernetes.io/managed-by: kustomize
+    openshift.io/run-level: "0"
   name: cilium
 ---
 apiVersion: apps/v1
@@ -77,13 +78,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: 49081
           initialDelaySeconds: 15
           periodSeconds: 20
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8081
+            port: 49081
           initialDelaySeconds: 5
           periodSeconds: 10
         # TODO(user): Configure the resources accordingly based on the project requirements.
@@ -97,3 +98,8 @@ spec:
             memory: 64Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      # required to run before the CNI plugin is set up
+      hostNetwork: true
+      # required to run before the nodes are ready
+      tolerations:
+      - operator: Exists
