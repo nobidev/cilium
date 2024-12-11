@@ -1967,7 +1967,7 @@ hubble:
         # type: [null, string]
         # @schema
         override: ~
-        repository: timberio/vector
+        repository: quay.io/isovalent/vector
         tag: 0.43.0-distroless-libc
         digest: ""
         useDigest: false
