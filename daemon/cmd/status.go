@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -304,10 +306,10 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
-			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.maglevConfig.MaglevTableSize)
 		}
 		if option.Config.LoadBalancerAlgorithmAnnotation {
-			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.maglevConfig.MaglevTableSize)
 		}
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric
@@ -349,6 +351,18 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		}
 		features.Nat46X64.Service = svc
 	}
+	if option.Config.LoadBalancerAlgorithmAnnotation {
+		features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
+	}
+	if option.Config.LoadBalancerModeAnnotation {
+		features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)
+	}
+	features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
+	features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
+	if option.Config.EnableSVCSourceRangeCheck {
+		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
+	}
+	sort.Strings(features.Annotations)
 
 	var directRoutingDevice string
 	drd, _ := d.directRoutingDev.Get(context.TODO(), d.db.ReadTxn())

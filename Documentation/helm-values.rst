@@ -1019,7 +1019,7 @@
    * - :spelling:ignore:`dnsProxy.endpointMaxIpPerHostname`
      - Maximum number of IPs to maintain per FQDN name for each endpoint.
      - int
-     - ``50``
+     - ``1000``
    * - :spelling:ignore:`dnsProxy.idleConnectionGracePeriod`
      - Time during which idle but previously active connections with expired DNS lookups are still considered alive.
      - string
@@ -1172,6 +1172,10 @@
      - Enable connectivity health checking between virtual endpoints.
      - bool
      - ``true``
+   * - :spelling:ignore:`endpointLockdownOnMapOverflow`
+     - Enable endpoint lockdown on policy map overflow.
+     - bool
+     - ``false``
    * - :spelling:ignore:`endpointRoutes.enabled`
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
@@ -1388,6 +1392,10 @@
      - TCP port for the health API.
      - int
      - ``9878``
+   * - :spelling:ignore:`envoy.httpRetryCount`
+     - Maximum number of retries for each HTTP request
+     - int
+     - ``3``
    * - :spelling:ignore:`envoy.idleTimeoutDurationSeconds`
      - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
      - int
@@ -1395,7 +1403,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:3865d1b9d8d7ef0446a86b9f1235d075e89ddc7618e6499fe60c83d83b9ebd58","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-1733209796-c52558e2b9517b51ad5cf71f5cd0965c81cf08e8","useDigest":true}``
+     - ``{"digest":"sha256:600888b5afbbd17d04b764fc9ae3a6a21e55546a92e3c325a42de5a500968bfe","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.4-1733710912-e119b3d3cbe9727886d0a502a5dcfc3d55acbe58","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1424,6 +1432,10 @@
      - Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
      - string
      - ``""``
+   * - :spelling:ignore:`envoy.maxConcurrentRetries`
+     - Maximum number of concurrent retries on Envoy clusters
+     - int
+     - ``128``
    * - :spelling:ignore:`envoy.maxConnectionDurationSeconds`
      - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
      - int
@@ -2584,6 +2596,10 @@
      - Maximum rate at which the CiliumNode custom resource is updated.
      - string
      - ``"15s"``
+   * - :spelling:ignore:`ipam.installUplinkRoutesForDelegatedIPAM`
+     - Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
+     - bool
+     - ``false``
    * - :spelling:ignore:`ipam.mode`
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string

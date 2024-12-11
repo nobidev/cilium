@@ -352,7 +352,9 @@ struct edt_info {
 	__u64		bps;
 	__u64		t_last;
 	__u64		t_horizon_drop;
-	__u64		pad[4];
+	__u32		prio;
+	__u32		pad_32;
+	__u64		pad[3];
 };
 
 struct remote_endpoint_info {
@@ -403,13 +405,15 @@ struct policy_entry {
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
 	__u8		auth_type:7,
 			has_explicit_auth_type:1;
-	__u32		pad1;
+	__u8		proxy_port_priority;
+	__u8		pad1;
+	__u16	        pad2;
 	__u64		packets;
 	__u64		bytes;
 };
 
 /*
- * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_bits' when none of the protocol or
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
  * dport bits in the key are wildcarded.
  */
 #define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
@@ -568,12 +572,16 @@ enum {
 	.source		= EVENT_SOURCE,	\
 	.hash		= get_hash(ctx)   /* Avoids hash recalculation, assumes hash has been already calculated */
 
-#define __notify_pktcap_hdr(o, c)	\
+#define __notify_pktcap_hdr(o, c, v)	\
 	.len_orig	= (o),		\
 	.len_cap	= (c),		\
-	.version	= NOTIFY_CAPTURE_VER
+	.version	= (v)
 
-/* Capture notifications version. Must be incremented when format changes. */
+/* Base capture notifications version.
+ * Must be incremented when the format of NOTIFY_CAPTURE_HDR changes.
+ *
+ * Individual notify messages may evolve independently, specifying their own versions.
+ */
 #define NOTIFY_CAPTURE_VER 1
 
 #ifndef TRACE_PAYLOAD_LEN

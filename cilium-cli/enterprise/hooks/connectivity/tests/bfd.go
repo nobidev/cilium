@@ -524,12 +524,12 @@ func waitForCiliumBFDPeersState(ctx context.Context, t *check.Test, a *check.Act
 		var peers []types.BFDPeerStatus
 		if versioncheck.MustCompile(">=1.17.0")(t.Context().CiliumVersion) {
 			// use "cilium-dbg shell" to retrieve peers for newer versions
-			cmd := strings.Split("cilium-dbg shell -- db show -format=json bfd-peers", " ")
+			cmd := strings.Split("cilium-dbg shell -- db/show -format=json bfd-peers", " ")
 			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
 				a.Fatalf("failed to run cilium-dbg command: %v", err)
 			}
-			// The output from "db show --format=json" is an object stream, so we'll need
+			// The output from "db/show --format=json" is an object stream, so we'll need
 			// to decode the object one at a time.
 			dec := json.NewDecoder(&stdout)
 			for {

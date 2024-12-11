@@ -94,7 +94,6 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
-	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -501,7 +500,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.KVStore)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure")
@@ -613,12 +611,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
 	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
 
-	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
-	option.BindEnv(vp, option.MaglevTableSize)
-
-	flags.String(option.MaglevHashSeed, maglev.DefaultHashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
-	option.BindEnv(vp, option.MaglevHashSeed)
-
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
@@ -638,6 +630,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableHighScaleIPcache, defaults.EnableHighScaleIPcache, "Enable the high scale mode for ipcache")
 	option.BindEnv(vp, option.EnableHighScaleIPcache)
+	flags.MarkDeprecated(option.EnableHighScaleIPcache, "The high-scale mode for ipcache is deprecated and will be removed in v1.18.")
 
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
@@ -873,9 +866,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
 	option.BindEnv(vp, option.DNSProxyInsecureSkipTransparentModeCheck)
 
-	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
-	option.BindEnv(vp, option.PolicyQueueSize)
-
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(vp, option.EndpointQueueSize)
 
@@ -945,6 +935,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
 	option.BindEnv(vp, option.EgressMultiHomeIPRuleCompat)
+
+	flags.Bool(option.InstallUplinkRoutesForDelegatedIPAM, false,
+		"Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.")
+	option.BindEnv(vp, option.InstallUplinkRoutesForDelegatedIPAM)
 
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
 	option.BindEnv(vp, option.InstallNoConntrackIptRules)
@@ -1051,6 +1045,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
 	option.BindEnv(vp, option.LBSourceRangeAllTypes)
+
+	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
+	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
 
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
@@ -1552,48 +1549,47 @@ type daemonParams struct {
 
 	CfgResolver promise.Resolver[*option.DaemonConfig]
 
-	Lifecycle              cell.Lifecycle
-	Health                 cell.Health
-	Clientset              k8sClient.Clientset
-	Loader                 datapath.Loader
-	WGAgent                *wireguard.Agent
-	LocalNodeStore         *node.LocalNodeStore
-	Shutdowner             hive.Shutdowner
-	Resources              agentK8s.Resources
-	K8sWatcher             *watchers.K8sWatcher
-	K8sSvcCache            *k8s.ServiceCache
-	CacheStatus            k8sSynced.CacheStatus
-	K8sResourceSynced      *k8sSynced.Resources
-	K8sAPIGroups           *k8sSynced.APIGroups
-	NodeManager            nodeManager.NodeManager
-	NodeHandler            datapath.NodeHandler
-	NodeNeighbors          datapath.NodeNeighbors
-	NodeAddressing         datapath.NodeAddressing
-	EndpointManager        endpointmanager.EndpointManager
-	CertManager            certificatemanager.CertificateManager
-	SecretManager          certificatemanager.SecretManager
-	IdentityAllocator      identitycell.CachingIdentityAllocator
-	Policy                 policy.PolicyRepository
-	IPCache                *ipcache.IPCache
-	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
-	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
-	CNIConfigManager       cni.CNIConfigManager
-	SwaggerSpec            *server.Spec
-	HealthAPISpec          *healthApi.Spec
-	ServiceCache           *k8s.ServiceCache
-	ClusterMesh            *clustermesh.ClusterMesh
-	MonitorAgent           monitorAgent.Agent
-	L2Announcer            *l2announcer.L2Announcer
-	ServiceManager         service.ServiceManager
-	L7Proxy                *proxy.Proxy
-	EnvoyXdsServer         envoy.XDSServer
-	DB                     *statedb.DB
-	APILimiterSet          *rate.APILimiterSet
-	AuthManager            *auth.AuthManager
-	Settings               cellSettings
-	Devices                statedb.Table[*datapathTables.Device]
-	NodeAddrs              statedb.Table[datapathTables.NodeAddress]
-	DirectRoutingDevice    datapathTables.DirectRoutingDevice
+	Lifecycle           cell.Lifecycle
+	Health              cell.Health
+	Clientset           k8sClient.Clientset
+	Loader              datapath.Loader
+	WGAgent             *wireguard.Agent
+	LocalNodeStore      *node.LocalNodeStore
+	Shutdowner          hive.Shutdowner
+	Resources           agentK8s.Resources
+	K8sWatcher          *watchers.K8sWatcher
+	K8sSvcCache         *k8s.ServiceCache
+	CacheStatus         k8sSynced.CacheStatus
+	K8sResourceSynced   *k8sSynced.Resources
+	K8sAPIGroups        *k8sSynced.APIGroups
+	NodeManager         nodeManager.NodeManager
+	NodeHandler         datapath.NodeHandler
+	NodeNeighbors       datapath.NodeNeighbors
+	NodeAddressing      datapath.NodeAddressing
+	EndpointManager     endpointmanager.EndpointManager
+	CertManager         certificatemanager.CertificateManager
+	SecretManager       certificatemanager.SecretManager
+	IdentityAllocator   identitycell.CachingIdentityAllocator
+	Policy              policy.PolicyRepository
+	IPCache             *ipcache.IPCache
+	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
+	CNIConfigManager    cni.CNIConfigManager
+	SwaggerSpec         *server.Spec
+	HealthAPISpec       *healthApi.Spec
+	ServiceCache        *k8s.ServiceCache
+	ClusterMesh         *clustermesh.ClusterMesh
+	MonitorAgent        monitorAgent.Agent
+	L2Announcer         *l2announcer.L2Announcer
+	ServiceManager      service.ServiceManager
+	L7Proxy             *proxy.Proxy
+	EnvoyXdsServer      envoy.XDSServer
+	DB                  *statedb.DB
+	APILimiterSet       *rate.APILimiterSet
+	AuthManager         *auth.AuthManager
+	Settings            cellSettings
+	Devices             statedb.Table[*datapathTables.Device]
+	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
+	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
@@ -1618,11 +1614,11 @@ type daemonParams struct {
 	IPTablesManager     datapath.IptablesManager
 	Hubble              hubblecell.HubbleIntegration
 	LRPManager          *redirectpolicy.Manager
+	MaglevConfig        maglev.Config
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
+func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
-	policyManagerResolver, policyManagerPromise := promise.New[policyK8s.PolicyManager]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
@@ -1637,7 +1633,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 				// Reject promises on error
 				if err != nil {
 					params.CfgResolver.Reject(err)
-					policyManagerResolver.Reject(err)
 					daemonResolver.Reject(err)
 				}
 			}()
@@ -1675,7 +1670,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			// 'option.Config' is assumed to be stable at this point, execpt for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
-			policyManagerResolver.Resolve(daemon)
 
 			if option.Config.DryMode {
 				daemonResolver.Resolve(daemon)
@@ -1700,7 +1694,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			return nil
 		},
 	})
-	return daemonPromise, policyManagerPromise
+	return daemonPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
@@ -1719,7 +1713,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	// wait for directory watcher to ingest policy from files
-	<-params.DirReadStatus
+	params.DirReadStatus.Wait()
 
 	bootstrapStats.k8sInit.End(true)
 

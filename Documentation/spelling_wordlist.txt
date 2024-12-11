@@ -73,6 +73,7 @@ Klusters
 KubeVersion
 Lando
 Leblond
+Lockdown
 Lund
 Lx
 Majkowski
@@ -186,6 +187,7 @@ bcc
 behaviour
 benchmarking
 bfd
+besteffort
 bgp
 blackholing
 blockedConfigOverrides
@@ -507,6 +509,7 @@ loadbalancers
 loadbalancing
 loadinfo
 localhost
+lockdown
 lockless
 logfile
 lookups
@@ -617,6 +620,7 @@ pluggable
 pmdabcc
 png
 podCIDR
+podSelector
 podippool
 policyCIDRMatchMode
 policymap

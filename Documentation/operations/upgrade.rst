@@ -334,6 +334,7 @@ communicating via the proxy must reconnect to re-establish connections.
   removed in a future release.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
+* Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -343,10 +344,14 @@ Removed Options
 * The previously deprecated built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``)
   has been removed. Users of WireGuard transparent encryption are required to use a Linux kernel with
   WireGuard support.
+* The previously deprecated ``metallb-bgp`` flags ``bgp-config-path``, ``bgp-announce-lb-ip``
+  and ``bgp-announce-pod-cidr`` have been removed. Users are now required to use Cilium BGP
+  control plane for BGP advertisements.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* The high-scale mode for ipcache has been deprecated and will be removed in v1.18.
 * The hubble-relay flag ``--dial-timeout`` has been deprecated (now a no-op)
   and will be removed in Cilium 1.18.
 
@@ -364,6 +369,13 @@ Helm Options
   to validate certificates with expirations longer than 825 days.
 * The Helm option ``hubble.relay.dialTimeout`` has been deprecated (now a no-op)
   and will be removed in Cilium 1.18.
+* The ``metallb-bgp`` integration Helm options ``bgp.enabled``, ``bgp.announce.podCIDR``, and
+  ``bgp.announce.loadbalancerIP`` have been removed. Users are now required to use Cilium BGP
+  control plane options available under ``bgpControlPlane`` for BGP announcements.
+* The default value of ``dnsProxy.endpointMaxIpPerHostname`` and its
+  corresponding agent option has been increased from 50 to 1000 to reflect
+  improved scaling of toFQDNs policies and to better handle domains which return
+  a large number of IPs with short TTLs.
 
 Agent Options
 ~~~~~~~~~~~~~
@@ -383,10 +395,16 @@ Added Metrics
 * ``cilium_node_health_connectivity_latency_seconds``
 * ``cilium_operator_unmanaged_pods``
 * ``cilium_policy_selector_match_count_max``
+* ``cilium_identity_cache_timer_duration``
+* ``cilium_identity_cache_timer_trigger_latency``
+* ``cilium_identity_cache_timer_trigger_folds``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 * ``cilium_cidrgroup_translation_time_stats_seconds`` has been removed, as the measured code path no longer exists.
+* ``cilium_triggers_policy_update_total`` has been removed.
+* ``cilium_triggers_policy_update_folds`` has been removed.
+* ``cilium_triggers_policy_update_call_duration`` has been removed.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~

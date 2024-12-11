@@ -90,7 +90,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	err = db.RegisterTable(nodeAddrs)
 	require.NoError(tb, err)
 
-	s.svcCache = k8s.NewServiceCache(db, nodeAddrs)
+	s.svcCache = k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
@@ -132,6 +132,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 		Logger:                logrus.New(),
 	})
 	require.NotNil(tb, s.mesh)
@@ -154,7 +155,7 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(t *testing.T, action k8s.Cach
 		case <-time.After(defaults.NodeDeleteDelay + timeout):
 			c.Errorf("Timeout while waiting for event to be received")
 		}
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
 		require.Equal(t, action, event.Action)
 		require.Equal(t, id, event.ID)

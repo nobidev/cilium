@@ -56,7 +56,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.23.3
+  go_version: 1.23.4
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 502.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
@@ -89,6 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Install and Cluster Mesh Scale Test
     timeout-minutes: 60
+    env:
+      job_name: "Install and Cluster Mesh Scale Test"
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -184,7 +186,7 @@ jobs:
           kube_proxy_enabled: false
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
+        uses: cilium/cilium-cli@0d4e1f9275194d6bfcd35bc30f2b3971cbbdc78b # v0.16.21
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

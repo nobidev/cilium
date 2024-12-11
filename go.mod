@@ -9,27 +9,27 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.24
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.63.54
-	github.com/aws/aws-sdk-go-v2 v1.32.5
-	github.com/aws/aws-sdk-go-v2/config v1.28.5
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.20
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.194.0
+	github.com/aliyun/alibaba-cloud-sdk-go v1.63.60
+	github.com/aws/aws-sdk-go-v2 v1.32.6
+	github.com/aws/aws-sdk-go-v2/config v1.28.6
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.21
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0
 	github.com/aws/smithy-go v1.22.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20241120095330-9c4cd49dd9e6
+	github.com/cilium/charts v0.0.0-20241127112225-7cea2b4f120f
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.16.1-0.20241119131019-e2607b570f29
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
-	github.com/cilium/hive v0.0.0-20241122120553-e90d0875ae01
+	github.com/cilium/hive v0.0.0-20241129122706-af5052cfd6d4
 	github.com/cilium/linters v0.1.0
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20241115112946-fb67566cbd95
-	github.com/cilium/statedb v0.3.3
-	github.com/cilium/stream v0.0.0-20240816054136-71321e385273
+	github.com/cilium/statedb v0.3.4
+	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.2.3
@@ -51,7 +51,7 @@ require (
 	github.com/go-openapi/swag v0.23.0
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
+	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
@@ -126,14 +126,14 @@ require (
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.16.3
-	k8s.io/api v0.32.0-rc.0
-	k8s.io/apiextensions-apiserver v0.32.0-rc.0
-	k8s.io/apimachinery v0.32.0-rc.0
-	k8s.io/cli-runtime v0.32.0-rc.0
-	k8s.io/client-go v0.32.0-rc.0
-	k8s.io/code-generator v0.32.0-rc.0
-	k8s.io/component-base v0.32.0-rc.0
-	k8s.io/endpointslice v0.32.0-rc.0
+	k8s.io/api v0.32.0-rc.2
+	k8s.io/apiextensions-apiserver v0.32.0-rc.2
+	k8s.io/apimachinery v0.32.0-rc.2
+	k8s.io/cli-runtime v0.32.0-rc.2
+	k8s.io/client-go v0.32.0-rc.2
+	k8s.io/code-generator v0.32.0-rc.2
+	k8s.io/component-base v0.32.0-rc.2
+	k8s.io/endpointslice v0.32.0-rc.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.31.3
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
@@ -168,15 +168,15 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.46 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.24 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.24 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.47 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.25 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.25 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.24.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.33.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.24.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
@@ -325,7 +325,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.32.0-rc.0 // indirect
+	k8s.io/apiserver v0.32.0-rc.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	oras.land/oras-go v1.2.5 // indirect
