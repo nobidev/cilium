@@ -16,7 +16,6 @@ triggers:
     #- enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
     - enterprise-encryption-policy.yaml
-    - enterprise-lb-vsphere.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
