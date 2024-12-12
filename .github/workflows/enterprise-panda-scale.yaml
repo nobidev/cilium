@@ -465,6 +465,8 @@ jobs:
             --provider=gce \
             --enable-exec-service=false \
             --enable-prometheus-server \
+            --prometheus-scrape-kubelets=true \
+            --prometheus-scrape-master-kubelets=true \
             --tear-down-prometheus-server=false \
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-setup.txt
@@ -551,6 +553,8 @@ jobs:
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --enable-prometheus-server \
+            --prometheus-scrape-kubelets=true \
+            --prometheus-scrape-master-kubelets=true \
             --tear-down-prometheus-server=false \
             --nodes=100 \
             --report-dir=./report \
