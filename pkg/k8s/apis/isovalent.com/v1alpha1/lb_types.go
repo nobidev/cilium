@@ -426,7 +426,7 @@ type LBServiceSecretRef struct {
 	Name string `json:"name"`
 }
 
-// +kubebuilder:validation:XValidation:message="Force deployment mode t1-only isn't compatible with persistent backends and rate limits", rule="(!has(self.forceDeploymentMode) || self.forceDeploymentMode == 'auto' || self.forceDeploymentMode == 'force-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.rateLimits)) )"
+// +kubebuilder:validation:XValidation:message="Force deployment mode t1-only isn't compatible with persistent backends and rate limits", rule="(!has(self.forceDeploymentMode) || self.forceDeploymentMode == 'auto' || self.forceDeploymentMode == 't1-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.rateLimits)) )"
 type LBServiceApplicationTCPProxy struct {
 	// Enforces specific implementation to be used to realize
 	// TCPProxy application. This configuration should be used
@@ -443,7 +443,7 @@ type LBServiceApplicationTCPProxy struct {
 	//           incompatible with T1 capability, an error will be
 	//           reported.
 	//
-	// force-t2: Enforces TCPProxy to be realized in T1 and T2 nodes
+	// t1-t2   : Enforces TCPProxy to be realized in T1 and T2 nodes
 	//           even if it can be fully realized in T1 nodes only.
 	//
 	// Optional, Default: auto
@@ -524,13 +524,13 @@ type LBServiceTCPRouteRequestFilteringRule struct {
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=auto;t1-only;force-t2
+// +kubebuilder:validation:Enum=auto;t1-only;t1-t2
 type LBTCPProxyForceDeploymentModeType string
 
 const (
 	LBTCPProxyForceDeploymentModeAuto LBTCPProxyForceDeploymentModeType = "auto"
 	LBTCPProxyForceDeploymentModeT1   LBTCPProxyForceDeploymentModeType = "t1-only"
-	LBTCPProxyForceDeploymentModeT2   LBTCPProxyForceDeploymentModeType = "force-t2"
+	LBTCPProxyForceDeploymentModeT2   LBTCPProxyForceDeploymentModeType = "t1-t2"
 )
 
 type LBServiceApplicationUDPProxy struct {
@@ -549,7 +549,7 @@ type LBServiceApplicationUDPProxy struct {
 	//           incompatible with T1 capability, an error will be
 	//           reported.
 	//
-	// force-t2: Enforces UDPProxy to be realized in T1 and T2 nodes
+	// t1-t2   : Enforces UDPProxy to be realized in T1 and T2 nodes
 	//           even if it can be fully realized in T1 nodes only.
 	//
 	// Optional, Default: auto
@@ -574,13 +574,13 @@ type LBServiceUDPRoute struct {
 	BackendRef LBServiceBackendRef `json:"backendRef"`
 }
 
-// +kubebuilder:validation:Enum=auto;t1-only;force-t2
+// +kubebuilder:validation:Enum=auto;t1-only;t1-t2
 type LBUDPProxyForceDeploymentModeType string
 
 const (
 	LBUDPProxyForceDeploymentModeAuto LBUDPProxyForceDeploymentModeType = "auto"
 	LBUDPProxyForceDeploymentModeT1   LBUDPProxyForceDeploymentModeType = "t1-only"
-	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "force-t2"
+	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "t1-t2"
 )
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3

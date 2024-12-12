@@ -1116,14 +1116,14 @@ spec:
                                     incompatible with T1 capability, an error will be
                                     reported.
 
-                          force-t2: Enforces TCPProxy to be realized in T1 and T2 nodes
+                          t1-t2   : Enforces TCPProxy to be realized in T1 and T2 nodes
                                     even if it can be fully realized in T1 nodes only.
 
                           Optional, Default: auto
                         enum:
                         - auto
                         - t1-only
-                        - force-t2
+                        - t1-t2
                         type: string
                       routes:
                         description: The TCP proxy routing configuration.
@@ -1242,7 +1242,7 @@ spec:
                     - message: Force deployment mode t1-only isn't compatible with
                         persistent backends and rate limits
                       rule: (!has(self.forceDeploymentMode) || self.forceDeploymentMode
-                        == 'auto' || self.forceDeploymentMode == 'force-t2' || self.routes.all(x,
+                        == 'auto' || self.forceDeploymentMode == 't1-t2' || self.routes.all(x,
                         !has(x.persistentBackend) && !has(x.rateLimits)) )
                   tlsPassthrough:
                     description: |-
@@ -1701,14 +1701,14 @@ spec:
                                     incompatible with T1 capability, an error will be
                                     reported.
 
-                          force-t2: Enforces UDPProxy to be realized in T1 and T2 nodes
+                          t1-t2   : Enforces UDPProxy to be realized in T1 and T2 nodes
                                     even if it can be fully realized in T1 nodes only.
 
                           Optional, Default: auto
                         enum:
                         - auto
                         - t1-only
-                        - force-t2
+                        - t1-t2
                         type: string
                       routes:
                         description: The UDP proxy routing configuration.
