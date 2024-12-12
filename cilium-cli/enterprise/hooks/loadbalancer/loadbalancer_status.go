@@ -16,9 +16,6 @@ import (
 )
 
 func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*LoadbalancerStatusModel, error) {
-	ctx, cancelFn := context.WithTimeout(ctx, s.params.WaitDuration)
-	defer cancelFn()
-
 	if err := s.initNodeAgentPods(ctx); err != nil {
 		return nil, fmt.Errorf("failed to fetch Node Agent Pods: %w", err)
 	}

@@ -4,8 +4,10 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"text/tabwriter"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/api"
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/status"
 )
 
@@ -41,6 +44,62 @@ const (
 	relationOutputPercentage = "percentage"
 )
 
+func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, out io.Writer, params loadbalancer.Parameters) error {
+	ec, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
+	if err != nil {
+		return err
+	}
+
+	lc := loadbalancer.NewLoadbalancerClient(ec, params)
+
+	lsm, err := lc.GetLoadbalancerStatusModel(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get loadbalancer status: %w", err)
+	}
+
+	if params.Output == "json" {
+		jsonOutput, err := json.Marshal(lsm)
+		if err != nil {
+			return fmt.Errorf("failed to output JSON: %w", err)
+		}
+
+		fmt.Fprintln(out, string(jsonOutput))
+
+		return nil
+	}
+
+	summaryTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
+
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "Summary")
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "")
+
+	fmt.Fprintf(summaryTabWriter, "T1 Nodes:\t%d\n", lsm.Summary.NrOfT1Nodes)
+	fmt.Fprintf(summaryTabWriter, "T2 Nodes:\t%d\n", lsm.Summary.NrOfT2Nodes)
+	fmt.Fprintf(summaryTabWriter, "Services:\t%d\n", lsm.Summary.NrOfServices)
+	fmt.Fprintf(summaryTabWriter, "VIPs:\t%d\n", lsm.Summary.NrOfVIPs)
+
+	summaryTabWriter.Flush()
+
+	fmt.Fprintln(out, "")
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "Services")
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "")
+
+	tableTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", "Deployment Mode", Default+"BGP Peers"+Reset, Default+"BGP"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", "---------------", Default+"---------"+Reset, Default+"---"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
+	for _, f := range lsm.Services {
+		fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type, statusText(f.DeploymentMode), printSimpleStatusCell(f.BGPPeerStatus), printSimpleStatusCell(f.BGPNodeStatus), printSimpleStatusCell(f.T1NodeStatus), printSimpleStatusCell(f.T1T2HCStatus), printSimpleStatusCell(f.T2NodeStatus), printSimpleStatusCell(f.T2BackendHCStatus), printGroupedStatusCell(f.BackendpoolStatus), getOverallStatus(f.BGPNodeStatus, f.BGPPeerStatus))
+	}
+
+	tableTabWriter.Flush()
+
+	return nil
+}
+
 func newCmdLoadbalancerStatus() *cobra.Command {
 	params := loadbalancer.Parameters{}
 
@@ -51,59 +110,10 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 		RunE: func(c *cobra.Command, _ []string) error {
 			k8sClient, _ := api.GetK8sClientContextValue(c.Context())
 
-			ec, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
-			if err != nil {
-				return err
-			}
+			ctx, cancelFn := context.WithTimeout(c.Context(), params.WaitDuration)
+			defer cancelFn()
 
-			lc := loadbalancer.NewLoadbalancerClient(ec, params)
-
-			lsm, err := lc.GetLoadbalancerStatusModel(c.Context())
-			if err != nil {
-				return fmt.Errorf("failed to get loadbalancer status: %w", err)
-			}
-
-			if params.Output == "json" {
-				jsonOutput, err := json.Marshal(lsm)
-				if err != nil {
-					return fmt.Errorf("failed to output JSON: %w", err)
-				}
-
-				c.Println(string(jsonOutput))
-
-				return nil
-			}
-
-			summaryTabWriter := tabwriter.NewWriter(c.OutOrStdout(), minWidth, 0, padding, paddingChar, 0)
-
-			fmt.Fprintln(c.OutOrStdout(), "=========")
-			fmt.Fprintln(c.OutOrStdout(), "Summary")
-			fmt.Fprintln(c.OutOrStdout(), "=========")
-			fmt.Fprintln(c.OutOrStdout(), "")
-
-			fmt.Fprintf(summaryTabWriter, "T1 Nodes:\t%d\n", lsm.Summary.NrOfT1Nodes)
-			fmt.Fprintf(summaryTabWriter, "T2 Nodes:\t%d\n", lsm.Summary.NrOfT2Nodes)
-			fmt.Fprintf(summaryTabWriter, "Services:\t%d\n", lsm.Summary.NrOfServices)
-			fmt.Fprintf(summaryTabWriter, "VIPs:\t%d\n", lsm.Summary.NrOfVIPs)
-
-			summaryTabWriter.Flush()
-
-			fmt.Fprintln(c.OutOrStdout(), "")
-			fmt.Fprintln(c.OutOrStdout(), "=========")
-			fmt.Fprintln(c.OutOrStdout(), "Services")
-			fmt.Fprintln(c.OutOrStdout(), "=========")
-			fmt.Fprintln(c.OutOrStdout(), "")
-
-			tableTabWriter := tabwriter.NewWriter(c.OutOrStdout(), minWidth, 0, padding, paddingChar, 0)
-			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", "Deployment Mode", Default+"BGP Peers"+Reset, Default+"BGP"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
-			fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", "---------------", Default+"---------"+Reset, Default+"---"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
-			for _, f := range lsm.Services {
-				fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type, statusText(f.DeploymentMode), printSimpleStatusCell(f.BGPPeerStatus), printSimpleStatusCell(f.BGPNodeStatus), printSimpleStatusCell(f.T1NodeStatus), printSimpleStatusCell(f.T1T2HCStatus), printSimpleStatusCell(f.T2NodeStatus), printSimpleStatusCell(f.T2BackendHCStatus), printGroupedStatusCell(f.BackendpoolStatus), getOverallStatus(f.BGPNodeStatus, f.BGPPeerStatus))
-			}
-
-			tableTabWriter.Flush()
-
-			return nil
+			return GetLoadbalancerStatus(ctx, k8sClient, c.OutOrStdout(), params)
 		},
 	}
 
