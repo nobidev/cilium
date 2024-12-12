@@ -1902,7 +1902,10 @@ hubble:
       # type: [null, string]
       # @schema
       storageClassName: ~
-    ttl: 24h
+    # @schema
+    # type: [null, string]
+    # @schema
+    ttl: ~
     image:
       # @schema
       # type: [null, string]

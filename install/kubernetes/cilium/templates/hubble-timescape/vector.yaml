@@ -31,7 +31,7 @@ data:
       playground: false
     data_dir: /vector-data-dir
     sinks:
-      http_push_timescape:
+      http_push_timescape_flow:
         batch:
           max_size: 50MB
           timeout_secs: 5
@@ -40,16 +40,36 @@ data:
         framing:
           method: newline_delimited
         inputs:
-        - hubble_logs
+        - flow_logs
         type: http
         {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-        uri: https://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push
+        uri: https://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_FLOW
         tls:
           ca_file: "/var/lib/hubble/tls/ca.crt"
           crt_file: "/var/lib/hubble/tls/client.crt"
           key_file: "/var/lib/hubble/tls/client.key"
         {{- else }}
-        uri: http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push
+        uri: http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_FLOW
+        {{- end }}
+      http_push_timescape_k8sevent:
+        batch:
+          max_size: 50MB
+          timeout_secs: 5
+        encoding:
+          codec: raw_message
+        framing:
+          method: newline_delimited
+        inputs:
+        - k8sevent_logs
+        type: http
+        {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+        uri: https://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
+        tls:
+          ca_file: "/var/lib/hubble/tls/ca.crt"
+          crt_file: "/var/lib/hubble/tls/client.crt"
+          key_file: "/var/lib/hubble/tls/client.key"
+        {{- else }}
+        uri: http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
         {{- end }}
       prom_exporter:
         address: 0.0.0.0:9090
@@ -57,10 +77,17 @@ data:
         - internal_metrics
         type: prometheus_exporter
     sources:
-      hubble_logs:
+      flow_logs:
         include:
+        {{- if and .Values.extraConfig (hasKey .Values.extraConfig "export-file-path") }}
+        - {{ index .Values.extraConfig "export-file-path" }}
+        {{- else }}
         - /var/run/cilium/hubble/hubble.log
-        - /var/run/cilium/hubble/k8s-events.log
+        {{- end }}
+        type: file
+      k8sevent_logs:
+        include:
+        - {{ .Values.hubble.k8sExporter.export.filePath }}
         type: file
       internal_metrics:
         type: internal_metrics
