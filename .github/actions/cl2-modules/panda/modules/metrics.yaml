@@ -41,12 +41,18 @@ steps:
         metricVersion: v1
         unit: s
         queries:
-        - name: Perc99
-          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
-        - name: Perc90
-          query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
-        - name: Perc50
-          query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le))
+        - name: Perc99 (Total)
+          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}[%v])) by (le))
+        - name: Perc90 (Total)
+          query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}[%v])) by (le))
+        - name: Perc50 (Total)
+          query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}[%v])) by (le))
+        - name: Perc99 (ProxyWaitForAck)
+          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck"}[%v])) by (le))
+        - name: Perc90 (ProxyWaitForAck)
+          query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck"}[%v])) by (le))
+        - name: Perc50 (ProxyWaitForAck)
+          query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck"}[%v])) by (le))
 
     - Identifier: CloudproberPodNetwork
       Method: GenericPrometheusQuery
