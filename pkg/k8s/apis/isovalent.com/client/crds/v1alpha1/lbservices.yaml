@@ -1239,11 +1239,11 @@ spec:
                     - routes
                     type: object
                     x-kubernetes-validations:
-                    - message: Force mode t1-only isn't compatible with connection
-                        filtering, persistent backends and/or rate limits
+                    - message: Force mode t1-only isn't compatible with persistent
+                        backends and rate limits
                       rule: (!has(self.forceMode) || self.forceMode == 'auto' || self.forceMode
                         == 'force-t2' || self.routes.all(x, !has(x.persistentBackend)
-                        && !has(x.connectionFiltering) && !has(x.rateLimits)) )
+                        && !has(x.rateLimits)) )
                   tlsPassthrough:
                     description: |-
                       Defining this stanza enables TLSPassthrough application that proxies

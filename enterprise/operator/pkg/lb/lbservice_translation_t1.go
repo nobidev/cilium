@@ -81,6 +81,14 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// T1 -> {T2 | Backend} health checking
 	maps.Copy(annotations, r.getHealthCheckAnnotations(model))
 
+	// T1-only connectionfiltering
+	var lbSourceRanges []string = nil
+
+	if model.isTCPProxyT1OnlyMode() {
+		annotations[ossannotation.ServiceSourceRangesPolicy] = r.getServiceLoadBalancingT1OnlySourceRangesPolicy(model)
+		lbSourceRanges = r.getServiceLoadBalancingT1OnlySourceRanges(model)
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
@@ -94,6 +102,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			Type:                          corev1.ServiceTypeLoadBalancer,
 			AllocateLoadBalancerNodePorts: ptr.To(false),
 			Ports:                         []corev1.ServicePort{*r.toServicePort(model)},
+			LoadBalancerSourceRanges:      lbSourceRanges,
 		},
 	}
 }
@@ -272,4 +281,38 @@ func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbServic
 	}
 
 	return "maglev"
+}
+
+func (r *lbServiceT1Translator) getServiceLoadBalancingT1OnlySourceRanges(model *lbService) []string {
+	for _, tr := range model.applications.tcpProxy.routes {
+		if tr.connectionFiltering != nil {
+			lbSourceRanges := []string{}
+			for _, cfr := range tr.connectionFiltering.rules {
+				if cfr.sourceCIDR != nil {
+					lbSourceRanges = append(lbSourceRanges, fmt.Sprintf("%s/%d", cfr.sourceCIDR.addressPrefix, cfr.sourceCIDR.prefixLen))
+				}
+			}
+
+			// Only one TCPProxy route allowed for the time being
+			return lbSourceRanges
+		}
+	}
+
+	return nil
+}
+
+func (r *lbServiceT1Translator) getServiceLoadBalancingT1OnlySourceRangesPolicy(model *lbService) string {
+	for _, tr := range model.applications.tcpProxy.routes {
+		if tr.connectionFiltering != nil {
+			policy := "allow"
+			if tr.connectionFiltering.ruleType == ruleTypeDeny {
+				policy = "deny"
+			}
+
+			// Only one TCPProxy route allowed for the time being
+			return policy
+		}
+	}
+
+	return ""
 }

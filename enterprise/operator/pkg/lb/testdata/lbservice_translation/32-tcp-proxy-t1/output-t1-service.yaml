@@ -13,6 +13,7 @@ metadata:
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: random
     service.cilium.io/node: t1
+    service.cilium.io/src-ranges-policy: deny
     service.cilium.io/type: "LoadBalancer"
   labels:
     loadbalancer.isovalent.com/vip-name: lb-1
@@ -20,6 +21,8 @@ metadata:
   name: lbfe-lb-1
 spec:
   allocateLoadBalancerNodePorts: false
+  loadBalancerSourceRanges:
+    - 100.64.0.100/32
   ports:
     - name: tcp
       port: 80

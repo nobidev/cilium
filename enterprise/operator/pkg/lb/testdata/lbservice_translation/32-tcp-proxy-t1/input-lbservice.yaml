@@ -13,3 +13,8 @@ spec:
       routes:
         - backendRef:
             name: lb-1
+          connectionFiltering:
+            ruleType: Deny
+            rules:
+              - sourceCIDR:
+                  cidr: 100.64.0.100/32

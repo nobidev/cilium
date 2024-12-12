@@ -971,7 +971,7 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 
 func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
 	for _, ar := range app.Routes {
-		if ar.RateLimits != nil || ar.PersistentBackend != nil || ar.ConnectionFiltering != nil {
+		if ar.RateLimits != nil || ar.PersistentBackend != nil {
 			return tierModeT2
 		}
 	}
