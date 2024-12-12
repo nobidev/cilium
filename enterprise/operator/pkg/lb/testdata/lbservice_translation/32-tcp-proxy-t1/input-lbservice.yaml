@@ -9,7 +9,7 @@ spec:
   port: 80
   applications:
     tcpProxy:
-      forceMode: t1-only
+      forceDeploymentMode: t1-only
       routes:
         - backendRef:
             name: lb-1

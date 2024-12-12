@@ -1099,7 +1099,7 @@ spec:
                       Defining this stanza enables TCPProxy application that proxies the
                       TCP traffic to the backends by terminating the TCP.
                     properties:
-                      forceMode:
+                      forceDeploymentMode:
                         description: |-
                           Enforces specific implementation to be used to realize
                           TCPProxy application. This configuration should be used
@@ -1239,11 +1239,11 @@ spec:
                     - routes
                     type: object
                     x-kubernetes-validations:
-                    - message: Force mode t1-only isn't compatible with persistent
-                        backends and rate limits
-                      rule: (!has(self.forceMode) || self.forceMode == 'auto' || self.forceMode
-                        == 'force-t2' || self.routes.all(x, !has(x.persistentBackend)
-                        && !has(x.rateLimits)) )
+                    - message: Force deployment mode t1-only isn't compatible with
+                        persistent backends and rate limits
+                      rule: (!has(self.forceDeploymentMode) || self.forceDeploymentMode
+                        == 'auto' || self.forceDeploymentMode == 'force-t2' || self.routes.all(x,
+                        !has(x.persistentBackend) && !has(x.rateLimits)) )
                   tlsPassthrough:
                     description: |-
                       Defining this stanza enables TLSPassthrough application that proxies
@@ -1684,7 +1684,7 @@ spec:
                       Defining this stanza enables UDPProxy application that proxies the
                       UDP traffic to the backends by terminating the UDP.
                     properties:
-                      forceMode:
+                      forceDeploymentMode:
                         description: |-
                           Enforces specific implementation to be used to realize
                           UDPProxy application. This configuration should be used
@@ -1827,7 +1827,7 @@ spec:
                         description: |-
                           The applied deployment mode of the TCPProxy application.
 
-                          This depends on the configured forceMode on the TCPProxy application.
+                          This depends on the configured forceDeploymentMode on the TCPProxy application.
                           This is especially important for the mode `auto` where the actual
                           deployment mode is evaluated based on other configuration / enabled
                           features.

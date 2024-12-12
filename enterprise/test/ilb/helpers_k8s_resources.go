@@ -680,11 +680,11 @@ func withTLSProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tlsR
 	}
 }
 
-func withTCPProxyApplication(backendRef string, forceMode isovalentv1alpha1.LBTCPProxyForceModeType) serviceOption {
+func withTCPProxyApplication(backendRef string, forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
 			TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
-				ForceMode: &forceMode,
+				ForceDeploymentMode: &forceDeploymentMode,
 				Routes: []isovalentv1alpha1.LBServiceTCPRoute{
 					{
 						BackendRef: isovalentv1alpha1.LBServiceBackendRef{

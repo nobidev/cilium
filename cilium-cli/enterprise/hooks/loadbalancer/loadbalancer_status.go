@@ -297,11 +297,11 @@ func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeSe
 }
 
 func (s *LoadbalancerClient) isT1Only(lbsvc isovalentv1alpha1.LBService) bool {
-	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeAuto, isovalentv1alpha1.LBTCPProxyForceModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceMode)) {
+	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode)) {
 		return true
 	}
 
-	if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceMode == nil || slices.Contains([]isovalentv1alpha1.LBUDPProxyForceModeType{isovalentv1alpha1.LBUDPProxyForceModeAuto, isovalentv1alpha1.LBUDPProxyForceModeT1}, *lbsvc.Spec.Applications.UDPProxy.ForceMode)) {
+	if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == nil || slices.Contains([]isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1}, *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode)) {
 		return true
 	}
 

@@ -19,7 +19,7 @@ import (
 )
 
 func TestTCPProxy(t *testing.T) {
-	for _, mode := range []isovalentv1alpha1.LBTCPProxyForceModeType{isovalentv1alpha1.LBTCPProxyForceModeT1, isovalentv1alpha1.LBTCPProxyForceModeT2, isovalentv1alpha1.LBTCPProxyForceModeAuto} {
+	for _, mode := range []isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto} {
 		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 		dockerCli := newDockerCli(t)
 

@@ -2432,10 +2432,10 @@ func (in *LBServiceApplicationTCPProxy) DeepEqual(other *LBServiceApplicationTCP
 		return false
 	}
 
-	if (in.ForceMode == nil) != (other.ForceMode == nil) {
+	if (in.ForceDeploymentMode == nil) != (other.ForceDeploymentMode == nil) {
 		return false
-	} else if in.ForceMode != nil {
-		if *in.ForceMode != *other.ForceMode {
+	} else if in.ForceDeploymentMode != nil {
+		if *in.ForceDeploymentMode != *other.ForceDeploymentMode {
 			return false
 		}
 	}
@@ -2547,10 +2547,10 @@ func (in *LBServiceApplicationUDPProxy) DeepEqual(other *LBServiceApplicationUDP
 		return false
 	}
 
-	if (in.ForceMode == nil) != (other.ForceMode == nil) {
+	if (in.ForceDeploymentMode == nil) != (other.ForceDeploymentMode == nil) {
 		return false
-	} else if in.ForceMode != nil {
-		if *in.ForceMode != *other.ForceMode {
+	} else if in.ForceDeploymentMode != nil {
+		if *in.ForceDeploymentMode != *other.ForceDeploymentMode {
 			return false
 		}
 	}

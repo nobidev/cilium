@@ -951,18 +951,18 @@ func (*ingestor) toTCPRateLimits(rateLimits *isovalentv1alpha1.LBServiceTCPRoute
 }
 
 func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
-	forceMode := isovalentv1alpha1.LBTCPProxyForceModeAuto
+	forceDeploymentMode := isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto
 
-	if app.ForceMode != nil {
-		forceMode = *app.ForceMode
+	if app.ForceDeploymentMode != nil {
+		forceDeploymentMode = *app.ForceDeploymentMode
 	}
 
-	switch forceMode {
-	case isovalentv1alpha1.LBTCPProxyForceModeAuto:
+	switch forceDeploymentMode {
+	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto:
 		return r.evaluateTCPProxyAutoTierMode(app)
-	case isovalentv1alpha1.LBTCPProxyForceModeT1:
+	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1:
 		return tierModeT1
-	case isovalentv1alpha1.LBTCPProxyForceModeT2:
+	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
 		return r.evaluateTCPProxyAutoTierMode(app)
@@ -980,18 +980,18 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 }
 
 func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy) tierModeType {
-	forceMode := isovalentv1alpha1.LBUDPProxyForceModeAuto
+	forceDeploymentMode := isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto
 
-	if app.ForceMode != nil {
-		forceMode = *app.ForceMode
+	if app.ForceDeploymentMode != nil {
+		forceDeploymentMode = *app.ForceDeploymentMode
 	}
 
-	switch forceMode {
-	case isovalentv1alpha1.LBUDPProxyForceModeAuto:
+	switch forceDeploymentMode {
+	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto:
 		return tierModeT1
-	case isovalentv1alpha1.LBUDPProxyForceModeT1:
+	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1:
 		return tierModeT1
-	case isovalentv1alpha1.LBUDPProxyForceModeT2:
+	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
 		return tierModeT1

@@ -426,7 +426,7 @@ type LBServiceSecretRef struct {
 	Name string `json:"name"`
 }
 
-// +kubebuilder:validation:XValidation:message="Force mode t1-only isn't compatible with persistent backends and rate limits", rule="(!has(self.forceMode) || self.forceMode == 'auto' || self.forceMode == 'force-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.rateLimits)) )"
+// +kubebuilder:validation:XValidation:message="Force deployment mode t1-only isn't compatible with persistent backends and rate limits", rule="(!has(self.forceDeploymentMode) || self.forceDeploymentMode == 'auto' || self.forceDeploymentMode == 'force-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.rateLimits)) )"
 type LBServiceApplicationTCPProxy struct {
 	// Enforces specific implementation to be used to realize
 	// TCPProxy application. This configuration should be used
@@ -449,7 +449,7 @@ type LBServiceApplicationTCPProxy struct {
 	// Optional, Default: auto
 	//
 	// +kubebuilder:validation:Optional
-	ForceMode *LBTCPProxyForceModeType `json:"forceMode,omitempty"`
+	ForceDeploymentMode *LBTCPProxyForceDeploymentModeType `json:"forceDeploymentMode,omitempty"`
 
 	// The TCP proxy routing configuration.
 	//
@@ -525,12 +525,12 @@ type LBServiceTCPRouteRequestFilteringRule struct {
 }
 
 // +kubebuilder:validation:Enum=auto;t1-only;force-t2
-type LBTCPProxyForceModeType string
+type LBTCPProxyForceDeploymentModeType string
 
 const (
-	LBTCPProxyForceModeAuto LBTCPProxyForceModeType = "auto"
-	LBTCPProxyForceModeT1   LBTCPProxyForceModeType = "t1-only"
-	LBTCPProxyForceModeT2   LBTCPProxyForceModeType = "force-t2"
+	LBTCPProxyForceDeploymentModeAuto LBTCPProxyForceDeploymentModeType = "auto"
+	LBTCPProxyForceDeploymentModeT1   LBTCPProxyForceDeploymentModeType = "t1-only"
+	LBTCPProxyForceDeploymentModeT2   LBTCPProxyForceDeploymentModeType = "force-t2"
 )
 
 type LBServiceApplicationUDPProxy struct {
@@ -555,7 +555,7 @@ type LBServiceApplicationUDPProxy struct {
 	// Optional, Default: auto
 	//
 	// +kubebuilder:validation:Optional
-	ForceMode *LBUDPProxyForceModeType `json:"forceMode,omitempty"`
+	ForceDeploymentMode *LBUDPProxyForceDeploymentModeType `json:"forceDeploymentMode,omitempty"`
 
 	// The UDP proxy routing configuration.
 	//
@@ -575,12 +575,12 @@ type LBServiceUDPRoute struct {
 }
 
 // +kubebuilder:validation:Enum=auto;t1-only;force-t2
-type LBUDPProxyForceModeType string
+type LBUDPProxyForceDeploymentModeType string
 
 const (
-	LBUDPProxyForceModeAuto LBUDPProxyForceModeType = "auto"
-	LBUDPProxyForceModeT1   LBUDPProxyForceModeType = "t1-only"
-	LBUDPProxyForceModeT2   LBUDPProxyForceModeType = "force-t2"
+	LBUDPProxyForceDeploymentModeAuto LBUDPProxyForceDeploymentModeType = "auto"
+	LBUDPProxyForceDeploymentModeT1   LBUDPProxyForceDeploymentModeType = "t1-only"
+	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "force-t2"
 )
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
@@ -1107,7 +1107,7 @@ type LBServiceApplicationsStatus struct {
 type LBServiceApplicationTCPProxyStatus struct {
 	// The applied deployment mode of the TCPProxy application.
 	//
-	// This depends on the configured forceMode on the TCPProxy application.
+	// This depends on the configured forceDeploymentMode on the TCPProxy application.
 	// This is especially important for the mode `auto` where the actual
 	// deployment mode is evaluated based on other configuration / enabled
 	// features.
