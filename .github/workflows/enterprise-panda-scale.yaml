@@ -148,7 +148,7 @@ jobs:
           EOF
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --set pprof.enabled=true \
+            --helm-set=pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=operator.prometheus.enabled=true \
             --helm-set=envoy.prometheus.enabled=true \
@@ -167,6 +167,8 @@ jobs:
             --helm-set-string=extraConfig.kvstore-pod-network-support=false \
             --helm-set-string=extraConfig.monitor-aggregation-interval=10m \
             --helm-set=localRedirectPolicy=true \
+            --helm-set=operator.extraArgs[0]="--k8s-client-qps=100" \
+            --helm-set=operator.extraArgs[1]="--k8s-client-burst=100" \
             --helm-set=dnsProxy.proxyResponseMaxDelay=250ms \
             --helm-set=bpf.policyMapMax=65536 \
             --helm-set=dnsProxy.minTtl=300 \
