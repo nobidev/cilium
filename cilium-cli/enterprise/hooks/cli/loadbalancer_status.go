@@ -44,19 +44,18 @@ const (
 	relationOutputPercentage = "percentage"
 )
 
-func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, out io.Writer, params loadbalancer.Parameters) error {
+func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params loadbalancer.Parameters) (*loadbalancer.LoadbalancerStatusModel, error) {
 	ec, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lc := loadbalancer.NewLoadbalancerClient(ec, params)
 
-	lsm, err := lc.GetLoadbalancerStatusModel(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get loadbalancer status: %w", err)
-	}
+	return lc.GetLoadbalancerStatusModel(ctx)
+}
 
+func OutputLoadbalancerStatus(lsm *loadbalancer.LoadbalancerStatusModel, params loadbalancer.Parameters, out io.Writer) error {
 	if params.Output == "json" {
 		jsonOutput, err := json.Marshal(lsm)
 		if err != nil {
@@ -113,7 +112,13 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 			ctx, cancelFn := context.WithTimeout(c.Context(), params.WaitDuration)
 			defer cancelFn()
 
-			return GetLoadbalancerStatus(ctx, k8sClient, c.OutOrStdout(), params)
+			lsm, err := GetLoadbalancerStatus(ctx, k8sClient, params)
+			if err != nil {
+				return err
+			}
+
+			return OutputLoadbalancerStatus(lsm, params, c.OutOrStdout())
+
 		},
 	}
 

@@ -730,17 +730,32 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				}
 
 				k8sClient := collector.Client.(*k8s.Client)
-
-				name := "cilium-lb-status.txt"
-				f, err := os.Create(collector.AbsoluteTempPath(name))
+				lsm, err := enterpriseCli.GetLoadbalancerStatus(ctx, k8sClient, loadbalancer.Parameters{})
 				if err != nil {
-					return fmt.Errorf("failed to create %q: %w", name, err)
+					return err
 				}
-				defer f.Close()
 
-				err = enterpriseCli.GetLoadbalancerStatus(ctx, k8sClient, f, loadbalancer.Parameters{})
-				if err != nil {
-					return fmt.Errorf("failed to get loadbalancer status: %w", err)
+				out := []struct {
+					name   string
+					format string
+				}{
+					{
+						name:   "cilium-lb-status.txt",
+						format: "summary",
+					},
+					{
+						name:   "cilium-lb-status.json",
+						format: "json",
+					},
+				}
+				for _, o := range out {
+					f, err := os.Create(collector.AbsoluteTempPath(o.name))
+					if err != nil {
+						return fmt.Errorf("failed to create %q: %w", o.name, err)
+					}
+					defer f.Close()
+
+					return enterpriseCli.OutputLoadbalancerStatus(lsm, loadbalancer.Parameters{Output: o.format}, f)
 				}
 
 				return nil
