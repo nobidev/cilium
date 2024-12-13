@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,10 @@ func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params lo
 	}
 
 	lc := loadbalancer.NewLoadbalancerClient(ec, params)
+
+	if err := lc.InitNodeAgentPods(ctx); err != nil {
+		return nil, fmt.Errorf("failed to fetch Node Agent Pods: %w", err)
+	}
 
 	return lc.GetLoadbalancerStatusModel(ctx)
 }

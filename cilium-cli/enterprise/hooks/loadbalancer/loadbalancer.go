@@ -42,7 +42,7 @@ func NewLoadbalancerClient(client *enterpriseK8s.EnterpriseClient, params Parame
 	}
 }
 
-func (s *LoadbalancerClient) initNodeAgentPods(ctx context.Context) error {
+func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 	t1Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
 	if err != nil {
 		return err

@@ -16,9 +16,6 @@ import (
 )
 
 func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*LoadbalancerStatusModel, error) {
-	if err := s.initNodeAgentPods(ctx); err != nil {
-		return nil, fmt.Errorf("failed to fetch Node Agent Pods: %w", err)
-	}
 	bgpRoutes, err := s.getBGPRoutes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch T1 BGP routes: %w", err)
