@@ -17,8 +17,9 @@ import (
 
 // Parameters contains options for CLI
 type Parameters struct {
-	WaitDuration time.Duration
-	Output       string
+	WaitDuration   time.Duration
+	Output         string
+	RelationOutput string
 
 	ServiceNamespace string
 	ServiceName      string

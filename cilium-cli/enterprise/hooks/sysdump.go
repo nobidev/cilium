@@ -748,17 +748,20 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 						format: "json",
 					},
 				}
+
+				var errs error
 				for _, o := range out {
 					f, err := os.Create(collector.AbsoluteTempPath(o.name))
-					if err != nil {
-						return fmt.Errorf("failed to create %q: %w", o.name, err)
+					if errs != nil {
+						errs = errors.Join(errs, fmt.Errorf("failed to create %q: %w", o.name, err))
+						continue
 					}
 					defer f.Close()
 
-					return enterpriseCli.OutputLoadbalancerStatus(lsm, loadbalancer.Parameters{Output: o.format}, f)
+					errs = errors.Join(errs, lsm.Output(f, loadbalancer.Parameters{Output: o.format}))
 				}
 
-				return nil
+				return errs
 			},
 		},
 	})
