@@ -22,6 +22,7 @@ import (
 	enterpriseDefaults "github.com/cilium/cilium/cilium-cli/enterprise/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -50,6 +51,9 @@ const (
 	EncryptionPolicy features.Feature = "enable-encryption-policy"
 	// RemoteEncryptionPolicy: whether encryption policies are enabled in the remote cluster
 	RemoteEncryptionPolicy features.Feature = "remote-encryption-policy"
+
+	// LoadBalancer: whether standalone loadbalancer is enabled
+	LoadBalancer features.Feature = "loadbalancer"
 )
 
 func Detect(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -187,6 +191,10 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 
 	collector.FeatureSet[EncryptionPolicy] = features.Status{
 		Enabled: cm != nil && cm.Data[string(EncryptionPolicy)] == "true",
+	}
+
+	collector.FeatureSet[LoadBalancer] = features.Status{
+		Enabled: cm != nil && cm.Data[option.LoadbalancerControlplaneEnabled] == "true",
 	}
 
 	return nil

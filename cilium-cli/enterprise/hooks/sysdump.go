@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -24,8 +25,11 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
+	enterpriseCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
 	enterpriseSysdump "github.com/cilium/cilium/cilium-cli/enterprise/hooks/sysdump"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
@@ -712,6 +716,31 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				}
 				if err := collector.WriteYAML("k8s-crds-<ts>.yaml", crdList); err != nil {
 					return fmt.Errorf("failed to write CRD list to YAML file: %w", err)
+				}
+
+				return nil
+			},
+		},
+		{
+			Description: "Collecting LB Status",
+			Quick:       false,
+			Task: func(ctx context.Context) error {
+				if !collector.FeatureSet[enterpriseFeatures.LoadBalancer].Enabled {
+					return nil
+				}
+
+				k8sClient := collector.Client.(*k8s.Client)
+
+				name := "cilium-lb-status.txt"
+				f, err := os.Create(collector.AbsoluteTempPath(name))
+				if err != nil {
+					return fmt.Errorf("failed to create %q: %w", name, err)
+				}
+				defer f.Close()
+
+				err = enterpriseCli.GetLoadbalancerStatus(ctx, k8sClient, f, loadbalancer.Parameters{})
+				if err != nil {
+					return fmt.Errorf("failed to get loadbalancer status: %w", err)
 				}
 
 				return nil
