@@ -1287,11 +1287,15 @@
    * - :spelling:ignore:`enterprise.egressGatewayHA`
      - Enables egress gateway HA
      - object
-     - ``{"enabled":false,"reconciliationTriggerInterval":"1s"}``
+     - ``{"enabled":false,"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}``
    * - :spelling:ignore:`enterprise.egressGatewayHA.reconciliationTriggerInterval`
      - Time between triggers of egress gateway state reconciliations
      - string
      - ``"1s"``
+   * - :spelling:ignore:`enterprise.egressGatewayHA.socketTermination`
+     - Enables socket termination which will close client sockets on connections being forwarded to a egress gateway node when the node is no longer available.
+     - object
+     - ``{"enabled":false}``
    * - :spelling:ignore:`enterprise.encryption`
      - Transparent encryption
      - object

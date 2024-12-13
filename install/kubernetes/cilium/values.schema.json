@@ -1885,6 +1885,14 @@
             },
             "reconciliationTriggerInterval": {
               "type": "string"
+            },
+            "socketTermination": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"

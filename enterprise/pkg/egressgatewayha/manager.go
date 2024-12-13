@@ -101,14 +101,22 @@ type Config struct {
 	// Default amount of time between triggers of egress gateway state
 	// reconciliations are invoked
 	EgressGatewayHAReconciliationTriggerInterval time.Duration
+
+	// EnableEgressGatewayHASocketTermination enables socket termination feature
+	// which closes client sockets for Pod connections being forwarded to a GW
+	// node that is no longer healthy.
+	EnableEgressGatewayHASocketTermination bool `mapstructure:"enable-egress-gateway-ha-socket-termination"`
 }
 
 var defaultConfig = Config{
 	EgressGatewayHAReconciliationTriggerInterval: 1 * time.Second,
+	EnableEgressGatewayHASocketTermination:       true,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("egress-gateway-ha-reconciliation-trigger-interval", def.EgressGatewayHAReconciliationTriggerInterval, "Time between triggers of egress gateway state reconciliations")
+
+	flags.Bool("enable-egress-gateway-ha-socket-termination", def.EnableEgressGatewayHASocketTermination, "Enables egress-gateway ha closing sockets for unavailable gateways")
 }
 
 // The egressgateway manager stores the internal data tracking the node, policy,
@@ -196,6 +204,8 @@ type Manager struct {
 	db *statedb.DB
 
 	ctNATMapGC ctmap.GCRunner
+
+	config Config
 }
 
 type Params struct {
@@ -298,6 +308,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		egressIPReconciler:            p.EgressIPReconciler,
 		policyInitializer:             policyInitializer,
 		ctNATMapGC:                    p.CTNATMapGC,
+		config:                        p.Config,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{

@@ -43,6 +43,9 @@ enable-ipv4-egress-gateway-ha: "true"
 {{- if hasKey .Values.enterprise.egressGatewayHA "reconciliationTriggerInterval" }}
 egress-gateway-ha-reconciliation-trigger-interval: {{ .Values.enterprise.egressGatewayHA.reconciliationTriggerInterval | quote }}
 {{- end }}
+{{- if hasKey .Values.enterprise.egressGatewayHA "socketTermination" }}
+enable-egress-gateway-ha-socket-termination: {{ .Values.enterprise.egressGatewayHA.socketTermination.enabled | default "false" | quote }}
+{{- end }}
 {{- if .Values.enterprise.egressGatewayHA.maxPolicyEntries }}
 egress-gateway-ha-policy-map-max: {{ .Values.enterprise.egressGatewayHA.maxPolicyEntries | quote }}
 {{- end }}

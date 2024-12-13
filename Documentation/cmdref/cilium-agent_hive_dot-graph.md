@@ -56,6 +56,7 @@ cilium-agent hive dot-graph [flags]
       --enable-drift-checker                                         Enables support for config drift checker
       --enable-dynamic-config                                        Enables support for dynamic agent config
       --enable-dynamic-lifecycle-manager                             Enables support for dynamic lifecycle management
+      --enable-egress-gateway-ha-socket-termination                  Enables egress-gateway ha closing sockets for unavailable gateways (default true)
       --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report            Enable enterprise BGP status report in Cilium (default true)

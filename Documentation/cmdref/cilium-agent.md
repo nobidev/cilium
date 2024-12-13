@@ -126,6 +126,7 @@ cilium-agent [flags]
       --enable-drift-checker                                         Enables support for config drift checker
       --enable-dynamic-config                                        Enables support for dynamic agent config
       --enable-dynamic-lifecycle-manager                             Enables support for dynamic lifecycle management
+      --enable-egress-gateway-ha-socket-termination                  Enables egress-gateway ha closing sockets for unavailable gateways (default true)
       --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-encryption-strict-mode                                Enable encryption strict mode
       --enable-endpoint-health-checking                              Enable connectivity health checking between virtual endpoints (default true)
