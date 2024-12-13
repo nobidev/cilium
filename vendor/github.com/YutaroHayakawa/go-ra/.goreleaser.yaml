@@ -1,0 +1,63 @@
+version: 1
+
+builds:
+  - id: gora
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/gora
+    binary: gora
+
+  - id: gorad
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/gorad
+    binary: gorad
+
+
+archives:
+  - format: tar.gz
+    # This name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+dockers:
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/yutarohayakawa/gorad:{{ .Tag }}-amd64"
+      - "ghcr.io/yutarohayakawa/gorad:latest-amd64"
+    build_flag_templates:
+      - --platform=linux/amd64
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/yutarohayakawa/gorad:{{ .Tag }}-arm64"
+      - "ghcr.io/yutarohayakawa/gorad:latest-arm64"
+    build_flag_templates:
+      - --platform=linux/arm64
+
+docker_manifests:
+  - name_template: ghcr.io/yutarohayakawa/gorad:latest
+    image_templates:
+      - "ghcr.io/yutarohayakawa/gorad:latest-amd64"
+      - "ghcr.io/yutarohayakawa/gorad:latest-arm64"
+  - name_template: ghcr.io/yutarohayakawa/gorad:{{ .Tag }}
+    image_templates:
+      - "ghcr.io/yutarohayakawa/gorad:{{ .Tag }}-amd64"
+      - "ghcr.io/yutarohayakawa/gorad:{{ .Tag }}-arm64"
