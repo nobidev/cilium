@@ -11,10 +11,12 @@
 package reconcilerv2
 
 import (
+	"context"
 	"maps"
 	"net/netip"
 	"slices"
 
+	"github.com/YutaroHayakawa/go-ra"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -205,4 +207,29 @@ func (m *mockSRv6Manager) upsertVRF(key k8stypes.NamespacedName, vrf *srv6.VRF) 
 	defer m.Unlock()
 
 	m.preinstalledVRFs[key] = vrf
+}
+
+type mockRADaemon struct {
+	config *ra.Config
+}
+
+func (m *mockRADaemon) Run(ctx context.Context) {
+
+}
+
+func (m *mockRADaemon) Reload(ctx context.Context, newConfig *ra.Config) error {
+	m.config = newConfig
+	return nil
+}
+
+func (m *mockRADaemon) Status() *ra.Status {
+	s := &ra.Status{}
+	if m.config != nil {
+		for _, interfaceConfig := range m.config.Interfaces {
+			s.Interfaces = append(s.Interfaces, &ra.InterfaceStatus{
+				Name: interfaceConfig.Name,
+			})
+		}
+	}
+	return s
 }

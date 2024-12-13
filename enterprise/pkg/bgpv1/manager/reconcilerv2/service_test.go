@@ -700,9 +700,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	ceeParams := ServiceReconcilerIn{
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       Config{SvcHealthCheckingEnabled: true},
-		Logger:    svcTestLogger,
-		Upgrader:  newUpgraderMock(instanceConfig),
+		Cfg: Config{
+			SvcHealthCheckingEnabled:    true,
+			RouterAdvertisementInterval: defaultConfig.RouterAdvertisementInterval,
+		},
+		Logger:   svcTestLogger,
+		Upgrader: newUpgraderMock(instanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:     logger,
 			peerConfig: mockPeerConfigStore,
@@ -1830,7 +1833,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			ceeParams := ServiceReconcilerIn{
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       Config{SvcHealthCheckingEnabled: false},
+				Cfg:       defaultConfig,
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -2212,7 +2215,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			ceeParams := ServiceReconcilerIn{
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       Config{SvcHealthCheckingEnabled: false},
+				Cfg:       defaultConfig,
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -2594,7 +2597,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			ceeParams := ServiceReconcilerIn{
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       Config{SvcHealthCheckingEnabled: false},
+				Cfg:       defaultConfig,
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -3004,7 +3007,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	ceeParams := ServiceReconcilerIn{
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       Config{SvcHealthCheckingEnabled: false},
+		Cfg:       defaultConfig,
 		Logger:    svcTestLogger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
@@ -3337,7 +3340,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	ceeParams := ServiceReconcilerIn{
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       Config{SvcHealthCheckingEnabled: false},
+		Cfg:       defaultConfig,
 		Logger:    svcTestLogger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{

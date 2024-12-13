@@ -44,6 +44,7 @@ type linkLocalTestFixture struct {
 	reconciler  *LinkLocalReconciler
 	bgpSignaler *signaler.BGPCPSignaler
 	upgrader    *upgraderMock
+	raDaemon    *mockRADaemon
 
 	db            *statedb.DB
 	deviceTable   statedb.RWTable[*tables.Device]
@@ -57,6 +58,7 @@ func newLinkLocalTestFixture() *linkLocalTestFixture {
 			cell.Config(config.Config{
 				Enabled: true,
 			}),
+			cell.Config(defaultConfig),
 			cell.Provide(
 				tables.NewDeviceTable,
 				tables.NewNeighborTable,
@@ -69,6 +71,10 @@ func newLinkLocalTestFixture() *linkLocalTestFixture {
 					out := newUpgraderMock(nil)
 					f.upgrader = out.(*upgraderMock)
 					return out
+				},
+				func() RADaemon {
+					f.raDaemon = &mockRADaemon{}
+					return f.raDaemon
 				},
 			),
 
@@ -121,12 +127,13 @@ func TestLinkLocalReconciler(t *testing.T) {
 	}
 
 	var table = []struct {
-		name            string
-		initPeers       []isovalentv1alpha1.IsovalentBGPNodePeer
-		expectedPeers   []isovalentv1alpha1.IsovalentBGPNodePeer
-		neighborChanges []*tables.Neighbor
-		deleteNeighbors bool
-		expectSignal    bool
+		name                 string
+		initPeers            []isovalentv1alpha1.IsovalentBGPNodePeer
+		expectedPeers        []isovalentv1alpha1.IsovalentBGPNodePeer
+		neighborChanges      []*tables.Neighbor
+		deleteNeighbors      bool
+		expectSignal         bool
+		expectedRAInterfaces []string
 	}{
 		{
 			name: "peer0 with peer address set - no change",
@@ -149,6 +156,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					PeerAddress: ptr.To("fc00::aabb"),
 				},
 			},
+			expectedRAInterfaces: nil,
 		},
 		{
 			name: "peer1 with no neighbor entry - no change",
@@ -166,6 +174,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					Interface: ptr.To("eth0"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth0"},
 		},
 		{
 			name: "peer1 with new neighbor entry - set peer address",
@@ -189,6 +198,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					PeerAddress: ptr.To("fe80::aabb:1111:2222:3333%eth0"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth0"},
 		},
 		{
 			name: "peer1 with deleted neighbor entry - keep old peer address",
@@ -213,6 +223,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					PeerAddress: ptr.To("fe80::aabb:1111:2222:3333%eth0"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth0"},
 		},
 		{
 			name: "peer1 with re-inserted neighbor entry - change peer address",
@@ -236,6 +247,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					PeerAddress: ptr.To("fe80::ffff:aaaa:bbbb:cccc%eth0"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth0"},
 		},
 		{
 			name: "peer2 with non-existing interface - do not set peer address",
@@ -253,6 +265,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					Interface: ptr.To("eth99"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth99"},
 		},
 		{
 			name: "peer2 with non-link-local neighbor entry - do not set peer address",
@@ -275,6 +288,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					Interface: ptr.To("eth1"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth1"},
 		},
 		{
 			name: "peer2 with a link-local neighbor entry - set peer address",
@@ -302,6 +316,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 					PeerAddress: ptr.To("fe80::9999:8888:7777:6666%eth1"),
 				},
 			},
+			expectedRAInterfaces: []string{"eth1"},
 		},
 	}
 
@@ -383,6 +398,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			for i := range tt.expectedPeers {
 				require.EqualValues(t, tt.expectedPeers[i].PeerAddress, ossNodeInstance.Peers[i].PeerAddress)
 			}
+
+			verifyRAInterfaces(t, f, tt.expectedRAInterfaces)
 		})
 	}
 }
@@ -391,12 +408,13 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	var table = []struct {
-		name            string
-		nodeInstance    *isovalentv1alpha1.IsovalentBGPNodeInstance
-		deleteInstance  bool
-		neighborChanges []*tables.Neighbor
-		deleteNeighbors bool
-		expectSignal    bool
+		name                 string
+		nodeInstance         *isovalentv1alpha1.IsovalentBGPNodeInstance
+		deleteInstance       bool
+		neighborChanges      []*tables.Neighbor
+		deleteNeighbors      bool
+		expectSignal         bool
+		expectedRAInterfaces []string
 	}{
 		{
 			name: "instance1, peer with peer address set - no signal",
@@ -416,7 +434,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::aabb:aaaa:bbbb:1111"),
 				},
 			},
-			expectSignal: false,
+			expectSignal:         false,
+			expectedRAInterfaces: nil,
 		},
 		{
 			name: "instance2, unnumbered peer - signal",
@@ -436,7 +455,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::9999:8888:7777:2222"),
 				},
 			},
-			expectSignal: true,
+			expectSignal:         true,
+			expectedRAInterfaces: []string{"eth2"},
 		},
 		{
 			name: "instance1, unnumbered peer - signal",
@@ -456,7 +476,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::9999:8888:7777:3333"),
 				},
 			},
-			expectSignal: true,
+			expectSignal:         true,
+			expectedRAInterfaces: []string{"eth1", "eth2"},
 		},
 		{
 			name: "delete instance2",
@@ -473,7 +494,7 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
 					{
 						Name:      "peer2",
-						Interface: ptr.To("eth2"),
+						Interface: ptr.To("eth1"),
 					},
 				},
 			},
@@ -483,7 +504,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::9999:8888:7777:4444"),
 				},
 			},
-			expectSignal: true,
+			expectSignal:         true,
+			expectedRAInterfaces: []string{"eth1"},
 		},
 		{
 			name: "delete instance1",
@@ -510,7 +532,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::aabb:aaaa:bbbb:5555"),
 				},
 			},
-			expectSignal: false,
+			expectSignal:         false,
+			expectedRAInterfaces: nil,
 		},
 		{
 			name: "instance3,  unnumbered peer - signal",
@@ -530,7 +553,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 					IPAddr:    netip.MustParseAddr("fe80::aabb:aaaa:bbbb:6666"),
 				},
 			},
-			expectSignal: true,
+			expectSignal:         true,
+			expectedRAInterfaces: []string{"eth4"},
 		},
 	}
 
@@ -582,6 +606,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 			err = f.reconciler.Reconcile(testCtx, reconcileParams)
 			require.NoError(t, err)
 
+			verifyRAInterfaces(t, f, tt.expectedRAInterfaces)
+
 			// drain signaller channel
 			for i := 0; i < len(f.bgpSignaler.Sig); i++ {
 				<-f.bgpSignaler.Sig
@@ -609,4 +635,15 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 			}
 		})
 	}
+}
+
+func verifyRAInterfaces(t *testing.T, f *linkLocalTestFixture, expectedRAInterfaces []string) {
+	// verify expected RA interfaces
+	var configuredRAInterfaces []string
+	if f.raDaemon.config != nil {
+		for _, i := range f.raDaemon.config.Interfaces {
+			configuredRAInterfaces = append(configuredRAInterfaces, i.Name)
+		}
+	}
+	require.ElementsMatch(t, expectedRAInterfaces, configuredRAInterfaces)
 }

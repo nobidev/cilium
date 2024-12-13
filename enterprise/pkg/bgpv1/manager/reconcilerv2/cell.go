@@ -24,6 +24,7 @@ var ConfigReconcilers = cell.Group(
 		newReconcileParamsUpgrader,
 		newIsovalentAdvertisement,
 		newSRv6Paths,
+		newRADaemon,
 	),
 
 	// provide stores

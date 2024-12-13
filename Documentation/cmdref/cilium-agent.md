@@ -400,6 +400,7 @@ cilium-agent [flags]
       --restore                                                      Restores state, if possible, from previous daemon (default true)
       --restored-proxy-ports-age-limit uint                          Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --route-metric int                                             Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
+      --router-advertisement-interval duration                       Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled (default 3s)
       --routing-mode string                                          Routing mode ("native" or "tunnel") (default "tunnel")
       --service-no-backend-response string                           Response to traffic for a service without backends (default "reject")
       --socket-path string                                           Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")

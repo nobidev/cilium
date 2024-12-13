@@ -17,11 +17,13 @@ import (
 	"net/netip"
 	"sync/atomic"
 
+	"github.com/YutaroHayakawa/go-ra"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
@@ -31,15 +33,19 @@ import (
 	osstypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type LinkLocalReconcilerIn struct {
 	cell.In
-	JobGroup  job.Group
-	Logger    logrus.FieldLogger
+	JobGroup job.Group
+	Logger   logrus.FieldLogger
+
+	Config    Config
 	BGPConfig config.Config
 	Signaler  *signaler.BGPCPSignaler
 	Upgrader  paramUpgrader
+	RADaemon  RADaemon
 
 	DB            *statedb.DB
 	NeighborTable statedb.Table[*tables.Neighbor]
@@ -53,9 +59,12 @@ type LinkLocalReconcilerOut struct {
 }
 
 type LinkLocalReconciler struct {
-	logger   logrus.FieldLogger
+	logger logrus.FieldLogger
+
+	config   Config
 	signaler *signaler.BGPCPSignaler
 	upgrader paramUpgrader
+	raDaemon RADaemon // provides router-side functionality of IPv6 Neighbor Discovery mechanism
 
 	db            *statedb.DB
 	neighborTable statedb.Table[*tables.Neighbor]
@@ -70,8 +79,9 @@ type LinkLocalReconciler struct {
 }
 
 type LinkLocalReconcilerMetadata struct {
-	hasUnnumberedPeers bool              // used to mark if unnumbered peers are used for this instance
-	linkLocalNeighbors map[string]string // cache of interface to link-local neighbor addresses
+	hasUnnumberedPeers  bool              // used to mark if unnumbered peers are used for this instance
+	linkLocalNeighbors  map[string]string // cache of interface to link-local neighbor addresses
+	raEnabledInterfaces sets.Set[string]  // interfaces with RA enabled
 }
 
 func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut {
@@ -82,8 +92,10 @@ func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut
 
 	r := &LinkLocalReconciler{
 		logger:        logger,
+		config:        params.Config,
 		signaler:      params.Signaler,
 		upgrader:      params.Upgrader,
+		raDaemon:      params.RADaemon,
 		db:            params.DB,
 		neighborTable: params.NeighborTable,
 		deviceTable:   params.DeviceTable,
@@ -95,6 +107,11 @@ func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut
 			return r.processStateDBNeighborEvents(ctx)
 		}),
 	)
+
+	params.JobGroup.Add(job.OneShot("ra-daemon", func(ctx context.Context, health cell.Health) error {
+		r.raDaemon.Run(ctx)
+		return nil
+	}))
 
 	return LinkLocalReconcilerOut{
 		Reconciler: r,
@@ -114,8 +131,9 @@ func (r *LinkLocalReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.metadata[i.Name] = LinkLocalReconcilerMetadata{
-		hasUnnumberedPeers: false,
-		linkLocalNeighbors: make(map[string]string),
+		hasUnnumberedPeers:  false,
+		linkLocalNeighbors:  make(map[string]string),
+		raEnabledInterfaces: sets.New[string](),
 	}
 	return nil
 }
@@ -124,6 +142,19 @@ func (r *LinkLocalReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
 		if r.metadata[i.Name].hasUnnumberedPeers {
 			r.instancesWithUnnumberedPeers.Add(-1)
+		}
+		if len(r.metadata[i.Name].raEnabledInterfaces) > 0 {
+			// If there are still some RA-enabled interfaces for this instance, remove them.
+			// Since there is no context provided for Cleanup(), create a context with an arbitrary timeout.
+			ctx, cancelTimeout := context.WithTimeout(context.Background(), time.Second*3)
+			metadata := r.getMetadata(i)
+			metadata.raEnabledInterfaces = nil
+			err := r.reconcileRAInterfaces(ctx, i, &metadata)
+			if err != nil {
+				r.logger.WithField(osstypes.InstanceLogField, i.Name).WithError(err).
+					Warning("Error by disabling RA interfaces during instance cleanup")
+			}
+			cancelTimeout()
 		}
 		delete(r.metadata, i.Name)
 	}
@@ -139,9 +170,13 @@ func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.R
 		return err
 	}
 
-	metadata := r.getMetadata(iParams.BGPInstance)
+	metadata := r.getMetadata(p.BGPInstance)
 
-	if r.hasUnnumberedPeer(iParams.DesiredConfig) {
+	// retrieve all configured unnumbered interfaces from the desired config
+	unnumberedInterfaces := r.getUnnumberedInterfaces(iParams.DesiredConfig)
+
+	if unnumberedInterfaces.Len() > 0 {
+		// there are some unnumbered peers configured
 		if !metadata.hasUnnumberedPeers {
 			// if we are not yet processing statedb neighbor events, start from now
 			r.instancesWithUnnumberedPeers.Add(1)
@@ -149,6 +184,9 @@ func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.R
 		}
 		// update peer address in BGPNodeInstance's DesiredConfig for unnumbered peers
 		err = r.updateUnnumberedPeerAddresses(iParams, p, &metadata)
+		if err != nil {
+			return err
+		}
 	} else {
 		// no unnumbered peers configured for this instance
 		if metadata.hasUnnumberedPeers {
@@ -158,25 +196,35 @@ func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.R
 		}
 	}
 
-	r.setMetadata(iParams.BGPInstance, metadata)
-	return err
+	if !metadata.raEnabledInterfaces.Equal(unnumberedInterfaces) {
+		// change in unnumbered interfaces, reconfigure RA
+		metadata.raEnabledInterfaces = unnumberedInterfaces
+		err = r.reconcileRAInterfaces(ctx, p.BGPInstance, &metadata)
+		if err != nil {
+			return err
+		}
+	}
+
+	r.setMetadata(p.BGPInstance, metadata)
+	return nil
 }
 
-func (r *LinkLocalReconciler) getMetadata(i *EnterpriseBGPInstance) LinkLocalReconcilerMetadata {
+func (r *LinkLocalReconciler) getMetadata(i *instance.BGPInstance) LinkLocalReconcilerMetadata {
 	return r.metadata[i.Name]
 }
 
-func (r *LinkLocalReconciler) setMetadata(i *EnterpriseBGPInstance, m LinkLocalReconcilerMetadata) {
+func (r *LinkLocalReconciler) setMetadata(i *instance.BGPInstance, m LinkLocalReconcilerMetadata) {
 	r.metadata[i.Name] = m
 }
 
-func (r *LinkLocalReconciler) hasUnnumberedPeer(nodeInstance *v1alpha1.IsovalentBGPNodeInstance) bool {
+func (r *LinkLocalReconciler) getUnnumberedInterfaces(nodeInstance *v1alpha1.IsovalentBGPNodeInstance) sets.Set[string] {
+	res := sets.Set[string]{}
 	for _, peer := range nodeInstance.Peers {
 		if peer.Interface != nil {
-			return true
+			res.Insert(*peer.Interface)
 		}
 	}
-	return false
+	return res
 }
 
 // updateUnnumberedPeerAddresses sets the peer address in BGPNodeInstance's DesiredConfig for unnumbered peers.
@@ -243,6 +291,16 @@ func (r *LinkLocalReconciler) getIPv6LinkLocalNeighborAddress(txn statedb.ReadTx
 		return "", false, fmt.Errorf("device %s not found", ifName)
 	}
 
+	// We need to skip our own link-local address, as it is populated into the neighbor table
+	// when router advertisements for this interface are enabled on RADaemon.
+	var localLLAddress netip.Addr
+	for _, addr := range device.Addrs {
+		if addr.Addr.Is6() && addr.Addr.IsLinkLocalUnicast() {
+			localLLAddress = addr.Addr
+			break
+		}
+	}
+
 	// try to find single neighbor with a link-local IPv6 address
 	neighbors := r.neighborTable.List(txn, tables.NeighborLinkIndex.Query(device.Index))
 	cnt := 0
@@ -251,7 +309,7 @@ func (r *LinkLocalReconciler) getIPv6LinkLocalNeighborAddress(txn statedb.ReadTx
 		// NOTE: unfortunately, we can not rely on the NTF_ROUTER flag here, as the netlink library does not
 		// deliver a neighbor update if flags on an existing neighbor entry change. Because of that, we may miss
 		// the NTF_ROUTER flag if the neighbor entry was already existing before receiving a Router Advertisement.
-		if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() && neighbor.State&tables.NUD_FAILED == 0 {
+		if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() && neighbor.IPAddr != localLLAddress && neighbor.State&tables.NUD_FAILED == 0 {
 			addr = neighbor.IPAddr
 			cnt++
 		}
@@ -267,6 +325,46 @@ func (r *LinkLocalReconciler) getIPv6LinkLocalNeighborAddress(txn statedb.ReadTx
 
 	// single neighbor with a link-local IPv6 address found
 	return addr.WithZone(ifName).String(), true, nil
+}
+
+// reconcileRAInterfaces reconciles the RA Daemon config with the desired set of unnumbered interfaces across all BGP instances.
+func (r *LinkLocalReconciler) reconcileRAInterfaces(ctx context.Context, i *instance.BGPInstance, metadata *LinkLocalReconcilerMetadata) error {
+	desiredRAInterfaces := sets.Set[string]{}
+	for instanceName, instanceMeta := range r.metadata {
+		if instanceName == i.Name {
+			// for the current instance, used the passed metadata, as it was not persisted yet
+			desiredRAInterfaces.Insert(metadata.raEnabledInterfaces.UnsortedList()...)
+		} else {
+			desiredRAInterfaces.Insert(instanceMeta.raEnabledInterfaces.UnsortedList()...)
+		}
+	}
+
+	configuredRAInterfaces := sets.Set[string]{}
+	status := r.raDaemon.Status()
+	for _, raInterface := range status.Interfaces {
+		configuredRAInterfaces.Insert(raInterface.Name)
+	}
+
+	if desiredRAInterfaces.Equal(configuredRAInterfaces) {
+		return nil // no need to reconfigure anything
+	}
+
+	r.logger.Debugf("Configuring RA interfaces: %v", desiredRAInterfaces.UnsortedList())
+
+	raInterfaces := make([]*ra.InterfaceConfig, 0, len(desiredRAInterfaces))
+	for _, interfaceName := range desiredRAInterfaces.UnsortedList() {
+		raInterfaces = append(raInterfaces, &ra.InterfaceConfig{
+			Name:                   interfaceName,
+			RAIntervalMilliseconds: int(r.config.RouterAdvertisementInterval.Milliseconds()),
+		})
+	}
+
+	err := r.raDaemon.Reload(ctx, &ra.Config{Interfaces: raInterfaces})
+	if err != nil {
+		return fmt.Errorf("failed to reload RA daemon config: %w", err)
+	}
+
+	return nil
 }
 
 // processStateDBNeighborEvents processes all statedb events in the "neighbor" table and triggers
