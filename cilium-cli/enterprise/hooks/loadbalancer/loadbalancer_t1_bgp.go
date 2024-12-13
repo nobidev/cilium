@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/api/v1/models"
 )
 
@@ -55,12 +53,12 @@ func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (ma
 
 	// concurrently fetch routes from each T1 cilium pod
 	for _, pod := range s.t1AgentPods {
-		go func(ctx context.Context, pod *corev1.Pod) {
+		go func(ctx context.Context, pod *Pod) {
 			defer wg.Done()
 
 			routes, err := s.fetchBGPRoutesFromPod(ctx, fetchCmd, pod)
 			resCh <- res{
-				nodeName: pod.Spec.NodeName,
+				nodeName: pod.NodeName,
 				data:     routes,
 				err:      err,
 			}
@@ -87,7 +85,7 @@ func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (ma
 	return allFetchedData, err
 }
 
-func (s *LoadbalancerClient) fetchBGPRoutesFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]*models.BgpRoute, error) {
+func (s *LoadbalancerClient) fetchBGPRoutesFromPod(ctx context.Context, fetchCmd []string, pod *Pod) ([]*models.BgpRoute, error) {
 	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string
@@ -146,12 +144,12 @@ func (s *LoadbalancerClient) fetchBGPPeersConcurrently(ctx context.Context) (map
 
 	// concurrently fetch peers from each T1 cilium pod
 	for _, pod := range s.t1AgentPods {
-		go func(ctx context.Context, pod *corev1.Pod) {
+		go func(ctx context.Context, pod *Pod) {
 			defer wg.Done()
 
 			peers, err := s.fetchBGPPeersFromPod(ctx, fetchCmd, pod)
 			resCh <- res{
-				nodeName: pod.Spec.NodeName,
+				nodeName: pod.NodeName,
 				data:     peers,
 				err:      err,
 			}
@@ -178,7 +176,7 @@ func (s *LoadbalancerClient) fetchBGPPeersConcurrently(ctx context.Context) (map
 	return allFetchedData, err
 }
 
-func (s *LoadbalancerClient) fetchBGPPeersFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]*models.BgpPeer, error) {
+func (s *LoadbalancerClient) fetchBGPPeersFromPod(ctx context.Context, fetchCmd []string, pod *Pod) ([]*models.BgpPeer, error) {
 	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string

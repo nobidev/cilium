@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/api/v1/models"
 )
 
@@ -54,12 +52,12 @@ func (s *LoadbalancerClient) fetchServiceStatusConcurrently(ctx context.Context)
 
 	// concurrently fetch services from each T1 cilium pod
 	for _, pod := range s.t1AgentPods {
-		go func(ctx context.Context, pod *corev1.Pod) {
+		go func(ctx context.Context, pod *Pod) {
 			defer wg.Done()
 
 			services, err := s.fetchServiceStatusFromPod(ctx, fetchCmd, pod)
 			resCh <- res{
-				nodeName: pod.Spec.NodeName,
+				nodeName: pod.NodeName,
 				data:     services,
 				err:      err,
 			}
@@ -86,7 +84,7 @@ func (s *LoadbalancerClient) fetchServiceStatusConcurrently(ctx context.Context)
 	return allFetchedData, err
 }
 
-func (s *LoadbalancerClient) fetchServiceStatusFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]*models.Service, error) {
+func (s *LoadbalancerClient) fetchServiceStatusFromPod(ctx context.Context, fetchCmd []string, pod *Pod) ([]*models.Service, error) {
 	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string

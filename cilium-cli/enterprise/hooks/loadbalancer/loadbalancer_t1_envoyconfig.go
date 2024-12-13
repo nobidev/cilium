@@ -11,8 +11,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 // getHealthcheckT2 gets HealthCheck state from Envoy Config from all T2 cilium agent pods.
@@ -51,12 +49,12 @@ func (s *LoadbalancerClient) fetchEnvoyConfigConcurrently(ctx context.Context) (
 
 	// concurrently fetch envoy config from each T1 cilium pod
 	for _, pod := range s.t2AgentPods {
-		go func(ctx context.Context, pod *corev1.Pod) {
+		go func(ctx context.Context, pod *Pod) {
 			defer wg.Done()
 
 			envoyConfig, err := s.fetchEnvoyConfigFromPod(ctx, fetchCmd, pod)
 			resCh <- res{
-				nodeName: pod.Spec.NodeName,
+				nodeName: pod.NodeName,
 				data:     envoyConfig,
 				err:      err,
 			}
@@ -83,7 +81,7 @@ func (s *LoadbalancerClient) fetchEnvoyConfigConcurrently(ctx context.Context) (
 	return allFetchedData, err
 }
 
-func (s *LoadbalancerClient) fetchEnvoyConfigFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) (*EnvoyConfigModel, error) {
+func (s *LoadbalancerClient) fetchEnvoyConfigFromPod(ctx context.Context, fetchCmd []string, pod *Pod) (*EnvoyConfigModel, error) {
 	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string

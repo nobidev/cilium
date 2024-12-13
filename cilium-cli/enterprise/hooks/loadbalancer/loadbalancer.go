@@ -9,7 +9,6 @@ import (
 	"slices"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
@@ -31,8 +30,14 @@ type Parameters struct {
 type LoadbalancerClient struct {
 	params      Parameters
 	client      *enterpriseK8s.EnterpriseClient
-	t1AgentPods []*corev1.Pod
-	t2AgentPods []*corev1.Pod
+	t1AgentPods []*Pod
+	t2AgentPods []*Pod
+}
+
+type Pod struct {
+	Name      string
+	Namespace string
+	NodeName  string
 }
 
 func NewLoadbalancerClient(client *enterpriseK8s.EnterpriseClient, params Parameters) *LoadbalancerClient {
@@ -68,14 +73,22 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		return fmt.Errorf("failed to list agent pods: %w", err)
 	}
 
-	t1AgentPods := []*corev1.Pod{}
-	t2AgentPods := []*corev1.Pod{}
+	t1AgentPods := []*Pod{}
+	t2AgentPods := []*Pod{}
 
 	for _, ap := range agentPods.Items {
 		if slices.Contains(t1NodeNames, ap.Spec.NodeName) {
-			t1AgentPods = append(t1AgentPods, &ap)
+			t1AgentPods = append(t1AgentPods, &Pod{
+				Name:      ap.Name,
+				Namespace: ap.Namespace,
+				NodeName:  ap.Spec.NodeName,
+			})
 		} else if slices.Contains(t2NodeNames, ap.Spec.NodeName) {
-			t2AgentPods = append(t2AgentPods, &ap)
+			t2AgentPods = append(t2AgentPods, &Pod{
+				Name:      ap.Name,
+				Namespace: ap.Namespace,
+				NodeName:  ap.Spec.NodeName,
+			})
 		}
 	}
 
@@ -85,10 +98,10 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 	return nil
 }
 
-func (s *LoadbalancerClient) GetT1NodeAgentPods() []*corev1.Pod {
+func (s *LoadbalancerClient) GetT1NodeAgentPods() []*Pod {
 	return s.t1AgentPods
 }
 
-func (s *LoadbalancerClient) GetT2NodeAgentPods() []*corev1.Pod {
+func (s *LoadbalancerClient) GetT2NodeAgentPods() []*Pod {
 	return s.t2AgentPods
 }
