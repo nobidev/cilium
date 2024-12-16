@@ -42,7 +42,7 @@ spec:
     - protocol: TCP
       name: grpc
       port: {{ eq (include "hubble.timescape.tls.enabled" .) "true" | ternary 443 80 }}
-      targetPort: server-grpc
+      targetPort: {{ .Values.hubble.rbac.enabled | ternary "grpc-rbac" "server-grpc" }}
     - name: metrics
       port: 9090
       targetPort: metrics
@@ -171,7 +171,11 @@ spec:
             name: tls
             readOnly: true
           {{- end }}
-
+        {{- if .Values.hubble.rbac.enabled }}
+        {{- with (include "container.rbac" (dict "Values" .Values "isTimescape" true)) | fromYaml | list | toYaml }}
+        {{- . | nindent 8}}
+        {{- end }}
+        {{- end }}
       volumes:
       - name: config
         configMap:
@@ -191,6 +195,20 @@ spec:
               - key: tls.key
                 path: server.key
               name: {{ .Values.hubble.timescape.tls.server.existingSecret | default "hubble-timescape-server-certs" }}
+      {{- end }}
+      {{- if .Values.hubble.rbac.enabled }}
+      - name: hubble-rbac-policy
+        configMap:
+          name: {{ .Values.hubble.rbac.policy.configMap.name }}
+          defaultMode: 0400
+      {{- if .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+      - name: hubble-rbac-tls-oidc
+        configMap:
+          name: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+          items:
+          - key: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.key }}
+            path: hubble-oidc-provider-ca.pem
+      {{- end }}
       {{- end }}
 
       - name: clickhouse-config
@@ -333,8 +351,12 @@ data:
     enable-clickhouse-server-logs: false
     log-query-progress: false
     server:
+      {{- if .Values.hubble.rbac.enabled }}
+      listen-address: localhost:4244
+      {{- else }}
       listen-address: :4244
-      {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+      {{- end }}
+      {{- if and (not .Values.hubble.rbac.enabled) ( eq (include "hubble.timescape.tls.enabled" .) "true" )}}
       enable-tls: true
       tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
       tls-key-file: /var/lib/hubble-timescape/tls/server.key
