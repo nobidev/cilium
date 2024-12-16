@@ -3,8 +3,8 @@
 {{- end }}
 
 {{- define "container.rbac" -}}
-{{- if not .Values.hubble.tls.enabled }}
-{{- fail "Hubble RBAC requires Hubble TLS (.Values.hubble.tls.enabled=true)" }}
+{{- if or (not .Values.hubble.tls.enabled) (not .Values.hubble.relay.tls.server.enabled) }}
+{{- fail "Hubble RBAC requires Hubble TLS (.Values.hubble.tls.enabled=true and .Values.hubble.relay.tls.server.enabled=true)" }}
 {{- end }}
 name: {{ include "container.rbac.name" . }}
 image: {{ include "cilium.image" .Values.hubble.rbac.image | quote }}
