@@ -105,3 +105,11 @@ func (s *LoadbalancerClient) GetT1NodeAgentPods() []*Pod {
 func (s *LoadbalancerClient) GetT2NodeAgentPods() []*Pod {
 	return s.t2AgentPods
 }
+
+func (s *LoadbalancerClient) SetT1NodeAgentPods(pods []*Pod) {
+	s.t1AgentPods = pods
+}
+
+func (s *LoadbalancerClient) SetT2NodeAgentPods(pods []*Pod) {
+	s.t2AgentPods = pods
+}
