@@ -239,4 +239,12 @@ rules:
   - create
   - update
   - delete
+{{- if .Values.enterprise.loadbalancer.enabled }}
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+{{- end }}
 {{- end }}
