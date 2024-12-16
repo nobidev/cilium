@@ -128,7 +128,7 @@ func TestPhantomServiceUpdate(t *testing.T) {
 	event = <-svcCache.sc.Events
 	require.Equal(t, DeleteService, event.Action, "Received incorrect service event")
 	require.Equal(t, id, event.ID, "Received incorrect service event")
-	require.Empty(t, event.Endpoints.Backends, "Received incorrect service event")
+	require.Len(t, event.OldEndpoints.Backends, 1, "Received incorrect service event")
 }
 
 func TestPhantomServiceDelete(t *testing.T) {
@@ -175,7 +175,7 @@ func TestPhantomServiceDelete(t *testing.T) {
 	event = <-svcCache.sc.Events
 	require.Equal(t, DeleteService, event.Action, "Received incorrect service event")
 	require.Equal(t, id, event.ID, "Received incorrect service event")
-	require.Empty(t, event.Endpoints.Backends, "Received incorrect service event")
+	require.Len(t, event.OldEndpoints.Backends, 1, "Received incorrect service event")
 }
 
 func TestPhantomServiceDisabled(t *testing.T) {
@@ -328,7 +328,7 @@ func TestGlobalToPhantomToGlobalService(t *testing.T) {
 	event = <-svcCache.sc.Events
 	require.Equal(t, DeleteService, event.Action, "Received incorrect service event")
 	require.Equal(t, globalID, event.ID, "Received incorrect service event")
-	require.Empty(t, event.Endpoints.Backends, "Received incorrect service event")
+	require.Len(t, event.OldEndpoints.Backends, 1, "Received incorrect service event")
 
 	// The update event for the local service should be triggered, to include
 	// the remote endpoints.
