@@ -4032,6 +4032,8 @@ enterprise:
       create: false
       # -- The name of the secret namespace to which Cilium agents are given read access
       name: kube-system
+    # -- Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
+    routerAdvertisementInterval: 3s
   bfd:
     # -- Enables Bidirectional Forwarding Detection (BFD) feature.
     enabled: false

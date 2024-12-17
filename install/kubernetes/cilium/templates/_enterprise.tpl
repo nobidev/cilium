@@ -23,6 +23,7 @@ enable-bgp-control-plane-status-report: "true"
 # Service health-checking integration in BGP control plane
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
 enable-statedb-neighbor-sync: "true"
+router-advertisement-interval: {{ .Values.enterprise.bgpControlPlane.routerAdvertisementInterval | quote }}
 {{- end }}
 
 # BFD subsystem

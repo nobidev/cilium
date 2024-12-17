@@ -1813,6 +1813,9 @@
             "enabled": {
               "type": "boolean"
             },
+            "routerAdvertisementInterval": {
+              "type": "string"
+            },
             "secretsNamespace": {
               "properties": {
                 "create": {

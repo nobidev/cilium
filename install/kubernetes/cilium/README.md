@@ -360,6 +360,7 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.bfd.enabled | bool | `false` | Enables Bidirectional Forwarding Detection (BFD) feature. |
 | enterprise.bgpControlPlane.enableServiceHealthChecking | bool | `false` | Enables BGP integration with service health-checking. |
 | enterprise.bgpControlPlane.enabled | bool | `false` | Enables enterprise BGP control plane |
+| enterprise.bgpControlPlane.routerAdvertisementInterval | string | `"3s"` | Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled. |
 | enterprise.bgpControlPlane.secretsNamespace | object | `{"create":false,"name":"kube-system"}` | SecretsNamespace is the namespace which BGP support will retrieve secrets from. |
 | enterprise.bgpControlPlane.secretsNamespace.create | bool | `false` | Create secrets namespace for BGP secrets. |
 | enterprise.bgpControlPlane.secretsNamespace.name | string | `"kube-system"` | The name of the secret namespace to which Cilium agents are given read access |

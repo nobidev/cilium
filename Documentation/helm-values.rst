@@ -1240,6 +1240,10 @@
      - Enables enterprise BGP control plane
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.routerAdvertisementInterval`
+     - Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
+     - string
+     - ``"3s"``
    * - :spelling:ignore:`enterprise.bgpControlPlane.secretsNamespace`
      - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
      - object
