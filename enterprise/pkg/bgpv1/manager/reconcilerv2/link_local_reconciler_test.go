@@ -56,7 +56,8 @@ func newLinkLocalTestFixture() *linkLocalTestFixture {
 	f.hive = hive.New(
 		cell.Module("link-local-reconciler-test", "Link-local reconciler test",
 			cell.Config(config.Config{
-				Enabled: true,
+				Enabled:             true,
+				StatusReportEnabled: true,
 			}),
 			cell.Config(defaultConfig),
 			cell.Provide(

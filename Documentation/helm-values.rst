@@ -1264,6 +1264,10 @@
      - The name of the secret namespace to which Cilium agents are given read access
      - string
      - ``"kube-system"``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.statusReport.enabled`
+     - Enable/Disable enterprise BGPv2 status reporting. It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
+     - bool
+     - ``true``
    * - :spelling:ignore:`enterprise.ciliummesh.enabled`
      - Enables Cilium Mesh
      - bool

@@ -52,6 +52,7 @@ cilium-agent hive [flags]
       --enable-dynamic-lifecycle-manager                             Enables support for dynamic lifecycle management
       --enable-encryption-policy                                     Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
+      --enable-enterprise-bgp-control-plane-status-report            Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api                                           Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-hubble                                                Enable hubble server (default true)
       --enable-hubble-open-metrics                                   Enable exporting hubble metrics in OpenMetrics format

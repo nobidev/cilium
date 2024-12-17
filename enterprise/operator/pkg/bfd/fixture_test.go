@@ -110,7 +110,10 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	f.hive = hive.New(
 		Cell,
 
-		cell.Config(bgpv2config.Config{Enabled: true}),
+		cell.Config(bgpv2config.Config{
+			Enabled:             true,
+			StatusReportEnabled: true,
+		}),
 		cell.Provide(
 			k8s.IsovalentBGPClusterConfigResource,
 			k8s.IsovalentBGPPeerConfigResource,

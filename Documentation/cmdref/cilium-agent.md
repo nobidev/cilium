@@ -132,6 +132,7 @@ cilium-agent [flags]
       --enable-endpoint-lockdown-on-policy-overflow                  When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.
       --enable-endpoint-routes                                       Use per endpoint routes instead of routing via cilium_host
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
+      --enable-enterprise-bgp-control-plane-status-report            Enable enterprise BGP status report in Cilium (default true)
       --enable-envoy-config                                          Enable Envoy Config CRDs
       --enable-external-ips                                          Enable k8s service externalIPs feature (requires enabling enable-node-port)
       --enable-gateway-api                                           Enables Envoy secret sync for Gateway API related TLS secrets

@@ -34,6 +34,7 @@ cilium-operator-aws hive [flags]
       --enable-cilium-mesh                                           Enable Cilium Mesh feature
       --enable-cilium-operator-server-access strings                 List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
+      --enable-enterprise-bgp-control-plane-status-report            Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api-alpn                                      Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                              Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
       --enable-gateway-api-proxy-protocol                            Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.

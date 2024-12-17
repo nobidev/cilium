@@ -76,7 +76,8 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 		// test module so that BFDStateReconciler gets a job.Group
 		cell.Module("bfd-state-reconciler-test", "BFD State Reconciler test",
 			cell.Config(config.Config{
-				Enabled: true,
+				Enabled:             true,
+				StatusReportEnabled: true,
 			}),
 			cell.Config(types.BFDConfig{
 				BFDEnabled: true,

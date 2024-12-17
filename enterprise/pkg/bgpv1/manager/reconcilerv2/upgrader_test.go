@@ -61,7 +61,8 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			// enterprise bgp is enabled
 			func() config.Config {
 				return config.Config{
-					Enabled: true,
+					Enabled:             true,
+					StatusReportEnabled: true,
 				}
 			},
 			func() logrus.FieldLogger {

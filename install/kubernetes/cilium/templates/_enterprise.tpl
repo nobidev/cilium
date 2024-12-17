@@ -18,8 +18,10 @@ srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | defau
 enable-enterprise-bgp-control-plane: "true"
 enable-bgp-control-plane: "true"
 bgp-secrets-namespace: {{ .Values.enterprise.bgpControlPlane.secretsNamespace.name | quote }}
-# enable-bgp-control-plane-status-report should be set to "false" after we sync the https://github.com/cilium/cilium/pull/36245 to main-ce.
-enable-bgp-control-plane-status-report: "true"
+# Status reporting for OSS BGP control plane is disabled when enterprise BGP control plane is enabled.
+# Enterprise BGP control plane status reporting is enabled by default, but can be disabled by the user.
+enable-bgp-control-plane-status-report: "false"
+enable-enterprise-bgp-control-plane-status-report: {{ .Values.enterprise.bgpControlPlane.statusReport.enabled | quote }}
 # Service health-checking integration in BGP control plane
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
 enable-statedb-neighbor-sync: "true"

@@ -15,20 +15,25 @@ import (
 )
 
 const (
-	// enterpriseBGPEnabled is the name of the flag to enable the SRv6 locator pool.
+	// enterpriseBGPEnabled is the name of the flag to enable the BGP control plane.
 	enterpriseBGPEnabled = "enable-enterprise-bgp-control-plane"
+	// enterpriseBGPStatusReportEnabled is the name of the flag to enable the BGP control plane status report.
+	enterpriseBGPStatusReportEnabled = "enable-enterprise-bgp-control-plane-status-report"
 )
 
 // Config parameters for enterprise BGP.
 type Config struct {
-	Enabled bool `mapstructure:"enable-enterprise-bgp-control-plane"`
+	Enabled             bool `mapstructure:"enable-enterprise-bgp-control-plane"`
+	StatusReportEnabled bool `mapstructure:"enable-enterprise-bgp-control-plane-status-report"`
 }
 
 // Flags implements cell.Flagger interface.
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(enterpriseBGPEnabled, cfg.Enabled, "Enable enterprise BGP in Cilium")
+	flags.Bool(enterpriseBGPStatusReportEnabled, cfg.StatusReportEnabled, "Enable enterprise BGP status report in Cilium")
 }
 
 var DefaultConfig = Config{
-	Enabled: false,
+	Enabled:             false,
+	StatusReportEnabled: true,
 }
