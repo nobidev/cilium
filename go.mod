@@ -335,8 +335,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
 
-replace go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-
 // Enterprise dependencies.
 //
 // These must come after the OSS dependencies, since the go tooling adds
