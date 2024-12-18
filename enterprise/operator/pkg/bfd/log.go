@@ -20,6 +20,9 @@ const (
 	// PeerAddressField is the log field key used for BFD peer IP address.
 	PeerAddressField = "peer_address"
 
+	// PeerInterfaceField is the log field key used for BFD peer's interface.
+	PeerInterfaceField = "peer_interface"
+
 	// NodeConfigNameField is the log field key used for BFD node config CRD object.
 	NodeConfigNameField = "node_config_name"
 )

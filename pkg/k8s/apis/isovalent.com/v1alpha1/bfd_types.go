@@ -236,11 +236,13 @@ type BFDNodePeerConfig struct {
 	Name string `json:"name"`
 
 	// PeerAddress is the IP address of the BFD peer.
-	// Supports IPv4 and IPv6 addresses. If a link-local IPv6 address is used, Interface must be specified.
+	// If a link-local IPv6 address is used, Interface must be specified.
+	// If PeerAddress is not specified, Interface must be specified, in which case an auto-detected link-local
+	// IPv6 neighbor address will be used for peering (if single link-local IPv6 neighbor exists).
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=ip
-	PeerAddress string `json:"peerAddress"`
+	PeerAddress *string `json:"peerAddress"`
 
 	// BFDProfileRef is a reference to an IsovalentBFDProfile resource name
 	// containing further BFD configuration for this peering.
@@ -357,18 +359,16 @@ type BFDNodeConfigOverrideSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +listType=map
-	// +listMapKey=peerAddress
+	// +listMapKey=name
 	Peers []*BFDNodeConfigOverridePeer `json:"peers,omitempty"`
 }
 
 // BFDNodeConfigOverridePeer contains node-specific BFD override configuration for a BFD peer.
 type BFDNodeConfigOverridePeer struct {
-	// PeerAddress is the IP address of the BFD peer to which this override configuration applies.
-	// Supports IPv4 and IPv6 addresses. If a link-local IPv6 address is used, Interface must be specified.
+	// Name of the peering in the IsovalentBFDNodeConfig for which the configuration is overridden.
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=ip
-	PeerAddress string `json:"peerAddress"`
+	Name string `json:"name"`
 
 	// Interface is the name of a network interface to which this session is bound to.
 	//

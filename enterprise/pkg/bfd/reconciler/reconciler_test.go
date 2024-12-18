@@ -38,11 +38,13 @@ func Test_BFDReconciler(t *testing.T) {
 
 	var (
 		bfdPeerName      = "test-peer-1"
-		bfdPeerIP        = netip.MustParseAddr("10.0.0.1")
+		bfdPeerIP        = "10.0.0.1"
+		bfdPeerIPAddr    = netip.MustParseAddr(bfdPeerIP)
 		bfdPeerInterface = "eth0"
 
 		bfdPeer2Name      = "test-peer-2"
-		bfdPeer2IP        = netip.MustParseAddr("10.0.0.2")
+		bfdPeer2IP        = "10.0.0.2"
+		bfdPeer2IPAddr    = netip.MustParseAddr(bfdPeer2IP)
 		bfdPeer2Interface = "eth0"
 
 		bfdProfileName  = "test-profile"
@@ -124,7 +126,7 @@ func Test_BFDReconciler(t *testing.T) {
 						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          bfdPeerName,
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								Interface:     ptr.To[string](bfdPeerInterface),
 								BFDProfileRef: bfdProfileName,
 							},
@@ -149,7 +151,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -171,7 +173,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile2,
 					},
@@ -193,7 +195,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusMultihop,
 					},
@@ -216,7 +218,7 @@ func Test_BFDReconciler(t *testing.T) {
 				{
 					Deleted: true,
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusMultihop,
 					},
@@ -238,7 +240,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -264,7 +266,7 @@ func Test_BFDReconciler(t *testing.T) {
 				{
 					Deleted: true,
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -285,7 +287,7 @@ func Test_BFDReconciler(t *testing.T) {
 						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          bfdPeerName,
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								Interface:     ptr.To[string](bfdPeerInterface),
 								BFDProfileRef: bfdProfileName,
 							},
@@ -296,7 +298,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -317,13 +319,13 @@ func Test_BFDReconciler(t *testing.T) {
 						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          bfdPeerName,
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								Interface:     ptr.To[string](bfdPeerInterface),
 								BFDProfileRef: bfdProfileName,
 							},
 							{
 								Name:          bfdPeer2Name,
-								PeerAddress:   bfdPeer2IP.String(),
+								PeerAddress:   &bfdPeer2IP,
 								Interface:     ptr.To[string](bfdPeer2Interface),
 								BFDProfileRef: bfdProfileName,
 							},
@@ -334,7 +336,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeer2IP,
+						PeerAddress: bfdPeer2IPAddr,
 						Interface:   bfdPeer2Interface,
 						Local:       bfdStatusProfile1,
 					},
@@ -355,7 +357,7 @@ func Test_BFDReconciler(t *testing.T) {
 						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          bfdPeerName,
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								Interface:     ptr.To[string](bfdPeer2Interface),
 								BFDProfileRef: bfdProfileName,
 							},
@@ -367,7 +369,7 @@ func Test_BFDReconciler(t *testing.T) {
 				{
 					Deleted: true,
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeer2IP,
+						PeerAddress: bfdPeer2IPAddr,
 						Interface:   bfdPeer2Interface,
 						Local:       bfdStatusProfile1,
 					},
@@ -393,7 +395,7 @@ func Test_BFDReconciler(t *testing.T) {
 				{
 					Deleted: true,
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -414,7 +416,7 @@ func Test_BFDReconciler(t *testing.T) {
 						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          bfdPeerName,
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								Interface:     ptr.To[string](bfdPeerInterface),
 								BFDProfileRef: bfdProfileName,
 							},
@@ -425,7 +427,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -451,7 +453,7 @@ func Test_BFDReconciler(t *testing.T) {
 				{
 					Deleted: true,
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},
@@ -473,13 +475,13 @@ func Test_BFDReconciler(t *testing.T) {
 							{
 								Name:          bfdPeerName + "-1",
 								Interface:     ptr.To[string](bfdPeerInterface),
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								BFDProfileRef: bfdProfileName,
 							},
 							{
 								Name:          bfdPeerName + "-2",
 								Interface:     ptr.To[string](bfdPeerInterface),
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								BFDProfileRef: bfdProfileName,
 							},
 						},
@@ -495,7 +497,7 @@ func Test_BFDReconciler(t *testing.T) {
 							{
 								Name:          bfdPeerName,
 								Interface:     ptr.To[string](bfdPeerInterface),
-								PeerAddress:   bfdPeerIP.String(),
+								PeerAddress:   &bfdPeerIP,
 								BFDProfileRef: bfdProfileName,
 							},
 						},
@@ -505,7 +507,7 @@ func Test_BFDReconciler(t *testing.T) {
 			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
 				{
 					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIP,
+						PeerAddress: bfdPeerIPAddr,
 						Interface:   bfdPeerInterface,
 						Local:       bfdStatusProfile1,
 					},

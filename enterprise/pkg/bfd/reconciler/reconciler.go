@@ -305,9 +305,12 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 
 // getDesiredBFDPeerConfig generates BFD peer configuration from high-level BFD peer config and BFD profile
 func (r *bfdReconciler) getDesiredBFDPeerConfig(peer *v1alpha1.BFDNodePeerConfig, profile *v1alpha1.IsovalentBFDProfile) (*types.BFDPeerConfig, error) {
-	peerAddr, err := netip.ParseAddr(peer.PeerAddress)
+	if peer.PeerAddress == nil {
+		return nil, nil
+	}
+	peerAddr, err := netip.ParseAddr(*peer.PeerAddress)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing BFD peer address '%s': %w", peer.PeerAddress, err)
+		return nil, fmt.Errorf("error parsing BFD peer address '%s': %w", *peer.PeerAddress, err)
 	}
 
 	localAddr := netip.Addr{}

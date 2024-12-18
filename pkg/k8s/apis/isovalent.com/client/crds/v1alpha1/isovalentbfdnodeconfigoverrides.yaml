@@ -73,18 +73,16 @@ spec:
                         It must match the IP address configured for this node on the remote peer.
                       format: ip
                       type: string
-                    peerAddress:
-                      description: |-
-                        PeerAddress is the IP address of the BFD peer to which this override configuration applies.
-                        Supports IPv4 and IPv6 addresses. If a link-local IPv6 address is used, Interface must be specified.
-                      format: ip
+                    name:
+                      description: Name of the peering in the IsovalentBFDNodeConfig
+                        for which the configuration is overridden.
                       type: string
                   required:
-                  - peerAddress
+                  - name
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
-                - peerAddress
+                - name
                 x-kubernetes-list-type: map
             type: object
         required:

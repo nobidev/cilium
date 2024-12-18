@@ -58,7 +58,7 @@ func (in *BFDNodeConfigOverridePeer) DeepEqual(other *BFDNodeConfigOverridePeer)
 		return false
 	}
 
-	if in.PeerAddress != other.PeerAddress {
+	if in.Name != other.Name {
 		return false
 	}
 	if (in.Interface == nil) != (other.Interface == nil) {
@@ -155,9 +155,14 @@ func (in *BFDNodePeerConfig) DeepEqual(other *BFDNodePeerConfig) bool {
 	if in.Name != other.Name {
 		return false
 	}
-	if in.PeerAddress != other.PeerAddress {
+	if (in.PeerAddress == nil) != (other.PeerAddress == nil) {
 		return false
+	} else if in.PeerAddress != nil {
+		if *in.PeerAddress != *other.PeerAddress {
+			return false
+		}
 	}
+
 	if in.BFDProfileRef != other.BFDProfileRef {
 		return false
 	}

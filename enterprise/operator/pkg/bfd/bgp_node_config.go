@@ -11,17 +11,18 @@
 package bfd
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -32,8 +33,14 @@ import (
 
 // bfdPeerConfig represents desired config of a BFD peer.
 type bfdPeerConfig struct {
-	peerAddress string
-	bfdProfile  string
+	name          string
+	peerAddress   *string
+	interfaceName *string
+	bfdProfile    string
+}
+
+func (p *bfdPeerConfig) String() string {
+	return fmt.Sprintf("%s/%s/%s/%s", p.name, ptr.Deref(p.peerAddress, ""), ptr.Deref(p.interfaceName, ""), p.bfdProfile)
 }
 
 // reconcileBGPClusterConfigs reconciles BFD configuration based on IsovalentBGPClusterConfig resources.
@@ -90,7 +97,7 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *isovalentv1alpha1.IsovalentBGP
 
 	for _, instance := range bgpCC.Spec.BGPInstances {
 		for _, p := range instance.Peers {
-			if p.PeerAddress == nil || p.PeerConfigRef == nil {
+			if (p.PeerAddress == nil && p.Interface == nil) || p.PeerConfigRef == nil {
 				continue
 			}
 			peerConfig, exists, err := r.bgpPeerConfigStore.GetByKey(resource.Key{Name: p.PeerConfigRef.Name})
@@ -101,19 +108,23 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *isovalentv1alpha1.IsovalentBGP
 				continue
 			}
 			if peerConfig.Spec.BFDProfileRef != nil {
-				if existing, exists := peersMap[*p.PeerAddress]; exists {
-					// BFD peer with this address already exists for this BGPClusterConfig, skip
+				key := p.PeeringKey()
+				if existing, exists := peersMap[key]; exists {
+					// BFD peer with this address+interface already exists for this BGPClusterConfig, skip
 					if existing.bfdProfile != *peerConfig.Spec.BFDProfileRef {
 						r.Logger.WithFields(logrus.Fields{
 							BGPClusterConfigField: bgpCC.Name,
-							PeerAddressField:      *p.PeerAddress,
+							PeerAddressField:      ptr.Deref(p.PeerAddress, ""),
+							PeerInterfaceField:    ptr.Deref(p.Interface, ""),
 						}).Warnf("Same BFD peer configured with different BFD profiles, '%s' will be used", existing.bfdProfile)
 					}
 					continue
 				}
-				peersMap[*p.PeerAddress] = &bfdPeerConfig{
-					peerAddress: *p.PeerAddress,
-					bfdProfile:  *peerConfig.Spec.BFDProfileRef,
+				peersMap[key] = &bfdPeerConfig{
+					name:          getBFDPeerName(instance.Name, p.Name),
+					peerAddress:   p.PeerAddress,
+					interfaceName: p.Interface,
+					bfdProfile:    *peerConfig.Spec.BFDProfileRef,
 				}
 			}
 		}
@@ -122,7 +133,7 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *isovalentv1alpha1.IsovalentBGP
 	// sort peers to generate deterministic order
 	peers := slices.Collect(maps.Values(peersMap))
 	slices.SortFunc(peers, func(a, b *bfdPeerConfig) int {
-		return cmp.Compare(a.peerAddress, b.peerAddress)
+		return strings.Compare(a.String(), b.String())
 	})
 	return peers, nil
 }
@@ -156,7 +167,9 @@ func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *isova
 	}
 	if overrideExists {
 		for _, p := range override.Spec.Peers {
-			overrideConfig[p.PeerAddress] = p
+			if p.Name != "" {
+				overrideConfig[p.Name] = p
+			}
 		}
 	}
 
@@ -179,14 +192,21 @@ func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *isova
 	}
 	for _, peer := range peers {
 		peerConfig := &isovalentv1alpha1.BFDNodePeerConfig{
-			Name:          getBFDPeerName(peer.peerAddress),
+			Name:          peer.name,
 			PeerAddress:   peer.peerAddress,
+			Interface:     peer.interfaceName,
 			BFDProfileRef: peer.bfdProfile,
 		}
-		if o, exist := overrideConfig[peer.peerAddress]; exist {
-			peerConfig.Interface = o.Interface
-			peerConfig.LocalAddress = o.LocalAddress
-			peerConfig.EchoSourceAddress = o.EchoSourceAddress
+		if o, exist := overrideConfig[peer.name]; exist {
+			if ptr.Deref(o.Interface, "") != "" {
+				peerConfig.Interface = o.Interface
+			}
+			if ptr.Deref(o.LocalAddress, "") != "" {
+				peerConfig.LocalAddress = o.LocalAddress
+			}
+			if ptr.Deref(o.EchoSourceAddress, "") != "" {
+				peerConfig.EchoSourceAddress = o.EchoSourceAddress
+			}
 		}
 		desired.Spec.Peers = append(desired.Spec.Peers, peerConfig)
 	}
@@ -270,9 +290,9 @@ func getNodeConfigName(bgpCCName, nodeName string) string {
 	return "bgp-" + bgpCCName + "-" + nodeName
 }
 
-// getBFDPeerName returns a logical name for a BFD peer with the given address.
-func getBFDPeerName(address string) string {
-	return "peer-" + address
+// getBFDPeerName returns name of a BFD peer in IsovalentBFDNodeConfig for the given BGP instance name and peer name.
+func getBFDPeerName(instanceName, peerName string) string {
+	return instanceName + "-" + peerName
 }
 
 // IsOwner checks if the ownerName is present in the owners list.

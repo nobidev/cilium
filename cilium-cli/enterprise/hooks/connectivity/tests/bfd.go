@@ -406,9 +406,10 @@ func configureBFDNodeConfig(ctx context.Context, t *check.Test, node *corev1.Nod
 		},
 	}
 	for _, frr := range ct.FRRPods() {
+		peerAddr := frr.Address(ipFamily)
 		nc.Spec.Peers = append(nc.Spec.Peers, &isovalentv1alpha1.BFDNodePeerConfig{
 			Name:          "test-peer-" + frr.Address(ipFamily),
-			PeerAddress:   frr.Address(ipFamily),
+			PeerAddress:   &peerAddr,
 			BFDProfileRef: bfdProfileName,
 		})
 	}

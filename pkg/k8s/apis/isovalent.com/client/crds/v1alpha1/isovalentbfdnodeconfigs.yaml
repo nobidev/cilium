@@ -117,13 +117,14 @@ spec:
                     peerAddress:
                       description: |-
                         PeerAddress is the IP address of the BFD peer.
-                        Supports IPv4 and IPv6 addresses. If a link-local IPv6 address is used, Interface must be specified.
+                        If a link-local IPv6 address is used, Interface must be specified.
+                        If PeerAddress is not specified, Interface must be specified, in which case an auto-detected link-local
+                        IPv6 neighbor address will be used for peering (if single link-local IPv6 neighbor exists).
                       format: ip
                       type: string
                   required:
                   - bfdProfileRef
                   - name
-                  - peerAddress
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
