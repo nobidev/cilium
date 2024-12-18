@@ -333,7 +333,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(vp, option.DisableCiliumEndpointCRDName)
 
-	flags.String(option.MasqueradeInterfaces, "", "Limit iptables-based egress masquerading to interfaces selector")
+	flags.StringSlice(option.MasqueradeInterfaces, []string{}, "Limit iptables-based egress masquerading to interfaces selector")
 	option.BindEnv(vp, option.MasqueradeInterfaces)
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
@@ -489,6 +489,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Uint(option.K8sServiceCacheSize, defaults.K8sServiceCacheSize, "Cilium service cache size for kubernetes")
 	option.BindEnv(vp, option.K8sServiceCacheSize)
 	flags.MarkHidden(option.K8sServiceCacheSize)
+
+	flags.Int(option.K8sServiceDebounceBufferSize, 128, "Number of distinct services to buffer for event debouncing")
+	option.BindEnv(vp, option.K8sServiceDebounceBufferSize)
+	flags.MarkHidden(option.K8sServiceDebounceBufferSize)
+
+	flags.Duration(option.K8sServiceDebounceWaitTime, 200*time.Millisecond, "The amount of time to wait to debounce service events")
+	option.BindEnv(vp, option.K8sServiceDebounceWaitTime)
+	flags.MarkHidden(option.K8sServiceDebounceWaitTime)
 
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
 	option.BindEnv(vp, option.K8sWatcherEndpointSelector)
