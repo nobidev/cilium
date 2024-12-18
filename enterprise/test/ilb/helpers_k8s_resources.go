@@ -697,10 +697,11 @@ func withTCPProxyApplication(backendRef string, forceDeploymentMode isovalentv1a
 	}
 }
 
-func withUDPProxyApplication(backendRef string) serviceOption {
+func withUDPProxyApplication(backendRef string, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
 			UDPProxy: &isovalentv1alpha1.LBServiceApplicationUDPProxy{
+				ForceDeploymentMode: ptr.To(forceDeploymentMode),
 				Routes: []isovalentv1alpha1.LBServiceUDPRoute{
 					{
 						BackendRef: isovalentv1alpha1.LBServiceBackendRef{

@@ -15,65 +15,72 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestUDPProxy(t *testing.T) {
-	ctx := context.Background()
-	testName := "udp-proxy"
-	testK8sNamespace := "default"
+	for _, forceDeploymentMode := range []isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto} {
+		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+		dockerCli := newDockerCli(t)
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+		testK8sNamespace := "default"
 
-	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		t.Run("Test UDPProxy force mode "+string(forceDeploymentMode), func(t *testing.T) {
+			ctx := context.Background()
+			testName := "udp-proxy-" + string(forceDeploymentMode)
 
-	t.Log("Creating backend apps...")
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	backendNum := 2
-	// UDPProxy does not support backends with different ports, so create just 1 backend.
-	if isSingleNode() {
-		backendNum = 1
+			t.Log("Creating backend apps...")
+
+			backendNum := 2
+			// UDPProxy does not support backends with different ports, so create just 1 backend.
+			if isSingleNode() {
+				backendNum = 1
+			}
+			scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
+
+			t.Log("Creating clients and add BGP peering ...")
+			client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+
+			t.Logf("Creating LB VIP resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(ctx, vip)
+
+			t.Logf("Creating LB BackendPool resources...")
+			backends := []backendPoolOption{}
+			for _, b := range scenario.backendApps {
+				backends = append(backends, withIPBackend(b.ip, b.port))
+			}
+			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			scenario.createLBBackendPool(ctx, backendPool)
+
+			t.Logf("Creating LB Service resources...")
+			service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(backendPool.Name, forceDeploymentMode))
+			scenario.createLBService(ctx, service)
+
+			t.Logf("Waiting for full VIP connectivity of %q...", testName)
+			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+			maybeSysdump(t, testName, "")
+
+			// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
+			// Do a few attempts, as neither UDP nor nc are reliable.
+			eventually(t, func() error {
+				cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
+
+				t.Logf("Sending UDP request: cmd='%q'", cmd)
+
+				stdout, stderr, err := client.Exec(ctx, cmd)
+				if err != nil {
+					return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
+				} else if stdout == "deadbeef" {
+					return nil
+				}
+				return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q'", cmd, stdout, stderr)
+			}, 10*time.Second, 1*time.Second)
+		})
 	}
-	scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
-
-	t.Log("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
-
-	t.Logf("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
-
-	t.Logf("Creating LB BackendPool resources...")
-	backends := []backendPoolOption{}
-	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
-	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
-
-	t.Logf("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(backendPool.Name))
-	scenario.createLBService(ctx, service)
-
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(t, testName, "")
-
-	// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
-	// Do a few attempts, as neither UDP nor nc are reliable.
-	eventually(t, func() error {
-		cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
-
-		t.Logf("Sending UDP request: cmd='%q'", cmd)
-
-		stdout, stderr, err := client.Exec(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
-		} else if stdout == "deadbeef" {
-			return nil
-		}
-		return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q'", cmd, stdout, stderr)
-	}, 10*time.Second, 1*time.Second)
 }
