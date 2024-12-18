@@ -15,21 +15,24 @@ spec:
         - name: cloudprober-config
           configMap:
             name: cloudprober-config
-        - name: ca-config
+        - name: ca-bundle
           configMap:
-            name: ca-config
+            name: tls-interception
       containers:
         - name: cloudprober
           image: cloudprober/cloudprober:v0.13.8-1
-          command: ["/bin/sh"]
+          command: ["/cloudprober"]
           args:
-          - -c
-          - cat /cert/ca-config >> /etc/ssl/certs/ca-certificates.crt; ls /cfg/; /cloudprober --config_file /cfg/cloudprober.cfg --cloud_metadata=none --disable_cloud_logging=true --logtostderr
+          - --config_file=/cfg/cloudprober.cfg
+          - --cloud_metadata=none
+          - --disable_cloud_logging=true
+          - --logtostderr
           volumeMounts:
             - name: cloudprober-config
               mountPath: /cfg
-            - name: ca-config
-              mountPath: /cert
+            - name: ca-bundle
+              mountPath: "/etc/ssl/cert.pem"
+              subPath: "ca.crt"
           ports:
             - name: http
               containerPort: 9313

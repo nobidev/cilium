@@ -1,0 +1,84 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tls-interception-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: tls-interception-ca
+  secretName: tls-interception-ca
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: tls-interception-ca
+spec:
+  ca:
+    secretName: tls-interception-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tls-termination
+  namespace: cilium-secrets
+spec:
+  secretName: tls-termination
+  dnsNames:
+  - www.google.com
+  - about.gitlab.com
+  - storage.googleapis.com
+  - login.microsoftonline.com
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: tls-interception-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: tls-interception
+spec:
+  sources:
+  - useDefaultCAs: true
+  - secret:
+      name: "tls-interception-ca"
+      key: "ca.crt"
+
+  target:
+    configMap:
+      key: "ca.crt"
+---
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: tls-origination
+spec:
+  sources:
+  - useDefaultCAs: true
+
+  target:
+    secret:
+      key: "ca.crt"
+
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: cilium-secrets

@@ -70,6 +70,11 @@ env:
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 504.0.1
 
+  # renovate: datasource=github-releases depName=cert-manager/cert-manager
+  cert_manager_version: v1.16.2
+  # renovate: datasource=github-releases depName=cert-manager/trust-manager
+  trust_manager_version: v0.14.0
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -166,6 +171,7 @@ jobs:
             --helm-set-string=extraConfig.external-dns-proxy=true \
             --helm-set-string=extraConfig.kvstore-pod-network-support=false \
             --helm-set-string=extraConfig.monitor-aggregation-interval=10m \
+            --helm-set-string=extraConfig.use-full-tls-context=false \
             --helm-set=localRedirectPolicy=true \
             --helm-set=operator.extraArgs[0]="--k8s-client-qps=100" \
             --helm-set=operator.extraArgs[1]="--k8s-client-burst=100" \
@@ -447,6 +453,26 @@ jobs:
         run: |
           cilium status --wait
 
+      - name: Install cert-manager and trust-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+
+          helm install cert-manager \
+            jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --version ${{ env.cert_manager_version }} \
+            --set crds.enabled=true \
+            --wait
+
+          helm install trust-manager \
+            jetstack/trust-manager \
+            --namespace cert-manager \
+            --version ${{ env.trust_manager_version }} \
+            --set secretTargets.enabled=true \
+            --set secretTargets.authorizedSecrets\[0]=tls-origination \
+            --wait
+
       - name: Run CL2 to setup prometheus
         shell: bash
         working-directory: ./perf-tests/clusterloader2
@@ -481,26 +507,17 @@ jobs:
 
       - name: Setup Certificates and Cloudprober
         run: |
-          openssl genrsa -out ca.key 2048
-          openssl req -x509 -new -nodes -key ca.key -sha256 -days 1825 -out ca.crt -subj "/CN=ServiceMesh/"
-          openssl genrsa -out internal.key 2048
-          openssl req -new -key internal.key -out internal.csr -addext "subjectAltName = DNS.1:www.google.com,DNS.2:about.gitlab.com,DNS.3:storage.googleapis.com,DNS.4:login.microsoftonline.com" -subj '/CN=ServiceMesh/O=MyComp/C=PL'
-          openssl x509 -req -days 360 -in internal.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out internal.crt -sha256 -copy_extensions copy
-          kubectl create -f https://raw.githubusercontent.com/cilium/cilium/1.16.3/examples/kubernetes-dns/dns-sw-app.yaml
-          kubectl wait pod/mediabot --for=condition=Ready --timeout=120s
-          kubectl create secret tls tls-data -n cilium-secrets --cert=internal.crt --key=internal.key
-          kubectl cp ca.crt default/mediabot:/usr/local/share/ca-certificates/ca.crt
-          kubectl exec mediabot -- update-ca-certificates
-          kubectl cp default/mediabot:/etc/ssl/certs/ca-certificates.crt ca-certificates.crt
-          kubectl create secret generic tls-orig-data -n cilium-secrets --from-file=ca.crt=./ca-certificates.crt
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/certificates.yaml
+          kubectl wait --for=condition=Ready -n cilium-secrets certificate/tls-termination
+          kubectl wait --for=condition=Synced bundle/tls-origination
+          kubectl wait --for=condition=Synced bundle/tls-interception
+
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/policy.yaml
-          kubectl create configmap ca-config --from-file=ca-config=ca.crt
           kubectl create configmap cloudprober-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.cfg
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.yaml
           kubectl rollout status daemonset cloudprober
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober-host.yaml
           kubectl rollout status daemonset cloudprober-host
-          kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/1.16.3/examples/kubernetes-dns/dns-sw-app.yaml
 
       - name: Create Instance Group for workload deployments
         uses: cilium/scale-tests-action/create-instance-group@d3ecfd83003f3e9c98ba125ca14933401d44918f # main

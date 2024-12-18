@@ -10,7 +10,7 @@ specs:
     toPorts:
     - originatingTLS:
         secret:
-          name: tls-orig-data
+          name: tls-origination
           namespace: cilium-secrets
       ports:
       - port: "80"
@@ -22,14 +22,14 @@ specs:
         - {}
       terminatingTLS:
         secret:
-          name: tls-data
+          name: tls-termination
           namespace: cilium-secrets
   - toFQDNs:
     - matchPattern: storage.googleapis.com
     toPorts:
     - originatingTLS:
         secret:
-          name: tls-orig-data
+          name: tls-origination
           namespace: cilium-secrets
       ports:
       - port: "80"
@@ -41,7 +41,7 @@ specs:
         - path: /chromium-browser-snapshots\/.*
       terminatingTLS:
         secret:
-          name: tls-data
+          name: tls-termination
           namespace: cilium-secrets
   - toFQDNs:
     - matchPattern: '*.github.com'
