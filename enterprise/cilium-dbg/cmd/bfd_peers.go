@@ -31,7 +31,7 @@ var bfdPeersCmd = &cobra.Command{
 	Short:   "List state of BFD peers",
 	Long:    "List current state of all configured BFD peers",
 	Run: func(_ *cobra.Command, args []string) {
-		cmd.ShellExchange(os.Stdout, "db show bfd-peers")
+		cmd.ShellExchange(os.Stdout, "db/show bfd-peers")
 	},
 }
 
