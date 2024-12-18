@@ -432,8 +432,7 @@ jobs:
           helm install -n kube-system cilium-dnsproxy ./enterprise/fqdn-proxy/installation \
             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-dnsproxy-ci \
             --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set metrics.enabled=true \
-            --set debug=true
+            --set metrics.enabled=true
           kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
 
       - name: Wait for cluster to be ready
