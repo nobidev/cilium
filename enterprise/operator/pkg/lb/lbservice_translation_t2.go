@@ -45,6 +45,7 @@ import (
 	envoy_extensions_filters_network_localratelimit_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
 	envoy_extensions_filters_network_rbac_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3"
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_extensions_filters_listener_udp_udpproxy_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/udp/udp_proxy/v3"
 	envoy_extensions_network_dns_resolver_cares_v3 "github.com/cilium/proxy/go/envoy/extensions/network/dns_resolver/cares/v3"
 	envoy_extensions_transportsockets_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	envoy_extensions_transportsockets_rawbuffer_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/raw_buffer/v3"
@@ -52,6 +53,8 @@ import (
 	envoy_extensions_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
+	cncf_xds_core_v3 "github.com/cncf/xds/go/xds/core/v3"
+	cncf_xds_matcher_v3 "github.com/cncf/xds/go/xds/type/matcher/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -83,16 +86,18 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 
 	envoyResources := []ciliumv2.XDSResource{}
 
-	// Service (with route(s)) -> Envoy Listener & Route(s)
+	// Service (with route(s)) -> Envoy Listener(s) & Route(s)
 
-	listener := r.desiredEnvoyListener(model)
+	listeners := r.desiredEnvoyListeners(model)
 
-	listenerXdsResource, err := r.toXdsResource(listener, envoy.ListenerTypeURL)
-	if err != nil {
-		return nil, err
+	for _, l := range listeners {
+		listenerXdsResource, err := r.toXdsResource(l, envoy.ListenerTypeURL)
+		if err != nil {
+			return nil, err
+		}
+
+		envoyResources = append(envoyResources, listenerXdsResource)
 	}
-
-	envoyResources = append(envoyResources, listenerXdsResource)
 
 	routeConfigs := r.desiredEnvoyRouteConfigs(model)
 
@@ -145,7 +150,19 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 	}, nil
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_config_listener_v3.Listener {
+func (r *lbServiceT2Translator) desiredEnvoyListeners(model *lbService) []*envoy_config_listener_v3.Listener {
+	listeners := []*envoy_config_listener_v3.Listener{}
+
+	listeners = append(listeners, r.desiredEnvoyTCPListener(model))
+
+	if model.isUDPProxy() {
+		listeners = append(listeners, r.desiredEnvoyUDPListener(model))
+	}
+
+	return listeners
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy_config_listener_v3.Listener {
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableTCP {
@@ -157,14 +174,15 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 		Address: &envoy_config_core_v3.Address{
 			Address: &envoy_config_core_v3.Address_SocketAddress{
 				SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Address: *model.vip.assignedIPv4,
+					Protocol: envoy_config_core_v3.SocketAddress_TCP,
+					Address:  *model.vip.assignedIPv4,
 					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
 						PortValue: uint32(model.port),
 					},
 				},
 			},
 		},
-		ListenerFilters:               r.desiredEnvoyListenerFilters(model),
+		ListenerFilters:               r.desiredEnvoyTCPListenerFilters(model),
 		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
 		AccessLog:                     accessLoggers,
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
@@ -172,7 +190,27 @@ func (r *lbServiceT2Translator) desiredEnvoyListener(model *lbService) *envoy_co
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
+func (r *lbServiceT2Translator) desiredEnvoyUDPListener(model *lbService) *envoy_config_listener_v3.Listener {
+	return &envoy_config_listener_v3.Listener{
+		Name: "frontend_listener_udp",
+		Address: &envoy_config_core_v3.Address{
+			Address: &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
+					Protocol: envoy_config_core_v3.SocketAddress_UDP,
+					Address:  *model.vip.assignedIPv4,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+						PortValue: uint32(model.port),
+					},
+				},
+			},
+		},
+		ListenerFilters:               r.desiredEnvoyUDPListenerFilters(model),
+		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
+		StatPrefix:                    fmt.Sprintf("%s_%s", model.namespace, model.name),
+	}
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyTCPListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
 	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
 
 	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
@@ -199,11 +237,73 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerFilters(model *lbService) []
 	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
 	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
 	// comes with BPF map lookups enabled.
+	// The BPFMetadata listener filter is required because it also sets the required
+	// socket options (e.g. `IP_TRANSPARENT`) on the sockets.
 	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
 		Name: "cilium.bpf_metadata",
 		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
 			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
 				BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
+			}),
+		},
+	})
+
+	return listenerFilters
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
+	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
+
+	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
+	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
+	// comes with BPF map lookups enabled.
+	// The BPFMetadata listener filter is required because it also sets the required
+	// socket options (e.g. `IP_TRANSPARENT`) on the sockets.
+	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+		Name: "cilium.bpf_metadata",
+		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
+				BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
+			}),
+		},
+	})
+
+	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
+
+	if r.config.AccessLog.EnableUDP {
+		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatUDP, r.config.AccessLog.JSONFormatUDP)
+	}
+
+	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+		Name: "envoy.filters.udp_listener.udp_proxy",
+		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig{
+				StatPrefix: "udp_proxy",
+				RouteSpecifier: &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_Matcher{
+					Matcher: &cncf_xds_matcher_v3.Matcher{
+						OnNoMatch: &cncf_xds_matcher_v3.Matcher_OnMatch{
+							OnMatch: &cncf_xds_matcher_v3.Matcher_OnMatch_Action{
+								Action: &cncf_xds_core_v3.TypedExtensionConfig{
+									Name: "envoy.udpproxy.route",
+									TypedConfig: toAny(&envoy_extensions_filters_listener_udp_udpproxy_v3.Route{
+										// prefix as qualifying a matcher tree upstream isn't implemented
+										Cluster: fmt.Sprintf("%s/%s/%s", model.namespace, model.getOwningResourceName(), r.getClusterName(model.applications.udpProxy.routes[0].backendRef.name)),
+									}),
+								},
+							},
+						},
+					},
+				},
+				AccessLog:        accessLoggers,
+				ProxyAccessLog:   accessLoggers,
+				AccessLogOptions: &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_UdpAccessLogOptions{},
+				// IdleTimeout: &durationpb.Duration{},
+				// UseOriginalSrcIp: false,
+				// HashPolicies:              []*envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy{},
+				// UpstreamSocketConfig:      &envoy_config_core_v3.UdpSocketConfig{},
+				// UsePerPacketLoadBalancing: false,
+				// SessionFilters:            []*envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_SessionFilter{},
+				// TunnelingConfig:           &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_UdpTunnelingConfig{},
 			}),
 		},
 	})

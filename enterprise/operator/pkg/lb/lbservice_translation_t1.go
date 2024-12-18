@@ -153,13 +153,18 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) []c
 		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
 	}
 
+	prot := corev1.ProtocolTCP
+	if model.isUDPProxy() {
+		prot = corev1.ProtocolUDP
+	}
+
 	return []corev1.EndpointSubset{
 		{
 			Addresses: epAddresses,
 			Ports: []corev1.EndpointPort{
 				{
-					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-					Protocol: corev1.ProtocolTCP,
+					Name:     strings.ToLower(string(prot)),
+					Protocol: prot,
 					Port:     model.port,
 				},
 			},

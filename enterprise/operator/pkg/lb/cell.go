@@ -43,10 +43,13 @@ type Config struct {
 	LoadBalancerCPAccessLogFilePath           string
 	LoadBalancerCPAccessLogEnableHC           bool
 	LoadBalancerCPAccessLogEnableTCP          bool
+	LoadBalancerCPAccessLogEnableUDP          bool
 	LoadBalancerCPAccessLogFormatHC           string
 	LoadBalancerCPAccessLogJSONFormatHC       string
 	LoadBalancerCPAccessLogFormatTCP          string
 	LoadBalancerCPAccessLogJSONFormatTCP      string
+	LoadBalancerCPAccessLogFormatUDP          string
+	LoadBalancerCPAccessLogJSONFormatUDP      string
 	LoadBalancerCPAccessLogFormatTLS          string
 	LoadBalancerCPAccessLogJSONFormatTLS      string
 	LoadBalancerCPAccessLogFormatHTTP         string
@@ -68,10 +71,13 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-accesslog-file-path", "", "Path where the Envoy Access Log should be sent to on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-hc", false, "Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-tcp", false, "Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane")
+	flags.Bool("loadbalancer-cp-accesslog-enable-udp", false, "Whether Envoy Access Log should be enabled for the UDP listener on the T2 Envoy by the LoadBalancer control plane")
 	flags.String("loadbalancer-cp-accesslog-format-hc", accesslog.GetFormatText(accesslog.AccessLogTypeHealthCheck), "Envoy Access Log format for T1 -> T2 Health Check HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-json-format-hc", accesslog.GetFormatJSON(accesslog.AccessLogTypeHealthCheck), "Envoy Access Log JSON format for T1 -> T2 Health Check HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tcp", accesslog.GetFormatText(accesslog.AccessLogTypeTCP), "Envoy Access Log format for the TCP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-json-format-tcp", accesslog.GetFormatJSON(accesslog.AccessLogTypeTCP), "Envoy Access Log JSON format for the TCP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
+	flags.String("loadbalancer-cp-accesslog-format-udp", accesslog.GetFormatText(accesslog.AccessLogTypeUDP), "Envoy Access Log format for the UDP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
+	flags.String("loadbalancer-cp-accesslog-json-format-udp", accesslog.GetFormatJSON(accesslog.AccessLogTypeUDP), "Envoy Access Log JSON format for the UDP listener that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-tls", accesslog.GetFormatText(accesslog.AccessLogTypeTLS), "Envoy Access Log format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-json-format-tls", accesslog.GetFormatJSON(accesslog.AccessLogTypeTLS), "Envoy Access Log JSON format for TLS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-http", accesslog.GetFormatText(accesslog.AccessLogTypeHTTP), "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
@@ -166,10 +172,13 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 			FilePath:       params.Config.LoadBalancerCPAccessLogFilePath,
 			EnableHC:       params.Config.LoadBalancerCPAccessLogEnableHC,
 			EnableTCP:      params.Config.LoadBalancerCPAccessLogEnableTCP,
+			EnableUDP:      params.Config.LoadBalancerCPAccessLogEnableUDP,
 			FormatHC:       params.Config.LoadBalancerCPAccessLogFormatHC,
 			JSONFormatHC:   params.Config.LoadBalancerCPAccessLogJSONFormatHC,
 			FormatTCP:      params.Config.LoadBalancerCPAccessLogFormatTCP,
 			JSONFormatTCP:  params.Config.LoadBalancerCPAccessLogJSONFormatTCP,
+			FormatUDP:      params.Config.LoadBalancerCPAccessLogFormatUDP,
+			JSONFormatUDP:  params.Config.LoadBalancerCPAccessLogJSONFormatUDP,
 			FormatTLS:      params.Config.LoadBalancerCPAccessLogFormatTLS,
 			JSONFormatTLS:  params.Config.LoadBalancerCPAccessLogJSONFormatTLS,
 			FormatHTTP:     params.Config.LoadBalancerCPAccessLogFormatHTTP,

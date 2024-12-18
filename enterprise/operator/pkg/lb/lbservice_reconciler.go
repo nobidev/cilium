@@ -67,10 +67,13 @@ type reconcilerAccesslogConfig struct {
 	FilePath       string
 	EnableHC       bool
 	EnableTCP      bool
+	EnableUDP      bool
 	FormatHC       string
 	JSONFormatHC   string
 	FormatTCP      string
 	JSONFormatTCP  string
+	FormatUDP      string
+	JSONFormatUDP  string
 	FormatTLS      string
 	JSONFormatTLS  string
 	FormatHTTP     string

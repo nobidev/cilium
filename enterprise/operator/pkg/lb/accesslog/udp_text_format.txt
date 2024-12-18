@@ -1,0 +1,12 @@
+[%START_TIME%][access][udp]
+protocol="%PROTOCOL%"
+response.flags="%RESPONSE_FLAGS%"
+response.flags-long="%RESPONSE_FLAGS_LONG%"
+connection.termination-details="%CONNECTION_TERMINATION_DETAILS%"
+bytes.received="%BYTES_RECEIVED%"
+bytes.sent="%BYTES_SENT%"
+stream.id="%STREAM_ID%"
+downstream.local-address="%DOWNSTREAM_LOCAL_ADDRESS%"
+downstream.direct-remote-address="%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"
+downstream.remote-address="%DOWNSTREAM_REMOTE_ADDRESS%"
+upstream.host="%UPSTREAM_HOST%"
