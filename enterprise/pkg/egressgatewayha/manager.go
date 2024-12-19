@@ -56,6 +56,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
+	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -206,6 +208,10 @@ type Manager struct {
 	ctNATMapGC ctmap.GCRunner
 
 	config Config
+
+	health cell.Health
+
+	socketsActions socketsActions
 }
 
 type Params struct {
@@ -230,6 +236,7 @@ type Params struct {
 	CTNATMapGC ctmap.GCRunner
 
 	Lifecycle cell.Lifecycle
+	Health    cell.Health
 }
 
 func NewEgressGatewayManager(p Params) (out struct {
@@ -276,6 +283,8 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	out.EnablerOut = tunnel.NewEnabler(true)
 
+	out.health = p.Health
+
 	return out, nil
 }
 
@@ -309,6 +318,13 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policyInitializer:             policyInitializer,
 		ctNATMapGC:                    p.CTNATMapGC,
 		config:                        p.Config,
+		health:                        p.Health,
+	}
+
+	if p.Config.EnableEgressGatewayHASocketTermination {
+		manager.socketsActions = &socketsManager{
+			health: p.Health.NewScope("sockets-manager"),
+		}
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -837,7 +853,21 @@ func (manager *Manager) removeUnusedEgressRules() {
 	}
 }
 
-func (manager *Manager) removeExpiredCtEntries() {
+func anonymizeCtKey(ctKey egressmapha.EgressCtKey4) tuple.TupleKey4 {
+	// Note: We use ctmap tuple keys as a convenient lookup key format when
+	// scanning for socket connections to be terminated.
+	// We don't want to lookup against the flags value so we zero that out.
+	tkey := *ctKey.ToHost().(*tuple.TupleKey4)
+	return tuple.TupleKey4{
+		SourceAddr: tkey.SourceAddr,
+		SourcePort: tkey.SourcePort,
+		DestAddr:   tkey.DestAddr,
+		DestPort:   tkey.DestPort,
+		NextHeader: tkey.NextHeader,
+	}
+}
+
+func (manager *Manager) removeExpiredCtEntries() error {
 	ctEntries := map[egressmapha.EgressCtKey4]egressmapha.EgressCtVal4{}
 	manager.ctMap.IterateWithCallback(
 		func(key *egressmapha.EgressCtKey4, val *egressmapha.EgressCtVal4) {
@@ -874,14 +904,77 @@ func (manager *Manager) removeExpiredCtEntries() {
 		return false
 	}
 
-nextCtKey:
+	toClose := sets.New[tuple.TupleKey4]()
+	toDelete := map[egressmapha.EgressCtKey4]egressmapha.EgressCtVal4{}
 	for ctKey, ctVal := range ctEntries {
+		var hasMatch bool
+		// For policy matching the Endpoint source IP of our ctKey, iterate all of the groupStatuses
+		// and see if there is any healthGatewayIPs that match the tracked GW IP.
+		// If not, then this indicates that the GW IP has been removed so we can try to do socket
+		// destruction (if enabled).
+		// If a matching policy is not found, we do not do a CT entry delete as we want to keep those
+		// around until the connection is terminated.
+		//
+		// If egressgateway-ha enable-egressgatewayha-socket-destroy is enabled we will try to force
+		// this to happen by closing the local client socket via netlink.
+	policyMatches:
 		for _, policyConfig := range manager.policyConfigsBySourceIP[ctKey.SourceAddr.IP().String()] {
-			if policyMatchesCtEntry(policyConfig, &ctKey, &ctVal) {
-				continue nextCtKey
+			if hasMatch = policyMatchesCtEntry(policyConfig, &ctKey, &ctVal); hasMatch {
+				break policyMatches
 			}
 		}
 
+		if manager.config.EnableEgressGatewayHASocketTermination && !hasMatch {
+			// We only terminate tcp or udp connections.
+			if ctKey.NextHeader == u8proto.TCP || ctKey.NextHeader == u8proto.UDP {
+				// If no healthy gateway addr was found in matching policies for ctKey we can attempt to
+				// terminate the client connection.
+				// Note: In this case foundMatchingPolicy is implied to be true.
+				log.WithFields(logrus.Fields{
+					"sourceIP":   ctKey.SourceAddr,
+					"sourcePort": ctKey.SourcePort,
+					"destIP":     ctKey.DestAddr,
+					"destPort":   ctKey.DestPort,
+					"gatewayIP":  ctVal.Gateway,
+				}).Debug("tracked socket connection with unavailable gateway to be closed")
+				toClose.Insert(anonymizeCtKey(ctKey))
+			}
+		}
+
+		// CT tuples that do *not* match any policy + healthyGateway IP are marked for removal.
+		if !hasMatch {
+			toDelete[ctKey] = ctVal
+		}
+	}
+
+	if manager.config.EnableEgressGatewayHASocketTermination {
+		// At this point, removed health gw IPs would already be removed from policies,
+		// so we can safely try terminate socket connections related to terminated GW nodes.
+		stats, err := manager.socketsActions.closeSockets(toClose)
+
+		h := manager.health.NewScope("socket-termination")
+		if err != nil {
+			log.WithError(err).Error("failed to close sockets to unavailable gateways")
+			h.Degraded("failed to close sockets to unavailable gateways", err)
+		} else {
+			h.OK("closed sockets to expired gateways")
+		}
+		log.WithFields(logrus.Fields{
+			"deleted": stats.deleted,
+			"failed":  stats.failed,
+			"skipped": stats.skipped,
+		}).Info("closed sockets to expired gateways")
+	}
+
+	// When a TCP socket is closed via the sock diag netlink command, a socket in most states
+	// (i.e. syn/rec, etc) will send a rst packet to the upstream server.
+	// In the case that the node is being drained gracefully, it is likely that the pinned
+	// gateway node for which the healthGatewayIP was removed still exists and will still forward
+	// traffic - so we want this rst to go out to allow for upstream server to gracefully close
+	// its connection.
+	// Therefore, we prefer to remove ctmap entries following socket terminations to allow for
+	// this to happen.
+	for ctKey, ctVal := range toDelete {
 		logger := log.WithFields(logrus.Fields{
 			// TODO log the whole ctKey
 			logfields.SourceIP:  ctKey.SourceAddr.IP(),
@@ -894,6 +987,7 @@ nextCtKey:
 			logger.Debug("Egress gateway CT entry removed")
 		}
 	}
+	return nil
 }
 
 func (manager *Manager) finishInitializer(initializer func(txn statedb.WriteTxn)) {

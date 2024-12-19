@@ -17,9 +17,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
@@ -36,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/tuple"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/cilium/cilium/pkg/option"
@@ -110,6 +113,8 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		require.NoError(t, h.Stop(tlog, context.TODO()))
 	})
 
+	health, _ := cell.NewSimpleHealth()
+
 	manager, err := newEgressGatewayManager(Params{
 		Lifecycle: lc,
 		Config: Config{
@@ -130,6 +135,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		EgressIPTable:      egressIPTable,
 		EgressIPReconciler: r,
 		CTNATMapGC:         ctmap.NewFakeGCRunner(),
+		Health:             health,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, manager)
@@ -468,16 +474,17 @@ func tryAssertRPFilterSettings(sysctl sysctl.Sysctl, rpFilterSettings []rpFilter
 }
 
 type egressCtEntry struct {
-	// ignoring sport, dport, etc for now
-	sourceIP  string
-	destIP    string
-	gatewayIP string
+	sourceIP             string
+	destIP               string
+	gatewayIP            string
+	sourcePort, destPort uint16
 }
 
 type parsedEgressCtEntry struct {
-	sourceIP  netip.Addr
-	destIP    netip.Addr
-	gatewayIP netip.Addr
+	sourceIP             netip.Addr
+	destIP               netip.Addr
+	gatewayIP            netip.Addr
+	sourcePort, destPort uint16
 }
 
 func parseEgressCtEntry(sourceIP, destIP, gatewayIP string) parsedEgressCtEntry {
@@ -493,12 +500,16 @@ func parseEgressCtEntry(sourceIP, destIP, gatewayIP string) parsedEgressCtEntry 
 }
 
 func (k *EgressGatewayTestSuite) insertEgressCtEntry(t *testing.T, sourceIP, destIP, gatewayIP string) {
+	k.insertEgressCtEntryWithPorts(t, sourceIP, destIP, gatewayIP, 0, 0)
+}
+
+func (k *EgressGatewayTestSuite) insertEgressCtEntryWithPorts(t *testing.T, sourceIP, destIP, gatewayIP string, srcPort, dstPort uint16) {
 	entry := parseEgressCtEntry(sourceIP, destIP, gatewayIP)
 
 	key := &egressmapha.EgressCtKey4{
 		TupleKey4: tuple.TupleKey4{
-			DestPort:   0,
-			SourcePort: 0,
+			DestPort:   dstPort,
+			SourcePort: srcPort,
 			NextHeader: u8proto.TCP,
 			Flags:      0,
 		},
@@ -524,7 +535,10 @@ func (k *EgressGatewayTestSuite) assertEgressCtEntries(tb testing.TB, entries []
 func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) error {
 	parsedEntries := []parsedEgressCtEntry{}
 	for _, e := range entries {
-		parsedEntries = append(parsedEntries, parseEgressCtEntry(e.sourceIP, e.destIP, e.gatewayIP))
+		pe := parseEgressCtEntry(e.sourceIP, e.destIP, e.gatewayIP)
+		pe.sourcePort = e.sourcePort
+		pe.destPort = e.destPort
+		parsedEntries = append(parsedEntries, pe)
 	}
 
 	for _, e := range parsedEntries {
@@ -532,8 +546,8 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 
 		key := &egressmapha.EgressCtKey4{
 			TupleKey4: tuple.TupleKey4{
-				DestPort:   0,
-				SourcePort: 0,
+				DestPort:   e.destPort,
+				SourcePort: e.sourcePort,
 				NextHeader: u8proto.TCP,
 				Flags:      0,
 			},
@@ -544,7 +558,7 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 
 		err := ctMap.Lookup(key, &val)
 		if err != nil {
-			return err
+			return fmt.Errorf("ctmap lookup of %s %s: %w", key, val, err)
 		}
 
 		if val.Gateway.Addr() != e.gatewayIP {
@@ -667,6 +681,124 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 	iegp, _ = newIEGP(&policy)
 	_, err = ParseIEGP(iegp)
 	require.Error(t, err)
+}
+
+type fakeSockets struct {
+	toClose sets.Set[tuple.TupleKey4]
+}
+
+func (s *fakeSockets) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socketCloseStats, error) {
+	s.toClose = toClose
+	return socketCloseStats{deleted: len(toClose)}, nil
+}
+
+// TestEgressGatewayManagerHASocketTermination tests the socket termination feature
+// of the agent control plane manager.
+// Specifically, this ensures that the socket manager is handed the correct set of
+// connection tuples to possibly evict via client sockets.
+func TestEgressGatewayManagerHASocketTermination(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+	k.manager.config.EnableEgressGatewayHASocketTermination = true
+	sm := &fakeSockets{}
+	k.manager.socketsActions = sm
+
+	// Create a new HA policy that selects k8s1 and k8s2 nodes
+	policy1 := k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressGroups: []egressGroupParams{{
+			iface:             testInterface1,
+			nodeLabels:        nodeGroup1Labels,
+			activeGatewayIPs:  []string{node1IP, node2IP},
+			healthyGatewayIPs: []string{node1IP, node2IP},
+		}},
+	})
+
+	assertRPFilter(t, k.sysctl, []rpFilterSetting{
+		{iFaceName: testInterface1, rpFilterSetting: "2"},
+		{iFaceName: testInterface2, rpFilterSetting: "1"},
+	})
+
+	k.assertEgressRules(t, []egressRule{})
+	k.assertEgressCtEntries(t, []egressCtEntry{})
+
+	// Add a new endpoint which matches policy-1
+	k.addEndpoint(t, "ep-1", ep1IP, ep1Labels, node1IP)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node2IP},
+	})
+
+	// Note: Port values will come out as swapped byte order (0xadde and 0xefbe).
+	// This is matched by a policy, and node1IP
+	k.insertEgressCtEntryWithPorts(t, ep1IP, "1.1.1.128", node1IP, 0xdead, 0xbeef)
+	// Different pinned gateway IP.
+	k.insertEgressCtEntryWithPorts(t, ep1IP, "1.1.1.127", node2IP, 0xdead, 0xbeef)
+
+	k.assertEgressCtEntries(t, []egressCtEntry{
+		{sourceIP: ep1IP, destIP: "1.1.1.128", gatewayIP: node1IP, sourcePort: 0xdead, destPort: 0xbeef},
+		{sourceIP: ep1IP, destIP: "1.1.1.127", gatewayIP: node2IP, sourcePort: 0xdead, destPort: 0xbeef},
+	})
+
+	// Remove k8s1
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	// First tuple will be removed because GW IP no longer exists
+	k.assertEgressCtEntries(t, []egressCtEntry{
+		{sourceIP: ep1IP, destIP: "1.1.1.127", gatewayIP: node2IP, sourcePort: 0xdead, destPort: 0xbeef},
+	})
+
+	assert.EventuallyWithT(t, func(t *assert.CollectT) {
+		assert.Contains(t, sm.toClose, tuple.TupleKey4{
+			DestAddr:   ciliumTypes.IPv4{1, 1, 1, 128},
+			SourceAddr: ciliumTypes.IPv4{10, 0, 0, 1},
+			NextHeader: u8proto.TCP,
+			SourcePort: 0xadde,
+			DestPort:   0xefbe,
+		})
+		assert.Len(t, sm.toClose, 1)
+	}, time.Second*5, time.Millisecond*500)
+
+	// Re-add now gc'd ct entry
+	k.insertEgressCtEntryWithPorts(t, ep1IP, "1.1.1.128", node1IP, 0xdead, 0xbeef)
+
+	// GW Node is added back
+	k.addHealthyGatewayToEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+
+	// Newly added GW IP means that the connection tuple in the ct map is not
+	// subject to client socket termination.
+	assert.EventuallyWithT(t, func(t *assert.CollectT) {
+		assert.Empty(t, sm.toClose)
+	}, time.Second*5, time.Millisecond*500)
+
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node2IP, defaultEgressGroupID)
+	assert.EventuallyWithT(t, func(t *assert.CollectT) {
+		assert.Contains(t, sm.toClose, tuple.TupleKey4{
+			DestAddr:   ciliumTypes.IPv4{1, 1, 1, 127},
+			SourceAddr: ciliumTypes.IPv4{10, 0, 0, 1},
+			NextHeader: u8proto.TCP,
+			SourcePort: 0xadde,
+			DestPort:   0xefbe,
+		})
+		assert.Len(t, sm.toClose, 1)
+	}, time.Second*5, time.Millisecond*500)
+
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	assert.EventuallyWithT(t, func(t *assert.CollectT) {
+		assert.Contains(t, sm.toClose, tuple.TupleKey4{
+			DestAddr:   ciliumTypes.IPv4{1, 1, 1, 128},
+			SourceAddr: ciliumTypes.IPv4{10, 0, 0, 1},
+			NextHeader: u8proto.TCP,
+			SourcePort: 0xadde,
+			DestPort:   0xefbe,
+		})
+		assert.Len(t, sm.toClose, 1)
+	}, time.Second*5, time.Millisecond*500)
 }
 
 func TestEgressGatewayManagerHAGroup(t *testing.T) {
@@ -938,7 +1070,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	})
 
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Remove k8s2 from 1
@@ -976,7 +1108,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	})
 
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Remove k8s2 from node-group-1
@@ -1016,7 +1148,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	})
 
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Update the policy group config to allow at most 1 gateway at a time (k8s1)
@@ -1028,7 +1160,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 
 	// CT entry should still exist, as k8s2 is healthy
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Make k8s2 unhealthy
@@ -1077,7 +1209,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	})
 
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Update the policy group config to allow at most 1 gateway at a time (k8s1)
@@ -1089,7 +1221,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 
 	// CT entry should still exist, as k8s2 is healthy
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Remove k8s2 from node-group-1
@@ -1134,7 +1266,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	})
 
 	k.assertEgressCtEntries(t, []egressCtEntry{
-		{ep1IP, destIP, node2IP},
+		{ep1IP, destIP, node2IP, 0, 0},
 	})
 
 	// Add the destination IP to the policy excluded CIDRs list
