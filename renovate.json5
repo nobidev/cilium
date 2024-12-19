@@ -61,6 +61,7 @@
       "matchDepNames": [
         "isovalent/cilium-cli-releases",
       ],
+      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-cee\\.(?<build>\\d+)$",
     },
     {
       // Don't update CILIUM_CLI_VERSION environment variable in main-ce branch.
