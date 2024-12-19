@@ -148,6 +148,8 @@ cilium-operator-azure [flags]
       --loadbalancer-l7 string                                       Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                             Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                                List of service ports that will be automatically redirected to backend.
+      --loadbalancer-metrics-collection-interval duration            Refresh interval for LoadBalancer metrics. (default 5s)
+      --loadbalancer-metrics-enabled                                 Whether or not LoadBalancer metrics collection is enabled.
       --log-driver strings                                           Logging endpoints to use for example syslog
       --log-opt map                                                  Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --max-connected-clusters uint32                                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
