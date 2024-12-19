@@ -134,7 +134,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			service.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Service"} // fix missing typemeta
 			actualServiceYaml = toYaml(t, service)
 		}
-		assert.YAMLEq(t, expectedServiceYaml, actualServiceYaml)
+		assert.Equal(t, expectedServiceYaml, actualServiceYaml) //nolint:all (assert.YAMLEq output is not super readable)
 
 		// T1 Endpoints
 		endpoints := t1Translator.DesiredEndpoints(model)
@@ -144,7 +144,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			endpoints.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Endpoints"} // fix missing typemeta
 			actualEndpointsYaml = toYaml(t, endpoints)
 		}
-		assert.YAMLEq(t, expectedEndpointsYaml, actualEndpointsYaml)
+		assert.Equal(t, expectedEndpointsYaml, actualEndpointsYaml) //nolint:all (assert.YAMLEq output is not super readable)
 
 		// T2 CiliumEnvoyConfig
 		cec, err := t2Translator.DesiredCiliumEnvoyConfig(model)
@@ -156,7 +156,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			actualCiliumEnvoyConfigYaml = toYaml(t, cec)
 		}
 
-		assert.YAMLEq(t, expectedCiliumEnvoyConfigYaml, actualCiliumEnvoyConfigYaml)
+		assert.Equal(t, expectedCiliumEnvoyConfigYaml, actualCiliumEnvoyConfigYaml) //nolint:all (assert.YAMLEq output is not super readable)
 	}
 }
 
