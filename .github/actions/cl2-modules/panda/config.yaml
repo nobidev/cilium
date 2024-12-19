@@ -10,6 +10,8 @@
 name: panda
 namespace:
   number: {{$namespaces}}
+  deleteAutomanagedNamespaces: {{DefaultParam .CL2_DELETE_AUTOMANAGED_NAMESPACES true}}
+
 tuningSets:
 - name: default
   globalQPSLoad:

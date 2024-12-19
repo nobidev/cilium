@@ -545,6 +545,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 4.0
+          CL2_DELETE_AUTOMANAGED_NAMESPACES: "false"
         run: |
           ./clusterloader \
             -v=2 \
