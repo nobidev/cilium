@@ -102,7 +102,7 @@ spec:
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
-      name: frontend_listener
+      name: frontend_listener_tcp
       perConnectionBufferLimitBytes: 32768
       statPrefix: special-namespace_lb-1
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration

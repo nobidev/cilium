@@ -170,7 +170,7 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy
 	}
 
 	return &envoy_config_listener_v3.Listener{
-		Name: "frontend_listener",
+		Name: "frontend_listener_tcp",
 		Address: &envoy_config_core_v3.Address{
 			Address: &envoy_config_core_v3.Address_SocketAddress{
 				SocketAddress: &envoy_config_core_v3.SocketAddress{

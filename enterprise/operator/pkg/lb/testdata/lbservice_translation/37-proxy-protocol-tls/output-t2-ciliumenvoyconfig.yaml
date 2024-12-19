@@ -100,7 +100,7 @@ spec:
             "@type": type.googleapis.com/cilium.BpfMetadata
       perConnectionBufferLimitBytes: 32768
       statPrefix: default_lb-1
-      name: frontend_listener
+      name: frontend_listener_tcp
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}
