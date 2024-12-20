@@ -564,6 +564,38 @@
       "status": "not_affected",
       "status_notes": "The affected functionality is not in use in this image",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-w32m-9786-jp63"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        },
+        {
+          "@id": "pkg:oci/hubble-relay-ci"
+        },
+        {
+          "@id": "pkg:oci/clustermesh-apiserver-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "govulncheck indicates that all of the container scanner findings for this issue are false positives",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-v778-237x-gjrc"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/clustermesh-apiserver-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Container scanners flag this issue on the etcd binary, which is not affected. There is currently no newer version to upgrade to.",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
