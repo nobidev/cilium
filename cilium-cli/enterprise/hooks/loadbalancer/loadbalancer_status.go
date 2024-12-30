@@ -16,6 +16,11 @@ import (
 )
 
 func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*LoadbalancerStatusModel, error) {
+	bgpPeersFromCRD, err := s.getBGPPeersFromCRD(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch BGP peers from CRD: %w", err)
+	}
+
 	bgpRoutes, err := s.getBGPRoutes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch T1 BGP routes: %w", err)
@@ -63,7 +68,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
-			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers),
+			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers, bgpPeersFromCRD),
 			BGPNodeStatus:     s.getBGPNodeStatus(f, bgpRoutes),
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
@@ -149,8 +154,9 @@ func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer) LoadbalancerStatusModelSimpleStatus {
-	if lbsvc.Status.Addresses.IPv4 == nil {
+func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRD map[string]map[string]struct{}) LoadbalancerStatusModelSimpleStatus {
+	crdPeers, ok := bgpPeersFromCRD[lbsvc.Name]
+	if lbsvc.Status.Addresses.IPv4 == nil || !ok {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",
 			OK:     0,
@@ -163,9 +169,13 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 
 	for _, p := range nodeBGPPeers {
 		for _, pp := range p {
+			name := fmt.Sprintf("%s-%d", pp.PeerAddress, pp.PeerAsn)
+			if _, ok := crdPeers[name]; !ok {
+				continue
+			}
 			nrPeers++
 			if pp.SessionState == "established" {
-				activePeers[fmt.Sprintf("%s-%d", pp.PeerAddress, pp.PeerAsn)] = struct{}{}
+				activePeers[name] = struct{}{}
 			}
 		}
 	}

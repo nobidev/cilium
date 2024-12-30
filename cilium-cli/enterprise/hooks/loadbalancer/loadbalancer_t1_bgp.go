@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/api/v1/models"
 )
 
@@ -28,6 +30,30 @@ func (s *LoadbalancerClient) getBGPRoutes(ctx context.Context) (map[string][]*mo
 	}
 
 	return res, nil
+}
+
+// getBGPPeersFromCRD gets BGP peers per LB svc from IsovalentBGPClusterConfigs.
+func (s *LoadbalancerClient) getBGPPeersFromCRD(ctx context.Context) (map[string]map[string]struct{}, error) {
+	bgpPeers := map[string]map[string]struct{}{} // svc => map[peerAddr-peerASN]
+
+	cfgs, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list IsovalentBGPClusterConfigs: %w", err)
+	}
+
+	for _, cfg := range cfgs.Items {
+		for _, instances := range cfg.Spec.BGPInstances {
+			for _, peer := range instances.Peers {
+				svcName := peer.PeerConfigRef.Name
+				if _, ok := bgpPeers[svcName]; !ok {
+					bgpPeers[svcName] = map[string]struct{}{}
+				}
+				bgpPeers[svcName][fmt.Sprintf("%s-%d", *peer.PeerAddress, *peer.PeerASN)] = struct{}{}
+			}
+		}
+	}
+
+	return bgpPeers, nil
 }
 
 func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (map[string][]*models.BgpRoute, error) {
