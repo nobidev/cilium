@@ -69,7 +69,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
 			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers, bgpPeersFromCRD),
-			BGPNodeStatus:     s.getBGPNodeStatus(f, bgpRoutes),
+			BGPRouteStatus:    s.getBGPRoutesStatus(f, bgpRoutes),
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
 			T2NodeStatus:      s.getT2Status(f, t2EnvoyConfigs),
@@ -199,7 +199,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 	}
 }
 
-func (s *LoadbalancerClient) getBGPNodeStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) LoadbalancerStatusModelSimpleStatus {
+func (s *LoadbalancerClient) getBGPRoutesStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) LoadbalancerStatusModelSimpleStatus {
 	if lbsvc.Status.Addresses.IPv4 == nil {
 		return LoadbalancerStatusModelSimpleStatus{
 			Status: "N/A",

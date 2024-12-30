@@ -81,19 +81,19 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 	fmt.Fprintln(out, "")
 
 	tableTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
-	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"D-Mode"+Reset, Default+"BGP Peers"+Reset, Default+"BGP"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
-	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", Default+"------"+Reset, Default+"---------"+Reset, Default+"---"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"D-Mode"+Reset, Default+"BGP Peers"+Reset, Default+"BGP Routes"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", Default+"------"+Reset, Default+"---------"+Reset, Default+"----------"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
 	for _, f := range lsm.Services {
 		fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type,
 			statusText(f.DeploymentMode),
 			printSimpleStatusCell(f.BGPPeerStatus, params.RelationOutput),
-			printSimpleStatusCell(f.BGPNodeStatus, params.RelationOutput),
+			printSimpleStatusCell(f.BGPRouteStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1T2HCStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2BackendHCStatus, params.RelationOutput),
 			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
-			getOverallStatus(f.BGPNodeStatus, f.BGPPeerStatus))
+			getOverallStatus(f.BGPRouteStatus, f.BGPPeerStatus))
 	}
 
 	tableTabWriter.Flush()
@@ -116,7 +116,7 @@ type LoadbalancerStatusModelService struct {
 	Type              string                               `json:"type"`
 	DeploymentMode    string                               `json:"deploymentMode"`
 	BGPPeerStatus     LoadbalancerStatusModelSimpleStatus  `json:"bgpPeerStatus"`
-	BGPNodeStatus     LoadbalancerStatusModelSimpleStatus  `json:"bgpNodeStatus"`
+	BGPRouteStatus    LoadbalancerStatusModelSimpleStatus  `json:"bgpRouteStatus"`
 	T1NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1NodeStatus"`
 	T1T2HCStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1t2HealthcheckStatus"`
 	T2NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t2NodeStatus"`

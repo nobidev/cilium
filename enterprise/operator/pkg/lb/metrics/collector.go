@@ -269,7 +269,7 @@ func (c *collector) fetchMetrics(ctx context.Context) error {
 		serviceName := fmt.Sprintf("%s_%s", service.Namespace, service.Name)
 
 		unhealthyBgpPeers[serviceName] = float64(service.BGPPeerStatus.Total - service.BGPPeerStatus.OK)
-		unhealthyBgpNodes[serviceName] = float64(service.BGPNodeStatus.Total - service.BGPNodeStatus.OK)
+		unhealthyBgpNodes[serviceName] = float64(service.BGPRouteStatus.Total - service.BGPRouteStatus.OK)
 		unhealthyT1Nodes[serviceName] = float64(service.T1NodeStatus.Total - service.T1NodeStatus.OK)
 		unhealthyT2Healthchecks[serviceName] = float64(service.T1T2HCStatus.Total - service.T1T2HCStatus.OK)
 		unhealthyT2Nodes[serviceName] = float64(service.T2NodeStatus.Total - service.T2NodeStatus.OK)
