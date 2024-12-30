@@ -16,7 +16,7 @@ const (
 	paddingChar = ' '
 )
 
-const (
+var (
 	Default = "\033[39m"
 	Red     = "\033[31m"
 	Yellow  = "\033[33m"
@@ -47,6 +47,17 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 		fmt.Fprintln(out, string(jsonOutput))
 
 		return nil
+	}
+
+	if params.NoColors {
+		Default = ""
+		Red = ""
+		Yellow = ""
+		Blue = ""
+		Green = ""
+		Magenta = ""
+		Cyan = ""
+		Reset = ""
 	}
 
 	summaryTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)

@@ -758,7 +758,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					}
 					defer f.Close()
 
-					errs = errors.Join(errs, lsm.Output(f, loadbalancer.Parameters{Output: o.format}))
+					errs = errors.Join(errs, lsm.Output(f, loadbalancer.Parameters{Output: o.format, NoColors: true}))
 				}
 
 				return errs

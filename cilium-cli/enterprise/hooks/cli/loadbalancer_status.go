@@ -65,5 +65,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 	cmd.Flags().StringVarP(&params.RelationOutput, "relationOutput", "r", loadbalancer.RelationOutputNumbers, "Relation output format. One of: numbers, percentage")
 
+	cmd.Flags().BoolVar(&params.NoColors, "nocolors", false, "Disable colors in 'summary' output")
+
 	return cmd
 }
