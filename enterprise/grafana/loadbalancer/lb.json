@@ -134,7 +134,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (service) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n)",
+          "expr": "sum by (service) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -239,7 +239,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (service) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n)",
+          "expr": "sum by (service) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -344,7 +344,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (backend) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n)",
+          "expr": "sum by (backend) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -446,7 +446,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (backend) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n)",
+          "expr": "sum by (backend) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -542,7 +542,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    rate(\n        {__name__=~\"node_ethtool_received_queue_.*_xdp_bytes\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"${node}\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
+          "expr": "sum by (instance) (\n    rate(\n        {__name__=~\"node_ethtool_received_queue_.*_xdp_bytes\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"${node}\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n) != 0",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -636,7 +636,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    rate(\n        {__name__=~\"node_ethtool_received_queue_.*_xdp_packets\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"${node}\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n)",
+          "expr": "sum by (instance) (\n    rate(\n        {__name__=~\"node_ethtool_received_queue_.*_xdp_packets\"}[$__rate_interval])\n    ) * on (instance) group_left(node) (\n        label_replace(kube_node_status_addresses{node=~\"${node}\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) * on (node) (\n    kube_node_labels{label_service_cilium_io_node=\"t1\"}\n) != 0",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -730,7 +730,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (node) (\n    rate(\n        cilium_lb_open_connections_metric{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n)",
+          "expr": "sum by (node) (\n    rate(\n        cilium_lb_open_connections_metric{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -1280,7 +1280,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_downstream_cx_total{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_downstream_cx_total{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{envoy_listener_address}}",
           "range": true,
@@ -1407,7 +1407,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1445,7 +1446,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_transport_socket_connect_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_transport_socket_connect_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "instant": false,
           "legendFormat": "cx timeout {{envoy_listener_address}}",
           "range": true,
@@ -1457,7 +1458,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "cx overflow {{envoy_listener_address}}",
@@ -1470,7 +1471,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overload_reject{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overload_reject{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "cx overload reject {{envoy_listener_address}}",
@@ -1483,7 +1484,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_global_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_global_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "global cx overflow {{envoy_listener_address}}",
@@ -1496,7 +1497,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_pre_cx_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_pre_cx_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "pre cx timeout {{envoy_listener_address}}",
@@ -1509,7 +1510,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "extension config missing {{envoy_listener_address}}",
@@ -1522,7 +1523,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_network_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_network_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "network extension config missing {{envoy_listener_address}}",
@@ -1535,7 +1536,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_no_filter_chain_match{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_no_filter_chain_match{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "no filter chain match {{envoy_listener_address}}",
@@ -1548,7 +1549,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_remote_close{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_remote_close{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "filter remote close {{envoy_listener_address}}",
@@ -1561,7 +1562,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "listener filter error {{envoy_listener_address}}",
@@ -1634,7 +1635,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1672,7 +1674,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{envoy_tcp_prefix}}",
           "range": true,
@@ -1731,7 +1733,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1769,7 +1772,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{envoy_tcp_prefix}}",
           "range": true,
@@ -1828,7 +1831,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1866,7 +1870,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{envoy_tcp_prefix}}",
           "range": true,
@@ -1938,7 +1942,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1975,7 +1980,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_ssl_handshake{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)\n",
+          "expr": "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_ssl_handshake{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -2034,7 +2039,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2130,7 +2136,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2167,7 +2174,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_connection_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_connection_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "instant": false,
           "legendFormat": "cx error {{envoy_listener_address}}",
           "range": true,
@@ -2179,7 +2186,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_no_cert{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_no_cert{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "fail verify no cert {{envoy_listener_address}}",
@@ -2192,7 +2199,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "fail verify error {{envoy_listener_address}}",
@@ -2205,7 +2212,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_san{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_san{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "fail verify san {{envoy_listener_address}}",
@@ -2218,7 +2225,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_cert_hash{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_cert_hash{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "fail verify cert hash {{envoy_listener_address}}",
@@ -2231,7 +2238,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_ocsp_staple_failed{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))\n",
+          "expr": "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_ocsp_staple_failed{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "ocsp staple failed {{envoy_listener_address}}",
@@ -2311,7 +2318,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2347,7 +2355,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -2408,7 +2416,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2446,7 +2455,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_rq_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_rq_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -2509,7 +2518,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2545,7 +2555,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -2610,7 +2620,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2646,7 +2657,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -2714,7 +2725,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2750,7 +2762,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_cx_protocol_error{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_cx_protocol_error{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2766,7 +2778,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rejected_via_ip_detection{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rejected_via_ip_detection{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -2781,7 +2793,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_response_before_rq_complete{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_response_before_rq_complete{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2797,7 +2809,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2813,7 +2825,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_tx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_tx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2829,7 +2841,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2845,7 +2857,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_idle_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_idle_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2861,7 +2873,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_max_duration_reached{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_max_duration_reached{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2877,7 +2889,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2893,7 +2905,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_overload_close{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_overload_close{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2909,7 +2921,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_many_premature_resets{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_many_premature_resets{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2925,7 +2937,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_rs_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_rs_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -3000,7 +3012,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3038,7 +3051,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_upstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)\n\n",
+          "expr": "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_upstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "instant": false,
           "legendFormat": "{{envoy_cluster_name}}",
           "range": true,
@@ -3064,7 +3077,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3164,7 +3178,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3202,7 +3217,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_fail{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_fail{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "instant": false,
           "legendFormat": "upstream_cx_connect_fail {{envoy_cluster_name}}",
           "range": true,
@@ -3214,7 +3229,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_timeout{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_timeout{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "upstream_cx_connect_timeout {{envoy_cluster_name}}",
@@ -3227,7 +3242,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_pool_overflow{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_pool_overflow{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "upstream_cx_pool_overflow {{envoy_cluster_name}}",
@@ -3240,7 +3255,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_protocol_error{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_protocol_error{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "upstream_cx_protocol_error {{envoy_cluster_name}}",
@@ -3253,7 +3268,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_max_requests{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_max_requests{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "upstream_cx_max_requests {{envoy_cluster_name}}",
@@ -3266,7 +3281,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_none_healthy{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_none_healthy{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "upstream_cx_none_healthy {{envoy_cluster_name}}",
@@ -3326,7 +3341,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3364,7 +3380,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_overflow{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_overflow{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "instant": false,
           "legendFormat": "rq pending overflow {{envoy_cluster_name}}",
           "range": true,
@@ -3376,7 +3392,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_failure_eject{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_failure_eject{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "rq pending failure eject {{envoy_cluster_name}}",
@@ -3389,7 +3405,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_maintenance_mode{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_maintenance_mode{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "rq maintenance mode {{envoy_cluster_name}}",
@@ -3402,7 +3418,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "rq timeout {{envoy_cluster_name}}",
@@ -3415,7 +3431,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_per_try_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))",
+          "expr": "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_per_try_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0",
           "hide": false,
           "instant": false,
           "legendFormat": "rq per try timeout {{envoy_cluster_name}}",
@@ -3482,7 +3498,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3518,7 +3535,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_health_check_success{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n)",
+          "expr": "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_health_check_success{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -3579,7 +3596,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3715,7 +3733,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3809,7 +3828,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3940,7 +3960,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
