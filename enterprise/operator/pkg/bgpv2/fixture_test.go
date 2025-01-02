@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
@@ -24,6 +25,7 @@ import (
 	bfdTypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/hive"
+	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -42,8 +44,9 @@ var (
 )
 
 type fixture struct {
-	hive                   *hive.Hive
-	fakeClientSet          *k8s_client.FakeClientset
+	hive          *hive.Hive
+	fakeClientSet *k8s_client.FakeClientset
+
 	isoClusterClient       isovalent_client_v1alpha1.IsovalentBGPClusterConfigInterface
 	isoPeerConfClient      isovalent_client_v1alpha1.IsovalentBGPPeerConfigInterface
 	isoAdvertClient        isovalent_client_v1alpha1.IsovalentBGPAdvertisementInterface
@@ -61,10 +64,15 @@ type fixture struct {
 
 	// node client
 	nodeClient cilium_client_v2.CiliumNodeInterface
+
+	// db client
+	db          *statedb.DB
+	healthTable statedb.Table[healthTypes.Status]
 }
 
 type fixtureConfig struct {
-	enableBFD bool
+	enableBFD          bool
+	enableStatusReport bool
 }
 
 func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) (*fixture, func()) {
@@ -74,8 +82,7 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 	}
 
 	var resourceWatch = map[string]*watchSync{
-		"secrets":              {watchCh: make(chan struct{})},
-		cilium_v2.CNPluralName: {watchCh: make(chan struct{})},
+		cilium_v2.CNPluralName:                            {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
 		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
@@ -85,7 +92,11 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 		v1alpha1.IsovalentBGPVRFConfigPluralName:          {watchCh: make(chan struct{})},
 	}
 
-	if fc.enableBFD {
+	if fc.enableStatusReport {
+		resourceWatch["secrets"] = &watchSync{watchCh: make(chan struct{})}
+	}
+
+	if fc.enableBFD && fc.enableStatusReport {
 		resourceWatch[v1alpha1.IsovalentBFDProfilePluralName] = &watchSync{watchCh: make(chan struct{})}
 	}
 
@@ -180,12 +191,22 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 			return f.fakeClientSet
 		}),
 
+		cell.Invoke(
+			func(db *statedb.DB, h statedb.Table[healthTypes.Status]) {
+				f.db = db
+				f.healthTable = h
+			},
+		),
+
 		bfd.Cell,
 
 		Cell,
 	)
 
-	hive.AddConfigOverride(f.hive, func(cfg *config.Config) { cfg.Enabled = true })
+	hive.AddConfigOverride(f.hive, func(cfg *config.Config) {
+		cfg.Enabled = true
+		cfg.StatusReportEnabled = fc.enableStatusReport
+	})
 	hive.AddConfigOverride(f.hive, func(cfg *bfdTypes.BFDConfig) { cfg.BFDEnabled = fc.enableBFD })
 
 	return f, watcherReadyFn

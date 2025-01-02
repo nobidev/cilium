@@ -202,7 +202,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{})
+	f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -507,7 +507,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{})
+			f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -747,7 +747,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{})
+			f, watchersReady := newFixture(ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)

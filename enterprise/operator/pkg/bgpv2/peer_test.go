@@ -22,6 +22,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/hive/health"
+	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -95,7 +97,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(ctx, req, fixtureConfig{})
+			f, ready := newFixture(ctx, req, fixtureConfig{enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
@@ -212,7 +214,7 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: tt.enableBFD})
+			f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: tt.enableBFD, enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
@@ -251,4 +253,70 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 			}, time.Second*3, time.Millisecond*100)
 		})
 	}
+}
+
+func TestDisablePeerConfigStatusReport(t *testing.T) {
+	req := require.New(t)
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	t.Cleanup(func() {
+		cancel()
+	})
+
+	f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: true, enableStatusReport: false})
+
+	logger := hivetest.Logger(t)
+
+	f.hive.Start(logger, ctx)
+	t.Cleanup(func() {
+		f.hive.Stop(logger, ctx)
+	})
+
+	ready()
+
+	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "config0",
+		},
+		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
+				AuthSecretRef: ptr.To("secret0"),
+			},
+			BFDProfileRef: ptr.To("bfd0"),
+		},
+		Status: v1alpha1.IsovalentBGPPeerConfigStatus{
+			Conditions: []meta_v1.Condition{},
+		},
+	}
+
+	// Fill with all known conditions
+	for _, cond := range v1alpha1.AllBGPPeerConfigConditions {
+		peerConfig.Status.Conditions = append(peerConfig.Status.Conditions, meta_v1.Condition{
+			Type: cond,
+		})
+	}
+
+	_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(
+		ctx, peerConfig, meta_v1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		pc, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Get(
+			ctx, peerConfig.Name, meta_v1.GetOptions{})
+		if !assert.NoError(ct, err, "Cannot get peer config") {
+			return
+		}
+
+		assert.Empty(ct, pc.Status.Conditions, "Conditions are not cleared")
+
+		rtxn := f.db.ReadTxn()
+
+		o, _, found := f.healthTable.Get(rtxn, health.PrimaryIndex.Query(healthTypes.HealthID("bgp-enterprise-operator.job-cleanup-peer-config-status")))
+		if !assert.True(ct, found, "Health status for the job is not found") {
+			return
+		}
+
+		assert.Equal(ct, healthTypes.Level(healthTypes.LevelOK), o.Level)
+		assert.Equal(ct, "Cleanup job is done successfully", o.Message)
+	}, time.Second*3, time.Millisecond*100)
 }

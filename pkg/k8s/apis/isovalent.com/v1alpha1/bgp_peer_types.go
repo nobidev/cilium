@@ -72,3 +72,8 @@ const (
 	// Referenced BFDProfile is missing
 	BGPPeerConfigConditionMissingBFDProfile = "isovalent.com/MissingBFDProfile"
 )
+
+var AllBGPPeerConfigConditions = []string{
+	BGPPeerConfigConditionMissingAuthSecret,
+	BGPPeerConfigConditionMissingBFDProfile,
+}
