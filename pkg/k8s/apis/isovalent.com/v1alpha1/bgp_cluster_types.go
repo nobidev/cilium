@@ -219,3 +219,11 @@ const (
 	// ClusterConfig with conflicting nodeSelector present
 	BGPClusterConfigConditionConflictingClusterConfigs = "isovalent.com/ConflictingClusterConfig"
 )
+
+var AllBGPClusterConfigConditions = []string{
+	BGPClusterConfigConditionNoMatchingNode,
+	BGPClusterConfigConditionMissingPeerConfigs,
+	BGPClusterConfigConditionMissingVRFs,
+	BGPClusterConfigConditionMissingVRFConfigs,
+	BGPClusterConfigConditionConflictingClusterConfigs,
+}

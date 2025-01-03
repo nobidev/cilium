@@ -854,6 +854,54 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 	}
 }
 
+func TestDisableClusterConfigStatusReport(t *testing.T) {
+	req := require.New(t)
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	t.Cleanup(func() {
+		cancel()
+	})
+
+	f, ready := newFixture(ctx, req, fixtureConfig{enableStatusReport: false})
+
+	logger := hivetest.Logger(t)
+
+	f.hive.Start(logger, ctx)
+	t.Cleanup(func() {
+		f.hive.Stop(logger, ctx)
+	})
+
+	ready()
+
+	clusterConfig := &v1alpha1.IsovalentBGPClusterConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "config0",
+		},
+		Spec: v1alpha1.IsovalentBGPClusterConfigSpec{},
+		Status: v1alpha1.IsovalentBGPClusterConfigStatus{
+			Conditions: []meta_v1.Condition{},
+		},
+	}
+
+	// Fill with all known conditions
+	for _, cond := range v1alpha1.AllBGPClusterConfigConditions {
+		clusterConfig.Status.Conditions = append(clusterConfig.Status.Conditions, meta_v1.Condition{
+			Type: cond,
+		})
+	}
+	upsertIsoBGPCC(req, ctx, f, clusterConfig)
+
+	// Wait for status to be cleared
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		// Check conditions
+		cc, err := f.isoClusterClient.Get(ctx, clusterConfig.Name, meta_v1.GetOptions{})
+		if !assert.NoError(ct, err, "Cannot get cluster config") {
+			return
+		}
+
+		assert.Empty(ct, cc.Status.Conditions, "Conditions are not cleared")
+	}, time.Second*3, time.Millisecond*100)
+}
+
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_v2.CiliumNode) {
 	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {

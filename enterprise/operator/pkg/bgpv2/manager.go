@@ -66,6 +66,9 @@ type BGPResourceMapper struct {
 
 	// Cilium node resource
 	ciliumNode store.BGPCPResourceStore[*cilium_v2.CiliumNode]
+
+	// toggle status reporting
+	enableStatusReporting bool
 }
 
 type BGPResourceManagerParams struct {
@@ -103,18 +106,19 @@ func RegisterBGPResourceMapper(in BGPResourceManagerParams) error {
 	}
 
 	m := &BGPResourceMapper{
-		logger:             in.Logger,
-		jobs:               in.Jobs,
-		signal:             in.Signal,
-		clientSet:          in.ClientSet,
-		dc:                 in.DaemonCfg,
-		clusterConfig:      in.ClusterConfig,
-		peerConfig:         in.PeerConfig,
-		advertisements:     in.Advertisements,
-		nodeConfigOverride: in.NodeConfigOverride,
-		ciliumNode:         in.CiliumNode,
-		vrf:                in.VRF,
-		vrfConfig:          in.VRFConfig,
+		logger:                in.Logger,
+		jobs:                  in.Jobs,
+		signal:                in.Signal,
+		clientSet:             in.ClientSet,
+		dc:                    in.DaemonCfg,
+		clusterConfig:         in.ClusterConfig,
+		peerConfig:            in.PeerConfig,
+		advertisements:        in.Advertisements,
+		nodeConfigOverride:    in.NodeConfigOverride,
+		ciliumNode:            in.CiliumNode,
+		vrf:                   in.VRF,
+		vrfConfig:             in.VRFConfig,
+		enableStatusReporting: in.Config.StatusReportEnabled,
 	}
 
 	in.Jobs.Add(

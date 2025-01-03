@@ -67,27 +67,40 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 
 	// Update ClusterConfig conditions
 	updateStatus := false
-	if changed := m.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
-		updateStatus = true
-	}
-	if changed := m.updateMissingPeerConfigsCondition(config, missingPCs); changed {
-		updateStatus = true
-	}
-	if changed := m.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigs); changed {
-		updateStatus = true
-	}
 
-	// validate VRFs and VRFConfigs if SRv6 is enabled
-	if m.dc.EnableSRv6 {
-		missingVRFs := m.missingVRFs(config)
-		missingVRFConfigs := m.missingVRFConfigs(config)
-
-		if changed := m.updateMissingVRFsCondition(config, missingVRFs); changed {
+	if m.enableStatusReporting {
+		if changed := m.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+			updateStatus = true
+		}
+		if changed := m.updateMissingPeerConfigsCondition(config, missingPCs); changed {
+			updateStatus = true
+		}
+		if changed := m.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigs); changed {
 			updateStatus = true
 		}
 
-		if changed := m.updateMissingVRFConfigsCondition(config, missingVRFConfigs); changed {
-			updateStatus = true
+		// validate VRFs and VRFConfigs if SRv6 is enabled
+		if m.dc.EnableSRv6 {
+			missingVRFs := m.missingVRFs(config)
+			missingVRFConfigs := m.missingVRFConfigs(config)
+
+			if changed := m.updateMissingVRFsCondition(config, missingVRFs); changed {
+				updateStatus = true
+			}
+
+			if changed := m.updateMissingVRFConfigsCondition(config, missingVRFConfigs); changed {
+				updateStatus = true
+			}
+		}
+	} else {
+		// If the status reporting is disabled, we need to ensure all
+		// conditions managed by this controller are removed.
+		// Otherwise, users may see the stale conditions which were
+		// reported previously.
+		for _, cond := range v1alpha1.AllBGPClusterConfigConditions {
+			if removed := meta.RemoveStatusCondition(&config.Status.Conditions, cond); removed {
+				updateStatus = true
+			}
 		}
 	}
 
