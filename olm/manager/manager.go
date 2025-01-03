@@ -176,7 +176,6 @@ func Start(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	// TODO: the manifests directory is a copy of install/kubernetes/cilium directory that will need to be synced
 	// Docker does not support symbolic links with targets outside of the root directory.
 	chart, err := helmloader.LoadDir(helmPath)
 	if err != nil {
