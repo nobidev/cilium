@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package loadbalancer
+package status
 
 import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Parameters contains options for CLI

@@ -18,8 +18,8 @@ import (
 	"time"
 
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
-	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	loadbalancerStatus "github.com/cilium/cilium/enterprise/pkg/lb/status"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -49,7 +49,7 @@ type collector struct {
 	metrics   *Metrics
 	logger    *slog.Logger
 	k8sClient *enterpriseK8s.EnterpriseClient
-	lbClient  *loadbalancer.LoadbalancerClient
+	lbClient  *loadbalancerStatus.LoadbalancerClient
 
 	nodesCache map[string]*ciliumv2.CiliumNode
 	nodeSync   chan struct{}
@@ -89,7 +89,7 @@ func registerCollector(params collectorParams) {
 		return
 	}
 
-	lbClient := loadbalancer.NewLoadbalancerClient(enterpriseK8sClient, loadbalancer.Parameters{
+	lbClient := loadbalancerStatus.NewLoadbalancerClient(enterpriseK8sClient, loadbalancerStatus.Parameters{
 		Output: "json",
 	})
 
@@ -201,11 +201,11 @@ func (c *collector) updateT1T2CiliumPods() {
 		}
 	}
 
-	t1AgentPods := []*loadbalancer.Pod{}
-	t2AgentPods := []*loadbalancer.Pod{}
+	t1AgentPods := []*loadbalancerStatus.Pod{}
+	t2AgentPods := []*loadbalancerStatus.Pod{}
 
 	for _, pod := range c.podsCache {
-		lbPod := &loadbalancer.Pod{
+		lbPod := &loadbalancerStatus.Pod{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
 			NodeName:  pod.Spec.NodeName,

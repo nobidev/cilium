@@ -26,11 +26,11 @@ import (
 	"sigs.k8s.io/yaml"
 
 	enterpriseCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
-	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
 	enterpriseSysdump "github.com/cilium/cilium/cilium-cli/enterprise/hooks/sysdump"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
+	loadbalancerStatus "github.com/cilium/cilium/enterprise/pkg/lb/status"
 )
 
 const (
@@ -730,7 +730,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				}
 
 				k8sClient := collector.Client.(*k8s.Client)
-				lsm, err := enterpriseCli.GetLoadbalancerStatus(ctx, k8sClient, loadbalancer.Parameters{})
+				lsm, err := enterpriseCli.GetLoadbalancerStatus(ctx, k8sClient, loadbalancerStatus.Parameters{})
 				if err != nil {
 					return err
 				}
@@ -758,7 +758,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					}
 					defer f.Close()
 
-					errs = errors.Join(errs, lsm.Output(f, loadbalancer.Parameters{Output: o.format, NoColors: true}))
+					errs = errors.Join(errs, lsm.Output(f, loadbalancerStatus.Parameters{Output: o.format, NoColors: true}))
 				}
 
 				return errs

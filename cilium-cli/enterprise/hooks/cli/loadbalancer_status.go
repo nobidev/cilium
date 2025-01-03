@@ -12,18 +12,18 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/api"
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
-	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/loadbalancer"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/status"
+	loadbalancerStatus "github.com/cilium/cilium/enterprise/pkg/lb/status"
 )
 
-func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params loadbalancer.Parameters) (*loadbalancer.LoadbalancerStatusModel, error) {
+func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params loadbalancerStatus.Parameters) (*loadbalancerStatus.LoadbalancerStatusModel, error) {
 	ec, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
 	if err != nil {
 		return nil, err
 	}
 
-	lc := loadbalancer.NewLoadbalancerClient(ec, params)
+	lc := loadbalancerStatus.NewLoadbalancerClient(ec, params)
 
 	if err := lc.InitNodeAgentPods(ctx); err != nil {
 		return nil, fmt.Errorf("failed to fetch Node Agent Pods: %w", err)
@@ -33,7 +33,7 @@ func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params lo
 }
 
 func newCmdLoadbalancerStatus() *cobra.Command {
-	params := loadbalancer.Parameters{}
+	params := loadbalancerStatus.Parameters{}
 
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -63,7 +63,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
-	cmd.Flags().StringVarP(&params.RelationOutput, "relationOutput", "r", loadbalancer.RelationOutputNumbers, "Relation output format. One of: numbers, percentage")
+	cmd.Flags().StringVarP(&params.RelationOutput, "relationOutput", "r", loadbalancerStatus.RelationOutputNumbers, "Relation output format. One of: numbers, percentage")
 
 	cmd.Flags().BoolVar(&params.NoColors, "nocolors", false, "Disable colors in 'summary' output")
 
