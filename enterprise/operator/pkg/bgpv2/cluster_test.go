@@ -247,17 +247,22 @@ func Test_ClusterConfigSteps(t *testing.T) {
 
 			// Condition checks. Assuming the cluster config already exists on the API server.
 			if len(step.expectedTrueConditions) > 0 {
-				bgpcc, err := f.isoClusterClient.Get(ctx, isoClusterConfig.Name, meta_v1.GetOptions{})
-				req.NoError(err)
+				assert.EventuallyWithT(t, func(c *assert.CollectT) {
+					bgpcc, err := f.isoClusterClient.Get(ctx, isoClusterConfig.Name, meta_v1.GetOptions{})
+					if err != nil {
+						assert.NoError(c, err)
+						return
+					}
 
-				trueConditions := sets.New[string]()
-				for _, cond := range bgpcc.Status.Conditions {
-					trueConditions.Insert(cond.Type)
-				}
+					trueConditions := sets.New[string]()
+					for _, cond := range bgpcc.Status.Conditions {
+						trueConditions.Insert(cond.Type)
+					}
 
-				for _, cond := range step.expectedTrueConditions {
-					req.True(trueConditions.Has(cond), "Condition missing or not true: %s", cond)
-				}
+					for _, cond := range step.expectedTrueConditions {
+						assert.True(c, trueConditions.Has(cond), "Condition missing or not true: %s", cond)
+					}
+				}, TestTimeout, 50*time.Millisecond)
 			}
 		})
 	}
