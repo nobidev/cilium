@@ -49,7 +49,6 @@ triggers:
   /ci-lb:
     workflows:
     - enterprise-lb.yaml
-    - enterprise-lb-vsphere.yaml
   /ci-lb-vsphere:
     workflows:
     - enterprise-lb-vsphere.yaml
