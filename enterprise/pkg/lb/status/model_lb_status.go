@@ -86,17 +86,37 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 	for _, f := range lsm.Services {
 		fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type,
 			statusText(f.DeploymentMode),
-			printSimpleStatusCell(f.BGPPeerStatus, params.RelationOutput),
+			printSimpleStatusCell(f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printSimpleStatusCell(f.BGPRouteStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1T2HCStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2BackendHCStatus, params.RelationOutput),
 			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
-			getOverallStatus(f.BGPRouteStatus, f.BGPPeerStatus))
+			getOverallStatus(f.BGPRouteStatus, f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus))
 	}
 
 	tableTabWriter.Flush()
+
+	if !params.Verbose {
+		return nil
+	}
+
+	verboseTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
+
+	fmt.Fprintln(out, "")
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "Details")
+	fmt.Fprintln(out, "=========")
+	fmt.Fprintln(out, "")
+
+	fmt.Fprintf(verboseTabWriter, "BGP Peers:\t")
+	for _, p := range lsm.Services[0].BGPPeerStatus.Peers {
+		fmt.Fprintf(verboseTabWriter, " %s(%s)", p.Name, statusTextFromBool(p.IsHealthy))
+	}
+	fmt.Fprintf(verboseTabWriter, "\n")
+
+	verboseTabWriter.Flush()
 
 	return nil
 }
@@ -115,7 +135,7 @@ type LoadbalancerStatusModelService struct {
 	Port              uint                                 `json:"port"`
 	Type              string                               `json:"type"`
 	DeploymentMode    string                               `json:"deploymentMode"`
-	BGPPeerStatus     LoadbalancerStatusModelSimpleStatus  `json:"bgpPeerStatus"`
+	BGPPeerStatus     BGPPeerStatus                        `json:"bgpPeerStatus"`
 	BGPRouteStatus    LoadbalancerStatusModelSimpleStatus  `json:"bgpRouteStatus"`
 	T1NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1NodeStatus"`
 	T1T2HCStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1t2HealthcheckStatus"`
@@ -129,6 +149,17 @@ type LoadbalancerStatusModelSimpleStatus struct {
 	Status string `json:"status"`
 	OK     int    `json:"ok"`
 	Total  int    `json:"total"`
+}
+
+type BGPPeer struct {
+	Name      string `json:"name"` // ip-asn
+	IsHealthy bool   `json:"healthy"`
+}
+
+type BGPPeerStatus struct {
+	LoadbalancerStatusModelSimpleStatus
+
+	Peers []BGPPeer `json:"peers"`
 }
 
 type LoadbalancerStatusModelGroupedStatus struct {
@@ -173,6 +204,14 @@ func statusText(statusText string) string {
 	}
 
 	return Default + statusText + Reset
+}
+
+func statusTextFromBool(ok bool) string {
+	if ok {
+		return Green + "OK" + Reset
+	}
+
+	return Yellow + "DEG" + Reset
 }
 
 func relationText(status string, ok, total int, relationOutput string) string {

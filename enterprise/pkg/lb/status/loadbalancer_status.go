@@ -154,18 +154,20 @@ func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRD map[string]map[string]struct{}) LoadbalancerStatusModelSimpleStatus {
+func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRD map[string]map[string]struct{}) BGPPeerStatus {
 	crdPeers, ok := bgpPeersFromCRD[lbsvc.Name]
 	if lbsvc.Status.Addresses.IPv4 == nil || !ok {
-		return LoadbalancerStatusModelSimpleStatus{
-			Status: "N/A",
-			OK:     0,
-			Total:  0,
+		return BGPPeerStatus{
+			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+				OK:     0,
+				Total:  0,
+			},
 		}
 	}
 
 	nrPeers := 0
-	activePeers := map[string]struct{}{}
+	activePeers := map[string]string{} // => "", "established", "healthy"
 
 	for _, p := range nodeBGPPeers {
 		for _, pp := range p {
@@ -174,9 +176,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 				continue
 			}
 			nrPeers++
-			if pp.SessionState == "established" {
-				activePeers[name] = struct{}{}
-			}
+			activePeers[name] = pp.SessionState
 		}
 	}
 
@@ -185,17 +185,27 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 	for _, r := range nodeBGPRoutes {
 		for _, br := range r {
 			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
-				if _, ok := activePeers[fmt.Sprintf("%s-%d", br.Neighbor, br.RouterAsn)]; ok {
+				name := fmt.Sprintf("%s-%d", br.Neighbor, br.RouterAsn)
+				if v, ok := activePeers[name]; ok && v == "established" {
+					activePeers[name] = "ok"
 					nrOk++
 				}
 			}
 		}
 	}
 
-	return LoadbalancerStatusModelSimpleStatus{
-		Status: s.statusText(nrOk, nrPeers),
-		OK:     nrOk,
-		Total:  nrPeers,
+	peers := make([]BGPPeer, 0, len(activePeers))
+	for name, healthy := range activePeers {
+		peers = append(peers, BGPPeer{name, healthy == "ok"})
+	}
+
+	return BGPPeerStatus{
+		LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+			Status: s.statusText(nrOk, nrPeers),
+			OK:     nrOk,
+			Total:  nrPeers,
+		},
+		Peers: peers,
 	}
 }
 

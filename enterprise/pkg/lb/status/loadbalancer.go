@@ -26,7 +26,8 @@ type Parameters struct {
 	ServicePort      uint
 	ServiceStatus    string
 
-	Colors bool
+	Colors  bool
+	Verbose bool
 }
 
 type LoadbalancerClient struct {

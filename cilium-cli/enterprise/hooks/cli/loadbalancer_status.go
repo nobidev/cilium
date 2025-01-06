@@ -50,6 +50,10 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 				return err
 			}
 
+			if l := len(lsm.Services); params.Verbose && l > 1 {
+				return fmt.Errorf("More than one service is selected (%d). Use more fine-grained filters (--namespace/name/vip/port)", l)
+			}
+
 			return lsm.Output(c.OutOrStdout(), params)
 
 		},
@@ -66,6 +70,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 	cmd.Flags().StringVarP(&params.RelationOutput, "relationOutput", "r", loadbalancerStatus.RelationOutputNumbers, "Relation output format. One of: numbers, percentage")
 
 	cmd.Flags().BoolVarP(&params.Colors, "colors", "c", true, "Enable colors in 'summary' output")
+	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Output fine-grained info for a given service. Only one service must be selected with --namespace/name/vip/port")
 
 	return cmd
 }
