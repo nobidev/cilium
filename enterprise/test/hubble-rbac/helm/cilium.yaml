@@ -10,6 +10,8 @@ hubble:
     tls:
       server:
         enabled: true
+  timescape:
+    enabled: true
   rbac:
     enabled: true
     auth:
