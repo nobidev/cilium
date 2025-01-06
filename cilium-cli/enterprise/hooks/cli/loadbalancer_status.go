@@ -40,6 +40,10 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 		Short: "Display Loadbalancer status",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
+			if params.Verbose && params.Output != "json" {
+				return fmt.Errorf("--verbose can be enabled only with --output=json")
+			}
+
 			k8sClient, _ := api.GetK8sClientContextValue(c.Context())
 
 			ctx, cancelFn := context.WithTimeout(c.Context(), params.WaitDuration)
@@ -48,10 +52,6 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 			lsm, err := GetLoadbalancerStatus(ctx, k8sClient, params)
 			if err != nil {
 				return err
-			}
-
-			if l := len(lsm.Services); params.Verbose && l > 1 {
-				return fmt.Errorf("More than one service is selected (%d). Use more fine-grained filters (--namespace/name/vip/port)", l)
 			}
 
 			return lsm.Output(c.OutOrStdout(), params)
@@ -70,7 +70,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 	cmd.Flags().StringVarP(&params.RelationOutput, "relationOutput", "r", loadbalancerStatus.RelationOutputNumbers, "Relation output format. One of: numbers, percentage")
 
 	cmd.Flags().BoolVarP(&params.Colors, "colors", "c", true, "Enable colors in 'summary' output")
-	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Output fine-grained info for a given service. Only one service must be selected with --namespace/name/vip/port")
+	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Output fine-grained info for services. Only possible with --output=json")
 
 	return cmd
 }
