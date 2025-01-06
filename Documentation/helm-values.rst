@@ -1795,7 +1795,7 @@
    * - :spelling:ignore:`hubble.k8sExporter`
      - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
      - object
-     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.5.1","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
+     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.5.2","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
    * - :spelling:ignore:`hubble.k8sExporter.affinity`
      - Affinity for hubble-k8s-exporter
      - object
