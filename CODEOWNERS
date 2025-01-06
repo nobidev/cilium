@@ -713,6 +713,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining the Cilium-native multi-network feature
 # - @isovalent/infrastructure
 #   Responsible for maintaining CI/CD pipelines
+# - @isovalent/openshift
+#   Responsible for maintaing OpenShift related code and pipelines.
 # - @isovalent/release-managers
 #   Responsible for maintaining tools for managing releases.
 # - @isovalent/security
@@ -854,6 +856,7 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/hubble-k8s-exporter/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
+/olm/ @isovalent/openshift
 /pkg/bgpv1/**/*enterprise* @isovalent/traffic-engineering
 /pkg/clustermesh/enterprise_* @isovalent/clustermesh
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
