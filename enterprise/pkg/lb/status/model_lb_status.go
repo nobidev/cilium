@@ -91,7 +91,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1T2HCStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T2BackendHCStatus, params.RelationOutput),
+			printSimpleStatusCell(f.T2BackendHCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
 			getOverallStatus(f.BGPRouteStatus, f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus))
 	}
@@ -113,6 +113,23 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 	fmt.Fprintf(verboseTabWriter, "BGP Peers:\t")
 	for _, p := range lsm.Services[0].BGPPeerStatus.Peers {
 		fmt.Fprintf(verboseTabWriter, " %s(%s)", p.Name, statusTextFromBool(p.IsHealthy))
+	}
+	fmt.Fprintf(verboseTabWriter, "\n")
+
+	fmt.Fprintln(verboseTabWriter, "HC T2->B:")
+	hcByFrom := map[string][]HCStatus{}
+	for _, hc := range lsm.Services[0].T2BackendHCStatus.HealthChecks {
+		if _, ok := hcByFrom[hc.From]; !ok {
+			hcByFrom[hc.From] = []HCStatus{}
+		}
+		hcByFrom[hc.From] = append(hcByFrom[hc.From], hc)
+	}
+	for from, hc := range hcByFrom {
+		fmt.Fprintf(verboseTabWriter, "\t%s:", from)
+		for _, h := range hc {
+			fmt.Fprintf(verboseTabWriter, " %s(%s)", h.Endpoint, statusTextFromBool(h.IsHealthy))
+		}
+		fmt.Fprintln(verboseTabWriter)
 	}
 	fmt.Fprintf(verboseTabWriter, "\n")
 
@@ -140,7 +157,7 @@ type LoadbalancerStatusModelService struct {
 	T1NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1NodeStatus"`
 	T1T2HCStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1t2HealthcheckStatus"`
 	T2NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t2NodeStatus"`
-	T2BackendHCStatus LoadbalancerStatusModelSimpleStatus  `json:"t2BackendHealthcheckStatus"`
+	T2BackendHCStatus HCT2BackendsStatus                   `json:"t2BackendHealthcheckStatus"`
 	BackendpoolStatus LoadbalancerStatusModelGroupedStatus `json:"backendpoolStatus"`
 	Status            string                               `json:"status"`
 }
@@ -165,6 +182,18 @@ type BGPPeerStatus struct {
 type LoadbalancerStatusModelGroupedStatus struct {
 	Status string                                `json:"status"`
 	Groups []LoadbalancerStatusModelSimpleStatus `json:"groups"`
+}
+
+type HCStatus struct {
+	From      string `json:"from"`
+	Endpoint  string `json:"endpoint"`
+	IsHealthy bool   `json:"healthy"`
+}
+
+type HCT2BackendsStatus struct {
+	LoadbalancerStatusModelSimpleStatus
+
+	HealthChecks []HCStatus `json:"endpoints"`
 }
 
 func printSimpleStatusCell(status LoadbalancerStatusModelSimpleStatus, rel string) string {

@@ -410,27 +410,33 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 	}
 }
 
-func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {
+func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) HCT2BackendsStatus {
 	if s.isT1Only(lbsvc) {
-		return LoadbalancerStatusModelSimpleStatus{
-			Status: "",
-			OK:     0,
-			Total:  0,
+		return HCT2BackendsStatus{
+			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "",
+				OK:     0,
+				Total:  0,
+			},
 		}
 	}
 
 	if lbsvc.Status.Addresses.IPv4 == nil {
-		return LoadbalancerStatusModelSimpleStatus{
-			Status: "N/A",
-			OK:     0,
-			Total:  0,
+		return HCT2BackendsStatus{
+			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+				OK:     0,
+				Total:  0,
+			},
 		}
 	}
 
 	nrOk := 0
 	nrTotal := 0
 
-	for _, ecn := range nodeEnvoyConfigs {
+	hcs := []HCStatus{}
+
+	for node, ecn := range nodeEnvoyConfigs {
 		for _, c := range ecn.Configs {
 			if c.Type == "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
 				// default/lbfe-lb-1/backend_cluster_https_0
@@ -439,9 +445,17 @@ func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, 
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								nrTotal++
+								healthy := false
 								if epc.HealthStatus == "HEALTHY" {
+									healthy = true
 									nrOk++
 								}
+								hcs = append(hcs,
+									HCStatus{
+										From:      node,
+										Endpoint:  fmt.Sprintf("%s:%d", epc.Endpoint.Address.SocketAddress.Address, epc.Endpoint.Address.SocketAddress.PortValue),
+										IsHealthy: healthy,
+									})
 							}
 						}
 					}
@@ -450,10 +464,13 @@ func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, 
 		}
 	}
 
-	return LoadbalancerStatusModelSimpleStatus{
-		Status: s.statusText(nrOk, nrTotal),
-		OK:     nrOk,
-		Total:  nrTotal,
+	return HCT2BackendsStatus{
+		LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+			Status: s.statusText(nrOk, nrTotal),
+			OK:     nrOk,
+			Total:  nrTotal,
+		},
+		HealthChecks: hcs,
 	}
 }
 
