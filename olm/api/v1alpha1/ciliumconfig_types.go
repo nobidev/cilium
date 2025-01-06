@@ -58,7 +58,7 @@ type CiliumConfigStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=ciliumconfigs,scope=Cluster,categories={all},shortName={cconf,cconfs}
+// +kubebuilder:resource:path=ciliumconfigs,scope=Cluster,categories={all,cilium},shortName={cconf,cconfs}
 // +kubebuilder:subresource:status
 
 // CiliumConfig is the Schema for the ciliumconfigs API
