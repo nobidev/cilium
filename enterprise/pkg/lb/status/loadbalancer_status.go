@@ -273,19 +273,23 @@ func (s *LoadbalancerClient) getT1Status(lbsvc isovalentv1alpha1.LBService, node
 	}
 }
 
-func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) LoadbalancerStatusModelSimpleStatus {
+func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeServices map[string][]*models.Service) HealthChecksStatus {
 	if lbsvc.Status.Addresses.IPv4 == nil {
-		return LoadbalancerStatusModelSimpleStatus{
-			Status: "N/A",
-			OK:     0,
-			Total:  0,
+		return HealthChecksStatus{
+			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+				OK:     0,
+				Total:  0,
+			},
 		}
 	}
 
 	nrOk := 0
 	nrTotal := 0
 
-	for _, sn := range nodeServices {
+	hcs := []HCStatus{}
+
+	for node, sn := range nodeServices {
 		for _, s := range sn {
 			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
 				s.Status.Realized.Flags.Type == "LoadBalancer" &&
@@ -295,18 +299,29 @@ func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeSe
 
 				for _, b := range s.Status.Realized.BackendAddresses {
 					nrTotal++
+					healthy := false
 					if b.State == "active" {
 						nrOk++
+						healthy = true
 					}
+					hcs = append(hcs,
+						HCStatus{
+							From:      node,
+							Endpoint:  fmt.Sprintf("%s:%d", *lbsvc.Status.Addresses.IPv4, lbsvc.Spec.Port),
+							IsHealthy: healthy,
+						})
 				}
 			}
 		}
 	}
 
-	return LoadbalancerStatusModelSimpleStatus{
-		Status: s.statusText(nrOk, nrTotal),
-		OK:     nrOk,
-		Total:  nrTotal,
+	return HealthChecksStatus{
+		LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+			Status: s.statusText(nrOk, nrTotal),
+			OK:     nrOk,
+			Total:  nrTotal,
+		},
+		HealthChecks: hcs,
 	}
 }
 
@@ -410,9 +425,9 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 	}
 }
 
-func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) HCT2BackendsStatus {
+func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) HealthChecksStatus {
 	if s.isT1Only(lbsvc) {
-		return HCT2BackendsStatus{
+		return HealthChecksStatus{
 			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
 				Status: "",
 				OK:     0,
@@ -422,7 +437,7 @@ func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, 
 	}
 
 	if lbsvc.Status.Addresses.IPv4 == nil {
-		return HCT2BackendsStatus{
+		return HealthChecksStatus{
 			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
 				Status: "N/A",
 				OK:     0,
@@ -464,7 +479,7 @@ func (s *LoadbalancerClient) getHCT2Backends(lbsvc isovalentv1alpha1.LBService, 
 		}
 	}
 
-	return HCT2BackendsStatus{
+	return HealthChecksStatus{
 		LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
 			Status: s.statusText(nrOk, nrTotal),
 			OK:     nrOk,

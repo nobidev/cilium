@@ -93,7 +93,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 			printSimpleStatusCell(f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printSimpleStatusCell(f.BGPRouteStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T1T2HCStatus, params.RelationOutput),
+			printSimpleStatusCell(f.T1T2HCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2BackendHCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
@@ -110,28 +110,30 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 
 	fmt.Fprintln(out, "")
 
-	fmt.Fprintf(verboseTabWriter, "BGP Peers:\t")
+	fmt.Fprintf(verboseTabWriter, "BGP Peers:")
 	for _, p := range lsm.Services[0].BGPPeerStatus.Peers {
-		fmt.Fprintf(verboseTabWriter, " %s(%s)", p.Name, statusTextFromBool(p.IsHealthy))
+		fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", p.Name, statusTextFromBool(p.IsHealthy))
 	}
-	fmt.Fprintf(verboseTabWriter, "\n")
 
-	fmt.Fprintln(verboseTabWriter, "HC T2->B:")
-	hcByFrom := map[string][]HCStatus{}
-	for _, hc := range lsm.Services[0].T2BackendHCStatus.HealthChecks {
-		if _, ok := hcByFrom[hc.From]; !ok {
-			hcByFrom[hc.From] = []HCStatus{}
-		}
-		hcByFrom[hc.From] = append(hcByFrom[hc.From], hc)
-	}
+	fmt.Fprintf(verboseTabWriter, "HC T1->[T2|B]:")
+	hcByFrom := hcsByFrom(lsm.Services[0].T1T2HCStatus.HealthChecks)
 	for from, hc := range hcByFrom {
-		fmt.Fprintf(verboseTabWriter, "\t%s:", from)
+		fmt.Fprintf(verboseTabWriter, "\t%s:\t", from)
 		for _, h := range hc {
-			fmt.Fprintf(verboseTabWriter, " %s(%s)", h.Endpoint, statusTextFromBool(h.IsHealthy))
+			fmt.Fprintf(verboseTabWriter, "%s(%s) ", h.Endpoint, statusTextFromBool(h.IsHealthy))
 		}
 		fmt.Fprintln(verboseTabWriter)
 	}
-	fmt.Fprintf(verboseTabWriter, "\n")
+
+	fmt.Fprintf(verboseTabWriter, "HC T2->B:")
+	hcByFrom = hcsByFrom(lsm.Services[0].T2BackendHCStatus.HealthChecks)
+	for from, hc := range hcByFrom {
+		fmt.Fprintf(verboseTabWriter, "\t%s:\t", from)
+		for _, h := range hc {
+			fmt.Fprintf(verboseTabWriter, "%s(%s) ", h.Endpoint, statusTextFromBool(h.IsHealthy))
+		}
+		fmt.Fprintln(verboseTabWriter)
+	}
 
 	verboseTabWriter.Flush()
 
@@ -155,9 +157,9 @@ type LoadbalancerStatusModelService struct {
 	BGPPeerStatus     BGPPeerStatus                        `json:"bgpPeerStatus"`
 	BGPRouteStatus    LoadbalancerStatusModelSimpleStatus  `json:"bgpRouteStatus"`
 	T1NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1NodeStatus"`
-	T1T2HCStatus      LoadbalancerStatusModelSimpleStatus  `json:"t1t2HealthcheckStatus"`
+	T1T2HCStatus      HealthChecksStatus                   `json:"t1t2HealthcheckStatus"`
 	T2NodeStatus      LoadbalancerStatusModelSimpleStatus  `json:"t2NodeStatus"`
-	T2BackendHCStatus HCT2BackendsStatus                   `json:"t2BackendHealthcheckStatus"`
+	T2BackendHCStatus HealthChecksStatus                   `json:"t2BackendHealthcheckStatus"`
 	BackendpoolStatus LoadbalancerStatusModelGroupedStatus `json:"backendpoolStatus"`
 	Status            string                               `json:"status"`
 }
@@ -190,7 +192,7 @@ type HCStatus struct {
 	IsHealthy bool   `json:"healthy"`
 }
 
-type HCT2BackendsStatus struct {
+type HealthChecksStatus struct {
 	LoadbalancerStatusModelSimpleStatus
 
 	HealthChecks []HCStatus `json:"endpoints"`
@@ -253,4 +255,17 @@ func relationText(status string, ok, total int, relationOutput string) string {
 	}
 
 	return fmt.Sprintf("[%d/%d]", ok, total)
+}
+
+func hcsByFrom(hcs []HCStatus) map[string][]HCStatus {
+	hcByFrom := map[string][]HCStatus{}
+
+	for _, hc := range hcs {
+		if _, ok := hcByFrom[hc.From]; !ok {
+			hcByFrom[hc.From] = []HCStatus{}
+		}
+		hcByFrom[hc.From] = append(hcByFrom[hc.From], hc)
+	}
+
+	return hcByFrom
 }
