@@ -780,7 +780,6 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/mixedrouting.go @isovalent/clustermesh
 /cilium-cli/enterprise/hooks/connectivity/tests/multicast.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
-/cilium-cli/enterprise/hooks/loadbalancer/ @isovalent/isovalent-loadbalancer
 /cilium-dbg/cmd/enterprise_* @isovalent/cli
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
