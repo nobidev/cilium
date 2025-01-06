@@ -49,7 +49,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 		return nil
 	}
 
-	if params.NoColors {
+	if !params.Colors {
 		Default = ""
 		Red = ""
 		Yellow = ""
