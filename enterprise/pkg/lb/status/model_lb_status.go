@@ -60,25 +60,29 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 		Reset = ""
 	}
 
-	summaryTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
+	if !params.Verbose {
 
-	fmt.Fprintln(out, "=========")
-	fmt.Fprintln(out, "Summary")
-	fmt.Fprintln(out, "=========")
-	fmt.Fprintln(out, "")
+		summaryTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
 
-	fmt.Fprintf(summaryTabWriter, "T1 Nodes:\t%d\n", lsm.Summary.NrOfT1Nodes)
-	fmt.Fprintf(summaryTabWriter, "T2 Nodes:\t%d\n", lsm.Summary.NrOfT2Nodes)
-	fmt.Fprintf(summaryTabWriter, "Services:\t%d\n", lsm.Summary.NrOfServices)
-	fmt.Fprintf(summaryTabWriter, "VIPs:\t%d\n", lsm.Summary.NrOfVIPs)
+		fmt.Fprintln(out, "=========")
+		fmt.Fprintln(out, "Summary")
+		fmt.Fprintln(out, "=========")
+		fmt.Fprintln(out, "")
 
-	summaryTabWriter.Flush()
+		fmt.Fprintf(summaryTabWriter, "T1 Nodes:\t%d\n", lsm.Summary.NrOfT1Nodes)
+		fmt.Fprintf(summaryTabWriter, "T2 Nodes:\t%d\n", lsm.Summary.NrOfT2Nodes)
+		fmt.Fprintf(summaryTabWriter, "Services:\t%d\n", lsm.Summary.NrOfServices)
+		fmt.Fprintf(summaryTabWriter, "VIPs:\t%d\n", lsm.Summary.NrOfVIPs)
 
-	fmt.Fprintln(out, "")
-	fmt.Fprintln(out, "=========")
-	fmt.Fprintln(out, "Services")
-	fmt.Fprintln(out, "=========")
-	fmt.Fprintln(out, "")
+		summaryTabWriter.Flush()
+
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "=========")
+		fmt.Fprintln(out, "Services")
+		fmt.Fprintln(out, "=========")
+		fmt.Fprintln(out, "")
+
+	}
 
 	tableTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
 	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"D-Mode"+Reset, Default+"BGP Peers"+Reset, Default+"BGP Routes"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
@@ -104,10 +108,6 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 
 	verboseTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
 
-	fmt.Fprintln(out, "")
-	fmt.Fprintln(out, "=========")
-	fmt.Fprintln(out, "Details")
-	fmt.Fprintln(out, "=========")
 	fmt.Fprintln(out, "")
 
 	fmt.Fprintf(verboseTabWriter, "BGP Peers:\t")
