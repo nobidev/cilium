@@ -596,6 +596,19 @@
       "status": "not_affected",
       "status_notes": "Container scanners flag this issue on the etcd binary, which is not affected. There is currently no newer version to upgrade to.",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-56433"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
