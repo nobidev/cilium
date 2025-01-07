@@ -24,6 +24,7 @@ var (
 	Green   = "\033[32m"
 	Magenta = "\033[35m"
 	Cyan    = "\033[36m"
+	Bold    = "\033[1m"
 	Reset   = "\033[0m"
 )
 
@@ -57,6 +58,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 		Green = ""
 		Magenta = ""
 		Cyan = ""
+		Bold = ""
 		Reset = ""
 	}
 
@@ -110,30 +112,34 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 
 	fmt.Fprintln(out, "")
 
-	fmt.Fprintf(verboseTabWriter, "BGP Peers:")
+	fmt.Fprintln(verboseTabWriter, Bold+"BGP Peers"+Reset)
+	fmt.Fprintln(verboseTabWriter, Bold+"---------"+Reset)
 	for _, p := range lsm.Services[0].BGPPeerStatus.Peers {
-		fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", p.Name, statusTextFromBool(p.IsHealthy))
+		fmt.Fprintf(verboseTabWriter, "%s(%s)\n", p.Name, statusTextFromBool(p.IsHealthy))
 	}
+	fmt.Fprintln(verboseTabWriter)
 
-	fmt.Fprintf(verboseTabWriter, "HC T1->[T2|B]:")
+	fmt.Fprintln(verboseTabWriter, Bold+"HC T1->[T2|B]"+Reset)
+	fmt.Fprintln(verboseTabWriter, Bold+"-------------"+Reset)
 	hcByFrom := hcsByFrom(lsm.Services[0].T1T2HCStatus.HealthChecks)
 	for from, hc := range hcByFrom {
-		fmt.Fprintf(verboseTabWriter, "\t%s:\t", from)
+		fmt.Fprintf(verboseTabWriter, "%s:", from)
 		for _, h := range hc {
-			fmt.Fprintf(verboseTabWriter, "%s(%s) ", h.Endpoint, statusTextFromBool(h.IsHealthy))
+			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy))
 		}
-		fmt.Fprintln(verboseTabWriter)
 	}
+	fmt.Fprintln(verboseTabWriter)
 
-	fmt.Fprintf(verboseTabWriter, "HC T2->B:")
+	fmt.Fprintln(verboseTabWriter, Bold+"HC T2->B"+Reset)
+	fmt.Fprintln(verboseTabWriter, Bold+"--------"+Reset)
 	hcByFrom = hcsByFrom(lsm.Services[0].T2BackendHCStatus.HealthChecks)
 	for from, hc := range hcByFrom {
-		fmt.Fprintf(verboseTabWriter, "\t%s:\t", from)
+		fmt.Fprintf(verboseTabWriter, "%s:", from)
 		for _, h := range hc {
-			fmt.Fprintf(verboseTabWriter, "%s(%s) ", h.Endpoint, statusTextFromBool(h.IsHealthy))
+			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy))
 		}
-		fmt.Fprintln(verboseTabWriter)
 	}
+	fmt.Fprintln(verboseTabWriter)
 
 	verboseTabWriter.Flush()
 
