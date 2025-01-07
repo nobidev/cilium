@@ -22,7 +22,7 @@ jobs:
         # of the dependencies used by Cilium. We only scan the Enterprise images
         # for the oldest maintained Enterprise version, which does not receive
         # OSS dependency updates.
-        branch: [v1.14, v1.15, v1.16]
+        branch: [v1.14, v1.15, v1.16, v1.17]
         include:
           - image: kvstoremesh
             branch: v1.14
