@@ -17,7 +17,7 @@ env:
 jobs:
   build:
     name: Create a Hubble CLI Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: release-hubble-cli
     steps:
       - name: Checkout Code
