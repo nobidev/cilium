@@ -47,8 +47,8 @@ import (
 
 	helmchart "helm.sh/helm/v3/pkg/chart"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
-	"github.com/isovalent/cilium/olm/helm"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
+	"github.com/isovalent/cilium/enterprise/olm/helm"
 )
 
 const (

@@ -40,7 +40,7 @@ const (
 
 // CiliumConfigSpec defines the desired state of CiliumConfig
 type CiliumConfigSpec struct {
-	// TODO: in cilium-ee-olm the raw extension under cilium
+	// TODO: in cilium-ee-olm the raw extension is under cilium
 	// it does not make much sense here as it is a cilium only
 	// resource but supporting it would make the migration easier
 	// wraps raw helm values

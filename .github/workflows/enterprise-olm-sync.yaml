@@ -13,7 +13,7 @@ permissions:
 # TODO: doing main-ce branch first. It will need to be extended to release branches
 jobs:
   olm-sync:
-    # This job copies the latest version of the helm charts into olm/manifests
+    # This job copies the latest version of the helm charts into enterprise/olm/manifests
     name: sync manifests for OLM deployment
     if: github.repository == 'isovalent/cilium'
     runs-on: ubuntu-24.04
@@ -36,9 +36,9 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Sync olm/manifests
+      - name: Sync enterprise/olm/manifests
         run: |
-          cp -a ./install/kubernetes/cilium/. olm/manifests
+          cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
 
       - name: Create PR
         run: |
@@ -51,7 +51,7 @@ jobs:
             exit 0
           fi
           git checkout -b pr/ci-wf/olm-sync
-          git add ./olm/manifests
+          git add ./enterprise/olm/manifests
           git commit -m "chore: Sync OLM manifests"
           git push --set-upstream origin pr/ci-wf/olm-sync
           gh pr create -B "$${{ github.event.repository.default_branch }}" --title 'chore: Sync OLM manifests' --body 'Created by GitHub action: OLM Sync. The Controller and its permissions need to be amended when new resources types are introduced.'

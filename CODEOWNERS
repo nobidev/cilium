@@ -808,6 +808,7 @@ Makefile* @cilium/build
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
 /enterprise/grafana/loadbalancer/ @isovalent/isovalent-loadbalancer
 /enterprise/hubble-relay/ @isovalent/hubble
+/enterprise/olm/ @isovalent/openshift
 /enterprise/operator/ @isovalent/cilium-agent
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
@@ -856,7 +857,6 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/hubble-k8s-exporter/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/olm/ @isovalent/openshift
 /pkg/bgpv1/**/*enterprise* @isovalent/traffic-engineering
 /pkg/clustermesh/enterprise_* @isovalent/clustermesh
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh

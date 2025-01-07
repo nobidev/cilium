@@ -9,7 +9,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: clife
-repo: github.com/isovalent/cilium/olm
+repo: github.com/isovalent/cilium/enterprise/olm
 resources:
 - api:
     crdVersion: v1
@@ -18,6 +18,6 @@ resources:
   domain: cilium.io
   group: 
   kind: CiliumConfig
-  path: github.com/isovalent/cilium/olm/api/v1alpha1
+  path: github.com/isovalent/cilium/enterprise/olm/api/v1alpha1
   version: v1alpha1
 version: "3"

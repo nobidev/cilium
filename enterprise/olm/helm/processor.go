@@ -32,7 +32,7 @@ import (
 	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	helmkube "helm.sh/helm/v3/pkg/kube"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
 )
 
 const (

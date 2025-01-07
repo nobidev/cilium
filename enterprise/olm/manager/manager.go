@@ -51,9 +51,9 @@ import (
 
 	helmloader "helm.sh/helm/v3/pkg/chart/loader"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
-	"github.com/isovalent/cilium/olm/controller"
-	"github.com/isovalent/cilium/olm/helm"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
+	"github.com/isovalent/cilium/enterprise/olm/controller"
+	"github.com/isovalent/cilium/enterprise/olm/helm"
 	//+kubebuilder:scaffold:imports
 )
 

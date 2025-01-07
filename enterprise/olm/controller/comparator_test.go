@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/isovalent/cilium/olm/helm"
+	"github.com/isovalent/cilium/enterprise/olm/helm"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

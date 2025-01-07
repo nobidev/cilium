@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/olm/api/v1alpha1"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
 )
 
 func TestValues(t *testing.T) {

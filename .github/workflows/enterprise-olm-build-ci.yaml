@@ -6,13 +6,13 @@ on:
       - main-ce
       # TODO: cover release branches later on
     paths:
-      - olm/**
+      - enterprise/olm/**
   push:
     branches:
       - main-ce
       # TODO: cover release branches later on
     paths:
-      - olm/**
+      - enterprise/olm/**
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/actions
-            olm
+            enterprise/olm
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -67,6 +67,6 @@ jobs:
           # TODO: set the image reference using the commit sha as tag
           IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife:${{ steps.tag.outputs.tag }}"
         run: |
-          cd olm
+          cd enterprise/olm
           make docker-build docker-push
 

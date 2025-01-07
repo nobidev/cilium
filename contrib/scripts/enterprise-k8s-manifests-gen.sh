@@ -64,6 +64,5 @@ rm -rf "${TMPDIR}"
 
 # Lifecycle operator
 # Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-go run sigs.k8s.io/controller-tools/cmd/controller-gen rbac:roleName=manager-role crd webhook paths="${SCRIPT_ROOT}/../../enterprise/olm/..." output:crd:artifacts:config="${SCRIPT_ROOT}/../../enterprise/olm/config/crd/bases" output:rbac:artifacts:config="./olm/config/rbac"
-go run ${SCRIPT_ROOT}/../../tools/crdcheck "${SCRIPT_ROOT}/../../olm/config/crd/bases"
->>>>>>> Stashed changes
+go run sigs.k8s.io/controller-tools/cmd/controller-gen rbac:roleName=manager-role crd webhook paths="${SCRIPT_ROOT}/../../enterprise/olm/..." output:crd:artifacts:config="${SCRIPT_ROOT}/../../enterprise/olm/config/crd/bases" output:rbac:artifacts:config="${SCRIPT_ROOT}/../../enterprise/olm/config/rbac"
+go run ${SCRIPT_ROOT}/../../tools/crdcheck "${SCRIPT_ROOT}/../../enterprise/olm/config/crd/bases"

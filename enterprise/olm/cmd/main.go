@@ -15,7 +15,7 @@ package main
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/isovalent/cilium/olm/manager"
+	"github.com/isovalent/cilium/enterprise/olm/manager"
 )
 
 func main() {

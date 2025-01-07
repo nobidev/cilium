@@ -1,4 +1,4 @@
-module github.com/isovalent/cilium/olm
+module github.com/isovalent/cilium/enterprise/olm
 
 go 1.23
 
