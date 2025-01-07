@@ -309,7 +309,7 @@ jobs:
       - name: 2. Upgrade Cilium ${{ steps.vars.outputs.sha }}
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          cilium upgrade ${{ steps.vars.outputs.cilium_newest_install }}
+          cilium upgrade --reset-values ${{ steps.vars.outputs.cilium_newest_install }}
           cilium status --wait
 
       - name: 2. Run FQDN connectivity tests
@@ -397,7 +397,7 @@ jobs:
       - name: 4. Downgrade Cilium ${{ steps.vars.outputs.stable_version }}
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          cilium upgrade ${{ steps.vars.outputs.cilium_stable_install }}
+          cilium upgrade --reset-values ${{ steps.vars.outputs.cilium_stable_install }}
           cilium status --wait
 
       - name: 4. Run FQDN connectivity tests
