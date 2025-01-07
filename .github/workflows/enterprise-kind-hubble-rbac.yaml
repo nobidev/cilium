@@ -110,11 +110,33 @@ jobs:
           sleep 10s
           nc -nvz 127.0.0.1 4245
 
-      - name: Run tests
+      - name: Run tests - Hubble Relay
         run: |
-          go test -tags enterprise_hubble_rbac_e2e ./enterprise/test/hubble-rbac
+          go test -tags enterprise_hubble_rbac_e2e ./enterprise/test/hubble-rbac --count 1
         shell: bash
         env:
+          HUBBLE_TLS: "true"
+          HUBBLE_TLS_ALLOW_INSECURE: "true"
+          HUBBLE_ISSUER: "http://dex.test"
+          HUBBLE_CLIENT_ID: "test-client-id"
+          HUBBLE_CLIENT_SECRET: "test-client-secret"
+          ADMIN_OIDC_USER: "admin@example.com"
+          ADMIN_OIDC_PASSWORD: "password"
+          DEMO_OIDC_USER: "demo@example.com"
+          DEMO_OIDC_PASSWORD: "demo"
+
+      - name: Port forward Timescape
+        run: |
+          kubectl -n kube-system port-forward svc/hubble-timescape 4246:443 &
+          sleep 10s
+          nc -nvz 127.0.0.1 4246
+
+      - name: Run tests - Hubble Timescape
+        run: |
+          go test -tags enterprise_hubble_rbac_e2e ./enterprise/test/hubble-rbac --count 1
+        shell: bash
+        env:
+          HUBBLE_SERVER: localhost:4246
           HUBBLE_TLS: "true"
           HUBBLE_TLS_ALLOW_INSECURE: "true"
           HUBBLE_ISSUER: "http://dex.test"

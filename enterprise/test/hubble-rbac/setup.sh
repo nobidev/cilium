@@ -7,7 +7,6 @@ set -x
 
 echo "Installing Cilium"
 helm upgrade --install cilium "$CILIUM_CHART_REPO" \
-  --wait \
   --namespace kube-system \
   --version "$CILIUM_VERSION" \
   --values "$SCRIPT_DIR"/helm/cilium.yaml
