@@ -427,7 +427,7 @@ jobs:
           set -x
           if ! kubectl rollout status --timeout=30m -n kube-system statefulset/etcd; then
             kubectl get pods -A -o yaml
-            kubectl describe -n kube-system statefulset/etcd -o yaml
+            kubectl describe -n kube-system statefulset/etcd
             kubectl logs -n kube-system statefulset/etcd
             exit 1
           fi
