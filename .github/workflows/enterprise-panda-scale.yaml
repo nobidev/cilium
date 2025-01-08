@@ -290,7 +290,7 @@ jobs:
       - name: Deploy cluster
         id: deploy-cluster
         uses: cilium/scale-tests-action/create-cluster@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
-        timeout-minutes: 30
+        timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           control_plane_size: n1-standard-8
@@ -303,7 +303,7 @@ jobs:
 
       - name: Create instance group for etcd
         uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
-        timeout-minutes: 30
+        timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -319,7 +319,7 @@ jobs:
           create_native_routing_firewall: 'false'
 
       - name: Wait for etcd nodes to join the cluster
-        timeout-minutes: 30
+        timeout-minutes: 5
         shell: bash
         run: |
           set -x
@@ -425,7 +425,7 @@ jobs:
         shell: bash
         run: |
           set -x
-          if ! kubectl rollout status --timeout=30m -n kube-system statefulset/etcd; then
+          if ! kubectl rollout status --timeout=5m -n kube-system statefulset/etcd; then
             kubectl get pods -A -o yaml
             kubectl describe -n kube-system statefulset/etcd
             kubectl logs -n kube-system statefulset/etcd
@@ -454,7 +454,7 @@ jobs:
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
-        timeout-minutes: 20
+        timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
