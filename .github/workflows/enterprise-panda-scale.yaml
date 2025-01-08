@@ -293,13 +293,16 @@ jobs:
         timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
-          node_size: e2-standard-8
+          control_plane_size: n2-standard-16
+          control_plane_count: 3
+          node_size: e2-standard-16
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
+          sync_cloud_routes: false
+          etcd_volume_size: 200
+          max_in_flight: 200
 
       - name: Create instance group for etcd
         uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
@@ -310,7 +313,8 @@ jobs:
           node_size: e2-standard-8
           node_count: 3
           ig_name: etcd
-          node_volume_size: 50
+          node_volume_type: pd-ssd
+          node_volume_size: 200
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
