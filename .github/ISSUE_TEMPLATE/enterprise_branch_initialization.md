@@ -14,6 +14,22 @@ sprinkles that make up the enterprise edition.
 On a high level, we need to adjust CI to now care about `-ce` branches and add
 some automation details.
 
+## Perform a main-ce sync
+
+Once a new stable branch gets created in cilium/cilium, coordinate with
+backporters to perform a main-ce sync. Instead of merging HEAD of upstream/main,
+you need to find the commit in upstream/main from which the new branch got
+created. Typically the commit is the parent of a commit with a title like
+"Prepare for vX.Y development cycle".
+
+Follow "CEE main-ce upstream sync" section of the [Backporter Notion page], but
+tweak the `git merge` command and specify the commit SHA:
+
+    git merge --no-ff COMMIT_SHA
+
+See https://github.com/isovalent/cilium/pull/5731 for an example sync pull
+request.
+
 ## Prepare the branch
 
 - [ ] Create a PR that updates the `.github/workflows/mirror-upstream.yaml`
@@ -72,3 +88,4 @@ Here's a likely not exhaustive list of what needs to come with:
 [`PATHSPEC`]: https://github.com/isovalent/cilium/blob/db3697989ca5224b246e358867107cc28c3d25ba/.github/workflows/mirror-upstream.yaml#L65
 [this v1.14 PR]: https://github.com/isovalent/cilium/pull/1629
 [GH labels]: https://github.com/isovalent/cilium/issues/labels
+[Backporter Notion page]: https://www.notion.so/isovalent/Backporter-8f44d3e0884b4c67a06499e3fd07df81
