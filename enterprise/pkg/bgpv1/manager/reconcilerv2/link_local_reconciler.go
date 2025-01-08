@@ -14,7 +14,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/netip"
 	"sync/atomic"
 
 	"github.com/YutaroHayakawa/go-ra"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/utils"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
@@ -237,7 +237,7 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 		if peer.Interface != nil {
 			peerLog := l.WithFields(logrus.Fields{osstypes.PeerLogField: peer.Name, types.InterfaceLogField: *peer.Interface})
 
-			peerAddress, found, err := r.getIPv6LinkLocalNeighborAddress(txn, *peer.Interface)
+			peerAddress, found, err := utils.GetIPv6LinkLocalNeighborAddress(r.deviceTable, r.neighborTable, txn, *peer.Interface)
 			if err != nil {
 				// The error is most likely due to non-existing interface or multiple link-local peers on the link.
 				// As these are related to the host's state rather than the BGP CP, just emit a warning and skip
@@ -280,51 +280,6 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 	}
 
 	return nil
-}
-
-// getIPv6LinkLocalNeighborAddress attempts to find d single neighbor with a link-local IPv6 address.
-// If found, returns its link-local address with zone.
-func (r *LinkLocalReconciler) getIPv6LinkLocalNeighborAddress(txn statedb.ReadTxn, ifName string) (peerAddr string, found bool, err error) {
-	device, _, found := r.deviceTable.Get(txn, tables.DeviceNameIndex.Query(ifName))
-	if !found {
-		// configured device not found on the node - return an error
-		return "", false, fmt.Errorf("device %s not found", ifName)
-	}
-
-	// We need to skip our own link-local address, as it is populated into the neighbor table
-	// when router advertisements for this interface are enabled on RADaemon.
-	var localLLAddress netip.Addr
-	for _, addr := range device.Addrs {
-		if addr.Addr.Is6() && addr.Addr.IsLinkLocalUnicast() {
-			localLLAddress = addr.Addr
-			break
-		}
-	}
-
-	// try to find single neighbor with a link-local IPv6 address
-	neighbors := r.neighborTable.List(txn, tables.NeighborLinkIndex.Query(device.Index))
-	cnt := 0
-	addr := netip.Addr{}
-	for neighbor := range neighbors {
-		// NOTE: unfortunately, we can not rely on the NTF_ROUTER flag here, as the netlink library does not
-		// deliver a neighbor update if flags on an existing neighbor entry change. Because of that, we may miss
-		// the NTF_ROUTER flag if the neighbor entry was already existing before receiving a Router Advertisement.
-		if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() && neighbor.IPAddr != localLLAddress && neighbor.State&tables.NUD_FAILED == 0 {
-			addr = neighbor.IPAddr
-			cnt++
-		}
-	}
-
-	if cnt == 0 {
-		// no valid link-local neighbor found
-		return "", false, nil
-	} else if cnt > 1 {
-		// more than one link-local neighbor found, not supported - return an error
-		return "", false, fmt.Errorf("found %d link-local neighbors, only one is supported", cnt)
-	}
-
-	// single neighbor with a link-local IPv6 address found
-	return addr.WithZone(ifName).String(), true, nil
 }
 
 // reconcileRAInterfaces reconciles the RA Daemon config with the desired set of unnumbered interfaces across all BGP instances.

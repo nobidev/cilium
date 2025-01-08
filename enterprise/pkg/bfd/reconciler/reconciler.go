@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -26,10 +27,13 @@ import (
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/utils"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/node"
@@ -50,6 +54,8 @@ type bfdReconcilerParams struct {
 	Sysctl         sysctl.Sysctl
 
 	DB            *statedb.DB
+	NeighborTable statedb.Table[*tables.Neighbor]
+	DeviceTable   statedb.Table[*tables.Device]
 	BFDPeersTable statedb.RWTable[*types.BFDPeerStatus]
 
 	BFDProfileResource    resource.Resource[*v1alpha1.IsovalentBFDProfile]
@@ -71,6 +77,9 @@ type bfdReconciler struct {
 	nodeName string
 
 	configuredPeers map[string]*peerConfig // configured peers keyed by nodeConfigName + peerName
+
+	processNeighborEvents atomic.Bool       // used to track whether we should reconcile upon neighbor table changes
+	llNeighborsCache      map[string]string // cache of interface to link-local neighbor addresses
 }
 
 // peerConfig represents desired configuration of a BFD peer, with reference to its configuration source.
@@ -104,6 +113,7 @@ func newBFDReconciler(p bfdReconcilerParams) *bfdReconciler {
 		bfdNodeConfigSyncCh: make(chan struct{}, 1),
 		reconcileCh:         make(chan struct{}, 1),
 		configuredPeers:     make(map[string]*peerConfig),
+		llNeighborsCache:    make(map[string]string),
 	}
 
 	// initialize jobs and register them within lifecycle
@@ -170,6 +180,20 @@ func (r *bfdReconciler) initializeJobs() {
 			return nil
 		}),
 
+		job.OneShot("neighbor-table-observer", func(ctx context.Context, health cell.Health) error {
+			observable := statedb.Observable[*tables.Neighbor](r.DB, r.NeighborTable)
+			ch := stream.ToChannel[statedb.Change[*tables.Neighbor]](ctx, observable)
+			for ev := range ch {
+				if r.processNeighborEvents.Load() {
+					neighbor := ev.Object
+					if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() {
+						r.triggerReconcile()
+					}
+				}
+			}
+			return nil
+		}),
+
 		job.OneShot("bfd-peer-status-observer", func(ctx context.Context, health cell.Health) error {
 			for e := range stream.ToChannel[types.BFDPeerStatus](ctx, r.BFDServer) {
 				r.handlePeerStatusUpdate(&e)
@@ -212,48 +236,13 @@ func (r *bfdReconciler) triggerReconcile() {
 func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	r.Logger.Debug("Starting BFD reconciliation")
 
-	// reconcileErr will contain all reconciliation errors.
-	// Reconciliation is best-effort: if a BFD peer can not be reconciled, it continues with other peers.
-	var reconcileErr error
-
-	// compile desired BFD peers
-	desired := make(map[string]*peerConfig)
-
-	for _, nc := range r.bfdNodeConfigStore.List() {
-		if nc.Spec.NodeRef == r.nodeName {
-			for _, peer := range nc.Spec.Peers {
-				profile, exists, err := r.bfdProfileStore.GetByKey(resource.Key{Name: peer.BFDProfileRef})
-				if err != nil {
-					r.Logger.WithError(err).WithField(types.ProfileNameField, peer.BFDProfileRef).
-						Error("Failed to retrieve BFD profile, skipping peer reconciliation")
-					reconcileErr = errors.Join(reconcileErr, err)
-					continue
-				}
-				if !exists {
-					continue // may not be configured yet, nothing to do
-				}
-				cfg, err := r.getDesiredBFDPeerConfig(peer, profile)
-				if err != nil {
-					r.Logger.WithError(err).WithField(types.PeerNameField, peer.Name).
-						Error("Failed to generate desired BFD peer config, skipping peer reconciliation")
-					reconcileErr = errors.Join(reconcileErr, err)
-					continue
-				}
-				peerCfg := &peerConfig{
-					nodeConfigName: nc.Name,
-					peerName:       peer.Name,
-					config:         cfg,
-				}
-				desired[peerCfg.key()] = peerCfg
-			}
-		}
-	}
+	desiredPeers, reconcileErr := r.getDesiredPeerConfigs()
 
 	// compile the list of peers to add / update/ delete
 	var toAdd, toUpdate, toDelete []*peerConfig
 
 	// use sorted desired / configured values to reconcile deterministically
-	for _, val := range r.sortedPeerConfigValues(desired) {
+	for _, val := range r.sortedPeerConfigValues(desiredPeers) {
 		if existing, exists := r.configuredPeers[val.key()]; !exists {
 			toAdd = append(toAdd, val)
 		} else if *existing.config != *val.config {
@@ -261,7 +250,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 		}
 	}
 	for _, val := range r.sortedPeerConfigValues(r.configuredPeers) {
-		if _, exists := desired[val.key()]; !exists {
+		if _, exists := desiredPeers[val.key()]; !exists {
 			toDelete = append(toDelete, val)
 		}
 	}
@@ -303,14 +292,101 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	return reconcileErr
 }
 
-// getDesiredBFDPeerConfig generates BFD peer configuration from high-level BFD peer config and BFD profile
-func (r *bfdReconciler) getDesiredBFDPeerConfig(peer *v1alpha1.BFDNodePeerConfig, profile *v1alpha1.IsovalentBFDProfile) (*types.BFDPeerConfig, error) {
-	if peer.PeerAddress == nil {
-		return nil, nil
+func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) {
+	var reconcileErr error
+	nodeConfigs := r.bfdNodeConfigStore.List()
+
+	// check if neighbor events should be processed and start / stop triggering
+	// further reconciliation events based on that
+	unnumberedInterfaces := r.getUnnumberedInterfaces(nodeConfigs)
+	if unnumberedInterfaces.Len() > 0 {
+		r.processNeighborEvents.Store(true)
+	} else {
+		r.processNeighborEvents.Store(false)
 	}
-	peerAddr, err := netip.ParseAddr(*peer.PeerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing BFD peer address '%s': %w", *peer.PeerAddress, err)
+
+	// compile desired BFD peers
+	txn := r.DB.ReadTxn()
+	peerConfigs := make(map[string]*peerConfig)
+
+	for _, nc := range nodeConfigs {
+		if nc.Spec.NodeRef == r.nodeName {
+			for _, peer := range nc.Spec.Peers {
+				profile, exists, err := r.bfdProfileStore.GetByKey(resource.Key{Name: peer.BFDProfileRef})
+				if err != nil {
+					r.Logger.WithError(err).WithField(types.ProfileNameField, peer.BFDProfileRef).
+						Error("Failed to retrieve BFD profile, skipping peer reconciliation")
+					reconcileErr = errors.Join(reconcileErr, err)
+					continue
+				}
+				if !exists {
+					continue // may not be configured yet, nothing to do
+				}
+				cfg, err := r.getDesiredBFDPeerConfig(txn, peer, profile)
+				if err != nil {
+					r.Logger.WithError(err).WithField(types.PeerNameField, peer.Name).
+						Error("Failed to generate desired BFD peer config, skipping peer reconciliation")
+					reconcileErr = errors.Join(reconcileErr, err)
+					continue
+				}
+				if cfg == nil {
+					continue // desired config not known (yet), skip
+				}
+				peerCfg := &peerConfig{
+					nodeConfigName: nc.Name,
+					peerName:       peer.Name,
+					config:         cfg,
+				}
+				peerConfigs[peerCfg.key()] = peerCfg
+			}
+		}
+	}
+
+	// cleanup unused entries from the link-local neighbor cache
+	for iface := range r.llNeighborsCache {
+		if !unnumberedInterfaces.Has(iface) {
+			delete(r.llNeighborsCache, iface)
+		}
+	}
+
+	return peerConfigs, reconcileErr
+}
+
+// getUnnumberedInterfaces returns all interfaces on which unnumbered peers are configured in the provided node configs.
+func (r *bfdReconciler) getUnnumberedInterfaces(nodeConfigs []*v1alpha1.IsovalentBFDNodeConfig) sets.Set[string] {
+	res := sets.Set[string]{}
+	for _, nc := range nodeConfigs {
+		if nc.Spec.NodeRef == r.nodeName {
+			for _, peer := range nc.Spec.Peers {
+				if (peer.PeerAddress == nil || *peer.PeerAddress == "") && peer.Interface != nil && *peer.Interface != "" {
+					res.Insert(*peer.Interface)
+				}
+			}
+		}
+	}
+	return res
+}
+
+// getDesiredBFDPeerConfig generates BFD peer configuration from high-level BFD peer config and BFD profile
+func (r *bfdReconciler) getDesiredBFDPeerConfig(txn statedb.ReadTxn, peer *v1alpha1.BFDNodePeerConfig, profile *v1alpha1.IsovalentBFDProfile) (*types.BFDPeerConfig, error) {
+	var (
+		peerAddr netip.Addr
+		found    bool
+		err      error
+	)
+
+	if peer.PeerAddress != nil && *peer.PeerAddress != "" {
+		// peer address is configured
+		peerAddr, err = netip.ParseAddr(*peer.PeerAddress)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing BFD peer address '%s': %w", *peer.PeerAddress, err)
+		}
+	} else {
+		// peer address not configured - unnumbered peer
+		peerAddr, found, err = r.getUnnumberedPeerAddr(txn, peer)
+		if err != nil || !found {
+			return nil, err
+		}
 	}
 
 	localAddr := netip.Addr{}
@@ -372,6 +448,60 @@ func (r *bfdReconciler) getDesiredBFDPeerConfig(peer *v1alpha1.BFDNodePeerConfig
 		}).Debug("Auto-detected egress interface for the peer")
 	}
 	return cfg, nil
+}
+
+// getUnnumberedPeerAddr returns the link-local IPv6 address of an unnumbered peer, if it can be found.
+func (r *bfdReconciler) getUnnumberedPeerAddr(txn statedb.ReadTxn, peer *v1alpha1.BFDNodePeerConfig) (peerAddr netip.Addr, found bool, err error) {
+	if peer.Interface == nil || *peer.Interface == "" {
+		return netip.Addr{}, false, fmt.Errorf("interface not specified for unnumbered peer")
+	}
+
+	peerAddrStr, found, err := utils.GetIPv6LinkLocalNeighborAddress(r.DeviceTable, r.NeighborTable, txn, *peer.Interface)
+	if err != nil {
+		// The error is most likely due to non-existing interface or multiple link-local peers on the link.
+		// As these are related to the host's state rather than the BFD reconciler, just emit a warning and skip
+		// this peer. Whenever this situation is recovered on the host, we get a new reconcile thanks
+		// to watching the host's neighbor table.
+		r.Logger.WithFields(logrus.Fields{
+			types.PeerNameField:      peer.Name,
+			types.InterfaceNameField: *peer.Interface,
+		}).WithError(err).Warning("Failed to get link-local address of the peer")
+		return netip.Addr{}, false, nil
+	}
+
+	if !found {
+		// Try to look up the peer address in the reconciler's cache.
+		// If the LL peer address was known previously and the neighbor entry was deleted after it
+		// (e.g. router/link went down temporarily, or neighbor table was flushed manually to debug an issue),
+		// we keep the previously set peer address, so that the peer remains configured.
+		// We will leave it upto BFD mechanism to manage the peering state.
+		// If the LL address changes, the peering will be reconfigured as soon as we get a new neighbor entry for it.
+		peerAddrStr, found = r.llNeighborsCache[*peer.Interface]
+		if !found {
+			// The LL address is not in the neighbor table nor in the cache - we skip this peer.
+			r.Logger.WithFields(logrus.Fields{
+				types.PeerNameField:      peer.Name,
+				types.InterfaceNameField: *peer.Interface,
+			}).Debug("Link-local address for the peer not found")
+			return netip.Addr{}, false, nil
+		}
+	}
+
+	peerAddr, err = netip.ParseAddr(peerAddrStr)
+	if err != nil {
+		return netip.Addr{}, false, fmt.Errorf("error parsing link-local peer address '%s': %w", peerAddrStr, err)
+	}
+
+	// update address in the cache
+	r.llNeighborsCache[*peer.Interface] = peerAddrStr
+
+	r.Logger.WithFields(logrus.Fields{
+		types.PeerNameField:      peer.Name,
+		types.PeerAddressField:   peerAddrStr,
+		types.InterfaceNameField: *peer.Interface,
+	}).Debug("Using auto-detected link-local peer address")
+
+	return peerAddr, true, nil
 }
 
 // sortedPeerConfigValues returns a sorted slice with peerConfig values from a map.

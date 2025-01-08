@@ -12,6 +12,7 @@ package reconciler
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
@@ -42,8 +44,10 @@ type testFixture struct {
 	ncClient      clientv1alpha1.IsovalentBFDNodeConfigInterface
 	profileClient clientv1alpha1.IsovalentBFDProfileInterface
 
-	db        *statedb.DB
-	peerTable statedb.RWTable[*types.BFDPeerStatus]
+	db            *statedb.DB
+	deviceTable   statedb.RWTable[*tables.Device]
+	neighborTable statedb.RWTable[*tables.Neighbor]
+	peerTable     statedb.RWTable[*types.BFDPeerStatus]
 }
 
 func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
@@ -76,9 +80,24 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 
 		cell.Provide(func() sysctl.Sysctl { return &fake.Sysctl{} }),
 
+		cell.Provide(
+			tables.NewDeviceTable,
+			tables.NewNeighborTable,
+
+			statedb.RWTable[*tables.Device].ToTable,
+			statedb.RWTable[*tables.Neighbor].ToTable,
+		),
 		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*types.BFDPeerStatus]) {
 			f.db = db
 			f.peerTable = table
+		}),
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*tables.Device]) {
+			f.deviceTable = table
+		}),
+		cell.Invoke(statedb.RegisterTable[*tables.Neighbor]),
+		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*tables.Neighbor]) {
+			f.neighborTable = table
 		}),
 
 		cell.Invoke(func(clientset *k8sclient.FakeClientset) {
@@ -126,6 +145,7 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 }
 
 type fakeBFDServer struct {
+	peers    map[string]*types.BFDPeerStatus
 	statusCh chan types.BFDPeerStatus
 	mcast    stream.Observable[types.BFDPeerStatus]
 	connect  func(context.Context)
@@ -133,6 +153,7 @@ type fakeBFDServer struct {
 
 func newFakeBFDServer() *fakeBFDServer {
 	s := &fakeBFDServer{
+		peers:    make(map[string]*types.BFDPeerStatus),
 		statusCh: make(chan types.BFDPeerStatus, 100),
 	}
 	s.mcast, s.connect = stream.ToMulticast(stream.FromChannel(s.statusCh))
@@ -144,16 +165,29 @@ func (s *fakeBFDServer) Run(ctx context.Context) {
 }
 
 func (s *fakeBFDServer) AddPeer(peer *types.BFDPeerConfig) error {
-	s.generatePeerStatus(peer)
+	key := s.peerKey(peer)
+	if _, exists := s.peers[key]; exists {
+		return fmt.Errorf("peer with key %s already exists", key)
+	}
+	s.peers[key] = s.generatePeerStatus(peer)
 	return nil
 }
 
 func (s *fakeBFDServer) UpdatePeer(peer *types.BFDPeerConfig) error {
-	s.generatePeerStatus(peer)
+	key := s.peerKey(peer)
+	if _, exists := s.peers[key]; !exists {
+		return fmt.Errorf("peer with key %s does not exist", key)
+	}
+	s.peers[key] = s.generatePeerStatus(peer)
 	return nil
 }
 
 func (s *fakeBFDServer) DeletePeer(peer *types.BFDPeerConfig) error {
+	key := s.peerKey(peer)
+	if _, exists := s.peers[key]; !exists {
+		return fmt.Errorf("peer with key %s does not exist", key)
+	}
+	delete(s.peers, key)
 	return nil
 }
 
@@ -161,7 +195,11 @@ func (s *fakeBFDServer) Observe(ctx context.Context, next func(types.BFDPeerStat
 	s.mcast.Observe(ctx, next, complete)
 }
 
-func (s *fakeBFDServer) generatePeerStatus(peer *types.BFDPeerConfig) {
+func (s *fakeBFDServer) peerKey(peer *types.BFDPeerConfig) string {
+	return peer.PeerAddress.String() + peer.Interface
+}
+
+func (s *fakeBFDServer) generatePeerStatus(peer *types.BFDPeerConfig) *types.BFDPeerStatus {
 	status := types.BFDPeerStatus{
 		PeerAddress: peer.PeerAddress,
 		Interface:   peer.Interface,
@@ -174,4 +212,5 @@ func (s *fakeBFDServer) generatePeerStatus(peer *types.BFDPeerConfig) {
 		},
 	}
 	s.statusCh <- status
+	return &status
 }

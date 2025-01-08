@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -37,15 +38,17 @@ func Test_BFDReconciler(t *testing.T) {
 	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	var (
-		bfdPeerName      = "test-peer-1"
-		bfdPeerIP        = "10.0.0.1"
-		bfdPeerIPAddr    = netip.MustParseAddr(bfdPeerIP)
-		bfdPeerInterface = "eth0"
+		bfdPeerName        = "test-peer-1"
+		bfdPeerIP          = "10.0.0.1"
+		bfdPeerLinkLocalIP = "fe80::aabb:aaaa:bbbb:1111"
+		bfdPeerIPAddr      = netip.MustParseAddr(bfdPeerIP)
+		bfdPeerInterface   = "eth0"
 
-		bfdPeer2Name      = "test-peer-2"
-		bfdPeer2IP        = "10.0.0.2"
-		bfdPeer2IPAddr    = netip.MustParseAddr(bfdPeer2IP)
-		bfdPeer2Interface = "eth0"
+		bfdPeer2Name        = "test-peer-2"
+		bfdPeer2IP          = "10.0.0.2"
+		bfdPeer2LinkLocalIP = "fe80::aabb:aaaa:bbbb:2222"
+		bfdPeer2IPAddr      = netip.MustParseAddr(bfdPeer2IP)
+		bfdPeer2Interface   = "eth1"
 
 		bfdProfileName  = "test-profile"
 		bfdProfileSpec1 = v1alpha1.BFDProfileSpec{
@@ -103,6 +106,17 @@ func Test_BFDReconciler(t *testing.T) {
 			TransmitInterval: 21 * time.Millisecond,
 			DetectMultiplier: 4,
 		}
+
+		devices = []*tables.Device{
+			{
+				Index: 1,
+				Name:  bfdPeerInterface,
+			},
+			{
+				Index: 2,
+				Name:  bfdPeer2Interface,
+			},
+		}
 	)
 
 	var steps = []struct {
@@ -110,6 +124,7 @@ func Test_BFDReconciler(t *testing.T) {
 		operation    string // "create" / "update" / "delete"
 		bfdProfiles  []*v1alpha1.IsovalentBFDProfile
 		nodeConfigs  []*v1alpha1.IsovalentBFDNodeConfig
+		neighbors    []*tables.Neighbor
 		expectEvents []statedb.Change[*types.BFDPeerStatus]
 	}{
 		{
@@ -358,7 +373,7 @@ func Test_BFDReconciler(t *testing.T) {
 							{
 								Name:          bfdPeerName,
 								PeerAddress:   &bfdPeerIP,
-								Interface:     ptr.To[string](bfdPeer2Interface),
+								Interface:     ptr.To[string](bfdPeerInterface),
 								BFDProfileRef: bfdProfileName,
 							},
 						},
@@ -514,6 +529,76 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 		},
+		{
+			description: "Create LL neighbor table entry for link 1",
+			operation:   "create",
+			neighbors: []*tables.Neighbor{
+				{
+					LinkIndex: 1,
+					IPAddr:    netip.MustParseAddr(bfdPeerLinkLocalIP),
+				},
+			},
+			bfdProfiles:  nil,
+			nodeConfigs:  nil,
+			expectEvents: nil,
+		},
+		{
+			description: "Create BFD node config with unnumbered BFD peers",
+			operation:   "create",
+			bfdProfiles: nil,
+			nodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testNodeName + "-unnumbered",
+					},
+					Spec: v1alpha1.BFDNodeConfigSpec{
+						NodeRef: testNodeName,
+						Peers: []*v1alpha1.BFDNodePeerConfig{
+							{
+								Name:          bfdPeerName + "-unnumbered",
+								Interface:     ptr.To[string](bfdPeerInterface), // neighbor already in the neighbor table
+								BFDProfileRef: bfdProfileName,
+							},
+							{
+								Name:          bfdPeer2Name + "-unnumbered",
+								Interface:     ptr.To[string](bfdPeer2Interface), // neighbor not yet in the neighbor table
+								BFDProfileRef: bfdProfileName,
+							},
+						},
+					},
+				},
+			},
+			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
+				{
+					Object: &types.BFDPeerStatus{
+						PeerAddress: netip.MustParseAddr(bfdPeerLinkLocalIP).WithZone(bfdPeerInterface),
+						Interface:   bfdPeerInterface,
+						Local:       bfdStatusProfile1,
+					},
+				},
+			},
+		},
+		{
+			description: "Create neighbor table entry for link 2",
+			operation:   "create",
+			neighbors: []*tables.Neighbor{
+				{
+					LinkIndex: 2,
+					IPAddr:    netip.MustParseAddr(bfdPeer2LinkLocalIP),
+				},
+			},
+			bfdProfiles: nil,
+			nodeConfigs: nil,
+			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
+				{
+					Object: &types.BFDPeerStatus{
+						PeerAddress: netip.MustParseAddr(bfdPeer2LinkLocalIP).WithZone(bfdPeer2Interface),
+						Interface:   bfdPeer2Interface,
+						Local:       bfdStatusProfile1,
+					},
+				},
+			},
+		},
 	}
 
 	// create test fixture
@@ -536,6 +621,14 @@ func Test_BFDReconciler(t *testing.T) {
 
 	observable := statedb.Observable[*types.BFDPeerStatus](f.db, f.peerTable)
 	peersEventCh := stream.ToChannel(testCtx, observable)
+
+	// write devices to statedb
+	txn := f.db.WriteTxn(f.deviceTable)
+	for _, d := range devices {
+		_, _, err = f.deviceTable.Insert(txn, d)
+		require.NoError(t, err)
+	}
+	txn.Commit()
 
 	// run the test steps
 	for _, step := range steps {
@@ -563,6 +656,20 @@ func Test_BFDReconciler(t *testing.T) {
 					err = f.ncClient.Delete(testCtx, nc.Name, metav1.DeleteOptions{})
 				}
 				require.NoError(t, err)
+			}
+			// CRUD neighbors
+			for _, peer := range step.neighbors {
+				txn := f.db.WriteTxn(f.neighborTable)
+				switch step.operation {
+				case "create":
+					fallthrough
+				case "update":
+					_, _, err = f.neighborTable.Insert(txn, peer)
+				case "delete":
+					_, _, err = f.neighborTable.Delete(txn, peer)
+				}
+				require.NoError(t, err)
+				txn.Commit()
 			}
 			// validate events with the expected ones
 			for _, expected := range step.expectEvents {
