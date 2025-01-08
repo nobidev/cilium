@@ -29,7 +29,9 @@ jobs:
             hourModulo: 3
           - branch: '1.16-ce'
             hourModulo: 4
-    runs-on: ubuntu-latest
+          - branch: '1.17-ce'
+            hourModulo: 5
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -48,11 +50,11 @@ jobs:
             echo "Skipping scheduled workflows for branch ${{ matrix.branch }}"
             exit 0
           fi
-          BRANCH="${{ matrix.branch }}"
-          REF="v${BRANCH}"
+
+          REF="v${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
-          readarray workflows < <(TRIGGER="/test-backport-${BRANCH%-ce}" yq '.triggers[env(TRIGGER)].workflows[]' .github/ariane-config.yaml)
-          readarray enterprise_workflows < <(TRIGGER="/test-backport-${BRANCH%-ce}" yq '.triggers[env(TRIGGER)].workflows[]' .github/ariane-config-enterprise.yaml)
+          readarray workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml)
+          readarray enterprise_workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config-enterprise.yaml)
 
           for workflow in ${workflows[@]} ${enterprise_workflows[@]}; do
             echo triggering ${workflow}

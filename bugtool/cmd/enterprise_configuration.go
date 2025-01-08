@@ -14,19 +14,16 @@ func init() {
 	ExtraCommands = append(ExtraCommands, enterpriseCommands)
 }
 
-func enterpriseCommands(confDir string, _ string, k8sPods []string) []string {
+func enterpriseCommands(confDir string, _ string) []string {
 	bpfMapsPath := []string{
 		"tc/globals/cilium_egress_gw_ha_policy_v4",
 		"tc/globals/cilium_egress_gw_ha_ct_v4",
 	}
 	bpfCommands := bpfMapDumpCommands(bpfMapsPath)
-	if len(k8sPods) > 0 {
-		bpfCommands = k8sPerPodCommands(bpfCommands, k8sPods)
-	}
 
 	infoCommands := []string{
 		"cilium-dbg bpf egress-ha list",
 		"cilium-dbg bpf egress-ha ct list",
 	}
-	return append(bpfCommands, k8sPerPodCopyCommands(infoCommands, k8sPods)...)
+	return append(bpfCommands, infoCommands...)
 }
