@@ -580,6 +580,15 @@ jobs:
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 4.0
           CL2_DELETE_AUTOMANAGED_NAMESPACES: "false"
         run: |
+          # Include in the sysdump (a) all control-plane nodes and (b) 10 workload nodes.
+          # We don't use the kops.k8s.io/instancegroup=workloads label because it is not guaranteed to have already been applied.
+          NODES_LIST_CP=$(kubectl get nodes -l node-role.kubernetes.io/control-plane -o jsonpath="{.items[*].metadata.name}")
+          NODES_LIST_ET=$(kubectl get nodes -l kops.k8s.io/instancegroup=etcd -o jsonpath="{.items[*].metadata.name}")
+          NODES_LIST_WO=$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane,kops.k8s.io/instancegroup!=etcd' -o jsonpath="{.items[:10].metadata.name}")
+          CL2_SYSDUMP_NODES_LIST=$(echo "${NODES_LIST_CP} ${NODES_LIST_ET} ${NODES_LIST_WO}" | xargs | tr -s ' ' ',')
+          echo "Capturing intermediate sysdump with nodes '${CL2_SYSDUMP_NODES_LIST}'"
+
+          export CL2_SYSDUMP_NODES_LIST
           ./clusterloader \
             -v=2 \
             --prometheus-additional-monitors-path=./testing/panda/monitors/ \
@@ -599,7 +608,20 @@ jobs:
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         run: |
-          cilium sysdump --output-filename cilium-sysdump-final
+          # Include in the sysdump (a) all control-plane nodes, (b) 10 workload nodes and (c) up to 10 nodes hosting an agent which crashed.
+          # We don't use the jsonpath slice operator here as would trigger an error with less than 10 nodes (e.g., in case of early failures).
+          # We don't use the kops.k8s.io/instancegroup=workloads label because it is not guaranteed to have already been applied.
+          read -ra NODES_LIST_CP <<< "$(kubectl get nodes -l node-role.kubernetes.io/control-plane -o jsonpath='{.items[*].metadata.name}')"
+          read -ra NODES_LIST_ET <<< "$(kubectl get nodes -l kops.k8s.io/instancegroup=etcd -o jsonpath='{.items[*].metadata.name}')"
+          read -ra NODES_LIST_WO <<< "$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane,kops.k8s.io/instancegroup!=etcd' -o jsonpath='{.items[*].metadata.name}')"
+          read -ra NODES_LIST_CR <<< "$(kubectl get pods -n kube-system -l app.kubernetes.io/name=cilium-agent \
+            -o jsonpath='{.items[?(.status.containerStatuses[0].restartCount!=0)].spec.nodeName}')"
+
+          # Leverage xargs to trim duplicated spaces
+          NODES_LIST=$(echo "${NODES_LIST_CP[*]} ${NODES_LIST_ET[*]} ${NODES_LIST_WO[*]::10} ${NODES_LIST_CR[*]::10}" | xargs | tr -s ' ' ',')
+          echo "Capturing final sysdump with nodes '${NODES_LIST}'"
+
+          cilium sysdump --output-filename cilium-sysdump-final --node-list ${NODES_LIST}
           sudo chmod +r cilium-sysdump-final.zip
 
       - name: Upload sysdump

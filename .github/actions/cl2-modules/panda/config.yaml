@@ -83,7 +83,7 @@ steps:
       command:
       - /bin/sh
       - -c
-      - "cilium sysdump --output-filename cilium-sysdump-middle"
+      - "cilium sysdump --output-filename cilium-sysdump-middle --node-list={{DefaultParam .CL2_SYSDUMP_NODES_LIST ""}}"
 
 - name: Restart Agent
   measurements:
