@@ -329,20 +329,11 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          set -x
-
-          # "catch exit status 1" grep wrapper
-          # https://stackoverflow.com/questions/6550484/prevent-grep-returning-an-error-when-input-doesnt-match/49627999#49627999
-          c1grep() { grep "$@" || test $? = 1; }
-
-          while true; do
-            n="$(kubectl get nodes | c1grep etcd | wc -l)"
-            if [ "$n" != "${{ env.etcd_nodes_count }}" ]; then
-              kubectl get nodes -o wide
-              sleep 5
-            else
-              break
-            fi
+          cnt=0
+          while [[ "$cnt" != ${{ env.etcd_nodes_count }} ]]; do
+            cnt=$(kubectl get nodes -l kops.k8s.io/instancegroup=etcd --no-headers --ignore-not-found | wc -l)
+            echo "etcd nodes count: $cnt"
+            sleep 10
           done
 
       # This step is based off of .github/actions/kvstore/action.yaml but with
@@ -402,7 +393,7 @@ jobs:
           helm_args=""
 
           i=0
-          for name in $(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers | grep etcd); do
+          for name in $(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers -l kops.k8s.io/instancegroup=etcd); do
 
             # Build the cluster list for the advertise urls.
             if [ -n "$etcd_initial_cluster" ]; then
@@ -547,13 +538,19 @@ jobs:
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
-      - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
+      - name: Wait for workloads nodes to be ready
         timeout-minutes: 20
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          interval: 10s
+        run: |
+          cnt=0
+
+          # A more idiomatic way would be using the kops.k8s.io/instancegroup=workloads
+          # label selector, but kops appears to be significantly slow at reconciling
+          # the labels to the node objects. Hence, let's just grep for the node names.
+          while [[ "$cnt" != ${{ env.workload_nodes_count}} ]]; do
+            cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[a-z0-9]+\s+Ready\s' || true)
+            echo "workloads nodes count: $cnt"
+            sleep 10
+          done
 
       # Need to rerun this action, as the firewall rule is reset after
       # an instance group is created.
