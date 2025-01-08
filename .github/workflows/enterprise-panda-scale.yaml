@@ -75,6 +75,9 @@ env:
   # renovate: datasource=github-releases depName=cert-manager/trust-manager
   trust_manager_version: v0.15.0
 
+  etcd_nodes_count: 3
+  workload_nodes_count: 100
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -311,7 +314,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           node_size: e2-standard-8
-          node_count: 3
+          node_count: ${{ env.etcd_nodes_count }}
           ig_name: etcd
           node_volume_type: pd-ssd
           node_volume_size: 200
@@ -334,7 +337,7 @@ jobs:
 
           while true; do
             n="$(kubectl get nodes | c1grep etcd | wc -l)"
-            if [ "$n" != "3" ]; then
+            if [ "$n" != "${{ env.etcd_nodes_count }}" ]; then
               kubectl get nodes -o wide
               sleep 5
             else
@@ -540,7 +543,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: ${{ env.workload_nodes_count }}
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -590,7 +593,7 @@ jobs:
             --prometheus-scrape-kubelets=true \
             --prometheus-scrape-master-kubelets=true \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=${{ env.workload_nodes_count }} \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
