@@ -60,6 +60,13 @@ Here's a likely not exhaustive list of what needs to come with:
 - [ ] `close-fixed-issues.yaml`: You need to change the `branches` in the `on`
       section to match the new branch name.
 
+## GitHub infrastructure
+
+- [ ] create a PR that updates the `.github/workflows/enterprise-container-scan.yaml`
+      file to also include the new `v1.X`, so that the OSS branch is also
+      scanned for security vulnerabilities.
+- [ ] Create all the usual [GH labels] for the `v1.X-ce` branch, to manage backports
+      and blockers. Match the labels that exist for the older branches.
 
 [v1.13]: https://github.com/cilium/cilium/tree/v1.13
 [this diff]: https://github.com/isovalent/cilium/pull/746#issuecomment-1437703837
@@ -67,3 +74,4 @@ Here's a likely not exhaustive list of what needs to come with:
 [`BRANCHES`]: https://github.com/isovalent/cilium/blob/db3697989ca5224b246e358867107cc28c3d25ba/.github/workflows/mirror-upstream.yaml#L28
 [`PATHSPEC`]: https://github.com/isovalent/cilium/blob/db3697989ca5224b246e358867107cc28c3d25ba/.github/workflows/mirror-upstream.yaml#L65
 [this v1.14 PR]: https://github.com/isovalent/cilium/pull/1629
+[GH labels]: https://github.com/isovalent/cilium/issues/labels
