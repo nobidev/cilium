@@ -25,7 +25,7 @@ import (
 )
 
 func genTemplate(hostName string, usage x509.KeyUsage, extUsage []x509.ExtKeyUsage) (*x509.Certificate, error) {
-	notBefore := time.Now()
+	notBefore := time.Now().Add(-24 * time.Hour)
 	validFor := 365 * 24 * time.Hour
 	notAfter := notBefore.Add(validFor)
 
