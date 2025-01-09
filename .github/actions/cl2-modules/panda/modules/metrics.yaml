@@ -12,11 +12,11 @@ steps:
         unit: cpu
         queries:
         - name: Perc99
-          query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+          query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[2m])[%v:10s]))
         - name: Perc90
-          query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+          query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total[2m])[%v:10s]))
         - name: Perc50
-          query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+          query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[2m])[%v:10s]))
 
     - Identifier: CiliumMemUsage
       Method: GenericPrometheusQuery
