@@ -57,7 +57,7 @@ func TestTCPProxy(t *testing.T) {
 			scenario.createLBBackendPool(ctx, backendPool)
 
 			t.Logf("Creating LB Service resources...")
-			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(backendPool.Name, mode))
+			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
 			scenario.createLBService(ctx, service)
 
 			t.Logf("Waiting for full VIP connectivity of %q...", testName)

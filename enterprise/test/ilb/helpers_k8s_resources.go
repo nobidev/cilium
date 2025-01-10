@@ -680,22 +680,43 @@ func withTLSProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tlsR
 	}
 }
 
-func withTCPProxyApplication(backendRef string, forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) serviceOption {
+func withTCPProxyApplication(opts ...tcpProxyApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
+		app := &isovalentv1alpha1.LBServiceApplicationTCPProxy{}
+
+		for _, o := range opts {
+			o(app)
+		}
+
 		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
-			TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
-				ForceDeploymentMode: &forceDeploymentMode,
-				Routes: []isovalentv1alpha1.LBServiceTCPRoute{
-					{
-						BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-							Name: backendRef,
-						},
-					},
-				},
-			},
+			TCPProxy: app,
 		}
 	}
 }
+
+type tcpProxyApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationTCPProxy)
+
+func withTCPForceDeploymentMode(forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) tcpProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationTCPProxy) {
+		o.ForceDeploymentMode = &forceDeploymentMode
+	}
+}
+
+func withTCPProxyRoute(backendRef string, opts ...tcpRouteOption) tcpProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationTCPProxy) {
+		route := &isovalentv1alpha1.LBServiceTCPRoute{
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+		}
+
+		for _, o := range opts {
+			o(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
+	}
+}
+
+type tcpRouteOption func(o *isovalentv1alpha1.LBServiceTCPRoute)
 
 func withUDPProxyApplication(backendRef string, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
