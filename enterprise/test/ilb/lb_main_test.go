@@ -24,9 +24,9 @@ import (
 //
 // Usage:
 //
-// DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -count=1 -v ./enterprise/test/ilb/... [flags]
+// DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true go test -count=1 -v [go-test-flags] ./enterprise/test/ilb/... [ilb-test-flags]
 //
-// Flags:
+// ILB test flags:
 //
 //  -app-image string
 //        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.9")
@@ -42,9 +42,12 @@ import (
 //        Use remote address for client IP in HTTP requests (default true)
 //  -xff-num-trusted-hops int
 //        Number of trusted hops in X-Forwarded-For header (default 0)
+//
 // One can run in the --mode=single-node using a remote node for deploying client
 // and LB app containers, and then running test requests from them. To do so,
 // set DOCKER_HOST= to point to the remote node.
+//
+// To filter for a specific test, one can use the go test flag `-run <TestName>`.
 
 func TestMain(m *testing.M) {
 	if os.Getenv("LOADBALANCER_TESTS") != "true" {
