@@ -503,11 +503,15 @@ jobs:
             --provider=gce \
             --enable-exec-service=false \
             --enable-prometheus-server \
-            --prometheus-scrape-kubelets=true \
-            --prometheus-scrape-master-kubelets=true \
             --tear-down-prometheus-server=false \
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-setup.txt
+
+          # Let the prometheus-operator create the kubelet service, which is only
+          # enabled by CL2 only if --prometheus-scrape-kubelets is set.
+          kubectl patch deployment prometheus-operator -n monitoring --type=json \
+            -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-service=kube-system/kubelet"}]'
+          kubectl rollout status deployment prometheus-operator -n monitoring
 
       - name: Setup LRP
         run: |
@@ -600,8 +604,6 @@ jobs:
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --enable-prometheus-server \
-            --prometheus-scrape-kubelets=true \
-            --prometheus-scrape-master-kubelets=true \
             --tear-down-prometheus-server=false \
             --nodes=${{ env.workload_nodes_count }} \
             --report-dir=./report \

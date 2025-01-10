@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: kubelet
+  name: kubelet
+  namespace: monitoring
+spec:
+  jobLabel: k8s-app
+  endpoints:
+  - port: https-metrics
+    scheme: https
+    interval: 60s
+    tlsConfig:
+      insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    metricRelabelings:
+      # Keep only a few metrics we may care about, and drop all the others.
+      - sourceLabels: [__name__]
+        regex: '(process|kubelet_running)_.*'
+        action: keep
+  - port: https-metrics
+    scheme: https
+    path: /metrics/cadvisor
+    interval: 60s
+    honorLabels: true
+    tlsConfig:
+      insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    metricRelabelings:
+      # Drop the metrics for the cloudprober and test pods.
+      - sourceLabels: [ namespace ]
+        regex: 'default|test-.*'
+        action: drop
+      # Drop the following labels, as redundant, and eat up memory.
+      - regex: (image|name)
+        action: labeldrop
+      # Drop a few metrics we don't care about, to reduce again memory usage.
+      - sourceLabels: [__name__]
+        regex: 'container_(network|fs|blkio)_.*'
+        action: drop
+  selector:
+    matchLabels:
+      k8s-app: kubelet
+  namespaceSelector:
+    matchNames:
+    - kube-system
