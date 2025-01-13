@@ -714,14 +714,19 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 			return
 		}
 	} else if os.IsTimeout(err) {
-		pr.logger.Debug("probe timeout", "backend-addr", beAddr, logfields.Error, err)
-		probeOut <- getProbeData(nil)
+		// In case of timeout, this either means the packet got lost
+		// somewhere on the network, or the remote application accepted
+		// the probe packet. Consider this a success case since we did
+		// not get an ICMP error back.
+		probe := getProbeData(nil)
+		pr.logger.Debug("hc-debug health check success (via timeout)", "backend-addr", beAddr, "probe", probe)
+		probeOut <- probe
 		return
 	}
 
+	// In case of an actual reply, we obviously consider this a success.
 	probe := getProbeData(nil)
-	pr.logger.Debug("hc-debug health check success", "backend-addr", beAddr, "probe", probe)
-
+	pr.logger.Debug("hc-debug health check success (via reply)", "backend-addr", beAddr, "probe", probe)
 	probeOut <- probe
 }
 
