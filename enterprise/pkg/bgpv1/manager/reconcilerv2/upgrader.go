@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -159,6 +160,18 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 		if inst.Name != params.DesiredConfig.Name {
 			continue
 		}
+		// copy link-local PeerAddress from OSS DesiredConfig for unnumbered peers
+		// (set there by the LinkLocalReconciler)
+		desiredConfig := nc.Spec.BGPInstances[i].DeepCopy()
+		for peerIdx, peer := range desiredConfig.Peers {
+			if peer.Interface != nil {
+				ossPeer, err := getOSSNodePeerByName(params.DesiredConfig, peer.Name)
+				if err != nil {
+					return EnterpriseReconcileParams{}, err
+				}
+				desiredConfig.Peers[peerIdx].PeerAddress = ossPeer.PeerAddress
+			}
+		}
 		return EnterpriseReconcileParams{
 			BGPInstance: &EnterpriseBGPInstance{
 				Name: params.BGPInstance.Name,
@@ -169,7 +182,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 				Config: nil,
 				Router: params.BGPInstance.Router,
 			},
-			DesiredConfig: nc.Spec.BGPInstances[i].DeepCopy(), // deep copy the NodeInstance, as we modify it in LinkLocal reconciler
+			DesiredConfig: desiredConfig,
 			CiliumNode:    params.CiliumNode,
 		}, nil
 	}
@@ -234,4 +247,13 @@ func (u *reconcileParamsUpgrader) setNodeName(name string) {
 	u.nodeNameMutex.Lock()
 	u.nodeName = name
 	u.nodeNameMutex.Unlock()
+}
+
+func getOSSNodePeerByName(ni *v2alpha1.CiliumBGPNodeInstance, peerName string) (*v2alpha1.CiliumBGPNodePeer, error) {
+	for _, peer := range ni.Peers {
+		if peer.Name == peerName {
+			return &peer, nil
+		}
+	}
+	return nil, fmt.Errorf("peer %s not found in the OSS instance %s", peerName, ni.Name)
 }

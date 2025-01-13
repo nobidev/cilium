@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -106,24 +107,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ceeNode, err := cs.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Create(
-		context.Background(),
-		&v1alpha1.IsovalentBGPNodeConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node0",
-			},
-			Spec: v1alpha1.IsovalentBGPNodeSpec{
-				BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{
-					{
-						Name: "instance0",
-					},
-				},
-			},
-		},
-		metav1.CreateOptions{},
-	)
-	require.NoError(t, err)
-
 	ossNode, err := cs.CiliumV2alpha1().CiliumBGPNodeConfigs().Create(
 		context.Background(),
 		&v2alpha1.CiliumBGPNodeConfig{
@@ -133,7 +116,45 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			Spec: v2alpha1.CiliumBGPNodeSpec{
 				BGPInstances: []v2alpha1.CiliumBGPNodeInstance{
 					{
-						Name: ceeNode.Spec.BGPInstances[0].Name,
+						Name: "instance0",
+						Peers: []v2alpha1.CiliumBGPNodePeer{
+							{
+								Name:        "peer1",
+								PeerAddress: ptr.To("10.10.10.10"),
+							},
+							{
+								Name:        "peer2-unnumbered",
+								PeerAddress: ptr.To("fe80::aabb:1234"), // normally set by LinkLocalReconciler for unnumbered peers
+							},
+						},
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	_, err = cs.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Create(
+		context.Background(),
+		&v1alpha1.IsovalentBGPNodeConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node0",
+			},
+			Spec: v1alpha1.IsovalentBGPNodeSpec{
+				BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{
+					{
+						Name: ossNode.Spec.BGPInstances[0].Name,
+						Peers: []v1alpha1.IsovalentBGPNodePeer{
+							{
+								Name:        ossNode.Spec.BGPInstances[0].Peers[0].Name,
+								PeerAddress: ossNode.Spec.BGPInstances[0].Peers[0].PeerAddress,
+							},
+							{
+								Name:      ossNode.Spec.BGPInstances[0].Peers[1].Name,
+								Interface: ptr.To("eth0"), // should cause copying PeerAddress from oss NodeConfig
+							},
+						},
 					},
 				},
 			},
@@ -179,4 +200,11 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		ceeParams.CiliumNode, ossParams.CiliumNode,
 		"CEE CiliumNode doesn't point to the same router instance as OSS",
 	)
+
+	require.Equal(t, len(ceeParams.DesiredConfig.Peers), len(ossParams.DesiredConfig.Peers))
+	for _, ceePeer := range ceeParams.DesiredConfig.Peers {
+		ossPeer, err := getOSSNodePeerByName(ossParams.DesiredConfig, ceePeer.Name)
+		require.NoError(t, err)
+		require.Equal(t, ceePeer.PeerAddress, ossPeer.PeerAddress)
+	}
 }
