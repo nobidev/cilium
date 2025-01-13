@@ -190,6 +190,14 @@ func withTCPProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tcpR
 	}
 }
 
+func withTCPProxyBackendPersistenceBySourceIP() tcpRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTCPRoute) {
+		o.PersistentBackend = &isovalentv1alpha1.LBServiceTCPRoutePersistentBackend{
+			SourceIP: ptr.To(true),
+		}
+	}
+}
+
 func withTLSPassthroughConnectionFilteringDenyBySourceIP(sourceCIDR string) tlsPassthroughRouteOption {
 	return func(o *isovalentv1alpha1.LBServiceTLSPassthroughRoute) {
 		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceTLSRouteConnectionFiltering{
