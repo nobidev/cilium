@@ -15,6 +15,11 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestTCPProxyRatelimiting(t *testing.T) {
@@ -83,4 +88,18 @@ func TestTCPProxyRatelimiting(t *testing.T) {
 
 		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 	}, longTimeout, pollInterval)
+}
+
+func TestTCPProxyRatelimiting_Fail_T1Only(t *testing.T) {
+	ctx := context.Background()
+	ns := "default"
+	testName := "tcp-proxy-ratelimiting-fail-t1-only"
+
+	ciliumCli, _ := newCiliumAndK8sCli(t)
+
+	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyConnectionRateLimiting(5, 60))))
+
+	err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{})
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "Force deployment mode t1-only isn't compatible with persistent backends and rate limits")
 }
