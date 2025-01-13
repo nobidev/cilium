@@ -179,6 +179,17 @@ func withTCPProxyConnectionFilteringAllowBySourceIP(sourceCIDR string) tcpRouteO
 	}
 }
 
+func withTCPProxyConnectionRateLimiting(limit uint, timePeriodSeconds uint) tcpRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceTCPRoute) {
+		o.RateLimits = &isovalentv1alpha1.LBServiceTCPRouteRateLimits{
+			Connections: &isovalentv1alpha1.LBServiceRateLimit{
+				Limit:             limit,
+				TimePeriodSeconds: timePeriodSeconds,
+			},
+		}
+	}
+}
+
 func withTLSPassthroughConnectionFilteringDenyBySourceIP(sourceCIDR string) tlsPassthroughRouteOption {
 	return func(o *isovalentv1alpha1.LBServiceTLSPassthroughRoute) {
 		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceTLSRouteConnectionFiltering{
