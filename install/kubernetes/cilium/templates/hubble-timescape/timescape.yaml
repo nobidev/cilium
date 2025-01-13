@@ -306,12 +306,44 @@ data:
       <max_table_size_to_drop>0</max_table_size_to_drop>
       <max_concurrent_queries>100</max_concurrent_queries>
       <max_connections>4096</max_connections>
+      <asynchronous_insert_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </asynchronous_insert_log>
+      <asynchronous_metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </asynchronous_metric_log>
+      <backup_log remove="1"></backup_log>
+      <blob_storage_log remove="1"></blob_storage_log>
+      <crash_log replace="1">
+        <partition_by>event_date</partition_by>
+        <ttl>event_date + INTERVAL 1 month</ttl>
+      </crash_log>
+      <error_log replace="1">
+        <partition_by>event_date</partition_by>
+        <ttl>event_date + INTERVAL 14 day</ttl>
+      </error_log>
+      <metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </metric_log>
+      <opentelemetry_span_log remove="1"></opentelemetry_span_log>
+      <part_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </part_log>
+      <processors_profile_log remove="1"></processors_profile_log>
       <query_log replace="1">
-        <database>system</database>
-        <table>query_log</table>
-        <engine>Engine = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + INTERVAL 3 day</engine>
-        <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+        <ttl>event_time + INTERVAL 30 minute</ttl>
       </query_log>
+      <query_metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </query_metric_log>
+      <query_thread_log remove="1"></query_thread_log>
+      <query_views_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </query_views_log>
+      <session_log remove="1"></session_log>
+      <text_log remove="1"></text_log>
+      <trace_log remove="1"></trace_log>
+      <zookeeper_log remove="1"></zookeeper_log>
       <logger>
           <console>true</console>
           <level>information</level>
