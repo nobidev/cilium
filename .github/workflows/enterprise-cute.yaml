@@ -48,7 +48,7 @@ env:
 jobs:
   commit-status-inputs:
     name: Prepare inputs for commit status start/finish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
@@ -65,7 +65,7 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     needs: commit-status-inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -74,7 +74,7 @@ jobs:
 
   cute-ci:
     name: CuTE CI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 750
     steps:
       - name: Checkout workflow context branch
@@ -588,7 +588,7 @@ jobs:
   commit-status-final:
     name: Commit Status Final
     needs: [ commit-status-inputs, cute-ci ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1

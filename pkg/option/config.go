@@ -1097,6 +1097,9 @@ const (
 	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
 	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
 
+	// BGP router-id allocation mode in ipv6 standalone environment
+	BGPRouterIDAllocationMode = "bgp-router-id-allocation-mode"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -1792,11 +1795,6 @@ type DaemonConfig struct {
 	// is marked as healthy.
 	HealthCheckICMPFailureThreshold int
 
-	// KVstoreKeepAliveInterval is the interval in which the lease is being
-	// renewed. This must be set to a value lesser than the LeaseTTL ideally
-	// by a factor of 3.
-	KVstoreKeepAliveInterval time.Duration
-
 	// KVstoreLeaseTTL is the time-to-live for kvstore lease.
 	KVstoreLeaseTTL time.Duration
 
@@ -2191,6 +2189,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane status reporting.
 	EnableBGPControlPlaneStatusReport bool
+
+	// BGPRouterIDAllocationMode is the mode to allocate the BGP router-id in ipv6 standalone environment.
+	BGPRouterIDAllocationMode string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -2909,7 +2910,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KeepConfig = vp.GetBool(KeepConfig)
 	c.KVStore = vp.GetString(KVStore)
 	c.KVstoreLeaseTTL = vp.GetDuration(KVstoreLeaseTTL)
-	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = vp.GetDuration(KVstorePeriodicSync)
 	c.KVstoreConnectivityTimeout = vp.GetDuration(KVstoreConnectivityTimeout)
 	c.KVstorePodNetworkSupport = vp.GetBool(KVstorePodNetworkSupport)
@@ -3303,6 +3303,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane status reporting
 	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
+
+	// BGP router-id allocation mode in IPv6 standalone environment
+	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
 
 	// Support failure-mode for policy map overflow
 	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)

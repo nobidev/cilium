@@ -330,6 +330,8 @@ ethernet
 ethtool
 existingSecret
 expirations
+exportedAnnotations
+exportedLabels
 extTrafficPolicy
 extern
 externalIPs
@@ -607,6 +609,7 @@ os
 oseq
 otx
 pahole
+parentRefs
 parsable
 parserfactory
 parsers
@@ -614,6 +617,7 @@ passthrough
 pc
 pcap
 perf
+pipelined
 pipelining
 plaintext
 pluggable
