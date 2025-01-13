@@ -629,6 +629,10 @@ func (pr *probeImpl) dialerConnSetupDSRviaIPIP(ctx context.Context, network stri
 	return nil
 }
 
+func probeFailSignal(err error) bool {
+	return errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH)
+}
+
 func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, probeOut chan ProbeData) {
 	d := net.Dialer{
 		Timeout: config.ProbeTimeout,
@@ -645,7 +649,7 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	conn, err := d.DialContext(ctx, "tcp", connAddr)
 	if err != nil {
 		// Be conservative while failing a probe.
-		if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH) || os.IsTimeout(err) {
+		if probeFailSignal(err) || os.IsTimeout(err) {
 			probeOut <- getProbeData(fmt.Errorf("err: %w", err))
 			return
 		}
@@ -699,7 +703,7 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	if errors.As(err, &errno) {
 		// ECONNREFUSED wraps ICMP_PORT_UNREACHABLE
 		// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
-		if errors.Is(err, syscall.ECONNREFUSED) {
+		if probeFailSignal(err) {
 			pr.logger.Debug("probe failed", "backend-addr", beAddr, logfields.Error, err)
 			probeOut <- getProbeData(fmt.Errorf("error: %w", err))
 			return
