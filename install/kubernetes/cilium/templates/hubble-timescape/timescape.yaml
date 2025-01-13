@@ -194,6 +194,8 @@ spec:
                 path: server.crt
               - key: tls.key
                 path: server.key
+              - key: ca.crt
+                path: ca.crt
               name: {{ .Values.hubble.timescape.tls.server.existingSecret | default "hubble-timescape-server-certs" }}
       {{- end }}
       {{- if .Values.hubble.rbac.enabled }}
@@ -406,6 +408,8 @@ data:
       push-api-tls-enabled: true
       push-api-tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
       push-api-tls-key-file: /var/lib/hubble-timescape/tls/server.key
+      push-api-tls-client-ca-files:
+        - /var/lib/hubble-timescape/tls/ca.crt
       {{- end }}
       push-api-async-insert: "true"
       push-api-async-insert-busy-timeout: 2s

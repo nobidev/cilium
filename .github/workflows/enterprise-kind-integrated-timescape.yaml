@@ -119,9 +119,17 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "kubectl.*port-forward.*hubble-timescape.*4260" | wc -l) == 1 ]]
 
+      - name: Get client certificate
+        run: |
+          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath={.data."tls\.crt"} | base64 -d > client.crt
+          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath={.data."tls\.key"} | base64 -d > client.key
+        shell: bash
+
       - name: Run tests
         env:
           TEST_HUBBLE_OBSERVE_TLS: true
+          TEST_PUSH_API_CLIENT_CRT: ${{ github.workspace }}/client.crt
+          TEST_PUSH_API_CLIENT_KEY: ${{ github.workspace }}/client.key
         run: |
           cd enterprise/hubble-timescape
           go test -tags enterprise_integrated_timescape_e2e ./tests/...

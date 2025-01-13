@@ -80,10 +80,16 @@ func TestPushFlows(t *testing.T) {
 	inputFlows := genFakeExportFlows(t, 4, now, nodeName)
 	flowBuf := encodeGetFlowsResponse(t, inputFlows)
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	tlsConf := tls.Config{InsecureSkipVerify: true}
+
+	if os.Getenv("TEST_PUSH_API_CLIENT_KEY") != "" {
+		cert, err := tls.LoadX509KeyPair(os.Getenv("TEST_PUSH_API_CLIENT_CRT"), os.Getenv("TEST_PUSH_API_CLIENT_KEY"))
+		require.NoError(t, err)
+		tlsConf.Certificates = []tls.Certificate{cert}
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tlsConf,
+	}}
 
 	pushURL := "http://localhost:4260/push"
 	if strings.ToLower(os.Getenv("TEST_HUBBLE_OBSERVE_TLS")) == "true" {
