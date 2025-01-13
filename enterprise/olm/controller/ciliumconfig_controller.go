@@ -47,7 +47,7 @@ import (
 
 	helmchart "helm.sh/helm/v3/pkg/chart"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/cilium.io/v1alpha1"
 	"github.com/isovalent/cilium/enterprise/olm/helm"
 )
 

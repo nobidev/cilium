@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/v1alpha1"
+	ciliumiov1alpha1 "github.com/isovalent/cilium/enterprise/olm/api/cilium.io/v1alpha1"
 	"github.com/isovalent/cilium/enterprise/olm/manager"
 	"github.com/isovalent/cilium/enterprise/olm/test/e2e"
 )

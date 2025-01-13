@@ -349,7 +349,6 @@ generate-k8s-api-local:
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
 	RUN_AS_NONROOT=1 contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
-		$(MAKE) -C enterprise/olm generate
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
