@@ -692,6 +692,95 @@ func (s *fakeSockets) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socketClo
 	return socketCloseStats{deleted: len(toClose)}, nil
 }
 
+// TestRemoveExpiredCTOnNoMatchingPolicies tests egwha-ct expired entry
+// removal.
+func TestRemoveExpiredCTOnNoMatchingPolicies(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+	k.manager.config.EnableEgressGatewayHASocketTermination = true
+	sm := &fakeSockets{}
+	k.manager.socketsActions = sm
+
+	// 1. Add egress ct entry that is not matched or keyed on any policy.
+	k.insertEgressCtEntryWithPorts(t, ep2IP, "1.1.4.127", node2IP, 0xdead, 0xbeef)
+
+	// Create a new HA policy that selects k8s1 and k8s2 nodes
+	// Note: k.addPolicy kicks off a reconciliation so we expect to see
+	// 	a ct entry purge.
+	policy1 := k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressGroups: []egressGroupParams{{
+			iface:             testInterface1,
+			nodeLabels:        nodeGroup1Labels,
+			activeGatewayIPs:  []string{node1IP, node2IP},
+			healthyGatewayIPs: []string{node1IP, node2IP},
+		}},
+	})
+
+	// 2. Our initial ct-entry was keyed on no policies, so there should have
+	// 	been no policy matching check. Regardless, we assert that ct entries
+	// 	that do not match *any* policy on sourceIP (i.e. in this case ep2IP)
+	// 	are still removed.
+	//	This is to prevent regression on the subtleties between:
+	//	a) policy-by-source-ip matches source IP and there are *some*
+	//		policies to evaluate further.
+	//	b) policy-by-source-ip matches *no* source IP (i.e. empty list) and
+	//		there are no policies to evaluate further.
+	//	Both should have the same outcome of ctentry removal.
+	k.assertEgressCtEntries(t, []egressCtEntry{})
+
+	// Create a new HA policy that selects k8s1 and k8s2 nodes.
+	// This will overlap on source IP on policy1.
+	k.addPolicy(t, &policyParams{
+		name:             "policy-2",
+		uid:              policy2UID,
+		endpointLabels:   ep1Labels, // same a p1.
+		destinationCIDRs: []string{destCIDR},
+		egressGroups: []egressGroupParams{{
+			iface:             testInterface1,
+			nodeLabels:        nodeGroup1Labels,
+			activeGatewayIPs:  []string{node1IP, node2IP},
+			healthyGatewayIPs: []string{node1IP, node2IP},
+		}},
+	})
+
+	assertRPFilter(t, k.sysctl, []rpFilterSetting{
+		{iFaceName: testInterface1, rpFilterSetting: "2"},
+		{iFaceName: testInterface2, rpFilterSetting: "1"},
+	})
+
+	k.assertEgressRules(t, []egressRule{})
+	k.assertEgressCtEntries(t, []egressCtEntry{})
+
+	// Add a new endpoint which matches policy-1
+	k.addEndpoint(t, "ep-1", ep1IP, ep1Labels, node1IP)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node2IP},
+	})
+
+	// Note: Port values will come out as swapped byte order (0xadde and 0xefbe).
+	// This is matched by a policy, and node1IP
+	k.insertEgressCtEntryWithPorts(t, ep1IP, "1.1.1.127", node2IP, 0xdead, 0xbeef)
+
+	k.assertEgressCtEntries(t, []egressCtEntry{
+		{sourceIP: ep1IP, destIP: "1.1.1.127", gatewayIP: node2IP, sourcePort: 0xdead, destPort: 0xbeef},
+	})
+
+	// Here we test the scenario where egress ct entry is matched by two policies
+	// We want to ensure that it is only removed if it is matched by *no* policies.
+	// 3. By adding a exclude cidr for 1.1.1.127 on p1, we should see p1 no longer match.
+	//	However, most importantly, policy 1 is still keyed by ep1IP as the source IP
+	//	in lookup-by-source-up, thus there are two policies evaluated as matches.
+	//	We ensure that it is only necessary for one to match, not both.
+	k.addExcludedCIDR(t, policy1, "1.1.1.127/32")
+	k.assertEgressCtEntries(t, []egressCtEntry{
+		{sourceIP: ep1IP, destIP: "1.1.1.127", gatewayIP: node2IP, sourcePort: 0xdead, destPort: 0xbeef},
+	})
+}
+
 // TestEgressGatewayManagerHASocketTermination tests the socket termination feature
 // of the agent control plane manager.
 // Specifically, this ensures that the socket manager is handed the correct set of
