@@ -176,6 +176,9 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 			if be.State == lb.BackendStateMaintenance || be.State == lb.BackendStateTerminating {
 				continue
 			}
+			if be.State == lb.BackendStateQuarantined {
+				unhealthyBackends.Insert(be.L3n4Addr)
+			}
 			bes = append(bes, be.L3n4Addr)
 		}
 	}
