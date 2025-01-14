@@ -112,3 +112,8 @@ func TestIterateDestroy(t *testing.T) {
 		}))
 	})
 }
+
+func TestProbetInetDiagDestroyEnabled(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	assert.NoError(t, InetDiagDestroyEnabled())
+}

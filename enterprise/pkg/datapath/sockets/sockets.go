@@ -19,6 +19,10 @@ package sockets
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -26,6 +30,7 @@ import (
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -202,4 +207,54 @@ func iterateNetlinkSockets(ns *netns.NsHandle, proto netlink.Proto, family uint8
 			}
 		}
 	}
+}
+
+var probeForDestroy = sync.OnceValue(func() error {
+	lis, err := net.ListenUDP("udp", &net.UDPAddr{
+		IP: net.IP{127, 0, 0, 1},
+	})
+	if err != nil {
+		return err
+	}
+
+	defer lis.Close()
+	addrToks := strings.Split(lis.LocalAddr().String(), ":")
+	if len(addrToks) != 2 {
+		return fmt.Errorf("unexpected listener addr %q, expected format <ip>:<port>", lis.LocalAddr().String())
+	}
+	port, err := strconv.Atoi(addrToks[1])
+	if err != nil {
+		return err
+	}
+
+	ok := false
+	if err := Iterate(unix.IPPROTO_UDP, unix.AF_INET, 0xff, func(s *netlink.Socket, err error) error {
+		lo := net.IP{127, 0, 0, 1}
+		if s.ID.SourcePort == uint16(port) && s.ID.Source.Equal(lo) {
+			destroyErr := DestroySocket(*s, unix.IPPROTO_UDP, 0xff)
+			if errors.Is(destroyErr, unix.ENOENT) {
+				// Note: Returning error stops iteration and passes err through to
+				// return value of Iterate.
+				return probes.ErrNotSupported
+			}
+			if destroyErr != nil {
+				return destroyErr
+			}
+			ok = true
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed while iterating sockets: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("failed to find listener socket for inet diag destroy probe")
+	}
+	return nil
+})
+
+// InetDiagDestroyEnabled sets up a local listener socket on localhost
+// and attempts to terminate it to probe for functionality enabled by
+// CONFIG_INET_DIAG_DESTROY.
+func InetDiagDestroyEnabled() error {
+	return probeForDestroy()
 }

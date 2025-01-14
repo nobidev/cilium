@@ -31,10 +31,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	enterprise_tables "github.com/cilium/cilium/enterprise/datapath/tables"
+	"github.com/cilium/cilium/enterprise/pkg/datapath/sockets"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -250,6 +252,15 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	if !dcfg.EnableIPv4EgressGatewayHA {
 		return out, nil
+	}
+
+	if p.Config.EnableEgressGatewayHASocketTermination {
+		if err := sockets.InetDiagDestroyEnabled(); err != nil {
+			if errors.Is(err, probes.ErrNotSupported) {
+				return out, fmt.Errorf("egwha socket termination feature requires CONFIG_INET_DIAG_DESTROY kernel config to be enabled: %w", err)
+			}
+			return out, fmt.Errorf("failed to probe for socket termination feature: %w", err)
+		}
 	}
 
 	if dcfg.IdentityAllocationMode != option.IdentityAllocationModeCRD {
