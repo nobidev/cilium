@@ -114,7 +114,7 @@ func TestConnectionLifecycle(t *testing.T) {
 
 	addRule := func(epID uint64, port uint16) {
 		t.Helper()
-		err := localProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
+		_, err := localProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
 		require.NoError(t, err)
 		if remoteProxy == nil {
 			return
@@ -200,7 +200,7 @@ func TestDumpRules(t *testing.T) {
 			},
 		},
 	}
-	err = localProxy.UpdateAllowed(epID, portProto, allowExampleCom)
+	_, err = localProxy.UpdateAllowed(epID, portProto, allowExampleCom)
 	require.NoError(t, err)
 
 	dump := localProxy.DumpRules()

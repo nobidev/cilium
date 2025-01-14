@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 var _ fqdnproxy.DNSProxier = &DoubleProxy{}
@@ -98,18 +99,18 @@ func (dp *DoubleProxy) RemoveRestoredRules(u uint16) {
 	dp.LocalProxy.RemoveRestoredRules(u)
 }
 
-func (dp *DoubleProxy) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) error {
-	err := dp.LocalProxy.UpdateAllowed(endpointID, destPortProto, newRules)
+func (dp *DoubleProxy) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error) {
+	revert, err := dp.LocalProxy.UpdateAllowed(endpointID, destPortProto, newRules)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if dp.RemoteProxy != nil {
 		err = dp.RemoteProxy.UpdateAllowed(endpointID, destPortProto, newRules)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return revert, nil
 }
 
 func (dp *DoubleProxy) GetBindPort() uint16 {

@@ -2736,6 +2736,9 @@
               },
               "type": "object"
             },
+            "fileCompress": {
+              "type": "boolean"
+            },
             "fileMaxBackups": {
               "type": "integer"
             },

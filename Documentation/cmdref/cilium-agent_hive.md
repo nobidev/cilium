@@ -54,6 +54,7 @@ cilium-agent hive [flags]
       --enable-enterprise-bgp-control-plane                          Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report            Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api                                           Enables Envoy secret sync for Gateway API related TLS secrets
+      --enable-gops                                                  Enable gops server (default true)
       --enable-hubble                                                Enable hubble server (default true)
       --enable-hubble-open-metrics                                   Enable exporting hubble metrics in OpenMetrics format
       --enable-hubble-recorder-api                                   Enable the Hubble recorder API (default true)
@@ -128,7 +129,7 @@ cilium-agent hive [flags]
       --hubble-export-file-path stdout                               Filepath to write Hubble events to. By specifying stdout the flows are logged instead of written to a rotated file.
       --hubble-flowlogs-config-path string                           Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                                 An additional address for Hubble server to listen to, e.g. ":4244"
-      --hubble-metrics strings                                       List of Hubble metrics to enable.
+      --hubble-metrics string                                        List of Hubble metrics to enable.
       --hubble-metrics-server string                                 Address to serve Hubble metrics on.
       --hubble-metrics-server-enable-tls                             Run the Hubble metrics server on the given listen address with TLS.
       --hubble-metrics-server-tls-cert-file string                   Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.
