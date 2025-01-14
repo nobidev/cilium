@@ -157,7 +157,6 @@ type policyGenerateResult struct {
 func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegenCtxt *datapathRegenerationContext) (*policyGenerateResult, error) {
 	var (
 		err error
-		ff  revert.FinalizeFunc
 		rf  revert.RevertFunc
 	)
 
@@ -198,7 +197,12 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision = e.policyGetter.GetPolicyRepository().GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
+	selectorPolicy, result.policyRevision, err = e.policyGetter.GetPolicyRepository().GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
+	if err != nil {
+		e.getLogger().WithError(err).Warning("Failed to calculate SelectorPolicy")
+		return nil, err
+	}
+
 	// selectorPolicy is nil if skipRevision was matched.
 	if selectorPolicy == nil {
 		e.getLogger().WithFields(logrus.Fields{
@@ -206,7 +210,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 			"policyRevision.repo": result.policyRevision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
 		}).Debug("Skipping unnecessary endpoint policy recalculation")
-		return result, nil
+		return result, err
 	}
 
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
@@ -218,9 +222,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
-		desiredRedirects, ff, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
+		desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyConfiguration.End(true)
-		datapathRegenCtxt.finalizeList.Append(ff)
 		datapathRegenCtxt.revertStack.Push(rf)
 
 		// Add a finalize function to clear out stale redirects. This will be called after

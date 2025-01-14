@@ -1423,7 +1423,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:d77c4415fa950f7323254f9ca4b3fef01345d1091cc5ed2bdb161cb9c3c84795","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1736159612-072829658e72d49f0d5fa9b1daa6001bab87e601","useDigest":true}``
+     - ``{"digest":"sha256:e3efa2d1e5ac62ef3dcbe17d9c0bcaa5a6ce1d4598e86f44a8f07a045c6bd08b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1736767219-f96a36460ae298f5d8ccb84cc5ef519fdd62b162","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1775,7 +1775,7 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"fileMaxBackups":5,"fileMaxSizeMb":10,"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
@@ -1792,6 +1792,10 @@
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
      - ``true``
+   * - :spelling:ignore:`hubble.export.fileCompress`
+     - - Enable compression of rotated files.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.export.fileMaxBackups`
      - - Defines max number of backup/rotated files.
      - int
