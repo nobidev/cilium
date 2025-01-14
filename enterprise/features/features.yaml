@@ -88,6 +88,16 @@ features:
     helm: 
       enterprise.egressGatewayHA.enabled: true
 
+  EgressGatewayHASocketTermination:
+    maturity: Limited
+    description: |
+      Egress Gateway High Availability socket termination.
+    flags:
+      enable-egress-gateway-ha-socket-termination: true
+    skip-flag-check: true
+    helm: 
+      enterprise.egressGatewayHA.socketTermination.enabled: true
+
   EnterpriseBGPControlPlane:
     maturity: Beta
     description: |
