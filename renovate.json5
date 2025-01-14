@@ -30,6 +30,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main-ce",
+    "v1.17-ce",
     "v1.16-ce",
     "v1.15-ce",
     "v1.14-ce",
@@ -120,7 +121,8 @@
       "matchBaseBranches": [
         "v1.14-ce",
         "v1.15-ce",
-        "v1.16-ce"
+        "v1.16-ce",
+        "v1.17-ce",
       ]
     },
     {
