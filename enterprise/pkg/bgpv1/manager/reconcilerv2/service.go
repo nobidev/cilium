@@ -925,7 +925,14 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					return nil, fmt.Errorf("failed to get desired LoadBalancerIP route policy: %w", err)
 				}
 				if lbPolicy != nil {
-					desiredSvcRoutePolicies[lbPolicy.Name] = MergePolicies(desiredSvcRoutePolicies[lbPolicy.Name], lbPolicy)
+					existingPolicy := desiredSvcRoutePolicies[lbPolicy.Name]
+					if existingPolicy != nil {
+						lbPolicy, err = MergePolicies(existingPolicy, lbPolicy)
+						if err != nil {
+							return nil, fmt.Errorf("failed to merge LoadBalancerIP route policies: %w", err)
+						}
+					}
+					desiredSvcRoutePolicies[lbPolicy.Name] = lbPolicy
 				}
 				// ExternalIP
 				extPolicy, err := r.getExternalIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
@@ -933,7 +940,14 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					return nil, fmt.Errorf("failed to get desired ExternalIP route policy: %w", err)
 				}
 				if extPolicy != nil {
-					desiredSvcRoutePolicies[extPolicy.Name] = MergePolicies(desiredSvcRoutePolicies[extPolicy.Name], extPolicy)
+					existingPolicy := desiredSvcRoutePolicies[extPolicy.Name]
+					if existingPolicy != nil {
+						extPolicy, err = MergePolicies(existingPolicy, extPolicy)
+						if err != nil {
+							return nil, fmt.Errorf("failed to merge ExternalIP route policies: %w", err)
+						}
+					}
+					desiredSvcRoutePolicies[extPolicy.Name] = extPolicy
 				}
 				// ClusterIP
 				clusterPolicy, err := r.getClusterIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
@@ -941,7 +955,14 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					return nil, fmt.Errorf("failed to get desired ClusterIP route policy: %w", err)
 				}
 				if clusterPolicy != nil {
-					desiredSvcRoutePolicies[clusterPolicy.Name] = MergePolicies(desiredSvcRoutePolicies[clusterPolicy.Name], clusterPolicy)
+					existingPolicy := desiredSvcRoutePolicies[clusterPolicy.Name]
+					if existingPolicy != nil {
+						clusterPolicy, err = MergePolicies(existingPolicy, clusterPolicy)
+						if err != nil {
+							return nil, fmt.Errorf("failed to merge ClusterIP route policies: %w", err)
+						}
+					}
+					desiredSvcRoutePolicies[clusterPolicy.Name] = clusterPolicy
 				}
 			}
 		}

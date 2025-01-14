@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -29,18 +30,11 @@ func PolicyName(peer, family string, advertType v1alpha1.IsovalentBGPAdvertType,
 
 // MergePolicies merges two route policies into a single policy, policy statements are sorted
 // based on length of the first prefix in the match prefix list.
-func MergePolicies(policyA, policyB *types.RoutePolicy) *types.RoutePolicy {
-	if policyA == nil {
-		return policyB
-	}
-	if policyB == nil {
-		return policyA
-	}
-
-	merged := &types.RoutePolicy{
-		Name:       policyA.Name,
-		Type:       policyA.Type,
-		Statements: append(policyA.Statements, policyB.Statements...),
+func MergePolicies(policyA, policyB *types.RoutePolicy) (*types.RoutePolicy, error) {
+	// combine route policies into a single policy
+	merged, err := reconcilerv2.MergeRoutePolicies(policyA, policyB)
+	if err != nil {
+		return nil, err
 	}
 
 	// sort statements based on prefix length
@@ -52,5 +46,5 @@ func MergePolicies(policyA, policyB *types.RoutePolicy) *types.RoutePolicy {
 		return false
 	})
 
-	return merged
+	return merged, nil
 }
