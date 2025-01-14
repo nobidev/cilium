@@ -227,3 +227,16 @@ var AllBGPClusterConfigConditions = []string{
 	BGPClusterConfigConditionMissingVRFConfigs,
 	BGPClusterConfigConditionConflictingClusterConfigs,
 }
+
+// PeeringKey returns a key identifying a BGP peer from BGP peering perspective.
+// Two peers with different logical name but the same peering address / interface
+// would produce the same key. If Interface is specified (unnumbered peer), the PeerAddress is ignored.
+func (peer *IsovalentBGPPeer) PeeringKey() string {
+	if peer.Interface != nil && *peer.Interface != "" {
+		return "unnumbered-" + *peer.Interface
+	}
+	if peer.PeerAddress != nil && *peer.PeerAddress != "" {
+		return *peer.PeerAddress
+	}
+	return "<unknown>"
+}
