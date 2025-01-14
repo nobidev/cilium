@@ -59,7 +59,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.25.0
+  kind_version: v0.26.0
   k8s_version: v1.27.1
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
@@ -240,7 +240,7 @@ jobs:
             envsubst < ./.github/enterprise-cilium-mesh/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
 
       - name: Create Kind cluster 1
-        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
           cluster_name: ${{ env.clusterName1 }}
           version: ${{ env.kind_version }}
@@ -249,7 +249,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Create Kind cluster 2
-        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
           cluster_name: ${{ env.clusterName2 }}
           version: ${{ env.kind_version }}
@@ -423,7 +423,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
