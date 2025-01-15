@@ -51,7 +51,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.23.2
+  go_version: 1.23.4
   test_name: perf-fqdn-ha
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -145,7 +145,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
