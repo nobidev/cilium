@@ -572,6 +572,13 @@ type LBServiceUDPRoute struct {
 	//
 	// +kubebuilder:validation:Required
 	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional connection filtering configuration for this UDP route.
+	// It defines the connection attributes that should be obtained to decide
+	// whether connections should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	ConnectionFiltering *LBServiceUDPRouteConnectionFiltering `json:"connectionFiltering,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=auto;t1-only;t1-t2
@@ -582,6 +589,29 @@ const (
 	LBUDPProxyForceDeploymentModeT1   LBUDPProxyForceDeploymentModeType = "t1-only"
 	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "t1-t2"
 )
+
+type LBServiceUDPRouteConnectionFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the UDP route.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceUDPRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
+type LBServiceUDPRouteRequestFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+}
 
 // +kubebuilder:validation:Enum=TLSv1_0;TLSv1_1;TLSv1_2;TLSv1_3
 type LBTLSProtocolVersion string

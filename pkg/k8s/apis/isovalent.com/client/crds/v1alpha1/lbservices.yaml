@@ -1727,6 +1727,50 @@ spec:
                               required:
                               - name
                               type: object
+                            connectionFiltering:
+                              description: |-
+                                The optional connection filtering configuration for this UDP route.
+                                It defines the connection attributes that should be obtained to decide
+                                whether connections should be denied or allowed.
+                              properties:
+                                ruleType:
+                                  description: The type of the rules.
+                                  enum:
+                                  - Allow
+                                  - Deny
+                                  type: string
+                                rules:
+                                  description: |-
+                                    Configure the rules that should be used for the UDP route.
+                                    Each rule needs to define at least one property to filter on.
+                                    The properties of each entry are logically ANDed.
+                                  items:
+                                    properties:
+                                      sourceCIDR:
+                                        description: Source CIDR based matching. This
+                                          allows for matching a specific or a range
+                                          of IPv4 or IPv6 addresses.
+                                        properties:
+                                          cidr:
+                                            description: |-
+                                              CIDR of the source.
+                                              This must be in CIDR notation and use a /32 to express
+                                              a single host.
+                                            format: cidr
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - cidr
+                                        type: object
+                                    type: object
+                                    x-kubernetes-validations:
+                                    - message: At least one attribute must be configured
+                                      rule: (has(self.sourceCIDR))
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - ruleType
+                              type: object
                           required:
                           - backendRef
                           type: object
