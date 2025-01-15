@@ -3,6 +3,11 @@
 {{$namespaces := 100 }}
 {{$TimeToLoad := 10 }}
 
+{{$largeServices := 5}}
+{{$slicesPerService := 50}}
+{{$slicesUpdates := 5}}
+# In total, we do $largeServices * $slicesPerService * $slicesUpdates updates
+
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
 {{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
 {{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
@@ -42,6 +47,9 @@ steps:
       operationTimeout: 15m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      largeServices: {{$largeServices}}
+      slicesPerService: {{$slicesPerService}}
+      slicesUpdates: {{$slicesUpdates}}
 
 - name: Sleep After reconcile
   measurements:
@@ -71,7 +79,7 @@ steps:
   - Identifier: ExecCommand
     Method: Exec
     Params:
-      timeout: 10m
+      timeout: 20m
       command:
       - /bin/sh
       - -c

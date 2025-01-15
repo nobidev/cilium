@@ -8,7 +8,34 @@
 {{$deploymentsPerNamespace := .deploymentsPerNamespace}}
 {{$replicasPerDeployment := .replicasPerDeployment}}
 
+# Services
+{{$largeServices := .largeServices}}
+{{$slicesPerService := .slicesPerService}}
+{{$slicesUpdates := .slicesUpdates}}
+
 steps:
+- name: {{$actionName}} services
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$largeServices}}
+    tuningSet: {{$fixedTuningSet}}
+    objectBundle:
+    - basename: service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{MultiplyInt $largeServices $slicesPerService}}
+    tuningSet: {{$fixedTuningSet}}
+    objectBundle:
+    - basename: es
+      objectTemplatePath: endpointslices.yaml
+      templateFillMap:
+        ServiceName: "service"
+        ServiceNumber: {{$largeServices}}
+
 - name: Starting measurement for '{{$actionName}}'
   measurements:
   - Method: WaitForControlledPodsRunning
@@ -35,6 +62,19 @@ steps:
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: {{$replicasPerDeployment}}
+{{range $i := Loop $slicesUpdates}}
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{MultiplyInt $largeServices $slicesPerService}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: es
+      objectTemplatePath: endpointslices.yaml
+      templateFillMap:
+        ServiceName: "service"
+        ServiceNumber: {{$largeServices}}
+{{end}}
 
 - name: Waiting for '{{$actionName}}' to be completed
   measurements:

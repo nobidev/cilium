@@ -1,0 +1,25 @@
+{{$endpoints := 100}}
+{{$serviceName := .ServiceName }}
+{{$servicesNo := .ServiceNumber }}
+{{$serviceId := Mod .Index $servicesNo}}
+
+kind: EndpointSlice
+metadata:
+  name: {{.Name}}
+  labels:
+    kubernetes.io/service-name: {{$serviceName}}-{{$serviceId}}
+ports:
+- name: test-port
+  port: 7777
+  protocol: TCP
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+{{range $i := Loop $endpoints}}
+- addresses:
+  - 10.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+{{end}}
