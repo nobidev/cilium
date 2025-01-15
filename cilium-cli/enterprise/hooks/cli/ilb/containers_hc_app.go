@@ -1,0 +1,64 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package ilb
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
+type hcAppContainer struct {
+	dockerContainer
+	config backendApplicationConfig
+}
+
+type backendApplicationConfig struct {
+	h2cEnabled      bool
+	tlsCertHostname string
+	listenPort      uint32
+}
+
+type hcState string
+
+const (
+	hcFail hcState = "fail"
+	hcOK   hcState = "ok"
+)
+
+func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
+	scheme := "http"
+	options := "--silent -XPOST"
+
+	if c.config.tlsCertHostname != "" {
+		scheme = "https"
+		options += " -k"
+	}
+
+	stdout, stderr, err := c.Exec(ctx,
+		fmt.Sprintf(
+			"curl %s %s://127.0.0.1:%d/control/healthcheck/"+string(hc),
+			options, scheme, c.port,
+		),
+	)
+	if err != nil {
+		c.t.Fatalf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
+			string(hc), stdout, stderr, err)
+	}
+
+	state := "false"
+	if hc == hcOK {
+		state = "true"
+	}
+	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
+		c.t.Fatalf("expected different output, got %q", stdout)
+	}
+}

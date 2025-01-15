@@ -1,0 +1,212 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package ilb
+
+import (
+	"context"
+	"fmt"
+	"testing"
+)
+
+func TestHTTPS(t *testing.T) {
+	ctx := context.Background()
+	testName := "https-1"
+	testK8sNamespace := "default"
+	hostName := "secure.acme.io"
+
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating cert and secret...")
+	scenario.createLBServerCertificate(ctx, testName, hostName)
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
+
+	t.Logf("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	t.Logf("Creating LB BackendPool resources...")
+	backends := []backendPoolOption{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, withIPBackend(b.ip, b.port))
+	}
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	scenario.createLBBackendPool(ctx, backendPool)
+
+	t.Logf("Creating LB Service resources...")
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName)))
+	scenario.createLBService(ctx, service)
+
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
+
+	// 1. Send HTTPs request
+	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
+	t.Logf("Testing %q...", testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
+	if err != nil {
+		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+}
+
+func TestHTTPSRoutes(t *testing.T) {
+	ctx := context.Background()
+	testName := "https-routes"
+	testK8sNamespace := "default"
+
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
+	serviceBackendMappings := map[string]struct {
+		hostname         string
+		testCallHostname string
+		path             string
+	}{
+		"-0": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "first"},
+		"-1": {hostname: "first.acme.io", testCallHostname: "first.acme.io", path: "second"},
+		"-2": {hostname: "second.acme.io", testCallHostname: "second.acme.io", path: "third"},
+		"-3": {hostname: "*.second.acme.io", testCallHostname: "sub.second.acme.io", path: "fourth"},
+	}
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating cert and secret...")
+	// create a secret per hostname (filtering out multiple routes for the same hostname)
+	alreadyCoveredHostnames := map[string]string{}
+	for postfix, rhost := range serviceBackendMappings {
+		if _, ok := alreadyCoveredHostnames[rhost.hostname]; !ok {
+			scenario.createLBServerCertificate(ctx, testName+postfix, rhost.hostname)
+			alreadyCoveredHostnames[rhost.hostname] = postfix
+		}
+	}
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	hostnames := []string{}
+	for _, rhost := range serviceBackendMappings {
+		hostnames = append(hostnames, rhost.hostname)
+	}
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: hostnames})[0]
+
+	t.Logf("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	t.Logf("Creating LB BackendPool resources...")
+	// one backendpool per backend app
+	for postfix := range serviceBackendMappings {
+		backend := scenario.backendApps[testName+"-app"+postfix]
+		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
+	}
+
+	t.Logf("Creating LB Service resources...")
+	// one route per backendpool (backend app)
+	routesAndCertificates := []httpsApplicationOption{}
+	for postfix, rhost := range serviceBackendMappings {
+		routesAndCertificates = append(routesAndCertificates, withHttpsRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
+
+		// only use the reference it the TLS secret was created for this route
+		if alreadyCoveredHostnames[rhost.hostname] == postfix {
+			routesAndCertificates = append(routesAndCertificates, withCertificate(testName+postfix))
+		}
+	}
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
+	scenario.createLBService(ctx, service)
+
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
+
+	// calling each route once
+	for postfix, rhost := range serviceBackendMappings {
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 --cacert /tmp/"+rhost.hostname+".crt -H 'Content-Type: application/json' --resolve %s:443:%s https://%s:443%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
+		t.Logf("Testing %q...", testCmd)
+		stdout, stderr, err := client.Exec(ctx, testCmd)
+		if err != nil {
+			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+
+		t.Log("Check that request is handled by the correct backend")
+		appResponse := toTestAppResponse(t, stdout)
+		if appResponse.ServiceName != testName+"-app"+postfix {
+			t.Fatalf("request not handled by the expected backend %s != %s (cmd: %q, stdout: %q, stderr: %q): %s", appResponse.ServiceName, testName+"-app"+postfix, testCmd, stdout, stderr, err)
+		}
+	}
+}
+
+func TestHTTPS_H2(t *testing.T) {
+	ctx := context.Background()
+	testName := "http2s-1"
+	testK8sNamespace := "default"
+	hostName := "secure-http2.acme.io"
+
+	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
+	dockerCli := newDockerCli(t)
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating cert and secret...")
+	scenario.createLBServerCertificate(ctx, testName, hostName)
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
+
+	t.Logf("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	t.Logf("Creating LB BackendPool resources...")
+	backends := []backendPoolOption{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, withIPBackend(b.ip, b.port))
+	}
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	scenario.createLBBackendPool(ctx, backendPool)
+
+	t.Logf("Creating LB Service resources...")
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
+	scenario.createLBService(ctx, service)
+
+	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	maybeSysdump(t, testName, "")
+
+	// 1. Send HTTPs request
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))
+	t.Logf("Testing %q...", testCmd)
+	stdout, stderr, err := client.Exec(ctx, testCmd)
+	if err != nil {
+		t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+	// Check HTTP H2
+	if stdout != "2" {
+		t.Fatalf("Expected HTTP 2, got: %s", stdout)
+	}
+}

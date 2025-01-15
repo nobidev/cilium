@@ -777,6 +777,7 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/ @isovalent/cli
 /cilium-cli/enterprise/hooks/cli/bgp* @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
+/cilium-cli/enterprise/hooks/cli/ilb/ @isovalent/isovalent-loadbalancer
 /cilium-cli/enterprise/hooks/cli/testdata/bgp @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/bfd.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/bgp.go @isovalent/traffic-engineering
