@@ -767,20 +767,41 @@ func withTCPProxyRoute(backendRef string, opts ...tcpRouteOption) tcpProxyApplic
 
 type tcpRouteOption func(o *isovalentv1alpha1.LBServiceTCPRoute)
 
-func withUDPProxyApplication(backendRef string, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) serviceOption {
+type udpRouteOption func(o *isovalentv1alpha1.LBServiceUDPRoute)
+
+type udpProxyApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationUDPProxy)
+
+func withUDPProxyApplication(opts ...udpProxyApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
-		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
-			UDPProxy: &isovalentv1alpha1.LBServiceApplicationUDPProxy{
-				ForceDeploymentMode: ptr.To(forceDeploymentMode),
-				Routes: []isovalentv1alpha1.LBServiceUDPRoute{
-					{
-						BackendRef: isovalentv1alpha1.LBServiceBackendRef{
-							Name: backendRef,
-						},
-					},
-				},
-			},
+		app := &isovalentv1alpha1.LBServiceApplicationUDPProxy{}
+
+		for _, o := range opts {
+			o(app)
 		}
+
+		o.Spec.Applications = isovalentv1alpha1.LBServiceApplications{
+			UDPProxy: app,
+		}
+	}
+}
+
+func withUDPForceDeploymentMode(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) udpProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationUDPProxy) {
+		o.ForceDeploymentMode = &forceDeploymentMode
+	}
+}
+
+func withUDPProxyRoute(backendRef string, opts ...udpRouteOption) udpProxyApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationUDPProxy) {
+		route := &isovalentv1alpha1.LBServiceUDPRoute{
+			BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: backendRef},
+		}
+
+		for _, o := range opts {
+			o(route)
+		}
+
+		o.Routes = append(o.Routes, *route)
 	}
 }
 
