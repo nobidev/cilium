@@ -390,7 +390,11 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 						return nil, fmt.Errorf("failed to create locator pool route policy: %w", err)
 					}
 
-					desiredRoutePolicies[resource.Key{Name: lp.Name}] = reconcilerv2.RoutePolicyMap{policyName: policy}
+					lpKey := resource.Key{Name: lp.Name}
+					if _, exists := desiredRoutePolicies[lpKey]; !exists {
+						desiredRoutePolicies[lpKey] = make(reconcilerv2.RoutePolicyMap)
+					}
+					desiredRoutePolicies[lpKey][policyName] = policy
 				}
 			}
 		}

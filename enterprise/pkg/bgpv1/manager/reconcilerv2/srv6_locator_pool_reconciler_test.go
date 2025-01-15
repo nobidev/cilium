@@ -55,6 +55,15 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					Name:  "peer-config",
 				},
 			},
+			{
+				Name:        "peer-65001-2",
+				PeerAddress: ptr.To[string]("10.10.10.2"),
+				PeerConfigRef: &v1alpha1.PeerConfigReference{
+					Group: "isovalent.com",
+					Kind:  "IsovalentBGPPeerConfig",
+					Name:  "peer-config",
+				},
+			},
 		},
 	}
 
@@ -102,9 +111,9 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool1RPName := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool1")
-	pool1Locator1RP := &types.RoutePolicy{
-		Name: pool1RPName,
+	pool1RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool1")
+	pool1Locator1RPPeer1 := &types.RoutePolicy{
+		Name: pool1RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -124,8 +133,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 		},
 	}
-	pool1Locator2RP := &types.RoutePolicy{
-		Name: pool1RPName,
+	pool1Locator2RPPeer1 := &types.RoutePolicy{
+		Name: pool1RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -146,9 +155,53 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool2RPName := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool2")
-	pool2Locator2RP := &types.RoutePolicy{
-		Name: pool2RPName,
+	pool1RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool1")
+	pool1Locator1RPPeer2 := &types.RoutePolicy{
+		Name: pool1RPNamePeer2,
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         locator1.Prefix,
+							PrefixLenMin: locator1.Prefix.Bits(),
+							PrefixLenMax: locator1.Prefix.Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
+				},
+			},
+		},
+	}
+	pool1Locator2RPPeer2 := &types.RoutePolicy{
+		Name: pool1RPNamePeer2,
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         locator2.Prefix,
+							PrefixLenMin: locator2.Prefix.Bits(),
+							PrefixLenMax: locator2.Prefix.Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
+				},
+			},
+		},
+	}
+
+	pool2RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool2")
+	pool2Locator2RPPeer1 := &types.RoutePolicy{
+		Name: pool2RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -168,13 +221,57 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 		},
 	}
-	pool2Locator3RP := &types.RoutePolicy{
-		Name: pool2RPName,
+	pool2Locator3RPPeer1 := &types.RoutePolicy{
+		Name: pool2RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
 					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         locator3.Prefix,
+							PrefixLenMin: locator3.Prefix.Bits(),
+							PrefixLenMax: locator3.Prefix.Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
+				},
+			},
+		},
+	}
+
+	pool2RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool2")
+	pool2Locator2RPPeer2 := &types.RoutePolicy{
+		Name: pool2RPNamePeer2,
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+						{
+							CIDR:         locator2.Prefix,
+							PrefixLenMin: locator2.Prefix.Bits(),
+							PrefixLenMax: locator2.Prefix.Bits(),
+						},
+					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
+				},
+			},
+		},
+	}
+	pool2Locator3RPPeer2 := &types.RoutePolicy{
+		Name: pool2RPNamePeer2,
+		Type: types.RoutePolicyTypeExport,
+		Statements: []*types.RoutePolicyStatement{
+			{
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: []string{"10.10.10.2/32"},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator3.Prefix,
@@ -230,7 +327,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 		},
@@ -256,7 +354,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 			expectedAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -268,7 +367,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator2RP,
+					pool1RPNamePeer1: pool1Locator2RPPeer1,
+					pool1RPNamePeer2: pool1Locator2RPPeer2,
 				},
 			},
 		},
@@ -294,7 +394,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 			expectedAFPaths: emptyAFPathMap(),
@@ -313,7 +414,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 			expectedAFPaths: emptyAFPathMap(),
@@ -355,10 +457,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
-					pool2RPName: pool2Locator2RP,
+					pool2RPNamePeer1: pool2Locator2RPPeer1,
+					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
 			},
 		},
@@ -396,10 +500,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
-					pool2RPName: pool2Locator2RP,
+					pool2RPNamePeer1: pool2Locator2RPPeer1,
+					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
 			},
 			expectedAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -416,10 +522,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
-					pool2RPName: pool2Locator3RP,
+					pool2RPNamePeer1: pool2Locator3RPPeer1,
+					pool2RPNamePeer2: pool2Locator3RPPeer2,
 				},
 			},
 		},
@@ -457,10 +565,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
-					pool2RPName: pool2Locator2RP,
+					pool2RPNamePeer1: pool2Locator2RPPeer1,
+					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
 			},
 			expectedAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -472,7 +582,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 		},
@@ -503,10 +614,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
-					pool2RPName: pool2Locator2RP,
+					pool2RPNamePeer1: pool2Locator2RPPeer1,
+					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
 			},
 			expectedAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -518,7 +631,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			},
 			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
 				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
-					pool1RPName: pool1Locator1RP,
+					pool1RPNamePeer1: pool1Locator1RPPeer1,
+					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
 			},
 		},
