@@ -1252,6 +1252,10 @@
      - Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
      - string
      - ``"3s"``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.routerIDAllocation.mode`
+     - BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address of the cilium_host interface. Possible values: - default: Use the default router-id allocation mode.
+     - string
+     - ``"default"``
    * - :spelling:ignore:`enterprise.bgpControlPlane.secretsNamespace`
      - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
      - object

@@ -26,6 +26,7 @@ enable-enterprise-bgp-control-plane-status-report: {{ .Values.enterprise.bgpCont
 enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServiceHealthChecking | default "false" | quote }}
 enable-statedb-neighbor-sync: "true"
 router-advertisement-interval: {{ .Values.enterprise.bgpControlPlane.routerAdvertisementInterval | quote }}
+bgp-router-id-allocation-mode: {{ .Values.enterprise.bgpControlPlane.routerIDAllocation.mode | quote }}
 {{- end }}
 
 # BFD subsystem

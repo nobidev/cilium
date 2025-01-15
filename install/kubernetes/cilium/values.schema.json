@@ -1824,6 +1824,16 @@
             "routerAdvertisementInterval": {
               "type": "string"
             },
+            "routerIDAllocation": {
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "default"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "secretsNamespace": {
               "properties": {
                 "create": {

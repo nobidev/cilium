@@ -4055,6 +4055,16 @@ enterprise:
       name: kube-system
     # -- Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
     routerAdvertisementInterval: 3s
+    routerIDAllocation:
+      # @schema
+      # enum: ["default"]
+      # @schema
+      # -- BGP router-id allocation mode. In default mode, the router-id is derived
+      # from the IPv4 address if it is available, or else it is determined by the
+      # lower 32 bits of the MAC address of the cilium_host interface.
+      # Possible values:
+      # - default: Use the default router-id allocation mode.
+      mode: "default"
     statusReport:
       # -- Enable/Disable enterprise BGPv2 status reporting.
       # It is recommended to enable status reporting in general, but if you have any issue
