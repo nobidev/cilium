@@ -805,6 +805,36 @@ func withUDPProxyRoute(backendRef string, opts ...udpRouteOption) udpProxyApplic
 	}
 }
 
+func withUDPProxyConnectionFilteringDenyBySourceIP(sourceCIDR string) udpRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceUDPRoute) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceUDPRouteConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeDeny,
+			Rules: []isovalentv1alpha1.LBServiceUDPRouteRequestFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
+func withUDPProxyConnectionFilteringAllowBySourceIP(sourceCIDR string) udpRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceUDPRoute) {
+		o.ConnectionFiltering = &isovalentv1alpha1.LBServiceUDPRouteConnectionFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceUDPRouteRequestFilteringRule{
+				{
+					SourceCIDR: &isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR{
+						CIDR: sourceCIDR,
+					},
+				},
+			},
+		}
+	}
+}
+
 func lbService(namespace string, name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
 	svc := &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
