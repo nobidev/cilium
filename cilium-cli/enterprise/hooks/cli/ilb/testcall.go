@@ -10,22 +10,9 @@
 
 package ilb
 
-import (
-	"time"
-)
-
-const (
-	containerNetwork = "kind-cilium"
-)
-
-const (
-	LbIPPoolName               = "lb-pool"
-	globalBGPClusterConfigName = "ilb-test"
-)
-
-const (
-	shortTimeout     = 30 * time.Second
-	longTimeout      = 120 * time.Second
-	pollInterval     = 1 * time.Second
-	longPollInterval = 5 * time.Second
-)
+type testCall struct {
+	clientNr int
+	hostName string
+	path     string
+	blocked  bool
+}

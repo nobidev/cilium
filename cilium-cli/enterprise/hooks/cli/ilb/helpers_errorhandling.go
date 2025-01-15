@@ -18,10 +18,10 @@ type fataler interface {
 	Fatalf(format string, args ...any)
 }
 
-var _ fataler = &panicFataler{}
+var _ fataler = &PanicFataler{}
 
-type panicFataler struct{}
+type PanicFataler struct{}
 
-func (p *panicFataler) Fatalf(format string, args ...any) {
+func (p *PanicFataler) Fatalf(format string, args ...any) {
 	panic(fmt.Sprintf(format, args...))
 }

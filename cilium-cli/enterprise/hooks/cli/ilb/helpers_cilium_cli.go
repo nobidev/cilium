@@ -11,35 +11,29 @@
 package ilb
 
 import (
-	"flag"
+	"fmt"
 	"os"
 	"os/exec"
-	"testing"
 )
 
-var (
-	// maybeSysdump is only effective when this option is specified.
-	flagSysdumpOnFailure = flag.Bool("sysdump-on-failure", false, "Collect sysdump on test failure")
-
-	// By default, we assume cilium-cli is in the PATH. In the CI, we may want to specify custom path.
-	flagCiliumCLIPath = flag.String("cilium-cli-path", "cilium", "cilium-cli binary path")
-)
-
-func maybeSysdump(t *testing.T, testName, suffix string) {
-	if !*flagSysdumpOnFailure {
+func maybeSysdump(testName, suffix string) {
+	if !FlagSysdumpOnFailure {
 		return
 	}
-	t.Cleanup(func() {
-		if !t.Failed() {
-			return
+
+	MaybeCleanupT(func() error {
+		if !testFailed {
+			return nil
 		}
 
-		cmd := exec.Command(*flagCiliumCLIPath, "sysdump", "--output-filename", "cilium-sysdump-"+testName+suffix)
+		cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", "cilium-sysdump-"+testName+suffix)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			t.Logf("Failed to start sysdump collection: %v", err)
+			return fmt.Errorf("Failed to start sysdump collection: %w", err)
 		}
+
+		return nil
 	})
 }

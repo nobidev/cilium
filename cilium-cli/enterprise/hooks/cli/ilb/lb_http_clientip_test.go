@@ -172,7 +172,7 @@ func TestHTTPClientIP(t *testing.T) {
 			maybeSysdump(t, testName, "")
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(*xffNumTrustedHops), vipIP))
+				testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
 				t.Logf("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[0].Exec(ctx, testCmd)

@@ -102,7 +102,7 @@ func TestDNSBackend(t *testing.T) {
 			// 2024-10-07). So, we only create only one backend in the single node
 			// mode. Better than testing nothing.
 			var nbackends int
-			if isSingleNode() {
+			if IsSingleNode() {
 				nbackends = 1
 			} else {
 				nbackends = 2

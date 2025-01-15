@@ -17,7 +17,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -34,8 +33,6 @@ import (
 )
 
 type lbTestScenario struct {
-	t *testing.T
-
 	testName     string
 	k8sNamespace string
 
@@ -60,9 +57,8 @@ type tlsCertificate struct {
 	keyBase64  string
 }
 
-func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
+func newLBTestScenario(testName string, k8sNamespace string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
 	return &lbTestScenario{
-		t:                   t,
 		testName:            testName,
 		k8sNamespace:        k8sNamespace,
 		ciliumCli:           ciliumCli,
@@ -80,11 +76,11 @@ func newLBTestScenario(t *testing.T, testName string, k8sNamespace string, ciliu
 func (r *lbTestScenario) waitForFullVIPConnectivity(ctx context.Context, vipName string) string {
 	ip, err := r.ciliumCli.WaitForLBVIP(ctx, r.k8sNamespace, vipName)
 	if err != nil {
-		r.t.Fatalf("failed to wait for VIP (%s): %s", vipName, err)
+		fatalf("failed to wait for VIP (%s): %s", vipName, err)
 	}
 
 	for _, c := range r.frrClients {
-		eventually(r.t, func() error {
+		eventually(func() error {
 			return c.EnsureRoute(ctx, ip+"/32")
 		}, longTimeout, pollInterval)
 	}
@@ -106,14 +102,13 @@ func (r *lbTestScenario) addCoreDNS(ctx context.Context) *coreDNSContainer {
 	}
 
 	// Override the default port to avoid colliding with the rest of the system
-	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
+	id, ip, err := r.dockerCli.createContainer(ctx, name, FlagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
 	if err != nil {
-		r.t.Fatalf("cannot create CoreDNS container: %s", err)
+		fatalf("cannot create CoreDNS container: %s", err)
 	}
 
 	container := &coreDNSContainer{
 		dockerContainer: dockerContainer{
-			t:         r.t,
 			id:        id,
 			ip:        ip,
 			port:      10053,
@@ -125,7 +120,7 @@ func (r *lbTestScenario) addCoreDNS(ctx context.Context) *coreDNSContainer {
 
 	r.coreDNSContainer = container
 
-	maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+	MaybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) })
 
 	return container
 }
@@ -137,14 +132,13 @@ func (r *lbTestScenario) addNginx(ctx context.Context) *nginxContainer {
 
 	name := fmt.Sprintf("%s-nginx", r.testName)
 
-	id, ip, err := r.dockerCli.createContainer(ctx, name, *flagNginxImage, nil, containerNetwork, false, nil, nil)
+	id, ip, err := r.dockerCli.createContainer(ctx, name, FlagNginxImage, nil, containerNetwork, false, nil, nil)
 	if err != nil {
-		r.t.Fatalf("cannot create Nginx container: %s", err)
+		fatalf("cannot create Nginx container: %s", err)
 	}
 
 	container := &nginxContainer{
 		dockerContainer: dockerContainer{
-			t:         r.t,
 			id:        id,
 			ip:        ip,
 			port:      18080,
@@ -154,7 +148,7 @@ func (r *lbTestScenario) addNginx(ctx context.Context) *nginxContainer {
 
 	r.nginxContainer = container
 
-	maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+	MaybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) })
 
 	return container
 }
@@ -171,14 +165,13 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(ctx, appName, *flagAppImage, envVars, containerNetwork, false, nil, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, appName, FlagAppImage, envVars, containerNetwork, false, nil, nil)
 		if err != nil {
-			r.t.Fatalf("cannot create app container (%s): %s", appName, err)
+			fatalf("cannot create app container (%s): %s", appName, err)
 		}
 
 		container := &hcAppContainer{
 			dockerContainer: dockerContainer{
-				t:         r.t,
 				id:        id,
 				ip:        ip,
 				port:      config.listenPort,
@@ -191,13 +184,13 @@ func (r *lbTestScenario) addBackendApplications(ctx context.Context, numberOfBac
 
 		containers = append(containers, container)
 
-		if isSingleNode() {
+		if IsSingleNode() {
 			// On the single node all containers are deployed in the host
 			// netns. To avoid port collisions, we keep +1 for each instance.
 			config.listenPort++
 		}
 
-		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+		MaybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) })
 	}
 
 	return containers
@@ -216,7 +209,7 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 	if len(config.tlsCertHostname) > 0 {
 		cert, ok := r.backendCertificates[config.tlsCertHostname]
 		if !ok {
-			r.t.Fatalf("backend certificate with hostname %q not found", config.tlsCertHostname)
+			fatalf("backend certificate with hostname %q not found", config.tlsCertHostname)
 		}
 
 		env = append(env, "TLS_ENABLED=true")
@@ -244,17 +237,16 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
 		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
 		env := []string{
-			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
+			"NEIGHBORS=" + getBGPNeighborString(r.k8sCli),
 		}
 
-		id, ip, err := r.dockerCli.createContainer(ctx, clientName, *flagClientImage, env, containerNetwork, true, nil, nil)
+		id, ip, err := r.dockerCli.createContainer(ctx, clientName, FlagClientImage, env, containerNetwork, true, nil, nil)
 		if err != nil {
-			r.t.Fatalf("cannot create frr client container (%s): %s", clientName, err)
+			fatalf("cannot create frr client container (%s): %s", clientName, err)
 		}
 
 		container := &frrContainer{
 			dockerContainer: dockerContainer{
-				t:         r.t,
 				id:        id,
 				ip:        ip,
 				dockerCli: r.dockerCli,
@@ -265,37 +257,37 @@ func (r *lbTestScenario) addFRRClients(ctx context.Context, numberOfClients int,
 
 		containers = append(containers, container)
 
-		maybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) }, r.t)
+		MaybeCleanupT(func() error { return r.dockerCli.deleteContainer(context.Background(), id) })
 
 		for _, h := range config.trustedCertsHostnames {
 			sc, serverCertFound := r.serverCertificates[h]
 			if !serverCertFound {
 				bc, backendCertFound := r.backendCertificates[h]
 				if !backendCertFound {
-					r.t.Fatalf("certificate for hostname %q doesn't exist", h)
+					fatalf("certificate for hostname %q doesn't exist", h)
 				}
 				sc = bc
 			}
 
 			if err := container.Copy(ctx, sc.cert, h+".crt", "/tmp"); err != nil {
-				r.t.Fatalf("failed to copy cert to client container: %s", err)
+				fatalf("failed to copy cert to client container: %s", err)
 			}
 		}
 
 		for hostName, cert := range r.clientCertificates {
 			if err := container.Copy(ctx, cert.cert, hostName+".crt", "/tmp"); err != nil {
-				r.t.Fatalf("failed to copy cert to client container: %s", err)
+				fatalf("failed to copy cert to client container: %s", err)
 			}
 			if err := container.Copy(ctx, cert.key, hostName+".key", "/tmp"); err != nil {
-				r.t.Fatalf("failed to copy key to client container: %s", err)
+				fatalf("failed to copy key to client container: %s", err)
 			}
 		}
 
 		// Make BGP peering with T1 nodes
 		if err := r.doBGPPeeringForClient(ctx, clientName, ip); err != nil {
-			r.t.Fatalf("failed to BGP peer (%s): %s", clientName, err)
+			fatalf("failed to BGP peer (%s): %s", clientName, err)
 		}
-		maybeCleanupT(func() error { return r.undoBGPPeeringForClient(context.Background(), ip) }, r.t)
+		MaybeCleanupT(func() error { return r.undoBGPPeeringForClient(context.Background(), ip) })
 	}
 
 	return containers
@@ -331,12 +323,12 @@ func (r *lbTestScenario) createBGPPeerConfig(ctx context.Context) {
 	}
 	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create Peer config (%s): %s", obj.Name, err)
+			fatalf("failed to create Peer config (%s): %s", obj.Name, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, obj.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 func (r *lbTestScenario) createBFDProfile(ctx context.Context) {
@@ -352,12 +344,12 @@ func (r *lbTestScenario) createBFDProfile(ctx context.Context) {
 	}
 	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create BFD profile (%s): %s", obj.Name, err)
+			fatalf("failed to create BFD profile (%s): %s", obj.Name, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(context.Background(), obj.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName string) {
@@ -394,12 +386,12 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 	}
 	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create BGP advertisement (%s): %s", obj.Name, err)
+			fatalf("failed to create BGP advertisement (%s): %s", obj.Name, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, obj.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 // Fixed interval with jitter. Jittered, but fixed (non-exponential) interval
@@ -477,12 +469,12 @@ type frrClientConfig struct {
 func (r *lbTestScenario) createLBVIP(ctx context.Context, vip *isovalentv1alpha1.LBVIP) {
 	if err := r.ciliumCli.CreateLBVIP(ctx, r.k8sNamespace, vip, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("cannot create LB VIP (%s): %s", r.testName, err)
+			fatalf("cannot create LB VIP (%s): %s", r.testName, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.DeleteLBVIP(ctx, vip.Namespace, vip.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 
 	// Create BGPAdvertisement corresponding to the VIP
 	r.createBGPAdvertisement(ctx, vip.Name)
@@ -491,23 +483,23 @@ func (r *lbTestScenario) createLBVIP(ctx context.Context, vip *isovalentv1alpha1
 func (r *lbTestScenario) createLBBackendPool(ctx context.Context, bp *isovalentv1alpha1.LBBackendPool) {
 	if err := r.ciliumCli.CreateLBBackendPool(ctx, r.k8sNamespace, bp, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("cannot create LB BackendPool (%s): %s", r.testName, err)
+			fatalf("cannot create LB BackendPool (%s): %s", r.testName, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.DeleteLBBackendPool(ctx, bp.Namespace, bp.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 func (r *lbTestScenario) createLBService(ctx context.Context, svc *isovalentv1alpha1.LBService) {
 	if err := r.ciliumCli.CreateLBService(ctx, r.k8sNamespace, svc, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("cannot create LB Service (%s): %s", r.testName, err)
+			fatalf("cannot create LB Service (%s): %s", r.testName, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.ciliumCli.DeleteLBService(ctx, svc.Namespace, svc.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 // createLBServerCertificate creates a server certificate that can be used to terminate TLS traffic on the Loadbalancer.
@@ -518,13 +510,13 @@ func (r *lbTestScenario) createLBService(ctx context.Context, svc *isovalentv1al
 func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, secretName string, hostName string) {
 	key, cert, err := genSelfSignedX509(hostName)
 	if err != nil {
-		r.t.Fatalf("failed to gen x509: %s", err)
+		fatalf("failed to gen x509: %s", err)
 	}
 
 	sec := tlsSecret(r.k8sNamespace, secretName, key.Bytes(), cert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create secret (%s): %s", secretName, err)
+			fatalf("failed to create secret (%s): %s", secretName, err)
 		}
 	}
 
@@ -537,9 +529,9 @@ func (r *lbTestScenario) createLBServerCertificate(ctx context.Context, secretNa
 		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
 	}
 
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, secretName, metav1.DeleteOptions{})
-	}, r.t)
+	})
 }
 
 // createLBClientCertificate creates a client certificate that can be used to authenticate clients to the Loadbalancer.
@@ -551,55 +543,55 @@ func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, caName, 
 	// Generate CA cert and key
 	caPriv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		r.t.Fatalf("failed to generate CA priv key: %s", err)
+		fatalf("failed to generate CA priv key: %s", err)
 	}
 
 	caTemplate, err := genTemplate(caName, x509.KeyUsageDigitalSignature|x509.KeyUsageCRLSign|x509.KeyUsageCertSign, nil)
 	if err != nil {
-		r.t.Fatalf("failed to gen CA template: %s", err)
+		fatalf("failed to gen CA template: %s", err)
 	}
 
 	caCertDERBytes, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
 	if err != nil {
-		r.t.Fatalf("failed to create CA cert: %s", err)
+		fatalf("failed to create CA cert: %s", err)
 	}
 
 	_, caCert, err := encodePEM(caCertDERBytes, caPriv)
 	if err != nil {
-		r.t.Fatalf("failed to encode CA PEM: %s", err)
+		fatalf("failed to encode CA PEM: %s", err)
 	}
 
 	caSec := caSecret(r.k8sNamespace, r.testName+"-client-ca", caCert.Bytes())
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, caSec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create CA secret (%s): %s", r.testName, err)
+			fatalf("failed to create CA secret (%s): %s", r.testName, err)
 		}
 	}
 
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, caSec.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 
 	clientPriv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		r.t.Fatalf("failed to generate priv key: %s", err)
+		fatalf("failed to generate priv key: %s", err)
 	}
 
 	// Generate client cert and key signed with CA cert
 	clientTemplate, err := genTemplate(hostName, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
 		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
 	if err != nil {
-		r.t.Fatalf("failed to gen client template: %s", err)
+		fatalf("failed to gen client template: %s", err)
 	}
 
 	clientCertDERBytes, err := x509.CreateCertificate(rand.Reader, clientTemplate, caTemplate, &clientPriv.PublicKey, caPriv)
 	if err != nil {
-		r.t.Fatalf("failed to create client cert: %s", err)
+		fatalf("failed to create client cert: %s", err)
 	}
 
 	clientKey, clientCert, err := encodePEM(clientCertDERBytes, clientPriv)
 	if err != nil {
-		r.t.Fatalf("failed to encode client PEM: %s", err)
+		fatalf("failed to encode client PEM: %s", err)
 	}
 
 	// Store client certificates for later use
@@ -620,7 +612,7 @@ func (r *lbTestScenario) createLBClientCertificate(ctx context.Context, caName, 
 func (r *lbTestScenario) createBackendServerCertificate(_ context.Context, hostName string) {
 	key, cert, err := genSelfSignedX509(hostName)
 	if err != nil {
-		r.t.Fatalf("failed to gen x509: %s", err)
+		fatalf("failed to gen x509: %s", err)
 	}
 
 	certBytes := cert.Bytes()
@@ -652,12 +644,12 @@ func (r *lbTestScenario) createBasicAuthSecret(ctx context.Context, creds []basi
 
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, &sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+			fatalf("failed to create secret (%s): %s", r.testName, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 
 	return sec.Name
 }
@@ -674,12 +666,12 @@ func (r *lbTestScenario) createJWKSSecret(ctx context.Context, providerName stri
 
 	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(ctx, &sec, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Fatalf("failed to create secret (%s): %s", r.testName, err)
+			fatalf("failed to create secret (%s): %s", r.testName, err)
 		}
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
-	}, r.t)
+	})
 
 	return sec.Name
 }

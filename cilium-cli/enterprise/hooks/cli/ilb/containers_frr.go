@@ -88,7 +88,7 @@ func (c *frrContainer) ipRoutes(ctx context.Context) (sets.Set[netip.Prefix], er
 func (c *frrContainer) EnsureRoute(ctx context.Context, prefix string) error {
 	p := netip.MustParsePrefix(prefix)
 	if !p.Addr().Is4() {
-		c.t.Fatalf("only IPv4 prefix is supported")
+		fatalf("only IPv4 prefix is supported")
 	}
 
 	ribPrefixes, err := c.bgpRoutes(ctx, "ipv4", "unicast")

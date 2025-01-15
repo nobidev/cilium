@@ -21,7 +21,7 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func lbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
+func LbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	return &ciliumv2alpha1.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

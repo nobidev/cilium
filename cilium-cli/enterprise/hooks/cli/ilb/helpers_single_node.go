@@ -12,65 +12,61 @@ package ilb
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"log"
 	"strings"
-	"testing"
 
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-var flagMode = flag.String("mode", "multi-node", "Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace.")
-var flagSingleNodeIPAddr = flag.String("single-node-ip", "", "The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
-
-// TODO (sayboras): Remove these flags once we have feature auto-detection
-var useRemoteAddress = flag.Bool("use-remote-address", false, "Use remote address for client IP in HTTP requests")
-var xffNumTrustedHops = flag.Int("xff-num-trusted-hops", 2, "Number of trusted hops in X-Forwarded-For header")
-
-func isSingleNode() bool {
-	return *flagMode == "single-node"
+func IsSingleNode() bool {
+	return FlagMode == "single-node"
 }
 
 func useRemoteAddressEnabled() bool {
-	return *useRemoteAddress
+	return FlagUseRemoteAddress
 }
 
 func useRemoteAddressDisabled() bool {
-	return !*useRemoteAddress
+	return !FlagUseRemoteAddress
 }
 
 func xffNumTrustedHopsEnabled() bool {
-	return *xffNumTrustedHops > 0
+	return FlagXffNumTrustedHops > 0
 }
 
 func xffNumTrustedHopsDisabled() bool {
-	return *xffNumTrustedHops <= 0
+	return FlagXffNumTrustedHops <= 0
 }
 
 func getSingleNodeIPAddr() string {
-	return *flagSingleNodeIPAddr
+	return FlagSingleNodeIPAddr
 }
 
-func skipIfOnSingleNode(t *testing.T, msg string) {
-	if isSingleNode() {
-		t.Skipf("skipping due to single-mode: %s", msg)
+func skipIfOnSingleNode(msg string) bool {
+	if IsSingleNode() {
+		fmt.Printf("skipping due to single-mode: %s\n", msg)
+		return true
 	}
+
+	return false
 }
 
-func skipIfNotUseRemoteAddress(t *testing.T, msg string) {
+func skipIfNotUseRemoteAddress(msg string) bool {
 	if useRemoteAddressDisabled() {
-		t.Skipf("skipping due to not using remote address: %s", msg)
+		fmt.Printf("skipping due to not using remote address: %s\n", msg)
+		return true
 	}
+
+	return false
 }
 
-func setupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
-	if *flagSingleNodeIPAddr != "" {
+func SetupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
+	if FlagSingleNodeIPAddr != "" {
 		return nil
 	}
 
-	if err := dockerCli.ensureImage(context.Background(), *flagUtilsImage); err != nil {
-		return fmt.Errorf("failed to ensure %s image: %w", *flagUtilsImage, err)
+	if err := dockerCli.EnsureImage(context.Background(), FlagUtilsImage); err != nil {
+		return fmt.Errorf("failed to ensure %s image: %w", FlagUtilsImage, err)
 	}
 
 	ips, err := getT1NodeIPs(k8sCli)
@@ -82,7 +78,7 @@ func setupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
 		return fmt.Errorf("failed to derive single-node IP addr (you can set -single-node-ip): %w", err)
 	}
 
-	log.Printf("Derived single-node IP addr: %s", getSingleNodeIPAddr())
+	fmt.Printf("Derived single-node IP addr: %s\n", getSingleNodeIPAddr())
 
 	return nil
 }
@@ -91,7 +87,7 @@ func deriveSingleNodeIP(dockerCli *dockerCli, t1NodeIPAddr string) error {
 	name := "single-node-ip"
 
 	// It will run in the single-node's host netns
-	_, _, err := dockerCli.createContainer(context.Background(), name, *flagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
+	_, _, err := dockerCli.createContainer(context.Background(), name, FlagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start %s: %w", name, err)
 	}
@@ -106,7 +102,7 @@ func deriveSingleNodeIP(dockerCli *dockerCli, t1NodeIPAddr string) error {
 		return fmt.Errorf("failed to get route to %s: %w", t1NodeIPAddr, err)
 	}
 
-	*flagSingleNodeIPAddr = ip
+	FlagSingleNodeIPAddr = ip
 
 	return nil
 }

@@ -50,10 +50,10 @@ func getT1NodeIPs(k8sCli *k8s.Clientset) ([]string, error) {
 	return ips, nil
 }
 
-func getBGPNeighborString(f fataler, k8sCli *k8s.Clientset) string {
+func getBGPNeighborString(k8sCli *k8s.Clientset) string {
 	t1NodeIPs, err := getT1NodeIPs(k8sCli)
 	if err != nil {
-		f.Fatalf("failed to get T1 node ips: %s", err)
+		fatalf("failed to get T1 node ips: %s", err)
 	}
 
 	return strings.Join(t1NodeIPs, ";")

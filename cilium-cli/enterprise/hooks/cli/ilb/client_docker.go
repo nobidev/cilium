@@ -31,10 +31,10 @@ type dockerCli struct {
 	*docker_client.Client
 }
 
-func newDockerCli(f fataler) *dockerCli {
+func NewDockerCli() *dockerCli {
 	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
 	if err != nil {
-		f.Fatalf("failed to open Docker client: %s", err)
+		fatalf("failed to open Docker client: %s", err)
 	}
 
 	return &dockerCli{cli}
@@ -107,7 +107,7 @@ func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {
 	return false, nil
 }
 
-func (c *dockerCli) ensureImage(ctx context.Context, img string) error {
+func (c *dockerCli) EnsureImage(ctx context.Context, img string) error {
 	if exists, err := c.imageExists(ctx, img); err != nil || exists {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		},
 	}
 
-	if isSingleNode() {
+	if IsSingleNode() {
 		// When --mode=single-node, we deploy all containers (client and LB backend)
 		// on the same node. Because T1/T2 LB nodes are unware of IP addrs of
 		// the containers, we deploy them in the host network namespace.
@@ -174,7 +174,7 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 	// In the single node mode, the container runs in the host netns. Hence, it's IP
 	// addr is of the host.
 	containerIP := getSingleNodeIPAddr()
-	if !isSingleNode() {
+	if !IsSingleNode() {
 		containerIP, err = c.GetContainerIP(ctx, resp.ID)
 		if err != nil {
 			return "", "", err

@@ -33,7 +33,7 @@ type ciliumCli struct {
 	*cilium_clientset.Clientset
 }
 
-func newCiliumAndK8sCli(f fataler) (*ciliumCli, *k8s.Clientset) {
+func NewCiliumAndK8sCli() (*ciliumCli, *k8s.Clientset) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
 	// use KUBECONFIG env var if set
@@ -44,17 +44,17 @@ func newCiliumAndK8sCli(f fataler) (*ciliumCli, *k8s.Clientset) {
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
-		f.Fatalf("failed to read kube config: %s", err)
+		fatalf("failed to read kube config: %s", err)
 	}
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
-		f.Fatalf("unable to create k8s REST client: %s", err)
+		fatalf("unable to create k8s REST client: %s", err)
 	}
 
 	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
-		f.Fatalf("unable to create cilium k8s client: %s", err)
+		fatalf("unable to create cilium k8s client: %s", err)
 	}
 
 	k8s := k8s.NewForConfigOrDie(restConfig)
@@ -135,7 +135,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 	}
 }
 
-func (c *ciliumCli) ensureBGPClusterConfig(ctx context.Context) error {
+func (c *ciliumCli) EnsureBGPClusterConfig(ctx context.Context) error {
 	cc := bgpClusterConfig(globalBGPClusterConfigName)
 	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Create(ctx, cc, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
@@ -145,14 +145,14 @@ func (c *ciliumCli) ensureBGPClusterConfig(ctx context.Context) error {
 	return nil
 }
 
-func (c *ciliumCli) deleteBGPClusterConfig(ctx context.Context) error {
+func (c *ciliumCli) DeleteBGPClusterConfig(ctx context.Context) error {
 	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, globalBGPClusterConfigName, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 	return nil
 }
 
-func (c *ciliumCli) ensureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
+func (c *ciliumCli) EnsureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
 	if err := c.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
 			return err

@@ -39,7 +39,7 @@ func TestUDPProxy(t *testing.T) {
 
 			backendNum := 2
 			// UDPProxy does not support backends with different ports, so create just 1 backend.
-			if isSingleNode() {
+			if IsSingleNode() {
 				backendNum = 1
 			}
 			scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})

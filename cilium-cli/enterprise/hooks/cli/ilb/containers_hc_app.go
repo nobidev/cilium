@@ -50,7 +50,7 @@ func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
 		),
 	)
 	if err != nil {
-		c.t.Fatalf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
+		fatalf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
 			string(hc), stdout, stderr, err)
 	}
 
@@ -59,6 +59,6 @@ func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
 		state = "true"
 	}
 	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
-		c.t.Fatalf("expected different output, got %q", stdout)
+		fatalf("expected different output, got %q", stdout)
 	}
 }

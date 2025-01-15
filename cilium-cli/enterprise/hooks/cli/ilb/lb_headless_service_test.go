@@ -97,7 +97,7 @@ func backendDeployment(t *testing.T, name string, replicas int32, config backend
 					Containers: []corev1.Container{
 						{
 							Name:  "healthcheck",
-							Image: *flagAppImage,
+							Image: FlagAppImage,
 							Env:   envs,
 						},
 					},
@@ -143,7 +143,7 @@ func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, n
 	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return k8sCli.AppsV1().Deployments(namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{})
 	}, t)
 
@@ -151,7 +151,7 @@ func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, n
 	if _, err := k8sCli.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create service (%s): %s", service.Name, err)
 	}
-	maybeCleanupT(func() error {
+	MaybeCleanupT(func() error {
 		return k8sCli.CoreV1().Services(namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
 	}, t)
 

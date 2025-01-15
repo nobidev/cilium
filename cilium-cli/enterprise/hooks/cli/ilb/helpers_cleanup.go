@@ -11,16 +11,14 @@
 package ilb
 
 import (
-	"flag"
 	"fmt"
-	"testing"
 )
 
-var cleanup = flag.Bool("cleanup", true, "Cleanup created resources after each test case run")
+var cleanupCb = []func(){}
 
-func maybeCleanupT(f func() error, t *testing.T) {
-	if *cleanup {
-		t.Cleanup(func() {
+func MaybeCleanupT(f func() error) {
+	if FlagCleanup {
+		cleanupCb = append(cleanupCb, func() {
 			if err := f(); err != nil {
 				fmt.Printf("cleanup failed %s\n", err)
 			}
@@ -28,10 +26,16 @@ func maybeCleanupT(f func() error, t *testing.T) {
 	}
 }
 
-func maybeCleanup(f func() error) {
-	if *cleanup {
+func MaybeCleanup(f func() error) {
+	if FlagCleanup {
 		if err := f(); err != nil {
 			fmt.Printf("cleanup failed: %s\n", err)
 		}
+	}
+}
+
+func RunCleanups() {
+	for _, f := range cleanupCb {
+		f()
 	}
 }

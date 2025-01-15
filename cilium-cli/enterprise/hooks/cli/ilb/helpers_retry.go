@@ -11,16 +11,13 @@
 package ilb
 
 import (
-	"testing"
 	"time"
 )
 
 // eventually is a helper function that retries a function for given duration
 // per tick until it returns nil. If the function doesn't return nil after the
 // duration, it calls t.Fatalf against the given t. Otherwise, it returns.
-func eventually(t *testing.T, condition func() error, duration time.Duration, waitFor time.Duration) {
-	t.Helper()
-
+func eventually(condition func() error, duration time.Duration, waitFor time.Duration) {
 	ticker := time.NewTicker(waitFor)
 	defer ticker.Stop()
 
@@ -38,7 +35,7 @@ func eventually(t *testing.T, condition func() error, duration time.Duration, wa
 				resultCh <- condition()
 			}()
 		case <-timeout:
-			t.Fatalf("timeout reached after %s, last error: %v", duration, lastErr)
+			fatalf("timeout reached after %s, last error: %v", duration, lastErr)
 		case e := <-resultCh:
 			if e == nil {
 				return

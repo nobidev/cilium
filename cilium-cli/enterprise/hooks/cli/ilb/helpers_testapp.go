@@ -12,8 +12,8 @@ package ilb
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
-	"testing"
 )
 
 type testAppResponseData struct {
@@ -28,11 +28,11 @@ type testAppResponseData struct {
 	XFF          string `json:"x_forwarded_for"`
 }
 
-func toTestAppResponse(t *testing.T, response string) testAppResponseData {
+func toTestAppResponse(response string) testAppResponseData {
 	resp := testAppResponseData{}
 
 	if err := json.Unmarshal([]byte(response), &resp); err != nil {
-		t.Fatalf("parsing test app response failed (stdout: %q): %s", response, err)
+		fatalf("parsing test app response failed (stdout: %q): %s", response, err)
 	}
 
 	return resp
@@ -45,11 +45,11 @@ type testAppUDPResponseData struct {
 }
 
 // <service-name>:<instance-name>:<echo>
-func toTestAppUDPResponse(t *testing.T, response string) testAppUDPResponseData {
+func toTestAppUDPResponse(response string) testAppUDPResponseData {
 	s := strings.SplitN(response, ":", 3)
 
 	if len(s) != 3 {
-		t.Logf("failed to parse udp response: %q", response)
+		fmt.Printf("failed to parse udp response: %q\n", response)
 		return testAppUDPResponseData{}
 	}
 
