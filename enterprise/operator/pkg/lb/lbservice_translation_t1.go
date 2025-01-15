@@ -84,9 +84,11 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// T1-only connectionfiltering
 	var lbSourceRanges []string = nil
 
-	if model.isTCPProxyT1OnlyMode() {
-		annotations[ossannotation.ServiceSourceRangesPolicy] = r.getServiceLoadBalancingT1OnlySourceRangesPolicy(model)
-		lbSourceRanges = r.getServiceLoadBalancingT1OnlySourceRanges(model)
+	if model.isTCPProxyT1OnlyMode() || model.isUDPProxy() /* t1 & t1&t2 for UDP !! */ {
+		lbSourceRanges = r.getServiceLoadBalancingT1SourceRanges(model)
+		if len(lbSourceRanges) > 0 {
+			annotations[ossannotation.ServiceSourceRangesPolicy] = r.getServiceLoadBalancingT1SourceRangesPolicy(model)
+		}
 	}
 
 	return &corev1.Service{
@@ -288,34 +290,66 @@ func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbServic
 	return "maglev"
 }
 
-func (r *lbServiceT1Translator) getServiceLoadBalancingT1OnlySourceRanges(model *lbService) []string {
-	for _, tr := range model.applications.tcpProxy.routes {
-		if tr.connectionFiltering != nil {
-			lbSourceRanges := []string{}
-			for _, cfr := range tr.connectionFiltering.rules {
-				if cfr.sourceCIDR != nil {
-					lbSourceRanges = append(lbSourceRanges, fmt.Sprintf("%s/%d", cfr.sourceCIDR.addressPrefix, cfr.sourceCIDR.prefixLen))
+func (r *lbServiceT1Translator) getServiceLoadBalancingT1SourceRanges(model *lbService) []string {
+	switch {
+	case model.isTCPProxy():
+		for _, tr := range model.applications.tcpProxy.routes {
+			if tr.connectionFiltering != nil {
+				lbSourceRanges := []string{}
+				for _, cfr := range tr.connectionFiltering.rules {
+					if cfr.sourceCIDR != nil {
+						lbSourceRanges = append(lbSourceRanges, fmt.Sprintf("%s/%d", cfr.sourceCIDR.addressPrefix, cfr.sourceCIDR.prefixLen))
+					}
 				}
-			}
 
-			// Only one TCPProxy route allowed for the time being
-			return lbSourceRanges
+				// Only one TCPProxy route allowed for the time being
+				return lbSourceRanges
+			}
+		}
+	case model.isUDPProxy():
+		for _, tr := range model.applications.udpProxy.routes {
+			if tr.connectionFiltering != nil {
+				lbSourceRanges := []string{}
+				for _, cfr := range tr.connectionFiltering.rules {
+					if cfr.sourceCIDR != nil {
+						lbSourceRanges = append(lbSourceRanges, fmt.Sprintf("%s/%d", cfr.sourceCIDR.addressPrefix, cfr.sourceCIDR.prefixLen))
+					}
+				}
+
+				// Only one UDPProxy route allowed for the time being
+				return lbSourceRanges
+			}
 		}
 	}
 
 	return nil
 }
 
-func (r *lbServiceT1Translator) getServiceLoadBalancingT1OnlySourceRangesPolicy(model *lbService) string {
-	for _, tr := range model.applications.tcpProxy.routes {
-		if tr.connectionFiltering != nil {
-			policy := "allow"
-			if tr.connectionFiltering.ruleType == ruleTypeDeny {
-				policy = "deny"
-			}
+func (r *lbServiceT1Translator) getServiceLoadBalancingT1SourceRangesPolicy(model *lbService) string {
+	switch {
+	case model.isTCPProxy():
+		for _, tr := range model.applications.tcpProxy.routes {
+			if tr.connectionFiltering != nil {
+				policy := "allow"
+				if tr.connectionFiltering.ruleType == ruleTypeDeny {
+					policy = "deny"
+				}
 
-			// Only one TCPProxy route allowed for the time being
-			return policy
+				// Only one TCPProxy route allowed for the time being
+				return policy
+			}
+		}
+	case model.isUDPProxy():
+		for _, tr := range model.applications.udpProxy.routes {
+			if tr.connectionFiltering != nil {
+				policy := "allow"
+				if tr.connectionFiltering.ruleType == ruleTypeDeny {
+					policy = "deny"
+				}
+
+				// Only one UDPProxy route allowed for the time being
+				return policy
+			}
 		}
 	}
 

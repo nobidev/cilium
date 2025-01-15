@@ -461,7 +461,17 @@ type lbRouteTCPConnectionFilteringRule struct {
 }
 
 type lbRouteUDPProxy struct {
-	backendRef backendRef
+	backendRef          backendRef
+	connectionFiltering *lbRouteUDPConnectionFiltering
+}
+
+type lbRouteUDPConnectionFiltering struct {
+	ruleType ruleTypeType
+	rules    []lbRouteUDPConnectionFilteringRule
+}
+
+type lbRouteUDPConnectionFilteringRule struct {
+	sourceCIDR *lbRouteRequestFilteringSourceCIDR
 }
 
 type lbServiceHTTPAuth struct {
