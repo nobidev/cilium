@@ -153,6 +153,8 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					"hubble-timescape-migrate-config",
 					"hubble-timescape-rbac-policy",
 					"hubble-timescape-server-config",
+					"hubble-timescape-config",
+					"hubble-timescape-clickhouse-settings",
 				}
 
 				for _, ns := range namespaces {
@@ -195,6 +197,14 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					}
 					pods.Items = append(pods.Items, p.Items...)
 				}
+				// Collect integrated Timescape logs in cilium namespace
+				p, err := collector.Client.ListPods(ctx, collector.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: opts.HubbleIntegratedTimescapeSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from 'integrated-hubble-timescape' pods")
+				}
+				pods.Items = append(pods.Items, p.Items...)
 				if err = collector.SubmitLogsTasks(sysdump.FilterPods(pods, collector.NodeList),
 					collector.Options.LogsSinceTime, collector.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'hubble-timescape' pods")
@@ -231,6 +241,28 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					opts.HubbleTimescapeBugtoolFlags,
 				); err != nil {
 					return fmt.Errorf("error collecting bugtool output from 'hubble-timescape' pods: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting bugtool output from 'integrated-hubble-timescape' pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				pods, err := collector.Client.ListPods(ctx, collector.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: opts.HubbleIntegratedTimescapeSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get bugtool info from 'integrated-hubble-timescape' pods")
+				}
+				if err = enterpriseSysdump.SubmitTimescapeBugtoolTasks(
+					collector,
+					sysdump.FilterPods(pods, collector.NodeList),
+					"hubble-integrated-timescape-bugtool",
+					opts.HubbleIntegratedTimescapeBugtoolFlags,
+				); err != nil {
+					return fmt.Errorf("error collecting bugtool output from 'integrated-hubble-timescape' pods: %w", err)
 				}
 				return nil
 			},

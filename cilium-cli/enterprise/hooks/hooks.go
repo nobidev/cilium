@@ -44,6 +44,9 @@ type EnterpriseOptions struct {
 	HubbleTimescapeNamespace    string
 	HubbleTimescapeBugtoolFlags []string
 
+	HubbleIntegratedTimescapeSelector     string
+	HubbleIntegratedTimescapeBugtoolFlags []string
+
 	HubbleEnterpriseReleaseName string
 	HubbleEnterpriseNamespace   string
 
@@ -53,14 +56,15 @@ type EnterpriseOptions struct {
 func NewEnterpriseHook() *EnterpriseHooks {
 	return &EnterpriseHooks{
 		Opts: &EnterpriseOptions{
-			HubbleTimescapeSelector:     "app.kubernetes.io/part-of=hubble-timescape",
-			HubbleTimescapeReleaseName:  "hubble-timescape",
-			HubbleTimescapeNamespace:    "hubble-timescape",
-			HubbleUINamespace:           "hubble-ui",
-			HubbleUIReleaseName:         "hubble-ui",
-			HubbleEnterpriseReleaseName: "hubble-enterprise",
-			HubbleEnterpriseNamespace:   "kube-system",
-			CiliumDnsProxyReleaseName:   "cilium-dnsproxy",
+			HubbleTimescapeSelector:           "app.kubernetes.io/part-of=hubble-timescape",
+			HubbleTimescapeReleaseName:        "hubble-timescape",
+			HubbleTimescapeNamespace:          "hubble-timescape",
+			HubbleIntegratedTimescapeSelector: "k8s-app=hubble-timescape",
+			HubbleUINamespace:                 "hubble-ui",
+			HubbleUIReleaseName:               "hubble-ui",
+			HubbleEnterpriseReleaseName:       "hubble-enterprise",
+			HubbleEnterpriseNamespace:         "kube-system",
+			CiliumDnsProxyReleaseName:         "cilium-dnsproxy",
 		},
 	}
 }
@@ -159,6 +163,12 @@ cilium sysdump --node-list node-a,node-b,node-c`
 				"The labels used to target Hubble Timescape pods")
 			cmd.Flags().StringArrayVar(&eh.Opts.HubbleTimescapeBugtoolFlags,
 				"hubble-timescape-bugtool-flags", nil,
+				"Optional set of flags to pass to hubble timescape bugtool command.")
+			cmd.Flags().StringVar(&eh.Opts.HubbleIntegratedTimescapeSelector,
+				"hubble-integrated-timescape-selector", eh.Opts.HubbleIntegratedTimescapeSelector,
+				"The labels used to target Hubble Timescape pods")
+			cmd.Flags().StringArrayVar(&eh.Opts.HubbleIntegratedTimescapeBugtoolFlags,
+				"hubble-integrated-timescape-bugtool-flags", nil,
 				"Optional set of flags to pass to hubble timescape bugtool command.")
 			cmd.Flags().StringVar(&eh.Opts.CiliumDnsProxyReleaseName,
 				"dns-proxy-release-name", eh.Opts.CiliumDnsProxyReleaseName,

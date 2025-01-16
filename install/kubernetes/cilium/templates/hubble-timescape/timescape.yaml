@@ -2,6 +2,7 @@
 k8s-app: hubble-timescape
 app.kubernetes.io/name: hubble-timescape
 app.kubernetes.io/part-of: cilium
+app.kubernetes.io/component: hubble-timescape
 {{ with .Values.commonLabels }}
 {{- toYaml . }}
 {{- end }}

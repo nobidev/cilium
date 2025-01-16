@@ -58,7 +58,7 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 			if err != nil {
 				submitErrors = append(submitErrors, err)
 			}
-		case "lite":
+		case "lite", "hubble-timescape":
 			err := submitTimescapeBugtoolTaskForContainer(c, p, "timescape", timescapeBugtoolTaskConfig{
 				prefix:            timescapeBugtoolPrefix,
 				extraFlags:        bugtoolFlags,
