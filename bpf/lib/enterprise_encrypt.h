@@ -11,7 +11,7 @@
  * by checking policy entries for both flow directions.
  */
 static __always_inline bool
-flow_needs_encrypt(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port, __u8 proto) {
+encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port, __u8 proto) {
 	struct encryption_policy_entry *entry;
 	struct encryption_policy_key key = {
 		.lpm_key = { ENCRYPTION_POLICY_FULL_PREFIX, {} },
@@ -38,6 +38,119 @@ flow_needs_encrypt(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port,
 	return false;
 }
 
+static __always_inline int
+encrypt_get_l4_info_ipv6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
+			 __u8 *l4_proto, __u32 *l4_off)
+{
+	__u32 ipv6_off;
+
+	*l4_proto = ip6->nexthdr;
+	ipv6_off = ipv6_hdrlen(ctx, l4_proto);
+	if (ipv6_off < 0)
+		return ipv6_off;
+
+	*l4_off = ETH_HLEN + ipv6_off;
+	return 0;
+}
+
+static __always_inline void
+encrypt_get_l4_info_ipv4(struct iphdr *ip4, __u8 *l4_proto, __u32 *l4_off)
+{
+	*l4_proto = ip4->protocol;
+	*l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+}
+
+static __always_inline int
+encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
+				  void *data, void *data_end, __u32 *l4_off, __u8 *l4_proto,
+				  struct remote_endpoint_info __maybe_unused **dst,
+				  struct remote_endpoint_info __maybe_unused **src)
+{
+	struct ipv6hdr __maybe_unused *inner_ip6;
+	struct iphdr __maybe_unused *inner_ip4;
+	__u16 inner_l3_proto;
+	__u32 __maybe_unused inner_l3_off;
+	__u32 __maybe_unused ipv6_off;
+	int ret;
+
+	inner_l3_proto = vxlan_get_inner_proto(data, data_end, *l4_off);
+	switch (inner_l3_proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = vxlan_get_inner_ipv6(data, data_end, *l4_off, &inner_ip6);
+		if (!ret)
+			return DROP_INVALID;
+		if (!inner_ip6)
+			return DROP_INVALID;
+
+		*dst = lookup_ip6_remote_endpoint((union v6addr *)&inner_ip6->daddr, 0);
+		*src = lookup_ip6_remote_endpoint((union v6addr *)&inner_ip6->saddr, 0);
+
+		*l4_proto = inner_ip6->nexthdr;
+		/* calculate offset of inner ip packet */
+		inner_l3_off = *l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+					   sizeof(struct ethhdr);
+
+		/* with the offset of the inner ip packet, calculate length of inner ipv6 header */
+		ipv6_off = ipv6_hdrlen_offset(ctx, l4_proto, inner_l3_off);
+		if (ipv6_off < 0)
+			return ipv6_off;
+
+		*l4_off = inner_l3_off + ipv6_off;
+		break;
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = vxlan_get_inner_ipv4(data, data_end, *l4_off, &inner_ip4);
+		if (!ret)
+			return DROP_INVALID;
+		if (!inner_ip4)
+			return DROP_INVALID;
+
+		*dst = lookup_ip4_remote_endpoint(inner_ip4->daddr, 0);
+		*src = lookup_ip4_remote_endpoint(inner_ip4->saddr, 0);
+
+		*l4_proto = inner_ip4->protocol;
+
+		*l4_off = *l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+					 sizeof(struct ethhdr) + ipv4_hdrlen(inner_ip4);
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		return CTX_ACT_OK;
+	}
+
+	return 1;
+}
+
+static __always_inline bool
+encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
+		       struct remote_endpoint_info *src, struct remote_endpoint_info *dst)
+{
+	struct ipv4_frag_l4ports __maybe_unused ports;
+
+	/* For now encryption policies are only supported with UDP and TCP traffic */
+	switch (l4_proto) {
+	case IPPROTO_UDP:
+	case IPPROTO_TCP:
+		/* load sport + dport into tuple */
+		if (l4_load_ports(ctx, l4_off, &ports.sport) < 0)
+			return false;
+
+		if (src && dst) {
+			if (!encrypt_flow_lookup(src->sec_identity,
+					ports.sport,
+					dst->sec_identity,
+					ports.dport,
+					l4_proto))
+				return false;
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+
 #undef host_wg_encrypt_hook
 static __always_inline int
 host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
@@ -45,17 +158,14 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
 	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
-	struct ipv6hdr __maybe_unused *ip6, *inner_ip6;
-	struct iphdr __maybe_unused *ip4, *inner_ip4;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	bool from_tunnel __maybe_unused = false;
 	__u32 magic __maybe_unused = 0;
 
-	__u8 __maybe_unused l4_proto;
-	__u32 __maybe_unused l4_off = 0, ipv6_off;
-	struct ipv4_frag_l4ports __maybe_unused ports;
-	int __maybe_unused ret = 0;
-	__u16 __maybe_unused inner_l3_proto;
-	__u32 __maybe_unused inner_l3_off;
+	__u8 l4_proto;
+	__u32 l4_off = 0;
+	int ret = 0;
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
@@ -89,14 +199,9 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
-		/* ENABLE_ENCRYPTION_POLICY changes */
-		l4_proto = ip6->nexthdr;
-		ipv6_off = ipv6_hdrlen(ctx, &l4_proto);
-		if (ipv6_off < 0)
-			return ipv6_off;
-
-		l4_off = ETH_HLEN + ipv6_off;
-		/* ENABLE_ENCRYPTION_POLICY changes */
+		ret = encrypt_get_l4_info_ipv6(ctx, ip6, &l4_proto, &l4_off);
+		if (ret < 0)
+			return ret;
 		break;
 #endif
 #ifdef ENABLE_IPV4
@@ -104,10 +209,7 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		/* ENABLE_ENCRYPTION_POLICY changes */
-		l4_proto = ip4->protocol;
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		/* ENABLE_ENCRYPTION_POLICY changes */
+		encrypt_get_l4_info_ipv4(ip4, &l4_proto, &l4_off);
 
 # if defined(HAVE_ENCAP)
 		/* In tunneling mode WG needs to encrypt tunnel traffic,
@@ -117,58 +219,17 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
 		 * IPv4 tunneling.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			/* ENABLE_ENCRYPTION_POLICY changes */
-			inner_l3_proto = vxlan_get_inner_proto(data, data_end, l4_off);
-			switch (inner_l3_proto) {
-#ifdef ENABLE_IPV6
-			case bpf_htons(ETH_P_IPV6):
-				ret = vxlan_get_inner_ipv6(data, data_end, l4_off, &inner_ip6);
-				if (!ret)
-					return DROP_INVALID;
-				if (!inner_ip6)
-					return DROP_INVALID;
+			ret = encrypt_handle_vxlan_inner_packet(ctx, data, data_end, &l4_off,
+								&l4_proto, &dst, &src);
 
-				dst = lookup_ip6_remote_endpoint((union v6addr *)&inner_ip6->daddr, 0);
-				src = lookup_ip6_remote_endpoint((union v6addr *)&inner_ip6->saddr, 0);
-
-				l4_proto = inner_ip6->nexthdr;
-				/* calculate offset of inner ip packet */
-				inner_l3_off = l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
-					       sizeof(struct ethhdr);
-
-				/* with the offset of the inner ip packet, calculate length of inner ipv6 header */
-				ipv6_off = ipv6_hdrlen_offset(ctx, &l4_proto, inner_l3_off);
-				if (ipv6_off < 0)
-					return ipv6_off;
-
-				l4_off = inner_l3_off + ipv6_off;
-				break;
-#endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
-			case bpf_htons(ETH_P_IP):
-				ret = vxlan_get_inner_ipv4(data, data_end, l4_off, &inner_ip4);
-				if (!ret)
-					return DROP_INVALID;
-				if (!inner_ip4)
-					return DROP_INVALID;
-
-				dst = lookup_ip4_remote_endpoint(inner_ip4->daddr, 0);
-				src = lookup_ip4_remote_endpoint(inner_ip4->saddr, 0);
-
-				l4_proto = inner_ip4->protocol;
-
-				l4_off = l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
-					 sizeof(struct ethhdr) + ipv4_hdrlen(inner_ip4);
-				break;
-#endif /* ENABLE_IPV4 */
-			default:
+			if (ret < 0)
+				return ret;
+			if (ret == CTX_ACT_OK)
 				goto out;
-			}
+
 			goto maybe_encrypt;
 		}
-		/* ENABLE_ENCRYPTION_POLICY changes */
 # endif /* HAVE_ENCAP */
-
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		break;
@@ -221,28 +282,9 @@ maybe_encrypt: __maybe_unused
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
-	/* ENABLE_ENCRYPTION_POLICY changes */
-	/* For now encryption policies are only supported with UDP and TCP traffic */
-	switch (l4_proto) {
-	case IPPROTO_UDP:
-	case IPPROTO_TCP:
-		/* load sport + dport into tuple */
-		if (l4_load_ports(ctx, l4_off, &ports.sport) < 0)
-			return DROP_INVALID;
-
-		if (src && dst) {
-			if (!flow_needs_encrypt(src->sec_identity,
-						ports.sport,
-						dst->sec_identity,
-						ports.dport,
-						l4_proto))
-				goto out;
-		}
-		break;
-	default:
+	if (!encrypt_policy_matches(ctx, l4_proto, l4_off, src, dst))
 		goto out;
-	}
-	/* ENABLE_ENCRYPTION_POLICY changes */
+
 	if (dst && dst->key) {
 		if (src)
 			set_identity_mark(ctx, src->sec_identity, MARK_MAGIC_IDENTITY);
