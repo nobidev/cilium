@@ -57,6 +57,12 @@ spec:
                 description: BGPInstances is a list of BGP instances to override.
                 items:
                   properties:
+                    localASN:
+                      description: LocalASN is the ASN to use for this BGP instance.
+                      format: int64
+                      maximum: 4294967295
+                      minimum: 1
+                      type: integer
                     localPort:
                       description: LocalPort is port to use for this BGP instance.
                       format: int32

@@ -939,6 +939,14 @@ func (in *IsovalentBGPNodeConfigInstanceOverride) DeepEqual(other *IsovalentBGPN
 		}
 	}
 
+	if (in.LocalASN == nil) != (other.LocalASN == nil) {
+		return false
+	} else if in.LocalASN != nil {
+		if *in.LocalASN != *other.LocalASN {
+			return false
+		}
+	}
+
 	if ((in.Peers != nil) && (other.Peers != nil)) || ((in.Peers == nil) != (other.Peers == nil)) {
 		in, other := &in.Peers, &other.Peers
 		if other == nil {

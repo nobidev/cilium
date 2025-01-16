@@ -75,6 +75,13 @@ type IsovalentBGPNodeConfigInstanceOverride struct {
 	// +kubebuilder:validation:Optional
 	SRv6Responder *bool `json:"srv6Responder,omitempty"`
 
+	// LocalASN is the ASN to use for this BGP instance.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4294967295
+	LocalASN *int64 `json:"localASN,omitempty"`
+
 	// Peers is a list of peer configurations to override.
 	//
 	// +kubebuilder:validation:Optional

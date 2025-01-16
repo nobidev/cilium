@@ -418,6 +418,7 @@ func createOSSNodeConfigOverride(entNodeConfigOverride *v1alpha1.IsovalentBGPNod
 			Name:      bgpInstance.Name,
 			RouterID:  bgpInstance.RouterID,
 			LocalPort: bgpInstance.LocalPort,
+			LocalASN:  bgpInstance.LocalASN,
 		}
 
 		for _, peer := range bgpInstance.Peers {

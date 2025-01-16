@@ -1048,6 +1048,11 @@ func (in *IsovalentBGPNodeConfigInstanceOverride) DeepCopyInto(out *IsovalentBGP
 		*out = new(bool)
 		**out = **in
 	}
+	if in.LocalASN != nil {
+		in, out := &in.LocalASN, &out.LocalASN
+		*out = new(int64)
+		**out = **in
+	}
 	if in.Peers != nil {
 		in, out := &in.Peers, &out.Peers
 		*out = make([]IsovalentBGPNodeConfigPeerOverride, len(*in))
