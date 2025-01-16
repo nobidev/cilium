@@ -300,7 +300,6 @@ int encryption_policy_vxlan_v4_tcp_no_match_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(POD2_IPV4, 0, 2001, POD2_TUNNEL_IPV4, 255);
 
 	/* insert encryption policy */
-	printk("Inserting policy: src: %d, dst: %d, port %d\n", 1000, 2000, POD2_L4_PORT);
 	add_encryption_policy_entry(1000, 2000, 6, POD2_L4_PORT, true);
 
 	/* Jump into the entrypoint */
