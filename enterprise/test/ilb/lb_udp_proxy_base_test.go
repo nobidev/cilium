@@ -76,9 +76,13 @@ func TestUDPProxy(t *testing.T) {
 				stdout, stderr, err := client.Exec(ctx, cmd)
 				if err != nil {
 					return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
-				} else if stdout == "deadbeef" {
+				}
+
+				resp := toTestAppUDPResponse(t, stdout)
+				if resp.Response == "deadbeef" {
 					return nil
 				}
+
 				return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q'", cmd, stdout, stderr)
 			}, 10*time.Second, 1*time.Second)
 		})

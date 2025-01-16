@@ -115,7 +115,7 @@ func TestUDPProxyConnectionFiltering(t *testing.T) {
 								return fmt.Errorf("unexpected error %w", err)
 							}
 
-							if !tt.blocked && stdout != "deadbeef" {
+							if !tt.blocked && toTestAppUDPResponse(t, stdout).Response != "deadbeef" {
 								return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 							} else if tt.blocked && stdout != "" {
 								return fmt.Errorf("UDP request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)

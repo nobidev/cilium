@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -35,4 +36,26 @@ func toTestAppResponse(t *testing.T, response string) testAppResponseData {
 	}
 
 	return resp
+}
+
+type testAppUDPResponseData struct {
+	ServiceName  string
+	InstanceName string
+	Response     string
+}
+
+// <service-name>:<instance-name>:<echo>
+func toTestAppUDPResponse(t *testing.T, response string) testAppUDPResponseData {
+	s := strings.SplitN(response, ":", 3)
+
+	if len(s) != 3 {
+		t.Logf("failed to parse udp response: %q", response)
+		return testAppUDPResponseData{}
+	}
+
+	return testAppUDPResponseData{
+		ServiceName:  s[0],
+		InstanceName: s[1],
+		Response:     s[2],
+	}
 }
