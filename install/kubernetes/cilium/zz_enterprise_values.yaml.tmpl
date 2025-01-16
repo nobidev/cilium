@@ -197,6 +197,17 @@ hubble:
         useDigest: false
         pullPolicy: "Always"
       resources: {}
+      podSecurityContext:
+        fsGroup: 0
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        capabilities:
+          drop:
+            - ALL
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:

@@ -146,6 +146,8 @@ spec:
       labels: {{ include "cilium.vector.labels" . | nindent 10 }}
     spec:
       serviceAccountName: cilium-vector
+      securityContext:
+        {{- toYaml .Values.hubble.timescape.vector.podSecurityContext | nindent 10 }}
       dnsPolicy: ClusterFirst
       containers:
         - name: vector
@@ -177,6 +179,8 @@ spec:
               containerPort: 9090
               protocol: TCP
           resources: {{ .Values.hubble.timescape.vector.resources | toYaml | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.hubble.timescape.vector.securityContext | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: "/vector-data-dir"
