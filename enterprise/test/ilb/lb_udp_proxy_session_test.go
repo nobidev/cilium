@@ -15,13 +15,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-var allUdpForceDeploymentModes = []isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto}
-
-func TestUDPProxy(t *testing.T) {
+func TestUDPProxySession(t *testing.T) {
 	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
 		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 		dockerCli := newDockerCli(t)
@@ -29,6 +25,8 @@ func TestUDPProxy(t *testing.T) {
 		testK8sNamespace := "default"
 
 		t.Run("Test UDPProxy force mode "+string(forceDeploymentMode), func(t *testing.T) {
+			skipIfOnSingleNode(t, ">1 backends are not supported")
+
 			ctx := context.Background()
 			testName := "udp-proxy-" + string(forceDeploymentMode)
 
@@ -37,12 +35,7 @@ func TestUDPProxy(t *testing.T) {
 
 			t.Log("Creating backend apps...")
 
-			backendNum := 2
-			// UDPProxy does not support backends with different ports, so create just 1 backend.
-			if isSingleNode() {
-				backendNum = 1
-			}
-			scenario.addBackendApplications(ctx, backendNum, backendApplicationConfig{h2cEnabled: true})
+			scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
 			t.Log("Creating clients and add BGP peering ...")
 			client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
@@ -70,23 +63,38 @@ func TestUDPProxy(t *testing.T) {
 
 			// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
 			// Do a few attempts, as neither UDP nor nc are reliable.
-			eventually(t, func() error {
-				cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
-
-				t.Logf("Sending UDP request: cmd='%q'", cmd)
-
-				stdout, stderr, err := client.Exec(ctx, cmd)
-				if err != nil {
-					return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
-				}
-
-				resp := toTestAppUDPResponse(t, stdout)
-				if resp.Response == "deadbeef" {
-					return nil
-				}
-
-				return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q', resp='%q'", cmd, stdout, stderr, resp.Response)
-			}, 10*time.Second, 1*time.Second)
+			testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 -p 55555 %s 80", vipIP)
+			t.Logf("Testing UDP session with 10 requests from same source port: %q...", testCmd)
+			testUDPSessionWithNRequests(t, ctx, client, testCmd, 10)
 		})
 	}
+}
+
+func testUDPSessionWithNRequests(t *testing.T, ctx context.Context, client *frrContainer, testCmd string, total int) {
+	successCount := 0
+	previousServiceName := ""
+	eventually(t, func() error {
+		stdout, _, err := client.Exec(ctx, testCmd)
+		if err != nil {
+			// we never expect an error (netcat doesn't return error in case of timeout)
+			return fmt.Errorf("unexpected error %w", err)
+		}
+
+		if stdout == "" {
+			// e.g. technical issue - we're only interested in sessions (-> backend  selection)
+			return fmt.Errorf("empty response %w", err)
+		}
+
+		resp := toTestAppUDPResponse(t, stdout)
+
+		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+		previousServiceName = resp.ServiceName
+
+		successCount++
+		if successCount == total {
+			return nil
+		}
+
+		return fmt.Errorf("condition is not satisfied yet (%d/%d)", successCount, total)
+	}, longTimeout, time.Millisecond*1) // As fast as possible
 }

@@ -14,12 +14,10 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestUDPProxyConnectionFiltering(t *testing.T) {
-	for _, forceDeploymentMode := range []isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto} {
+	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
 
 		ciliumCli, k8sCli := newCiliumAndK8sCli(t)
 		dockerCli := newDockerCli(t)
@@ -115,8 +113,11 @@ func TestUDPProxyConnectionFiltering(t *testing.T) {
 								return fmt.Errorf("unexpected error %w", err)
 							}
 
-							if !tt.blocked && toTestAppUDPResponse(t, stdout).Response != "deadbeef" {
-								return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+							if !tt.blocked {
+								resp := toTestAppUDPResponse(t, stdout)
+								if resp.Response != "deadbeef" {
+									return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q, resp: %q): %w", testCmd, stdout, stderr, resp.Response, err)
+								}
 							} else if tt.blocked && stdout != "" {
 								return fmt.Errorf("UDP request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 							}
