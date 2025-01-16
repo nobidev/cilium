@@ -407,7 +407,7 @@ jobs:
             helm_args+="--helm-set=etcd.endpoints[${i}]=https://${name}.${domain}:2379 "
 
             # Label and taint the node to reserve it for etcd.
-            kubectl label node $name cilium.io/no-schedule=true app=etcd
+            kubectl label node $name app=etcd
             kubectl taint node $name etcd-ig:NoSchedule
 
             i=$((i+1))
