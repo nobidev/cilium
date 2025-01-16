@@ -8,6 +8,7 @@ Cilium DNS Proxy
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-dnsproxy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-dnsproxy. |
 | debug | bool | `false` |  |
 | dnsProxy.dnsRejectResponseCode | string | `"refused"` |  |
 | enableCriticalPriorityClass | bool | `false` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for |
@@ -26,6 +27,7 @@ Cilium DNS Proxy
 | metrics.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
 | metrics.serviceMonitor.labels | object | `{}` | Labels to add to cilium-dnsproxy ServiceMonitor |
 | metrics.serviceMonitor.scrapeInterval | string | `"10s"` | Scrape interval. |
+| nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-dnsproxy. |
 | podLabels | object | `{}` | Labels to be added to cilium-dnsproxy pods |
 | podSecurityContext | object | `{}` |  |
 | pprof.enabled | bool | `false` |  |
