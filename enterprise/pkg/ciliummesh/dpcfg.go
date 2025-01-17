@@ -13,25 +13,11 @@ package ciliummesh
 import (
 	"fmt"
 
-	"github.com/spf13/pflag"
-
 	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 )
 
-const (
-	ciliumMesh = "enable-cilium-mesh"
-)
-
-type Config struct {
-	EnableCiliumMesh bool `mapstructure:"enable-cilium-mesh"`
-}
-
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool(ciliumMesh, def.EnableCiliumMesh, "Enables Cilium Mesh feature")
-}
-
-func datapathNodeHeaderConfigProvider(cfg Config) dpcfgdef.NodeFnOut {
+func datapathNodeHeaderConfigProvider(cfg ciliummeshpolicymap.Config) dpcfgdef.NodeFnOut {
 	return dpcfgdef.NewNodeFnOut(func() (dpcfgdef.Map, error) {
 		output := make(dpcfgdef.Map)
 		if !cfg.EnableCiliumMesh {

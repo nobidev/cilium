@@ -75,7 +75,7 @@ type ciliumMeshParams struct {
 
 	DaemonCfg *option.DaemonConfig
 
-	Config Config
+	Config ciliummeshpolicymap.Config
 
 	EndpointsModify endpointmanager.EndpointsModify
 
@@ -275,7 +275,7 @@ type IsovalentMeshEndpointResource resource.Resource[*v1alpha1.IsovalentMeshEndp
 type meshEndpointResourceParams struct {
 	cell.In
 
-	Config Config
+	Config ciliummeshpolicymap.Config
 }
 
 func NewIsovalentMeshEndpointResource(p meshEndpointResourceParams, lc cell.Lifecycle, cs client.Clientset) IsovalentMeshEndpointResource {

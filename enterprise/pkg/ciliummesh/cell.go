@@ -14,16 +14,10 @@ import (
 	"github.com/cilium/hive/cell"
 )
 
-var defaultConfig = Config{
-	EnableCiliumMesh: false,
-}
-
 var (
 	CiliumMeshCell = cell.Module(
 		"cilium-mesh",
 		"Cilium Mesh is the feature that connects your past legacy into the future",
-
-		cell.Config(defaultConfig),
 
 		cell.Provide(
 			// Provide the MeshEndpoint resource watcher.
