@@ -46,7 +46,6 @@ jobs:
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
-          # TODO: Check whether these or other (dedicated) credentials should be used
           username: ${{ secrets.QUAY_USERNAME_CI }}
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
@@ -64,8 +63,7 @@ jobs:
         # TODO: Sign container image and generate SBOM
         # TODO: Multi-arch builds
         env:
-          # TODO: set the image reference using the commit sha as tag
-          IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife:${{ steps.tag.outputs.tag }}"
+          IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"
         run: |
           cd enterprise/olm
           make docker-build docker-push
