@@ -14,7 +14,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"testing"
 )
 
 type testClientIPCall struct {
@@ -23,7 +22,9 @@ type testClientIPCall struct {
 
 type runIfFunc func() bool
 
-func TestHTTPClientIP(t *testing.T) {
+func TestHTTPClientIP() {
+	fmt.Println("=== RUN   TestHTTPClientIP")
+
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpApplicationOption
@@ -123,78 +124,80 @@ func TestHTTPClientIP(t *testing.T) {
 		},
 	}
 
+nextTest:
 	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			for _, runIf := range tC.runIfs {
-				if !runIf() {
-					t.Skip("skipping test because of runIfs condition")
-				}
+		fmt.Printf("=== RUN   TestHTTPClientIP/%s\n", tC.desc)
+
+		for _, runIf := range tC.runIfs {
+			if !runIf() {
+				fmt.Println("skipping test because of runIfs condition")
+				continue nextTest
 			}
+		}
 
-			ctx := context.Background()
-			testName := fmt.Sprintf("http-clientip-%s", tC.desc)
-			testK8sNamespace := "default"
+		ctx := context.Background()
+		testName := fmt.Sprintf("http-clientip-%s", tC.desc)
+		testK8sNamespace := "default"
 
-			ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-			dockerCli := newDockerCli(t)
+		ciliumCli, k8sCli := NewCiliumAndK8sCli()
+		dockerCli := NewDockerCli()
 
-			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		// 0. Setup test scenario (backends, clients & LB resources)
+		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-			t.Log("Creating backend apps...")
-			scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+		fmt.Println("Creating backend apps...")
+		scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
 
-			t.Log("Creating clients and add BGP peering ...")
-			clients := scenario.addFRRClients(ctx, 1, frrClientConfig{})
+		fmt.Println("Creating clients and add BGP peering ...")
+		clients := scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
-			t.Logf("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
-			scenario.createLBVIP(ctx, vip)
+		fmt.Println("Creating LB VIP resources...")
+		vip := lbVIP(testK8sNamespace, testName)
+		scenario.createLBVIP(ctx, vip)
 
-			t.Logf("Creating LB BackendPool resources...")
-			var backends []backendPoolOption
-			for _, b := range scenario.backendApps {
-				backends = append(backends, withIPBackend(b.ip, b.port))
-			}
-			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-			scenario.createLBBackendPool(ctx, backendPool)
+		fmt.Println("Creating LB BackendPool resources...")
+		var backends []backendPoolOption
+		for _, b := range scenario.backendApps {
+			backends = append(backends, withIPBackend(b.ip, b.port))
+		}
+		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+		scenario.createLBBackendPool(ctx, backendPool)
 
-			t.Logf("Creating LB Service resources...")
-			opts := []httpApplicationOption{}
-			opts = append(opts, withHttpRoute(testName))
-			opts = append(opts, tC.appOpt(clients))
-			service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
-			scenario.createLBService(ctx, service)
+		fmt.Println("Creating LB Service resources...")
+		opts := []httpApplicationOption{}
+		opts = append(opts, withHttpRoute(testName))
+		opts = append(opts, tC.appOpt(clients))
+		service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
+		scenario.createLBService(ctx, service)
 
-			t.Logf("Waiting for full VIP connectivity of %q...", testName)
-			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-			maybeSysdump(t, testName, "")
+		maybeSysdump(testName, "")
 
-			for _, tt := range tC.testCalls {
-				testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
-				t.Logf("Testing %q...", testCmd)
-				eventually(t, func() error {
-					stdout, stderr, err := clients[0].Exec(ctx, testCmd)
-					if tt.blocked {
-						if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
-							return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-						}
-					} else {
-						if err != nil {
-							return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-						}
-						resp := toTestAppResponse(t, stdout)
-						t.Logf("Response: %+v", resp)
-						if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
-							return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
-						}
+		for _, tt := range tC.testCalls {
+			testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
+			fmt.Printf("Testing %q...\n", testCmd)
+			eventually(func() error {
+				stdout, stderr, err := clients[0].Exec(ctx, testCmd)
+				if tt.blocked {
+					if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
+						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
+				} else {
+					if err != nil {
+						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					}
+					resp := toTestAppResponse(stdout)
+					fmt.Printf("Response: %+v\n", resp)
+					if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
+						return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
+					}
+				}
 
-					return nil
-				}, shortTimeout, pollInterval)
-			}
-		})
+				return nil
+			}, shortTimeout, pollInterval)
+		}
 	}
 }
 
