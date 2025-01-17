@@ -44,6 +44,7 @@ import (
 
 var tests = []func(){
 	ilbCli.TestBasicAuth,
+	ilbCli.TestBGPHealthCheck,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
