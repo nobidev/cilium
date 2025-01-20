@@ -65,7 +65,6 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnic
 
 	for cfgname, enabled := range map[string]bool{
 		option.EnableEncryptionStrictMode: dcfg.EnableEncryptionStrictMode,
-		option.EnableHighScaleIPcache:     dcfg.EnableHighScaleIPcache,
 		option.EnableIPSecName:            dcfg.EnableIPSec,
 		option.EnableIPv4EgressGateway:    dcfg.EnableIPv4EgressGateway,
 		option.EnableIPv4EgressGatewayHA:  dcfg.EnableIPv4EgressGatewayHA,
