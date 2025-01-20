@@ -14,7 +14,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"testing"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -25,7 +24,9 @@ type testPPCall struct {
 	invisible bool // if the client IP is not visible in the backend
 }
 
-func TestHTTPProxyProtocol(t *testing.T) {
+func TestHTTPProxyProtocol() {
+	fmt.Println("=== RUN   TestHTTPProxyProtocol")
+
 	testCases := []struct {
 		desc               string
 		appOpt             func(clients []*frrContainer) httpApplicationOption
@@ -126,75 +127,75 @@ func TestHTTPProxyProtocol(t *testing.T) {
 		},
 	}
 	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			ctx := context.Background()
-			testName := fmt.Sprintf("http-proxyprotocol-%s", tC.desc)
-			testK8sNamespace := "default"
+		fmt.Printf("=== RUN   TestHTTPProxyProtocol/%s\n", tC.desc)
 
-			ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-			dockerCli := newDockerCli(t)
+		ctx := context.Background()
+		testName := fmt.Sprintf("http-proxyprotocol-%s", tC.desc)
+		testK8sNamespace := "default"
 
-			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		ciliumCli, k8sCli := NewCiliumAndK8sCli()
+		dockerCli := NewDockerCli()
 
-			t.Log("Creating backend apps...")
-			scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+		// 0. Setup test scenario (backends, clients & LB resources)
+		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-			t.Log("Creating clients and add BGP peering ...")
-			clients := scenario.addFRRClients(ctx, 1, frrClientConfig{})
+		fmt.Println("Creating backend apps...")
+		scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
 
-			t.Logf("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
-			scenario.createLBVIP(ctx, vip)
+		fmt.Println("Creating clients and add BGP peering ...")
+		clients := scenario.addFRRClients(ctx, 1, frrClientConfig{})
 
-			t.Logf("Creating LB BackendPool resources...")
-			backends := []backendPoolOption{}
-			for _, b := range scenario.backendApps {
-				backends = append(backends, withIPBackend(b.ip, b.port), tC.backendOpt)
-			}
-			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-			scenario.createLBBackendPool(ctx, backendPool)
+		fmt.Println("Creating LB VIP resources...")
+		vip := lbVIP(testK8sNamespace, testName)
+		scenario.createLBVIP(ctx, vip)
 
-			t.Logf("Creating LB Service resources...")
-			opts := []httpApplicationOption{}
-			opts = append(opts, withHttpRoute(testName))
-			opts = append(opts, tC.appOpt(clients))
-			service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
-			scenario.createLBService(ctx, service)
+		fmt.Println("Creating LB BackendPool resources...")
+		backends := []backendPoolOption{}
+		for _, b := range scenario.backendApps {
+			backends = append(backends, withIPBackend(b.ip, b.port), tC.backendOpt)
+		}
+		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+		scenario.createLBBackendPool(ctx, backendPool)
 
-			t.Logf("Waiting for full VIP connectivity of %q...", testName)
-			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		fmt.Println("Creating LB Service resources...")
+		opts := []httpApplicationOption{}
+		opts = append(opts, withHttpRoute(testName))
+		opts = append(opts, tC.appOpt(clients))
+		service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
+		scenario.createLBService(ctx, service)
 
-			maybeSysdump(t, testName, "")
+		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-			for _, tt := range tC.testCalls {
-				testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))
-				t.Logf("Testing %q...", testCmd)
-				eventually(t, func() error {
-					stdout, stderr, err := clients[0].Exec(ctx, testCmd)
-					if tt.blocked {
-						if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
-							return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-						}
-					} else {
-						if err != nil {
-							return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-						}
+		maybeSysdump(testName, "")
 
-						resp := toTestAppResponse(t, stdout)
-						// Unlike XFF, the remote address should be the client IP
-						if !tt.invisible && !strings.Contains(resp.RemoteAddr, tt.clientIP) {
-							return fmt.Errorf("expected response to contain remote address %q, got %q", tt.clientIP, resp.RemoteAddr)
-						}
-
-						// XFF should contain the client IP
-						if useRemoteAddressEnabled() && xffNumTrustedHopsDisabled() && !tt.invisible && !strings.Contains(resp.XFF, tt.clientIP) {
-							return fmt.Errorf("expected response to contain X-Forwarded-For %q, got %q", tt.clientIP, resp.XFF)
-						}
+		for _, tt := range tC.testCalls {
+			testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))
+			fmt.Printf("Testing %q...\n", testCmd)
+			eventually(func() error {
+				stdout, stderr, err := clients[0].Exec(ctx, testCmd)
+				if tt.blocked {
+					if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
+						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
-					return nil
-				}, shortTimeout, pollInterval)
-			}
-		})
+				} else {
+					if err != nil {
+						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					}
+
+					resp := toTestAppResponse(stdout)
+					// Unlike XFF, the remote address should be the client IP
+					if !tt.invisible && !strings.Contains(resp.RemoteAddr, tt.clientIP) {
+						return fmt.Errorf("expected response to contain remote address %q, got %q", tt.clientIP, resp.RemoteAddr)
+					}
+
+					// XFF should contain the client IP
+					if useRemoteAddressEnabled() && xffNumTrustedHopsDisabled() && !tt.invisible && !strings.Contains(resp.XFF, tt.clientIP) {
+						return fmt.Errorf("expected response to contain X-Forwarded-For %q, got %q", tt.clientIP, resp.XFF)
+					}
+				}
+				return nil
+			}, shortTimeout, pollInterval)
+		}
 	}
 }

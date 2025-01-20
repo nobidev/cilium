@@ -53,6 +53,7 @@ var tests = []func(){
 	ilbCli.TestHTTPRoutes,
 	ilbCli.TestHTTPClientIP,
 	ilbCli.TestHTTPConnectionFiltering,
+	ilbCli.TestHTTPProxyProtocol,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
