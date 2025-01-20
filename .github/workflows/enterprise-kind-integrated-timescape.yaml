@@ -111,13 +111,13 @@ jobs:
         run: |
           kubectl port-forward -n kube-system svc/hubble-timescape 4245:443 &
           sleep 10s
-          [[ $(pgrep -f "kubectl.*port-forward.*hubble-timescape.*4245" | wc -l) == 1 ]]
+          nc -nvz 127.0.0.1 4245
 
       - name: Port forward Timescape Push API
         run: |
           kubectl port-forward -n kube-system svc/hubble-timescape 4260:4260 &
           sleep 10s
-          [[ $(pgrep -f "kubectl.*port-forward.*hubble-timescape.*4260" | wc -l) == 1 ]]
+          nc -nvz 127.0.0.1 4260
 
       - name: Get client certificate
         run: |
