@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -35,10 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
-
-type EndpointCreator interface {
-	CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, error)
-}
 
 type CiliumMeshController struct {
 	// clusterName is the name of the cluster where the Cilium Mesh is running.
@@ -56,7 +53,7 @@ type CiliumMeshController struct {
 	meshEndpoints map[string]struct{}
 
 	// endpointsCreator will be used to create IME into the local daemon.
-	endpointsCreator EndpointCreator
+	endpointsCreator endpointcreator.EndpointCreator
 
 	// endpointsModify will be used to delete IME from the local daemon.
 	endpointsModify endpointmanager.EndpointsModify
@@ -81,7 +78,7 @@ type ciliumMeshParams struct {
 
 	EndpointsLookup endpointmanager.EndpointsLookup
 
-	EndpointCreator promise.Promise[EndpointCreator]
+	EndpointCreator promise.Promise[endpointcreator.EndpointCreator]
 
 	CiliumMeshPolicyWriter ciliummeshpolicymap.CiliumMeshPolicyWriter
 

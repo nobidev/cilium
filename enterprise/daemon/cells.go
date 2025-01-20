@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
+	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
@@ -47,8 +48,8 @@ var (
 		cmd.Agent,
 
 		// Provide the endpoint API handlers the ability to create endpoints via the daemon.
-		cell.Provide(func(dp promise.Promise[*cmd.Daemon]) promise.Promise[ciliummesh.EndpointCreator] {
-			return promise.Map(dp, func(d *cmd.Daemon) ciliummesh.EndpointCreator { return d })
+		cell.Provide(func(dp promise.Promise[*cmd.Daemon]) promise.Promise[endpointcreator.EndpointCreator] {
+			return promise.Map(dp, func(d *cmd.Daemon) endpointcreator.EndpointCreator { return d })
 		}),
 
 		// enterprise-only cells here
