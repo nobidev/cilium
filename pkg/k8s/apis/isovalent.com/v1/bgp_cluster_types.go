@@ -104,7 +104,50 @@ type IsovalentBGPInstance struct {
 	// +listType=map
 	// +listMapKey=vrfRef
 	VRFs []BGPVRF `json:"vrfs,omitempty"`
+
+	// RouteReflector defines which route reflector cluster this instance
+	// joins. When specified, this instance automatically peers with the
+	// route reflectors or route reflector clients in the cluster.
+	//
+	// +kubebuilder:validation:Optional
+	RouteReflector *RouteReflector `json:"routeReflector,omitempty"`
 }
+
+type RouteReflector struct {
+	// Role is a role (rr or client) within the RR cluster
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=route-reflector;client
+	Role RouteReflectorRole `json:"role"`
+
+	// ClusterID is the ID of the route reflector cluster that this
+	// instance joins.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ipv4
+	ClusterID string `json:"clusterID"`
+
+	// RouteReflectorPeerConfigRef is a reference to the
+	// IsovalentBGPPeerConfig when this instance peers with other route
+	// reflectors.
+	//
+	// +kubebuilder:validation:Optional
+	RouteReflectorPeerConfigRef *PeerConfigReference `json:"routeReflectorPeerConfigRef,omitempty"`
+
+	// ClientPeerConfigRef is a reference to the IsovalentBGPPeerConfig
+	// when this instance peers with the route reflector client. This is
+	// only valid when the Role is "route-reflector".
+	//
+	// +kubebuilder:validation:Optional
+	ClientPeerConfigRef *PeerConfigReference `json:"clientPeerConfigRef,omitempty"`
+}
+
+type RouteReflectorRole string
+
+const (
+	RouteReflectorRoleRouteReflector RouteReflectorRole = "route-reflector"
+	RouteReflectorRoleClient         RouteReflectorRole = "client"
+)
 
 type IsovalentBGPPeer struct {
 	// Name is the name of the BGP peer. It is a unique identifier for the peer within the BGP instance.

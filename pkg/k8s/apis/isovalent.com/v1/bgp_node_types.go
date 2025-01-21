@@ -149,6 +149,27 @@ type IsovalentBGPNodePeer struct {
 	//
 	// +kubebuilder:validation:Optional
 	PeerConfigRef *PeerConfigReference `json:"peerConfigRef,omitempty"`
+
+	// RouteReflector indicates whether this peer is a route reflector
+	// client and which route reflector cluster it is joining.
+	//
+	// +kubebuilder:validation:Optional
+	RouteReflector *NodeRouteReflector `json:"routeReflector,omitempty"`
+}
+
+type NodeRouteReflector struct {
+	// Role is a role (route-reflector or client) within the RR cluster.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=route-reflector;client
+	Role RouteReflectorRole `json:"role"`
+
+	// ClusterID is the ID of the route reflector cluster that this
+	// instance joins.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ipv4
+	ClusterID string `json:"clusterID"`
 }
 
 // IsovalentBGPNodeStatus is the status of the IsovalentBGPNodeConfig.

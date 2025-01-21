@@ -127,6 +127,28 @@ spec:
                             required:
                             - name
                             type: object
+                          routeReflector:
+                            description: |-
+                              RouteReflector indicates whether this peer is a route reflector
+                              client and which route reflector cluster it is joining.
+                            properties:
+                              clusterID:
+                                description: |-
+                                  ClusterID is the ID of the route reflector cluster that this
+                                  instance joins.
+                                format: ipv4
+                                type: string
+                              role:
+                                description: Role is a role (route-reflector or client)
+                                  within the RR cluster.
+                                enum:
+                                - route-reflector
+                                - client
+                                type: string
+                            required:
+                            - clusterID
+                            - role
+                            type: object
                         required:
                         - name
                         type: object
