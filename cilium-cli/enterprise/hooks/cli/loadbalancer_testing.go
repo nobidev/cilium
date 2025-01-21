@@ -68,6 +68,8 @@ var tests = []func(){
 	ilbCli.TestPersistentBackendWithCookie,
 	ilbCli.TestPersistentBackendWithSourceIP,
 	ilbCli.TestTCPProxyConnectionFiltering,
+	ilbCli.TestTCPProxyPersistentBackend,
+	ilbCli.TestTCPProxyPersistentBackend_Fail_T1Only,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {

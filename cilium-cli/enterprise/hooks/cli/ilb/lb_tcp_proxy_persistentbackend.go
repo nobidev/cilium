@@ -13,40 +13,43 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"testing"
+	"strings"
 
-	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyPersistentBackend(t *testing.T) {
-	skipIfOnSingleNode(t, ">1 FRR clients are not supported")
+func TestTCPProxyPersistentBackend() {
+	if skipIfOnSingleNode(">1 FRR clients are not supported") {
+		return
+	}
+
+	fmt.Println("=== RUN   TestTCPProxyPersistentBackend")
 
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-persistent-backend"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend app...")
+	fmt.Println("Creating backend app...")
 
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
-	t.Log("Creating client and add BGP peering...")
+	fmt.Println("Creating client and add BGP peering...")
 
 	clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Log("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
@@ -60,40 +63,45 @@ func TestTCPProxyPersistentBackend(t *testing.T) {
 	}
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Log("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	// 1. Test persistent backend selection with source IP
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, clients[0], testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(ctx, clients[0], testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, clients[1], testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		testPersistenceWith100Requests(ctx, clients[1], testCmd)
 	}
 }
 
-func TestTCPProxyPersistentBackend_Fail_T1Only(t *testing.T) {
+func TestTCPProxyPersistentBackend_Fail_T1Only() {
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-persistent-backend-fail-t1-only"
 
-	ciliumCli, _ := newCiliumAndK8sCli(t)
+	ciliumCli, _ := NewCiliumAndK8sCli()
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyBackendPersistenceBySourceIP())))
 
 	err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{})
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "Force deployment mode t1-only isn't compatible with persistent backends and rate limits")
+	if err == nil {
+		fatalf("CreabeLBService should return an error")
+	}
+
+	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
+		fatalf("CreateLBService returned the wrong error")
+	}
 }
