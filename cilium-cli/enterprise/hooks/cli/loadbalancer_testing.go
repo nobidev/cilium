@@ -78,6 +78,7 @@ var tests = []func(){
 	ilbCli.TestTLSPassthroughRatelimiting,
 	ilbCli.TestTLSProxyTCPBackend,
 	ilbCli.TestTLSProxyTLSBackend,
+	ilbCli.TestTLSProxyConnectionFiltering,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
