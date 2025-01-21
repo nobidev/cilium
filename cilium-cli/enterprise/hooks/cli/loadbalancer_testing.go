@@ -42,7 +42,9 @@ import (
 //
 // To filter for a specific test, one can use the go test flag `-run <TestName>`.
 
-var tests = []func(){}
+var tests = []func(){
+	ilbCli.TestBasicAuth,
+}
 
 func newCmdLoadbalancerTest() *cobra.Command {
 	cmd := &cobra.Command{
