@@ -13,39 +13,40 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"testing"
 
 	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestHTTPSRouteRatelimiting(t *testing.T) {
+func TestHTTPSRouteRatelimiting() {
+	fmt.Println("=== RUN   TestHTTPSRouteRatelimiting")
+
 	ctx := context.Background()
 	testName := "https-proxy-route-ratelimiting"
 	testK8sNamespace := "default"
 	hostName := "secure.acme.io"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating cert and secret...")
+	fmt.Println("Creating cert and secret...")
 	scenario.createLBServerCertificate(ctx, testName, hostName)
 
-	t.Log("Creating backend apps...")
+	fmt.Println("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
-	t.Log("Creating clients and add BGP peering ...")
+	fmt.Println("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Logf("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, 8080))
@@ -53,7 +54,7 @@ func TestHTTPSRouteRatelimiting(t *testing.T) {
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Logf("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpRequestRateLimiting(5, 60)), withCertificate(testName)))
 
 	// Prepending admin http route (prepending because routes are in order on the same virtualhost)
@@ -70,23 +71,23 @@ func TestHTTPSRouteRatelimiting(t *testing.T) {
 
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
 
 	{
-		t.Logf("Testing %q that first request succeeds ...", testCmd)
+		fmt.Printf("Testing %q that first request succeeds ...\n", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 
-	t.Logf("Testing %q and expecting rate limit (HTTP 429) eventually ...", testCmd)
-	eventually(t, func() error {
+	fmt.Printf("Testing %q and expecting rate limit (HTTP 429) eventually ...\n", testCmd)
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			if err.Error() != "cmd failed: 22" {
@@ -102,37 +103,37 @@ func TestHTTPSRouteRatelimiting(t *testing.T) {
 
 	{
 		testCmdAdmin := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/admin"))
-		t.Logf("Testing %q that should still be possible even  after hitting the ratelimit ...", testCmdAdmin)
+		fmt.Printf("Testing %q that should still be possible even  after hitting the ratelimit ...\n", testCmdAdmin)
 		stdout, stderr, err := client.Exec(ctx, testCmdAdmin)
 		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmdAdmin, stdout, stderr, err)
+			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmdAdmin, stdout, stderr, err)
 		}
 	}
 }
 
-func TestHTTPSApplicationRatelimiting(t *testing.T) {
+func TestHTTPSApplicationRatelimiting() {
 	ctx := context.Background()
 	testName := "https-proxy-application-ratelimiting"
 	testK8sNamespace := "default"
 	hostName := "insecure.acme.io"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
+	fmt.Println("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
 
-	t.Log("Creating clients and add BGP peering ...")
+	fmt.Println("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Logf("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, 8080))
@@ -140,27 +141,27 @@ func TestHTTPSApplicationRatelimiting(t *testing.T) {
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Logf("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpConnectionRateLimiting(5, 60), withHttpRoute(testName)))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))
 
 	{
-		t.Logf("Testing %q that first request succeeds ...", testCmd)
+		fmt.Printf("Testing %q that first request succeeds ...\n", testCmd)
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
-			t.Fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 
-	t.Logf("Testing %q and expecting connection rate limit eventually ...", testCmd)
-	eventually(t, func() error {
+	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd)
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			if err.Error() != "cmd failed: 56" {
