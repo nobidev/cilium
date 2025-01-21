@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
 	ilbCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
 
 	"github.com/spf13/cobra"
@@ -57,6 +58,9 @@ var tests = []func(){
 	ilbCli.TestHTTPRouteRatelimiting,
 	ilbCli.TestHTTPApplicationRatelimiting,
 	ilbCli.TestHTTPRequestFiltering,
+	ilbCli.TestHTTPS,
+	ilbCli.TestHTTPSRoutes,
+	ilb.TestHTTPS_H2,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
