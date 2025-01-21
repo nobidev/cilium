@@ -13,11 +13,12 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 )
 
-func TestTLSProxyRatelimiting(t *testing.T) {
+func TestTLSProxyRatelimiting() {
+	fmt.Println("=== RUN   TestTLSProxyRatelimiting")
+
 	ctx := context.Background()
 	ns := "default"
 	testName := "tls-proxy-ratelimiting"
@@ -25,50 +26,50 @@ func TestTLSProxyRatelimiting(t *testing.T) {
 	clientCAName := "acme.io"
 	clientHostName := "client.acme.io"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating cert and secret...")
+	fmt.Println("Creating cert and secret...")
 
 	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
 	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
 
-	t.Log("Creating backend app...")
+	fmt.Println("Creating backend app...")
 
 	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
 
-	t.Log("Creating client and add BGP peering...")
+	fmt.Println("Creating client and add BGP peering...")
 
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Log("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Log("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName), withTLSProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 
-	t.Logf("Testing %q...", testCmd)
+	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(t, func() error {
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			// Enrich error with curl output
@@ -77,8 +78,8 @@ func TestTLSProxyRatelimiting(t *testing.T) {
 		return err
 	}, 10*time.Second, 100*time.Millisecond)
 
-	t.Logf("Testing %q and expecting connection rate limit eventually ...", testCmd)
-	eventually(t, func() error {
+	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd)
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			if err.Error() != "cmd failed: 35" {
