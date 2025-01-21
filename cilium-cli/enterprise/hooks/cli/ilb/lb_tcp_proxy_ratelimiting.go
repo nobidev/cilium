@@ -13,59 +13,60 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"testing"
+	"strings"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyRatelimiting(t *testing.T) {
+func TestTCPProxyRatelimiting() {
+	fmt.Println("=== RUN   TestTCPProxyRatelimiting")
+
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-ratelimiting"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend app...")
+	fmt.Println("Creating backend app...")
 
 	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
 
-	t.Log("Creating client and add BGP peering...")
+	fmt.Println("Creating client and add BGP peering...")
 
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Log("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Log("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve tcp.acme.io:10080:%s http://tcp.acme.io:10080/", vipIP))
 
-	t.Logf("Testing %q...", testCmd)
+	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(t, func() error {
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			// Enrich error with curl output
@@ -74,8 +75,8 @@ func TestTCPProxyRatelimiting(t *testing.T) {
 		return err
 	}, 10*time.Second, 100*time.Millisecond)
 
-	t.Logf("Testing %q and expecting connection rate limit eventually ...", testCmd)
-	eventually(t, func() error {
+	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd)
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			if err.Error() != "cmd failed: 56" {
@@ -90,16 +91,21 @@ func TestTCPProxyRatelimiting(t *testing.T) {
 	}, longTimeout, pollInterval)
 }
 
-func TestTCPProxyRatelimiting_Fail_T1Only(t *testing.T) {
+func TestTCPProxyRatelimiting_Fail_T1Only() {
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-ratelimiting-fail-t1-only"
 
-	ciliumCli, _ := newCiliumAndK8sCli(t)
+	ciliumCli, _ := NewCiliumAndK8sCli()
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyConnectionRateLimiting(5, 60))))
 
 	err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{})
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "Force deployment mode t1-only isn't compatible with persistent backends and rate limits")
+	if err == nil {
+		fatalf("CreabeLBService should return an error")
+	}
+
+	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
+		fatalf("CreateLBService returned the wrong error")
+	}
 }
