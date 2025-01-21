@@ -13,34 +13,35 @@ package ilb
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestPersistentBackendWithCookie(t *testing.T) {
+func TestPersistentBackendWithCookie() {
+	fmt.Println("=== RUN   TestPersistentBackendWithCookie")
+
 	ctx := context.Background()
 	testName := "pers-backend-cookie-1"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
+	fmt.Println("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{})
 
-	t.Log("Creating clients and add BGP peering ...")
+	fmt.Println("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Logf("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
@@ -53,53 +54,57 @@ func TestPersistentBackendWithCookie(t *testing.T) {
 	}
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Logf("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceByCookie("session"))))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	// 1. Test persistent backend selection with cookie
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --cookie 'session=123' http://%s:80/test1", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, client, testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		testPersistenceWith100Requests(ctx, client, testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --cookie 'session=234' http://%s:80/test2", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, client, testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		testPersistenceWith100Requests(ctx, client, testCmd)
 	}
 }
 
-func TestPersistentBackendWithSourceIP(t *testing.T) {
-	skipIfOnSingleNode(t, ">1 FRR clients are not supported")
+func TestPersistentBackendWithSourceIP() {
+	if skipIfOnSingleNode(">1 FRR clients are not supported") {
+		return
+	}
+
+	fmt.Println("=== RUN   TestPersistentBackendWithSourceIP")
 
 	ctx := context.Background()
 	testName := "pers-backend-sourceip-1"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
+	fmt.Println("Creating backend apps...")
 	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{})
 
-	t.Log("Creating clients and add BGP peering ...")
+	fmt.Println("Creating clients and add BGP peering ...")
 	clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
 
-	t.Logf("Creating LB VIP resources...")
+	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(ctx, vip)
 
-	t.Logf("Creating LB BackendPool resources...")
+	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
@@ -112,40 +117,40 @@ func TestPersistentBackendWithSourceIP(t *testing.T) {
 	}
 	scenario.createLBBackendPool(ctx, backendPool)
 
-	t.Logf("Creating LB Service resources...")
+	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceBySourceIP())))
 	scenario.createLBService(ctx, service)
 
-	t.Logf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-	maybeSysdump(t, testName, "")
+	maybeSysdump(testName, "")
 
 	// 1. Test persistent backend selection with source IP
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/test1", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, clients[0], testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		testPersistenceWith100Requests(ctx, clients[0], testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/test2", vipIP))
-		t.Logf("Testing backend selection persistence of 100 requests: %q...", testCmd)
-		testPersistenceWith100Requests(t, ctx, clients[1], testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		testPersistenceWith100Requests(ctx, clients[1], testCmd)
 	}
 }
 
-func testPersistenceWith100Requests(t *testing.T, ctx context.Context, client *frrContainer, testCmd string) {
+func testPersistenceWith100Requests(ctx context.Context, client *frrContainer, testCmd string) {
 	successCount := 0
 	previousServiceName := ""
-	eventually(t, func() error {
+	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd)
 		if err != nil {
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
 
-		resp := toTestAppResponse(t, stdout)
-		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
+		resp := toTestAppResponse(stdout)
+		assertPersistentBackend(previousServiceName, resp.ServiceName)
 		previousServiceName = resp.ServiceName
 
 		successCount++
@@ -157,11 +162,11 @@ func testPersistenceWith100Requests(t *testing.T, ctx context.Context, client *f
 	}, longTimeout, time.Millisecond*1) // As fast as possible
 }
 
-func assertPersistentBackend(t *testing.T, previousServiceName string, currentServiceName string) {
+func assertPersistentBackend(previousServiceName string, currentServiceName string) {
 	if currentServiceName == "" {
-		t.Fatalf("no service name provided")
+		fatalf("no service name provided")
 	}
 	if previousServiceName != "" && previousServiceName != currentServiceName {
-		t.Fatalf("request serviced by different backend %s != %s", previousServiceName, currentServiceName)
+		fatalf("request serviced by different backend %s != %s", previousServiceName, currentServiceName)
 	}
 }
