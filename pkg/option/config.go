@@ -3793,6 +3793,7 @@ func (c *DaemonConfig) checksum() [32]byte {
 	sumConfig := *c
 	// Ignore variable parts
 	sumConfig.Opts = nil
+	sumConfig.EncryptInterface = nil
 	cBytes, err := json.Marshal(&sumConfig)
 	if err != nil {
 		return [32]byte{}
@@ -3848,7 +3849,8 @@ func (c *DaemonConfig) diffFromFile() error {
 
 		diff = cmp.Diff(&config, c, opts,
 			cmpopts.IgnoreTypes(&IntOptions{}),
-			cmpopts.IgnoreTypes(&OptionLibrary{}))
+			cmpopts.IgnoreTypes(&OptionLibrary{}),
+			cmpopts.IgnoreFields(DaemonConfig{}, "EncryptInterface"))
 	}
 	return fmt.Errorf("Config differs:\n%s", diff)
 }
