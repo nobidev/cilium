@@ -16,6 +16,8 @@ RELEASE_GID ?= $(shell id -g)
 GOLANGCILINT_WANT_VERSION = 1.51.1
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
+all: $(TARGET)
+
 $(TARGET):
 	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "-w -s \
