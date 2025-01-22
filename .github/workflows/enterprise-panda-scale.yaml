@@ -628,7 +628,8 @@ jobs:
           NODES_LIST=$(echo "${NODES_LIST_CP[*]} ${NODES_LIST_ET[*]} ${NODES_LIST_WO[*]::10} ${NODES_LIST_CR[*]::10}" | xargs | tr -s ' ' ',')
           echo "Capturing final sysdump with nodes '${NODES_LIST}'"
 
-          cilium sysdump --output-filename cilium-sysdump-final --node-list ${NODES_LIST}
+          cilium sysdump --output-filename cilium-sysdump-final --node-list ${NODES_LIST} \
+            --extra-label-selectors=app=etcd
           sudo chmod +r cilium-sysdump-final.zip
 
       - name: Upload sysdump
