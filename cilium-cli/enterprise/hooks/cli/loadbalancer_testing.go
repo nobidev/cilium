@@ -83,6 +83,7 @@ var tests = []func(){
 	ilbCli.TestUDPProxy,
 	ilbCli.TestSharedVIP,
 	ilbCli.TestRequestedVIP,
+	ilbCli.TestUDPProxyConnectionFiltering,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
