@@ -147,6 +147,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				if opts.HubbleTimescapeNamespace != collector.Options.CiliumNamespace {
 					namespaces = append(namespaces, opts.HubbleTimescapeNamespace)
 				}
+				// TODO: List all the configmaps by label selector instead of hardcoding the names.
 				configMaps := []string{
 					"hubble-timescape-clickhouse-client-config",
 					"hubble-timescape-ingester-config",
@@ -155,6 +156,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					"hubble-timescape-server-config",
 					"hubble-timescape-config",
 					"hubble-timescape-clickhouse-settings",
+					"hubble-timescape-ui-config",
 				}
 
 				for _, ns := range namespaces {
