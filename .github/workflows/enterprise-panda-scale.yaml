@@ -490,7 +490,7 @@ jobs:
           PROMETHEUS_PVC_STORAGE_CLASS: "ssd"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 32.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 20.0
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 60s
         timeout-minutes: 10
         run: |
@@ -504,6 +504,7 @@ jobs:
             --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
+            --nodes=${{ env.workload_nodes_count }} \
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-setup.txt
 
@@ -593,7 +594,7 @@ jobs:
           PROMETHEUS_PVC_STORAGE_CLASS: "ssd"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 32.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 20.0
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 60s
           CL2_DELETE_AUTOMANAGED_NAMESPACES: "false"
           CL2_PER_NAMESPACE_CNPS: "true"
