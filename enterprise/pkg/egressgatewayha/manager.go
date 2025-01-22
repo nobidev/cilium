@@ -966,11 +966,13 @@ func (manager *Manager) removeExpiredCtEntries() error {
 		} else {
 			h.OK("closed sockets to expired gateways")
 		}
-		log.WithFields(logrus.Fields{
-			"deleted": stats.deleted,
-			"failed":  stats.failed,
-			"skipped": stats.skipped,
-		}).Info("closed sockets to expired gateways")
+		if stats.deleted+stats.failed+stats.skipped > 0 {
+			log.WithFields(logrus.Fields{
+				"deleted": stats.deleted,
+				"failed":  stats.failed,
+				"skipped": stats.skipped,
+			}).Info("closed sockets to expired gateways")
+		}
 	}
 
 	// When a TCP socket is closed via the sock diag netlink command, a socket in most states
