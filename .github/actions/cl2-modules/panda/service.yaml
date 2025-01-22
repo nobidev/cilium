@@ -5,3 +5,5 @@ spec:
     - name: test-port
       protocol: TCP
       port: 3333
+  selector:
+    app: dummy

@@ -8,6 +8,7 @@ metadata:
   name: {{.Name}}
   labels:
     kubernetes.io/service-name: {{$serviceName}}-{{$serviceId}}
+    endpointslice.kubernetes.io/managed-by: dummy
 ports:
 - name: test-port
   port: 7777
