@@ -1,0 +1,58 @@
+name: OLM Sync
+on:
+  # Allow to run manually
+  workflow_dispatch: {}
+  # Additionally run once a week at 3am on Monday
+  schedule:
+    - cron:  '0 3 * * MON'
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+
+# TODO: doing main-ce branch first. It will need to be extended to release branches
+jobs:
+  olm-sync:
+    # This job copies the latest version of the helm charts into enterprise/olm/manifests
+    name: sync manifests for OLM deployment
+    if: github.repository == 'isovalent/cilium'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          # TODO: Check whether these or other (dedicated) credentials should be used
+          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
+          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
+
+      - name: Authenticate with GH CLI
+        run: |
+          gh auth login --with-token <<< "${{ steps.get_token.outputs.app_token }}"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Sync enterprise/olm/manifests
+        run: |
+          cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
+
+      - name: Create PR
+        run: |
+          git config --global user.email "isovalent-bot@isovalent.com"
+          git config --global user.name "isovalent-bot"
+          git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/isovalent/cilium.git
+          if [[ ! `git status --porcelain` ]]; then
+            # No changes
+            echo "No changes"
+            exit 0
+          fi
+          git checkout -b pr/ci-wf/olm-sync
+          git add ./enterprise/olm/manifests
+          git commit -m "chore: Sync OLM manifests"
+          git push --set-upstream origin pr/ci-wf/olm-sync
+          gh pr create -B "$${{ github.event.repository.default_branch }}" --title 'chore: Sync OLM manifests' --body 'Created by GitHub action: OLM Sync. The Controller and its permissions need to be amended when new resources types are introduced.'
+

@@ -125,8 +125,18 @@ kube::codegen::deepequal_helpers \
     --output-base "${TMPDIR}" \
     "$PWD"
 
-cp -r "${TMPDIR}/github.com/cilium/cilium/." ./
-
 kube::codegen::gen_helpers \
     --boilerplate "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt" \
     "$PWD/enterprise"
+
+mkdir "${TMPDIR}/.cache"
+mkdir "${TMPDIR}/.modcache"
+pushd enterprise/olm
+export GOCACHE="/tmp/.cache"
+export GOMODCACHE="/tmp/.modcache"
+make generate
+popd
+
+cp -r "${TMPDIR}/github.com/cilium/cilium/." ./
+
+

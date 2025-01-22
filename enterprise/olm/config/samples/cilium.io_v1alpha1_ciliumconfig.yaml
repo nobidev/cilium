@@ -1,0 +1,9 @@
+apiVersion: cilium.io/v1alpha1
+kind: CiliumConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: clife
+    app.kubernetes.io/managed-by: kustomize
+  name: ciliumconfig-sample
+spec:
+  # TODO(user): Add fields here
