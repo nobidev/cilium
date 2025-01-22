@@ -38,6 +38,9 @@ service FQDNProxyAgent {
 
   // GetAllRules retrieves all FQDN rules from agent proxy
   rpc GetAllRules(Empty) returns(RestoredRulesMap){}
+
+  // Returns a stream of ProxyStatuses
+  rpc SubscribeProxyStatuses(Empty) returns (stream ProxyStatus){}
 }
 
 service FQDNProxy {
@@ -113,6 +116,20 @@ message Identity{
 message FQDNMapping {
     bytes IP = 1;
     string FQDN = 2;
+}
+
+message ProxyStatus {
+  optional IPCacheVersion enum = 1;
+}
+
+// IPCacheVersion establishes which version of the key for
+// the IP bpf map is being used. While it is the case that
+// the IP bpf map is currently unversioned if the key format
+// were to change in the future the proxy would read from
+// the bpf map incorrectly.
+enum IPCacheVersion {
+  Unspecified = 0;
+  One = 1;
 }
 
 message Success {
