@@ -218,6 +218,38 @@ hubble:
         capabilities:
           drop:
             - ALL
+    ui:
+      enabled: true
+      image:
+        override: ~
+        repository: quay.io/isovalent/hubble-timescape-ui
+        tag: "v1.6.0-rc.0"
+        pullPolicy: IfNotPresent
+        pullSecrets: []
+      securityContext:
+        # readOnlyRootFilesystem: true
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        capabilities:
+          drop:
+            - ALL
+      resources: {}
+      ingress:
+        enabled: false
+        annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+        className: ""
+        hosts:
+          - chart-example.local
+        labels: {}
+        tls: []
+        #  - secretName: chart-example-tls
+        #    hosts:
+        #      - chart-example.local
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:

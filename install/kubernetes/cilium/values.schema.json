@@ -3841,6 +3841,104 @@
                 "string"
               ]
             },
+            "ui": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "image": {
+                  "properties": {
+                    "override": {
+                      "type": "null"
+                    },
+                    "pullPolicy": {
+                      "type": "string"
+                    },
+                    "pullSecrets": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "tag": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "ingress": {
+                  "properties": {
+                    "annotations": {
+                      "type": "object"
+                    },
+                    "className": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "hosts": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "labels": {
+                      "type": "object"
+                    },
+                    "tls": {
+                      "items": {},
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "resources": {
+                  "type": "object"
+                },
+                "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "privileged": {
+                      "type": "boolean"
+                    },
+                    "runAsGroup": {
+                      "type": "integer"
+                    },
+                    "runAsNonRoot": {
+                      "type": "boolean"
+                    },
+                    "runAsUser": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
             "vector": {
               "properties": {
                 "image": {
