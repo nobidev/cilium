@@ -534,6 +534,15 @@ jobs:
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober-host.yaml
           kubectl rollout status daemonset cloudprober-host
 
+      - name: Label and taint the monitoring node
+        run: |
+          # This node is used to host the different utilities, and most notably
+          # prometheus. Let's taint it so that it doesn't become a target to
+          # schedule test pods, considering that it attracts an unfair number of
+          # them (compatibly with max pods per node) due to its size.
+          kubectl get nodes -o name | egrep '^node/nodes-' | xargs -i kubectl label '{}' app=monitoring
+          kubectl taint node -l app=monitoring monitoring:NoSchedule
+
       - name: Create Instance Group for workload deployments
         uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
         timeout-minutes: 30
