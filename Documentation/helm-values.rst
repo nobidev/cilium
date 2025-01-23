@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:2919d0172f7524b2d8df9e50066a682669e6d170ac0f6a49676d54358fe970b5","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:a5d0ce49aa801d475da48f8cb163c354ab95cab073cd3c138bd458fc8257fbf1","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -447,7 +447,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.2","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.3","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -1427,7 +1427,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:e3efa2d1e5ac62ef3dcbe17d9c0bcaa5a6ce1d4598e86f44a8f07a045c6bd08b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1736767219-f96a36460ae298f5d8ccb84cc5ef519fdd62b162","useDigest":true}``
+     - ``{"digest":"sha256:de98287dcc2f57afe976d16bcbdc477aaad17d3c7827fc7fb55abff953a5f7cb","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1737358012-5f42e7a45f496cb51aa56c316b6e8ace7a5918d6","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1440,6 +1440,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.log.accessLogBufferSize`
+     - Size of the Envoy access log buffer created within the agent in bytes. Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors. Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+     - int
+     - ``4096``
    * - :spelling:ignore:`envoy.log.defaultLevel`
      - Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. This option allows to have a different log level than the Cilium Agent - e.g. lower it to ``critical``. Possible values: trace, debug, info, warning, error, critical, off
      - string
@@ -1736,14 +1740,6 @@
      - TCP port for the agent health API. This is not the port for cilium-health.
      - int
      - ``9879``
-   * - :spelling:ignore:`highScaleIPcache`
-     - EnableHighScaleIPcache enables the special ipcache mode for high scale clusters. The ipcache content will be reduced to the strict minimum and traffic will be encapsulated to carry security identities.
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`highScaleIPcache.enabled`
-     - Enable the high scale mode for the ipcache.
-     - bool
-     - ``false``
    * - :spelling:ignore:`hostFirewall`
      - Configure the host firewall.
      - object
@@ -1779,11 +1775,11 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
-     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
+     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
    * - :spelling:ignore:`hubble.export.dynamic.config.configMapName`
      - -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
      - string
@@ -1791,27 +1787,27 @@
    * - :spelling:ignore:`hubble.export.dynamic.config.content`
      - -- Exporters configuration in YAML format.
      - list
-     - ``[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
+     - ``[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
    * - :spelling:ignore:`hubble.export.dynamic.config.createConfigMap`
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
      - ``true``
-   * - :spelling:ignore:`hubble.export.fileCompress`
-     - - Enable compression of rotated files.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hubble.export.fileMaxBackups`
-     - - Defines max number of backup/rotated files.
-     - int
-     - ``5``
-   * - :spelling:ignore:`hubble.export.fileMaxSizeMb`
-     - - Defines max file size of output file before it gets rotated.
-     - int
-     - ``10``
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}``
+     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+   * - :spelling:ignore:`hubble.export.static.fileCompress`
+     - - Enable compression of rotated files.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.export.static.fileMaxBackups`
+     - - Defines max number of backup/rotated files.
+     - int
+     - ``5``
+   * - :spelling:ignore:`hubble.export.static.fileMaxSizeMb`
+     - - Defines max file size of output file before it gets rotated.
+     - int
+     - ``10``
    * - :spelling:ignore:`hubble.k8sExporter`
      - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
      - object
@@ -2865,7 +2861,7 @@
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`nat46x64Gateway.enabled`
-     - Enable RFC8215-prefixed translation
+     - Enable RFC6052-prefixed translation
      - bool
      - ``false``
    * - :spelling:ignore:`nodeIPAM.enabled`

@@ -2212,6 +2212,12 @@
         },
         "log": {
           "properties": {
+            "accessLogBufferSize": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "defaultLevel": {
               "oneOf": [
                 {
@@ -2638,14 +2644,6 @@
     "healthPort": {
       "type": "integer"
     },
-    "highScaleIPcache": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "hostFirewall": {
       "properties": {
         "enabled": {
@@ -2716,6 +2714,15 @@
                                 "items": {},
                                 "type": "array"
                               },
+                              "fileCompress": {
+                                "type": "boolean"
+                              },
+                              "fileMaxBackups": {
+                                "type": "integer"
+                              },
+                              "fileMaxSizeMb": {
+                                "type": "integer"
+                              },
                               "filePath": {
                                 "type": "string"
                               },
@@ -2744,15 +2751,6 @@
               },
               "type": "object"
             },
-            "fileCompress": {
-              "type": "boolean"
-            },
-            "fileMaxBackups": {
-              "type": "integer"
-            },
-            "fileMaxSizeMb": {
-              "type": "integer"
-            },
             "static": {
               "properties": {
                 "allowList": {
@@ -2769,6 +2767,15 @@
                 "fieldMask": {
                   "items": {},
                   "type": "array"
+                },
+                "fileCompress": {
+                  "type": "boolean"
+                },
+                "fileMaxBackups": {
+                  "type": "integer"
+                },
+                "fileMaxSizeMb": {
+                  "type": "integer"
                 },
                 "filePath": {
                   "type": "string"

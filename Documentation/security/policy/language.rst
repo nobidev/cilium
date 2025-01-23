@@ -198,6 +198,11 @@ egress.
 Additional Label Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. warning::
+
+   The ``fromRequires`` and ``toRequires`` fields are deprecated as of Cilium
+   1.17.x. They will be dropped from support in Cilium 1.18.
+
 It is often required to apply the principle of *separation of concern* when defining
 policies. For this reason, an additional construct exists which allows to establish
 base requirements for any connectivity to happen.
@@ -538,6 +543,8 @@ fromCIDRSet
   prefixes/CIDRs per source prefix/CIDR that are subnets of the source
   prefix/CIDR from which communication is not allowed.
 
+  ``fromCIDRSet`` may also reference prefixes/CIDRs indirectly via a :ref:`CiliumCIDRGroup`.
+
 Egress
 ~~~~~~
 
@@ -552,6 +559,8 @@ toCIDRSet
   ``endpointSelector`` are allowed to talk to, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
   prefix/CIDR to which communication is not allowed.
+
+  ``toCIDRSet`` may also reference prefixes/CIDRs indirectly via a :ref:`CiliumCIDRGroup`.
 
 Allow to external CIDR block
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
