@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -293,10 +294,14 @@ func main() {
 		ConcurrencyLimit:       *concurrencyLimit,
 		ConcurrencyGracePeriod: *concurrencyGracePeriod,
 	}
+
+	proxyCtx := newProxyContext()
+	go proxyCtx.establishAgentProxyStream()
+
 	proxy, err = dnsproxy.StartDNSProxy(
 		dnsProxyConfig,
 		LookupEndpointIDByIP,
-		LookupSecIDByIP,
+		proxyCtx.LookupSecIDByIP,
 		LookupIPsBySecID,
 		NotifyOnDNSMsg,
 	)
@@ -326,14 +331,37 @@ func main() {
 	<-exitSignal
 }
 
+type ipCacheLookup interface {
+	lookup(netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error)
+}
+
+type bpfIPC struct{}
+
+func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
+	log.Debugf("real ipcache bpf read for %v", addr)
+	ipKey := ipcacheMap.NewKey(net.IP(addr.Unmap().AsSlice()), nil, 0)
+	// todo: Add IPCacheMap reload logic
+	val, err := ipcacheMap.IPCacheMap().Lookup(&ipKey)
+	if err != nil {
+		return nil, err
+	}
+	rei, ok := val.(*ipcacheMap.RemoteEndpointInfo)
+	if !ok {
+		return nil, fmt.Errorf("could not cast ipcache bpf map value (%[1]T) %[1]v to %T", rei, &ipcacheMap.RemoteEndpointInfo{})
+	}
+	return rei, nil
+}
+
 type proxyContext struct {
 	rwLock *lock.RWMutex
+	ipc    ipCacheLookup
 
 	ipCacheV1 bool
 }
 
 func newProxyContext() *proxyContext {
 	return &proxyContext{
+		ipc:    &bpfIPC{},
 		rwLock: &lock.RWMutex{},
 	}
 }
@@ -364,7 +392,6 @@ func (p *proxyContext) establishAgentProxyStream() {
 			}
 			log.Errorf("Error connecting to stream proxy status: %s", err)
 			updateAgentReachability(err)
-			return
 		}
 		break
 	}
@@ -383,6 +410,15 @@ func (p *proxyContext) establishAgentProxyStream() {
 		defer p.rwLock.Unlock()
 		p.ipCacheV1 = true
 	}
+}
+
+func (pc *proxyContext) supportsIPCacheV1() bool {
+	if !(*enableOfflineMode) {
+		return false
+	}
+	pc.rwLock.RLock()
+	defer pc.rwLock.RUnlock()
+	return pc.ipCacheV1
 }
 
 func manageDNSNotificationQueue() {
@@ -580,10 +616,31 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 
 // LookupSecIDByIP wraps logic to lookup an IP's security ID from the
 // ipcache.
-func LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
-	id, err := client().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
-	updateAgentReachability(err)
-
+func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
+	if !ip.IsValid() {
+		return ipcache.Identity{}, false
+	}
+	var (
+		id  identity.NumericIdentity
+		src source.Source = source.Unspec
+		err error
+	)
+	if pc.supportsIPCacheV1() {
+		rei, ipcErr := pc.ipc.lookup(ip)
+		if ipcErr != nil {
+			err = ipcErr
+		} else {
+			id = identity.NumericIdentity(rei.SecurityIdentity)
+		}
+	} else {
+		var ident *pb.Identity
+		ident, err = client().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+		updateAgentReachability(err)
+		if err == nil {
+			id = identity.NumericIdentity(ident.ID)
+			src = source.Source(ident.Source)
+		}
+	}
 	if err != nil {
 		cache.lock.RLock()
 		cachedID, ok := cache.identityByIP[ip]
@@ -597,17 +654,16 @@ func LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("security ID lookup in cache: %s", err))
 		return cachedID, true
 	}
-
 	identity := ipcache.Identity{
-		ID:     identity.NumericIdentity(id.ID),
-		Source: source.Source(id.Source),
+		ID:     id,
+		Source: src,
 	}
 
 	cache.lock.Lock()
 	cache.identityByIP[ip] = identity
 	cache.lock.Unlock()
 
-	return identity, id.Exists
+	return identity, true
 }
 
 // LookupIPsBySecID wraps logic to lookup an IPs by security ID from the
