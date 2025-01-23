@@ -39,5 +39,5 @@ ARG TARGETARCH
 
 LABEL maintainer="support@isovalent.com"
 WORKDIR /root/app
-COPY --from=builder /go/src/github.com/isovalent/cilium/enterprise/cilium-cli/cilium /usr/local/bin/cilium
+COPY --from=builder /go/src/github.com/cilium/cilium/enterprise/cilium-cli/cilium /usr/local/bin/cilium
 ENTRYPOINT ["cilium"]
