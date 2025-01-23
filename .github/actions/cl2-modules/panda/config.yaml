@@ -1,6 +1,9 @@
-{{$PODS_PER_NODE := 10}}
-{{$PODS_PER_DEPLOYMENT := 1}}
-{{$namespaces := 100 }}
+{{$MIN_NAMESPACES := DefaultParam .CL2_MIN_NAMESPACES 100}}
+{{$PODS_PER_NODE := DefaultParam .CL2_PODS_PER_NODE 10}}
+{{$TARGET_IDENTITIES := DefaultParam .CL2_TARGET_IDENTITIES 1000}}
+
+{{$namespaces := MinInt (MaxInt (DivideInt .Nodes 2) $MIN_NAMESPACES) 1500 }}
+{{$identities := MaxInt $TARGET_IDENTITIES $namespaces}}
 {{$TimeToLoad := 10 }}
 
 {{$largeServices := 5}}
@@ -9,8 +12,9 @@
 # In total, we do $largeServices * $slicesPerService * $slicesUpdates updates
 
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
-{{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
-{{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
+{{$deploymentsPerNamespace := MaxInt (DivideInt $TARGET_IDENTITIES $namespaces) 1}}
+{{$deployments := MultiplyInt $deploymentsPerNamespace $namespaces}}
+{{$podsPerDeployment := MaxInt (DivideInt $totalPods $deployments) 1}}
 
 name: panda
 namespace:
@@ -45,7 +49,7 @@ steps:
       tuningSet: RandomizedSaturationTimeLimited
       fixedTuningSet: default
       operationTimeout: 15m
-      replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
+      replicasPerDeployment: {{$podsPerDeployment}}
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       largeServices: {{$largeServices}}
       slicesPerService: {{$slicesPerService}}
