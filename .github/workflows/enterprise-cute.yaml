@@ -42,6 +42,7 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.32.1
+  terraform_version: 1.10.5
   upload_dir: github-upload
   artifact_retention_days: 15
 
@@ -263,6 +264,12 @@ jobs:
           echo "Upgrade target: ${{ steps.cute_props.outputs.upgrade_target }}"
           echo "Slack notification channel: ${{ steps.vars.outputs.notify }}"
           echo "Connectivity tests concurrency: ${{ steps.vars.outputs.test_concurrency }}"
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # 3.1.2
+        with:
+          terraform_version: "${{ env.terraform_version }}"
+          terraform_wrapper: false
 
       - name: Install Cilium CLI
         run: |
