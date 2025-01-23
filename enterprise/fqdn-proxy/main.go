@@ -73,6 +73,7 @@ const (
 
 var (
 	debug                         = flag.Bool("debug", false, "")
+	enableOfflineMode             = flag.Bool("enable-offline-mode", true, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
 	gopsPort                      = flag.Int("gops-port", 8910, "Port for gops server to listen on")
 	enablePprof                   = flag.Bool("pprof", false, "Enable serving the pprof debugging API")
 	pprofPort                     = flag.Int("pprof-port", 8920, "Port that the pprof listens on")
@@ -338,6 +339,10 @@ func newProxyContext() *proxyContext {
 }
 
 func (p *proxyContext) establishAgentProxyStream() {
+	if !(*enableOfflineMode) {
+		log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
+		return
+	}
 	log.Info("Starting to stream proxy status from the agent...")
 	var (
 		ps  grpc.ServerStreamingClient[pb.ProxyStatus]
@@ -367,7 +372,7 @@ func (p *proxyContext) establishAgentProxyStream() {
 	// todo: Obviously the `ps.Recv` method needs to be
 	// inside of a loop, but, as stated above, the current
 	// server implementation does not stream properly yet.
-	log.Info("Agent proxy status stream established...")
+	log.Info("The agent proxy status stream is established.")
 	agentProxyStatus, err := ps.Recv()
 	if err != nil {
 		updateAgentReachability(err)
