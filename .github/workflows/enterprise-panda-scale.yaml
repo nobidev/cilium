@@ -225,6 +225,7 @@ jobs:
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
           echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
+          echo INSTANCES_PER_GROUP=$(( ${WORKLOAD_NODES} / 5 )) >> $GITHUB_OUTPUT
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -555,14 +556,54 @@ jobs:
           kubectl get nodes -o name | egrep '^node/nodes-' | xargs -i kubectl label '{}' app=monitoring
           kubectl taint node -l app=monitoring monitoring:NoSchedule
 
-      - name: Create Instance Group for workload deployments
+      - name: Create Instance Group for workload deployments (1)
         uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
-        timeout-minutes: 30
+        timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: ${{ steps.vars.outputs.WORKLOAD_NODES }}
-          ig_name: workloads
+          node_count: ${{ steps.vars.outputs.INSTANCES_PER_GROUP }}
+          ig_name: workloads-1
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Create Instance Group for workload deployments (2)
+        uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
+        timeout-minutes: 5
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: ${{ steps.vars.outputs.INSTANCES_PER_GROUP }}
+          ig_name: workloads-2
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Create Instance Group for workload deployments (3)
+        uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
+        timeout-minutes: 5
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: ${{ steps.vars.outputs.INSTANCES_PER_GROUP }}
+          ig_name: workloads-3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Create Instance Group for workload deployments (4)
+        uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
+        timeout-minutes: 5
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: ${{ steps.vars.outputs.INSTANCES_PER_GROUP }}
+          ig_name: workloads-4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Create Instance Group for workload deployments (5)
+        uses: cilium/scale-tests-action/create-instance-group@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
+        timeout-minutes: 5
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: ${{ steps.vars.outputs.INSTANCES_PER_GROUP }}
+          ig_name: workloads-5
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for workloads nodes to be ready
@@ -574,7 +615,7 @@ jobs:
           # label selector, but kops appears to be significantly slow at reconciling
           # the labels to the node objects. Hence, let's just grep for the node names.
           while [[ "$cnt" != ${{ steps.vars.outputs.WORKLOAD_NODES}} ]]; do
-            cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[a-z0-9]+\s+Ready\s' || true)
+            cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[-a-z0-9]+\s+Ready\s' || true)
             echo "workloads nodes count: $cnt"
             sleep 10
           done
