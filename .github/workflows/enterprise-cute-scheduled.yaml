@@ -226,6 +226,16 @@ jobs:
             ipsec: false,
             owner: D06BY0MJ6HZ # James Strong
           },
+          {
+            repo: mbld,
+            dir: .,
+            umbrella: false,
+            oss: false,
+            region: eu-west-3,
+            deploy: stable,
+            ipsec: false,
+            owner: U04GD9ACYTE # Philip
+          },
         ]
     runs-on: ubuntu-24.04
     steps:
