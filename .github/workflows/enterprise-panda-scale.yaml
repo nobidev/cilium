@@ -180,6 +180,8 @@ jobs:
             --helm-set=operator.replicas=1 \
             --helm-set=envoyConfig.enabled=true \
             --helm-set=envoy.enabled=true \
+            --helm-set=ipam.mode="cluster-pool" \
+            --helm-set=ipam.operator.clusterPoolIPv4PodCIDRList[0]="10.0.0.0/9" \
             --helm-set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
             --helm-set-string=extraConfig.external-dns-proxy=true \
             --helm-set-string=extraConfig.kvstore-pod-network-support=false \
@@ -302,6 +304,7 @@ jobs:
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          node_cidr: 10.255.0.0/16
           kube_proxy_enabled: false
           sync_cloud_routes: false
           etcd_volume_size: 200
