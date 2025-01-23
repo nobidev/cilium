@@ -15,6 +15,7 @@ gke: false
 debug: false
 pprof:
   enabled: false
+enableOfflineMode: true
 extraArgs: []
 extraVolumes: []
 extraVolumeMounts: []
@@ -33,6 +34,7 @@ resources: {}
 securityContext:
   capabilities:
     add:
+    - BPF
     - NET_ADMIN
     - NET_RAW
 metrics:

@@ -112,6 +112,9 @@ spec:
 {{- if .Values.metrics.port }}
         - --prometheus-port={{ .Values.metrics.port }}
 {{- end }}
+{{- if .Values.rpcOnly }}
+        - --rpc-ipc-only=true
+{{- end }}
 {{- with .Values.extraArgs }}
 {{- toYaml . | trim | nindent 8 }}
 {{- end }}
@@ -198,6 +201,11 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
+{{- if .Values.enabelOfflineMode }}
+        - mountPath: /sys/fs/bpf
+          name: bpf-maps
+          mountPropagation: HostToContainer
+{{- end }}
 {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
 {{- end }}
@@ -241,6 +249,12 @@ spec:
           path: /run/xtables.lock
           type: FileOrCreate
         name: xtables-lock
+{{- if .Values.enabelOfflineMode }}
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
+{{- end }}
 {{- if .Values.kubeConfigPath }}
       - hostPath:
           path: {{ .Values.kubeConfigPath }}
