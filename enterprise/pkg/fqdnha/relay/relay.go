@@ -153,6 +153,14 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 		nil)
 }
 
+func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(empyt *pb.Empty, stream pb.FQDNProxyAgent_SubscribeProxyStatusesServer) error {
+	log.Info("Streaming proxy status to the external DNS proxy...")
+	ipVer := pb.IPCacheVersion_One
+	return stream.Send(&pb.ProxyStatus{
+		Enum: &ipVer,
+	})
+}
+
 func (s *FQDNProxyAgentServer) GetAllRules(ctx context.Context, empty *pb.Empty) (*pb.RestoredRulesMap, error) {
 	double, ok := proxy.DefaultDNSProxy.(*doubleproxy.DoubleProxy)
 	if !ok {
