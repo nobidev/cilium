@@ -15,7 +15,7 @@ jobs:
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
-    environment: release
+    environment: release-cilium-cli
     runs-on: ubuntu-24.04
     strategy:
       matrix:
