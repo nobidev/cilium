@@ -105,7 +105,7 @@ steps:
   - Identifier: ExecCommand
     Method: Exec
     Params:
-      timeout: 10m
+      timeout: 25m
       command:
       - /bin/sh
       - -c
@@ -116,7 +116,7 @@ steps:
   - Identifier: WaitAfterExec
     Method: Sleep
     Params:
-      duration: 2m
+      duration: 10m
 
 - module:
     path:  /modules/metrics-restart.yaml
@@ -157,7 +157,7 @@ steps:
   - Identifier: WaitAfterExec
     Method: Sleep
     Params:
-      duration: 2m
+      duration: 5m
 
 - module:
     path:  /modules/metrics-restart.yaml

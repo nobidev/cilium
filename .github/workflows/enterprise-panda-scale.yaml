@@ -665,7 +665,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 60
+        timeout-minutes: 90
         env:
           CL2_PROMETHEUS_PVC_ENABLED: "true"
           PROMETHEUS_PVC_STORAGE_CLASS: "ssd"
