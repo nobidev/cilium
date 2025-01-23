@@ -600,7 +600,7 @@ jobs:
           export CL2_SYSDUMP_NODES_LIST
           ./clusterloader \
             -v=2 \
-            --prometheus-additional-monitors-path=./testing/panda/monitors/ \
+            --prometheus-additional-monitors-path=./testing/custom/panda/monitors/ \
             --testconfig=./testing/custom/panda/config.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
