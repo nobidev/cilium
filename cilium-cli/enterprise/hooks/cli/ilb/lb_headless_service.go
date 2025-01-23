@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,7 +25,7 @@ import (
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-func backendDeployment(t *testing.T, name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
+func backendDeployment(name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "SERVICE_NAME",
@@ -52,7 +51,7 @@ func backendDeployment(t *testing.T, name string, replicas int32, config backend
 		// it with the client. The client will not verify the cert.
 		key, cert, err := genSelfSignedX509(config.tlsCertHostname)
 		if err != nil {
-			t.Fatalf("failed to gen x509: %s", err)
+			fatalf("failed to gen x509: %s", err)
 		}
 		envs = append(envs, corev1.EnvVar{
 			Name:  "TLS_ENABLED",
@@ -127,39 +126,39 @@ func backendService(name string, port int32) *corev1.Service {
 	}
 }
 
-func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
+func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
 	var deployment *appsv1.Deployment
 
 	if tls {
-		deployment = backendDeployment(t, name, replicas, backendApplicationConfig{
+		deployment = backendDeployment(name, replicas, backendApplicationConfig{
 			tlsCertHostname: "secure-backend.acme.io",
 		})
 	} else {
-		deployment = backendDeployment(t, name, replicas, backendApplicationConfig{
+		deployment = backendDeployment(name, replicas, backendApplicationConfig{
 			h2cEnabled: true,
 		})
 	}
 
 	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{}); err != nil {
-		t.Fatalf("failed to create deployment (%s): %s", deployment.Name, err)
+		fatalf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
 	MaybeCleanupT(func() error {
 		return k8sCli.AppsV1().Deployments(namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{})
-	}, t)
+	})
 
 	service := backendService(name, 8080)
 	if _, err := k8sCli.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
-		t.Fatalf("failed to create service (%s): %s", service.Name, err)
+		fatalf("failed to create service (%s): %s", service.Name, err)
 	}
 	MaybeCleanupT(func() error {
 		return k8sCli.CoreV1().Services(namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
-	}, t)
+	})
 
 	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(context.Background(), metav1.ListOptions{
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		t.Fatalf("failed to watch deployment (%s): %s", name, err)
+		fatalf("failed to watch deployment (%s): %s", name, err)
 	}
 	defer watch.Stop()
 
@@ -171,7 +170,7 @@ func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, n
 		case ev := <-watch.ResultChan():
 			deploy, ok := ev.Object.(*appsv1.Deployment)
 			if !ok {
-				t.Fatalf("unexpected object type: %T", ev.Object)
+				fatalf("unexpected object type: %T", ev.Object)
 			}
 			if deploy.Name != name {
 				continue
@@ -181,7 +180,7 @@ func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, n
 			}
 			completed = true
 		case <-timeout:
-			t.Fatalf("timed out waiting for deployment (%s)", name)
+			fatalf("timed out waiting for deployment (%s)", name)
 		}
 		if completed {
 			break
@@ -192,31 +191,35 @@ func createAndWaitHeadlessServiceBackends(t *testing.T, k8sCli *k8s.Clientset, n
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		t.Fatalf("failed to list pods (%s): %s", name, err)
+		fatalf("failed to list pods (%s): %s", name, err)
 	}
 
 	return pods
 }
 
-func TestHeadlessService(t *testing.T) {
-	skipIfOnSingleNode(t, "DNS backend test uses k8s-based backend services which is not supported in single-node mode")
+func TestHeadlessService() {
+	if skipIfOnSingleNode("DNS backend test uses k8s-based backend services which is not supported in single-node mode") {
+		return
+	}
+
+	fmt.Println("=== RUN   TestBasicAuth")
 
 	ctx := context.Background()
 	testName := "headless-service"
 	testK8sNamespace := "default"
 	backendReplicas := int32(2)
 
-	ciliumCli, k8sCli := newCiliumAndK8sCli(t)
-	dockerCli := newDockerCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
 	tcpName := testName + "-tcp"
 	tlsName := testName + "-tls"
 	tcpBackendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", tcpName, testK8sNamespace)
 	tlsBackendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", tlsName, testK8sNamespace)
 
-	t.Log("Creating backend apps...")
-	tcpBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tcpName, backendReplicas, false)
-	tlsBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tlsName, backendReplicas, true)
+	fmt.Println("Creating backend apps...")
+	tcpBackends := createAndWaitHeadlessServiceBackends(k8sCli, testK8sNamespace, tcpName, backendReplicas, false)
+	tlsBackends := createAndWaitHeadlessServiceBackends(k8sCli, testK8sNamespace, tlsName, backendReplicas, true)
 
 	tests := []struct {
 		name            string
@@ -282,79 +285,79 @@ func TestHeadlessService(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resourceName := testName + tt.suffix
+		fmt.Printf("=== RUN   TestBasicAuth/%s\n", tt.name)
 
-			scenario := newLBTestScenario(t, resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		resourceName := testName + tt.suffix
 
-			t.Log("Creating clients and add BGP peering ...")
-			client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+		scenario := newLBTestScenario(resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-			t.Logf("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, resourceName)
-			scenario.createLBVIP(ctx, vip)
+		fmt.Println("Creating clients and add BGP peering ...")
+		client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
 
-			t.Logf("Creating LB BackendPool resources...")
-			var backendPool *isovalentv1alpha1.LBBackendPool
-			if tt.backendTLS {
-				backendPool = lbBackendPool(testK8sNamespace, resourceName,
-					withHostnameBackend(tlsBackendHostName, 8080),
-					withHealthCheckTLS(),
-				)
-			} else {
-				backendPool = lbBackendPool(testK8sNamespace, resourceName,
-					withHostnameBackend(tcpBackendHostName, 8080),
-				)
+		fmt.Println("Creating LB VIP resources...")
+		vip := lbVIP(testK8sNamespace, resourceName)
+		scenario.createLBVIP(ctx, vip)
+
+		fmt.Println("Creating LB BackendPool resources...")
+		var backendPool *isovalentv1alpha1.LBBackendPool
+		if tt.backendTLS {
+			backendPool = lbBackendPool(testK8sNamespace, resourceName,
+				withHostnameBackend(tlsBackendHostName, 8080),
+				withHealthCheckTLS(),
+			)
+		} else {
+			backendPool = lbBackendPool(testK8sNamespace, resourceName,
+				withHostnameBackend(tcpBackendHostName, 8080),
+			)
+		}
+		scenario.createLBBackendPool(ctx, backendPool)
+
+		fmt.Println("Creating LB Service resources...")
+		if tt.serviceTLS {
+			// Server certificate
+			scenario.createLBServerCertificate(ctx, resourceName, "secure.acme.io")
+		}
+
+		service := lbService(testK8sNamespace, resourceName, tt.serviceOptions...)
+		scenario.createLBService(ctx, service)
+		svcPort := service.Spec.Port
+
+		fmt.Printf("Waiting for full VIP connectivity of %q...\n", vip.Name)
+		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
+
+		maybeSysdump(testName, tt.suffix)
+
+		var testCmd string
+		if tt.serviceTLS {
+			testCmd = curlCmd(fmt.Sprintf("-k --max-time 10 -H 'Content-Type: application/json' --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+		} else {
+			testCmd = curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+		}
+
+		fmt.Printf("Testing %q until observing response from all backends bound to %s\n", testCmd, tt.backendHost)
+
+		observedBackends := make(map[string]struct{})
+		eventually(func() error {
+			stdout, stderr, err := client.Exec(ctx, testCmd)
+			if err != nil {
+				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 			}
-			scenario.createLBBackendPool(ctx, backendPool)
 
-			t.Logf("Creating LB Service resources...")
-			if tt.serviceTLS {
-				// Server certificate
-				scenario.createLBServerCertificate(ctx, resourceName, "secure.acme.io")
+			// Response from the health check server contains instance name (Pod name in this case)
+			appResponse := toTestAppResponse(stdout)
+
+			for _, pod := range tt.desiredBackends.Items {
+				if appResponse.InstanceName == pod.Name {
+					observedBackends[pod.Name] = struct{}{}
+				}
 			}
 
-			service := lbService(testK8sNamespace, resourceName, tt.serviceOptions...)
-			scenario.createLBService(ctx, service)
-			svcPort := service.Spec.Port
-
-			t.Logf("Waiting for full VIP connectivity of %q...", vip.Name)
-			vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
-
-			maybeSysdump(t, testName, tt.suffix)
-
-			var testCmd string
-			if tt.serviceTLS {
-				testCmd = curlCmd(fmt.Sprintf("-k --max-time 10 -H 'Content-Type: application/json' --resolve %s:%d:%s https://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
-			} else {
-				testCmd = curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
+			// Check if we have observed all backends
+			if len(observedBackends) != int(backendReplicas) {
+				return fmt.Errorf("have not observed all backends yet: %d/%d", len(observedBackends), backendReplicas)
 			}
 
-			t.Logf("Testing %q until observing response from all backends bound to %s", testCmd, tt.backendHost)
-
-			observedBackends := make(map[string]struct{})
-			eventually(t, func() error {
-				stdout, stderr, err := client.Exec(ctx, testCmd)
-				if err != nil {
-					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				}
-
-				// Response from the health check server contains instance name (Pod name in this case)
-				appResponse := toTestAppResponse(t, stdout)
-
-				for _, pod := range tt.desiredBackends.Items {
-					if appResponse.InstanceName == pod.Name {
-						observedBackends[pod.Name] = struct{}{}
-					}
-				}
-
-				// Check if we have observed all backends
-				if len(observedBackends) != int(backendReplicas) {
-					return fmt.Errorf("have not observed all backends yet: %d/%d", len(observedBackends), backendReplicas)
-				}
-
-				return nil
-			}, shortTimeout, pollInterval)
-		})
+			return nil
+		}, shortTimeout, pollInterval)
 	}
 }

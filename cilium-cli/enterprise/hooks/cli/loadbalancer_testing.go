@@ -46,6 +46,7 @@ var tests = []func(){
 	ilbCli.TestBasicAuth,
 	ilbCli.TestBGPHealthCheck,
 	ilbCli.TestDNSBackend,
+	ilbCli.TestHeadlessService,
 }
 
 func newCmdLoadbalancerTest() *cobra.Command {
