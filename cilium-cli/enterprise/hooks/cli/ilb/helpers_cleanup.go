@@ -38,4 +38,6 @@ func RunCleanups() {
 	for _, f := range cleanupCb {
 		f()
 	}
+
+	cleanupCb = []func(){}
 }

@@ -133,6 +133,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			// Run tests
 			for _, test := range tests {
 				test()
+				ilbCli.RunCleanups()
 			}
 
 			ilbCli.RunCleanups()
