@@ -267,11 +267,7 @@ jobs:
             PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
-          # Using gotestsum to generate JUnit XML. It also allows generating
-          # test logs with the GHA log grouping format.
-          go install gotest.tools/gotestsum@latest
-
-          DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotestsum --format github-actions --junitfile cilium-junits-${{ matrix.name }}.xml ./enterprise/test/ilb -test.timeout=30m $PARAMS
+          DOCKER_API_VERSION=1.45 cilium lb test $PARAMS
 
       - name: Upload sysdumps
         if: ${{ env.skip != 'true' && !success() }}
