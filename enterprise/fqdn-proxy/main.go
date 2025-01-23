@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -71,23 +72,22 @@ const (
 )
 
 var (
-	debug                      = flag.Bool("debug", false, "")
-	gopsPort                   = flag.Int("gops-port", 8910, "Port for gops server to listen on")
-	enablePprof                = flag.Bool("pprof", false, "Enable serving the pprof debugging API")
-	pprofPort                  = flag.Int("pprof-port", 8920, "Port that the pprof listens on")
-	pprofAddress               = flag.String("pprof-address", "localhost", "Address that pprof listens on")
-	enableIPV6                 = flag.Bool("enable-ipv6", true, "")
-	enableIPV4                 = flag.Bool("enable-ipv4", true, "")
-	enableDNSCompression       = flag.Bool("enable-dns-compression", true, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
-	exposePrometheusMetrics    = flag.Bool("expose-metrics", false, "")
-	prometheusPort             = flag.Int("prometheus-port", 9967, "")
-	DNSNotificationSendWorkers = flag.Int("dns-notification-retry-workers", 128, "")
-	DNSNotificationChannelSize = flag.Int("dns-notification-channel-size", 16384, "This is the number of DNS messages that will generate a notification in Cilium Agent after it restarts. All DNS messages above this limit will be handled by proxy, but not generate notification after Cilium Agent restarts.")
-	concurrencyLimit           = flag.Int("concurrency-limit", 0, "concurrency limit for dns proxy (0 for infinite)")
-	concurrencyGracePeriod     = flag.Duration("concurrency-processing-grace-period", 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
-	FQDNRegexCompileLRUSize    = flag.Int("fqdn-regex-compile-lru-size", 1024, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
-	ToFQDNSRejectResponseCode  = flag.String("tofqdns-dns-reject-response-code", "refused", "DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default \"refused\")")
-
+	debug                         = flag.Bool("debug", false, "")
+	gopsPort                      = flag.Int("gops-port", 8910, "Port for gops server to listen on")
+	enablePprof                   = flag.Bool("pprof", false, "Enable serving the pprof debugging API")
+	pprofPort                     = flag.Int("pprof-port", 8920, "Port that the pprof listens on")
+	pprofAddress                  = flag.String("pprof-address", "localhost", "Address that pprof listens on")
+	enableIPV6                    = flag.Bool("enable-ipv6", true, "")
+	enableIPV4                    = flag.Bool("enable-ipv4", true, "")
+	enableDNSCompression          = flag.Bool("enable-dns-compression", true, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
+	exposePrometheusMetrics       = flag.Bool("expose-metrics", false, "")
+	prometheusPort                = flag.Int("prometheus-port", 9967, "")
+	DNSNotificationSendWorkers    = flag.Int("dns-notification-retry-workers", 128, "")
+	DNSNotificationChannelSize    = flag.Int("dns-notification-channel-size", 16384, "This is the number of DNS messages that will generate a notification in Cilium Agent after it restarts. All DNS messages above this limit will be handled by proxy, but not generate notification after Cilium Agent restarts.")
+	concurrencyLimit              = flag.Int("concurrency-limit", 0, "concurrency limit for dns proxy (0 for infinite)")
+	concurrencyGracePeriod        = flag.Duration("concurrency-processing-grace-period", 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
+	FQDNRegexCompileLRUSize       = flag.Int("fqdn-regex-compile-lru-size", 1024, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
+	ToFQDNSRejectResponseCode     = flag.String("tofqdns-dns-reject-response-code", "refused", "DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default \"refused\")")
 	DNSProxyEnableTransparentMode = flag.Bool("dnsproxy-enable-transparent-mode", false, "")
 	DNSProxySocketLingerTimeout   = flag.Int("dnsproxy-socket-linger-timeout", defaults.DNSProxySocketLingerTimeout, "Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server."+
 		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background")
@@ -323,6 +323,61 @@ func main() {
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-exitSignal
+}
+
+type proxyContext struct {
+	rwLock *lock.RWMutex
+
+	ipCacheV1 bool
+}
+
+func newProxyContext() *proxyContext {
+	return &proxyContext{
+		rwLock: &lock.RWMutex{},
+	}
+}
+
+func (p *proxyContext) establishAgentProxyStream() {
+	log.Info("Starting to stream proxy status from the agent...")
+	var (
+		ps  grpc.ServerStreamingClient[pb.ProxyStatus]
+		err error
+	)
+	// todo: This method needs more work to reach maturity
+	// but until the SubscribeProxyStatus server implementation
+	// streams status (rather than just returning on one update)
+	// this stub works fine.
+	for {
+		ps, err = client().SubscribeProxyStatuses(context.Background(), &pb.Empty{})
+		if err != nil {
+			sts, ok := status.FromError(err)
+			// This agent does not support proxy status.
+			// Keep checking tough in case the agent upgrades.
+			if ok && sts.Code() == codes.Unimplemented {
+				time.Sleep(time.Minute)
+				continue
+			}
+			log.Errorf("Error connecting to stream proxy status: %s", err)
+			updateAgentReachability(err)
+			return
+		}
+		break
+	}
+
+	// todo: Obviously the `ps.Recv` method needs to be
+	// inside of a loop, but, as stated above, the current
+	// server implementation does not stream properly yet.
+	log.Info("Agent proxy status stream established...")
+	agentProxyStatus, err := ps.Recv()
+	if err != nil {
+		updateAgentReachability(err)
+		return
+	}
+	if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
+		p.rwLock.Lock()
+		defer p.rwLock.Unlock()
+		p.ipCacheV1 = true
+	}
 }
 
 func manageDNSNotificationQueue() {
