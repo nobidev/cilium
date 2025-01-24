@@ -69,7 +69,6 @@ func TestTopkMetrics(t *testing.T) {
 						EndpointIP: epip,
 						RemotePort: uint16(i + 1),
 						Count:      i + 1,
-						Nth:        to - i,
 					})
 					assert.NoError(t, err)
 				}

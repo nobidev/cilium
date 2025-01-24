@@ -320,11 +320,6 @@ const (
 	// conflicting marks.
 	EnableIdentityMark = "enable-identity-mark"
 
-	// EnableHighScaleIPcache enables the special ipcache mode for high scale
-	// clusters. The ipcache content will be reduced to the strict minimum and
-	// traffic will be encapsulated to carry security identities.
-	EnableHighScaleIPcache = "enable-high-scale-ipcache"
-
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax = "local-max-addr-scope"
@@ -1976,11 +1971,6 @@ type DaemonConfig struct {
 	// conflicting marks.
 	EnableIdentityMark bool
 
-	// EnableHighScaleIPcache enables the special ipcache mode for high scale
-	// clusters. The ipcache content will be reduced to the strict minimum and
-	// traffic will be encapsulated to carry security identities.
-	EnableHighScaleIPcache bool
-
 	// KernelHz is the HZ rate the kernel is operating in
 	KernelHz int
 
@@ -2394,8 +2384,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired ||
-		c.EnableIPSecEncryptedOverlay
+		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSecEncryptedOverlay
 }
 
 // When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
@@ -2968,7 +2957,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
-	c.EnableHighScaleIPcache = vp.GetBool(EnableHighScaleIPcache)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
@@ -3805,6 +3793,7 @@ func (c *DaemonConfig) checksum() [32]byte {
 	sumConfig := *c
 	// Ignore variable parts
 	sumConfig.Opts = nil
+	sumConfig.EncryptInterface = nil
 	cBytes, err := json.Marshal(&sumConfig)
 	if err != nil {
 		return [32]byte{}
@@ -3860,7 +3849,8 @@ func (c *DaemonConfig) diffFromFile() error {
 
 		diff = cmp.Diff(&config, c, opts,
 			cmpopts.IgnoreTypes(&IntOptions{}),
-			cmpopts.IgnoreTypes(&OptionLibrary{}))
+			cmpopts.IgnoreTypes(&OptionLibrary{}),
+			cmpopts.IgnoreFields(DaemonConfig{}, "EncryptInterface"))
 	}
 	return fmt.Errorf("Config differs:\n%s", diff)
 }

@@ -97,10 +97,12 @@ func (i *identityObserver) Observe(ctx context.Context, next func(IdentityChange
 }
 
 // UpdateIdentities implements the identity.UpdateIdentities interface
-func (i *identityObserver) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) {
+func (i *identityObserver) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	i.buf = append(i.buf, IdentityChangeBatch{added, deleted})
 	i.cond.Broadcast()
+
+	return false
 }

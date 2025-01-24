@@ -173,9 +173,6 @@ func (m *topkMetrics) update(iter iter.Seq2[stats.NatMapStats, statedb.Revision]
 	currEntriesIpv4 := sets.New[stats.NatMapStats]()
 	currEntriesIpv6 := sets.New[stats.NatMapStats]()
 	for entry := range iter {
-		// By zeroing of the nth value, we make the entry something we can
-		// perform set operations on which will be useful for managing metrics.
-		entry.Nth = 0
 		switch entry.Type {
 		case nat.IPv4.String():
 			currEntriesIpv4.Insert(entry)

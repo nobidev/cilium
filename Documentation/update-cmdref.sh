@@ -9,16 +9,16 @@ source_dir="$(cd "${script_dir}/.." && pwd)"
 cmdref_dir="${script_dir}/cmdref"
 
 generators=(
-    "enterprise/cilium-dbg/cilium-dbg cmdref -d"
+    "enterprise/cilium-dbg/cilium-dbg cmdref"
     "enterprise/daemon/cilium-agent cmdref"
-    "bugtool/cilium-bugtool cmdref -d"
-    "cilium-health/cilium-health --cmdref"
+    "bugtool/cilium-bugtool cmdref"
+    "cilium-health/cilium-health cmdref"
     "clustermesh-apiserver/clustermesh-apiserver cmdref"
-    "enterprise/operator/cilium-operator --cmdref"
-    "enterprise/operator/cilium-operator-aws --cmdref"
-    "enterprise/operator/cilium-operator-azure --cmdref"
-    "enterprise/operator/cilium-operator-generic --cmdref"
-    "enterprise/operator/cilium-operator-alibabacloud --cmdref"
+    "enterprise/operator/cilium-operator cmdref"
+    "enterprise/operator/cilium-operator-aws cmdref"
+    "enterprise/operator/cilium-operator-azure cmdref"
+    "enterprise/operator/cilium-operator-generic cmdref"
+    "enterprise/operator/cilium-operator-alibabacloud cmdref"
 )
 
 for g in "${generators[@]}" ; do
