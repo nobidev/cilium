@@ -102,8 +102,8 @@ cilium-agent hive dot-graph [flags]
       --export-file-max-size int                                     Maximum size of the file in megabytes (default 100)
       --export-file-path string                                      Absolute path of the export file location. An empty string disables the flow export
       --export-file-rotation-interval duration                       Interval at which to rotate JSON export files in addition to rotating them by size
-      --export-flow-allowlist strings                                Allowlist filters for flows
-      --export-flow-denylist strings                                 Denylist filters for flows
+      --export-flow-allowlist string                                 Allowlist filters for flows
+      --export-flow-denylist string                                  Denylist filters for flows
       --export-format-version string                                 Default to v1 format. Set to '' to use the legacy format (default "v1")
       --export-node-name string                                      Override the node_name field in exported flows
       --export-rate-limit int                                        Rate limit (per minute) for flow exports. Set to -1 to disable (default -1)

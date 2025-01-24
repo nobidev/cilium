@@ -21,8 +21,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
+	"github.com/cilium/cilium/pkg/hubble"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/time"
@@ -39,18 +39,18 @@ var Cell = cell.Module(
 )
 
 type config struct {
-	FilePath             string             `mapstructure:"export-file-path"`
-	FileMaxSize          int                `mapstructure:"export-file-max-size"`
-	FileRotationInterval time.Duration      `mapstructure:"export-file-rotation-interval"`
-	FileMaxBackups       int                `mapstructure:"export-file-max-backups"`
-	FileCompress         bool               `mapstructure:"export-file-compress"`
-	FlowWhitelist        []*flow.FlowFilter `mapstructure:"export-flow-whitelist"`
-	FlowBlacklist        []*flow.FlowFilter `mapstructure:"export-flow-blacklist"`
-	FlowAllowlist        []*flow.FlowFilter `mapstructure:"export-flow-allowlist"`
-	FlowDenylist         []*flow.FlowFilter `mapstructure:"export-flow-denylist"`
-	FormatVersion        string             `mapstructure:"export-format-version"`
-	RateLimit            int                `mapstructure:"export-rate-limit"`
-	NodeName             string             `mapstructure:"export-node-name"`
+	FilePath             string        `mapstructure:"export-file-path"`
+	FileMaxSize          int           `mapstructure:"export-file-max-size"`
+	FileRotationInterval time.Duration `mapstructure:"export-file-rotation-interval"`
+	FileMaxBackups       int           `mapstructure:"export-file-max-backups"`
+	FileCompress         bool          `mapstructure:"export-file-compress"`
+	FlowWhitelist        string        `mapstructure:"export-flow-whitelist"`
+	FlowBlacklist        string        `mapstructure:"export-flow-blacklist"`
+	FlowAllowlist        string        `mapstructure:"export-flow-allowlist"`
+	FlowDenylist         string        `mapstructure:"export-flow-denylist"`
+	FormatVersion        string        `mapstructure:"export-format-version"`
+	RateLimit            int           `mapstructure:"export-rate-limit"`
+	NodeName             string        `mapstructure:"export-node-name"`
 }
 
 var defaultConfig = config{
@@ -59,10 +59,10 @@ var defaultConfig = config{
 	FileRotationInterval: 0,
 	FileMaxBackups:       3,
 	FileCompress:         true,
-	FlowWhitelist:        []*flow.FlowFilter{},
-	FlowBlacklist:        []*flow.FlowFilter{},
-	FlowAllowlist:        []*flow.FlowFilter{},
-	FlowDenylist:         []*flow.FlowFilter{},
+	FlowWhitelist:        "",
+	FlowBlacklist:        "",
+	FlowAllowlist:        "",
+	FlowDenylist:         "",
 	FormatVersion:        formatVersionV1,
 	RateLimit:            -1,
 	NodeName:             "",
@@ -74,12 +74,12 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("export-file-rotation-interval", def.FileRotationInterval, "Interval at which to rotate JSON export files in addition to rotating them by size")
 	flags.Int("export-file-max-backups", def.FileMaxBackups, "Number of rotated files to keep")
 	flags.Bool("export-file-compress", def.FileCompress, "Compress rotated files")
-	flags.StringSlice("export-flow-whitelist", []string{}, "Whitelist filters for flows")
-	flags.StringSlice("export-flow-blacklist", []string{}, "Blacklist filters for flows")
+	flags.String("export-flow-whitelist", "", "Whitelist filters for flows")
+	flags.String("export-flow-blacklist", "", "Blacklist filters for flows")
 	flags.MarkHidden("export-flow-whitelist")
 	flags.MarkHidden("export-flow-blacklist")
-	flags.StringSlice("export-flow-allowlist", []string{}, "Allowlist filters for flows")
-	flags.StringSlice("export-flow-denylist", []string{}, "Denylist filters for flows")
+	flags.String("export-flow-allowlist", "", "Allowlist filters for flows")
+	flags.String("export-flow-denylist", "", "Denylist filters for flows")
 	flags.String("export-format-version", formatVersionV1, "Default to v1 format. Set to '' to use the legacy format")
 	flags.Int("export-rate-limit", def.RateLimit, "Rate limit (per minute) for flow exports. Set to -1 to disable")
 	flags.String("export-node-name", def.NodeName, "Override the node_name field in exported flows")
@@ -111,13 +111,22 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 	}
 
 	// keep support for deprecated flags
-	allowlist := params.Config.FlowAllowlist
-	if len(allowlist) == 0 {
-		allowlist = params.Config.FlowWhitelist
+	allowlistFlag := params.Config.FlowAllowlist
+	if allowlistFlag == "" {
+		allowlistFlag = params.Config.FlowWhitelist
 	}
-	denylist := params.Config.FlowDenylist
-	if len(denylist) == 0 {
-		denylist = params.Config.FlowBlacklist
+	denylistFlag := params.Config.FlowDenylist
+	if denylistFlag == "" {
+		denylistFlag = params.Config.FlowBlacklist
+	}
+
+	allowList, err := hubble.ParseFlowFilters(allowlistFlag)
+	if err != nil {
+		return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to parse allowlist: %w", err)
+	}
+	denyList, err := hubble.ParseFlowFilters(denylistFlag)
+	if err != nil {
+		return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to parse denylist: %w", err)
 	}
 
 	// create file writer
@@ -134,8 +143,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 
 	// setup exporter options
 	exporterOpts := []exporter.Option{
-		exporter.WithAllowList(params.Logger, allowlist),
-		exporter.WithDenyList(params.Logger, denylist),
+		exporter.WithAllowList(params.Logger, allowList),
+		exporter.WithDenyList(params.Logger, denyList),
 		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 			var writer io.WriteCloser = writer
 			writer = metricsHandler.WrapWriter(writer)
