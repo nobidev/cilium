@@ -9,11 +9,13 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/swag"
 	"github.com/google/go-cmp/cmp"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/api/v1/models"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -56,13 +58,6 @@ func (m mockStore[T]) Release() {
 	panic("not implemented")
 }
 
-func podKey(ns, name string) resource.Key {
-	return resource.Key{
-		Namespace: ns,
-		Name:      name,
-	}
-}
-
 func networkKey(name string) resource.Key {
 	return resource.Key{
 		Name: name,
@@ -70,38 +65,31 @@ func networkKey(name string) resource.Key {
 }
 
 func TestManager_GetNetworksForPod(t *testing.T) {
+	db := statedb.New()
+	pods, err := k8s.NewPodTable(db)
+	if err != nil {
+		t.Fatalf("NewPodTable: %s", err)
+	}
+	wtxn := db.WriteTxn(pods)
+	newPod := func(namespace, name string, annotations map[string]string) k8s.LocalPod {
+		return k8s.LocalPod{Pod: &slim_core_v1.Pod{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Namespace:   namespace,
+				Name:        name,
+				Annotations: annotations,
+			},
+		}}
+	}
+	pods.Insert(wtxn, newPod("default", "client", nil))
+	pods.Insert(wtxn, newPod("default", "multi-homed-workload", map[string]string{PodNetworkKey: "default,jupiter"}))
+	pods.Insert(wtxn, newPod("default", "secondary-only-workload", map[string]string{PodNetworkKey: "jupiter"}))
+	pods.Insert(wtxn, newPod("default", "nonexistent-network-workload", map[string]string{PodNetworkKey: "mars"}))
+	pods.Insert(wtxn, newPod("default", "existent-and-nonexistent-network-workload", map[string]string{PodNetworkKey: "jupiter,mars"}))
+	wtxn.Commit()
+
 	m := &Manager{
-		podStore: mockStore[*slim_core_v1.Pod]{
-			podKey("default", "client"): &slim_core_v1.Pod{},
-			podKey("default", "multi-homed-workload"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						PodNetworkKey: "default,jupiter",
-					},
-				},
-			},
-			podKey("default", "secondary-only-workload"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						PodNetworkKey: "jupiter",
-					},
-				},
-			},
-			podKey("default", "nonexistent-network-workload"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						PodNetworkKey: "mars",
-					},
-				},
-			},
-			podKey("default", "existent-and-nonexistent-network-workload"): &slim_core_v1.Pod{
-				ObjectMeta: slim_meta_v1.ObjectMeta{
-					Annotations: map[string]string{
-						PodNetworkKey: "jupiter,mars",
-					},
-				},
-			},
-		},
+		db:   db,
+		pods: pods,
 		networkStore: mockStore[*iso_v1alpha1.IsovalentPodNetwork]{
 			networkKey("default"): &iso_v1alpha1.IsovalentPodNetwork{
 				ObjectMeta: meta_v1.ObjectMeta{
