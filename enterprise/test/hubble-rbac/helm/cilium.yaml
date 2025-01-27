@@ -12,6 +12,10 @@ hubble:
         enabled: true
   timescape:
     enabled: true
+    ui:
+      auth:
+        oidc:
+          redirectURL: http://localhost:8000/oauth2/callback
   rbac:
     enabled: true
     auth:

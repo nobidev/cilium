@@ -193,6 +193,19 @@ spec:
             - /app/hubble-timescape-ui
           args:
             - serve
+          {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
+          env:
+            - name: HUBBLE_TIMESCAPE_UI_OAUTH2__OIDC__CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretName }}
+                  key:  {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretKey }}
+            - name: HUBBLE_TIMESCAPE_UI_SESSION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hubble.timescape.ui.auth.sessionKey.secretName }}
+                  key:  {{ .Values.hubble.timescape.ui.auth.sessionKey.secretKey }}
+          {{- end }}
           ports:
             - name: ui
               containerPort: 8000
@@ -236,6 +249,7 @@ spec:
           defaultMode: 0400
           sources:
           - secret:
+              name: {{ .Values.hubble.timescape.tls.server.existingSecret | default "hubble-timescape-server-certs" }}
               items:
               - key: tls.crt
                 path: server.crt
@@ -243,7 +257,19 @@ spec:
                 path: server.key
               - key: ca.crt
                 path: ca.crt
-              name: {{ .Values.hubble.timescape.tls.server.existingSecret | default "hubble-timescape-server-certs" }}
+          {{- $oidcCAConfigMapName := .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+          {{- $oidcCAConfigMapKey := .Values.hubble.rbac.auth.oidc.ca.configMap.key }}
+          {{- if .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name }}
+          {{- $oidcCAConfigMapName = .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name }}
+          {{- $oidcCAConfigMapKey = .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.key }}
+          {{- end }}
+          {{- if $oidcCAConfigMapName }}
+          - configMap:
+              name: {{ $oidcCAConfigMapName }}
+              items:
+              - key: {{ $oidcCAConfigMapKey }}
+                path: oidc-provider-ca.pem
+          {{- end -}}
       {{- end }}
       {{- if .Values.hubble.rbac.enabled }}
       - name: hubble-rbac-policy
@@ -480,12 +506,46 @@ metadata:
 data:
   config.yaml: |
     http-address: ":8000"
+    {{- if .Values.hubble.rbac.enabled }}
+    timescape-address: "localhost:4245"
+    {{- else }}
     timescape-address: "localhost:4244"
+    {{- end }}
     {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
     timescape-enable-tls: true
     timescape-ca-files: /var/lib/hubble-timescape/tls/ca.crt
     {{- else }}
     timescape-enable-tls: false
+    {{- end }}
+    {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
+    oauth2:
+      enabled: true
+      oidc:
+        {{- $clientID := .Values.hubble.timescape.ui.auth.oidc.clientID | default .Values.hubble.rbac.auth.oidc.clientID }}
+        {{- if not $clientID }}
+        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.clientID needs to be set when authentication is enabled." }}
+        {{- end }}
+        client-id: {{ $clientID }}
+        {{- $issuerURL := .Values.hubble.timescape.ui.auth.oidc.issuerURL | default .Values.hubble.rbac.auth.oidc.issuerUrl }}
+        {{- if not $issuerURL }}
+        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.issuerURL needs to be set when authentication is enabled." }}
+        {{- end }}
+        issuer-url: {{ $issuerURL }}
+        {{- $oidcRedirectURL := .Values.hubble.timescape.ui.auth.oidc.redirectURL }}
+        {{- if and (not $oidcRedirectURL) .Values.hubble.timescape.ui.ingress.enabled .Values.hubble.timescape.ui.ingress.hosts }}
+        {{- if .Values.hubble.timescape.ui.ingress.tls }}
+        {{- $oidcRedirectURL = printf "https://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
+        {{- else }}
+        {{- $oidcRedirectURL = printf "http://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
+        {{- end }}
+        {{- end }}
+        {{- if not $oidcRedirectURL }}
+        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.redirectURL needs to be set to to URI_USED_TO_ACCESS_TIMESCAPE_UI/oauth2/callback, when authentication is enabled." }}
+        {{- end }}
+        redirect-url: {{ $oidcRedirectURL }}
+        {{- if or .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+        issuer-ca: /var/lib/hubble-timescape/tls/oidc-provider-ca.pem
+        {{- end }}
     {{- end }}
 ---
 {{- if .Values.hubble.timescape.ui.ingress.enabled }}
@@ -500,7 +560,7 @@ metadata:
   {{- end }}
 spec:
   {{- if .Values.hubble.timescape.ui.ingress.className }}
-  ingressClassName: {{ .Values.hubble.ui.ingress.className }}
+  ingressClassName: {{ .Values.hubble.timescape.ui.ingress.className }}
   {{- end }}
   {{- with .Values.hubble.timescape.ui.ingress.tls }}
   tls: {{- toYaml . | nindent 4 }}

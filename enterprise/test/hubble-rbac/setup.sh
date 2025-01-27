@@ -45,5 +45,7 @@ until [ "$(kubectl -n dex get ingress dex -ojson | jq '.status.loadBalancer.ingr
   sleep 5
 done
 
+kubectl -n kube-system create secret generic hubble-timescape-ui  --from-literal session-key=fooobar --from-literal client-secret=test-client-secret
+
 echo "Waiting for Hubble Relay to become ready"
 kubectl -n kube-system rollout status deployment hubble-relay

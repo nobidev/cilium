@@ -3843,13 +3843,91 @@
             },
             "ui": {
               "properties": {
+                "auth": {
+                  "properties": {
+                    "enabled": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "oidc": {
+                      "properties": {
+                        "ClientID": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "clientSecret": {
+                          "properties": {
+                            "secretKey": {
+                              "type": "string"
+                            },
+                            "secretName": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "issuerCA": {
+                          "properties": {
+                            "configMap": {
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "issuerURL": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "redirectURL": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "sessionKey": {
+                      "properties": {
+                        "secretKey": {
+                          "type": "string"
+                        },
+                        "secretName": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
                 "image": {
                   "properties": {
                     "override": {
-                      "type": "null"
+                      "type": [
+                        "null",
+                        "string"
+                      ]
                     },
                     "pullPolicy": {
                       "type": "string"

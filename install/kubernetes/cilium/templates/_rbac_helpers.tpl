@@ -31,6 +31,8 @@ args:
   {{- if .isTimescape }}
   - --hubble-local-server=localhost:4244
   - --hubble-timescape-k8s-events-api
+  - --hubble-timescape-flow-api
+  - --hubble-timescape-conn-map-api
   {{- else }}
   - --hubble-local-server={{ include "hubble-relay.config.listenAddress" . }}
   {{- end }}
