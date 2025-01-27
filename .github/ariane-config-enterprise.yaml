@@ -62,7 +62,7 @@ triggers:
   /ci-openshift ( ?.*=?.*)*:
     workflows:
     - enterprise-conformance-openshift.yaml
-  /ci-panda-scale:
+  /ci-panda-scale(?:\s+(nodes=[0-9]+))?:
     workflows:
     - enterprise-panda-scale.yaml
 

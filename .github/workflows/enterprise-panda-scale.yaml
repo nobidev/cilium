@@ -76,7 +76,6 @@ env:
   trust_manager_version: v0.15.0
 
   etcd_nodes_count: 3
-  workload_nodes_count: 100
 
 jobs:
   echo-inputs:
@@ -133,6 +132,13 @@ jobs:
           # Adding k8s.local to the end makes kops happy
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
+
+          # Retrieve the desired number of nodes from the arguments.
+          if [[ ${{ inputs.extra-args }} =~ nodes=([0-9+]+) ]]; then
+            WORKLOAD_NODES=${BASH_REMATCH[1]}
+          else
+            WORKLOAD_NODES=100
+          fi
 
           cat<<'EOF' > values-export-aggregation.yaml
           extraConfig:
@@ -218,6 +224,8 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
+          echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -298,16 +306,16 @@ jobs:
         timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-16
+          control_plane_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 'n2-standard-16' || 'n2-standard-32' }}
           control_plane_count: 3
-          node_size: e2-standard-16
+          node_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 'n2-standard-16' || 'n2-standard-32' }}
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           node_cidr: 10.255.0.0/16
           kube_proxy_enabled: false
           sync_cloud_routes: false
-          etcd_volume_size: 200
+          etcd_volume_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 250 || 500 }}
           max_in_flight: 200
 
       - name: Create instance group for etcd
@@ -316,11 +324,11 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          node_size: e2-standard-8
+          node_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 'n2-standard-16' || 'n2-standard-32' }}
           node_count: ${{ env.etcd_nodes_count }}
           ig_name: etcd
           node_volume_type: pd-ssd
-          node_volume_size: 200
+          node_volume_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 250 || 500 }}
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
@@ -507,7 +515,7 @@ jobs:
             --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=${{ env.workload_nodes_count }} \
+            --nodes=${{ steps.vars.outputs.WORKLOAD_NODES }} \
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-setup.txt
 
@@ -553,7 +561,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: ${{ env.workload_nodes_count }}
+          node_count: ${{ steps.vars.outputs.WORKLOAD_NODES }}
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -565,7 +573,7 @@ jobs:
           # A more idiomatic way would be using the kops.k8s.io/instancegroup=workloads
           # label selector, but kops appears to be significantly slow at reconciling
           # the labels to the node objects. Hence, let's just grep for the node names.
-          while [[ "$cnt" != ${{ env.workload_nodes_count}} ]]; do
+          while [[ "$cnt" != ${{ steps.vars.outputs.WORKLOAD_NODES}} ]]; do
             cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[a-z0-9]+\s+Ready\s' || true)
             echo "workloads nodes count: $cnt"
             sleep 10
@@ -619,7 +627,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=${{ env.workload_nodes_count }} \
+            --nodes=${{ steps.vars.outputs.WORKLOAD_NODES }} \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
