@@ -664,7 +664,14 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			e.getLogger().WithField(logfields.PolicyRevision, fromRev).Warn("Endpoint missed a policy revision; triggering regeneration")
+			if e.state == StateWaitingToRegenerate {
+				// We can log this at less severity since a regeneration was already queued.
+				// This can happen if two policy updates come in quick succession, with the first
+				// affecting this endpoint and the second not.
+				e.getLogger().WithField(logfields.PolicyRevision, fromRev).Info("Endpoint missed a policy revision; triggering regeneration")
+			} else {
+				e.getLogger().WithField(logfields.PolicyRevision, fromRev).Warn("Endpoint missed a policy revision; triggering regeneration")
+			}
 		} else {
 			e.getLogger().WithField(logfields.PolicyRevision, toRev).Debug("Policy update is a no-op, bumping policyRevision")
 			e.setPolicyRevision(toRev)
@@ -898,8 +905,6 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 			}
 
 			regenMetadata := &regeneration.ExternalRegenerationMetadata{
-				// TODO (ianvernon) - is there a way we can plumb a parent
-				// context to a controller (e.g., endpoint.aliveCtx)?
 				ParentContext: ctx,
 				Reason:        reasonRegenRetry,
 				// Completely rewrite the endpoint - we don't know the nature
@@ -919,6 +924,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 			}
 			return fmt.Errorf("regeneration recovery failed")
 		},
+		RunInterval:            1 * time.Second,
 		ErrorRetryBaseDuration: 2 * time.Second,
 		Context:                e.aliveCtx,
 	})
@@ -1094,7 +1100,7 @@ func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, bandwidth
 // This function explicitly exported to be accessed by code outside of the
 // Cilium source code tree and for testing.
 func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
-	derivedFrom labels.LabelArrayList,
+	derivedFrom string,
 	revision uint64,
 	ok bool,
 ) {

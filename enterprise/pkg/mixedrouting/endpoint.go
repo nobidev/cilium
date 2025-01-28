@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcmap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -290,7 +289,7 @@ func (em *endpointManager) unsetMapping(hostIP net.IP) {
 // if they have been buffered for longer than expected. This function is intended to
 // be run periodically by a timer job.
 func (em *endpointManager) warnBufferedEntries(context.Context) error {
-	const deadline, max = 1 * time.Minute, 10
+	const deadline, limit = 1 * time.Minute, 10
 
 	em.mu.Lock()
 	defer em.mu.Unlock()
@@ -301,7 +300,7 @@ func (em *endpointManager) warnBufferedEntries(context.Context) error {
 			count++
 
 			// We print only a limited number of warnings to avoid flooding logs.
-			if count < max {
+			if count < limit {
 				em.logger.WithFields(logrus.Fields{
 					logfields.Prefix:     prefix,
 					logfields.TunnelPeer: entry.hostIP.String(),
@@ -314,7 +313,7 @@ func (em *endpointManager) warnBufferedEntries(context.Context) error {
 	if count > 0 {
 		em.logger.WithFields(logrus.Fields{
 			logfields.Count:   count,
-			logfields.Omitted: math.IntMax(0, count-max),
+			logfields.Omitted: max(0, count-limit),
 		}).Warning("Detected buffered endpoints. Please check the health of the clustermesh " +
 			"control plane and whether agents are successfully connected to it.")
 	}
