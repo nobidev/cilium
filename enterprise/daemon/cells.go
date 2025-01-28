@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
+	"github.com/cilium/cilium/enterprise/pkg/ipmigration"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
@@ -83,6 +84,7 @@ var (
 		mixedrouting.Cell,
 		encryptionPolicy.Cell,
 
+		ipmigration.Cell,
 		multinetwork.Cell,
 
 		multicast.Cell,
