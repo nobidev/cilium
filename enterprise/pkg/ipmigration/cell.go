@@ -18,9 +18,13 @@ package ipmigration
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
+	"net"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -28,19 +32,28 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
 	log "github.com/sirupsen/logrus"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointrestapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration/types"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -65,8 +78,13 @@ type managerParams struct {
 	StateDB  *statedb.DB
 	PodTable statedb.Table[agentK8s.LocalPod]
 
-	EndpointTemplates *endpointTemplates
+	RestorerPromise promise.Promise[endpointstate.Restorer]
 
+	EndpointManager   endpointmanager.EndpointManager
+	EndpointTemplates *endpointTemplates
+	EndpointCreator   promise.Promise[endpointcreator.EndpointCreator]
+
+	IPAM                *ipam.IPAM
 	IPAMMetadataManager ipamMetadata.Manager
 	LocalNodeStore      *node.LocalNodeStore
 
@@ -78,6 +96,16 @@ var defaultConfig = types.Config{
 	EnablePodIPMigration: false,
 }
 
+type ipamAllocator interface {
+	AllocateIP(ip net.IP, owner string, pool ipam.Pool) error
+	ReleaseIP(ip net.IP, pool ipam.Pool) error
+}
+
+type endpointManager interface {
+	GetEndpointsByPodName(name string) []*endpoint.Endpoint
+	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
+}
+
 type cfg struct {
 	ipv4Enabled bool
 	ipv6Enabled bool
@@ -86,21 +114,30 @@ type cfg struct {
 	retryAttempts int
 }
 
-// manager attached and detaches pods.
+// manager attached and detaches pods. It has two entry points:
 //   - handlePostIPAM + handlePutEndpointID: These functions intercept the API calls issued by cilium-cni during CNI ADD.
 //     They are responsible for mocking IPAM allocation and endpoint creation if they see that CNI ADD request is for a
 //     detached pod. All other requests are forwarded to the upstream handlers in Daemon.
+//   - handlePodEvent: This function is called on local pod updates. If it observes the removal of the `detached`
+//     annotation from a pod, it will attempt to attach this pod by creating the endpoint(s) for it based on the parameters
+//     intercepted in the earlier handlePutEndpointID call. If it sees the `detached` annotation being added to a pod,
+//     it will detach that pod by removing all associated endpoints for that pod.
 type manager struct {
 	log *slog.Logger
 	cfg cfg
 
+	endpointManager   endpointManager
 	endpointTemplates *endpointTemplates
 
+	ipam                ipamAllocator
 	ipamMetadataManager ipamMetadata.Manager
 	localNodeStore      *node.LocalNodeStore
 
 	db       *statedb.DB
 	podTable statedb.Table[agentK8s.LocalPod]
+
+	// Note: This fields is initialized late by the `start-ip-migration` job
+	endpointCreator atomic.Pointer[endpointcreator.EndpointCreator]
 
 	// Note: These two fields are set by injectAPIHandlers during Hive construction
 	putEP     endpointrestapi.PutEndpointIDHandler
@@ -122,16 +159,237 @@ func newMigrationManager(params managerParams) *manager {
 			retryDuration: 100 * time.Millisecond,
 			retryAttempts: 20,
 		},
+
+		endpointManager:   params.EndpointManager,
 		endpointTemplates: params.EndpointTemplates,
 
-		localNodeStore:      params.LocalNodeStore,
+		ipam:                params.IPAM,
 		ipamMetadataManager: params.IPAMMetadataManager,
+		localNodeStore:      params.LocalNodeStore,
 
 		db:       params.StateDB,
 		podTable: params.PodTable,
 	}
 
+	// The pod watcher can only be started once its dependency (endpoint creator) is available.
+	// In addition, we also only want to start the watcher once alls endpoints have been restored, as otherwise
+	// we observe pods without endpoints, which causes the code to wrongly assume those pods are detached.
+	params.JobGroup.Add(
+		job.OneShot("start-ip-migration", func(ctx context.Context, _ cell.Health) error {
+			// This blocks until the Daemon has been started
+			epCreator, err := params.EndpointCreator.Await(ctx)
+			if err != nil {
+				return err
+			}
+			m.endpointCreator.Store(&epCreator)
+
+			// WaitForEndpointRestore blocks until all endpoints have been restored
+			restorer, err := params.RestorerPromise.Await(ctx)
+			if err != nil {
+				return err
+			}
+			restorer.WaitForEndpointRestore(ctx)
+
+			podStream := resource.NewTableEventStream(params.StateDB, params.PodTable, func(key resource.Key) statedb.Query[agentK8s.LocalPod] {
+				return agentK8s.PodByName(key.Namespace, key.Name)
+			})
+
+			// Start the pod watcher only once the above statements have unblocked
+			params.JobGroup.Add(job.Observer(
+				"ip-migration-pod-watcher",
+				func(ctx context.Context, event resource.Event[agentK8s.LocalPod]) error {
+					err := m.handlePodEvent(ctx, event)
+					if err != nil {
+						// The IPAM pool not being available is an expected error, thus only log it with level info.
+						level := slog.LevelWarn
+						if strings.Contains(err.Error(), "pool not (yet) available") {
+							level = slog.LevelInfo
+						}
+						m.log.Log(ctx, level, "Failed to handle pod event, will re-try later", slog.Any("err", err))
+					}
+					event.Done(err)
+					return nil
+				},
+				podStream,
+			))
+
+			return nil
+		}),
+	)
+
 	return m
+}
+
+// endpointsForPod queries the endpoint manager for a list of endpoints associated with the provided pod.
+func (m *manager) endpointsForPod(pod *slim_corev1.Pod) []*endpoint.Endpoint {
+	podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
+	candidates := m.endpointManager.GetEndpointsByPodName(podNSName)
+	endpoints := make([]*endpoint.Endpoint, 0, len(candidates))
+	for _, ep := range candidates {
+		if ep.K8sUID == string(pod.UID) {
+			endpoints = append(endpoints, ep)
+		}
+	}
+
+	return endpoints
+}
+
+// detachRunningPod detaches a running pod by removing all endpoints
+func (m *manager) detachRunningPod(pod resource.Key, endpoints []*endpoint.Endpoint) error {
+	m.log.Info("Detaching pod endpoints", slog.String("pod", pod.String()))
+
+	var err error
+	deleteConfig := endpoint.DeleteConfig{}
+	for _, ep := range endpoints {
+		err = errors.Join(err, errors.Join(m.endpointManager.RemoveEndpoint(ep, deleteConfig)...))
+	}
+	return err
+}
+
+// createEndpoint creates a new endpoint based on the provided EndpointChangeRequest ep.
+// Before it creates the endpoint, it will allocate the endpoint's IPs using the IPAM subsystem.
+func (m *manager) createEndpoint(
+	ctx context.Context,
+	ep *models.EndpointChangeRequest,
+) (err error) {
+	owner := ep.K8sNamespace + "/" + ep.K8sPodName
+	epCreatorPtr := m.endpointCreator.Load()
+	if epCreatorPtr == nil || *epCreatorPtr == nil {
+		// This should never happen, since attachRunningPod should only be called from the pod watcher, and the
+		// pod watcher is only started once we've obtained a reference to the endpoint creator.
+		// However, just to be safe and avoid any nil-pointer panics, we error out here:
+		return errors.New("BUG: endpoint creator not initialized")
+	}
+
+	// Allocate IPv4 address
+	if addr := ep.Addressing; addr != nil && addr.IPV4 != "" {
+		ip := net.ParseIP(addr.IPV4)
+		pool := ipam.Pool(addr.IPV4PoolName)
+		if ip == nil {
+			return fmt.Errorf("invalid ipv4 address: %s", addr.IPV4)
+		}
+
+		err = m.ipam.AllocateIP(ip, owner, pool)
+		if err != nil {
+			return fmt.Errorf("ipv4 address allocation: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				m.ipam.ReleaseIP(ip, pool)
+			}
+		}()
+	}
+
+	// Allocate IPv6 address
+	if addr := ep.Addressing; addr != nil && addr.IPV6 != "" {
+		ip := net.ParseIP(addr.IPV6)
+		pool := ipam.Pool(addr.IPV6PoolName)
+		if ip == nil {
+			return fmt.Errorf("invalid ipv6 address: %s", addr.IPV6)
+		}
+
+		err = m.ipam.AllocateIP(ip, owner, pool)
+		if err != nil {
+			return fmt.Errorf("ipv6 address allocation: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				m.ipam.ReleaseIP(ip, pool)
+			}
+		}()
+	}
+
+	_, err = (*epCreatorPtr).CreateEndpoint(ctx, ep)
+	return err
+}
+
+// attachRunningPod attaches the specified pod by obtaining its endpoint template and creating a new endpoint
+// for each found template
+func (m *manager) attachRunningPod(ctx context.Context, pod *slim_corev1.Pod) error {
+	epTemplates, err := m.endpointTemplates.getEndpointTemplatesForPod(pod.UID)
+	if err != nil {
+		return fmt.Errorf("failed to attach pod %s: %w", pod.Namespace+"/"+pod.Name, err)
+	}
+
+	for _, ep := range epTemplates {
+		err = errors.Join(err, m.createEndpoint(ctx, ep))
+	}
+
+	if err == nil {
+		m.log.Info("Attached pod endpoints",
+			slog.String("pod", pod.Namespace+"/"+pod.Name),
+			slog.Int("endpoints", len(epTemplates)))
+	}
+
+	return err
+}
+
+// collectPodUIDs returns a set of all pod UIDs found in the manager's pod store
+func (m *manager) collectPodUIDs() (sets.Set[k8sTypes.UID], error) {
+	uids := make(sets.Set[k8sTypes.UID])
+	for pod := range m.podTable.All(m.db.ReadTxn()) {
+		uids.Insert(pod.UID)
+	}
+
+	return uids, nil
+}
+
+// handlePodEvent is responsible for attaching and detaching pods based on annotation changes:
+// - For a pod upsert event, it checks the pod's annotations and attaches or detaches the pod accordingly
+// - For a pod delete event, it cleans up the pods' endpoint templates
+// - Fod a pod sync event, it cleans up all endpoint templates for pods no longer found in the pod store
+func (m *manager) handlePodEvent(ctx context.Context, event resource.Event[agentK8s.LocalPod]) error {
+	pod := event.Object
+	switch event.Kind {
+	case resource.Upsert:
+		// Skip pod objects without a UID
+		if len(pod.UID) == 0 {
+			m.log.Warn("Pod event received with empty UID, ignoring", slog.String("pod", event.Key.String()))
+			return nil
+		}
+
+		// Skip pods which are not running, as they might be in the process of being created
+		if pod.Status.Phase != slim_corev1.PodRunning {
+			return nil
+		}
+		// Skip pods not managed by Cilium
+		if pod.Spec.HostNetwork {
+			return nil
+		}
+
+		_, hasDetachAnnotation := pod.Annotations[types.DetachedAnnotation]
+		endpoints := m.endpointsForPod(pod.Pod)
+
+		switch {
+		case hasDetachAnnotation && len(endpoints) > 0:
+			return m.detachRunningPod(event.Key, endpoints)
+		case !hasDetachAnnotation && len(endpoints) == 0:
+			return m.attachRunningPod(ctx, pod.Pod)
+		}
+	case resource.Delete:
+		err := m.endpointTemplates.deleteEndpointTemplatesForPod(pod.UID)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil // Not returning an error if the endpoint template does not exist
+		}
+		return err
+	case resource.Sync:
+		alivePodsUIDs, err := m.collectPodUIDs()
+		if err != nil {
+			return fmt.Errorf("failed to collect pod UIDs for pruning: %w", err)
+		}
+		pruned, err := m.endpointTemplates.pruneEndpointTemplates(alivePodsUIDs)
+		if err == nil {
+			m.log.Debug("Pruned endpoint templates", slog.Int("pruned", pruned))
+		} else {
+			m.log.Warn("Errors while pruning endpoint templates",
+				slog.Int("pruned", pruned),
+				slog.Any("error", err))
+		}
+		// Not returning an error to the caller here, since we do not expect a retry to be ever be successful
+		return nil
+	}
+
+	return nil
 }
 
 // fetchPod returns the pod object from the pod store. If the podUID is provided, then the UID of the fetched pod is
