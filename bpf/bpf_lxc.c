@@ -669,12 +669,9 @@ ct_recreate6:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING)) {
-# ifdef HOST_IFINDEX
+				if (is_defined(ENABLE_ROUTING))
 					goto to_host;
-# endif
-					return DROP_HOST_UNREACHABLE;
-				}
+
 				goto pass_to_stack;
 			}
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
@@ -748,8 +745,8 @@ to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
 				  TRACE_EP_ID_UNKNOWN,
-				  HOST_IFINDEX, trace.reason, trace.monitor);
-		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
+				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
 
@@ -1179,12 +1176,9 @@ ct_recreate4:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING)) {
-# ifdef HOST_IFINDEX
+				if (is_defined(ENABLE_ROUTING))
 					goto to_host;
-# endif
-					return DROP_HOST_UNREACHABLE;
-				}
+
 				goto pass_to_stack;
 			}
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
@@ -1302,8 +1296,8 @@ to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
 				  TRACE_EP_ID_UNKNOWN,
-				  HOST_IFINDEX, trace.reason, trace.monitor);
-		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
+				  CILIUM_NET_IFINDEX, trace.reason, trace.monitor);
+		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
 
