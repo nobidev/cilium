@@ -160,10 +160,10 @@ func (e *Engine) newRule(key RuleKey, rule parsedSelectorRule) *encryptionRule {
 	}
 
 	r.subjectNotifier = e.newIdentityNotifier(r, true)
-	r.subjectSelector, _ = e.selectorCache.AddIdentitySelector(r.subjectNotifier, nil, rule.subject)
+	r.subjectSelector, _ = e.selectorCache.AddIdentitySelector(r.subjectNotifier, networkPolicy.EmptyStringLabels, rule.subject)
 
 	r.peerNotifier = e.newIdentityNotifier(r, false)
-	r.peerSelector, _ = e.selectorCache.AddIdentitySelector(r.peerNotifier, nil, rule.peer)
+	r.peerSelector, _ = e.selectorCache.AddIdentitySelector(r.peerNotifier, networkPolicy.EmptyStringLabels, rule.peer)
 
 	return r
 }

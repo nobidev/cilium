@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,9 +73,10 @@ type managerParams struct {
 	Lifecycle cell.Lifecycle
 	Config    Config
 
+	DB                 *statedb.DB
 	DaemonConfig       *option.DaemonConfig
 	Sysctl             sysctl.Sysctl
-	PodResource        k8s.LocalPodResource
+	Pods               statedb.Table[k8s.LocalPod]
 	NetworkResource    resource.Resource[*iso_v1alpha1.IsovalentPodNetwork]
 	CiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 	LocalNodeStore     *node.LocalNodeStore
@@ -92,7 +94,8 @@ func newMultiNetworkManager(params managerParams) *Manager {
 
 		controllerManager: controller.NewManager(),
 
-		podResource:        params.PodResource,
+		db:                 params.DB,
+		pods:               params.Pods,
 		networkResource:    params.NetworkResource,
 		ciliumNodeResource: params.CiliumNodeResource,
 		localNodeStore:     params.LocalNodeStore,

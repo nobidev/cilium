@@ -9,16 +9,16 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/swag"
 
-	k8sResource "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -90,8 +90,8 @@ type Manager struct {
 	controllerManager *controller.Manager
 	cancelController  context.CancelFunc
 
-	podResource k8sResource.LocalPodResource
-	podStore    resource.Store[*slim_core_v1.Pod]
+	db   *statedb.DB
+	pods statedb.Table[k8s.LocalPod]
 
 	ciliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 	localNodeStore     *node.LocalNodeStore
@@ -103,11 +103,6 @@ type Manager struct {
 // Start initializes the manager and starts watching the Kubernetes resources.
 // Invoked by the hive framework.
 func (m *Manager) Start(ctx cell.HookContext) (err error) {
-	m.podStore, err = m.podResource.Store(ctx)
-	if err != nil {
-		return err
-	}
-
 	m.networkStore, err = m.networkResource.Store(ctx)
 	if err != nil {
 		return err
@@ -126,7 +121,6 @@ func (m *Manager) Start(ctx cell.HookContext) (err error) {
 // Stop stops the manager, meaning it can no longer serve API requests.
 // Invoked by the hive framework.
 func (m *Manager) Stop(ctx cell.HookContext) error {
-	m.podStore = nil
 	m.networkStore = nil
 	if m.cancelController != nil {
 		m.cancelController()
@@ -156,17 +150,12 @@ func (m *Manager) Stop(ctx cell.HookContext) error {
 // will cause the CNI ADD request to fail, but it will be retried later, at which
 // point the pod and/or network should hopefully be available.
 func (m *Manager) GetNetworksForPod(ctx context.Context, podNamespace, podName string) (*models.NetworkAttachmentList, error) {
-	if m.podStore == nil || m.networkStore == nil {
+	if m.networkStore == nil {
 		return nil, &ManagerStoppedError{}
 	}
 
-	pod, ok, err := m.podStore.GetByKey(resource.Key{
-		Name:      podName,
-		Namespace: podNamespace,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup pod %q: %w", podNamespace+"/"+podName, err)
-	} else if !ok {
+	pod, _, ok := m.pods.Get(m.db.ReadTxn(), k8s.PodByName(podNamespace, podName))
+	if !ok {
 		return nil, &ResourceNotFound{Resource: "Pod", Namespace: podNamespace, Name: podName}
 	}
 

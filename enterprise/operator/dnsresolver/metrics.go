@@ -19,12 +19,12 @@ func newMetrics() *Metrics {
 	return &Metrics{
 		FQDNResolvers: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "fqdn_resolvers_total",
+			Name:      "fqdn_resolvers",
 			Help:      "Number of background FQDN resolvers started by the Operator",
 		}),
 		FQDNGroupReconcilers: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "fqdngroup_reconcilers_total",
+			Name:      "fqdngroup_reconcilers",
 			Help:      "Number of IsovalentFQDNGroup reconcilers started by the Operator",
 		}),
 	}
