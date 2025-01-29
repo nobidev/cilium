@@ -16,8 +16,6 @@
 {{- $defaultK8sClientBurst := 10 -}}
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
-{{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
-{{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -291,13 +289,9 @@ data:
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
-{{- if and $readSecretsOnlyFromSecretsNamespace $secretSyncEnabled }}
+{{- if and (eq "k8s" .Values.tls.secretsBackend) .Values.tls.secretSync.enabled }}
   enable-policy-secrets-sync: "true"
-{{- end }}
-
-{{- if $readSecretsOnlyFromSecretsNamespace }}
-  policy-secrets-only-from-secrets-namespace: "true"
-  policy-secrets-namespace: {{ .Values.tls.secretsNamespace.name | quote}}
+  policy-secrets-namespace: {{ .Values.tls.secretSync.secretsNamespace.name | quote}}
 {{- end }}
 
 {{- if hasKey .Values "loadBalancer" }}

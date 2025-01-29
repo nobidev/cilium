@@ -1,5 +1,3 @@
-{{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
-
 {{- if and .Values.preflight.enabled .Values.rbac.create }}
 {{- /*
 Keep file in sync with cilium-agent/clusterrole.yaml
@@ -87,7 +85,7 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if $readSecretsOnlyFromSecretsNamespace }}
+{{- if eq "k8s" .Values.tls.secretsBackend }}
 - apiGroups:
   - ""
   resources:

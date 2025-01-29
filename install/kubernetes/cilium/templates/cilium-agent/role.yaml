@@ -1,5 +1,3 @@
-{{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
-
 {{- if and .Values.agent (not .Values.preflight.enabled) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -120,13 +118,13 @@ rules:
   - watch
 {{- end}}
 
-{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create $readSecretsOnlyFromSecretsNamespace .Values.tls.secretsNamespace.name }}
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.tls.secretSync.enabled .Values.tls.secretSync.secretsNamespace.name ( eq "k8s" .Values.tls.secretsBackend )}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: cilium-tlsinterception-secrets
-  namespace: {{ .Values.tls.secretsNamespace.name | quote }}
+  namespace: {{ .Values.tls.secretSync.secretsNamespace.name | quote }}
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
