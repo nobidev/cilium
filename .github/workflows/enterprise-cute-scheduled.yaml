@@ -145,7 +145,7 @@ jobs:
           },
           {
             repo: adobe,
-            dir: .,
+            dir: kubeadm,
             umbrella: false,
             oss: false,
             region: ap-northeast-1,
