@@ -38,6 +38,10 @@ enterprise:
     # -- Healthcheck timeout after which an egress gateway is marked not healthy.
     # This also configures the frequency of probes to a value of healthcheckTimeout / 2
     # healthcheckTimeout: 2s
+    # -- Enables socket termination which will close client sockets on connections being
+    # forwarded to a egress gateway node when the node is no longer available.
+    socketTermination:
+      enabled: false
 
   srv6:
     # -- Enable SRv6 encapsulation support.
@@ -58,6 +62,23 @@ enterprise:
       create: false
       # -- The name of the secret namespace to which Cilium agents are given read access
       name: kube-system
+    # -- Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
+    routerAdvertisementInterval: 3s
+    routerIDAllocation:
+      # @schema
+      # enum: ["default"]
+      # @schema
+      # -- BGP router-id allocation mode. In default mode, the router-id is derived
+      # from the IPv4 address if it is available, or else it is determined by the
+      # lower 32 bits of the MAC address of the cilium_host interface.
+      # Possible values:
+      # - default: Use the default router-id allocation mode.
+      mode: "default"
+    statusReport:
+      # -- Enable/Disable enterprise BGPv2 status reporting.
+      # It is recommended to enable status reporting in general, but if you have any issue
+      # such as high API server load, you can disable it by setting this to false.
+      enabled: true
 
   bfd:
     # -- Enables Bidirectional Forwarding Detection (BFD) feature.
@@ -115,14 +136,17 @@ hubble:
       # type: [null, string]
       # @schema
       storageClassName: ~
-    ttl: 24h
+    # @schema
+    # type: [null, string]
+    # @schema
+    ttl: ~
     image:
       # @schema
       # type: [null, string]
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.5.1
+      tag: v1.6.0-rc.0
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -177,12 +201,23 @@ hubble:
         # type: [null, string]
         # @schema
         override: ~
-        repository: timberio/vector
-        tag: 0.43.0-distroless-libc
+        repository: quay.io/isovalent/vector
+        tag: 0.44.0-distroless-libc
         digest: ""
         useDigest: false
         pullPolicy: "Always"
       resources: {}
+      podSecurityContext:
+        fsGroup: 0
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        capabilities:
+          drop:
+            - ALL
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:
@@ -196,7 +231,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.5.1"
+      tag: "v1.5.3"
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -244,7 +279,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.6.1
+      tag: v1.8.1
       digest: ""
       useDigest: false
       pullPolicy: "Always"

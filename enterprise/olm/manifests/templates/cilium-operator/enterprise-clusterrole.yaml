@@ -36,6 +36,7 @@ rules:
   - isovalentbgpnodeconfigs.isovalent.com
   - isovalentbgpnodeconfigoverrides.isovalent.com
   - isovalentbgpvrfconfigs.isovalent.com
+  - isovalentvrfs.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.ciliummesh.enabled }}
   - isovalentmeshendpoints.isovalent.com
@@ -95,6 +96,8 @@ rules:
   - isovalentbgpadvertisements
   - isovalentbgpnodeconfigs
   - isovalentbgpnodeconfigoverrides
+  - isovalentbgpvrfconfigs
+  - isovalentvrfs
   verbs:
   - get
   - list
@@ -236,4 +239,12 @@ rules:
   - create
   - update
   - delete
+{{- if .Values.enterprise.loadbalancer.enabled }}
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+{{- end }}
 {{- end }}

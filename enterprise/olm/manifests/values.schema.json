@@ -460,6 +460,14 @@
         "enabled": {
           "type": "boolean"
         },
+        "routerIDAllocation": {
+          "properties": {
+            "mode": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "secretsNamespace": {
           "properties": {
             "create": {
@@ -1737,6 +1745,9 @@
       },
       "type": "object"
     },
+    "endpointLockdownOnMapOverflow": {
+      "type": "boolean"
+    },
     "endpointRoutes": {
       "properties": {
         "enabled": {
@@ -1810,6 +1821,19 @@
             "enabled": {
               "type": "boolean"
             },
+            "routerAdvertisementInterval": {
+              "type": "string"
+            },
+            "routerIDAllocation": {
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "default"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "secretsNamespace": {
               "properties": {
                 "create": {
@@ -1817,6 +1841,14 @@
                 },
                 "name": {
                   "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "statusReport": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -1863,6 +1895,14 @@
             },
             "reconciliationTriggerInterval": {
               "type": "string"
+            },
+            "socketTermination": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
@@ -2070,6 +2110,12 @@
         "baseID": {
           "type": "integer"
         },
+        "bootstrapConfigMap": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },
@@ -2128,6 +2174,9 @@
         "healthPort": {
           "type": "integer"
         },
+        "httpRetryCount": {
+          "type": "integer"
+        },
         "idleTimeoutDurationSeconds": {
           "type": "integer"
         },
@@ -2173,6 +2222,12 @@
         },
         "log": {
           "properties": {
+            "accessLogBufferSize": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "defaultLevel": {
               "oneOf": [
                 {
@@ -2208,6 +2263,9 @@
             }
           },
           "type": "object"
+        },
+        "maxConcurrentRetries": {
+          "type": "integer"
         },
         "maxConnectionDurationSeconds": {
           "type": "integer"
@@ -2596,14 +2654,6 @@
     "healthPort": {
       "type": "integer"
     },
-    "highScaleIPcache": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "hostFirewall": {
       "properties": {
         "enabled": {
@@ -2674,6 +2724,15 @@
                                 "items": {},
                                 "type": "array"
                               },
+                              "fileCompress": {
+                                "type": "boolean"
+                              },
+                              "fileMaxBackups": {
+                                "type": "integer"
+                              },
+                              "fileMaxSizeMb": {
+                                "type": "integer"
+                              },
                               "filePath": {
                                 "type": "string"
                               },
@@ -2702,12 +2761,6 @@
               },
               "type": "object"
             },
-            "fileMaxBackups": {
-              "type": "integer"
-            },
-            "fileMaxSizeMb": {
-              "type": "integer"
-            },
             "static": {
               "properties": {
                 "allowList": {
@@ -2724,6 +2777,15 @@
                 "fieldMask": {
                   "items": {},
                   "type": "array"
+                },
+                "fileCompress": {
+                  "type": "boolean"
+                },
+                "fileMaxBackups": {
+                  "type": "integer"
+                },
+                "fileMaxSizeMb": {
+                  "type": "integer"
                 },
                 "filePath": {
                   "type": "string"
@@ -3774,7 +3836,10 @@
               "type": "object"
             },
             "ttl": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
             },
             "vector": {
               "properties": {
@@ -3804,7 +3869,50 @@
                   },
                   "type": "object"
                 },
+                "podSecurityContext": {
+                  "properties": {
+                    "fsGroup": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                },
                 "resources": {
+                  "type": "object"
+                },
+                "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "privileged": {
+                      "type": "boolean"
+                    },
+                    "runAsGroup": {
+                      "type": "integer"
+                    },
+                    "runAsNonRoot": {
+                      "type": "boolean"
+                    },
+                    "runAsUser": {
+                      "type": "integer"
+                    }
+                  },
                   "type": "object"
                 }
               },
@@ -4185,6 +4293,13 @@
     "identityChangeGracePeriod": {
       "type": "string"
     },
+    "identityManagementMode": {
+      "enum": [
+        "agent",
+        "operator",
+        "both"
+      ]
+    },
     "image": {
       "properties": {
         "digest": {
@@ -4370,6 +4485,9 @@
       "properties": {
         "ciliumNodeUpdateRate": {
           "type": "string"
+        },
+        "installUplinkRoutesForDelegatedIPAM": {
+          "type": "boolean"
         },
         "mode": {
           "type": "string"

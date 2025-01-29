@@ -419,13 +419,7 @@ bandwidthManager:
   bbr: false
 # -- Configure standalone NAT46/NAT64 gateway
 nat46x64Gateway:
-  # -- Enable RFC8215-prefixed translation
-  enabled: false
-# -- EnableHighScaleIPcache enables the special ipcache mode for high scale
-# clusters. The ipcache content will be reduced to the strict minimum and
-# traffic will be encapsulated to carry security identities.
-highScaleIPcache:
-  # -- Enable the high scale mode for the ipcache.
+  # -- Enable RFC6052-prefixed translation
   enabled: false
 # -- Configure L2 announcements
 l2announcements:
@@ -460,6 +454,10 @@ bgpControlPlane:
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
+  # -- BGP router-id allocation mode
+  routerIDAllocation:
+    # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+    mode: "default"
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -831,6 +829,14 @@ ciliumEndpointSlice:
   # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
   sliceMode: identity
 
+# @schema
+# enum: ["agent", "operator", "both"]
+# @schema
+# -- Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator") or both ("both").
+# "Both" should be used only to migrate between "agent" and "operator".
+# Operator-managed identities is a beta feature.
+identityManagementMode: "agent"
+
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
@@ -1037,6 +1043,8 @@ endpointRoutes:
 k8sNetworkPolicy:
   # -- Enable support for K8s NetworkPolicy
   enabled: true
+# -- Enable endpoint lockdown on policy map overflow.
+endpointLockdownOnMapOverflow: false
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
@@ -1276,7 +1284,7 @@ hubble:
           - name: all
             contextOptions: []
             includeFilters: []
-            excludeFilters: []  
+            excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables redacting sensitive information present in Layer 7 flows.
@@ -1837,10 +1845,6 @@ hubble:
       #      - chart-example.local
   # -- Hubble flows export.
   export:
-    # --- Defines max file size of output file before it gets rotated.
-    fileMaxSizeMb: 10
-    # --- Defines max number of backup/rotated files.
-    fileMaxBackups: 5
     # --- Static exporter configuration.
     # Static exporter is bound to agent lifecycle.
     static:
@@ -1856,6 +1860,12 @@ hubble:
       denyList: []
       # - '{"source_pod":["kube-system/"]}'
       # - '{"destination_pod":["kube-system/"]}'
+      # --- Defines max file size of output file before it gets rotated.
+      fileMaxSizeMb: 10
+      # --- Defines max number of backup/rotated files.
+      fileMaxBackups: 5
+      # --- Enable compression of rotated files.
+      fileCompress: false
     # --- Dynamic exporters configuration.
     # Dynamic exporters may be reconfigured without a need of agent restarts.
     dynamic:
@@ -1873,6 +1883,9 @@ hubble:
             includeFilters: []
             excludeFilters: []
             filePath: "/var/run/cilium/hubble/events.log"
+            fileMaxSizeMb: 10
+            fileMaxBackups: 5
+            fileCompress: false
             #   - name: "test002"
             #     filePath: "/var/log/network/flow-log/pa/test002.log"
             #     fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
@@ -1882,6 +1895,9 @@ hubble:
             #       - type: 1
             #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
             #     excludeFilters: []
+            #     fileMaxSizeMb: 1
+            #     fileMaxBackups: 10
+            #     fileCompress: true
             #     end: "2023-10-09T23:59:59-07:00"
 
   # -- Emit v1.Events related to pods on detection of packet drops.
@@ -1914,6 +1930,8 @@ ipam:
   ciliumNodeUpdateRate: "15s"
   # -- Pre-allocation settings for IPAM in Multi-Pool mode
   multiPoolPreAllocation: ""
+  # -- Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
+  installUplinkRoutesForDelegatedIPAM: false
   operator:
     # @schema
     # type: [array, string]
@@ -2321,10 +2339,21 @@ envoy:
     # Possible values: trace, debug, info, warning, error, critical, off
     # @default -- Defaults to the default log level of the Cilium Agent - `info`
     defaultLevel: ~
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Size of the Envoy access log buffer created within the agent in bytes.
+    # Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors.
+    # Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+    accessLogBufferSize: 4096
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
   initialFetchTimeoutSeconds: 30
+  # -- Maximum number of concurrent retries on Envoy clusters
+  maxConcurrentRetries: 128
+  # -- Maximum number of retries for each HTTP request
+  httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2381,6 +2410,15 @@ envoy:
       maxUnavailable: 2
   # -- Roll out cilium envoy pods automatically when configmap is updated.
   rollOutPods: false
+  # -- ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a `bootstrap-config.json` key.
+  # When specified, Envoy will use this ConfigMap instead of the default provided by the chart.
+  # WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to
+  # syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support
+  # cannot be provided for custom Envoy bootstrap configs.
+  # @schema
+  # type: [null, string]
+  # @schema
+  bootstrapConfigMap: ~
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.
@@ -3554,7 +3592,7 @@ dnsProxy:
   # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
   enableDnsCompression: true
   # -- Maximum number of IPs to maintain per FQDN name for each endpoint.
-  endpointMaxIpPerHostname: 50
+  endpointMaxIpPerHostname: 1000
   # -- Time during which idle but previously active connections with expired DNS lookups are still considered alive.
   idleConnectionGracePeriod: 0s
   # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.
