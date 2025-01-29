@@ -59,7 +59,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 		}
 		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-ingester-667b5d554c-mxnfb", "ingester", timescapeBugtoolTaskConfig{
 			prefix: "timescape-bugtool",
-			extraFlags: []string{
+			bugtoolExtraArgs: []string{
 				"--foo",
 				"bar",
 				"--test",

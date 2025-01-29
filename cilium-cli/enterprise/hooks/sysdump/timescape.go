@@ -30,6 +30,13 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
+var (
+	timescapeBugtoolCommand = []string{"/usr/bin/hubble-timescape", "bugtool", "--out", "-"}
+	timescapeVersionCommand = []string{"/usr/bin/hubble-timescape", "version"}
+
+	timescapeUIBugtoolCommand = []string{"/usr/bin/hubble-timescape-ui", "bugtool", "--out", "-"}
+)
+
 // SubmitTimescapeBugtoolTasks takes a list of timescape pods and will submit tasks to collect bugtool output for them
 func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, timescapeBugtoolPrefix string, bugtoolFlags []string) error {
 	var submitErrors []error
@@ -37,8 +44,8 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 		switch p.GetLabels()["app.kubernetes.io/component"] {
 		case "server":
 			err := submitTimescapeBugtoolTaskForContainer(c, p, "server", timescapeBugtoolTaskConfig{
-				prefix:     timescapeBugtoolPrefix,
-				extraFlags: bugtoolFlags,
+				prefix:           timescapeBugtoolPrefix,
+				bugtoolExtraArgs: bugtoolFlags,
 			})
 			if err != nil {
 				submitErrors = append(submitErrors, err)
@@ -50,7 +57,7 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 			}
 			err = submitTimescapeBugtoolTaskForContainer(c, p, "ingester", timescapeBugtoolTaskConfig{
 				prefix:                timescapeBugtoolPrefix,
-				extraFlags:            bugtoolFlags,
+				bugtoolExtraArgs:      bugtoolFlags,
 				collectClickhouse:     true,
 				clickhouseUsername:    user,
 				clickhousePwSecretRef: pwRef,
@@ -61,7 +68,7 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 		case "lite", "hubble-timescape":
 			err := submitTimescapeBugtoolTaskForContainer(c, p, "timescape", timescapeBugtoolTaskConfig{
 				prefix:            timescapeBugtoolPrefix,
-				extraFlags:        bugtoolFlags,
+				bugtoolExtraArgs:  bugtoolFlags,
 				collectClickhouse: true,
 			})
 			if err != nil {
@@ -70,6 +77,14 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 		case "trimmer", "database":
 			// The trimmer is a job and can't give us bugtool output
 			// The database pod is ClickHouse, we can't get bugtool output either
+		case "ui":
+			err := submitTimescapeUIBugtoolTaskForContainer(c, p, "ui", timescapeUIBugtoolTaskConfig{
+				prefix:           timescapeBugtoolPrefix,
+				bugtoolExtraArgs: bugtoolFlags,
+			})
+			if err != nil {
+				submitErrors = append(submitErrors, err)
+			}
 		default:
 			// Unknown component
 			submitErrors = append(submitErrors, fmt.Errorf("unexpected timescape pod %s/%s, skipping", p.GetNamespace(), p.GetName()))
@@ -79,20 +94,23 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 }
 
 type timescapeBugtoolTaskConfig struct {
-	prefix     string
-	extraFlags []string
+	prefix string
+
+	bugtoolExtraArgs []string
 
 	collectClickhouse     bool
 	clickhouseUsername    string
 	clickhousePwSecretRef *corev1.SecretKeySelector
 }
 
-func submitTimescapeBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod, containerName string, cfg timescapeBugtoolTaskConfig) error {
-	workerID := fmt.Sprintf("%s-%s-%s-%s", cfg.prefix, p.Namespace, p.Name, containerName)
+type bugToolFunc func(ctx context.Context) (stdout io.Reader, stderr io.Reader, err error)
+
+func submitBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod, containerName string, prefix string, runBugtool bugToolFunc) error {
+	workerID := fmt.Sprintf("%s-%s-%s-%s", prefix, p.Namespace, p.Name, containerName)
 	if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
 		var errs error
 
-		stdout, stderr, err := runTimescapeBugtool(ctx, c.Client, p.Namespace, p.Name, containerName, cfg)
+		stdout, stderr, err := runBugtool(ctx)
 		if err != nil {
 			// Even if the bugtool run failed, there might be valid partial output,
 			// let's still try to capture it
@@ -122,6 +140,18 @@ func submitTimescapeBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod,
 	return nil
 }
 
+func submitTimescapeBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod, containerName string, cfg timescapeBugtoolTaskConfig) error {
+	return submitBugtoolTaskForContainer(c, p, containerName, cfg.prefix, func(ctx context.Context) (io.Reader, io.Reader, error) {
+		return runTimescapeBugtool(ctx, c.Client, p.Namespace, p.Name, containerName, cfg)
+	})
+}
+
+func submitTimescapeUIBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod, containerName string, cfg timescapeUIBugtoolTaskConfig) error {
+	return submitBugtoolTaskForContainer(c, p, containerName, cfg.prefix, func(ctx context.Context) (io.Reader, io.Reader, error) {
+		return runTimescapeUIBugtool(ctx, c.Client, p.Namespace, p.Name, containerName, cfg)
+	})
+}
+
 type timescapeBugtoolKubernetesClient interface {
 	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
@@ -129,8 +159,7 @@ type timescapeBugtoolKubernetesClient interface {
 
 func runTimescapeBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, name string, containerName string, cfg timescapeBugtoolTaskConfig) (io.Reader, io.Reader, error) {
 	var errs error
-	command := []string{"/usr/bin/hubble-timescape", "bugtool", "--out", "-"}
-
+	command := timescapeBugtoolCommand
 	if cfg.collectClickhouse {
 		// Only available since v1.5.0
 		// Check timescape version to decide what flags are valid
@@ -152,7 +181,7 @@ func runTimescapeBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient
 		}
 	}
 
-	command = append(command, cfg.extraFlags...)
+	command = append(command, cfg.bugtoolExtraArgs...)
 	// Run 'hubble-timescape bugtool' in the pod and collect stdout
 	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, name, containerName, command)
 	if err != nil {
@@ -167,7 +196,7 @@ func getTimescapeVersion(ctx context.Context, c timescapeBugtoolKubernetesClient
 		namespace,
 		name,
 		containerName,
-		[]string{"/usr/bin/hubble-timescape", "version"},
+		timescapeVersionCommand,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to fetch timescape version of pod %q: %w", name, err)
@@ -187,6 +216,23 @@ func getTimescapeVersion(ctx context.Context, c timescapeBugtoolKubernetesClient
 	}
 
 	return &podVersion, nil
+}
+
+type timescapeUIBugtoolTaskConfig struct {
+	prefix string
+
+	bugtoolExtraArgs []string
+}
+
+func runTimescapeUIBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, name string, containerName string, cfg timescapeUIBugtoolTaskConfig) (io.Reader, io.Reader, error) {
+	bugtoolCommand := append(timescapeUIBugtoolCommand, cfg.bugtoolExtraArgs...)
+	// Run 'hubble-timescape bugtool' in the pod and collect stdout
+	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, name, containerName, bugtoolCommand)
+	if err != nil {
+		// wrap the error, but don't return yet, as we want to return stdout/stderr if there is anything there to return.
+		err = fmt.Errorf("failed run 'ui bugtool': %w:\n%s", err, stderr.String())
+	}
+	return &stdout, &stderr, err
 }
 
 func getSecretKey(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, secretRef *corev1.SecretKeySelector) (string, error) {
