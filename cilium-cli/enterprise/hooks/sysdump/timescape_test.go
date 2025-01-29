@@ -38,7 +38,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return *out, bytes.Buffer{}, nil
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix: "timescape-bugtool",
 		})
 		require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return *out, bytes.Buffer{}, nil
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-ingester-667b5d554c-mxnfb", "ingester", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-ingester-667b5d554c-mxnfb", "ingester", timescapeBugtoolTaskConfig{
 			prefix: "timescape-bugtool",
 			extraFlags: []string{
 				"--foo",
@@ -78,7 +78,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return *out, bytes.Buffer{}, errors.New("something went wrong")
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix: "timescape-bugtool",
 		})
 		require.Error(t, err)
@@ -106,7 +106,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return bytes.Buffer{}, bytes.Buffer{}, fmt.Errorf("unexpected command %v", command)
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix:            "timescape-bugtool",
 			collectClickhouse: true,
 		})
@@ -135,7 +135,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return bytes.Buffer{}, bytes.Buffer{}, fmt.Errorf("unexpected command %v", command)
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix:            "timescape-bugtool",
 			collectClickhouse: true,
 		})
@@ -172,7 +172,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				}, nil
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix:             "timescape-bugtool",
 			collectClickhouse:  true,
 			clickhouseUsername: "migrate",
@@ -212,7 +212,7 @@ func TestRunTimescapeBugtool(t *testing.T) {
 				return nil, errors.New("not found")
 			},
 		}
-		out, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
+		out, _, err := runTimescapeBugtool(context.TODO(), c, "hubble-timescape", "hubble-timescape-server-667b5d554c-mxnfb", "server", timescapeBugtoolTaskConfig{
 			prefix:             "timescape-bugtool",
 			collectClickhouse:  true,
 			clickhouseUsername: "migrate",

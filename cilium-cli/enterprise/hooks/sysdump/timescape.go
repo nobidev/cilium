@@ -92,16 +92,23 @@ func submitTimescapeBugtoolTaskForContainer(c *sysdump.Collector, p *corev1.Pod,
 	if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
 		var errs error
 
-		out, err := runTimescapeBugtool(ctx, c.Client, p.Namespace, p.Name, containerName, cfg)
+		stdout, stderr, err := runTimescapeBugtool(ctx, c.Client, p.Namespace, p.Name, containerName, cfg)
 		if err != nil {
 			// Even if the bugtool run failed, there might be valid partial output,
 			// let's still try to capture it
 			errs = errors.Join(errs, err)
 		}
 
+		if err := c.WithFileSink(fmt.Sprintf("%s-<ts>.log", workerID), func(bugtoolLogFile io.Writer) error {
+			_, err := io.Copy(bugtoolLogFile, stderr)
+			return err
+		}); err != nil {
+			errs = errors.Join(errs, err)
+		}
+
 		// Extract content
 		dir := c.AbsoluteTempPath(fmt.Sprintf("%s-<ts>", workerID))
-		if err := untarTo(out, dir); err != nil {
+		if err := untarTo(stdout, dir); err != nil {
 			errs = errors.Join(errs, err)
 		}
 
@@ -120,7 +127,7 @@ type timescapeBugtoolKubernetesClient interface {
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
 }
 
-func runTimescapeBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, name string, containerName string, cfg timescapeBugtoolTaskConfig) (io.Reader, error) {
+func runTimescapeBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, name string, containerName string, cfg timescapeBugtoolTaskConfig) (io.Reader, io.Reader, error) {
 	var errs error
 	command := []string{"/usr/bin/hubble-timescape", "bugtool", "--out", "-"}
 
@@ -147,11 +154,11 @@ func runTimescapeBugtool(ctx context.Context, c timescapeBugtoolKubernetesClient
 
 	command = append(command, cfg.extraFlags...)
 	// Run 'hubble-timescape bugtool' in the pod and collect stdout
-	out, e, err := c.ExecInPodWithStderr(ctx, namespace, name, containerName, command)
+	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, name, containerName, command)
 	if err != nil {
-		errs = errors.Join(errs, fmt.Errorf("failed run 'timescape bugtool': %w:\n%s", err, e.String()))
+		errs = errors.Join(errs, fmt.Errorf("failed run 'timescape bugtool': %w:\n%s", err, stderr.String()))
 	}
-	return &out, errs
+	return &stdout, &stderr, errs
 }
 
 func getTimescapeVersion(ctx context.Context, c timescapeBugtoolKubernetesClient, namespace string, name string, containerName string) (*semver.Version, error) {
