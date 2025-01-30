@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -48,7 +47,7 @@ func registerActiveHealthChecker(
 		return healthCheckerResult{}
 	}
 
-	activeHealthChecker := newHealthChecker(logger, option.Config.DatapathMode == datapathOption.DatapathModeLBOnly)
+	activeHealthChecker := newHealthChecker(logger, option.Config.LoadBalancerOnly)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
