@@ -161,7 +161,18 @@ hubble:
         digest: "sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c"
         useDigest: true
         pullPolicy: "Always"
+      resources: {}
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        capabilities:
+          drop:
+            - ALL
     priorityClassName: null
+    resources: {}
     podSecurityContext:
       fsGroup: 65532
     securityContext:

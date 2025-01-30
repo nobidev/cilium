@@ -98,6 +98,9 @@ spec:
           image: {{ include "cilium.image" .Values.hubble.timescape.clickhouse.image | quote }}
           imagePullPolicy: {{ .Values.hubble.timescape.clickhouse.image.pullPolicy }}
           terminationMessagePolicy: FallbackToLogsOnError
+          securityContext: {{- toYaml .Values.hubble.timescape.clickhouse.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.hubble.timescape.clickhouse.resources | nindent 12 }}
           volumeMounts:
           - mountPath: "/etc/clickhouse-server/config.d/"
             name: clickhouse-config
@@ -168,7 +171,8 @@ spec:
             {{- include "hubble.timescape.probe" . | nindent 12 }}
           livenessProbe:
             {{- include "hubble.timescape.probe" . | nindent 12 }}
-          resources: {}
+          resources:
+            {{- toYaml .Values.hubble.timescape.resources | nindent 12 }}
           volumeMounts:
           - mountPath: "/etc/hubble-timescape"
             name: config
