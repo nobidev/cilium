@@ -333,6 +333,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/tests/upgrade.go @cilium/sig-datapath
 /cilium-cli/connectivity/tests/world.go @cilium/proxy
 /cilium-cli/encrypt/ @cilium/sig-encryption
+/cilium-cli/enterprise/hooks/sysdump/timescape*.go  @isovalent/timescape
 /cilium-cli/hubble/ @cilium/sig-hubble
 /cilium-cli/install/ @cilium/cli @cilium/helm
 /cilium-cli/install/azure.go @cilium/azure
@@ -703,6 +704,8 @@ Makefile* @cilium/build
 #   deployment (for example, being GitOps-friendly).
 # - @isovalent/hubble
 #   Responsible for maintaining enterprise Hubble products and features
+# - @isovalent/timescape
+#   Responsible for maintaining Timescape products and features
 # - @isovalent/hubble-api
 #   Responsible for reviewing Hubble Enterprise API changes. Enterprise
 #   equivalent of @cilium/sig-hubble-api. Review all Hubble Enterprise API
