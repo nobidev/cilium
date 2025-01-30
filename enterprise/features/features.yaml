@@ -160,6 +160,13 @@ features:
     helm:
       enterprise.clustermesh.enableOverlappingPodCIDRSupport: true
 
+  HubbleTimescape:
+    maturity: Beta
+    description: |
+      Integrated Hubble Timescape
+    helm:
+      hubble.timescape.enabled: true
+
   ##########################################
   # OSS features
   ##########################################
