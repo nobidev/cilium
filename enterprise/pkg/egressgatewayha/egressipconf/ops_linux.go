@@ -112,15 +112,29 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 		for _, r := range routes {
 			dst := ipNetToPrefix(*r.Dst)
 			if dst.String() == dest.String() {
-				found = true
-				break
+				gw, ok := netipx.FromStdIP(r.Gw)
+				if !ok && !entry.NextHop.IsValid() {
+					// no next hop in the installed route and no next hop in the
+					// stateDB entry, so nothing to update
+					found = true
+					break
+				}
+				if ok && entry.NextHop.IsValid() && gw == entry.NextHop {
+					// next hop in the installed route and next hop in the stateDB
+					// entry match, so nothing to update
+					found = true
+					break
+				}
+				// there is a mismatch between the next hop in the installed route and
+				// the one in the stateDB entry, we have to upsert the updated route
 			}
 		}
 		if !found {
-			ops.logger.Debug("Upserting route", "egress IP", entry.Addr, "destination", dest, "interface", iface.Attrs().Name)
+			ops.logger.Debug("Upserting route", "egress IP", entry.Addr, "destination", dest, "interface", iface.Attrs().Name, "next hop", entry.NextHop)
 
-			if err := route.Upsert(routeForEgressIP(entry.Addr, dest, iface)); err != nil {
-				return fmt.Errorf("failed to append route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
+			r := routeForEgressIP(entry.Addr, dest, iface)
+			if err := route.UpsertWithoutDirectRoute(routeWithNextHop(r, entry.NextHop)); err != nil {
+				return fmt.Errorf("failed to append route for egress IP %s, interface %s and next hop %s: %w", entry.Addr, iface.Attrs().Name, entry.NextHop, err)
 			}
 		}
 	}
@@ -268,6 +282,12 @@ func routeForEgressIP(addr netip.Addr, dest netip.Prefix, iface netlink.Link) ro
 		Table:  RouteTableEgressGatewayIPAM,
 		Proto:  linux_defaults.RTProto,
 	}
+}
+
+func routeWithNextHop(r route.Route, gw netip.Addr) route.Route {
+	nextHop := net.IP(gw.AsSlice())
+	r.Nexthop = &nextHop
+	return r
 }
 
 func prefixToIPNet(prefix netip.Prefix) net.IPNet {

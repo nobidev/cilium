@@ -59,7 +59,7 @@ func NewEgressIPTable(db *statedb.DB) (statedb.RWTable[*EgressIPEntry], error) {
 
 // TableHeader returns the names of the "egress-ips" table columns
 func (e *EgressIPEntry) TableHeader() []string {
-	return []string{"Address", "Interface", "Destinations", "Status"}
+	return []string{"Address", "Interface", "Destinations", "NextHop", "Status"}
 }
 
 // TableRow returns the values of an "egress-ips" table entry
@@ -72,6 +72,7 @@ func (e *EgressIPEntry) TableRow() []string {
 		e.Addr.String(),
 		e.Interface,
 		strings.Join(dests, ", "),
+		e.NextHop.String(),
 		e.Status.String(),
 	}
 }
@@ -81,6 +82,7 @@ type EgressIPEntry struct {
 	Addr         netip.Addr
 	Interface    string
 	Destinations []netip.Prefix
+	NextHop      netip.Addr
 
 	Status reconciler.Status
 }

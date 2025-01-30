@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
+	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -237,13 +238,33 @@ func updateEgressIPsConfig(
 		})
 	}
 
+	// cache next hops to reduce netlink overhead
+	nextHops := make(map[string]netip.Addr)
 	for _, config := range toUpsert.UnsortedList() {
-		table.Insert(txn, &tables.EgressIPEntry{
+		if _, ok := nextHops[config.iface]; ok {
+			continue
+		}
+		nextHop, err := egressipconf.NextHopFromDefaultRoute(config.iface)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Interface: config.iface,
+			}).Warning("Failed to find next hop to use for egress gateway IPAM route, connectivity to external endpoints might be broken for all SNATed traffic through the interface.")
+			continue
+		}
+		nextHops[config.iface] = nextHop
+	}
+
+	for _, config := range toUpsert.UnsortedList() {
+		entry := tables.EgressIPEntry{
 			Addr:         config.addr,
 			Interface:    config.iface,
 			Destinations: destinations,
 			Status:       reconciler.StatusPending(),
-		})
+		}
+		if nextHop, ok := nextHops[config.iface]; ok {
+			entry.NextHop = nextHop
+		}
+		table.Insert(txn, &entry)
 	}
 
 	txn.Commit()
