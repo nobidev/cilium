@@ -17,19 +17,17 @@ import (
 	"slices"
 	"time"
 
-	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
-	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+
 	loadbalancerStatus "github.com/cilium/cilium/enterprise/pkg/lb/status"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 )
 
 type collectorParams struct {
@@ -41,15 +39,15 @@ type collectorParams struct {
 	Logger    *slog.Logger
 	Metrics   Metrics
 
+	Client      client.Clientset
 	CiliumNodes resource.Resource[*ciliumv2.CiliumNode]
 	Pods        resource.Resource[*corev1.Pod]
 }
 
 type collector struct {
-	metrics   *Metrics
-	logger    *slog.Logger
-	k8sClient *enterpriseK8s.EnterpriseClient
-	lbClient  *loadbalancerStatus.LoadbalancerClient
+	metrics  *Metrics
+	logger   *slog.Logger
+	lbClient *loadbalancerStatus.LoadbalancerClient
 
 	nodesCache map[string]*ciliumv2.CiliumNode
 	nodeSync   chan struct{}
@@ -77,27 +75,14 @@ func registerCollector(params collectorParams) {
 		return
 	}
 
-	k8sClient, err := k8s.NewClient("", "", "", "", []string{})
-	if err != nil {
-		params.Logger.Error("Cannot initialize k8s client, metrics will not be collected", logfields.Error, err)
-		return
-	}
-
-	enterpriseK8sClient, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
-	if err != nil {
-		params.Logger.Error("Cannot initialize enterprise k8s client, metrics will not be collected", logfields.Error, err)
-		return
-	}
-
-	lbClient := loadbalancerStatus.NewLoadbalancerClient(enterpriseK8sClient, loadbalancerStatus.Parameters{
+	lbClient := loadbalancerStatus.NewLoadbalancerClient(params.Client, params.Client, params.Client.RestConfig(), loadbalancerStatus.Parameters{
 		Output: "json",
 	})
 
 	collector := collector{
-		metrics:   &params.Metrics,
-		logger:    params.Logger,
-		k8sClient: enterpriseK8sClient,
-		lbClient:  lbClient,
+		metrics:  &params.Metrics,
+		logger:   params.Logger,
+		lbClient: lbClient,
 
 		podsCache: map[string]*corev1.Pod{},
 		podSync:   make(chan struct{}),

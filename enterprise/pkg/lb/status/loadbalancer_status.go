@@ -44,12 +44,12 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 		return nil, fmt.Errorf("failed to fetch T2 Envoyconfigs: %w", err)
 	}
 
-	vips, err := s.client.ListLBVIPs(ctx, "", metav1.ListOptions{})
+	vips, err := s.client.ciliumClient.IsovalentV1alpha1().LBVIPs(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	services, err := s.client.ListLBServices(ctx, "", metav1.ListOptions{})
+	services, err := s.client.ciliumClient.IsovalentV1alpha1().LBServices(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +173,12 @@ func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
 }
 
 func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isovalentv1alpha1.LBService,
-	bgpPeersByNameFromT1ClusterCfg map[string]string) ([]string, error) {
-
+	bgpPeersByNameFromT1ClusterCfg map[string]string,
+) ([]string, error) {
 	// Find IsovalentBGPAdvertisements which apply to a given LBService
 	var advs []*isovalentv1.IsovalentBGPAdvertisement
 
-	advList, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
+	advList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isoval
 	}
 
 	// Find BGPPeers which match the IsovalentBGPAdvertisements from above
-	peerCfgList, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
+	peerCfgList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

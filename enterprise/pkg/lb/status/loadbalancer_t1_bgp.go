@@ -39,7 +39,7 @@ func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context
 	bgpPeersByName := map[string]string{} // peerName => peerAddr-peerASN
 	bgpPeersByAddr := map[string]string{} // peerAddr-peerASN => map
 
-	cfgs, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
+	cfgs, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list IsovalentBGPClusterConfigs: %w", err)
 	}
@@ -129,7 +129,7 @@ func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (ma
 }
 
 func (s *LoadbalancerClient) fetchBGPRoutesFromPod(ctx context.Context, fetchCmd []string, pod *Pod) ([]*models.BgpRoute, error) {
-	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
+	output, errOutput, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string
 		if errOutput.String() != "" {
@@ -220,7 +220,7 @@ func (s *LoadbalancerClient) fetchBGPPeersConcurrently(ctx context.Context) (map
 }
 
 func (s *LoadbalancerClient) fetchBGPPeersFromPod(ctx context.Context, fetchCmd []string, pod *Pod) ([]*models.BgpPeer, error) {
-	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
+	output, errOutput, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, "cilium-agent", fetchCmd)
 	if err != nil {
 		var errStr string
 		if errOutput.String() != "" {

@@ -9,8 +9,10 @@ import (
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
-	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -33,7 +35,7 @@ type Parameters struct {
 
 type LoadbalancerClient struct {
 	params      Parameters
-	client      *enterpriseK8s.EnterpriseClient
+	client      execClient
 	t1AgentPods []*Pod
 	t2AgentPods []*Pod
 }
@@ -44,15 +46,19 @@ type Pod struct {
 	NodeName  string
 }
 
-func NewLoadbalancerClient(client *enterpriseK8s.EnterpriseClient, params Parameters) *LoadbalancerClient {
+func NewLoadbalancerClient(k8sClient kubernetes.Interface, ciliumClient ciliumClientset.Interface, restConfig *rest.Config, params Parameters) *LoadbalancerClient {
 	return &LoadbalancerClient{
 		params: params,
-		client: client,
+		client: execClient{
+			k8sClient:    k8sClient,
+			ciliumClient: ciliumClient,
+			restConfig:   restConfig,
+		},
 	}
 }
 
 func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
-	t1Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
+	t1Nodes, err := s.client.k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
 	if err != nil {
 		return err
 	}
@@ -62,7 +68,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		t1NodeNames = append(t1NodeNames, t1.Name)
 	}
 
-	t2Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t2 , t1-t2 )"})
+	t2Nodes, err := s.client.k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t2 , t1-t2 )"})
 	if err != nil {
 		return err
 	}
@@ -72,7 +78,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		t2NodeNames = append(t2NodeNames, t2.Name)
 	}
 
-	agentPods, err := s.client.ListPods(ctx, s.params.CiliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	agentPods, err := s.client.k8sClient.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
 		return fmt.Errorf("failed to list agent pods: %w", err)
 	}

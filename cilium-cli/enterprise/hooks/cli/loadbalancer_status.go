@@ -11,19 +11,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/cilium-cli/api"
-	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/status"
 	loadbalancerStatus "github.com/cilium/cilium/enterprise/pkg/lb/status"
 )
 
 func GetLoadbalancerStatus(ctx context.Context, k8sClient *k8s.Client, params loadbalancerStatus.Parameters) (*loadbalancerStatus.LoadbalancerStatusModel, error) {
-	ec, err := enterpriseK8s.NewEnterpriseClient(k8sClient)
-	if err != nil {
-		return nil, err
-	}
-
-	lc := loadbalancerStatus.NewLoadbalancerClient(ec, params)
+	lc := loadbalancerStatus.NewLoadbalancerClient(k8sClient.Clientset, k8sClient.CiliumClientset, k8sClient.Config, params)
 
 	if err := lc.InitNodeAgentPods(ctx); err != nil {
 		return nil, fmt.Errorf("failed to fetch Node Agent Pods: %w", err)
