@@ -3,13 +3,20 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
+	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/lock"
+	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/time"
 
 	"google.golang.org/grpc"
@@ -151,6 +158,268 @@ func TestAgentCycle(t *testing.T) {
 	}
 }
 
+func TestLookupSecIDByIP(t *testing.T) {
+	type ipIdentity struct {
+		addr     netip.Addr
+		identity identity.NumericIdentity
+	}
+	tests := []struct {
+		name               string
+		disableOfflineMode bool
+		ipCacheVersion     pb.IPCacheVersion
+		ipIdentities       []ipIdentity
+		lookupAddr         netip.Addr
+		exists             bool
+		expectedID         identity.NumericIdentity
+		fakeIPCacheCalls   []*fakeIPCacheCall
+	}{
+		{
+			name:           "world ipv4 identity",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.ReservedIdentityWorld,
+				},
+				{
+					addr:     netip.MustParseAddr("10.0.0.1"),
+					identity: identity.ReservedIdentityKubeAPIServer,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.78"),
+			exists:     true,
+			expectedID: identity.ReservedIdentityWorld,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("172.217.4.78"),
+					ret: &ipcacheMap.RemoteEndpointInfo{
+						SecurityIdentity: identity.ReservedIdentityWorld.Uint32(),
+					},
+				},
+			},
+		},
+		{
+			name:           "world ipv6 identity",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					identity: identity.ReservedIdentityWorld,
+				},
+				{
+					addr:     netip.MustParseAddr("fde9:0d7d:3d43:5c63::130b"),
+					identity: identity.ReservedIdentityKubeAPIServer,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+			exists:     true,
+			expectedID: identity.ReservedIdentityWorld,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					ret: &ipcacheMap.RemoteEndpointInfo{
+						SecurityIdentity: identity.ReservedIdentityWorld.Uint32(),
+					},
+				},
+			},
+		},
+		{
+			name:           "world ipv4 identity dual stack",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					identity: identity.ReservedIdentityWorldIPv6,
+				},
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.ReservedIdentityWorldIPv4,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.78"),
+			exists:     true,
+			expectedID: identity.ReservedIdentityWorldIPv4,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("172.217.4.78"),
+					ret: &ipcacheMap.RemoteEndpointInfo{
+						SecurityIdentity: identity.ReservedIdentityWorldIPv4.Uint32(),
+					},
+				},
+			},
+		},
+		{
+			name:           "world ipv6 identity dual stack",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					identity: identity.ReservedIdentityWorldIPv6,
+				},
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.ReservedIdentityWorldIPv4,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+			exists:     true,
+			expectedID: identity.ReservedIdentityWorldIPv6,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					ret: &ipcacheMap.RemoteEndpointInfo{
+						SecurityIdentity: identity.ReservedIdentityWorldIPv6.Uint32(),
+					},
+				},
+			},
+		},
+		{
+			name:           "local identity",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.MaxLocalIdentity,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.78"),
+			exists:     true,
+			expectedID: identity.MaxLocalIdentity,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("172.217.4.78"),
+					ret: &ipcacheMap.RemoteEndpointInfo{
+						SecurityIdentity: identity.MaxLocalIdentity.Uint32(),
+					},
+				},
+			},
+		},
+		{
+			name:           "no agent support",
+			ipCacheVersion: pb.IPCacheVersion_Unspecified,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.MaxLocalIdentity,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.78"),
+			exists:     true,
+			expectedID: identity.MaxLocalIdentity,
+		},
+		{
+			name:               "no offline mode support",
+			disableOfflineMode: true,
+			ipCacheVersion:     pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.MaxLocalIdentity,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.78"),
+			exists:     true,
+			expectedID: identity.MaxLocalIdentity,
+		},
+		{
+			name:           "does not exist",
+			ipCacheVersion: pb.IPCacheVersion_One,
+			ipIdentities: []ipIdentity{
+				{
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.MaxLocalIdentity,
+				},
+			},
+			lookupAddr: netip.MustParseAddr("172.217.4.79"),
+			exists:     false,
+			fakeIPCacheCalls: []*fakeIPCacheCall{
+				{
+					arg: netip.MustParseAddr("172.217.4.79"),
+					err: ebpf.ErrKeyNotExist,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache = NewCache()
+			*enableOfflineMode = !tt.disableOfflineMode
+			ipIDMap := make(map[netip.Addr]*pb.Identity)
+			ipEndpointMap := make(map[netip.Addr]*ipcacheMap.RemoteEndpointInfo)
+			for _, ipID := range tt.ipIdentities {
+				ipIDMap[ipID.addr] = &pb.Identity{ID: uint32(ipID.identity)}
+				ipEndpointMap[ipID.addr] = &ipcacheMap.RemoteEndpointInfo{SecurityIdentity: uint32(ipID.identity)}
+			}
+			socket, err := startFakeServer(t, WithIPCacheVersion(tt.ipCacheVersion), WithIPIdentites(ipIDMap))
+			if err != nil {
+				t.Fatalf("failed to setup the fake agent gRPC server: %v", err)
+			}
+			conn, err := createClient("unix:" + socket)
+			if err != nil {
+				t.Fatalf("failed to create the client: %v", err)
+			}
+
+			client := pb.NewFQDNProxyAgentClient(conn)
+			fIPC := &fakeIPCache{
+				ipEndpointMap: ipEndpointMap,
+			}
+
+			pc := newTestProxyContext(fIPC, client)
+			pc.establishAgentProxyStream()
+			secID, exists := pc.LookupSecIDByIP(tt.lookupAddr)
+			if tt.exists != exists {
+				expected := ""
+				got := "does"
+				if tt.exists {
+					expected = " not"
+				}
+				if !exists {
+					got += " not"
+				}
+				t.Fatalf("Expected identity to%s exist, but it %s", expected, got)
+			}
+			if tt.exists {
+				if tt.expectedID != secID.ID {
+					t.Fatalf("Expected identity %d, but got %d", tt.expectedID, secID.ID)
+				}
+				if !tt.disableOfflineMode && tt.ipCacheVersion == pb.IPCacheVersion_One {
+					if len(fIPC.calls) == 0 {
+						t.Fatal("Expected a call to the bpf ip cache, but got none")
+					}
+					call := fIPC.calls[0]
+					if tt.lookupAddr != call.arg {
+						t.Fatalf("Expected lookup address of %s, but got %s", tt.lookupAddr, call.arg)
+					}
+				} else {
+					if len(fIPC.calls) > 0 {
+						t.Fatalf("Expected no calls to the bpf ip cache, but got %d", len(fIPC.calls))
+					}
+				}
+			}
+			if len(tt.fakeIPCacheCalls) > 0 {
+				if len(fIPC.calls) != len(tt.fakeIPCacheCalls) {
+					t.Fatalf("expected ipcache calls %+v, but got %+v", tt.fakeIPCacheCalls, fIPC.calls)
+				}
+				for i := range tt.fakeIPCacheCalls {
+					expected := tt.fakeIPCacheCalls[i]
+					got := fIPC.calls[i]
+					if expected.arg != got.arg {
+						t.Fatalf("expected ipcache call argument of %s, but got %s", expected.arg, got.arg)
+					}
+					if (expected.ret != nil && got.ret == nil) ||
+						(expected.ret == nil && got.ret != nil) ||
+						(expected.ret != nil && *expected.ret != *got.ret) {
+						t.Fatalf("expected ipcache return value of %+v, but got %+v", expected.ret, got.ret)
+					}
+					if !errors.Is(got.err, expected.err) {
+						t.Fatalf("expected error %v from ipcache call, but got %v", expected.err, got.err)
+					}
+				}
+			}
+		})
+	}
+}
+
 func startFakeServer(t *testing.T, opts ...fakeServerOpt) (string, error) {
 	t.Helper()
 
@@ -216,6 +485,18 @@ func WithFixedSocketPath(p string) fakeServerOpt {
 	}
 }
 
+func WithIPCacheVersion(ipv pb.IPCacheVersion) fakeServerOpt {
+	return func(fa *fakeAgent) {
+		fa.ipcacheVersion = ipv
+	}
+}
+
+func WithIPIdentites(ipIDMap map[netip.Addr]*pb.Identity) fakeServerOpt {
+	return func(fa *fakeAgent) {
+		fa.ipIdentityMap = ipIDMap
+	}
+}
+
 type fakeAgent struct {
 	pb.UnimplementedFQDNProxyAgentServer
 
@@ -223,8 +504,65 @@ type fakeAgent struct {
 	stopServerOn  chan struct{}
 
 	socketPath string
+
+	ipcacheVersion pb.IPCacheVersion
+	ipIdentityMap  map[netip.Addr]*pb.Identity
 }
 
 func (*fakeAgent) GetAllRules(context.Context, *pb.Empty) (*pb.RestoredRulesMap, error) {
 	return &pb.RestoredRulesMap{}, nil
+}
+
+func (fa *fakeAgent) LookupSecurityIdentityByIP(ctx context.Context, in *pb.FQDN_IP) (*pb.Identity, error) {
+	addr, ok := netip.AddrFromSlice(in.IP)
+	if !ok {
+		return nil, fmt.Errorf("IP, %v, is malformed", in.IP)
+	}
+	ident, ok := fa.ipIdentityMap[addr]
+	if !ok {
+		return nil, fmt.Errorf("identity for IP, %v, not found", addr)
+	}
+	return ident, nil
+}
+
+func (fa *fakeAgent) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
+	return stream.Send(&pb.ProxyStatus{
+		Enum: &fa.ipcacheVersion,
+	})
+}
+
+func newTestProxyContext(ipc ipCacheLookup, client pb.FQDNProxyAgentClient) *proxyContext {
+	clientPtr := atomic.Pointer[fqdnAgentClient]{}
+	clientPtr.Swap(&fqdnAgentClient{client})
+	return &proxyContext{
+		rwLock:    &lock.RWMutex{},
+		ipc:       ipc,
+		clientPtr: &clientPtr,
+	}
+}
+
+type fakeIPCache struct {
+	ipEndpointMap map[netip.Addr]*ipcacheMap.RemoteEndpointInfo
+
+	calls []*fakeIPCacheCall
+}
+
+type fakeIPCacheCall struct {
+	arg netip.Addr
+	ret *ipcacheMap.RemoteEndpointInfo
+	err error
+}
+
+func (fIPC *fakeIPCache) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
+	call := &fakeIPCacheCall{
+		arg: addr,
+	}
+	rei, ok := fIPC.ipEndpointMap[addr]
+	if !ok {
+		call.err = ebpf.ErrKeyNotExist
+	} else {
+		call.ret = rei
+	}
+	fIPC.calls = append(fIPC.calls, call)
+	return call.ret, call.err
 }
