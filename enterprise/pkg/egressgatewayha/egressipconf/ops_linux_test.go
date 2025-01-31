@@ -286,6 +286,205 @@ func TestOps(t *testing.T) {
 	require.Error(t, err, "expected error from delete of non-existing device")
 }
 
+func TestUpdateWithNextHop(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	var (
+		nlh *netlink.Handle
+		err error
+	)
+
+	ns := netns.NewNetNS(t)
+	require.NoError(t, ns.Do(func() error {
+		nlh, err = netlink.NewHandle()
+		return err
+	}))
+	t.Cleanup(func() {
+		ns.Close()
+	})
+
+	// Create a dummy device to test with
+	err = nlh.LinkAdd(
+		&netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: "dummy0",
+			},
+		},
+	)
+	require.NoError(t, err, "LinkAdd")
+	link, err := nlh.LinkByName("dummy0")
+	require.NoError(t, err, "LinkByName")
+	require.NoError(t, nlh.LinkSetUp(link))
+	// needed to avoid "network is unreachable" error when installing route with default gateway
+	require.NoError(t, nlh.AddrAdd(link, &netlink.Addr{
+		IPNet: netipx.PrefixIPNet(netip.MustParsePrefix("192.168.1.2/24")),
+	}))
+	ifIndex := link.Attrs().Index
+	ifName := link.Attrs().Name
+
+	egressIP := netip.MustParseAddr("192.168.1.50")
+	destinations := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
+	nextHop := netip.MustParseAddr("192.168.1.1")
+
+	ops := &ops{slog.New(logging.SlogNopHandler)}
+
+	// Initial Update()
+	entry := &tables.EgressIPEntry{
+		Addr:         egressIP,
+		Interface:    ifName,
+		Destinations: destinations,
+		NextHop:      nextHop,
+		Status:       reconciler.StatusPending(),
+	}
+
+	err = ns.Do(func() error {
+		return ops.Update(context.Background(), nil, entry)
+	})
+	require.NoError(t, err, "expected no error from initial update")
+
+	// Egress IP should have been added to device
+	nlAddrs, err := nlh.AddrList(link, netlink.FAMILY_V4)
+	require.NoError(t, err, "netlink.AddrList")
+
+	addrs := make([]netip.Addr, 0, len(nlAddrs))
+	for _, nlAddr := range nlAddrs {
+		addr, _ := netip.AddrFromSlice(nlAddr.IP)
+		addrs = append(addrs, addr)
+	}
+	require.Containsf(t, addrs, egressIP, "egress IP %s not found in %s device", egressIP, ifName)
+
+	// Source-based routing rule should have been installed for Egress IP
+	rules, err := nlh.RuleListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Rule{
+			Priority: RulePriorityEgressGatewayIPAM,
+			Src:      netipx.AddrIPNet(egressIP),
+			Table:    RouteTableEgressGatewayIPAM,
+			Protocol: linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RuleListFiltered")
+	require.Lenf(t, rules, 1, "no rule found for egress IP %s", egressIP)
+
+	// Routes should have been installed for Egress IP
+	dst_1, dst_2 := prefixToIPNet(destinations[0]), prefixToIPNet(destinations[1])
+
+	routes, err := nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_1,
+			Src:       egressIP.AsSlice(),
+			Gw:        nextHop.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[0], nextHop)
+
+	routes, err = nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_2,
+			Src:       egressIP.AsSlice(),
+			Gw:        nextHop.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], nextHop)
+
+	// Update() with a different next hop should update the routes
+	updNextHop := netip.MustParseAddr("192.168.1.2")
+
+	updEntry := entry.Clone()
+	updEntry.NextHop = updNextHop
+
+	err = ns.Do(func() error {
+		return ops.Update(context.Background(), nil, updEntry)
+	})
+	require.NoError(t, err, "expected no error from update")
+
+	// Routes should have been installed for Egress IP
+	routes, err = nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_1,
+			Src:       egressIP.AsSlice(),
+			Gw:        updNextHop.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[0], updNextHop)
+
+	routes, err = nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_2,
+			Src:       egressIP.AsSlice(),
+			Gw:        updNextHop.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], updNextHop)
+
+	// Update() without a next hop should update the routes leaving the gateway empty
+	noGwEntry := updEntry.Clone()
+	noGwEntry.NextHop = netip.Addr{}
+
+	err = ns.Do(func() error {
+		return ops.Update(context.Background(), nil, noGwEntry)
+	})
+	require.NoError(t, err, "expected no error from update")
+
+	// Routes should have been installed for Egress IP
+	routes, err = nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_1,
+			Src:       egressIP.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s", egressIP, destinations[0])
+	gw1, _ := netipx.FromStdIP(routes[0].Gw)
+	require.False(t, gw1.IsValid(), "expected no next hop for route with egress IP %s dest %s, found %s", egressIP, destinations[0], routes[0].Gw)
+
+	routes, err = nlh.RouteListFiltered(
+		netlink.FAMILY_V4,
+		&netlink.Route{
+			Dst:       &dst_2,
+			Src:       egressIP.AsSlice(),
+			LinkIndex: ifIndex,
+			Table:     RouteTableEgressGatewayIPAM,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], updNextHop)
+	gw2, _ := netipx.FromStdIP(routes[0].Gw)
+	require.False(t, gw2.IsValid(), "expected no next hop for route with egress IP %s dest %s, found %s", egressIP, destinations[0], routes[0].Gw)
+}
+
 func TestPrune(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
