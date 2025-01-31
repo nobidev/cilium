@@ -68,3 +68,11 @@ For more details and instructions see <https://github.com/isovalent/isovalent-lo
 ```sh
 DELETE_CONTAINERS=true make kind-down
 ```
+
+## Deploying a test IPFIX collector
+
+Note that a newer version of this manifest may be available
+
+```
+kubectl apply -f https://github.com/vmware/go-ipfix/releases/download/v0.12.0/ipfix-collector.yaml
+```

@@ -348,6 +348,11 @@ cilium-agent [flags]
       --label-prefix-file string                                     Valid label prefixes file path
       --labels strings                                               List of label prefixes used to determine identity of an endpoint
       --lib-dir string                                               Directory path to store runtime build environment (default "/var/lib/cilium")
+      --loadbalancer-flow-logs-collector-address string              LB Flow Logs collector address in the IP:port format
+      --loadbalancer-flow-logs-enabled                               Enables LB Per-packet Flow Logs
+      --loadbalancer-flow-logs-gc-frequency uint                     LB Garbage Collection Frequency (seconds) (default 61)
+      --loadbalancer-flow-logs-map-size uint32                       Select the size of the LB RB Map (default 33554432)
+      --loadbalancer-flow-logs-report-frequency uint                 LB Report Frequency (seconds) (default 10)
       --loadbalancer-metrics-collection-interval duration            Refresh interval for LoadBalancer metrics. (default 5s)
       --loadbalancer-metrics-enabled                                 Whether or not LoadBalancer metrics collection is enabled.
       --local-router-ipv4 string                                     Link-local IPv4 used for Cilium's router devices

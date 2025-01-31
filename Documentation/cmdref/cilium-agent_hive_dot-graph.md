@@ -177,6 +177,11 @@ cilium-agent hive dot-graph [flags]
       --k8s-kubeconfig-path string                                   Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --l2-pod-announcements-interface string                        Interface used for sending gratuitous arp messages
+      --loadbalancer-flow-logs-collector-address string              LB Flow Logs collector address in the IP:port format
+      --loadbalancer-flow-logs-enabled                               Enables LB Per-packet Flow Logs
+      --loadbalancer-flow-logs-gc-frequency uint                     LB Garbage Collection Frequency (seconds) (default 61)
+      --loadbalancer-flow-logs-map-size uint32                       Select the size of the LB RB Map (default 33554432)
+      --loadbalancer-flow-logs-report-frequency uint                 LB Report Frequency (seconds) (default 10)
       --loadbalancer-metrics-collection-interval duration            Refresh interval for LoadBalancer metrics. (default 5s)
       --loadbalancer-metrics-enabled                                 Whether or not LoadBalancer metrics collection is enabled.
       --max-connected-clusters uint32                                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)

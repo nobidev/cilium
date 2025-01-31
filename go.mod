@@ -102,6 +102,7 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.1-0.20250303224720-0e7078ed04c8
 	github.com/vishvananda/netns v0.0.5
+	github.com/vmware/go-ipfix v0.12.0
 	go.etcd.io/etcd/api/v3 v3.5.18
 	go.etcd.io/etcd/client/pkg/v3 v3.5.18
 	go.etcd.io/etcd/client/v3 v3.5.18
@@ -290,6 +291,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
+	github.com/pion/dtls/v2 v2.2.12 // indirect
+	github.com/pion/logging v0.2.2 // indirect
+	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rubenv/sql-migrate v1.7.1 // indirect

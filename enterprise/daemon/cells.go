@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration"
+	lbFlowLogs "github.com/cilium/cilium/enterprise/pkg/lb/flowlogs"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
 	"github.com/cilium/cilium/enterprise/pkg/mixedrouting"
@@ -97,6 +98,7 @@ var (
 
 		config.Cell,
 
+		lbFlowLogs.Cell,
 		lbMetrics.Cell,
 
 		hubble.Cell,
