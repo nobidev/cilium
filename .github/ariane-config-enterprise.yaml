@@ -57,6 +57,11 @@ triggers:
   /ci-encryption-policy:
     workflows:
     - enterprise-encryption-policy.yaml
+  # `( ?.*=?.*)*` is regex capture group that is used as `extra-args` inputs parameter in the enterprise conformance OpenShift workflow
+  # For example: `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}`
+  /ci-openshift ( ?.*=?.*)*:
+    workflows:
+    - enterprise-conformance-openshift.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:
@@ -81,3 +86,5 @@ workflows:
     paths-ignore-regex: (test|Documentation|hubble)/
   enterprise-lb-vsphere.yaml:
     paths-ignore-regex: Documentation/
+  enterprise-conformance-openshift.yaml:
+    paths-ignore-regex: (test|Documentation|hubble)/

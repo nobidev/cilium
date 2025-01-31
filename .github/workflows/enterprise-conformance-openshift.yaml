@@ -1,5 +1,10 @@
 name: Conformance OpenShift (ci-openshift)
 
+# Usage with Ariane (GitHub issue comment):
+# `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}`
+# The json parameters are optional. By default no KubeVirt conformance tests are launched.
+# Bare-metal nodes get provisioned for running KubeVirt conformance tests, which is expensive.
+#
 # TODO: Possibility to test with IPSec enabled: --helm-set encryption.enabled=true --helm-set encryption.type=ipsec.
 # IPSec keys would need to get generated.
 # TODO: Possibility to test with KPR enabled: --helm-set kubeProxyReplacement=true.
