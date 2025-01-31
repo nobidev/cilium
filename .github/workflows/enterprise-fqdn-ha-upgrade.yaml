@@ -453,15 +453,17 @@ jobs:
     runs-on: ubuntu-24.04
     needs: upgrade-and-downgrade
     steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
       - name: Merge Sysdumps
-        if: ${{ needs.upgrade-and-downgrade.result == 'failure' }}
-        uses: actions/upload-artifact/merge@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
-          retention-days: 5
-          delete-merged: true
-        continue-on-error: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     name: Commit Status Final
