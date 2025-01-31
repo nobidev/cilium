@@ -296,7 +296,12 @@ func main() {
 	}
 
 	proxyCtx := newProxyContext()
-	go proxyCtx.establishAgentProxyStream()
+	go func() {
+		err := proxyCtx.establishAgentProxyStream()
+		if err != nil {
+			log.Errorf("Proxy stream error: %s", err)
+		}
+	}()
 
 	proxy, err = dnsproxy.StartDNSProxy(
 		dnsProxyConfig,
@@ -353,23 +358,25 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 }
 
 type proxyContext struct {
-	rwLock *lock.RWMutex
-	ipc    ipCacheLookup
+	rwLock    *lock.RWMutex
+	ipc       ipCacheLookup
+	clientPtr *atomic.Pointer[fqdnAgentClient]
 
 	ipCacheV1 bool
 }
 
 func newProxyContext() *proxyContext {
 	return &proxyContext{
-		ipc:    &bpfIPC{},
-		rwLock: &lock.RWMutex{},
+		ipc:       &bpfIPC{},
+		rwLock:    &lock.RWMutex{},
+		clientPtr: &clientPtr,
 	}
 }
 
-func (p *proxyContext) establishAgentProxyStream() {
+func (pc *proxyContext) establishAgentProxyStream() error {
 	if !(*enableOfflineMode) {
 		log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
-		return
+		return nil
 	}
 	log.Info("Starting to stream proxy status from the agent...")
 	var (
@@ -381,17 +388,18 @@ func (p *proxyContext) establishAgentProxyStream() {
 	// streams status (rather than just returning on one update)
 	// this stub works fine.
 	for {
-		ps, err = client().SubscribeProxyStatuses(context.Background(), &pb.Empty{})
+		ps, err = pc.clientPtr.Load().SubscribeProxyStatuses(context.Background(), &pb.Empty{})
 		if err != nil {
 			sts, ok := status.FromError(err)
 			// This agent does not support proxy status.
-			// Keep checking tough in case the agent upgrades.
+			// Keep checking though in case the agent upgrades.
 			if ok && sts.Code() == codes.Unimplemented {
 				time.Sleep(time.Minute)
 				continue
 			}
-			log.Errorf("Error connecting to stream proxy status: %s", err)
+			err = fmt.Errorf("error connecting to stream proxy status: %w", err)
 			updateAgentReachability(err)
+			return err
 		}
 		break
 	}
@@ -403,13 +411,14 @@ func (p *proxyContext) establishAgentProxyStream() {
 	agentProxyStatus, err := ps.Recv()
 	if err != nil {
 		updateAgentReachability(err)
-		return
+		return fmt.Errorf("error receiving proxy status: %w", err)
 	}
 	if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
-		p.rwLock.Lock()
-		defer p.rwLock.Unlock()
-		p.ipCacheV1 = true
+		pc.rwLock.Lock()
+		defer pc.rwLock.Unlock()
+		pc.ipCacheV1 = true
 	}
+	return nil
 }
 
 func (pc *proxyContext) supportsIPCacheV1() bool {
@@ -634,7 +643,7 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		}
 	} else {
 		var ident *pb.Identity
-		ident, err = client().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+		ident, err = pc.clientPtr.Load().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
 		updateAgentReachability(err)
 		if err == nil {
 			id = identity.NumericIdentity(ident.ID)
