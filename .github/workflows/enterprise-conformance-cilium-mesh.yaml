@@ -19,7 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+      - 'renovate/**'
   # FIXME(auriaave): uncomment once this issue is fixed: https://github.com/isovalent/cilium/issues/5094
   # # Run every 8 hours
   # schedule:

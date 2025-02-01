@@ -19,7 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+      - 'renovate/**'
   # Run every 6 hours
   schedule:
     - cron:  '0 3/6 * * *'
