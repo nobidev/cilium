@@ -1,0 +1,1624 @@
+kind: Dashboard
+metadata:
+    name: de4pskmwe1i4gf
+    createdAt: 0001-01-01T00:00:00Z
+    updatedAt: 0001-01-01T00:00:00Z
+    version: 0
+    project: "ILB"
+spec:
+    display:
+        name: ILB
+    variables:
+        - kind: ListVariable
+          spec:
+            display:
+                name: Node
+                hidden: false
+            defaultValue: $__all
+            allowAllValue: true
+            allowMultiple: false
+            customAllValue: .*
+            sort: none
+            plugin:
+                kind: PrometheusLabelValuesVariable
+                spec:
+                    labelName: node
+                    matchers:
+                        - kube_node_labels
+            name: node
+        - kind: ListVariable
+          spec:
+            display:
+                name: Service
+                hidden: false
+            defaultValue: $__all
+            allowAllValue: true
+            allowMultiple: false
+            customAllValue: .*
+            sort: none
+            plugin:
+                kind: PrometheusLabelValuesVariable
+                spec:
+                    labelName: service
+                    matchers:
+                        - cilium_lb_bytes_total
+            name: service
+        - kind: ListVariable
+          spec:
+            display:
+                name: Backend
+                hidden: false
+            defaultValue: $__all
+            allowAllValue: true
+            allowMultiple: false
+            customAllValue: .*
+            sort: none
+            plugin:
+                kind: PrometheusLabelValuesVariable
+                spec:
+                    labelName: backend
+                    matchers:
+                        - cilium_lb_bytes_total
+            name: backend
+    panels:
+        "0_0":
+            kind: Panel
+            spec:
+                display:
+                    name: '[CT maps] Service BPS'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (service) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{vip}}'
+        "0_1":
+            kind: Panel
+            spec:
+                display:
+                    name: '[CT maps] Service PPS'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (service) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{service}}'
+        "0_2":
+            kind: Panel
+            spec:
+                display:
+                    name: '[CT maps] Service BPS by backend'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (backend) (\n    rate(\n        cilium_lb_bytes_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{backend}}'
+        "0_3":
+            kind: Panel
+            spec:
+                display:
+                    name: '[CT maps] Service PPS by backend'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (backend) (\n    rate(\n        cilium_lb_packets_total{node=~\"^${node}$\", service=~\"^${service}$\", backend=~\"^${backend}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{backend}}'
+        "0_4":
+            kind: Panel
+            spec:
+                display:
+                    name: '[ethtool] BPS (xdp)'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum by (instance) (
+                                        rate(
+                                            {__name__=~"node_ethtool_received_queue_.*_xdp_bytes"}[$__rate_interval])
+                                        ) * on (instance) group_left(node) (
+                                            label_replace(kube_node_status_addresses{node=~"${node}"}, "instance", "$1:9100", "address", "(.*)"
+                                        )
+                                    ) * on (node) (
+                                        kube_node_labels{label_service_cilium_io_node="t1"}
+                                    ) != 0
+                                seriesNameFormat: '{{node}}'
+        "0_5":
+            kind: Panel
+            spec:
+                display:
+                    name: '[ethtool] PPS (xdp)'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum by (instance) (
+                                        rate(
+                                            {__name__=~"node_ethtool_received_queue_.*_xdp_packets"}[$__rate_interval])
+                                        ) * on (instance) group_left(node) (
+                                            label_replace(kube_node_status_addresses{node=~"${node}"}, "instance", "$1:9100", "address", "(.*)"
+                                        )
+                                    ) * on (node) (
+                                        kube_node_labels{label_service_cilium_io_node="t1"}
+                                    ) != 0
+                                seriesNameFormat: '{{node}}'
+        "0_6":
+            kind: Panel
+            spec:
+                display:
+                    name: '[CT map] Connections'
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (node) (\n    rate(\n        cilium_lb_open_connections_metric{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t1\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{node}}'
+        "1_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Healthcheck status
+                plugin:
+                    kind: Table
+                    spec:
+                        columnSettings:
+                            - hide: false
+                              name: node
+                            - header: Service
+                              name: service
+                            - header: T2 Node
+                              name: backend
+                            - header: Healthy
+                              name: value
+                            - hide: true
+                              name: timestamp
+                            - hide: true
+                              name: __name__
+                            - hide: true
+                              name: container
+                            - hide: true
+                              name: endpoint
+                            - hide: true
+                              name: instance
+                            - hide: true
+                              name: job
+                            - hide: true
+                              name: k8s_app
+                            - hide: true
+                              name: namespace
+                            - hide: true
+                              name: pod
+                        density: compact
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                minStep: ""
+                                query: cilium_lb_healthcheck_status{node=~"^${node}$", service=~"^${service}$", backend=~"^${backend}$"}
+        "2_0":
+            kind: Panel
+            spec:
+                display:
+                    name: BGP sessions DOWN
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 0
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: count by(node) (cilium_bgp_control_plane_session_state == 0.0)
+        "2_1":
+            kind: Panel
+            spec:
+                display:
+                    name: BGP sessions
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 0
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: count by(node) (cilium_bgp_control_plane_session_state)
+        "2_2":
+            kind: Panel
+            spec:
+                display:
+                    name: BGP advertised routes
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 0
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: count by (node) (cilium_bgp_control_plane_advertised_routes)
+        "3_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Total connections
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_downstream_cx_total{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_listener_address}}'
+        "3_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Active connections
+                plugin:
+                    kind: GaugeChart
+                    spec:
+                        calculation: last-number
+                        thresholds:
+                            steps:
+                                - color: green
+                                  value: 0
+                                - color: red
+                                  value: 80
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_listener_downstream_cx_active)
+        "3_2":
+            kind: Panel
+            spec:
+                display:
+                    name: Listener errors
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_transport_socket_connect_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: cx timeout {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: cx overflow {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_cx_overload_reject{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: cx overload reject {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_global_cx_overflow{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: global cx overflow {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_pre_cx_timeout{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: pre cx timeout {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: extension config missing {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_network_extension_config_missing{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: network extension config missing {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_no_filter_chain_match{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: no filter chain match {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_remote_close{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: filter remote close {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_downstream_listener_filter_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: listener filter error {{envoy_listener_address}}
+        "4_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream RX bytes
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_tcp_prefix}}'
+        "4_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream TX bytes
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_tcp_prefix}}'
+        "4_2":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream connections
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_tcp_prefix) (\n    rate(\n        envoy_tcp_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_tcp_prefix}}'
+        "5_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Handshake
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (\n    rate(\n        envoy_listener_ssl_handshake{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+        "5_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Ciphers
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum by (cipher_suite, envoy_cluster_name) (envoy_cluster_ssl_ciphers{envoy_cluster_name =~ "^${service}$"})
+                                seriesNameFormat: '{{cipher_suite}} {{envoy_cluster_name}}'
+        "5_2":
+            kind: Panel
+            spec:
+                display:
+                    name: TLS errors
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_connection_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: cx error {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_no_cert{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: fail verify no cert {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_error{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: fail verify error {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_san{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: fail verify san {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_fail_verify_cert_hash{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: fail verify cert hash {{envoy_listener_address}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_listener_address) (rate(\n    envoy_listener_ssl_ocsp_staple_failed{node=~\"^${node}$\", envoy_listener_address=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: ocsp staple failed {{envoy_listener_address}}
+        "6_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream connections
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{backend}}'
+        "6_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream requests
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_rq_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+        "6_2":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream RX bytes
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_rx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{backend}}'
+        "6_3":
+            kind: Panel
+            spec:
+                display:
+                    name: Downstream TX bytes
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: decimal
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (\n    rate(\n        envoy_http_downstream_cx_tx_bytes_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{backend}}'
+        "6_4":
+            kind: Panel
+            spec:
+                display:
+                    name: Errors
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_cx_protocol_error{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: protocol error {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rejected_via_ip_detection{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq rejected via ip detection {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_response_before_rq_complete{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: re response before rq complete {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_rx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq rx reset {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_tx_reset{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq tx reset {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq too large {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_idle_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq idle timeout {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_max_duration_reached{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq max duration reached {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_timeout{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq timeout {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_overload_close{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq overload close {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_downstream_rq_too_many_premature_resets{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq too many premature resets {{envoy_http_conn_manager_prefix}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_http_conn_manager_prefix) (rate(\n    envoy_http_rs_too_large{node=~\"^${node}$\", envoy_http_conn_manager_prefix =~ \"${service}\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: http rs too large {{envoy_http_conn_manager_prefix}}
+        "7_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Upstream connections
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_upstream_cx_total{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_cluster_name}}'
+        "7_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Total upstream connections
+                plugin:
+                    kind: GaugeChart
+                    spec:
+                        calculation: last-number
+                        thresholds:
+                            steps:
+                                - color: green
+                                  value: 0
+                                - color: red
+                                  value: 80
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |+
+                                    sum(envoy_cluster_upstream_cx_total)
+
+        "7_2":
+            kind: Panel
+            spec:
+                display:
+                    name: Connection errors
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_fail{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_connect_fail {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_connect_timeout{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_connect_timeout {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_pool_overflow{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_pool_overflow {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_protocol_error{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_protocol_error {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_max_requests{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_max_requests {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_cx_none_healthy{node=~\"^${node}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: upstream_cx_none_healthy {{envoy_cluster_name}}
+        "7_3":
+            kind: Panel
+            spec:
+                display:
+                    name: Request errors
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_overflow{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq pending overflow {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_pending_failure_eject{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq pending failure eject {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_maintenance_mode{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq maintenance mode {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq timeout {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_upstream_rq_per_try_timeout{node=~\"^${node}$\", envoy_cluster_name=~\"^${service}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n)) != 0"
+                                seriesNameFormat: rq per try timeout {{envoy_cluster_name}}
+        "7_4":
+            kind: Panel
+            spec:
+                display:
+                    name: envoy_cluster_health_check_success
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                decimalPlaces: 2
+                                unit: bytes/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (\n    rate(\n        envoy_cluster_health_check_success{node=~\"^${node}$\"}[$__rate_interval]\n    ) \n    * on (node) group_left() (\n        kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n    )\n) != 0"
+                                seriesNameFormat: '{{envoy_cluster_name}}'
+        "7_5":
+            kind: Panel
+            spec:
+                display:
+                    name: Healthcheck failures
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_health_check_failure{node=~\"^${node}$\", envoy_cluster_name=~\"^${app}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))"
+                                seriesNameFormat: envoy_cluster_health_check_failure {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_health_check_passive_failure{node=~\"^${t2}$\", envoy_cluster_name=~\"^${app}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))"
+                                seriesNameFormat: envoy_cluster_health_check_passive_failure {{envoy_cluster_name}}
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "sum by (envoy_cluster_name) (rate(\n    envoy_cluster_health_check_network_failure{node=~\"^${t2}$\", envoy_cluster_name=~\"^${app}$\"}[$__rate_interval]\n) \n* on (node) group_left() (\n    kube_node_labels{label_service_cilium_io_node=~\"t2\"}\n))"
+                                seriesNameFormat: envoy_cluster_health_check_network_failure {{envoy_cluster_name}}
+        "8_0":
+            kind: Panel
+            spec:
+                display:
+                    name: CPU %
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: percent
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    100 * avg(
+                                      1 - rate(
+                                        node_cpu_seconds_total{mode=~"idle"}[$__rate_interval]
+                                        )
+                                      ) by (instance)
+                                    * on (instance) group_left(node) (
+                                      label_replace(kube_node_status_addresses{node=~"^${node}$"}, "instance", "$1:9100", "address", "(.*)")
+                                    )
+                                seriesNameFormat: '{{node}}'
+        "8_1":
+            kind: Panel
+            spec:
+                display:
+                    name: Load Average
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: decimal
+                            min: 0
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "node_load1{job=\"node-exporter\"} \n* on (instance) group_left(node) (\n    label_replace(kube_node_status_addresses{node=~\"^${node}$\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n)"
+                                seriesNameFormat: '{{node}}, 1m'
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "node_load5{job=\"node-exporter\"} \n* on (instance) group_left(node) (\n    label_replace(kube_node_status_addresses{node=~\"^${node}$\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n)"
+                                seriesNameFormat: '{{node}}, 5m'
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: "node_load15{job=\"node-exporter\"} \n* on (instance) group_left(node) (\n    label_replace(kube_node_status_addresses{node=~\"^${node}$\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n)"
+                                seriesNameFormat: '{{node}}, 15m'
+        "9_0":
+            kind: Panel
+            spec:
+                display:
+                    name: Memory Usage
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: right
+                            values: []
+                        visual:
+                            areaOpacity: 0.1
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                            stack: all
+                        yAxis:
+                            format:
+                                unit: bytes
+                            min: 0
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |
+                                    (
+                                      node_memory_MemTotal_bytes{job="node-exporter"}
+                                    -
+                                      node_memory_MemFree_bytes{job="node-exporter"}
+                                    -
+                                      node_memory_Buffers_bytes{job="node-exporter"}
+                                    -
+                                      node_memory_Cached_bytes{job="node-exporter"}
+                                    )
+                                    * on (instance) group_left(node) (
+                                      label_replace(kube_node_status_addresses{node=~"^${node}$"}, "instance", "$1:9100", "address", "(.*)")
+                                    )
+                                seriesNameFormat: '{{node}} used'
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    node_memory_Buffers_bytes{job="node-exporter"} * on (instance) group_left(node) (
+                                      label_replace(kube_node_status_addresses{node=~"^${node}$"}, "instance", "$1:9100", "address", "(.*)")
+                                    )
+                                seriesNameFormat: '{{node}} buffers'
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |
+                                    node_memory_Cached_bytes{job="node-exporter"} * on (instance) group_left(node) (
+                                      label_replace(kube_node_status_addresses{node=~"^${node}$"}, "instance", "$1:9100", "address", "(.*)")
+                                    )
+                                seriesNameFormat: '{{node}} cached'
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    node_memory_MemFree_bytes{job="node-exporter"} * on (instance) group_left(node) (
+                                      label_replace(kube_node_status_addresses{node=~"^${node}$"}, "instance", "$1:9100", "address", "(.*)")
+                                    )
+                                seriesNameFormat: '{{node}} free'
+    layouts:
+        - kind: Grid
+          spec:
+            display:
+                title: '[T1] Network'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 1
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_0'
+                - x: 12
+                  "y": 1
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_1'
+                - x: 0
+                  "y": 9
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_2'
+                - x: 12
+                  "y": 9
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_3'
+                - x: 0
+                  "y": 17
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_4'
+                - x: 12
+                  "y": 17
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_5'
+                - x: 0
+                  "y": 25
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/0_6'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T1] Healthcheck'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 34
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/1_0'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T1] BGP'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 43
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/2_0'
+                - x: 12
+                  "y": 43
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/2_1'
+                - x: 0
+                  "y": 51
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/2_2'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T2] Listeners'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 60
+                  width: 16
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/3_0'
+                - x: 16
+                  "y": 60
+                  width: 8
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/3_1'
+                - x: 0
+                  "y": 68
+                  width: 24
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/3_2'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T2] TCP'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 77
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/4_0'
+                - x: 12
+                  "y": 77
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/4_1'
+                - x: 0
+                  "y": 85
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/4_2'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T2] TLS'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 94
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/5_0'
+                - x: 12
+                  "y": 94
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/5_1'
+                - x: 0
+                  "y": 102
+                  width: 24
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/5_2'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T2] HTTP'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 111
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/6_0'
+                - x: 12
+                  "y": 111
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/6_1'
+                - x: 0
+                  "y": 119
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/6_2'
+                - x: 12
+                  "y": 119
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/6_3'
+                - x: 0
+                  "y": 127
+                  width: 24
+                  height: 9
+                  content:
+                    $ref: '#/spec/panels/6_4'
+        - kind: Grid
+          spec:
+            display:
+                title: '[T2] Cluster'
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 137
+                  width: 16
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_0'
+                - x: 16
+                  "y": 137
+                  width: 8
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_1'
+                - x: 0
+                  "y": 145
+                  width: 24
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_2'
+                - x: 0
+                  "y": 153
+                  width: 24
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_3'
+                - x: 0
+                  "y": 161
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_4'
+                - x: 12
+                  "y": 161
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/7_5'
+        - kind: Grid
+          spec:
+            display:
+                title: CPU
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 170
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/8_0'
+                - x: 12
+                  "y": 170
+                  width: 12
+                  height: 8
+                  content:
+                    $ref: '#/spec/panels/8_1'
+        - kind: Grid
+          spec:
+            display:
+                title: Memory
+                collapse:
+                    open: true
+            items:
+                - x: 0
+                  "y": 179
+                  width: 12
+                  height: 9
+                  content:
+                    $ref: '#/spec/panels/9_0'
+    duration: 1h
+

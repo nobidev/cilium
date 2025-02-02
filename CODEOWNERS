@@ -821,7 +821,7 @@ Makefile* @cilium/build
 /enterprise/features/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
-/enterprise/grafana/loadbalancer/ @isovalent/isovalent-loadbalancer
+/enterprise/dashboards/ @isovalent/isovalent-loadbalancer
 /enterprise/hubble-relay/ @isovalent/hubble
 /enterprise/olm/ @isovalent/openshift
 /enterprise/operator/ @isovalent/cilium-agent

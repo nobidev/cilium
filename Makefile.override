@@ -132,6 +132,11 @@ kind-egressgwha-install-cilium-fast: kind-ready ## Install a local Cilium versio
 			--version= >/dev/null 2>&1 & \
 	done
 
+.PHONY: sync-grafana-to-perses
+sync-grafana-to-perses: ## Migrate Perses dashboards from Grafana
+	@echo "  SYNC Perses dashboards from Grafana"
+	./enterprise/dashboards/sync_grafana_to_perses.sh
+
 # Cilium Mesh specific targets
 -include Makefile.ciliummesh
 # Cilium FQDN HA proxy specific targets

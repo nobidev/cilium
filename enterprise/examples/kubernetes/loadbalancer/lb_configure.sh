@@ -67,4 +67,4 @@ kubectl -n kube-system delete pods -l k8s-app=kube-dns
 
 # Wait until LB nodes are ready
 echo -n "Waiting until LB nodes are ready ..."
-cilium status --wait --interactive=false
+cilium status --wait --interactive=false --ignore-warnings

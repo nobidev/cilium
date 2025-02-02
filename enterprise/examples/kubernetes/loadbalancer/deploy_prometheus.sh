@@ -6,25 +6,21 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add isovalent https://helm.isovalent.com
-helm repo update
+KUBE_PROMETHEUS_STACK_VERSION="62.7.0"
 
-kubectl create namespace monitoring
+function deploy_prometheus() {
+    grafana_enabled=$1
 
-kubectl -n monitoring create configmap grafana-dashboards \
-	--from-file=lb.json=enterprise/grafana/loadbalancer/lb.json \
-	--from-file=t2.json=enterprise/grafana/loadbalancer/t2.json \
-	--from-file=operator.json=enterprise/grafana/loadbalancer/operator.json
-kubectl -n monitoring label configmap grafana-dashboards grafana_dashboard=1
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo update
 
-helm upgrade --install prometheus \
-  prometheus-community/kube-prometheus-stack \
-  --version 62.7.0 \
-  -n monitoring \
-  --values "${script_dir}"/manifests/prometheus-stack-values.yaml
+    kubectl create namespace monitoring || true
 
-helm upgrade --install cilium-ee-dashboards \
-  isovalent/cilium-ee-dashboards \
-  -n monitoring \
-  --values "${script_dir}"/manifests/dashboards-values.yaml
+    # deploy prometheus and optionally enabling grafana
+    helm upgrade --install prometheus \
+        prometheus-community/kube-prometheus-stack \
+        --version ${KUBE_PROMETHEUS_STACK_VERSION} \
+        -n monitoring \
+        --values "${script_dir}"/manifests/prometheus-stack-values.yaml \
+        --set grafana.enabled=${grafana_enabled}
+}
