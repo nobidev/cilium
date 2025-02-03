@@ -190,8 +190,9 @@ spec:
                             - andRules:
                                 rules:
                                   - header:
-                                      exactMatch: bar.acme.io
                                       name: :authority
+                                      stringMatch:
+                                        exact: bar.acme.io
                                   - urlPath:
                                       path:
                                         exact: /admin

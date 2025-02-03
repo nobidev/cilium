@@ -2171,12 +2171,20 @@ func (r *lbServiceT2Translator) toRBACPermissionHostName(hostnameRule *lbRouteRe
 
 	switch hostnameRule.hostNameType {
 	case filterHostnameTypeExact:
-		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_ExactMatch{
-			ExactMatch: hostnameRule.hostName,
+		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+					Exact: hostnameRule.hostName,
+				},
+			},
 		}
 	case filterHostnameTypeSuffix:
-		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_SuffixMatch{
-			SuffixMatch: hostnameRule.hostName,
+		headerPermRule.Header.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Suffix{
+					Suffix: hostnameRule.hostName,
+				},
+			},
 		}
 	}
 
