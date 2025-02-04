@@ -14,7 +14,6 @@ import (
 	"context"
 	"maps"
 	"regexp"
-	"slices"
 	"strings"
 	"testing"
 
@@ -589,24 +588,14 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 	}
 
 	type clusterConfig struct {
-		name     string
-		selector *slim_meta_v1.LabelSelector
-	}
-
-	// sortRelation sorts the relation in a deterministic way.
-	sortRelation := func(a, b [2]string) int {
-		slices.Sort(a[:])
-		slices.Sort(b[:])
-		return strings.Compare(a[0]+a[1], b[0]+b[1])
+		name                      string
+		selector                  *slim_meta_v1.LabelSelector
+		conflictingClusterConfigs []string
 	}
 
 	tests := []struct {
 		name           string
 		clusterConfigs []clusterConfig
-
-		// conflictingRelations is a list of pairs of cluster config
-		// names that are expected to have a conflict.
-		conflictingRelations [][2]string
 	}{
 		{
 			name: "ConflictingClusterConfig False",
@@ -618,6 +607,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack0",
 						},
 					},
+					conflictingClusterConfigs: []string{},
 				},
 				{
 					name: "cluster-config-1",
@@ -626,6 +616,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack1",
 						},
 					},
+					conflictingClusterConfigs: []string{},
 				},
 				{
 					name: "cluster-config-2",
@@ -634,9 +625,9 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack2",
 						},
 					},
+					conflictingClusterConfigs: []string{},
 				},
 			},
-			conflictingRelations: [][2]string{},
 		},
 		{
 			name: "ConflictingClusterConfig True complete overlap",
@@ -648,6 +639,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"complete-overlap": "true",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-1"},
 				},
 				{
 					name: "cluster-config-1",
@@ -656,26 +648,23 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"complete-overlap": "true",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-0"},
 				},
-			},
-			conflictingRelations: [][2]string{
-				{"cluster-config-0", "cluster-config-1"},
 			},
 		},
 		{
 			name: "ConflictingClusterConfig True complete overlap with nil",
 			clusterConfigs: []clusterConfig{
 				{
-					name:     "cluster-config-0",
-					selector: nil,
+					name:                      "cluster-config-0",
+					selector:                  nil,
+					conflictingClusterConfigs: []string{"cluster-config-1"},
 				},
 				{
-					name:     "cluster-config-1",
-					selector: nil,
+					name:                      "cluster-config-1",
+					selector:                  nil,
+					conflictingClusterConfigs: []string{"cluster-config-0"},
 				},
-			},
-			conflictingRelations: [][2]string{
-				{"cluster-config-0", "cluster-config-1"},
 			},
 		},
 		{
@@ -688,6 +677,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"partial-overlap0": "true",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-1"},
 				},
 				{
 					name: "cluster-config-1",
@@ -696,10 +686,8 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"partial-overlap1": "true",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-0"},
 				},
-			},
-			conflictingRelations: [][2]string{
-				{"cluster-config-0", "cluster-config-1"},
 			},
 		},
 		{
@@ -712,6 +700,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"partial-overlap0": "true",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-1", "cluster-config-2"},
 				},
 				{
 					name: "cluster-config-1",
@@ -720,6 +709,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack0",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-0"},
 				},
 				{
 					name: "cluster-config-2",
@@ -728,6 +718,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack1",
 						},
 					},
+					conflictingClusterConfigs: []string{"cluster-config-0"},
 				},
 				{
 					name: "cluster-config-3",
@@ -736,11 +727,8 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 							"rack": "rack2",
 						},
 					},
+					conflictingClusterConfigs: []string{},
 				},
-			},
-			conflictingRelations: [][2]string{
-				{"cluster-config-0", "cluster-config-1"},
-				{"cluster-config-0", "cluster-config-2"},
 			},
 		},
 	}
@@ -785,27 +773,21 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			}
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
-				configs, err := f.isoClusterClient.List(ctx, meta_v1.ListOptions{})
-				if !assert.NoError(ct, err, "Cannot list cluster configs") {
-					return
-				}
+				for _, config := range tt.clusterConfigs {
+					cc, err := f.isoClusterClient.Get(ctx, config.name, meta_v1.GetOptions{})
+					if !assert.NoError(ct, err, "Cannot get cluster config") {
+						return
+					}
 
-				// Here we collect all conflicting configs from all cluster configs.
-				// Since we detect the conflict by checking the owner reference of
-				// the node config, the cluster config observes the conflict depends
-				// on the node config creation order. So we need to check all cluster
-				// configs to get the entire view of the conflicts.
-				conflictingRelations := [][2]string{}
-				for _, config := range configs.Items {
 					cond := meta.FindStatusCondition(
-						config.Status.Conditions,
+						cc.Status.Conditions,
 						v1alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
 					)
 					if !assert.NotNil(ct, cond, "Condition not found") {
 						return
 					}
 
-					if len(tt.conflictingRelations) == 0 {
+					if len(config.conflictingClusterConfigs) == 0 {
 						if !assert.Equal(ct, meta_v1.ConditionFalse, cond.Status, "Expected condition to be false") {
 							return
 						}
@@ -816,6 +798,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 						continue
 					}
 
+					// Parse the list of conflicting cluster configs in the condition message
 					expr, err := regexp.Compile(
 						`Selecting the same node\(s\) with ClusterConfig\(s\): \[(.*)\]`,
 					)
@@ -828,24 +811,12 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 						return
 					}
 
-					for _, conflictingConfig := range strings.Split(string(match[1]), " ") {
-						relation := [2]string{config.Name, conflictingConfig}
-						conflictingRelations = append(conflictingRelations, relation)
-					}
-				}
-
-				// Short circuit if the number of conflict relations is not the same.
-				if !assert.Len(ct, conflictingRelations, len(tt.conflictingRelations), "Exexpected number of conflicts") {
-					return
-				}
-
-				// Sort the conflicting relations to make the comparison deterministic.
-				slices.SortFunc(conflictingRelations, sortRelation)
-				slices.SortFunc(tt.conflictingRelations, sortRelation)
-
-				// Compare the conflicting relations.
-				for i := 0; i < len(tt.conflictingRelations); i++ {
-					if !assert.ElementsMatch(ct, tt.conflictingRelations[i], conflictingRelations[i]) {
+					if !assert.ElementsMatch(
+						t,
+						strings.Split(string(match[1]), " "),
+						config.conflictingClusterConfigs,
+						"Conflicting cluster configs do not match",
+					) {
 						return
 					}
 				}

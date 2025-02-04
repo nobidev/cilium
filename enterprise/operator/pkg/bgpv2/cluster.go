@@ -17,17 +17,129 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
+
+type reconcileCache struct {
+	ClusterConfigsByName            map[string]*v1alpha1.IsovalentBGPClusterConfig
+	NodeConfigsByName               map[string]*v1alpha1.IsovalentBGPNodeConfig
+	NodesByName                     map[string]*v2.CiliumNode
+	OverridesByName                 map[string]*v1alpha1.IsovalentBGPNodeConfigOverride
+	NodesByClusterConfigName        map[string][]*v2.CiliumNode
+	ClusterConfigsByNodeName        map[string][]*v1alpha1.IsovalentBGPClusterConfig
+	ClusterConfigWithNoMatchingNode map[string]*v1alpha1.IsovalentBGPClusterConfig
+	ConflictingClusterConfigNames   map[string]sets.Set[string]
+	ConflictFreeClusterConfigs      map[string]*v1alpha1.IsovalentBGPClusterConfig
+}
+
+func populateReconcileCache(
+	clusterConfigs []*v1alpha1.IsovalentBGPClusterConfig,
+	nodeConfigs []*v1alpha1.IsovalentBGPNodeConfig,
+	nodes []*v2.CiliumNode,
+	overrides []*v1alpha1.IsovalentBGPNodeConfigOverride,
+) *reconcileCache {
+	cache := &reconcileCache{
+		ClusterConfigsByName:            make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
+		NodeConfigsByName:               make(map[string]*v1alpha1.IsovalentBGPNodeConfig),
+		NodesByName:                     make(map[string]*v2.CiliumNode),
+		OverridesByName:                 make(map[string]*v1alpha1.IsovalentBGPNodeConfigOverride),
+		NodesByClusterConfigName:        make(map[string][]*v2.CiliumNode),
+		ClusterConfigsByNodeName:        make(map[string][]*v1alpha1.IsovalentBGPClusterConfig),
+		ClusterConfigWithNoMatchingNode: make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
+		ConflictingClusterConfigNames:   make(map[string]sets.Set[string]),
+		ConflictFreeClusterConfigs:      make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
+	}
+
+	// Index NodeConfigs by name
+	for _, nodeConfig := range nodeConfigs {
+		cache.NodeConfigsByName[nodeConfig.Name] = nodeConfig
+	}
+
+	// Index Overrides by name
+	for _, override := range overrides {
+		cache.OverridesByName[override.Name] = override
+	}
+
+	// Populate various indices
+	for _, clusterConfig := range clusterConfigs {
+		// Index each cluster configs by name
+		cache.ClusterConfigsByName[clusterConfig.Name] = clusterConfig
+
+		// Find matching nodes
+		labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(clusterConfig.Spec.NodeSelector)
+		if err != nil {
+			// This should never happen as the API validation should have caught this
+			continue
+		}
+
+		nodeMatched := false
+		for _, node := range nodes {
+			// Index Nodes by name
+			cache.NodesByName[node.Name] = node
+
+			// Nil NodeSelector means all nodes are selected. Otherwise, the node must match the selector.
+			if clusterConfig.Spec.NodeSelector == nil || labelSelector.Matches(slim_labels.Set(node.Labels)) {
+				// Index Nodes by the matched ClusterConfig
+				// name. This will be used to detect the
+				// conflicting ClusterConfigs.
+				cache.NodesByClusterConfigName[clusterConfig.Name] = append(
+					cache.NodesByClusterConfigName[clusterConfig.Name],
+					node,
+				)
+				// Index ClusterConfigs by the matched Node
+				// name. This will be used to build the desired
+				// NodeConfigs.
+				cache.ClusterConfigsByNodeName[node.Name] = append(
+					cache.ClusterConfigsByNodeName[node.Name],
+					clusterConfig,
+				)
+				nodeMatched = true
+			}
+		}
+
+		// This ClusterConfig selects nothing. Record it. This will be
+		// used to report the condition.
+		if !nodeMatched {
+			cache.ClusterConfigWithNoMatchingNode[clusterConfig.Name] = clusterConfig
+		}
+	}
+
+	// Find conflicting cluster configs
+	for _, clusterConfigs := range cache.ClusterConfigsByNodeName {
+		// The node is selected by multiple cluster configs. Record the conflicting relationship.
+		for _, clusterConfig0 := range clusterConfigs {
+			for _, clusterConfig1 := range clusterConfigs {
+				if clusterConfig0.Name == clusterConfig1.Name {
+					continue
+				}
+				if ccs, found := cache.ConflictingClusterConfigNames[clusterConfig0.Name]; found {
+					ccs.Insert(clusterConfig1.Name)
+				} else {
+					cache.ConflictingClusterConfigNames[clusterConfig0.Name] = sets.New(clusterConfig1.Name)
+				}
+			}
+		}
+	}
+
+	// Find conflict-free cluster configs
+	for _, clusterConfig := range clusterConfigs {
+		ccs, found := cache.ConflictingClusterConfigNames[clusterConfig.Name]
+		if !found || ccs.Len() == 0 {
+			cache.ConflictFreeClusterConfigs[clusterConfig.Name] = clusterConfig
+		}
+	}
+
+	return cache
+}
 
 func (m *BGPResourceMapper) reconcileClusterConfigs(ctx context.Context) error {
 	clusterConfigs, err := m.clusterConfig.List()
@@ -35,47 +147,97 @@ func (m *BGPResourceMapper) reconcileClusterConfigs(ctx context.Context) error {
 		return err
 	}
 
-	for _, clusterConfig := range clusterConfigs {
-		err = errors.Join(err, m.reconcileClusterConfig(ctx, clusterConfig))
-	}
-	return err
-}
-
-func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *v1alpha1.IsovalentBGPClusterConfig) error {
-	// get nodes which match node selector for given cluster config
-	matchingNodes, conflictingClusterConfigs, err := m.getMatchingNodes(config)
+	nodes, err := m.ciliumNode.List()
 	if err != nil {
 		return err
 	}
 
-	// update node configs for matched nodes
-	for nodeRef := range matchingNodes {
-		upsertErr := m.upsertNodeConfig(ctx, config, nodeRef)
-		if upsertErr != nil {
-			err = errors.Join(err, upsertErr)
+	nodeConfigs := m.nodeConfigStore.List()
+
+	overrides, err := m.nodeConfigOverride.List()
+	if err != nil {
+		return err
+	}
+
+	cache := populateReconcileCache(clusterConfigs, nodeConfigs, nodes, overrides)
+
+	// Update/Delete NodeConfigs
+	if err = m.reconcileNodeConfigs(ctx, cache); err != nil {
+		return err
+	}
+
+	// Update ClusterConfig status
+	for _, clusterConfig := range cache.ClusterConfigsByName {
+		err = errors.Join(err, m.reconcileClusterConfigStatus(ctx, cache, clusterConfig))
+	}
+
+	return err
+}
+
+func (m *BGPResourceMapper) desiredNodeConfigs(cache *reconcileCache) []*v1alpha1.IsovalentBGPNodeConfig {
+	ret := []*v1alpha1.IsovalentBGPNodeConfig{}
+	for clusterConfigName, clusterConfig := range cache.ConflictFreeClusterConfigs {
+		for _, node := range cache.NodesByClusterConfigName[clusterConfigName] {
+			ret = append(ret, m.toNodeConfig(node.Name, clusterConfig, cache.OverridesByName[node.Name]))
+		}
+	}
+	return ret
+}
+
+func (m *BGPResourceMapper) staleNodeConfigs(cache *reconcileCache) []*v1alpha1.IsovalentBGPNodeConfig {
+	ret := []*v1alpha1.IsovalentBGPNodeConfig{}
+	for name, nodeConfig := range cache.NodeConfigsByName {
+		// If there's no cluster config that selects this node, or
+		// there are multiple cluster configs that select this node
+		// (conflicting), we should delete the node config.
+		if clusterConfigs, ok := cache.ClusterConfigsByNodeName[name]; !ok || len(clusterConfigs) > 1 {
+			ret = append(ret, nodeConfig)
+		}
+	}
+	return ret
+}
+
+func (m *BGPResourceMapper) reconcileNodeConfigs(ctx context.Context, cache *reconcileCache) error {
+	var errs error
+
+	for _, nodeConfig := range m.staleNodeConfigs(cache) {
+		err := m.deleteNodeConfig(ctx, nodeConfig)
+		if err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 
-	// delete node configs for this cluster that are not in the matching nodes
-	dErr := m.deleteStaleNodeConfigs(ctx, matchingNodes, config)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
+	for _, newNodeConfig := range m.desiredNodeConfigs(cache) {
+		err := m.upsertNodeConfig(ctx, cache.NodeConfigsByName[newNodeConfig.Name], newNodeConfig)
+		if err != nil {
+			errs = errors.Join(errs, err)
+		}
 	}
 
-	// Collect the missing peerConfig references
-	missingPCs := m.missingPeerConfigs(config)
+	return errs
+}
 
+func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, cache *reconcileCache, config *v1alpha1.IsovalentBGPClusterConfig) error {
 	// Update ClusterConfig conditions
 	updateStatus := false
 
 	if m.enableStatusReporting {
-		if changed := m.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+		// Does this ClusterConfig select any node?
+		_, noMatchingNode := cache.ClusterConfigWithNoMatchingNode[config.Name]
+
+		// ClusterConfigs conflicting with this one
+		conflictingClusterConfigNames := cache.ConflictingClusterConfigNames[config.Name]
+
+		// Collect the missing peerConfig references
+		missingPCs := m.missingPeerConfigs(config)
+
+		if changed := m.updateNoMatchingNodeCondition(config, noMatchingNode); changed {
 			updateStatus = true
 		}
 		if changed := m.updateMissingPeerConfigsCondition(config, missingPCs); changed {
 			updateStatus = true
 		}
-		if changed := m.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigs); changed {
+		if changed := m.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigNames); changed {
 			updateStatus = true
 		}
 
@@ -111,13 +273,13 @@ func (m *BGPResourceMapper) reconcileClusterConfig(ctx context.Context, config *
 
 	// Call API only when there's a condition change
 	if updateStatus {
-		_, uErr := m.clientSet.IsovalentV1alpha1().IsovalentBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
-		if uErr != nil {
-			err = errors.Join(err, uErr)
+		_, err := m.clientSet.IsovalentV1alpha1().IsovalentBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 // missingPeerConfigs returns a IsovalentBGPPeerConfig which is referenced from
@@ -258,59 +420,59 @@ func (m *BGPResourceMapper) updateMissingVRFConfigsCondition(config *v1alpha1.Is
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, config *v1alpha1.IsovalentBGPClusterConfig, nodeName string) error {
-	prev, exists, err := m.nodeConfigStore.GetByKey(resource.Key{Name: nodeName})
-	if err != nil {
+func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, oldNodeConfig, newNodeConfig *v1alpha1.IsovalentBGPNodeConfig) error {
+	var err error
+
+	nodeConfigClient := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs()
+
+	switch {
+	case oldNodeConfig != nil && oldNodeConfig.Spec.DeepEqual(&newNodeConfig.Spec):
+		return nil
+	case oldNodeConfig != nil:
+		// reinitialize spec fields
+		oldNodeConfig.Spec = newNodeConfig.Spec
+		_, err = nodeConfigClient.Update(ctx, oldNodeConfig, meta_v1.UpdateOptions{})
+	default:
+		_, err = nodeConfigClient.Create(ctx, newNodeConfig, meta_v1.CreateOptions{})
+	}
+
+	return err
+}
+
+func (m *BGPResourceMapper) deleteNodeConfig(ctx context.Context, nodeConfig *v1alpha1.IsovalentBGPNodeConfig) error {
+	if nodeConfig == nil {
+		return nil
+	}
+
+	err := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{})
+	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
 	}
 
-	// find node override instances for given node
-	var overrideInstances []v1alpha1.IsovalentBGPNodeConfigInstanceOverride
-	override, overrideExists, err := m.nodeConfigOverride.GetByKey(resource.Key{Name: nodeName})
-	if err != nil {
-		return err
-	}
-	if overrideExists {
+	return nil
+}
+
+func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1alpha1.IsovalentBGPClusterConfig, override *v1alpha1.IsovalentBGPNodeConfigOverride) *v1alpha1.IsovalentBGPNodeConfig {
+	overrideInstances := []v1alpha1.IsovalentBGPNodeConfigInstanceOverride{}
+	if override != nil {
 		overrideInstances = override.Spec.BGPInstances
 	}
-
-	// create new config
-	nodeConfig := &v1alpha1.IsovalentBGPNodeConfig{
+	return &v1alpha1.IsovalentBGPNodeConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: nodeName,
 			OwnerReferences: []meta_v1.OwnerReference{
 				{
 					APIVersion: v1alpha1.SchemeGroupVersion.String(),
 					Kind:       v1alpha1.IsovalentBGPClusterConfigKindDefinition,
-					Name:       config.GetName(),
-					UID:        config.GetUID(),
+					Name:       clusterConfig.GetName(),
+					UID:        clusterConfig.GetUID(),
 				},
 			},
 		},
 		Spec: v1alpha1.IsovalentBGPNodeSpec{
-			BGPInstances: toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
+			BGPInstances: toNodeBGPInstance(clusterConfig.Spec.BGPInstances, overrideInstances),
 		},
 	}
-
-	nodeConfigClient := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs()
-
-	switch {
-	case exists && prev.Spec.DeepEqual(&nodeConfig.Spec):
-		return nil
-	case exists:
-		// reinitialize spec and status fields
-		prev.Spec = nodeConfig.Spec
-		_, err = nodeConfigClient.Update(ctx, prev, meta_v1.UpdateOptions{})
-	default:
-		_, err = nodeConfigClient.Create(ctx, nodeConfig, meta_v1.CreateOptions{})
-	}
-
-	m.logger.WithFields(logrus.Fields{
-		"node config":    nodeConfig.Name,
-		"cluster config": config.Name,
-	}).Debug("Updating Isovalent BGP node config")
-
-	return err
 }
 
 func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, overrideBGPInstances []v1alpha1.IsovalentBGPNodeConfigInstanceOverride) []v1alpha1.IsovalentBGPNodeInstance {
@@ -362,87 +524,4 @@ func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, over
 		res = append(res, nodeBGPInstance)
 	}
 	return res
-}
-
-// deleteStaleNodeConfigs deletes node configs that are not in the expected list for given cluster.
-func (m *BGPResourceMapper) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], config *v1alpha1.IsovalentBGPClusterConfig) (err error) {
-	for _, existingNode := range m.nodeConfigStore.List() {
-		if expectedNodes.Has(existingNode.Name) || !isOwner(existingNode.GetOwnerReferences(), config) {
-			continue
-		}
-
-		dErr := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Delete(ctx, existingNode.Name, meta_v1.DeleteOptions{})
-		if dErr != nil && k8s_errors.IsNotFound(dErr) {
-			continue
-		} else if dErr != nil {
-			err = errors.Join(err, dErr)
-		} else {
-			m.logger.WithFields(logrus.Fields{
-				"node_config":    existingNode.Name,
-				"cluster_config": config.Name,
-			}).Debug("Deleting Isovalent BGP node config")
-		}
-	}
-	return err
-}
-
-// getMatchingNodes returns a map of node names that match the given cluster config's node selector.
-func (m *BGPResourceMapper) getMatchingNodes(config *v1alpha1.IsovalentBGPClusterConfig) (sets.Set[string], sets.Set[string], error) {
-	labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(config.Spec.NodeSelector)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// find nodes that match the cluster config's node selector
-	matchingNodes := sets.New[string]()
-
-	// find ClusterConfigs that has the conflicting node selector
-	conflictingClusterConfigs := sets.New[string]()
-
-	ciliumNodes, err := m.ciliumNode.List()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, n := range ciliumNodes {
-		// nil node selector means match all nodes
-		if config.Spec.NodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
-			nc, exists, err := m.nodeConfigStore.GetByKey(resource.Key{Name: n.Name})
-			if err != nil {
-				m.logger.WithError(err).Errorf("skipping node %s", n.Name)
-				continue
-			}
-
-			if exists && !isOwner(nc.GetOwnerReferences(), config) {
-				// Node is already selected by another cluster config. Figure out which one.
-				ownerName := ownerClusterConfigName(nc.GetOwnerReferences())
-				conflictingClusterConfigs.Insert(ownerName)
-				continue
-			}
-
-			matchingNodes.Insert(n.Name)
-		}
-	}
-
-	return matchingNodes, conflictingClusterConfigs, nil
-}
-
-// isOwner checks if the expected is present in owners list.
-func isOwner(owners []meta_v1.OwnerReference, config *v1alpha1.IsovalentBGPClusterConfig) bool {
-	for _, owner := range owners {
-		if owner.UID == config.GetUID() {
-			return true
-		}
-	}
-	return false
-}
-
-// ownerClusterConfigName returns the name of the ClusterConfig that owns the object
-func ownerClusterConfigName(owners []meta_v1.OwnerReference) string {
-	for _, owner := range owners {
-		if owner.APIVersion == v1alpha1.SchemeGroupVersion.String() && owner.Kind == v1alpha1.IsovalentBGPClusterConfigKindDefinition {
-			return owner.Name
-		}
-	}
-	return ""
 }
