@@ -333,12 +333,12 @@ func (t *EnterpriseTest) WithScenarios(sl ...check.Scenario) *EnterpriseTest {
 
 func (t *EnterpriseTest) Setup(ctx context.Context) error {
 	if err := t.applyPolicies(ctx); err != nil {
-		t.CiliumLogs(ctx)
+		t.ContainerLogs(ctx)
 		return fmt.Errorf("applying policies: %w", err)
 	}
 
 	if err := t.applyDeployments(ctx); err != nil {
-		t.CiliumLogs(ctx)
+		t.ContainerLogs(ctx)
 		return fmt.Errorf("applying deployments: %w", err)
 	}
 
