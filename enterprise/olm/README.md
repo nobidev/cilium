@@ -20,7 +20,11 @@ CLife is a replacement of cilium-ee-olm that leads to an improved deployment exp
 
 ### To Deploy on a cluster
 
-TODO: Provide instructions for setting up kind.
+**Create a kind cluster**
+
+```sh
+kind create cluster --name <your-cluster-name>
+```
 
 **Build and push your image to the location specified by `IMG`:**
 
