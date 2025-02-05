@@ -203,9 +203,10 @@ func TestOps(t *testing.T) {
 	// Delete()
 	err = ns.Do(func() error {
 		return ops.Delete(context.Background(), nil, &tables.EgressIPEntry{
-			Addr:      egressIP,
-			Interface: ifName,
-			Status:    reconciler.StatusPending(),
+			Addr:         egressIP,
+			Interface:    ifName,
+			Destinations: updDests,
+			Status:       reconciler.StatusPending(),
 		})
 	})
 	require.NoError(t, err, "expected no error from delete")
@@ -267,9 +268,10 @@ func TestOps(t *testing.T) {
 	// Further Delete() should not do anything
 	err = ns.Do(func() error {
 		return ops.Delete(context.Background(), nil, &tables.EgressIPEntry{
-			Addr:      egressIP,
-			Interface: ifName,
-			Status:    reconciler.StatusPending(),
+			Addr:         egressIP,
+			Interface:    ifName,
+			Destinations: updDests,
+			Status:       reconciler.StatusPending(),
 		})
 	})
 	require.NoError(t, err, "expected no error from delete")
