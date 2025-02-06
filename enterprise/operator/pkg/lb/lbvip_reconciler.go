@@ -188,7 +188,8 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type:                          corev1.ServiceTypeLoadBalancer,
+			AllocateLoadBalancerNodePorts: ptr.To(false),
 			Ports: []corev1.ServicePort{
 				// Port number is a mandatory field. However,
 				// once we reserve the port for this
