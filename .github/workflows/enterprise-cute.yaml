@@ -517,11 +517,12 @@ jobs:
       - name: Send notification
         if: ${{ always() && steps.vars.outputs.notify != '' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.CUTE_SLACK_BOT_TOKEN }}
         with:
-          channel-id: '${{ steps.vars.outputs.notify }}'
-          slack-message: '${{ steps.notify_message.outputs.message }}'
+          method: chat.postMessage
+          token: ${{ secrets.CUTE_SLACK_BOT_TOKEN }}
+          payload: |
+            channel: '${{ steps.vars.outputs.notify }}'
+            text: '${{ steps.notify_message.outputs.message }}'
 
       - name: Collect sysdumps
         if: ${{ !success() && steps.create.outcome != 'skipped' }}
