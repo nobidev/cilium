@@ -30,6 +30,7 @@ var ConfigReconcilers = cell.Group(
 	// provide stores
 	cell.Provide(
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig],
+		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
 	),
 
 	cell.Provide(
@@ -46,6 +47,7 @@ var ConfigReconcilers = cell.Group(
 		NewImportedVPNRouteReconciler,
 		NewPodCIDRVRFReconciler,
 		NewServiceVRFReconciler,
+		NewNeighborReconciler,
 	),
 
 	// config of the enterprise reconcilers

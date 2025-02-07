@@ -15,7 +15,8 @@ import ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 const (
 	LinkLocalReconcilerName        = "LinkLocal"
 	BFDStateReconcilerName         = "BFDState"
-	ServiceReconcilerName          = ossreconcilerv2.ServiceReconcilerName // needs to match the name of the OSS reconciler we are overriding
+	NeighborReconcilerName         = ossreconcilerv2.NeighborReconcilerName // needs to match the name of the OSS reconciler we are overriding
+	ServiceReconcilerName          = ossreconcilerv2.ServiceReconcilerName  // needs to match the name of the OSS reconciler we are overriding
 	EgressGatewayIPsReconcilerName = "EgressGatewayIPs"
 	PodCIDRVRFReconcilerName       = "PodCIDRVRF"
 	ServiceVRFReconcilerName       = "ServiceVRF"
@@ -29,11 +30,12 @@ const (
 const (
 	LinkLocalReconcilerPriority = 5   // highest priority, must run before any neighbor or advertisement reconcilers, as it sets the peering address in BGPNodeInstance
 	BFDStateReconcilerPriority  = 100 // low priority, let the configuration reconcilers do their work first
-	// VPNRoutePolicyReconcilerPriority should be before the OSS Neighbor reconciler,
+	// VPNRoutePolicyReconcilerPriority should be before the Neighbor reconciler,
 	// so gobgp will already have desired VPN policies in place.
-	VPNRoutePolicyReconcilerPriority   = ossreconcilerv2.NeighborReconcilerPriority - 1
+	VPNRoutePolicyReconcilerPriority   = NeighborReconcilerPriority - 1
 	EgressGatewayIPsReconcilerPriority = 55
-	ServiceReconcilerPriority          = ossreconcilerv2.ServiceReconcilerPriority - 1 // must be lower (higher priority) than the OSS reconciler we are overriding
+	NeighborReconcilerPriority         = ossreconcilerv2.NeighborReconcilerPriority - 1 // must be lower (higher priority) than the OSS reconciler we are overriding
+	ServiceReconcilerPriority          = ossreconcilerv2.ServiceReconcilerPriority - 1  // must be lower (higher priority) than the OSS reconciler we are overriding
 	LocatorPoolReconcilerPriority      = 45
 	ServiceVRFReconcilerPriority       = 41
 	PodCIDRVRFReconcilerPriority       = 31
