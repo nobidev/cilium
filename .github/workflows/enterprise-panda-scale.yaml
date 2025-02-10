@@ -200,7 +200,7 @@ jobs:
             --set=envoy.enabled=true \
             --set=ipam.mode="cluster-pool" \
             --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]="10.0.0.0/9" \
-            --set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
+            --set=envoy.updateStrategy.rollingUpdate.maxUnavailable=5% \
             --set-string=extraConfig.external-dns-proxy=true \
             --set-string=extraConfig.kvstore-pod-network-support=false \
             --set-string=extraConfig.monitor-aggregation-interval=10m \
@@ -213,7 +213,7 @@ jobs:
             --set=dnsProxy.minTtl=300 \
             --set=hubble.enabled=true \
             --set=hubble.eventBufferCapacity=65535 \
-            --set=updateStrategy.rollingUpdate.maxUnavailable=10% \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=5% \
             --values=values-export-aggregation.yaml \
             --values=values-hubble-metrics.yaml \
             --wait=false"
