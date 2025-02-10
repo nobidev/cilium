@@ -480,8 +480,9 @@ func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBG
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
 		nodeBGPInstance := v1.IsovalentBGPNodeInstance{
-			Name:     clusterBGPInstance.Name,
-			LocalASN: clusterBGPInstance.LocalASN,
+			Name:      clusterBGPInstance.Name,
+			LocalASN:  clusterBGPInstance.LocalASN,
+			LocalPort: clusterBGPInstance.LocalPort,
 		}
 
 		// find BGPResourceManager global override for this instance
@@ -489,7 +490,9 @@ func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBG
 		for _, overrideBGPInstance := range overrideBGPInstances {
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
 				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
-				nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				if overrideBGPInstance.LocalPort != nil {
+					nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				}
 				nodeBGPInstance.SRv6Responder = overrideBGPInstance.SRv6Responder
 				override = overrideBGPInstance
 				break

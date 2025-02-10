@@ -139,6 +139,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					BGPInstances: []v1.IsovalentBGPNodeConfigInstanceOverride{
 						{
 							Name:          "instance-1",
+							LocalPort:     ptr.To[int32](1179),
 							SRv6Responder: ptr.To[bool](true),
 						},
 					},
@@ -167,7 +168,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 						Name: "node-3",
 					},
 					Spec: v1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpecWithResponder()},
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpecWithOverride()},
 					},
 				},
 			},

@@ -45,8 +45,9 @@ var (
 			},
 			BGPInstances: []v1.IsovalentBGPInstance{
 				{
-					Name:     "instance-1",
-					LocalASN: ptr.To[int64](65001),
+					Name:      "instance-1",
+					LocalASN:  ptr.To[int64](65001),
+					LocalPort: ptr.To[int32](179),
 					Peers: []v1.IsovalentBGPPeer{
 						{
 							Name:        "peer-1",
@@ -75,8 +76,9 @@ var (
 		},
 	}
 	isoNodeConfigSpec = v1.IsovalentBGPNodeInstance{
-		Name:     "instance-1",
-		LocalASN: ptr.To[int64](65001),
+		Name:      "instance-1",
+		LocalASN:  ptr.To[int64](65001),
+		LocalPort: ptr.To[int32](179),
 		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				Name:        "peer-1",
@@ -101,9 +103,10 @@ var (
 			},
 		},
 	}
-	isoNodeConfigSpecWithResponder = func() v1.IsovalentBGPNodeInstance {
+	isoNodeConfigSpecWithOverride = func() v1.IsovalentBGPNodeInstance {
 		cpy := isoNodeConfigSpec.DeepCopy()
 		cpy.SRv6Responder = ptr.To[bool](true)
+		cpy.LocalPort = ptr.To[int32](1179)
 		return *cpy
 	}
 
