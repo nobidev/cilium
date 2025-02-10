@@ -644,10 +644,15 @@ jobs:
         run: |
           cnt=0
 
+          # Allow for a 2 per thousand toleration in the expected nodes count, to
+          # continue with the test even if a tiny fraction of the workers failed
+          # bootstrapping and joining the cluster.
+          desired=$(( ${{ steps.vars.outputs.WORKLOAD_NODES}} - ${{ steps.vars.outputs.WORKLOAD_NODES}} * 2 / 1000 ))
+
           # A more idiomatic way would be using the kops.k8s.io/instancegroup=workloads
           # label selector, but kops appears to be significantly slow at reconciling
           # the labels to the node objects. Hence, let's just grep for the node names.
-          while [[ "$cnt" != ${{ steps.vars.outputs.WORKLOAD_NODES}} ]]; do
+          while [[ "$cnt" -lt "$desired" ]]; do
             cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[-a-z0-9]+\s+Ready\s' || true)
             echo "workloads nodes count: $cnt"
             sleep 10
