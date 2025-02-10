@@ -7,7 +7,7 @@ metadata:
   namespace: kube-system
   name: etcd
 spec:
-  replicas: 3
+  replicas: #REPLACE_ME_REPLICAS
   podManagementPolicy: Parallel
   updateStrategy:
     type: RollingUpdate

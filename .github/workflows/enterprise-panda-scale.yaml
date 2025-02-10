@@ -75,8 +75,6 @@ env:
   # renovate: datasource=github-releases depName=cert-manager/trust-manager
   trust_manager_version: v0.15.0
 
-  etcd_nodes_count: 3
-
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -140,8 +138,10 @@ jobs:
             WORKLOAD_NODES=100
           fi
 
+          ETCD_NODES=3
           SCRAPE_INTERVAL=60s
           if [[ $WORKLOAD_NODES -ge 2500 ]]; then
+            ETCD_NODES=5
             SCRAPE_INTERVAL=120s
           fi
 
@@ -239,6 +239,7 @@ jobs:
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
           echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
+          echo ETCD_NODES=${ETCD_NODES} >> $GITHUB_OUTPUT
           echo SCRAPE_INTERVAL=${SCRAPE_INTERVAL} >> $GITHUB_OUTPUT
           echo INSTANCES_PER_GROUP=$(( ${WORKLOAD_NODES} / 5 )) >> $GITHUB_OUTPUT
           echo VERSION=${VERSION} >> $GITHUB_OUTPUT
@@ -343,7 +344,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           node_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 'n2-standard-16' || 'n2-standard-32' }}
-          node_count: ${{ env.etcd_nodes_count }}
+          node_count: ${{ steps.vars.outputs.ETCD_NODES }}
           ig_name: etcd
           node_volume_type: pd-ssd
           node_volume_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 250 || 500 }}
@@ -359,7 +360,7 @@ jobs:
         shell: bash
         run: |
           cnt=0
-          while [[ "$cnt" != ${{ env.etcd_nodes_count }} ]]; do
+          while [[ "$cnt" != ${{ steps.vars.outputs.ETCD_NODES }} ]]; do
             cnt=$(kubectl get nodes -l kops.k8s.io/instancegroup=etcd --no-headers --ignore-not-found | wc -l)
             echo "etcd nodes count: $cnt"
             sleep 10
@@ -444,6 +445,7 @@ jobs:
 
           # Deploy etcd.
           cat ./.github/actions/cl2-modules/panda/kvstore/etcd-pod.yaml | \
+            sed "s|#REPLACE_ME_REPLICAS|${{ steps.vars.outputs.ETCD_NODES }}|g" | \
             sed "s|#REPLACE_ME_INITIAL_CLUSTER|${etcd_initial_cluster}|g" | \
             sed "s/#REPLACE_ME_DOMAIN/${domain}/g" | \
             kubectl apply -f -
