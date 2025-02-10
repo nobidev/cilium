@@ -140,6 +140,11 @@ jobs:
             WORKLOAD_NODES=100
           fi
 
+          SCRAPE_INTERVAL=60s
+          if [[ $WORKLOAD_NODES -ge 2500 ]]; then
+            SCRAPE_INTERVAL=120s
+          fi
+
           # Retrieve the desired version from the arguments.
           if [[ ${{ inputs.extra-args }} =~ version=([-+.0-9a-z]+) ]]; then
             VERSION=${BASH_REMATCH[1]}
@@ -234,6 +239,7 @@ jobs:
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
           echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
+          echo SCRAPE_INTERVAL=${SCRAPE_INTERVAL} >> $GITHUB_OUTPUT
           echo INSTANCES_PER_GROUP=$(( ${WORKLOAD_NODES} / 5 )) >> $GITHUB_OUTPUT
           echo VERSION=${VERSION} >> $GITHUB_OUTPUT
 
@@ -528,7 +534,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 20.0
-          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 60s
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "${{ steps.vars.outputs.SCRAPE_INTERVAL }}"
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -672,7 +678,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 20.0
-          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 60s
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "${{ steps.vars.outputs.SCRAPE_INTERVAL }}"
           CL2_DELETE_AUTOMANAGED_NAMESPACES: "false"
           CL2_PER_NAMESPACE_CNPS: "true"
         run: |
