@@ -95,7 +95,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   install-and-scaletest:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     name: Install and Scale Test
     timeout-minutes: 150
     steps:
