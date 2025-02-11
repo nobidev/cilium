@@ -206,8 +206,6 @@ jobs:
             --set-string=extraConfig.monitor-aggregation-interval=10m \
             --set-string=extraConfig.use-full-tls-context=false \
             --set=localRedirectPolicy=true \
-            --set=operator.extraArgs[0]="--k8s-client-qps=100" \
-            --set=operator.extraArgs[1]="--k8s-client-burst=100" \
             --set=dnsProxy.proxyResponseMaxDelay=250ms \
             --set=bpf.policyMapMax=65536 \
             --set=dnsProxy.minTtl=300 \
@@ -232,6 +230,15 @@ jobs:
             --set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --set=hubble.relay.image.tag=${SHA} \
             --set=hubble.relay.image.useDigest=false"
+          fi
+
+          # Non empty version
+          if [[ -n "$VERSION" ]]; then
+            minor_version=$(echo "$VERSION" | cut -d'.' -f2)
+            if (( minor_version < 17 )); then
+              CILIUM_INSTALL_DEFAULTS+=" --set=operator.extraArgs[0]="--k8s-client-qps=100" \
+                --set=operator.extraArgs[1]="--k8s-client-burst=100""
+            fi
           fi
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
