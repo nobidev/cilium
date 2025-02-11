@@ -8,10 +8,12 @@ import (
 	"net/netip"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -22,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -118,6 +121,9 @@ type OperatorManager struct {
 	// IPs.
 	// The trigger is used to batch multiple updates together
 	reconciliationTrigger *trigger.Trigger
+
+	// restartOnce is used to re-initialize nodes health status once at startup
+	restartOnce sync.Once
 }
 
 func NewEgressGatewayOperatorManager(p OperatorParams) (out struct {
@@ -350,6 +356,16 @@ func (operatorManager *OperatorManager) nodeIsHealthy(nodeName string) bool {
 	return operatorManager.healthchecker.NodeIsHealthy(nodeName)
 }
 
+func (operatorManager *OperatorManager) previousHealthyGateways() []netip.Addr {
+	var addrs []netip.Addr
+	for _, policyConfig := range operatorManager.policyConfigs {
+		for _, gs := range policyConfig.groupStatuses {
+			addrs = append(addrs, gs.healthyGatewayIPs...)
+		}
+	}
+	return ciliumslices.Unique(addrs)
+}
+
 func (operatorManager *OperatorManager) regenerateGatewayNodesList() {
 	nodes := map[string]nodeTypes.Node{}
 
@@ -457,12 +473,33 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts() {
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
 func (operatorManager *OperatorManager) reconcileLocked() {
+	var healthyNodes sets.Set[string]
+
 	if !operatorManager.allCachesSynced {
 		return
 	}
 
 	operatorManager.regenerateGatewayNodesList()
-	operatorManager.healthchecker.UpdateNodeList(operatorManager.gatewayNodeDataStore)
+
+	// during the first reconciliation after a restart, we manually mark all
+	// previous gateways as healthy.
+	// This is done to avoid spurious datapath reconciliation across an operator
+	// restart (e.g: spurious changes to the egw ha BPF map or IPAM addresses
+	// reallocation). This might happen since at startup we don't have any node
+	// health status information until the first health probe verdict is available.
+	operatorManager.restartOnce.Do(func() {
+		healthyNodes = sets.New[string]()
+		for _, gw := range operatorManager.previousHealthyGateways() {
+			node, ok := operatorManager.nodesByIP[gw.String()]
+			if !ok {
+				// node has been cancelled during the operator restart
+				continue
+			}
+			healthyNodes.Insert(node.Name)
+		}
+	})
+
+	operatorManager.healthchecker.UpdateNodeList(operatorManager.gatewayNodeDataStore, healthyNodes)
 
 	operatorManager.updateEgressCIDRConflicts()
 	operatorManager.updatePolicesGroupStatuses()

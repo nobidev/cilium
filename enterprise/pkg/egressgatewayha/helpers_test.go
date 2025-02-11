@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -210,7 +211,7 @@ type healthcheckerMock struct {
 	events chan healthcheck.Event
 }
 
-func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node) {
+func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string]) {
 }
 
 func (h *healthcheckerMock) NodeIsHealthy(nodeName string) bool {

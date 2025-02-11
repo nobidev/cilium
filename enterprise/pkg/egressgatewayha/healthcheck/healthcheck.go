@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -65,7 +66,7 @@ type Event struct {
 
 // Healthchecker is the public interface exposed by the egress gateway healthchecker
 type Healthchecker interface {
-	UpdateNodeList(nodes map[string]nodeTypes.Node)
+	UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string])
 	NodeIsHealthy(nodeName string) bool
 	Events() chan Event
 }
@@ -99,8 +100,10 @@ func NewHealthchecker(config Config) Healthchecker {
 }
 
 // UpdateNodeList updates the internal list of nodes that the healthchecker
-// should periodically check
-func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node) {
+// should periodically check. The healthy parameter is a subset of node names
+// that should be initialized as healthy even before the first health probe
+// verdict is available.
+func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string]) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -112,7 +115,7 @@ func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node) {
 
 	for _, newNode := range nodes {
 		if _, ok := h.nodes[newNode.Name]; !ok {
-			h.startNodeHealthcheck(newNode)
+			h.startNodeHealthcheck(newNode, healthy.Has(newNode.Name))
 		}
 	}
 
@@ -150,7 +153,7 @@ func runHealthcheckProbe(netClient *http.Client, url string) bool {
 }
 
 // Caller must hold h.RwMutex
-func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node) {
+func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool) {
 	var (
 		tickerCh  = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
 		netClient = &http.Client{Timeout: h.EgressGatewayHAHealthcheckTimeout}
@@ -161,9 +164,12 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node) {
 
 	logger.Info("Starting health check for node")
 
-	h.statuses[node.Name] = &nodeStatus{
-		healthcheckerTickerCh: tickerCh,
+	status := &nodeStatus{healthcheckerTickerCh: tickerCh}
+	if isHealthy {
+		logger.Debug("Node health status is initialized as healthy")
+		status.lastSuccessfulProbeTimestamp = time.Now()
 	}
+	h.statuses[node.Name] = status
 
 	go func() {
 		for range tickerCh.C {
