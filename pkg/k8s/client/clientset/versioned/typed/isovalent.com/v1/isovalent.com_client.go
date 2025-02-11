@@ -15,12 +15,37 @@ import (
 
 type IsovalentV1Interface interface {
 	RESTClient() rest.Interface
+	IsovalentBGPAdvertisementsGetter
+	IsovalentBGPClusterConfigsGetter
+	IsovalentBGPNodeConfigsGetter
+	IsovalentBGPNodeConfigOverridesGetter
+	IsovalentBGPPeerConfigsGetter
 	IsovalentEgressGatewayPoliciesGetter
 }
 
 // IsovalentV1Client is used to interact with features provided by the isovalent.com group.
 type IsovalentV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *IsovalentV1Client) IsovalentBGPAdvertisements() IsovalentBGPAdvertisementInterface {
+	return newIsovalentBGPAdvertisements(c)
+}
+
+func (c *IsovalentV1Client) IsovalentBGPClusterConfigs() IsovalentBGPClusterConfigInterface {
+	return newIsovalentBGPClusterConfigs(c)
+}
+
+func (c *IsovalentV1Client) IsovalentBGPNodeConfigs() IsovalentBGPNodeConfigInterface {
+	return newIsovalentBGPNodeConfigs(c)
+}
+
+func (c *IsovalentV1Client) IsovalentBGPNodeConfigOverrides() IsovalentBGPNodeConfigOverrideInterface {
+	return newIsovalentBGPNodeConfigOverrides(c)
+}
+
+func (c *IsovalentV1Client) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInterface {
+	return newIsovalentBGPPeerConfigs(c)
 }
 
 func (c *IsovalentV1Client) IsovalentEgressGatewayPolicies() IsovalentEgressGatewayPolicyInterface {

@@ -93,6 +93,16 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumPodIPPools().Informer()}, nil
 
 		// Group=isovalent.com, Version=v1
+	case v1.SchemeGroupVersion.WithResource("isovalentbgpadvertisements"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPAdvertisements().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentbgpclusterconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPClusterConfigs().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPNodeConfigs().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigoverrides"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPNodeConfigOverrides().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentbgppeerconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPPeerConfigs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("isovalentegressgatewaypolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentEgressGatewayPolicies().Informer()}, nil
 

@@ -28,7 +28,6 @@ type IsovalentBGPPeerConfigList struct {
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgppeerconfig",path="isovalentbgppeerconfigs",scope="Cluster",shortName={ibgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
 
 type IsovalentBGPPeerConfig struct {
 	// +deepequal-gen=false

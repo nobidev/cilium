@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v1alpha1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +40,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpadvertisement",path="isovalentbgpadvertisements",scope="Cluster",shortName={ibgpadvert}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:storageversion
 
 // IsovalentBGPAdvertisement is the Schema for the isovalentbgpadvertisements API
 type IsovalentBGPAdvertisement struct {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v1alpha1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +12,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpnodeconfigoverride",path="isovalentbgpnodeconfigoverrides",scope="Cluster",shortName={ibgpnodeoverride}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:storageversion
 
 // IsovalentBGPNodeConfigOverride specifies configuration overrides for a IsovalentBGPNodeConfig.
 // It allows fine-tuning of BGP behavior on a per-node basis. For the override to be effective,

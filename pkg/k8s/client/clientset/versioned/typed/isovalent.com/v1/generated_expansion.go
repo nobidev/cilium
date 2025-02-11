@@ -5,4 +5,14 @@
 
 package v1
 
+type IsovalentBGPAdvertisementExpansion interface{}
+
+type IsovalentBGPClusterConfigExpansion interface{}
+
+type IsovalentBGPNodeConfigExpansion interface{}
+
+type IsovalentBGPNodeConfigOverrideExpansion interface{}
+
+type IsovalentBGPPeerConfigExpansion interface{}
+
 type IsovalentEgressGatewayPolicyExpansion interface{}

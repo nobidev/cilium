@@ -11,7 +11,7 @@
 package synced
 
 import (
-	isovalent_api_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -35,16 +35,16 @@ func AllIsovalentCRDResourceNames() []string {
 	}
 
 	if option.Config.EnableEnterpriseBGPControlPlane {
-		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPClusterConfigName))
-		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPPeerConfigName))
-		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPAdvertisementName))
-		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPNodeConfigName))
-		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPNodeConfigOverrideName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPClusterConfigName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPPeerConfigName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPAdvertisementName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPNodeConfigName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPNodeConfigOverrideName))
 		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPVRFConfigName))
 	}
 
 	if option.Config.EnableIPv4EgressGatewayHA {
-		result = append(result, CRDResourceName(isovalent_api_v1.IEGPName))
+		result = append(result, CRDResourceName(v1.IEGPName))
 	}
 
 	if option.Config.LoadbalancerControlplaneEnabled {

@@ -15,6 +15,26 @@ type FakeIsovalentV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeIsovalentV1) IsovalentBGPAdvertisements() v1.IsovalentBGPAdvertisementInterface {
+	return newFakeIsovalentBGPAdvertisements(c)
+}
+
+func (c *FakeIsovalentV1) IsovalentBGPClusterConfigs() v1.IsovalentBGPClusterConfigInterface {
+	return newFakeIsovalentBGPClusterConfigs(c)
+}
+
+func (c *FakeIsovalentV1) IsovalentBGPNodeConfigs() v1.IsovalentBGPNodeConfigInterface {
+	return newFakeIsovalentBGPNodeConfigs(c)
+}
+
+func (c *FakeIsovalentV1) IsovalentBGPNodeConfigOverrides() v1.IsovalentBGPNodeConfigOverrideInterface {
+	return newFakeIsovalentBGPNodeConfigOverrides(c)
+}
+
+func (c *FakeIsovalentV1) IsovalentBGPPeerConfigs() v1.IsovalentBGPPeerConfigInterface {
+	return newFakeIsovalentBGPPeerConfigs(c)
+}
+
 func (c *FakeIsovalentV1) IsovalentEgressGatewayPolicies() v1.IsovalentEgressGatewayPolicyInterface {
 	return newFakeIsovalentEgressGatewayPolicies(c)
 }

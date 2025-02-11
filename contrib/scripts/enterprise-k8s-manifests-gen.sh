@@ -17,7 +17,12 @@ CRD_PATHS="${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/v1;${SCRIPT_ROOT}/../
 CRDS_ISOVALENT_PATHS="${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1 ${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/client/crds/v1alpha1"
 
 # Set CRDS_ISOVALENT_V1 with the list of CRDs for v1alpha1
-CRDS_ISOVALENT_V1="isovalentegressgatewaypolicies"
+CRDS_ISOVALENT_V1="isovalentegressgatewaypolicies \
+                   isovalentbgpclusterconfigs \
+                   isovalentbgppeerconfigs \
+                   isovalentbgpadvertisements \
+                   isovalentbgpnodeconfigs \
+                   isovalentbgpnodeconfigoverrides"
 
 # Set CRDS_ISOVALENT_V1ALPHA1 with the list of CRDs for v1alpha1
 CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
@@ -32,11 +37,6 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          isovalentbfdprofiles \
                          isovalentbfdnodeconfigs \
                          isovalentbfdnodeconfigoverrides \
-                         isovalentbgpclusterconfigs \
-                         isovalentbgppeerconfigs \
-                         isovalentbgpadvertisements \
-                         isovalentbgpnodeconfigs \
-                         isovalentbgpnodeconfigoverrides \
                          isovalentbgpvrfconfigs \
                          isovalentclusterwideencryptionpolicies \
                          lbservices \

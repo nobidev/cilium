@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v1alpha1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +15,7 @@ import (
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpclusterconfig",path="isovalentbgpclusterconfigs",scope="Cluster",shortName={ibgpcluster}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // IsovalentBGPClusterConfig is the Schema for the IsovalentBGPClusterConfig API
 type IsovalentBGPClusterConfig struct {
@@ -144,20 +145,6 @@ type IsovalentBGPPeer struct {
 
 // PeerConfigReference is a reference to a peer configuration resource.
 type PeerConfigReference struct {
-	// Group is the group of the peer config resource.
-	// If not specified, the default of "isovalent.com" is used.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="isovalent.com"
-	Group string `json:"group"`
-
-	// Kind is the kind of the peer config resource.
-	// If not specified, the default of "IsovalentBGPPeerConfig" is used.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="IsovalentBGPPeerConfig"
-	Kind string `json:"kind"`
-
 	// Name is the name of the peer config resource.
 	// Name refers to the name of a Kubernetes object (typically a IsovalentBGPPeerConfig).
 	//

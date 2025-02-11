@@ -69,19 +69,19 @@ const (
 	IsovalentBFDNodeConfigOverrideCRDName = k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPClusterConfigCRDName is the full name of the IsovalentBGPClusterConfig CRD.
-	IsovalentBGPClusterConfigCRDName = k8sconstv1alpha1.IsovalentBGPClusterConfigKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	IsovalentBGPClusterConfigCRDName = k8sconstv1.IsovalentBGPClusterConfigKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPPeerConfigCRDName is the full name of the IsovalentBGPPeerConfig CRD.
-	IsovalentBGPPeerConfigCRDName = k8sconstv1alpha1.IsovalentBGPPeerConfigKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	IsovalentBGPPeerConfigCRDName = k8sconstv1.IsovalentBGPPeerConfigKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPAdvertisementCRDName is the full name of the IsovalentBGPAdvertisement CRD.
-	IsovalentBGPAdvertisementCRDName = k8sconstv1alpha1.IsovalentBGPAdvertisementKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	IsovalentBGPAdvertisementCRDName = k8sconstv1.IsovalentBGPAdvertisementKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPNodeConfigCRDName is the full name of the IsovalentBGPNodeConfig CRD.
-	IsovalentBGPNodeConfigCRDName = k8sconstv1alpha1.IsovalentBGPNodeConfigKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	IsovalentBGPNodeConfigCRDName = k8sconstv1.IsovalentBGPNodeConfigKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPNodeConfigOverrideCRDName is the full name of the IsovalentBGPNodeConfigOverride CRD.
-	IsovalentBGPNodeConfigOverrideCRDName = k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+	IsovalentBGPNodeConfigOverrideCRDName = k8sconstv1.IsovalentBGPNodeConfigOverrideKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
 	// IsovalentBGPVRFConfigCRDName is the full name of the IsovalentBGPVRFConfig CRD.
 	IsovalentBGPVRFConfigCRDName = k8sconstv1alpha1.IsovalentBGPVRFConfigKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
@@ -123,11 +123,11 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName):            createBFDProfileCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigName):         createBFDNodeConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName): createBFDNodeConfigOverrideCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPClusterConfigName):      createBGPClusterConfigCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPPeerConfigName):         createBGPPeerConfigCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPAdvertisementName):      createBGPAdvertisementCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigName):         createBGPNodeConfigCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName): createBGPNodeConfigOverrideCRD,
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPClusterConfigName):            createBGPClusterConfigCRD,
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPPeerConfigName):               createBGPPeerConfigCRD,
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPAdvertisementName):            createBGPAdvertisementCRD,
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigName):               createBGPNodeConfigCRD,
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName):       createBGPNodeConfigOverrideCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
 		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                      createLBServiceCRD,
@@ -187,20 +187,20 @@ var (
 	//go:embed crds/v1alpha1/isovalentbfdnodeconfigoverrides.yaml
 	crdsv1Alpha1IsovalentBFDNodeConfigOverride []byte
 
-	//go:embed crds/v1alpha1/isovalentbgpclusterconfigs.yaml
-	crdsv1Alpha1IsovalentBGPClusterConfigs []byte
+	//go:embed crds/v1/isovalentbgpclusterconfigs.yaml
+	crdsv1IsovalentBGPClusterConfigs []byte
 
-	//go:embed crds/v1alpha1/isovalentbgppeerconfigs.yaml
-	crdsv1Alpha1IsovalentBGPPeerConfigs []byte
+	//go:embed crds/v1/isovalentbgppeerconfigs.yaml
+	crdsv1IsovalentBGPPeerConfigs []byte
 
-	//go:embed crds/v1alpha1/isovalentbgpadvertisements.yaml
-	crdsv1Alpha1IsovalentBGPAdvertisements []byte
+	//go:embed crds/v1/isovalentbgpadvertisements.yaml
+	crdsv1IsovalentBGPAdvertisements []byte
 
-	//go:embed crds/v1alpha1/isovalentbgpnodeconfigs.yaml
-	crdsv1Alpha1IsovalentBGPNodeConfigs []byte
+	//go:embed crds/v1/isovalentbgpnodeconfigs.yaml
+	crdsv1IsovalentBGPNodeConfigs []byte
 
-	//go:embed crds/v1alpha1/isovalentbgpnodeconfigoverrides.yaml
-	crdsv1Alpha1IsovalentBGPNodeConfigOverrides []byte
+	//go:embed crds/v1/isovalentbgpnodeconfigoverrides.yaml
+	crdsv1IsovalentBGPNodeConfigOverrides []byte
 
 	//go:embed crds/v1alpha1/isovalentbgpvrfconfigs.yaml
 	crdsv1Alpha1IsovalentBGPVRFConfigs []byte
@@ -258,15 +258,15 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 	case IsovalentBFDNodeConfigOverrideCRDName:
 		crdBytes = crdsv1Alpha1IsovalentBFDNodeConfigOverride
 	case IsovalentBGPClusterConfigCRDName:
-		crdBytes = crdsv1Alpha1IsovalentBGPClusterConfigs
+		crdBytes = crdsv1IsovalentBGPClusterConfigs
 	case IsovalentBGPPeerConfigCRDName:
-		crdBytes = crdsv1Alpha1IsovalentBGPPeerConfigs
+		crdBytes = crdsv1IsovalentBGPPeerConfigs
 	case IsovalentBGPAdvertisementCRDName:
-		crdBytes = crdsv1Alpha1IsovalentBGPAdvertisements
+		crdBytes = crdsv1IsovalentBGPAdvertisements
 	case IsovalentBGPNodeConfigCRDName:
-		crdBytes = crdsv1Alpha1IsovalentBGPNodeConfigs
+		crdBytes = crdsv1IsovalentBGPNodeConfigs
 	case IsovalentBGPNodeConfigOverrideCRDName:
-		crdBytes = crdsv1Alpha1IsovalentBGPNodeConfigOverrides
+		crdBytes = crdsv1IsovalentBGPNodeConfigOverrides
 	case IsovalentBGPVRFConfigCRDName:
 		crdBytes = crdsv1Alpha1IsovalentBGPVRFConfigs
 	case IsovalentClusterwideEncryptionPolicyCRDName:
