@@ -10,8 +10,6 @@ debug:
   enabled: true
   verbose: "envoy datapath"
 envoy:
-  nodeSelector:
-    service.cilium.io/node: "t2"
   debug:
     admin:
       enabled: true

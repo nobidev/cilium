@@ -221,7 +221,6 @@ jobs:
              --helm-set=enterprise.bfd.enabled=true \
              --helm-set=debug.enabled=true \
              --helm-set=debug.verbose="envoy datapath" \
-             --helm-set-string=envoy.nodeSelector."service\.cilium\.io/node"=t2 \
              --helm-set=envoy.debug.admin.enabled=true \
              --helm-set=envoy.dnsPolicy=ClusterFirstWithHostNet \
              --helm-set=envoyConfig.enabled=true \
