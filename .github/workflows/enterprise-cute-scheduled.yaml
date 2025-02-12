@@ -89,8 +89,19 @@ jobs:
           },
           {
             repo: nationwide,
-            dir: .,
-            umbrella: true,
+            dir: EKS,
+            umbrella: false,
+            oss: false,
+            region: eu-central-1,
+            deploy: cute,
+            upgrade: stable,
+            ipsec: true,
+            owner: U02T9JVUR0B # Hart
+          },
+          {
+            repo: nationwide,
+            dir: RKE,
+            umbrella: false,
             oss: false,
             region: eu-central-1,
             deploy: cute,
