@@ -36,3 +36,5 @@ source ./.github/actions/set-env-variables/enterprise-scalability-overrides.sh
 # CE feature gate specific overrides
 echo "CILIUM_GINKGO_EXTRA_ARGS=-cilium.install-helm-overrides=enterprise.featureGate.minimumMaturity=Alpha" >> "$GITHUB_ENV"
 echo "CILIUM_RUNTIME_EXTRA_ARGS=--feature-gates-minimum-maturity=Alpha" >> "$GITHUB_ENV"
+echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/isovalent/" >> $GITHUB_ENV
+echo "RUNTIME_DIRECTORY=enterprise/images/wolfi/runtime" >> $GITHUB_ENV

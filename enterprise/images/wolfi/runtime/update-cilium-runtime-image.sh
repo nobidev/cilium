@@ -23,10 +23,10 @@ cd "${root_dir}"
 image="quay.io/isovalent/cilium-runtime-wfi"
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l "${image}:" .github/actions/; find . -type f -name enterprise-overrides.sh -print0 | xargs -0 git grep -l CILIUM_RUNTIME_IMAGE=))
+used_by=($(find . -type f -name runtime-image.txt -print0 | xargs -0 git grep -l "${image}"))
 
 for i in "${used_by[@]}" ; do
-  sed -E "s#\"(CILIUM_RUNTIME_IMAGE=)${image}:.*\" >>#\"\1${image_full}\" >>#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+  sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
 
 do_check="${CHECK:-false}"

@@ -10,8 +10,6 @@
 #  or reproduction of this material is strictly forbidden unless prior written 
 #  permission is obtained from Isovalent Inc.
 
-# comment to force update of git object name 2
-
 set -o xtrace
 set -o errexit
 set -o pipefail
