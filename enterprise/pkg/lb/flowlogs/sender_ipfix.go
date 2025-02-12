@@ -11,33 +11,59 @@
 package lbflowlogs
 
 import (
-	"fmt"
-	"net"
-
 	"encoding/binary"
+	"fmt"
+	"log/slog"
+	"net"
 
 	"github.com/vmware/go-ipfix/pkg/entities"
 	"github.com/vmware/go-ipfix/pkg/exporter"
 	"github.com/vmware/go-ipfix/pkg/registry"
 )
 
-var (
-	ieFields = []string{
-		"sourceIPv4Address",
-		"destinationIPv4Address",
-		"sourceTransportPort",
-		"destinationTransportPort",
-		"protocolIdentifier",
-		"packetTotalCount",
-		"octetTotalCount",
-	}
-)
+var ieFields = []string{
+	"sourceIPv4Address",
+	"destinationIPv4Address",
+	"sourceTransportPort",
+	"destinationTransportPort",
+	"protocolIdentifier",
+	"packetTotalCount",
+	"octetTotalCount",
+}
 
-func senderLoadRegistry() {
+var _ FlowLogSender = &flowLogIPFixSender{}
+
+// flowLogIPFixSender sends the received flow log entries to an
+// IPFix collector endpoint.
+type flowLogIPFixSender struct {
+	logger           *slog.Logger
+	collectorAddress string
+}
+
+func (r *flowLogIPFixSender) Name() string {
+	return "ipfix"
+}
+
+func (r *flowLogIPFixSender) SendFlowLogs(flowLogs FlowLogTable) error {
+	exportingProcess, err := r.openConnectionToCollector()
+	if err != nil {
+		return fmt.Errorf("got error when connecting to ipfix collector: %w", err)
+	}
+	defer exportingProcess.CloseConnToCollector()
+
+	templateID, err := r.negotiateTemplate(exportingProcess)
+	if err != nil {
+		return fmt.Errorf("got error when sending Template Set: %w", err)
+	}
+
+	return r.sendData(exportingProcess, templateID, flowLogs)
+}
+
+func (r *flowLogIPFixSender) loadRegistry() {
 	registry.LoadRegistry()
 }
 
-func populateDataRecordElements(flkey FlowLogKey, flentry FlowLogEntry) []entities.InfoElementWithValue {
+func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentry FlowLogEntry) []entities.InfoElementWithValue {
 	bytes := []byte(flkey)
 	srcIP := net.IP(bytes[0:4])
 	dstIP := net.IP(bytes[4:8])
@@ -73,22 +99,22 @@ func populateDataRecordElements(flkey FlowLogKey, flentry FlowLogEntry) []entiti
 	return elements
 }
 
-func openConnectionToCollector(config *Config) (*exporter.ExportingProcess, error) {
-	if config.LoadbalancerFlowLogsCollectorAddress == "" {
-		return nil, fmt.Errorf("LoadbalancerFlowLogsCollectorAddress is not set")
+func (r *flowLogIPFixSender) openConnectionToCollector() (*exporter.ExportingProcess, error) {
+	if r.collectorAddress == "" {
+		return nil, fmt.Errorf("IPFix collector address is not set")
 	}
 
 	return exporter.InitExportingProcess(exporter.ExporterInput{
-		CollectorAddress:    config.LoadbalancerFlowLogsCollectorAddress,
+		CollectorAddress:    r.collectorAddress,
 		CollectorProtocol:   "tcp",
 		ObservationDomainID: 1,
 		TempRefTimeout:      0,
 	})
 }
 
-func negotiateTemplate(exportingProcess *exporter.ExportingProcess) (uint16, error) {
+func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.ExportingProcess) (uint16, error) {
 	templateID := exportingProcess.NewTemplateID()
-	log.Debug(fmt.Sprintf("templateID: %v", templateID))
+	r.logger.Debug("Negotiate template", "templateID", templateID)
 
 	ies := make([]*entities.InfoElement, 0)
 	for _, name := range ieFields {
@@ -105,64 +131,50 @@ func negotiateTemplate(exportingProcess *exporter.ExportingProcess) (uint16, err
 	if err != nil {
 		return 0, err
 	}
-	log.Info(fmt.Sprintf("Sent %d bytes of template", bytesWritten))
+	r.logger.Info("Sent template bytes", "bytes", bytesWritten)
 
 	return templateID, nil
 }
 
-func send(exportingProcess *exporter.ExportingProcess, templateID uint16, bigTable FlowLogTable, keys []FlowLogKey) (uint64, error) {
+func (r *flowLogIPFixSender) send(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTable, keys []FlowLogKey) (uint64, error) {
 	dataSet := entities.NewSet(false)
 	dataSet.PrepareSet(entities.Data, templateID)
 
 	for i := range keys {
 		key := keys[i]
-		dataSet.AddRecord(populateDataRecordElements(key, bigTable[key]), templateID)
+		dataSet.AddRecord(r.populateDataRecordElements(key, flowLogs[key]), templateID)
 	}
 
 	bytesWritten, err := exportingProcess.SendSet(dataSet)
 	if err != nil {
-		return 0, fmt.Errorf("Got error when sending Data Set: %w", err)
+		return 0, fmt.Errorf("got error when sending Data Set: %w", err)
 	}
 
 	return uint64(bytesWritten), nil
 }
 
-func sendData(exportingProcess *exporter.ExportingProcess, templateID uint16, bigTable FlowLogTable) error {
+func (r *flowLogIPFixSender) sendData(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTable) error {
 	total := 0
 	totalBytesWritten := uint64(0)
 	chunkLenMax := 10
 	keys := make([]FlowLogKey, chunkLenMax)
 
-	for key := range bigTable {
+	for key := range flowLogs {
 		i := (total % chunkLenMax)
 		keys[i] = key
 		total += 1
 		chunkLen := i + 1
 
-		if chunkLen == chunkLenMax || total == len(bigTable) {
-			if bytesWritten, err := send(exportingProcess, templateID, bigTable, keys[:chunkLen]); err != nil {
+		if chunkLen == chunkLenMax || total == len(flowLogs) {
+			bytesWritten, err := r.send(exportingProcess, templateID, flowLogs, keys[:chunkLen])
+			if err != nil {
 				return err
-			} else {
-				totalBytesWritten += bytesWritten
 			}
+
+			totalBytesWritten += bytesWritten
 		}
 	}
-	log.Info(fmt.Sprintf("Sent %d bytes of data", totalBytesWritten))
+	r.logger.Info("Sent data", "bytes", totalBytesWritten)
 
 	return nil
-}
-
-func sendFlowLogs(bigTable FlowLogTable, config *Config) error {
-	exportingProcess, err := openConnectionToCollector(config)
-	if err != nil {
-		return fmt.Errorf("Got error when connecting to ipfix collector: %w", err)
-	}
-	defer exportingProcess.CloseConnToCollector()
-
-	templateID, err := negotiateTemplate(exportingProcess)
-	if err != nil {
-		return fmt.Errorf("Got error when sending Template Set: %w", err)
-	}
-
-	return sendData(exportingProcess, templateID, bigTable)
 }

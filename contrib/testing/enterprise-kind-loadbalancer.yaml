@@ -47,6 +47,8 @@ extraConfig:
   loadbalancer-cp-accesslog-enable-hc: "true"
   loadbalancer-cp-t2-use-remote-address: "true"
   loadbalancer-cp-t2-xff-num-trusted-hops: "0"
+  loadbalancer-flow-logs-enabled: "true"
+  loadbalancer-flow-logs-sender: "stdout"
 operator:
   prometheus:
     enabled: true

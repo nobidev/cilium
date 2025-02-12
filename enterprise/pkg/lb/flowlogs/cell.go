@@ -11,48 +11,143 @@
 package lbflowlogs
 
 import (
-	"github.com/cilium/cilium/pkg/bpf"
+	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 var Cell = cell.Module(
-	"lbflowlog-map",
-	"per-node eBPF map which is populated with per-packet flow logs",
+	"loadbalancer-flowlog",
+	"Per-packet loadbalancer flow logs",
 
-	cell.Provide(newFlowLogsMap, datapathNodeHeaderConfigProvider),
+	cell.Invoke(initializeFlowLogProcessor),
+	cell.ProvidePrivate(newFlowLogReader),
+	cell.ProvidePrivate(newFlowLogIPFixSender),
+	cell.ProvidePrivate(newFlowLogStdoutSender),
+	cell.Provide(newFlowLogMap),
+	cell.Provide(datapathConfigProvider),
 	cell.Config(defaultConfig),
 )
+
+type lbFlowLogProcessorParams struct {
+	cell.In
+
+	Config   Config
+	Logger   *slog.Logger
+	Reader   *flowLogReader
+	Senders  []FlowLogSender `group:"flowlog-senders"`
+	JobGroup job.Group
+}
+
+type lbFlowLogSenderOut struct {
+	cell.Out
+
+	Sender FlowLogSender `group:"flowlog-senders"`
+}
+
+func initializeFlowLogProcessor(p lbFlowLogProcessorParams) error {
+	if !p.Config.LoadbalancerFlowLogsEnabled {
+		return nil
+	}
+
+	var sender FlowLogSender = nil
+	for _, rs := range p.Senders {
+		if p.Config.LoadbalancerFlowLogsSender == rs.Name() {
+			sender = rs
+		}
+	}
+
+	if sender == nil {
+		return fmt.Errorf("failed to find flow log sender %q", p.Config.LoadbalancerFlowLogsSender)
+	}
+
+	processor := &flowLogProcessor{
+		logger:          p.Logger,
+		reportFrequency: p.Config.ReportFrequencyDuration(),
+		gcFrequency:     p.Config.GarbageCollectorFrequencyDuration(),
+		sender:          sender,
+		reader:          p.Reader,
+	}
+
+	p.JobGroup.Add(job.OneShot("flowlog-processor", processor.startProcessing))
+
+	return nil
+}
+
+type lbFlowLogReaderParams struct {
+	cell.In
+
+	Config   Config
+	Logger   *slog.Logger
+	Map      LBFlowLogMap
+	JobGroup job.Group
+}
+
+func newFlowLogReader(p lbFlowLogReaderParams) *flowLogReader {
+	if !p.Config.LoadbalancerFlowLogsEnabled {
+		return nil
+	}
+
+	reader := &flowLogReader{
+		logger:      p.Logger,
+		flowLogMap:  p.Map,
+		entriesChan: make(chan *FlowLogEntry, p.Config.LoadbalancerFlowLogsReaderQueueSize),
+	}
+
+	p.JobGroup.Add(job.OneShot("flowlog-reader", reader.startReading))
+
+	return reader
+}
+
+type lbFlowLogIPFixSenderParams struct {
+	cell.In
+
+	Config Config
+	Logger *slog.Logger
+}
+
+func newFlowLogIPFixSender(p lbFlowLogIPFixSenderParams) lbFlowLogSenderOut {
+	if !p.Config.LoadbalancerFlowLogsEnabled {
+		return lbFlowLogSenderOut{}
+	}
+
+	sender := &flowLogIPFixSender{
+		logger:           p.Logger,
+		collectorAddress: p.Config.LoadbalancerFlowLogsSenderIpfixCollectorAddress,
+	}
+
+	sender.loadRegistry()
+
+	return lbFlowLogSenderOut{Sender: sender}
+}
 
 type lbFlowLogMapParams struct {
 	cell.In
 
 	Config    Config
 	Lifecycle cell.Lifecycle
+	Logger    *slog.Logger
 }
 
-func newFlowLogsMap(p lbFlowLogMapParams) (out struct {
-	cell.Out
-
-	bpf.MapOut[LBFlowLogMap]
-}) {
+func newFlowLogMap(p lbFlowLogMapParams) (bpf.MapOut[LBFlowLogMap], error) {
 	if !p.Config.LoadbalancerFlowLogsEnabled {
-		return
+		return bpf.NewMapOut(LBFlowLogMap(nil)), nil
 	}
 
-	senderLoadRegistry()
-
-	lbFlowLogRB := newLbFlowLogMap(p.Config, v4MapName)
+	lbFlowLogMap := newLbFlowLogMap(p.Config, v4MapName)
 
 	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error { return lbFlowLogRB.openOrCreate(&p.Config) },
-		OnStop:  func(context cell.HookContext) error { return lbFlowLogRB.close() },
+		OnStart: func(context cell.HookContext) error {
+			return lbFlowLogMap.openOrCreate()
+		},
+		OnStop: func(context cell.HookContext) error {
+			return lbFlowLogMap.close()
+		},
 	})
 
-	out.MapOut = bpf.NewMapOut(LBFlowLogMap(lbFlowLogRB))
-	return
-}
-
-type LBFlowLogMap interface {
-	Read() ([]byte, error)
+	return bpf.NewMapOut(LBFlowLogMap(lbFlowLogMap)), nil
 }
