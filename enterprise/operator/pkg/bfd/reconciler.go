@@ -22,7 +22,8 @@ import (
 	bgpv2config "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -55,10 +56,10 @@ type bfdReconcilerParams struct {
 	Clientset k8sclient.Clientset
 
 	CiliumNodeResource            resource.Resource[*ciliumv2.CiliumNode]
-	BFDNodeConfigResource         resource.Resource[*isovalentv1alpha1.IsovalentBFDNodeConfig]
-	BFDNodeConfigOverrideResource resource.Resource[*isovalentv1alpha1.IsovalentBFDNodeConfigOverride]
-	BGPClusterConfigResource      resource.Resource[*isovalentv1alpha1.IsovalentBGPClusterConfig]
-	BGPPeerConfigResource         resource.Resource[*isovalentv1alpha1.IsovalentBGPPeerConfig]
+	BFDNodeConfigResource         resource.Resource[*v1alpha1.IsovalentBFDNodeConfig]
+	BFDNodeConfigOverrideResource resource.Resource[*v1alpha1.IsovalentBFDNodeConfigOverride]
+	BGPClusterConfigResource      resource.Resource[*v1.IsovalentBGPClusterConfig]
+	BGPPeerConfigResource         resource.Resource[*v1.IsovalentBGPPeerConfig]
 }
 
 type bfdReconciler struct {
@@ -67,10 +68,10 @@ type bfdReconciler struct {
 	bfdNodeConfigClient clientv1alpha1.IsovalentBFDNodeConfigInterface
 
 	ciliumNodeStore            resource.Store[*ciliumv2.CiliumNode]
-	bfdNodeConfigStore         resource.Store[*isovalentv1alpha1.IsovalentBFDNodeConfig]
-	bfdNodeConfigOverrideStore resource.Store[*isovalentv1alpha1.IsovalentBFDNodeConfigOverride]
-	bgpClusterConfigStore      resource.Store[*isovalentv1alpha1.IsovalentBGPClusterConfig]
-	bgpPeerConfigStore         resource.Store[*isovalentv1alpha1.IsovalentBGPPeerConfig]
+	bfdNodeConfigStore         resource.Store[*v1alpha1.IsovalentBFDNodeConfig]
+	bfdNodeConfigOverrideStore resource.Store[*v1alpha1.IsovalentBFDNodeConfigOverride]
+	bgpClusterConfigStore      resource.Store[*v1.IsovalentBGPClusterConfig]
+	bgpPeerConfigStore         resource.Store[*v1.IsovalentBGPPeerConfig]
 
 	reconcileCh chan struct{}
 }

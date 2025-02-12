@@ -23,7 +23,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
@@ -69,30 +70,30 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 		bfdprofile1Name = "bfd-profile-1"
 		bfdprofile2Name = "bfd-profile-2"
 
-		bgpPeerConfigNoBFDProfile = &isovalentv1alpha1.IsovalentBGPPeerConfig{
+		bgpPeerConfigNoBFDProfile = &v1.IsovalentBGPPeerConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "peer-no-bfd-profile"},
-			Spec:       isovalentv1alpha1.IsovalentBGPPeerConfigSpec{},
+			Spec:       v1.IsovalentBGPPeerConfigSpec{},
 		}
-		bgpPeerConfigBFDProfile1 = &isovalentv1alpha1.IsovalentBGPPeerConfig{
+		bgpPeerConfigBFDProfile1 = &v1.IsovalentBGPPeerConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "peer-bfd-profile-1"},
-			Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
+			Spec: v1.IsovalentBGPPeerConfigSpec{
 				BFDProfileRef: ptr.To[string](bfdprofile1Name),
 			},
 		}
-		bgpPeerConfigBFDProfile2 = &isovalentv1alpha1.IsovalentBGPPeerConfig{
+		bgpPeerConfigBFDProfile2 = &v1.IsovalentBGPPeerConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "peer-bfd-profile-2"},
-			Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
+			Spec: v1.IsovalentBGPPeerConfigSpec{
 				BFDProfileRef: ptr.To[string](bfdprofile2Name),
 			},
 		}
-		bgpPeerConfigNoBFDProfileRef = &isovalentv1alpha1.PeerConfigReference{Name: bgpPeerConfigNoBFDProfile.Name}
-		bgpPeerConfigBFDProfile1Ref  = &isovalentv1alpha1.PeerConfigReference{Name: bgpPeerConfigBFDProfile1.Name}
-		bgpPeerConfigBFDProfile2Ref  = &isovalentv1alpha1.PeerConfigReference{Name: bgpPeerConfigBFDProfile2.Name}
+		bgpPeerConfigNoBFDProfileRef = &v1.PeerConfigReference{Name: bgpPeerConfigNoBFDProfile.Name}
+		bgpPeerConfigBFDProfile1Ref  = &v1.PeerConfigReference{Name: bgpPeerConfigBFDProfile1.Name}
+		bgpPeerConfigBFDProfile2Ref  = &v1.PeerConfigReference{Name: bgpPeerConfigBFDProfile2.Name}
 
-		bfdNodeConfigOverrideNode1 = &isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+		bfdNodeConfigOverrideNode1 = &v1alpha1.IsovalentBFDNodeConfigOverride{
 			ObjectMeta: metav1.ObjectMeta{Name: node1Name},
-			Spec: isovalentv1alpha1.BFDNodeConfigOverrideSpec{
-				Peers: []*isovalentv1alpha1.BFDNodeConfigOverridePeer{
+			Spec: v1alpha1.BFDNodeConfigOverrideSpec{
+				Peers: []*v1alpha1.BFDNodeConfigOverridePeer{
 					{
 						Name:              getBFDPeerName(instance1Name, peer1Name),
 						Interface:         &node1Interface,
@@ -102,10 +103,10 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			},
 		}
 
-		bfdNodeConfigOverrideNode1Unnumbered = &isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+		bfdNodeConfigOverrideNode1Unnumbered = &v1alpha1.IsovalentBFDNodeConfigOverride{
 			ObjectMeta: metav1.ObjectMeta{Name: node1Name},
-			Spec: isovalentv1alpha1.BFDNodeConfigOverrideSpec{
-				Peers: []*isovalentv1alpha1.BFDNodeConfigOverridePeer{
+			Spec: v1alpha1.BFDNodeConfigOverrideSpec{
+				Peers: []*v1alpha1.BFDNodeConfigOverridePeer{
 					{
 						Name:              getBFDPeerName(instance1Name, unnumberedPeerName),
 						EchoSourceAddress: ptr.To[string](node1UnnumberedEchoSourceAddress),
@@ -119,28 +120,28 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 		description            string
 		nodes                  []*ciliumv2.CiliumNode
 		deletedNodes           []*ciliumv2.CiliumNode
-		bgpClusterConfigs      []*isovalentv1alpha1.IsovalentBGPClusterConfig
-		bgpPeerConfigs         []*isovalentv1alpha1.IsovalentBGPPeerConfig
-		bfdNodeConfigOverrides []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride
-		expectedBFDNodeConfigs []*isovalentv1alpha1.IsovalentBFDNodeConfig
+		bgpClusterConfigs      []*v1.IsovalentBGPClusterConfig
+		bgpPeerConfigs         []*v1.IsovalentBGPPeerConfig
+		bfdNodeConfigOverrides []*v1alpha1.IsovalentBFDNodeConfigOverride
+		expectedBFDNodeConfigs []*v1alpha1.IsovalentBFDNodeConfig
 	}{
 		{
 			description: "one node, no BFD configured",
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -151,7 +152,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -163,7 +164,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigNoBFDProfile,
 			},
 			expectedBFDNodeConfigs: nil,
@@ -173,18 +174,18 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -195,7 +196,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -207,20 +208,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -238,18 +239,18 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -260,7 +261,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -272,21 +273,21 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 				bgpPeerConfigBFDProfile2,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -309,18 +310,18 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -336,7 +337,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -353,20 +354,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -390,18 +391,18 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 				ciliumNode1,
 				ciliumNode2,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -412,7 +413,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -424,21 +425,21 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 				bgpPeerConfigBFDProfile2,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -458,9 +459,9 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node2Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node2Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:   &peer1Addr,
@@ -482,20 +483,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 				ciliumNode1,
 				ciliumNode2,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node1Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -506,7 +507,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -518,21 +519,21 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 				bgpPeerConfigBFDProfile2,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -556,20 +557,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 				ciliumNode1,
 				ciliumNode2,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node1Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -584,15 +585,15 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig2Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node2Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -604,21 +605,21 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 				bgpPeerConfigBFDProfile2,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -633,9 +634,9 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig2Name, node2Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node2Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:          getBFDPeerName(instance2Name, peer2Name),
 								PeerAddress:   &peer2Addr,
@@ -659,20 +660,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node1Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -687,15 +688,15 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig2Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node2Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -707,21 +708,21 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 				bgpPeerConfigBFDProfile2,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, peer1Name),
 								PeerAddress:       &peer1Addr,
@@ -739,20 +740,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node1Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer1Name,
 										PeerAddress:   &peer1Addr,
@@ -767,15 +768,15 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig2Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: &slimv1.LabelSelector{
 							MatchLabels: node2Labels,
 						},
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance2Name,
 								LocalASN: ptr.To[int64](65001),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          peer2Name,
 										PeerAddress:   &peer2Addr,
@@ -787,7 +788,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigNoBFDProfile,
 			},
 			expectedBFDNodeConfigs: nil,
@@ -797,18 +798,18 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 			nodes: []*ciliumv2.CiliumNode{
 				ciliumNode1,
 			},
-			bgpClusterConfigs: []*isovalentv1alpha1.IsovalentBGPClusterConfig{
+			bgpClusterConfigs: []*v1.IsovalentBGPClusterConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: bgpClusterConfig1Name,
 					},
-					Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: nil,
-						BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
 								Name:     instance1Name,
 								LocalASN: ptr.To[int64](65000),
-								Peers: []isovalentv1alpha1.IsovalentBGPPeer{
+								Peers: []v1.IsovalentBGPPeer{
 									{
 										Name:          unnumberedPeerName,
 										Interface:     &node1Interface,
@@ -820,20 +821,20 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					},
 				},
 			},
-			bgpPeerConfigs: []*isovalentv1alpha1.IsovalentBGPPeerConfig{
+			bgpPeerConfigs: []*v1.IsovalentBGPPeerConfig{
 				bgpPeerConfigBFDProfile1,
 			},
-			bfdNodeConfigOverrides: []*isovalentv1alpha1.IsovalentBFDNodeConfigOverride{
+			bfdNodeConfigOverrides: []*v1alpha1.IsovalentBFDNodeConfigOverride{
 				bfdNodeConfigOverrideNode1Unnumbered,
 			},
-			expectedBFDNodeConfigs: []*isovalentv1alpha1.IsovalentBFDNodeConfig{
+			expectedBFDNodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: getNodeConfigName(bgpClusterConfig1Name, node1Name),
 					},
-					Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+					Spec: v1alpha1.BFDNodeConfigSpec{
 						NodeRef: node1Name,
-						Peers: []*isovalentv1alpha1.BFDNodePeerConfig{
+						Peers: []*v1alpha1.BFDNodePeerConfig{
 							{
 								Name:              getBFDPeerName(instance1Name, unnumberedPeerName),
 								BFDProfileRef:     bfdprofile1Name,
@@ -926,7 +927,7 @@ func deleteNode(req *require.Assertions, ctx context.Context, f *fixture, node *
 	req.NoError(err)
 }
 
-func upsertBGPPeerConfig(req *require.Assertions, ctx context.Context, f *fixture, pc *isovalentv1alpha1.IsovalentBGPPeerConfig) {
+func upsertBGPPeerConfig(req *require.Assertions, ctx context.Context, f *fixture, pc *v1.IsovalentBGPPeerConfig) {
 	_, err := f.bgpPeerConfigClient.Get(ctx, pc.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpPeerConfigClient.Create(ctx, pc, metav1.CreateOptions{})
@@ -938,7 +939,7 @@ func upsertBGPPeerConfig(req *require.Assertions, ctx context.Context, f *fixtur
 	req.NoError(err)
 }
 
-func upsertBGPClusterConfig(req *require.Assertions, ctx context.Context, f *fixture, cc *isovalentv1alpha1.IsovalentBGPClusterConfig) {
+func upsertBGPClusterConfig(req *require.Assertions, ctx context.Context, f *fixture, cc *v1.IsovalentBGPClusterConfig) {
 	_, err := f.bgpClusterConfigClient.Get(ctx, cc.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpClusterConfigClient.Create(ctx, cc, metav1.CreateOptions{})
@@ -950,7 +951,7 @@ func upsertBGPClusterConfig(req *require.Assertions, ctx context.Context, f *fix
 	req.NoError(err)
 }
 
-func upsertBFDNodeConfigOverrides(req *require.Assertions, ctx context.Context, f *fixture, o *isovalentv1alpha1.IsovalentBFDNodeConfigOverride) {
+func upsertBFDNodeConfigOverrides(req *require.Assertions, ctx context.Context, f *fixture, o *v1alpha1.IsovalentBFDNodeConfigOverride) {
 	_, err := f.bfdNodeConfigOverrideClient.Get(ctx, o.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bfdNodeConfigOverrideClient.Create(ctx, o, metav1.CreateOptions{})

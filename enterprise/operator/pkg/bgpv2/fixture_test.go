@@ -28,10 +28,12 @@ import (
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	isovalent_client_v1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -47,11 +49,11 @@ type fixture struct {
 	hive          *hive.Hive
 	fakeClientSet *k8s_client.FakeClientset
 
-	isoClusterClient       isovalent_client_v1alpha1.IsovalentBGPClusterConfigInterface
-	isoPeerConfClient      isovalent_client_v1alpha1.IsovalentBGPPeerConfigInterface
-	isoAdvertClient        isovalent_client_v1alpha1.IsovalentBGPAdvertisementInterface
-	isoBGPNodeConfClient   isovalent_client_v1alpha1.IsovalentBGPNodeConfigInterface
-	isoBGPNodeConfORClient isovalent_client_v1alpha1.IsovalentBGPNodeConfigOverrideInterface
+	isoClusterClient       isovalent_client_v1.IsovalentBGPClusterConfigInterface
+	isoPeerConfClient      isovalent_client_v1.IsovalentBGPPeerConfigInterface
+	isoAdvertClient        isovalent_client_v1.IsovalentBGPAdvertisementInterface
+	isoBGPNodeConfClient   isovalent_client_v1.IsovalentBGPNodeConfigInterface
+	isoBGPNodeConfORClient isovalent_client_v1.IsovalentBGPNodeConfigOverrideInterface
 	isoVrfClient           isovalent_client_v1alpha1.IsovalentVRFInterface
 	isoBGPVrfClient        isovalent_client_v1alpha1.IsovalentBGPVRFConfigInterface
 
@@ -82,14 +84,14 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 	}
 
 	var resourceWatch = map[string]*watchSync{
-		cilium_v2.CNPluralName:                            {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPNodeConfigPluralName:         {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
-		v1alpha1.VRFPluralName:                            {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBGPVRFConfigPluralName:          {watchCh: make(chan struct{})},
+		cilium_v2.CNPluralName:                      {watchCh: make(chan struct{})},
+		v1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
+		v1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
+		v1.IsovalentBGPAdvertisementPluralName:      {watchCh: make(chan struct{})},
+		v1.IsovalentBGPNodeConfigPluralName:         {watchCh: make(chan struct{})},
+		v1.IsovalentBGPNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
+		v1alpha1.VRFPluralName:                      {watchCh: make(chan struct{})},
+		v1alpha1.IsovalentBGPVRFConfigPluralName:    {watchCh: make(chan struct{})},
 	}
 
 	if fc.enableStatusReport {
@@ -139,11 +141,11 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 	}
 
 	// enterprise clients
-	f.isoClusterClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPClusterConfigs()
-	f.isoPeerConfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPPeerConfigs()
-	f.isoAdvertClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPAdvertisements()
-	f.isoBGPNodeConfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs()
-	f.isoBGPNodeConfORClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigOverrides()
+	f.isoClusterClient = f.fakeClientSet.IsovalentV1().IsovalentBGPClusterConfigs()
+	f.isoPeerConfClient = f.fakeClientSet.IsovalentV1().IsovalentBGPPeerConfigs()
+	f.isoAdvertClient = f.fakeClientSet.IsovalentV1().IsovalentBGPAdvertisements()
+	f.isoBGPNodeConfClient = f.fakeClientSet.IsovalentV1().IsovalentBGPNodeConfigs()
+	f.isoBGPNodeConfORClient = f.fakeClientSet.IsovalentV1().IsovalentBGPNodeConfigOverrides()
 	f.isoVrfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentVRFs()
 	f.isoBGPVrfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPVRFConfigs()
 

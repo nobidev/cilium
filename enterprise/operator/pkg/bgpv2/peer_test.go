@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -44,43 +44,39 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		peerConfig    *v1alpha1.IsovalentBGPPeerConfig
+		peerConfig    *v1.IsovalentBGPPeerConfig
 		expectedState meta_v1.ConditionStatus
 	}{
 		{
 			name: "MissingAuthSecret False",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-					CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-						AuthSecretRef: &secretName,
-					},
+				Spec: v1.IsovalentBGPPeerConfigSpec{
+					AuthSecretRef: &secretName,
 				},
 			},
 			expectedState: meta_v1.ConditionFalse,
 		},
 		{
 			name: "MissingAuthSecret False nil AuthSecretRef",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{},
+				Spec: v1.IsovalentBGPPeerConfigSpec{},
 			},
 			expectedState: meta_v1.ConditionFalse,
 		},
 		{
 			name: "MissingAuthSecret True",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-					CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-						AuthSecretRef: ptr.To(secretName + "foo"),
-					},
+				Spec: v1.IsovalentBGPPeerConfigSpec{
+					AuthSecretRef: ptr.To(secretName + "foo"),
 				},
 			},
 			expectedState: meta_v1.ConditionTrue,
@@ -106,7 +102,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 
 			ready()
 
-			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(
+			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Create(
 				ctx, tt.peerConfig, meta_v1.CreateOptions{},
 			)
 			req.NoError(err)
@@ -123,7 +119,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				}
 				cond := meta.FindStatusCondition(
 					pc.Status.Conditions,
-					v1alpha1.BGPPeerConfigConditionMissingAuthSecret,
+					v1.BGPPeerConfigConditionMissingAuthSecret,
 				)
 				if !assert.NotNil(ct, cond, "Condition not found") {
 					return
@@ -145,17 +141,17 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		peerConfig    *v1alpha1.IsovalentBGPPeerConfig
+		peerConfig    *v1.IsovalentBGPPeerConfig
 		expectedState meta_v1.ConditionStatus
 		enableBFD     bool
 	}{
 		{
 			name: "MissingBFDProfile False",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+				Spec: v1.IsovalentBGPPeerConfigSpec{
 					BFDProfileRef: &bfdProfile.Name,
 				},
 			},
@@ -164,22 +160,22 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 		},
 		{
 			name: "MissingBFDProfile False nil BFDProfileRef",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{},
+				Spec: v1.IsovalentBGPPeerConfigSpec{},
 			},
 			expectedState: meta_v1.ConditionFalse,
 			enableBFD:     true,
 		},
 		{
 			name: "MissingBFDProfile True",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+				Spec: v1.IsovalentBGPPeerConfigSpec{
 					BFDProfileRef: ptr.To(bfdProfile.Name + "foo"),
 				},
 			},
@@ -188,11 +184,11 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 		},
 		{
 			name: "MissingBFDProfile False disable BFD",
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfig{
+			peerConfig: &v1.IsovalentBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+				Spec: v1.IsovalentBGPPeerConfigSpec{
 					// This BFD profile doesn't exist, but
 					// since the BFD itself is disabled,
 					// the condition will be always false.
@@ -223,7 +219,7 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 
 			ready()
 
-			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(
+			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Create(
 				ctx,
 				tt.peerConfig,
 				meta_v1.CreateOptions{},
@@ -244,7 +240,7 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 				}
 				cond := meta.FindStatusCondition(
 					pc.Status.Conditions,
-					v1alpha1.BGPPeerConfigConditionMissingBFDProfile,
+					v1.BGPPeerConfigConditionMissingBFDProfile,
 				)
 				if !assert.NotNil(ct, cond, "Condition not found") {
 					return
@@ -273,35 +269,33 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 
 	ready()
 
-	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
+	peerConfig := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "config0",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				AuthSecretRef: ptr.To("secret0"),
-			},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			AuthSecretRef: ptr.To("secret0"),
 			BFDProfileRef: ptr.To("bfd0"),
 		},
-		Status: v1alpha1.IsovalentBGPPeerConfigStatus{
+		Status: v1.IsovalentBGPPeerConfigStatus{
 			Conditions: []meta_v1.Condition{},
 		},
 	}
 
 	// Fill with all known conditions
-	for _, cond := range v1alpha1.AllBGPPeerConfigConditions {
+	for _, cond := range v1.AllBGPPeerConfigConditions {
 		peerConfig.Status.Conditions = append(peerConfig.Status.Conditions, meta_v1.Condition{
 			Type: cond,
 		})
 	}
 
-	_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(
+	_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Create(
 		ctx, peerConfig, meta_v1.CreateOptions{},
 	)
 	require.NoError(t, err)
 
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		pc, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Get(
+		pc, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Get(
 			ctx, peerConfig.Name, meta_v1.GetOptions{})
 		if !assert.NoError(ct, err, "Cannot get peer config") {
 			return

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -47,16 +48,16 @@ type BGPResourceMapper struct {
 	dc        *option.DaemonConfig
 
 	// BGPv2 Resources
-	clusterConfig      store.BGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig]
-	peerConfig         store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
-	advertisements     store.BGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement]
-	nodeConfigOverride store.BGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride]
+	clusterConfig      store.BGPCPResourceStore[*v1.IsovalentBGPClusterConfig]
+	peerConfig         store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
+	advertisements     store.BGPCPResourceStore[*v1.IsovalentBGPAdvertisement]
+	nodeConfigOverride store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfigOverride]
 	vrf                store.BGPCPResourceStore[*v1alpha1.IsovalentVRF]
 	vrfConfig          store.BGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig]
 
 	// for BGP node config, we do not need to trigger reconciliation on changes. So,
 	// we use store.Resource instead of store.BGPCPResourceStore.
-	nodeConfigStore resource.Store[*v1alpha1.IsovalentBGPNodeConfig]
+	nodeConfigStore resource.Store[*v1.IsovalentBGPNodeConfig]
 
 	// BGPv2 OSS resources
 	ossClusterConfigStore      resource.Store[*v2alpha1.CiliumBGPClusterConfig]
@@ -82,13 +83,13 @@ type BGPResourceManagerParams struct {
 	DaemonCfg *option.DaemonConfig
 
 	// BGPv2 Resources
-	ClusterConfig      store.BGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig]
-	PeerConfig         store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
-	Advertisements     store.BGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement]
-	NodeConfigOverride store.BGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride]
+	ClusterConfig      store.BGPCPResourceStore[*v1.IsovalentBGPClusterConfig]
+	PeerConfig         store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
+	Advertisements     store.BGPCPResourceStore[*v1.IsovalentBGPAdvertisement]
+	NodeConfigOverride store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfigOverride]
 	VRF                store.BGPCPResourceStore[*v1alpha1.IsovalentVRF]
 	VRFConfig          store.BGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig]
-	NodeConfig         resource.Resource[*v1alpha1.IsovalentBGPNodeConfig]
+	NodeConfig         resource.Resource[*v1.IsovalentBGPNodeConfig]
 
 	// BGPv2 OSS Resources
 	OSSClusterConfig      resource.Resource[*v2alpha1.CiliumBGPClusterConfig]

@@ -23,40 +23,40 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 type reconcileCache struct {
-	ClusterConfigsByName            map[string]*v1alpha1.IsovalentBGPClusterConfig
-	NodeConfigsByName               map[string]*v1alpha1.IsovalentBGPNodeConfig
+	ClusterConfigsByName            map[string]*v1.IsovalentBGPClusterConfig
+	NodeConfigsByName               map[string]*v1.IsovalentBGPNodeConfig
 	NodesByName                     map[string]*v2.CiliumNode
-	OverridesByName                 map[string]*v1alpha1.IsovalentBGPNodeConfigOverride
+	OverridesByName                 map[string]*v1.IsovalentBGPNodeConfigOverride
 	NodesByClusterConfigName        map[string][]*v2.CiliumNode
-	ClusterConfigsByNodeName        map[string][]*v1alpha1.IsovalentBGPClusterConfig
-	ClusterConfigWithNoMatchingNode map[string]*v1alpha1.IsovalentBGPClusterConfig
+	ClusterConfigsByNodeName        map[string][]*v1.IsovalentBGPClusterConfig
+	ClusterConfigWithNoMatchingNode map[string]*v1.IsovalentBGPClusterConfig
 	ConflictingClusterConfigNames   map[string]sets.Set[string]
-	ConflictFreeClusterConfigs      map[string]*v1alpha1.IsovalentBGPClusterConfig
+	ConflictFreeClusterConfigs      map[string]*v1.IsovalentBGPClusterConfig
 }
 
 func populateReconcileCache(
-	clusterConfigs []*v1alpha1.IsovalentBGPClusterConfig,
-	nodeConfigs []*v1alpha1.IsovalentBGPNodeConfig,
+	clusterConfigs []*v1.IsovalentBGPClusterConfig,
+	nodeConfigs []*v1.IsovalentBGPNodeConfig,
 	nodes []*v2.CiliumNode,
-	overrides []*v1alpha1.IsovalentBGPNodeConfigOverride,
+	overrides []*v1.IsovalentBGPNodeConfigOverride,
 ) *reconcileCache {
 	cache := &reconcileCache{
-		ClusterConfigsByName:            make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
-		NodeConfigsByName:               make(map[string]*v1alpha1.IsovalentBGPNodeConfig),
+		ClusterConfigsByName:            make(map[string]*v1.IsovalentBGPClusterConfig),
+		NodeConfigsByName:               make(map[string]*v1.IsovalentBGPNodeConfig),
 		NodesByName:                     make(map[string]*v2.CiliumNode),
-		OverridesByName:                 make(map[string]*v1alpha1.IsovalentBGPNodeConfigOverride),
+		OverridesByName:                 make(map[string]*v1.IsovalentBGPNodeConfigOverride),
 		NodesByClusterConfigName:        make(map[string][]*v2.CiliumNode),
-		ClusterConfigsByNodeName:        make(map[string][]*v1alpha1.IsovalentBGPClusterConfig),
-		ClusterConfigWithNoMatchingNode: make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
+		ClusterConfigsByNodeName:        make(map[string][]*v1.IsovalentBGPClusterConfig),
+		ClusterConfigWithNoMatchingNode: make(map[string]*v1.IsovalentBGPClusterConfig),
 		ConflictingClusterConfigNames:   make(map[string]sets.Set[string]),
-		ConflictFreeClusterConfigs:      make(map[string]*v1alpha1.IsovalentBGPClusterConfig),
+		ConflictFreeClusterConfigs:      make(map[string]*v1.IsovalentBGPClusterConfig),
 	}
 
 	// Index NodeConfigs by name
@@ -174,8 +174,8 @@ func (m *BGPResourceMapper) reconcileClusterConfigs(ctx context.Context) error {
 	return err
 }
 
-func (m *BGPResourceMapper) desiredNodeConfigs(cache *reconcileCache) []*v1alpha1.IsovalentBGPNodeConfig {
-	ret := []*v1alpha1.IsovalentBGPNodeConfig{}
+func (m *BGPResourceMapper) desiredNodeConfigs(cache *reconcileCache) []*v1.IsovalentBGPNodeConfig {
+	ret := []*v1.IsovalentBGPNodeConfig{}
 	for clusterConfigName, clusterConfig := range cache.ConflictFreeClusterConfigs {
 		for _, node := range cache.NodesByClusterConfigName[clusterConfigName] {
 			ret = append(ret, m.toNodeConfig(node.Name, clusterConfig, cache.OverridesByName[node.Name]))
@@ -184,8 +184,8 @@ func (m *BGPResourceMapper) desiredNodeConfigs(cache *reconcileCache) []*v1alpha
 	return ret
 }
 
-func (m *BGPResourceMapper) staleNodeConfigs(cache *reconcileCache) []*v1alpha1.IsovalentBGPNodeConfig {
-	ret := []*v1alpha1.IsovalentBGPNodeConfig{}
+func (m *BGPResourceMapper) staleNodeConfigs(cache *reconcileCache) []*v1.IsovalentBGPNodeConfig {
+	ret := []*v1.IsovalentBGPNodeConfig{}
 	for name, nodeConfig := range cache.NodeConfigsByName {
 		// If there's no cluster config that selects this node, or
 		// there are multiple cluster configs that select this node
@@ -217,7 +217,7 @@ func (m *BGPResourceMapper) reconcileNodeConfigs(ctx context.Context, cache *rec
 	return errs
 }
 
-func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, cache *reconcileCache, config *v1alpha1.IsovalentBGPClusterConfig) error {
+func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, cache *reconcileCache, config *v1.IsovalentBGPClusterConfig) error {
 	// Update ClusterConfig conditions
 	updateStatus := false
 
@@ -259,7 +259,7 @@ func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, ca
 		// conditions managed by this controller are removed.
 		// Otherwise, users may see the stale conditions which were
 		// reported previously.
-		for _, cond := range v1alpha1.AllBGPClusterConfigConditions {
+		for _, cond := range v1.AllBGPClusterConfigConditions {
 			if removed := meta.RemoveStatusCondition(&config.Status.Conditions, cond); removed {
 				updateStatus = true
 			}
@@ -273,7 +273,7 @@ func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, ca
 
 	// Call API only when there's a condition change
 	if updateStatus {
-		_, err := m.clientSet.IsovalentV1alpha1().IsovalentBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		_, err := m.clientSet.IsovalentV1().IsovalentBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -285,7 +285,7 @@ func (m *BGPResourceMapper) reconcileClusterConfigStatus(ctx context.Context, ca
 // missingPeerConfigs returns a IsovalentBGPPeerConfig which is referenced from
 // the ClusterConfig, but doesn't exist. The returned slice is sorted and
 // deduplicated for output stability.
-func (m *BGPResourceMapper) missingPeerConfigs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+func (m *BGPResourceMapper) missingPeerConfigs(config *v1.IsovalentBGPClusterConfig) []string {
 	missing := []string{}
 	for _, instance := range config.Spec.BGPInstances {
 		for _, peer := range instance.Peers {
@@ -311,7 +311,7 @@ func (m *BGPResourceMapper) missingPeerConfigs(config *v1alpha1.IsovalentBGPClus
 // missingVRFs returns a IsovalentVRF which is referenced from
 // the ClusterConfig, but doesn't exist. The returned slice is sorted and
 // deduplicated for output stability.
-func (m *BGPResourceMapper) missingVRFs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+func (m *BGPResourceMapper) missingVRFs(config *v1.IsovalentBGPClusterConfig) []string {
 	missing := []string{}
 	for _, instance := range config.Spec.BGPInstances {
 		for _, vrf := range instance.VRFs {
@@ -328,7 +328,7 @@ func (m *BGPResourceMapper) missingVRFs(config *v1alpha1.IsovalentBGPClusterConf
 // missingVRFConfigs returns a IsovalentBGPVRFConfig which is referenced from
 // the ClusterConfig, but doesn't exist. The returned slice is sorted and
 // deduplicated for output stability.
-func (m *BGPResourceMapper) missingVRFConfigs(config *v1alpha1.IsovalentBGPClusterConfig) []string {
+func (m *BGPResourceMapper) missingVRFConfigs(config *v1.IsovalentBGPClusterConfig) []string {
 	missing := []string{}
 	for _, instance := range config.Spec.BGPInstances {
 		for _, vrf := range instance.VRFs {
@@ -345,9 +345,9 @@ func (m *BGPResourceMapper) missingVRFConfigs(config *v1alpha1.IsovalentBGPClust
 	return slices.Compact(missing)
 }
 
-func (m *BGPResourceMapper) updateConflictingClusterConfigsCondition(config *v1alpha1.IsovalentBGPClusterConfig, conflictingClusterConfigs sets.Set[string]) bool {
+func (m *BGPResourceMapper) updateConflictingClusterConfigsCondition(config *v1.IsovalentBGPClusterConfig, conflictingClusterConfigs sets.Set[string]) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
+		Type:               v1.BGPClusterConfigConditionConflictingClusterConfigs,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -360,9 +360,9 @@ func (m *BGPResourceMapper) updateConflictingClusterConfigsCondition(config *v1a
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) updateMissingPeerConfigsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingPCs []string) bool {
+func (m *BGPResourceMapper) updateMissingPeerConfigsCondition(config *v1.IsovalentBGPClusterConfig, missingPCs []string) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPClusterConfigConditionMissingPeerConfigs,
+		Type:               v1.BGPClusterConfigConditionMissingPeerConfigs,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -375,9 +375,9 @@ func (m *BGPResourceMapper) updateMissingPeerConfigsCondition(config *v1alpha1.I
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1alpha1.IsovalentBGPClusterConfig, noMatchingNode bool) bool {
+func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1.IsovalentBGPClusterConfig, noMatchingNode bool) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPClusterConfigConditionNoMatchingNode,
+		Type:               v1.BGPClusterConfigConditionNoMatchingNode,
 		Status:             meta_v1.ConditionTrue,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -390,9 +390,9 @@ func (m *BGPResourceMapper) updateNoMatchingNodeCondition(config *v1alpha1.Isova
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) updateMissingVRFsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingVRFs []string) bool {
+func (m *BGPResourceMapper) updateMissingVRFsCondition(config *v1.IsovalentBGPClusterConfig, missingVRFs []string) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPClusterConfigConditionMissingVRFs,
+		Type:               v1.BGPClusterConfigConditionMissingVRFs,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -405,9 +405,9 @@ func (m *BGPResourceMapper) updateMissingVRFsCondition(config *v1alpha1.Isovalen
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) updateMissingVRFConfigsCondition(config *v1alpha1.IsovalentBGPClusterConfig, missingVRFConfigs []string) bool {
+func (m *BGPResourceMapper) updateMissingVRFConfigsCondition(config *v1.IsovalentBGPClusterConfig, missingVRFConfigs []string) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPClusterConfigConditionMissingVRFConfigs,
+		Type:               v1.BGPClusterConfigConditionMissingVRFConfigs,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -420,10 +420,10 @@ func (m *BGPResourceMapper) updateMissingVRFConfigsCondition(config *v1alpha1.Is
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, oldNodeConfig, newNodeConfig *v1alpha1.IsovalentBGPNodeConfig) error {
+func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, oldNodeConfig, newNodeConfig *v1.IsovalentBGPNodeConfig) error {
 	var err error
 
-	nodeConfigClient := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs()
+	nodeConfigClient := m.clientSet.IsovalentV1().IsovalentBGPNodeConfigs()
 
 	switch {
 	case oldNodeConfig != nil && oldNodeConfig.Spec.DeepEqual(&newNodeConfig.Spec):
@@ -439,12 +439,12 @@ func (m *BGPResourceMapper) upsertNodeConfig(ctx context.Context, oldNodeConfig,
 	return err
 }
 
-func (m *BGPResourceMapper) deleteNodeConfig(ctx context.Context, nodeConfig *v1alpha1.IsovalentBGPNodeConfig) error {
+func (m *BGPResourceMapper) deleteNodeConfig(ctx context.Context, nodeConfig *v1.IsovalentBGPNodeConfig) error {
 	if nodeConfig == nil {
 		return nil
 	}
 
-	err := m.clientSet.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{})
+	err := m.clientSet.IsovalentV1().IsovalentBGPNodeConfigs().Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{})
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
 	}
@@ -452,40 +452,40 @@ func (m *BGPResourceMapper) deleteNodeConfig(ctx context.Context, nodeConfig *v1
 	return nil
 }
 
-func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1alpha1.IsovalentBGPClusterConfig, override *v1alpha1.IsovalentBGPNodeConfigOverride) *v1alpha1.IsovalentBGPNodeConfig {
-	overrideInstances := []v1alpha1.IsovalentBGPNodeConfigInstanceOverride{}
+func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1.IsovalentBGPClusterConfig, override *v1.IsovalentBGPNodeConfigOverride) *v1.IsovalentBGPNodeConfig {
+	overrideInstances := []v1.IsovalentBGPNodeConfigInstanceOverride{}
 	if override != nil {
 		overrideInstances = override.Spec.BGPInstances
 	}
-	return &v1alpha1.IsovalentBGPNodeConfig{
+	return &v1.IsovalentBGPNodeConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: nodeName,
 			OwnerReferences: []meta_v1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentBGPClusterConfigKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPClusterConfigKindDefinition,
 					Name:       clusterConfig.GetName(),
 					UID:        clusterConfig.GetUID(),
 				},
 			},
 		},
-		Spec: v1alpha1.IsovalentBGPNodeSpec{
+		Spec: v1.IsovalentBGPNodeSpec{
 			BGPInstances: toNodeBGPInstance(clusterConfig.Spec.BGPInstances, overrideInstances),
 		},
 	}
 }
 
-func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, overrideBGPInstances []v1alpha1.IsovalentBGPNodeConfigInstanceOverride) []v1alpha1.IsovalentBGPNodeInstance {
-	var res []v1alpha1.IsovalentBGPNodeInstance
+func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBGPInstances []v1.IsovalentBGPNodeConfigInstanceOverride) []v1.IsovalentBGPNodeInstance {
+	var res []v1.IsovalentBGPNodeInstance
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
-		nodeBGPInstance := v1alpha1.IsovalentBGPNodeInstance{
+		nodeBGPInstance := v1.IsovalentBGPNodeInstance{
 			Name:     clusterBGPInstance.Name,
 			LocalASN: clusterBGPInstance.LocalASN,
 		}
 
 		// find BGPResourceManager global override for this instance
-		var override v1alpha1.IsovalentBGPNodeConfigInstanceOverride
+		var override v1.IsovalentBGPNodeConfigInstanceOverride
 		for _, overrideBGPInstance := range overrideBGPInstances {
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
 				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
@@ -497,7 +497,7 @@ func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, over
 		}
 
 		for _, bgpInstancePeer := range clusterBGPInstance.Peers {
-			nodePeer := v1alpha1.IsovalentBGPNodePeer{
+			nodePeer := v1.IsovalentBGPNodePeer{
 				Name:          bgpInstancePeer.Name,
 				PeerAddress:   bgpInstancePeer.PeerAddress,
 				PeerASN:       bgpInstancePeer.PeerASN,
@@ -518,7 +518,7 @@ func toNodeBGPInstance(clusterBGPInstances []v1alpha1.IsovalentBGPInstance, over
 		}
 
 		for _, bgpVRF := range clusterBGPInstance.VRFs {
-			nodeBGPInstance.VRFs = append(nodeBGPInstance.VRFs, v1alpha1.IsovalentBGPNodeVRF(bgpVRF))
+			nodeBGPInstance.VRFs = append(nodeBGPInstance.VRFs, v1.IsovalentBGPNodeVRF(bgpVRF))
 		}
 
 		res = append(res, nodeBGPInstance)

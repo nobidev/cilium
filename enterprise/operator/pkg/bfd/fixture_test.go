@@ -12,7 +12,6 @@ package bfd
 
 import (
 	"context"
-
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -25,9 +24,11 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	client_ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	client_isovalentv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	client_isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -43,8 +44,8 @@ type fixture struct {
 	fakeClientSet *k8sclient.FakeClientset
 
 	ciliumNodeClient            client_ciliumv2.CiliumNodeInterface
-	bgpClusterConfigClient      client_isovalentv1alpha1.IsovalentBGPClusterConfigInterface
-	bgpPeerConfigClient         client_isovalentv1alpha1.IsovalentBGPPeerConfigInterface
+	bgpClusterConfigClient      client_isovalentv1.IsovalentBGPClusterConfigInterface
+	bgpPeerConfigClient         client_isovalentv1.IsovalentBGPPeerConfigInterface
 	bfdNodeConfigClient         client_isovalentv1alpha1.IsovalentBFDNodeConfigInterface
 	bfdNodeConfigOverrideClient client_isovalentv1alpha1.IsovalentBFDNodeConfigOverrideInterface
 }
@@ -56,11 +57,11 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	}
 
 	var resourceWatch = map[string]*watchSync{
-		ciliumv2.CNPluralName: {watchCh: make(chan struct{})},
-		isovalentv1alpha1.IsovalentBGPClusterConfigPluralName:      {watchCh: make(chan struct{})},
-		isovalentv1alpha1.IsovalentBGPPeerConfigPluralName:         {watchCh: make(chan struct{})},
-		isovalentv1alpha1.IsovalentBFDNodeConfigPluralName:         {watchCh: make(chan struct{})},
-		isovalentv1alpha1.IsovalentBFDNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
+		ciliumv2.CNPluralName:                             {watchCh: make(chan struct{})},
+		v1.IsovalentBGPClusterConfigPluralName:            {watchCh: make(chan struct{})},
+		v1.IsovalentBGPPeerConfigPluralName:               {watchCh: make(chan struct{})},
+		v1alpha1.IsovalentBFDNodeConfigPluralName:         {watchCh: make(chan struct{})},
+		v1alpha1.IsovalentBFDNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
 	}
 
 	f := &fixture{}
@@ -100,8 +101,8 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 	}
 
 	f.ciliumNodeClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumNodes()
-	f.bgpClusterConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBGPClusterConfigs()
-	f.bgpPeerConfigClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPPeerConfigs()
+	f.bgpClusterConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPClusterConfigs()
+	f.bgpPeerConfigClient = f.fakeClientSet.IsovalentV1().IsovalentBGPPeerConfigs()
 	f.bfdNodeConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBFDNodeConfigs()
 	f.bfdNodeConfigOverrideClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBFDNodeConfigOverrides()
 

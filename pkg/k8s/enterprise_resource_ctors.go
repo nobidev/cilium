@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	isovalent_api_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -30,58 +31,58 @@ func IsovalentFQDNGroup(lc cell.Lifecycle, cs client.Clientset) (resource.Resour
 	return resource.New[*isovalent_api_v1alpha1.IsovalentFQDNGroup](lc, lw, resource.WithMetric("IsovalentFQDNGroup")), nil
 }
 
-func IsovalentBGPClusterConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPClusterConfig] {
+func IsovalentBGPClusterConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPClusterConfig] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil
 	}
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentBGPClusterConfig](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentBGPClusterConfigList](
-			c.IsovalentV1alpha1().IsovalentBGPClusterConfigs(),
+	return resource.New[*isovalent_api_v1.IsovalentBGPClusterConfig](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPClusterConfigList](
+			c.IsovalentV1().IsovalentBGPClusterConfigs(),
 		), resource.WithMetric("IsovalentBGPClusterConfig"))
 }
 
-func IsovalentBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPPeerConfig] {
+func IsovalentBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPPeerConfig] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil
 	}
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentBGPPeerConfig](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentBGPPeerConfigList](
-			c.IsovalentV1alpha1().IsovalentBGPPeerConfigs(),
+	return resource.New[*isovalent_api_v1.IsovalentBGPPeerConfig](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPPeerConfigList](
+			c.IsovalentV1().IsovalentBGPPeerConfigs(),
 		), resource.WithMetric("IsovalentBGPPeerConfig"))
 }
 
-func IsovalentBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPAdvertisement] {
+func IsovalentBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPAdvertisement] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil
 	}
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentBGPAdvertisement](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentBGPAdvertisementList](
-			c.IsovalentV1alpha1().IsovalentBGPAdvertisements(),
+	return resource.New[*isovalent_api_v1.IsovalentBGPAdvertisement](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPAdvertisementList](
+			c.IsovalentV1().IsovalentBGPAdvertisements(),
 		), resource.WithMetric("IsovalentBGPAdvertisement"))
 }
 
-func IsovalentBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPNodeConfig] {
+func IsovalentBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPNodeConfig] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil
 	}
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentBGPNodeConfig](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentBGPNodeConfigList](
-			c.IsovalentV1alpha1().IsovalentBGPNodeConfigs(),
+	return resource.New[*isovalent_api_v1.IsovalentBGPNodeConfig](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPNodeConfigList](
+			c.IsovalentV1().IsovalentBGPNodeConfigs(),
 		), resource.WithMetric("IsovalentBGPNodeConfig"))
 }
 
-func IsovalentBGPNodeConfigOverrideResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPNodeConfigOverride] {
+func IsovalentBGPNodeConfigOverrideResource(lc cell.Lifecycle, c client.Clientset, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPNodeConfigOverride] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil
 	}
 
-	return resource.New[*isovalent_api_v1alpha1.IsovalentBGPNodeConfigOverride](
-		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentBGPNodeConfigOverrideList](
-			c.IsovalentV1alpha1().IsovalentBGPNodeConfigOverrides(),
+	return resource.New[*isovalent_api_v1.IsovalentBGPNodeConfigOverride](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPNodeConfigOverrideList](
+			c.IsovalentV1().IsovalentBGPNodeConfigOverrides(),
 		), resource.WithMetric("IsovalentBGPNodeConfigOverride"))
 }
 

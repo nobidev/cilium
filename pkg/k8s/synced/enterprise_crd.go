@@ -11,7 +11,7 @@
 package synced
 
 import (
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/option"
 )

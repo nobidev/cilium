@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -43,10 +44,10 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		newSecretResource,
 		k8s.IsovalentBFDProfileResource,
-		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPClusterConfig],
-		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
-		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPAdvertisement],
-		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPNodeConfigOverride],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPClusterConfig],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPPeerConfig],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPAdvertisement],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPNodeConfigOverride],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentVRF],
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig],
 		store.NewBGPCPResourceStore[*cilium_v2.CiliumNode],

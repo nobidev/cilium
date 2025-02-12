@@ -22,13 +22,14 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
-	isoClusterConfig = &v1alpha1.IsovalentBGPClusterConfig{
+	isoClusterConfig = &v1.IsovalentBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "test-bgp-cluster-config",
 			Labels: map[string]string{
@@ -36,22 +37,22 @@ var (
 			},
 			ResourceVersion: "1234",
 		},
-		Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+		Spec: v1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
 				MatchLabels: map[string]slimv1.MatchLabelsValue{
 					"bgp": "rack1",
 				},
 			},
-			BGPInstances: []v1alpha1.IsovalentBGPInstance{
+			BGPInstances: []v1.IsovalentBGPInstance{
 				{
 					Name:     "instance-1",
 					LocalASN: ptr.To[int64](65001),
-					Peers: []v1alpha1.IsovalentBGPPeer{
+					Peers: []v1.IsovalentBGPPeer{
 						{
 							Name:        "peer-1",
 							PeerAddress: ptr.To[string]("192.168.10.10"),
 							PeerASN:     ptr.To[int64](65002),
-							PeerConfigRef: &v1alpha1.PeerConfigReference{
+							PeerConfigRef: &v1.PeerConfigReference{
 								Name: "peer-config-1",
 							},
 						},
@@ -59,7 +60,7 @@ var (
 							Name:        "peer-2",
 							PeerAddress: ptr.To[string]("192.168.10.20"),
 							PeerASN:     ptr.To[int64](65002),
-							PeerConfigRef: &v1alpha1.PeerConfigReference{
+							PeerConfigRef: &v1.PeerConfigReference{
 								Name: "peer-config-2",
 							},
 						},
@@ -73,15 +74,15 @@ var (
 			},
 		},
 	}
-	isoNodeConfigSpec = v1alpha1.IsovalentBGPNodeInstance{
+	isoNodeConfigSpec = v1.IsovalentBGPNodeInstance{
 		Name:     "instance-1",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []v1alpha1.IsovalentBGPNodePeer{
+		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				Name:        "peer-1",
 				PeerAddress: ptr.To[string]("192.168.10.10"),
 				PeerASN:     ptr.To[int64](65002),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: "peer-config-1",
 				},
 			},
@@ -89,7 +90,7 @@ var (
 				Name:        "peer-2",
 				PeerAddress: ptr.To[string]("192.168.10.20"),
 				PeerASN:     ptr.To[int64](65002),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: "peer-config-2",
 				},
 			},
@@ -100,7 +101,7 @@ var (
 			},
 		},
 	}
-	isoNodeConfigSpecWithResponder = func() v1alpha1.IsovalentBGPNodeInstance {
+	isoNodeConfigSpecWithResponder = func() v1.IsovalentBGPNodeInstance {
 		cpy := isoNodeConfigSpec.DeepCopy()
 		cpy.SRv6Responder = ptr.To[bool](true)
 		return *cpy
@@ -152,8 +153,7 @@ var (
 	}
 	ossPeerConfigSpec = v2alpha1.CiliumBGPPeerConfigSpec{
 		Transport: &v2alpha1.CiliumBGPTransport{
-			LocalPort: ptr.To[int32](179),
-			PeerPort:  ptr.To[int32](179),
+			PeerPort: ptr.To[int32](179),
 		},
 		Timers: &v2alpha1.CiliumBGPTimers{
 			ConnectRetryTimeSeconds: ptr.To[int32](12),
@@ -179,7 +179,7 @@ var (
 			},
 		},
 	}
-	isoPeerConfig = &v1alpha1.IsovalentBGPPeerConfig{
+	isoPeerConfig = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "peer-config-1",
 			Labels: map[string]string{
@@ -187,8 +187,14 @@ var (
 			},
 			ResourceVersion: "2345",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ossPeerConfigSpec,
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Transport: &v1.IsovalentBGPTransport{
+				PeerPort: ossPeerConfigSpec.Transport.PeerPort,
+			},
+			Timers:          ossPeerConfigSpec.Timers,
+			AuthSecretRef:   ossPeerConfigSpec.AuthSecretRef,
+			GracefulRestart: ossPeerConfigSpec.GracefulRestart,
+			Families:        ossPeerConfigSpec.Families,
 		},
 	}
 	ossPeerConfig = &v2alpha1.CiliumBGPPeerConfig{
@@ -200,7 +206,7 @@ var (
 		},
 		Spec: ossPeerConfigSpec,
 	}
-	isoAdvertPodCIDR = &v1alpha1.IsovalentBGPAdvertisement{
+	isoAdvertPodCIDR = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-pod-cidr",
 			Labels: map[string]string{
@@ -208,8 +214,8 @@ var (
 			},
 			ResourceVersion: "3456",
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
 					AdvertisementType: "PodCIDR",
 					Attributes: &v2alpha1.BGPAttributes{
@@ -243,7 +249,7 @@ var (
 			},
 		},
 	}
-	isoAdvertIPPool = &v1alpha1.IsovalentBGPAdvertisement{
+	isoAdvertIPPool = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-ip-pool",
 			Labels: map[string]string{
@@ -251,8 +257,8 @@ var (
 			},
 			ResourceVersion: "4567",
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
 					AdvertisementType: "CiliumPodIPPool",
 					Selector: &slimv1.LabelSelector{
@@ -290,7 +296,7 @@ var (
 			},
 		},
 	}
-	isoAdvertService = &v1alpha1.IsovalentBGPAdvertisement{
+	isoAdvertService = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-service",
 			Labels: map[string]string{
@@ -298,11 +304,11 @@ var (
 			},
 			ResourceVersion: "5678",
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
 					AdvertisementType: "Service",
-					Service: &v1alpha1.BGPServiceOptions{
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{
 							v2alpha1.BGPLoadBalancerIPAddr,
 							v2alpha1.BGPClusterIPAddr,
@@ -356,10 +362,10 @@ var (
 func Test_Mapping(t *testing.T) {
 	tests := []struct {
 		description              string
-		isoClusterConfig         *v1alpha1.IsovalentBGPClusterConfig
-		isoPeerConfig            *v1alpha1.IsovalentBGPPeerConfig
-		isoAdvert                *v1alpha1.IsovalentBGPAdvertisement
-		isoNodeConfigOR          *v1alpha1.IsovalentBGPNodeConfigOverride
+		isoClusterConfig         *v1.IsovalentBGPClusterConfig
+		isoPeerConfig            *v1.IsovalentBGPPeerConfig
+		isoAdvert                *v1.IsovalentBGPAdvertisement
+		isoNodeConfigOR          *v1.IsovalentBGPNodeConfigOverride
 		expectedOSSClusterConfig *v2alpha1.CiliumBGPClusterConfig
 		expectedOSSPeerConfig    *v2alpha1.CiliumBGPPeerConfig
 		expectedOSSAdvert        *v2alpha1.CiliumBGPAdvertisement
@@ -509,7 +515,7 @@ func Test_Mapping(t *testing.T) {
 	}
 }
 
-func upsertIsoBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc *v1alpha1.IsovalentBGPClusterConfig) {
+func upsertIsoBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc *v1.IsovalentBGPClusterConfig) {
 	if bgpcc == nil {
 		return
 	}
@@ -525,7 +531,7 @@ func upsertIsoBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bg
 	req.NoError(err)
 }
 
-func upsertIsoBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *v1alpha1.IsovalentBGPPeerConfig) {
+func upsertIsoBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *v1.IsovalentBGPPeerConfig) {
 	if bgppc == nil {
 		return
 	}
@@ -541,7 +547,7 @@ func upsertIsoBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bg
 	req.NoError(err)
 }
 
-func upsertIsoBGPAdvert(req *require.Assertions, ctx context.Context, f *fixture, bgpAdvert *v1alpha1.IsovalentBGPAdvertisement) {
+func upsertIsoBGPAdvert(req *require.Assertions, ctx context.Context, f *fixture, bgpAdvert *v1.IsovalentBGPAdvertisement) {
 	if bgpAdvert == nil {
 		return
 	}
@@ -557,7 +563,7 @@ func upsertIsoBGPAdvert(req *require.Assertions, ctx context.Context, f *fixture
 	req.NoError(err)
 }
 
-func upsertIsoBGPNodeConfigOR(req *require.Assertions, ctx context.Context, f *fixture, bgpNodeConfigOR *v1alpha1.IsovalentBGPNodeConfigOverride) {
+func upsertIsoBGPNodeConfigOR(req *require.Assertions, ctx context.Context, f *fixture, bgpNodeConfigOR *v1.IsovalentBGPNodeConfigOverride) {
 	if bgpNodeConfigOR == nil {
 		return
 	}

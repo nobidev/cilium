@@ -25,7 +25,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -61,7 +62,7 @@ func (r *bfdReconciler) reconcileBGPClusterConfigs(ctx context.Context) error {
 }
 
 // reconcileBGPClusterConfig reconciles BFD configuration based on the provided IsovalentBGPClusterConfig resource.
-func (r *bfdReconciler) reconcileBGPClusterConfig(ctx context.Context, bgpCC *isovalentv1alpha1.IsovalentBGPClusterConfig) error {
+func (r *bfdReconciler) reconcileBGPClusterConfig(ctx context.Context, bgpCC *v1.IsovalentBGPClusterConfig) error {
 	// get all desired BFD peers configured in the BGPClusterConfig
 	bfdPeers, err := r.getDesiredBFDPeers(bgpCC)
 	if err != nil {
@@ -92,7 +93,7 @@ func (r *bfdReconciler) reconcileBGPClusterConfig(ctx context.Context, bgpCC *is
 }
 
 // getDesiredBFDPeers returns a list of desired BFD peers configured in the provided IsovalentBGPClusterConfig.
-func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *isovalentv1alpha1.IsovalentBGPClusterConfig) ([]*bfdPeerConfig, error) {
+func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *v1.IsovalentBGPClusterConfig) ([]*bfdPeerConfig, error) {
 	peersMap := make(map[string]*bfdPeerConfig)
 
 	for _, instance := range bgpCC.Spec.BGPInstances {
@@ -158,9 +159,9 @@ func (r *bfdReconciler) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSelecto
 }
 
 // reconcileBFDNodeConfig reconciles node config for the given IsovalentBGPClusterConfig and node.
-func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *isovalentv1alpha1.IsovalentBGPClusterConfig, node *ciliumv2.CiliumNode, peers []*bfdPeerConfig) error {
+func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *v1.IsovalentBGPClusterConfig, node *ciliumv2.CiliumNode, peers []*bfdPeerConfig) error {
 	// find node override config for the given node
-	overrideConfig := make(map[string]*isovalentv1alpha1.BFDNodeConfigOverridePeer)
+	overrideConfig := make(map[string]*v1alpha1.BFDNodeConfigOverridePeer)
 	override, overrideExists, err := r.bfdNodeConfigOverrideStore.GetByKey(resource.Key{Name: node.Name})
 	if err != nil {
 		return err
@@ -174,24 +175,24 @@ func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *isova
 	}
 
 	// construct desired node config
-	desired := &isovalentv1alpha1.IsovalentBFDNodeConfig{
+	desired := &v1alpha1.IsovalentBFDNodeConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: getNodeConfigName(bgpCC.Name, node.Name),
 			OwnerReferences: []meta_v1.OwnerReference{
 				{
-					APIVersion: isovalentv1alpha1.SchemeGroupVersion.String(),
-					Kind:       isovalentv1alpha1.IsovalentBGPClusterConfigKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPClusterConfigKindDefinition,
 					Name:       bgpCC.GetName(),
 					UID:        bgpCC.GetUID(),
 				},
 			},
 		},
-		Spec: isovalentv1alpha1.BFDNodeConfigSpec{
+		Spec: v1alpha1.BFDNodeConfigSpec{
 			NodeRef: node.Name,
 		},
 	}
 	for _, peer := range peers {
-		peerConfig := &isovalentv1alpha1.BFDNodePeerConfig{
+		peerConfig := &v1alpha1.BFDNodePeerConfig{
 			Name:          peer.name,
 			PeerAddress:   peer.peerAddress,
 			Interface:     peer.interfaceName,

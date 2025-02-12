@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -52,7 +52,7 @@ func (m *BGPResourceMapper) mapClusterConfigs(ctx context.Context) error {
 	return err
 }
 
-func (m *BGPResourceMapper) mapClusterConfig(ctx context.Context, entClusterConfig *v1alpha1.IsovalentBGPClusterConfig) error {
+func (m *BGPResourceMapper) mapClusterConfig(ctx context.Context, entClusterConfig *v1.IsovalentBGPClusterConfig) error {
 	expectedOSSClusterConfig := createOSSClusterConfig(entClusterConfig)
 	runningOSSClusterConfig, exists, err := m.ossClusterConfigStore.GetByKey(resource.Key{
 		Name:      entClusterConfig.GetName(),
@@ -108,7 +108,7 @@ func (m *BGPResourceMapper) mapPeerConfigs(ctx context.Context) error {
 	return err
 }
 
-func (m *BGPResourceMapper) mapPeerConfig(ctx context.Context, entPeerConfig *v1alpha1.IsovalentBGPPeerConfig) error {
+func (m *BGPResourceMapper) mapPeerConfig(ctx context.Context, entPeerConfig *v1.IsovalentBGPPeerConfig) error {
 	expectedOSSPeerConfig := createOSSPeerConfig(entPeerConfig)
 	runningOSSPeerConfig, exists, err := m.ossPeerConfigStore.GetByKey(resource.Key{
 		Name:      entPeerConfig.GetName(),
@@ -164,7 +164,7 @@ func (m *BGPResourceMapper) mapAdvertisements(ctx context.Context) error {
 	return err
 }
 
-func (m *BGPResourceMapper) mapAdvertisement(ctx context.Context, entAdvertisement *v1alpha1.IsovalentBGPAdvertisement) error {
+func (m *BGPResourceMapper) mapAdvertisement(ctx context.Context, entAdvertisement *v1.IsovalentBGPAdvertisement) error {
 	expectedOSSAdvertisement := createOSSAdvertisement(entAdvertisement)
 	runningOSSAdvertisement, exists, err := m.ossAdvertStore.GetByKey(resource.Key{
 		Name:      entAdvertisement.GetName(),
@@ -220,7 +220,7 @@ func (m *BGPResourceMapper) mapNodeConfigOverrides(ctx context.Context) error {
 	return err
 }
 
-func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeConfigOverride *v1alpha1.IsovalentBGPNodeConfigOverride) error {
+func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeConfigOverride *v1.IsovalentBGPNodeConfigOverride) error {
 	expectedOSSNodeConfigOverride := createOSSNodeConfigOverride(entNodeConfigOverride)
 	runningOSSNodeConfigOverride, exists, err := m.ossNodeConfigOverrideStore.GetByKey(resource.Key{
 		Name:      entNodeConfigOverride.GetName(),
@@ -264,7 +264,7 @@ func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeCo
 	return nil
 }
 
-func createOSSClusterConfig(entClusterConfig *v1alpha1.IsovalentBGPClusterConfig) *v2alpha1.CiliumBGPClusterConfig {
+func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2alpha1.CiliumBGPClusterConfig {
 	newOSSClusterConfig := &v2alpha1.CiliumBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entClusterConfig.GetName(),
@@ -273,8 +273,8 @@ func createOSSClusterConfig(entClusterConfig *v1alpha1.IsovalentBGPClusterConfig
 			Annotations: map[string]string{ownerVersionAnnotation: entClusterConfig.ResourceVersion},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentBGPClusterConfigKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPClusterConfigKindDefinition,
 					Name:       entClusterConfig.GetName(),
 					UID:        entClusterConfig.GetUID(),
 				},
@@ -311,7 +311,7 @@ func createOSSClusterConfig(entClusterConfig *v1alpha1.IsovalentBGPClusterConfig
 	return newOSSClusterConfig
 }
 
-func createOSSPeerConfig(entPeerConfig *v1alpha1.IsovalentBGPPeerConfig) *v2alpha1.CiliumBGPPeerConfig {
+func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2alpha1.CiliumBGPPeerConfig {
 	newOSSPeerConfig := &v2alpha1.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entPeerConfig.GetName(),
@@ -320,20 +320,31 @@ func createOSSPeerConfig(entPeerConfig *v1alpha1.IsovalentBGPPeerConfig) *v2alph
 			Annotations: map[string]string{ownerVersionAnnotation: entPeerConfig.ResourceVersion},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentBGPPeerConfigKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPPeerConfigKindDefinition,
 					Name:       entPeerConfig.GetName(),
 					UID:        entPeerConfig.GetUID(),
 				},
 			},
 		},
-		Spec: entPeerConfig.Spec.CiliumBGPPeerConfigSpec,
+		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
+			Timers:          entPeerConfig.Spec.Timers,
+			AuthSecretRef:   entPeerConfig.Spec.AuthSecretRef,
+			GracefulRestart: entPeerConfig.Spec.GracefulRestart,
+			EBGPMultihop:    entPeerConfig.Spec.EBGPMultihop,
+			Families:        entPeerConfig.Spec.Families,
+		},
+	}
+	if entPeerConfig.Spec.Transport != nil {
+		newOSSPeerConfig.Spec.Transport = &v2alpha1.CiliumBGPTransport{
+			PeerPort: entPeerConfig.Spec.Transport.PeerPort,
+		}
 	}
 
 	return newOSSPeerConfig
 }
 
-func createOSSAdvertisement(entAdvertisement *v1alpha1.IsovalentBGPAdvertisement) *v2alpha1.CiliumBGPAdvertisement {
+func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2alpha1.CiliumBGPAdvertisement {
 	newOSSAdvertisement := &v2alpha1.CiliumBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entAdvertisement.GetName(),
@@ -342,8 +353,8 @@ func createOSSAdvertisement(entAdvertisement *v1alpha1.IsovalentBGPAdvertisement
 			Annotations: map[string]string{ownerVersionAnnotation: entAdvertisement.ResourceVersion},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentBGPAdvertisementKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPAdvertisementKindDefinition,
 					Name:       entAdvertisement.GetName(),
 					UID:        entAdvertisement.GetUID(),
 				},
@@ -373,7 +384,7 @@ func createOSSAdvertisement(entAdvertisement *v1alpha1.IsovalentBGPAdvertisement
 	return newOSSAdvertisement
 }
 
-func ossServiceOptionFromEnt(advert *v1alpha1.BGPServiceOptions) *v2alpha1.BGPServiceOptions {
+func ossServiceOptionFromEnt(advert *v1.BGPServiceOptions) *v2alpha1.BGPServiceOptions {
 	if advert == nil {
 		return nil
 	}
@@ -383,19 +394,19 @@ func ossServiceOptionFromEnt(advert *v1alpha1.BGPServiceOptions) *v2alpha1.BGPSe
 	}
 }
 
-func ossAdvertTypeFromEnt(advert v1alpha1.IsovalentBGPAdvertType) v2alpha1.BGPAdvertisementType {
+func ossAdvertTypeFromEnt(advert v1.IsovalentBGPAdvertType) v2alpha1.BGPAdvertisementType {
 	switch advert {
-	case v1alpha1.BGPPodCIDRAdvert:
+	case v1.BGPPodCIDRAdvert:
 		return v2alpha1.BGPPodCIDRAdvert
-	case v1alpha1.BGPServiceAdvert:
+	case v1.BGPServiceAdvert:
 		return v2alpha1.BGPServiceAdvert
-	case v1alpha1.BGPCiliumPodIPPoolAdvert:
+	case v1.BGPCiliumPodIPPoolAdvert:
 		return v2alpha1.BGPCiliumPodIPPoolAdvert
 	}
 	return "unknown"
 }
 
-func createOSSNodeConfigOverride(entNodeConfigOverride *v1alpha1.IsovalentBGPNodeConfigOverride) *v2alpha1.CiliumBGPNodeConfigOverride {
+func createOSSNodeConfigOverride(entNodeConfigOverride *v1.IsovalentBGPNodeConfigOverride) *v2alpha1.CiliumBGPNodeConfigOverride {
 	newOSSNodeConfigOverride := &v2alpha1.CiliumBGPNodeConfigOverride{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entNodeConfigOverride.GetName(),
@@ -404,8 +415,8 @@ func createOSSNodeConfigOverride(entNodeConfigOverride *v1alpha1.IsovalentBGPNod
 			Annotations: map[string]string{ownerVersionAnnotation: entNodeConfigOverride.ResourceVersion},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Kind:       v1alpha1.IsovalentBGPNodeConfigOverrideKindDefinition,
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       v1.IsovalentBGPNodeConfigOverrideKindDefinition,
 					Name:       entNodeConfigOverride.GetName(),
 					UID:        entNodeConfigOverride.GetUID(),
 				},

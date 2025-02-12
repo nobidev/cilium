@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/time"
@@ -36,10 +37,10 @@ import (
 func Test_ClusterConfigSteps(t *testing.T) {
 	steps := []struct {
 		name                   string
-		clusterConfig          *v1alpha1.IsovalentBGPClusterConfig
-		nodeConfigOverride     *v1alpha1.IsovalentBGPNodeConfigOverride
+		clusterConfig          *v1.IsovalentBGPClusterConfig
+		nodeConfigOverride     *v1.IsovalentBGPNodeConfigOverride
 		nodes                  []*cilium_v2.CiliumNode
-		expectedNodeConfigs    []*v1alpha1.IsovalentBGPNodeConfig
+		expectedNodeConfigs    []*v1.IsovalentBGPNodeConfig
 		expectedTrueConditions []string
 	}{
 		{
@@ -68,21 +69,21 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		{
 			name:          "initial cluster configuration",
 			clusterConfig: isoClusterConfig,
-			expectedNodeConfigs: []*v1alpha1.IsovalentBGPNodeConfig{
+			expectedNodeConfigs: []*v1.IsovalentBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-2",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 			},
@@ -100,29 +101,29 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					},
 				},
 			},
-			expectedNodeConfigs: []*v1alpha1.IsovalentBGPNodeConfig{
+			expectedNodeConfigs: []*v1.IsovalentBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-2",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-3",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 			},
@@ -130,12 +131,12 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		{
 			name:          "add node config override",
 			clusterConfig: isoClusterConfig,
-			nodeConfigOverride: &v1alpha1.IsovalentBGPNodeConfigOverride{
+			nodeConfigOverride: &v1.IsovalentBGPNodeConfigOverride{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-3",
 				},
-				Spec: v1alpha1.IsovalentBGPNodeConfigOverrideSpec{
-					BGPInstances: []v1alpha1.IsovalentBGPNodeConfigInstanceOverride{
+				Spec: v1.IsovalentBGPNodeConfigOverrideSpec{
+					BGPInstances: []v1.IsovalentBGPNodeConfigInstanceOverride{
 						{
 							Name:          "instance-1",
 							SRv6Responder: ptr.To[bool](true),
@@ -144,29 +145,29 @@ func Test_ClusterConfigSteps(t *testing.T) {
 				},
 			},
 			nodes: []*cilium_v2.CiliumNode{},
-			expectedNodeConfigs: []*v1alpha1.IsovalentBGPNodeConfig{
+			expectedNodeConfigs: []*v1.IsovalentBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-2",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpec},
 					},
 				},
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-3",
 					},
-					Spec: v1alpha1.IsovalentBGPNodeSpec{
-						BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{isoNodeConfigSpecWithResponder()},
+					Spec: v1.IsovalentBGPNodeSpec{
+						BGPInstances: []v1.IsovalentBGPNodeInstance{isoNodeConfigSpecWithResponder()},
 					},
 				},
 			},
@@ -193,7 +194,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			},
 			expectedNodeConfigs: nil,
 			expectedTrueConditions: []string{
-				v1alpha1.BGPClusterConfigConditionNoMatchingNode,
+				v1.BGPClusterConfigConditionNoMatchingNode,
 			},
 		},
 	}
@@ -282,7 +283,7 @@ func TestClusterConfigConditions(t *testing.T) {
 		},
 	}
 
-	peerConfig := v1alpha1.IsovalentBGPPeerConfig{
+	peerConfig := v1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: peerConfigName,
 		},
@@ -302,16 +303,16 @@ func TestClusterConfigConditions(t *testing.T) {
 
 	tests := []struct {
 		name                    string
-		clusterConfig           *v1alpha1.IsovalentBGPClusterConfig
+		clusterConfig           *v1.IsovalentBGPClusterConfig
 		expectedConditionStatus map[string]meta_v1.ConditionStatus
 	}{
 		{
 			name: "NoMatchingNode False",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack1",
@@ -320,30 +321,30 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "NoMatchingNode False Nil Selector",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: nil,
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "NoMatchingNode True",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack2",
@@ -352,23 +353,23 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
+				v1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
 			},
 		},
 		{
 			name: "MissingPeerConfig False",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							Peers: []v1alpha1.IsovalentBGPPeer{
+							Peers: []v1.IsovalentBGPPeer{
 								{
 									Name: "peer0",
-									PeerConfigRef: &v1alpha1.PeerConfigReference{
+									PeerConfigRef: &v1.PeerConfigReference{
 										Name: peerConfigName,
 									},
 								},
@@ -378,20 +379,20 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingPeerConfig False nil PeerConfigRef",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							Peers: []v1alpha1.IsovalentBGPPeer{
+							Peers: []v1.IsovalentBGPPeer{
 								{
 									Name: "peer0",
 								},
@@ -401,23 +402,23 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingPeerConfig True",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							Peers: []v1alpha1.IsovalentBGPPeer{
+							Peers: []v1.IsovalentBGPPeer{
 								{
 									Name: "peer0",
-									PeerConfigRef: &v1alpha1.PeerConfigReference{
+									PeerConfigRef: &v1.PeerConfigReference{
 										Name: peerConfigName + "-foo",
 									},
 								},
@@ -427,19 +428,19 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+				v1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
 			},
 		},
 		{
 			name: "MissingVRF and MissingVRFConfig False",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							VRFs: []v1alpha1.BGPVRF{
+							VRFs: []v1.BGPVRF{
 								{
 									VRFRef:    vrfName,
 									ConfigRef: ptr.To[string](bgpVrfConfigName),
@@ -450,20 +451,20 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionFalse,
-				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingVRF True, MissingVRFConfig False",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							VRFs: []v1alpha1.BGPVRF{
+							VRFs: []v1.BGPVRF{
 								{
 									VRFRef:    "foo",
 									ConfigRef: ptr.To[string](bgpVrfConfigName),
@@ -474,20 +475,20 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
-				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
+				v1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
+				v1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingVRF True, MissingVRFConfig True",
-			clusterConfig: &v1alpha1.IsovalentBGPClusterConfig{
+			clusterConfig: &v1.IsovalentBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
-					BGPInstances: []v1alpha1.IsovalentBGPInstance{
+				Spec: v1.IsovalentBGPClusterConfigSpec{
+					BGPInstances: []v1.IsovalentBGPInstance{
 						{
-							VRFs: []v1alpha1.BGPVRF{
+							VRFs: []v1.BGPVRF{
 								{
 									VRFRef:    "foo",
 									ConfigRef: ptr.To[string]("bar"),
@@ -498,8 +499,8 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				v1alpha1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
-				v1alpha1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionTrue,
+				v1.BGPClusterConfigConditionMissingVRFs:       meta_v1.ConditionTrue,
+				v1.BGPClusterConfigConditionMissingVRFConfigs: meta_v1.ConditionTrue,
 			},
 		},
 	}
@@ -754,17 +755,17 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			}
 
 			for _, config := range tt.clusterConfigs {
-				clusterConfig := &v1alpha1.IsovalentBGPClusterConfig{
+				clusterConfig := &v1.IsovalentBGPClusterConfig{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: config.name,
 						// Fake client doesn't set UID. Assign it manually.
 						UID: uuid.NewUUID(),
 					},
-					Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+					Spec: v1.IsovalentBGPClusterConfigSpec{
 						NodeSelector: config.selector,
-						BGPInstances: []v1alpha1.IsovalentBGPInstance{
+						BGPInstances: []v1.IsovalentBGPInstance{
 							{
-								Peers: []v1alpha1.IsovalentBGPPeer{},
+								Peers: []v1.IsovalentBGPPeer{},
 							},
 						},
 					},
@@ -781,7 +782,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 
 					cond := meta.FindStatusCondition(
 						cc.Status.Conditions,
-						v1alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
+						v1.BGPClusterConfigConditionConflictingClusterConfigs,
 					)
 					if !assert.NotNil(ct, cond, "Condition not found") {
 						return
@@ -843,18 +844,18 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 
 	ready()
 
-	clusterConfig := &v1alpha1.IsovalentBGPClusterConfig{
+	clusterConfig := &v1.IsovalentBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "config0",
 		},
-		Spec: v1alpha1.IsovalentBGPClusterConfigSpec{},
-		Status: v1alpha1.IsovalentBGPClusterConfigStatus{
+		Spec: v1.IsovalentBGPClusterConfigSpec{},
+		Status: v1.IsovalentBGPClusterConfigStatus{
 			Conditions: []meta_v1.Condition{},
 		},
 	}
 
 	// Fill with all known conditions
-	for _, cond := range v1alpha1.AllBGPClusterConfigConditions {
+	for _, cond := range v1.AllBGPClusterConfigConditions {
 		clusterConfig.Status.Conditions = append(clusterConfig.Status.Conditions, meta_v1.Condition{
 			Type: cond,
 		})

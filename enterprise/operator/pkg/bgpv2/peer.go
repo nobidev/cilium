@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -40,8 +41,8 @@ type peerConfigStatusReconciler struct {
 	secretResource     resource.Resource[*slim_core_v1.Secret]
 	bfdProfileStore    resource.Store[*v1alpha1.IsovalentBFDProfile]
 	bfdProfileResource resource.Resource[*v1alpha1.IsovalentBFDProfile]
-	peerConfigStore    resource.Store[*v1alpha1.IsovalentBGPPeerConfig]
-	peerConfigResource resource.Resource[*v1alpha1.IsovalentBGPPeerConfig]
+	peerConfigStore    resource.Store[*v1.IsovalentBGPPeerConfig]
+	peerConfigResource resource.Resource[*v1.IsovalentBGPPeerConfig]
 }
 
 type peerConfigStatusReconcilerIn struct {
@@ -54,7 +55,7 @@ type peerConfigStatusReconcilerIn struct {
 
 	SecretResource     resource.Resource[*slim_core_v1.Secret]
 	BFDProfileResource resource.Resource[*v1alpha1.IsovalentBFDProfile]
-	PeerConfigResource resource.Resource[*v1alpha1.IsovalentBGPPeerConfig]
+	PeerConfigResource resource.Resource[*v1.IsovalentBGPPeerConfig]
 }
 
 func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
@@ -200,14 +201,14 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 			}
 
 			updateStatus := false
-			for _, cond := range v1alpha1.AllBGPPeerConfigConditions {
+			for _, cond := range v1.AllBGPPeerConfigConditions {
 				if removed := meta.RemoveStatusCondition(&pc.Status.Conditions, cond); removed {
 					updateStatus = true
 				}
 			}
 
 			if updateStatus {
-				if _, err := u.cs.IsovalentV1alpha1().IsovalentBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
+				if _, err := u.cs.IsovalentV1().IsovalentBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
 					// Failed to update status. Skip and retry.
 					continue
 				} else {
@@ -231,7 +232,7 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 	return err
 }
 
-func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, config *v1alpha1.IsovalentBGPPeerConfig) error {
+func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, config *v1.IsovalentBGPPeerConfig) error {
 	updateStatus := false
 
 	authSecretMissing := u.authSecretMissing(config)
@@ -249,7 +250,7 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	})
 
 	if updateStatus {
-		if _, err := u.cs.IsovalentV1alpha1().IsovalentBGPPeerConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{}); err != nil {
+		if _, err := u.cs.IsovalentV1().IsovalentBGPPeerConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -257,7 +258,7 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	return nil
 }
 
-func (u *peerConfigStatusReconciler) authSecretMissing(c *v1alpha1.IsovalentBGPPeerConfig) bool {
+func (u *peerConfigStatusReconciler) authSecretMissing(c *v1.IsovalentBGPPeerConfig) bool {
 	if c.Spec.AuthSecretRef == nil {
 		return false
 	}
@@ -267,9 +268,9 @@ func (u *peerConfigStatusReconciler) authSecretMissing(c *v1alpha1.IsovalentBGPP
 	return false
 }
 
-func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v1alpha1.IsovalentBGPPeerConfig, missing bool) bool {
+func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v1.IsovalentBGPPeerConfig, missing bool) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPPeerConfigConditionMissingAuthSecret,
+		Type:               v1.BGPPeerConfigConditionMissingAuthSecret,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
@@ -282,7 +283,7 @@ func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v1
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func (u *peerConfigStatusReconciler) bfdProfileMissing(c *v1alpha1.IsovalentBGPPeerConfig) bool {
+func (u *peerConfigStatusReconciler) bfdProfileMissing(c *v1.IsovalentBGPPeerConfig) bool {
 	if u.bfdProfileStore == nil {
 		// If BFD is disabled, always false.
 		return false
@@ -296,9 +297,9 @@ func (u *peerConfigStatusReconciler) bfdProfileMissing(c *v1alpha1.IsovalentBGPP
 	return false
 }
 
-func (u *peerConfigStatusReconciler) updateMissingBFDProfileCondition(config *v1alpha1.IsovalentBGPPeerConfig, missing bool) bool {
+func (u *peerConfigStatusReconciler) updateMissingBFDProfileCondition(config *v1.IsovalentBGPPeerConfig, missing bool) bool {
 	cond := meta_v1.Condition{
-		Type:               v1alpha1.BGPPeerConfigConditionMissingBFDProfile,
+		Type:               v1.BGPPeerConfigConditionMissingBFDProfile,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
