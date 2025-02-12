@@ -28,6 +28,7 @@ func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, 
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihop(pc.EBGPMultihop)
+	neighbor.RouteReflector = toRouteReflector(np.RouteReflector)
 	neighbor.Timers = toNeighborTimers(pc.Timers)
 	neighbor.Transport = toNeighborTransport(np.LocalAddress, pc.Transport)
 	neighbor.GracefulRestart = toNeighborGracefulRestart(pc.GracefulRestart)
@@ -50,6 +51,16 @@ func toNeighborEbgpMultihop(ebgpMultihop *int32) *types.NeighborEbgpMultihop {
 	}
 	return &types.NeighborEbgpMultihop{
 		TTL: uint32(*ebgpMultihop),
+	}
+}
+
+func toRouteReflector(routeReflector *v1.NodeRouteReflector) *types.NeighborRouteReflector {
+	if routeReflector == nil || routeReflector.Role != v1.RouteReflectorRoleClient {
+		return nil
+	}
+	return &types.NeighborRouteReflector{
+		Client:    true,
+		ClusterID: routeReflector.ClusterID,
 	}
 }
 
