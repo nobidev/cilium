@@ -14,4 +14,3 @@ spec:
     bpf-lb-dsr-dispatch: ipip
     bpf-lb-only: "true"
     enable-ipip-termination: "false"
-    enable-envoy-config: "false"
