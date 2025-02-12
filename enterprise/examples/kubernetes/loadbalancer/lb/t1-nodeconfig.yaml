@@ -8,7 +8,6 @@ spec:
     matchLabels:
       service.cilium.io/node: t1
   defaults:
-    bpf-lb-acceleration: native
     bpf-lb-algorithm-annotation: "true"
     bpf-lb-mode-annotation: "true"
     bpf-lb-dsr-dispatch: ipip

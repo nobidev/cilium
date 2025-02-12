@@ -33,6 +33,8 @@ bpf:
   monitorAggregation: none
   ctAccounting: true
 kubeProxyReplacement: true
+loadBalancer:
+  acceleration: native
 ipv6:
   enabled: false
 extraConfig:
