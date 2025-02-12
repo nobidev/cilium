@@ -13,4 +13,3 @@ spec:
     bpf-lb-mode-annotation: "true"
     bpf-lb-dsr-dispatch: ipip
     bpf-lb-only: "true"
-    enable-ipip-termination: "false"
