@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -39,6 +40,7 @@ type reconcileCache struct {
 	ClusterConfigWithNoMatchingNode map[string]*v1.IsovalentBGPClusterConfig
 	ConflictingClusterConfigNames   map[string]sets.Set[string]
 	ConflictFreeClusterConfigs      map[string]*v1.IsovalentBGPClusterConfig
+	RouteReflectorClusters          map[string]*rrCluster
 }
 
 func populateReconcileCache(
@@ -57,6 +59,7 @@ func populateReconcileCache(
 		ClusterConfigWithNoMatchingNode: make(map[string]*v1.IsovalentBGPClusterConfig),
 		ConflictingClusterConfigNames:   make(map[string]sets.Set[string]),
 		ConflictFreeClusterConfigs:      make(map[string]*v1.IsovalentBGPClusterConfig),
+		RouteReflectorClusters:          make(map[string]*rrCluster),
 	}
 
 	// Index NodeConfigs by name
@@ -138,6 +141,23 @@ func populateReconcileCache(
 		}
 	}
 
+	// Build RouteReflectorCluster. This should be done only for the conflict-free cluster configs.
+	for _, clusterConfig := range cache.ConflictFreeClusterConfigs {
+		for _, instance := range clusterConfig.Spec.BGPInstances {
+			if instance.RouteReflector == nil {
+				continue
+			}
+			for _, node := range cache.NodesByClusterConfigName[clusterConfig.Name] {
+				cluster, found := cache.RouteReflectorClusters[instance.RouteReflector.ClusterID]
+				if !found {
+					cluster = newRRCluster()
+					cache.RouteReflectorClusters[instance.RouteReflector.ClusterID] = cluster
+				}
+				cluster.AddInstance(node, &instance)
+			}
+		}
+	}
+
 	return cache
 }
 
@@ -178,7 +198,7 @@ func (m *BGPResourceMapper) desiredNodeConfigs(cache *reconcileCache) []*v1.Isov
 	ret := []*v1.IsovalentBGPNodeConfig{}
 	for clusterConfigName, clusterConfig := range cache.ConflictFreeClusterConfigs {
 		for _, node := range cache.NodesByClusterConfigName[clusterConfigName] {
-			ret = append(ret, m.toNodeConfig(node.Name, clusterConfig, cache.OverridesByName[node.Name]))
+			ret = append(ret, m.toNodeConfig(node.Name, clusterConfig, cache))
 		}
 	}
 	return ret
@@ -452,9 +472,9 @@ func (m *BGPResourceMapper) deleteNodeConfig(ctx context.Context, nodeConfig *v1
 	return nil
 }
 
-func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1.IsovalentBGPClusterConfig, override *v1.IsovalentBGPNodeConfigOverride) *v1.IsovalentBGPNodeConfig {
+func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1.IsovalentBGPClusterConfig, cache *reconcileCache) *v1.IsovalentBGPNodeConfig {
 	overrideInstances := []v1.IsovalentBGPNodeConfigInstanceOverride{}
-	if override != nil {
+	if override, found := cache.OverridesByName[nodeName]; found {
 		overrideInstances = override.Spec.BGPInstances
 	}
 	return &v1.IsovalentBGPNodeConfig{
@@ -470,12 +490,17 @@ func (m *BGPResourceMapper) toNodeConfig(nodeName string, clusterConfig *v1.Isov
 			},
 		},
 		Spec: v1.IsovalentBGPNodeSpec{
-			BGPInstances: toNodeBGPInstance(clusterConfig.Spec.BGPInstances, overrideInstances),
+			BGPInstances: toNodeBGPInstance(nodeName, clusterConfig.Spec.BGPInstances, overrideInstances, cache),
 		},
 	}
 }
 
-func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBGPInstances []v1.IsovalentBGPNodeConfigInstanceOverride) []v1.IsovalentBGPNodeInstance {
+func toNodeBGPInstance(
+	nodeName string,
+	clusterBGPInstances []v1.IsovalentBGPInstance,
+	overrideBGPInstances []v1.IsovalentBGPNodeConfigInstanceOverride,
+	cache *reconcileCache,
+) []v1.IsovalentBGPNodeInstance {
 	var res []v1.IsovalentBGPNodeInstance
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
@@ -511,13 +536,45 @@ func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBG
 			// find BGPResourceManager Peer override for this instance
 			for _, overrideBGPPeer := range override.Peers {
 				if overrideBGPPeer.Name == bgpInstancePeer.Name {
-					nodePeer.Interface = overrideBGPPeer.Interface
-					nodePeer.LocalAddress = overrideBGPPeer.LocalAddress
+					overrideNodePeer(&nodePeer, &overrideBGPPeer)
 					break
 				}
 			}
 
 			nodeBGPInstance.Peers = append(nodeBGPInstance.Peers, nodePeer)
+		}
+
+		// Append RouteReflector peers
+		if clusterBGPInstance.RouteReflector != nil {
+			cluster, found := cache.RouteReflectorClusters[clusterBGPInstance.RouteReflector.ClusterID]
+			if !found {
+				// This should never happen
+				continue
+			}
+			for _, peer := range cluster.ListPeers(instanceID{NodeName: nodeName, InstanceName: clusterBGPInstance.Name}) {
+				nodePeer := v1.IsovalentBGPNodePeer{
+					Name:           peer.Name,
+					PeerAddress:    ptr.To(peer.Address),
+					PeerASN:        ptr.To(*nodeBGPInstance.LocalASN), // Route Reflector is iBGP-only
+					Interface:      nil,                               // Unnumbered peering is not supported for Route Reflectors
+					PeerConfigRef:  peer.PeerConfigRef,
+					RouteReflector: peer.RouteReflector,
+				}
+
+				// It is valid to override route reflector peers
+				for _, overrideBGPPeer := range override.Peers {
+					if overrideBGPPeer.Name == nodePeer.Name {
+						overrideNodePeer(&nodePeer, &overrideBGPPeer)
+
+						// Unnumbered peering is not supported for Route Reflector peers
+						nodePeer.Interface = nil
+
+						break
+					}
+				}
+
+				nodeBGPInstance.Peers = append(nodeBGPInstance.Peers, nodePeer)
+			}
 		}
 
 		for _, bgpVRF := range clusterBGPInstance.VRFs {
@@ -527,4 +584,13 @@ func toNodeBGPInstance(clusterBGPInstances []v1.IsovalentBGPInstance, overrideBG
 		res = append(res, nodeBGPInstance)
 	}
 	return res
+}
+
+func overrideNodePeer(nodePeer *v1.IsovalentBGPNodePeer, override *v1.IsovalentBGPNodeConfigPeerOverride) {
+	if override.LocalAddress != nil {
+		nodePeer.LocalAddress = override.LocalAddress
+	}
+	if override.Interface != nil {
+		nodePeer.Interface = override.Interface
+	}
 }

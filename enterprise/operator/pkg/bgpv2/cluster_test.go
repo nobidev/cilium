@@ -31,6 +31,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -873,6 +874,540 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 
 		assert.Empty(ct, cc.Status.Conditions, "Conditions are not cleared")
 	}, time.Second*3, time.Millisecond*100)
+}
+
+func TestRRPeeringSingleInstance(t *testing.T) {
+	newClusterConfig := func(name string, role v1.RouteReflectorRole, clusterID string) *v1.IsovalentBGPClusterConfig {
+		var rrPeerConfigRef, clientPeerConfigRef *v1.PeerConfigReference
+
+		switch role {
+		case v1.RouteReflectorRoleRouteReflector:
+			rrPeerConfigRef = &v1.PeerConfigReference{
+				// Prefix peer config with cluster config name.
+				// So that we can detect the case we render the
+				// peer config of the wrong cluster config.
+				Name: name + "-rr",
+			}
+			clientPeerConfigRef = &v1.PeerConfigReference{
+				Name: name + "-client",
+			}
+		case v1.RouteReflectorRoleClient:
+			clientPeerConfigRef = nil
+			rrPeerConfigRef = &v1.PeerConfigReference{
+				Name: name + "-rr",
+			}
+		}
+
+		return &v1.IsovalentBGPClusterConfig{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: name,
+			},
+			Spec: v1.IsovalentBGPClusterConfigSpec{
+				NodeSelector: &slim_meta_v1.LabelSelector{
+					MatchLabels: map[string]string{
+						"rr-role":   string(role),
+						"clusterID": clusterID,
+					},
+				},
+				BGPInstances: []v1.IsovalentBGPInstance{
+					{
+						Name:     "instance0",
+						LocalASN: ptr.To(int64(65000)),
+						// TODO: Specify port
+						RouteReflector: &v1.RouteReflector{
+							Role:                        role,
+							ClusterID:                   clusterID,
+							RouteReflectorPeerConfigRef: rrPeerConfigRef,
+							ClientPeerConfigRef:         clientPeerConfigRef,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	newNode := func(name string, rrRole v1.RouteReflectorRole, clusterID, ip string) *cilium_v2.CiliumNode {
+		return &cilium_v2.CiliumNode{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: name,
+				Labels: map[string]string{
+					"rr-role":   string(rrRole),
+					"clusterID": clusterID,
+				},
+			},
+			Spec: cilium_v2.NodeSpec{
+				Addresses: []cilium_v2.NodeAddress{
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   ip,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name           string
+		clusterConfigs []*v1.IsovalentBGPClusterConfig
+		nodes          []*cilium_v2.CiliumNode
+
+		// Mapping from node name to expected BGP node peers
+		expectedNodePeers map[string][]v1.IsovalentBGPNodePeer
+	}{
+		{
+			name: "One Cluster",
+			clusterConfigs: []*v1.IsovalentBGPClusterConfig{
+				newClusterConfig("rrs", v1.RouteReflectorRoleRouteReflector, "255.0.0.1"),
+				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
+			},
+			nodes: []*cilium_v2.CiliumNode{
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
+				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1"),
+				newNode("node2", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.2"),
+				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.3"),
+			},
+			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
+				"node0": {
+					{
+						Name:        "rr-client-node2-instance0",
+						PeerAddress: ptr.To("10.0.0.2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-client-node3-instance0",
+						PeerAddress: ptr.To("10.0.0.3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0",
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node1": {
+					{
+						Name:        "rr-client-node2-instance0",
+						PeerAddress: ptr.To("10.0.0.2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-client-node3-instance0",
+						PeerAddress: ptr.To("10.0.0.3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node0-instance0",
+						PeerAddress: ptr.To("10.0.0.0"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node2": {
+					{
+						Name:        "rr-route-reflector-node0-instance0",
+						PeerAddress: ptr.To("10.0.0.0"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0",
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node3": {
+					{
+						Name:        "rr-route-reflector-node0-instance0",
+						PeerAddress: ptr.To("10.0.0.0"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0",
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Two Clusters",
+			clusterConfigs: []*v1.IsovalentBGPClusterConfig{
+				newClusterConfig("rrs-cluster0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1"),
+				newClusterConfig("clients-cluster0", v1.RouteReflectorRoleClient, "255.0.0.1"),
+				newClusterConfig("rrs-cluster1", v1.RouteReflectorRoleRouteReflector, "255.0.0.2"),
+				newClusterConfig("clients-cluster1", v1.RouteReflectorRoleClient, "255.0.0.2"),
+			},
+			nodes: []*cilium_v2.CiliumNode{
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
+				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1"),
+				newNode("node2", v1.RouteReflectorRoleRouteReflector, "255.0.0.2", "10.0.0.2"),
+				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.2", "10.0.0.3"),
+			},
+			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
+				"node0": {
+					{
+						Name:        "rr-client-node1-instance0",
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-cluster0-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node1": {
+					{
+						Name:        "rr-route-reflector-node0-instance0",
+						PeerAddress: ptr.To("10.0.0.0"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-cluster0-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node2": {
+					{
+						Name:        "rr-client-node3-instance0",
+						PeerAddress: ptr.To("10.0.0.3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-cluster1-client",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.2",
+						},
+					},
+				},
+				"node3": {
+					{
+						Name:        "rr-route-reflector-node2-instance0",
+						PeerAddress: ptr.To("10.0.0.2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "clients-cluster1-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.2",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "No RR",
+			clusterConfigs: []*v1.IsovalentBGPClusterConfig{
+				newClusterConfig("rrs", v1.RouteReflectorRoleRouteReflector, "255.0.0.1"),
+				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
+			},
+			nodes: []*cilium_v2.CiliumNode{
+				newNode("node0", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.0"),
+				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1"),
+			},
+			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
+				"node0": nil,
+				"node1": nil,
+			},
+		},
+		{
+			name: "No Client",
+			clusterConfigs: []*v1.IsovalentBGPClusterConfig{
+				newClusterConfig("rrs", v1.RouteReflectorRoleRouteReflector, "255.0.0.1"),
+				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
+			},
+			nodes: []*cilium_v2.CiliumNode{
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
+				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1"),
+			},
+			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
+				"node0": {
+					{
+						Name:        "rr-route-reflector-node1-instance0",
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+				"node1": {
+					{
+						Name:        "rr-route-reflector-node0-instance0",
+						PeerAddress: ptr.To("10.0.0.0"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "rrs-rr",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := populateReconcileCache(tt.clusterConfigs, []*v1.IsovalentBGPNodeConfig{}, tt.nodes, []*v1.IsovalentBGPNodeConfigOverride{})
+			for _, nodeConfig := range (&BGPResourceMapper{}).desiredNodeConfigs(cache) {
+				require.Equal(t, nodeConfig.Spec.BGPInstances[0].Peers, tt.expectedNodePeers[nodeConfig.Name])
+			}
+		})
+	}
+}
+
+func TestRRPeeringMultiInstance(t *testing.T) {
+	newNode := func(name string, rrRole v1.RouteReflectorRole, ip string) *cilium_v2.CiliumNode {
+		return &cilium_v2.CiliumNode{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: name,
+				Labels: map[string]string{
+					"rr-role": string(rrRole),
+				},
+			},
+			Spec: cilium_v2.NodeSpec{
+				Addresses: []cilium_v2.NodeAddress{
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   ip,
+					},
+				},
+			},
+		}
+	}
+
+	rrClusterConfig := v1.IsovalentBGPClusterConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "rrs",
+		},
+		Spec: v1.IsovalentBGPClusterConfigSpec{
+			NodeSelector: &slim_meta_v1.LabelSelector{
+				MatchLabels: map[string]string{
+					"rr-role": string(v1.RouteReflectorRoleRouteReflector),
+				},
+			},
+			BGPInstances: []v1.IsovalentBGPInstance{
+				{
+					Name:     "instance0",
+					LocalASN: ptr.To(int64(65000)),
+					// TODO: Specify port
+					RouteReflector: &v1.RouteReflector{
+						Role:                        v1.RouteReflectorRoleRouteReflector,
+						ClusterID:                   "255.0.0.1",
+						RouteReflectorPeerConfigRef: &v1.PeerConfigReference{Name: "rrs-rr-255.0.0.1"},
+						ClientPeerConfigRef:         &v1.PeerConfigReference{Name: "rrs-client-255.0.0.1"},
+					},
+				},
+				{
+					Name:     "instance1",
+					LocalASN: ptr.To(int64(65000)),
+					// TODO: Specify port
+					RouteReflector: &v1.RouteReflector{
+						Role:                        v1.RouteReflectorRoleRouteReflector,
+						ClusterID:                   "255.0.0.2",
+						RouteReflectorPeerConfigRef: &v1.PeerConfigReference{Name: "rrs-rr-255.0.0.2"},
+						ClientPeerConfigRef:         &v1.PeerConfigReference{Name: "rrs-client-255.0.0.2"},
+					},
+				},
+			},
+		},
+	}
+
+	clientClusterConfig := v1.IsovalentBGPClusterConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "clients",
+		},
+		Spec: v1.IsovalentBGPClusterConfigSpec{
+			NodeSelector: &slim_meta_v1.LabelSelector{
+				MatchLabels: map[string]string{
+					"rr-role": string(v1.RouteReflectorRoleClient),
+				},
+			},
+			BGPInstances: []v1.IsovalentBGPInstance{
+				{
+					Name:     "instance0",
+					LocalASN: ptr.To(int64(65000)),
+					// TODO: Specify port
+					RouteReflector: &v1.RouteReflector{
+						Role:                        v1.RouteReflectorRoleClient,
+						ClusterID:                   "255.0.0.2",
+						RouteReflectorPeerConfigRef: &v1.PeerConfigReference{Name: "clients-rr-255.0.0.2"},
+					},
+				},
+				{
+					Name:     "instance1",
+					LocalASN: ptr.To(int64(65000)),
+					// TODO: Specify port
+					RouteReflector: &v1.RouteReflector{
+						Role:                        v1.RouteReflectorRoleClient,
+						ClusterID:                   "255.0.0.1",
+						RouteReflectorPeerConfigRef: &v1.PeerConfigReference{Name: "clients-rr-255.0.0.1"},
+					},
+				},
+			},
+		},
+	}
+
+	// node => instance => peers
+	expectedNodePeers := map[string]map[string][]v1.IsovalentBGPNodePeer{
+		"node0": {
+			"instance0": {
+				{
+					Name:        "rr-client-node1-instance1",
+					PeerAddress: ptr.To("10.0.0.1"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "rrs-client-255.0.0.1",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleClient,
+						ClusterID: "255.0.0.1",
+					},
+				},
+			},
+			"instance1": {
+				{
+					Name:        "rr-client-node1-instance0",
+					PeerAddress: ptr.To("10.0.0.1"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "rrs-client-255.0.0.2",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleClient,
+						ClusterID: "255.0.0.2",
+					},
+				},
+			},
+		},
+		"node1": {
+			"instance0": {
+				{
+					Name:        "rr-route-reflector-node0-instance1",
+					PeerAddress: ptr.To("10.0.0.0"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "clients-rr-255.0.0.2",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleRouteReflector,
+						ClusterID: "255.0.0.2",
+					},
+				},
+			},
+			"instance1": {
+				{
+					Name:        "rr-route-reflector-node0-instance0",
+					PeerAddress: ptr.To("10.0.0.0"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "clients-rr-255.0.0.1",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleRouteReflector,
+						ClusterID: "255.0.0.1",
+					},
+				},
+			},
+		},
+	}
+
+	node0 := newNode("node0", v1.RouteReflectorRoleRouteReflector, "10.0.0.0")
+	node1 := newNode("node1", v1.RouteReflectorRoleClient, "10.0.0.1")
+
+	cache := populateReconcileCache(
+		[]*v1.IsovalentBGPClusterConfig{&rrClusterConfig, &clientClusterConfig},
+		[]*v1.IsovalentBGPNodeConfig{},
+		[]*cilium_v2.CiliumNode{node0, node1},
+		[]*v1.IsovalentBGPNodeConfigOverride{},
+	)
+	for _, nodeConfig := range (&BGPResourceMapper{}).desiredNodeConfigs(cache) {
+		for _, instance := range nodeConfig.Spec.BGPInstances {
+			require.Equal(t, expectedNodePeers[nodeConfig.Name][instance.Name], instance.Peers)
+		}
+	}
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_v2.CiliumNode) {
