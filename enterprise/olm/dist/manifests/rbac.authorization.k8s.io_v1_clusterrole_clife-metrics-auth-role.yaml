@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clife
-  name: clife-proxy-role
+  name: clife-metrics-auth-role
 rules:
 - apiGroups:
   - authentication.k8s.io

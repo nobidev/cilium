@@ -5,13 +5,13 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clife
     control-plane: controller-manager
-  name: clife-controller-manager-metrics-service
+  name: clife-metrics
   namespace: cilium
 spec:
   ports:
   - name: https
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: 18443
   selector:
     control-plane: controller-manager

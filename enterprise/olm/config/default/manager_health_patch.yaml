@@ -1,0 +1,4 @@
+# This patch sets the health service to a specific port
+- op: add
+  path: /spec/template/spec/containers/0/args/0
+  value: --health-probe-bind-address=:49081

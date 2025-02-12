@@ -1,10 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: metrics-auth-role
   labels:
     app.kubernetes.io/name: clife
     app.kubernetes.io/managed-by: kustomize
-  name: proxy-role
+
 rules:
 - apiGroups:
   - authentication.k8s.io

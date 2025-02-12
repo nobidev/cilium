@@ -4,11 +4,11 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clife
-  name: clife-proxy-rolebinding
+  name: clife-metrics-auth-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: clife-proxy-role
+  name: clife-metrics-auth-role
 subjects:
 - kind: ServiceAccount
   name: clife-controller-manager
