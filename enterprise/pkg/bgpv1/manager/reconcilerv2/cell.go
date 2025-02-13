@@ -49,6 +49,7 @@ var ConfigReconcilers = cell.Group(
 		NewPodCIDRVRFReconciler,
 		NewServiceVRFReconciler,
 		NewNeighborReconciler,
+		NewPodCIDRReconciler,
 	),
 
 	// config of the enterprise reconcilers

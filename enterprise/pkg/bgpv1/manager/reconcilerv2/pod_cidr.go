@@ -1,0 +1,267 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+package reconcilerv2
+
+import (
+	"context"
+	"fmt"
+	"net/netip"
+
+	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+type PodCIDRReconcilerOut struct {
+	cell.Out
+
+	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+}
+
+type PodCIDRReconcilerIn struct {
+	cell.In
+
+	Logger       logrus.FieldLogger
+	PeerAdvert   *IsovalentAdvertisement
+	DaemonConfig *option.DaemonConfig
+	Upgrader     paramUpgrader
+}
+
+type PodCIDRReconciler struct {
+	logger     logrus.FieldLogger
+	upgrader   paramUpgrader
+	peerAdvert *IsovalentAdvertisement
+	metadata   map[string]PodCIDRReconcilerMetadata
+}
+
+// PodCIDRReconcilerMetadata is a map of advertisements per family, key is family type
+type PodCIDRReconcilerMetadata struct {
+	AFPaths       reconcilerv2.AFPathsMap
+	RoutePolicies reconcilerv2.RoutePolicyMap
+}
+
+func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
+	// Don't provide the reconciler if the IPAM mode is not supported
+	if !types.CanAdvertisePodCIDR(params.DaemonConfig.IPAMMode()) {
+		params.Logger.Info("Unsupported IPAM mode, disabling PodCIDR advertisements.")
+		return PodCIDRReconcilerOut{}
+	}
+	return PodCIDRReconcilerOut{
+		Reconciler: &PodCIDRReconciler{
+			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
+			peerAdvert: params.PeerAdvert,
+			upgrader:   params.Upgrader,
+			metadata:   make(map[string]PodCIDRReconcilerMetadata),
+		},
+	}
+}
+
+func (r *PodCIDRReconciler) Name() string {
+	return PodCIDRReconcilerName
+}
+
+func (r *PodCIDRReconciler) Priority() int {
+	return PodCIDRReconcilerPriority
+}
+
+func (r *PodCIDRReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = PodCIDRReconcilerMetadata{
+		AFPaths:       make(reconcilerv2.AFPathsMap),
+		RoutePolicies: make(reconcilerv2.RoutePolicyMap),
+	}
+	return nil
+}
+
+func (r *PodCIDRReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
+
+func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconcilerv2.ReconcileParams) error {
+	if _p.DesiredConfig == nil {
+		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumBGPNodeConfig")
+	}
+
+	if _p.CiliumNode == nil {
+		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumNode")
+	}
+
+	p, err := r.upgrader.upgrade(_p)
+	if err != nil {
+		return err
+	}
+
+	// get pod CIDR prefixes
+	var podCIDRPrefixes []netip.Prefix
+	for _, cidr := range p.CiliumNode.Spec.IPAM.PodCIDRs {
+		prefix, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return fmt.Errorf("failed to parse prefix %s: %w", cidr, err)
+		}
+		podCIDRPrefixes = append(podCIDRPrefixes, prefix)
+	}
+
+	// get per peer per family pod cidr advertisements
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(p.DesiredConfig, v1.BGPPodCIDRAdvert)
+	if err != nil {
+		return err
+	}
+
+	err = r.reconcileRoutePolicies(ctx, p, desiredPeerAdverts, podCIDRPrefixes)
+	if err != nil {
+		return err
+	}
+
+	return r.reconcilePaths(ctx, p, desiredPeerAdverts, podCIDRPrefixes)
+}
+
+func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, podPrefixes []netip.Prefix) error {
+	metadata := r.getMetadata(p.BGPInstance)
+
+	// get desired paths per address family
+	desiredFamilyAdverts := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
+
+	// reconcile family advertisements
+	updatedAFPaths, err := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
+		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:          ctx,
+		Router:       p.BGPInstance.Router,
+		DesiredPaths: desiredFamilyAdverts,
+		CurrentPaths: metadata.AFPaths,
+	})
+
+	metadata.AFPaths = updatedAFPaths
+	r.setMetadata(p.BGPInstance, metadata)
+	return err
+}
+
+func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, podPrefixes []netip.Prefix) error {
+	metadata := r.getMetadata(p.BGPInstance)
+
+	// get desired policies
+	desiredRoutePolicies, err := r.getDesiredRoutePolicies(p, desiredPeerAdverts, podPrefixes)
+	if err != nil {
+		return err
+	}
+
+	// reconcile route policies
+	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
+		Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:             ctx,
+		Router:          p.BGPInstance.Router,
+		DesiredPolicies: desiredRoutePolicies,
+		CurrentPolicies: r.getMetadata(p.BGPInstance).RoutePolicies,
+	})
+
+	metadata.RoutePolicies = updatedPolicies
+	r.setMetadata(p.BGPInstance, metadata)
+	return err
+}
+
+// getDesiredPathsPerFamily returns a map of desired paths per address family.
+// Note: This returns prefixes per address family. Global routing table will contain prefix per family not per neighbor.
+// Per neighbor advertisement will be controlled by BGP Policy.
+func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) reconcilerv2.AFPathsMap {
+	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
+	desiredFamilyAdverts := make(reconcilerv2.AFPathsMap)
+	for _, peerFamilyAdverts := range desiredPeerAdverts {
+		for family, familyAdverts := range peerFamilyAdverts {
+			agentFamily := types.ToAgentFamily(family)
+			pathsPerFamily, exists := desiredFamilyAdverts[agentFamily]
+			if !exists {
+				pathsPerFamily = make(reconcilerv2.PathMap)
+				desiredFamilyAdverts[agentFamily] = pathsPerFamily
+			}
+
+			// there are some advertisements which have pod CIDR advert enabled.
+			// we need to add podCIDR prefixes to the desiredFamilyAdverts.
+			if len(familyAdverts) != 0 {
+				for _, prefix := range desiredPrefixes {
+					path := types.NewPathForPrefix(prefix)
+					path.Family = agentFamily
+
+					// we only add path corresponding to the family of the prefix.
+					if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+						pathsPerFamily[path.NLRI.String()] = path
+					}
+					if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+						pathsPerFamily[path.NLRI.String()] = path
+					}
+				}
+			}
+		}
+	}
+	return desiredFamilyAdverts
+}
+
+func (r *PodCIDRReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (reconcilerv2.RoutePolicyMap, error) {
+	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
+
+	for peer, afAdverts := range desiredPeerAdverts {
+		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+		if err != nil {
+			return nil, err
+		}
+		if !peerAddrExists {
+			return nil, nil
+		}
+
+		for family, adverts := range afAdverts {
+			fam := types.ToAgentFamily(family)
+
+			for _, advert := range adverts {
+				var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+				for _, prefix := range desiredPrefixes {
+					match := &types.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()}
+
+					if fam.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+						v4Prefixes = append(v4Prefixes, match)
+					}
+
+					if fam.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+						v6Prefixes = append(v6Prefixes, match)
+					}
+				}
+
+				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
+					name := PolicyName(peer, fam.Afi.String(), advert.AdvertisementType, "")
+					policy, err := reconcilerv2.CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
+						Attributes: advert.Attributes,
+					})
+					if err != nil {
+						return nil, err
+					}
+					desiredPolicies[name] = policy
+				}
+			}
+		}
+	}
+
+	return desiredPolicies, nil
+}
+
+func (r *PodCIDRReconciler) getMetadata(i *EnterpriseBGPInstance) PodCIDRReconcilerMetadata {
+	return r.metadata[i.Name]
+}
+
+func (r *PodCIDRReconciler) setMetadata(i *EnterpriseBGPInstance, metadata PodCIDRReconcilerMetadata) {
+	r.metadata[i.Name] = metadata
+}
