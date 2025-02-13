@@ -372,7 +372,7 @@ func excludeCurrentActiveGWsFromHealthyGWs(currentActiveGWs, healthyGWs []netip.
 	return result
 }
 
-func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, groupStatuses []groupStatus, azAffinity bool) ([]groupStatus, []meta_v1.Condition) {
+func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, groupStatuses []groupStatus) ([]groupStatus, []meta_v1.Condition) {
 	egressCIDRs := make([]netip.Prefix, 0, len(config.egressCIDRs))
 	for _, cidr := range config.egressCIDRs {
 		// detect conflicting CIDRs
@@ -723,7 +723,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 
 	var conditions []meta_v1.Condition
 	if len(config.egressCIDRs) > 0 {
-		groupStatuses, conditions = config.allocateEgressIPs(operatorManager, groupStatuses, config.azAffinity.enabled())
+		groupStatuses, conditions = config.allocateEgressIPs(operatorManager, groupStatuses)
 
 		// when using egw IPAM, a gateway should not be considered active if a valid egress IP
 		// cannot be assigned. Therefore, we remove each gateway IP without an egress IP from
