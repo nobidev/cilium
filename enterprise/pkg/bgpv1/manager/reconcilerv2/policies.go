@@ -16,12 +16,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
 // PolicyName returns a unique route policy name for the provided peer, family and advertisement type.
 // If there a is a need for multiple route policies per advertisement type, unique resourceID can be provided.
-func PolicyName(peer, family string, advertType v1alpha1.IsovalentBGPAdvertType, resourceID string) string {
+func PolicyName(peer, family string, advertType v1.IsovalentBGPAdvertType, resourceID string) string {
 	if resourceID == "" {
 		return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
 	}

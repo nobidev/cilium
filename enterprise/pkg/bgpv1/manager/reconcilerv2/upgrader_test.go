@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -135,17 +135,17 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = cs.IsovalentV1alpha1().IsovalentBGPNodeConfigs().Create(
+	_, err = cs.IsovalentV1().IsovalentBGPNodeConfigs().Create(
 		context.Background(),
-		&v1alpha1.IsovalentBGPNodeConfig{
+		&v1.IsovalentBGPNodeConfig{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node0",
 			},
-			Spec: v1alpha1.IsovalentBGPNodeSpec{
-				BGPInstances: []v1alpha1.IsovalentBGPNodeInstance{
+			Spec: v1.IsovalentBGPNodeSpec{
+				BGPInstances: []v1.IsovalentBGPNodeInstance{
 					{
 						Name: ossNode.Spec.BGPInstances[0].Name,
-						Peers: []v1alpha1.IsovalentBGPNodePeer{
+						Peers: []v1.IsovalentBGPNodePeer{
 							{
 								Name:        ossNode.Spec.BGPInstances[0].Peers[0].Name,
 								PeerAddress: ossNode.Spec.BGPInstances[0].Peers[0].PeerAddress,

@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -130,7 +130,7 @@ func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 	}
 
 	// get PodCIDR VPN advertisements
-	desiredVRFAdverts, err := r.Adverts.GetConfiguredVRFAdvertisements(iParams.DesiredConfig, v1alpha1.BGPPodCIDRAdvert)
+	desiredVRFAdverts, err := r.Adverts.GetConfiguredVRFAdvertisements(iParams.DesiredConfig, v1.BGPPodCIDRAdvert)
 	if err != nil {
 		return err
 	}

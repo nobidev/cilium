@@ -32,7 +32,7 @@ import (
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	osstypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -217,7 +217,7 @@ func (r *LinkLocalReconciler) setMetadata(i *instance.BGPInstance, m LinkLocalRe
 	r.metadata[i.Name] = m
 }
 
-func (r *LinkLocalReconciler) getUnnumberedInterfaces(nodeInstance *v1alpha1.IsovalentBGPNodeInstance) sets.Set[string] {
+func (r *LinkLocalReconciler) getUnnumberedInterfaces(nodeInstance *v1.IsovalentBGPNodeInstance) sets.Set[string] {
 	res := sets.Set[string]{}
 	for _, peer := range nodeInstance.Peers {
 		if peer.Interface != nil {

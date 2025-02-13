@@ -15,13 +15,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
 // toNeighbor converts a IsovalentBGPNodePeer to Neighbor which can be used
 // with Router API. The caller must ensure that the np, np.PeerAddress,
 // np.PeerASN and pc are not nil.
-func toNeighbor(np *v1alpha1.IsovalentBGPNodePeer, pc *v1alpha1.IsovalentBGPPeerConfigSpec, password string) *types.Neighbor {
+func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string) *types.Neighbor {
 	neighbor := &types.Neighbor{}
 
 	neighbor.Address = toPeerAddress(*np.PeerAddress)
@@ -75,7 +75,7 @@ func toNeighborTimers(apiTimers *v2alpha1.CiliumBGPTimers) *types.NeighborTimers
 	return timers
 }
 
-func toNeighborTransport(apiLocalAddress *string, apiTransport *v2alpha1.CiliumBGPTransport) *types.NeighborTransport {
+func toNeighborTransport(apiLocalAddress *string, apiTransport *v1.IsovalentBGPTransport) *types.NeighborTransport {
 	if apiLocalAddress == nil && apiTransport == nil {
 		return nil
 	}
@@ -87,9 +87,6 @@ func toNeighborTransport(apiLocalAddress *string, apiTransport *v2alpha1.CiliumB
 	}
 
 	if apiTransport != nil {
-		if apiTransport.LocalPort != nil {
-			transport.LocalPort = uint32(*apiTransport.LocalPort)
-		}
 		if apiTransport.PeerPort != nil {
 			transport.RemotePort = uint32(*apiTransport.PeerPort)
 		}

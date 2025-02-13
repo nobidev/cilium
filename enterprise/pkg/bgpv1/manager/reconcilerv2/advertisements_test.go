@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -33,32 +34,30 @@ var (
 		"advertise": "pod_cidr",
 	}
 
-	podCIDRAdvert = &v1alpha1.IsovalentBGPAdvertisement{
+	podCIDRAdvert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "podCIDR-advertisement",
 			Labels: podCIDRLabel,
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
-					AdvertisementType: v1alpha1.BGPPodCIDRAdvert,
+					AdvertisementType: v1.BGPPodCIDRAdvert,
 				},
 			},
 		},
 	}
 
-	basePeerConfig = &v1alpha1.IsovalentBGPPeerConfig{
+	basePeerConfig = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
 					},
 				},
 			},
@@ -90,7 +89,7 @@ var (
 		return vrfConfig
 	}
 
-	peerConfigWithAdvertLabels = func(advertLabels map[string]string) *v1alpha1.IsovalentBGPPeerConfig {
+	peerConfigWithAdvertLabels = func(advertLabels map[string]string) *v1.IsovalentBGPPeerConfig {
 		peerConfig := basePeerConfig.DeepCopy()
 		for i := range peerConfig.Spec.Families {
 			peerConfig.Spec.Families[i].Advertisements = slim_metav1.SetAsLabelSelector(advertLabels)
@@ -105,24 +104,24 @@ func TestPeerAdvertisements(t *testing.T) {
 
 	tests := []struct {
 		name                string
-		peerConfig          *v1alpha1.IsovalentBGPPeerConfig
-		advertisement       *v1alpha1.IsovalentBGPAdvertisement
-		reqAdvertType       v1alpha1.IsovalentBGPAdvertType
-		reqBGPNodeInstance  *v1alpha1.IsovalentBGPNodeInstance
+		peerConfig          *v1.IsovalentBGPPeerConfig
+		advertisement       *v1.IsovalentBGPAdvertisement
+		reqAdvertType       v1.IsovalentBGPAdvertType
+		reqBGPNodeInstance  *v1.IsovalentBGPNodeInstance
 		expectedPeerAdverts PeerAdvertisements
 	}{
 		{
 			name:          "No result, peer config not found",
 			peerConfig:    nil,
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v1alpha1.PeerConfigReference{
+						PeerConfigRef: &v1.PeerConfigReference{
 							Name: "peer-config",
 						},
 					},
@@ -134,21 +133,21 @@ func TestPeerAdvertisements(t *testing.T) {
 			name:          "No result, peer config found but advertisement labels don't match",
 			peerConfig:    basePeerConfig,
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v1alpha1.PeerConfigReference{
+						PeerConfigRef: &v1.PeerConfigReference{
 							Name: "peer-config",
 						},
 					},
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: nil,
 				},
 			},
@@ -157,23 +156,23 @@ func TestPeerAdvertisements(t *testing.T) {
 			name:          "Valid result, peer config found with matching advertisement",
 			peerConfig:    peerConfigWithAdvertLabels(podCIDRLabel),
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v1alpha1.PeerConfigReference{
+						PeerConfigRef: &v1.PeerConfigReference{
 							Name: "peer-config",
 						},
 					},
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1alpha1.BGPAdvertisement{
-					{Afi: "ipv4", Safi: "unicast"}: {v1alpha1.BGPAdvertisement{
-						AdvertisementType: v1alpha1.BGPPodCIDRAdvert,
+				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {v1.BGPAdvertisement{
+						AdvertisementType: v1.BGPPodCIDRAdvert,
 					}},
 				},
 			},
@@ -186,16 +185,16 @@ func TestPeerAdvertisements(t *testing.T) {
 
 			isoAdvert := &IsovalentAdvertisement{
 				logger:     advertTestLogger,
-				peerConfig: newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig](),
-				adverts:    newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement](),
+				peerConfig: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
+				adverts:    newMockResourceStore[*v1.IsovalentBGPAdvertisement](),
 			}
 
 			if tt.peerConfig != nil {
-				isoAdvert.peerConfig = InitMockStore[*v1alpha1.IsovalentBGPPeerConfig]([]*v1alpha1.IsovalentBGPPeerConfig{tt.peerConfig})
+				isoAdvert.peerConfig = InitMockStore[*v1.IsovalentBGPPeerConfig]([]*v1.IsovalentBGPPeerConfig{tt.peerConfig})
 			}
 
 			if tt.advertisement != nil {
-				isoAdvert.adverts = InitMockStore[*v1alpha1.IsovalentBGPAdvertisement]([]*v1alpha1.IsovalentBGPAdvertisement{tt.advertisement})
+				isoAdvert.adverts = InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
 			}
 
 			// Initialize the advertisement reconciler
@@ -214,20 +213,20 @@ func TestVRFAdvertisements(t *testing.T) {
 	tests := []struct {
 		name               string
 		vrfConfig          *v1alpha1.IsovalentBGPVRFConfig
-		advertisement      *v1alpha1.IsovalentBGPAdvertisement
-		reqAdvertType      v1alpha1.IsovalentBGPAdvertType
-		reqBGPNodeInstance *v1alpha1.IsovalentBGPNodeInstance
+		advertisement      *v1.IsovalentBGPAdvertisement
+		reqAdvertType      v1.IsovalentBGPAdvertType
+		reqBGPNodeInstance *v1.IsovalentBGPNodeInstance
 		expectedVRFAdverts VRFAdvertisements
 	}{
 		{
 			name:          "No result, vrf config not found",
 			vrfConfig:     nil,
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				VRFs: []v1alpha1.IsovalentBGPNodeVRF{
+				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
 						VRFRef:    "vrf-1",
 						ConfigRef: ptr.To[string]("vrf-config"),
@@ -241,11 +240,11 @@ func TestVRFAdvertisements(t *testing.T) {
 			name:          "No result, vrf config found but advertisement labels don't match",
 			vrfConfig:     baseVRFConfig,
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				VRFs: []v1alpha1.IsovalentBGPNodeVRF{
+				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
 						VRFRef:    "vrf-1",
 						ConfigRef: ptr.To[string]("vrf-config"),
@@ -254,7 +253,7 @@ func TestVRFAdvertisements(t *testing.T) {
 				},
 			},
 			expectedVRFAdverts: VRFAdvertisements{
-				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1alpha1.BGPAdvertisement{
+				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: nil,
 				},
 			},
@@ -263,11 +262,11 @@ func TestVRFAdvertisements(t *testing.T) {
 			name:          "Valid result, vrf config found with matching advertisement",
 			vrfConfig:     baseVRFConfigWithAdvertLabels(podCIDRLabel),
 			advertisement: podCIDRAdvert,
-			reqAdvertType: v1alpha1.BGPPodCIDRAdvert,
-			reqBGPNodeInstance: &v1alpha1.IsovalentBGPNodeInstance{
+			reqAdvertType: v1.BGPPodCIDRAdvert,
+			reqBGPNodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				VRFs: []v1alpha1.IsovalentBGPNodeVRF{
+				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
 						VRFRef:    "vrf-1",
 						ConfigRef: ptr.To[string]("vrf-config"),
@@ -276,9 +275,9 @@ func TestVRFAdvertisements(t *testing.T) {
 				},
 			},
 			expectedVRFAdverts: VRFAdvertisements{
-				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1alpha1.BGPAdvertisement{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: {v1alpha1.BGPAdvertisement{
-						AdvertisementType: v1alpha1.BGPPodCIDRAdvert,
+				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "mpls_vpn"}: {v1.BGPAdvertisement{
+						AdvertisementType: v1.BGPPodCIDRAdvert,
 					}},
 				},
 			},
@@ -291,12 +290,12 @@ func TestVRFAdvertisements(t *testing.T) {
 
 			isoAdvert := &IsovalentAdvertisement{
 				logger:  advertTestLogger,
-				adverts: newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement](),
+				adverts: newMockResourceStore[*v1.IsovalentBGPAdvertisement](),
 				vrfs:    store.NewMockBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig](),
 			}
 
 			if tt.advertisement != nil {
-				isoAdvert.adverts = InitMockStore[*v1alpha1.IsovalentBGPAdvertisement]([]*v1alpha1.IsovalentBGPAdvertisement{tt.advertisement})
+				isoAdvert.adverts = InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
 			}
 
 			if tt.vrfConfig != nil {

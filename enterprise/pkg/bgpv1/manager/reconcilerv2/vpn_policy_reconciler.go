@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -40,7 +40,7 @@ type VPNRoutePolicyReconcilerIn struct {
 	Logger          logrus.FieldLogger
 	Config          config.Config
 	Upgrader        paramUpgrader
-	PeerConfigStore resource.Resource[*v1alpha1.IsovalentBGPPeerConfig]
+	PeerConfigStore resource.Resource[*v1.IsovalentBGPPeerConfig]
 	Group           job.Group
 }
 
@@ -51,7 +51,7 @@ type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
 	logger          logrus.FieldLogger
 	upgrader        paramUpgrader
-	peerConfigStore resource.Store[*v1alpha1.IsovalentBGPPeerConfig]
+	peerConfigStore resource.Store[*v1.IsovalentBGPPeerConfig]
 	metadata        map[string]VPNRoutePolicyMetadata
 }
 
@@ -151,7 +151,7 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 	return err
 }
 
-func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1alpha1.IsovalentBGPNodeInstance) (reconcilerv2.RoutePolicyMap, error) {
+func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.IsovalentBGPNodeInstance) (reconcilerv2.RoutePolicyMap, error) {
 	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
 
 	for _, peer := range desiredConfig.Peers {

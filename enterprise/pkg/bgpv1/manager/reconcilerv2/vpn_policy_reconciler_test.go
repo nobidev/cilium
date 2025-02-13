@@ -23,40 +23,36 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
 var (
-	peerConfigIPv4Unicast = &v1alpha1.IsovalentBGPPeerConfig{
+	peerConfigIPv4Unicast = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-ipv4-unicast",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
 					},
 				},
 			},
 		},
 	}
 
-	peerConfigIPv4VPN = &v1alpha1.IsovalentBGPPeerConfig{
+	peerConfigIPv4VPN = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-ipv4-mpls_vpn",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "mpls_vpn",
-						},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "mpls_vpn",
 					},
 				},
 			},
@@ -107,19 +103,19 @@ func TestVPNRoutePolicy(t *testing.T) {
 	tests := []struct {
 		name        string
 		preRPs      reconcilerv2.RoutePolicyMap
-		peerConfigs []*v1alpha1.IsovalentBGPPeerConfig
-		peers       []v1alpha1.IsovalentBGPNodePeer
+		peerConfigs []*v1.IsovalentBGPPeerConfig
+		peers       []v1.IsovalentBGPNodePeer
 		expectedRPs reconcilerv2.RoutePolicyMap
 	}{
 		{
 			name:        "ipv4-unicast peer, no policy",
 			preRPs:      nil,
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
-			peers: []v1alpha1.IsovalentBGPNodePeer{
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "red-peer-65001",
 					PeerAddress: ptr.To[string]("192.168.0.10"),
-					PeerConfigRef: &v1alpha1.PeerConfigReference{
+					PeerConfigRef: &v1.PeerConfigReference{
 						Name: "peer-config-ipv4-unicast",
 					},
 				},
@@ -129,12 +125,12 @@ func TestVPNRoutePolicy(t *testing.T) {
 		{
 			name:        "ipv4-vpn peer, policies applied",
 			preRPs:      nil,
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4VPN},
-			peers: []v1alpha1.IsovalentBGPNodePeer{
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4VPN},
+			peers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "red-peer-65001",
 					PeerAddress: ptr.To[string]("192.168.0.10"),
-					PeerConfigRef: &v1alpha1.PeerConfigReference{
+					PeerConfigRef: &v1.PeerConfigReference{
 						Name: "peer-config-ipv4-mpls_vpn",
 					},
 				},
@@ -150,12 +146,12 @@ func TestVPNRoutePolicy(t *testing.T) {
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
-			peers: []v1alpha1.IsovalentBGPNodePeer{
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "red-peer-65001",
 					PeerAddress: ptr.To[string]("192.168.0.10"),
-					PeerConfigRef: &v1alpha1.PeerConfigReference{
+					PeerConfigRef: &v1.PeerConfigReference{
 						Name: "peer-config-ipv4-unicast",
 					},
 				},
@@ -168,12 +164,12 @@ func TestVPNRoutePolicy(t *testing.T) {
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
-			peers: []v1alpha1.IsovalentBGPNodePeer{
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
+			peers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "red-peer-65001",
 					PeerAddress: ptr.To[string]("192.168.0.10"),
-					PeerConfigRef: &v1alpha1.PeerConfigReference{
+					PeerConfigRef: &v1.PeerConfigReference{
 						Name: "no_matching_peer_config",
 					},
 				},
@@ -191,7 +187,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 				Name:   testOSSBGPInstance.Name,
 				Router: testOSSBGPInstance.Router,
 			}
-			iNodeInstance := &v1alpha1.IsovalentBGPNodeInstance{
+			iNodeInstance := &v1.IsovalentBGPNodeInstance{
 				Name:     "test-instance",
 				LocalASN: ptr.To[int64](65001),
 				Peers:    tt.peers,
@@ -212,13 +208,13 @@ func TestVPNRoutePolicy(t *testing.T) {
 
 			reconciler := &VPNRoutePolicyReconciler{
 				logger:          logger,
-				peerConfigStore: newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig](),
+				peerConfigStore: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
 				metadata:        make(map[string]VPNRoutePolicyMetadata),
 				upgrader:        newUpgraderMock(iNodeInstance),
 			}
 
 			if len(tt.peerConfigs) > 0 {
-				reconciler.peerConfigStore = InitMockStore[*v1alpha1.IsovalentBGPPeerConfig](tt.peerConfigs)
+				reconciler.peerConfigStore = InitMockStore[*v1.IsovalentBGPPeerConfig](tt.peerConfigs)
 			}
 
 			reconciler.Init(testOSSBGPInstance)

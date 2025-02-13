@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -41,7 +41,7 @@ var (
 // reconcileParamsUpgrader.upgrade.
 type EnterpriseReconcileParams struct {
 	BGPInstance   *EnterpriseBGPInstance
-	DesiredConfig *v1alpha1.IsovalentBGPNodeInstance
+	DesiredConfig *v1.IsovalentBGPNodeInstance
 	CiliumNode    *ciliumv2.CiliumNode
 }
 
@@ -49,7 +49,7 @@ type EnterpriseReconcileParams struct {
 // reconcilerv2.StateReconcileParams. It must be created with
 // reconcileParamsUpgrader.upgradeState.
 type EnterpriseStateReconcileParams struct {
-	DesiredConfig   *v1alpha1.IsovalentBGPNodeInstance
+	DesiredConfig   *v1.IsovalentBGPNodeInstance
 	UpdatedInstance *EnterpriseBGPInstance
 	DeletedInstance string
 }
@@ -59,7 +59,7 @@ type EnterpriseStateReconcileParams struct {
 // reconcileParamsUpgrader.upgrade.
 type EnterpriseBGPInstance struct {
 	Name   string
-	Config *v1alpha1.IsovalentBGPNodeInstance
+	Config *v1.IsovalentBGPNodeInstance
 	Router types.Router
 }
 
@@ -73,7 +73,7 @@ type reconcilerParamsUpgraderIn struct {
 
 	Logger           logrus.FieldLogger
 	BGPConfig        config.Config
-	BGPNodeConfigRes resource.Resource[*v1alpha1.IsovalentBGPNodeConfig]
+	BGPNodeConfigRes resource.Resource[*v1.IsovalentBGPNodeConfig]
 	LocalNodeRes     daemon_k8s.LocalCiliumNodeResource
 	Signaler         *signaler.BGPCPSignaler
 	JobGroup         job.Group
@@ -83,7 +83,7 @@ type reconcileParamsUpgrader struct {
 	initialized   atomic.Bool
 	nodeName      string
 	nodeNameMutex lock.Mutex
-	store         resource.Store[*v1alpha1.IsovalentBGPNodeConfig]
+	store         resource.Store[*v1.IsovalentBGPNodeConfig]
 }
 
 func newReconcileParamsUpgrader(in reconcilerParamsUpgraderIn) paramUpgrader {

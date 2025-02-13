@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -42,47 +43,41 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 	)
 	structure := srv6Types.MustNewSIDStructure(32, 16, 16, 0)
 
-	testInstanceConfig := &v1alpha1.IsovalentBGPNodeInstance{
+	testInstanceConfig := &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []v1alpha1.IsovalentBGPNodePeer{
+		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				Name:        "peer-65001",
 				PeerAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
-					Group: "isovalent.com",
-					Kind:  "IsovalentBGPPeerConfig",
-					Name:  "peer-config",
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: "peer-config",
 				},
 			},
 			{
 				Name:        "peer-65001-2",
 				PeerAddress: ptr.To[string]("10.10.10.2"),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
-					Group: "isovalent.com",
-					Kind:  "IsovalentBGPPeerConfig",
-					Name:  "peer-config",
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: "peer-config",
 				},
 			},
 		},
 	}
 
-	testPeerConfig := &v1alpha1.IsovalentBGPPeerConfig{
+	testPeerConfig := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "bgp",
 						},
 					},
 				},
@@ -90,17 +85,17 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	testAdvertisement := &v1alpha1.IsovalentBGPAdvertisement{
+	testAdvertisement := &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "srv6-lp-advertisement",
 			Labels: map[string]string{
 				"advertise": "bgp",
 			},
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
-					AdvertisementType: v1alpha1.BGPSRv6LocatorPoolAdvert,
+					AdvertisementType: v1.BGPSRv6LocatorPoolAdvert,
 					Selector: &slimv1.LabelSelector{
 						MatchLabels: map[string]string{
 							"export": "true",
@@ -111,7 +106,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool1RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool1")
+	pool1RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1.BGPSRv6LocatorPoolAdvert, "pool1")
 	pool1Locator1RPPeer1 := &types.RoutePolicy{
 		Name: pool1RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
@@ -155,7 +150,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool1RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool1")
+	pool1RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1.BGPSRv6LocatorPoolAdvert, "pool1")
 	pool1Locator1RPPeer2 := &types.RoutePolicy{
 		Name: pool1RPNamePeer2,
 		Type: types.RoutePolicyTypeExport,
@@ -199,7 +194,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool2RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool2")
+	pool2RPNamePeer1 := PolicyName("peer-65001", "ipv6", v1.BGPSRv6LocatorPoolAdvert, "pool2")
 	pool2Locator2RPPeer1 := &types.RoutePolicy{
 		Name: pool2RPNamePeer1,
 		Type: types.RoutePolicyTypeExport,
@@ -243,7 +238,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		},
 	}
 
-	pool2RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1alpha1.BGPSRv6LocatorPoolAdvert, "pool2")
+	pool2RPNamePeer2 := PolicyName("peer-65001-2", "ipv6", v1.BGPSRv6LocatorPoolAdvert, "pool2")
 	pool2Locator2RPPeer2 := &types.RoutePolicy{
 		Name: pool2RPNamePeer2,
 		Type: types.RoutePolicyTypeExport,
@@ -659,8 +654,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			req := require.New(t)
 
-			mockPeerConfigStore := newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-			mockAdvertStore := newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+			mockPeerConfigStore := newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+			mockAdvertStore := newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 			mockLocatorPoolStore := newMockResourceStore[*v1alpha1.IsovalentSRv6LocatorPool]()
 
 			mockPeerConfigStore.Upsert(testPeerConfig)

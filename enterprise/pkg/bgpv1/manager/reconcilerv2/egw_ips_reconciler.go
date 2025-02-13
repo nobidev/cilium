@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -115,7 +115,7 @@ func (r *EgressGatewayIPsReconciler) Reconcile(ctx context.Context, p reconciler
 	}
 
 	// get per peer per family egw advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1alpha1.BGPEGWAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1.BGPEGWAdvert)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 
 			for _, advert := range familyAdverts {
 				// sanity check
-				if advert.AdvertisementType != v1alpha1.BGPEGWAdvert {
+				if advert.AdvertisementType != v1.BGPEGWAdvert {
 					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
 					continue
 				}
@@ -277,7 +277,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 
 			for _, advert := range familyAdverts {
 				// sanity check
-				if advert.AdvertisementType != v1alpha1.BGPEGWAdvert {
+				if advert.AdvertisementType != v1.BGPEGWAdvert {
 					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
 					continue
 				}
@@ -316,7 +316,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 						continue
 					}
 
-					policyName := PolicyName(peer, agentFamily.Afi.String(), v1alpha1.BGPEGWAdvert, egwID.Name)
+					policyName := PolicyName(peer, agentFamily.Afi.String(), v1.BGPEGWAdvert, egwID.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
 						Attributes: advert.Attributes,
 					})

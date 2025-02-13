@@ -35,9 +35,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
-	clientv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	clientv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -56,10 +56,10 @@ type bfdTestFixture struct {
 
 	db            *statedb.DB
 	bfdPeersTable statedb.RWTable[*types.BFDPeerStatus]
-	pcClient      clientv1alpha1.IsovalentBGPPeerConfigInterface
+	pcClient      clientv1.IsovalentBGPPeerConfigInterface
 }
 
-func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalentv1alpha1.IsovalentBGPNodeInstance) (*bfdTestFixture, func()) {
+func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.IsovalentBGPNodeInstance) (*bfdTestFixture, func()) {
 	var pcOnce sync.Once
 	pcWatchStarted := make(chan struct{})
 
@@ -114,7 +114,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 			}),
 
 			cell.Invoke(func(clientset *k8sclient.FakeClientset) {
-				f.pcClient = clientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs()
+				f.pcClient = clientset.IsovalentV1().IsovalentBGPPeerConfigs()
 				clientset.CiliumFakeClientset.PrependWatchReactor("*",
 					func(action k8stesting.Action) (handled bool, ret watch.Interface, err error) {
 						w := action.(k8stesting.WatchAction)
@@ -124,7 +124,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 						if err != nil {
 							return false, nil, err
 						}
-						if w.GetResource().Resource == isovalentv1alpha1.IsovalentBGPPeerConfigPluralName {
+						if w.GetResource().Resource == v1.IsovalentBGPPeerConfigPluralName {
 							pcOnce.Do(func() { close(pcWatchStarted) })
 							return true, watch, nil
 						}
@@ -138,7 +138,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *isovalen
 		select {
 		case <-pcWatchStarted:
 		case <-ctx.Done():
-			t.Fatalf("%s is not initialized", isovalentv1alpha1.IsovalentBGPPeerConfigPluralName)
+			t.Fatalf("%s is not initialized", v1.IsovalentBGPPeerConfigPluralName)
 		}
 	}
 	return f, watchersReadyFn
@@ -169,40 +169,40 @@ func TestBFDStateReconciler(t *testing.T) {
 		peer3Addr = netip.MustParseAddr("10.0.0.3")
 	)
 
-	peerConfigBFDEnabled := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+	peerConfigBFDEnabled := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "bfd-enabled",
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
+		Spec: v1.IsovalentBGPPeerConfigSpec{
 			BFDProfileRef: ptr.To[string]("frr"),
 		},
 	}
-	peerConfigBFDDisabled := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+	peerConfigBFDDisabled := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "bfd-disabled",
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{},
+		Spec: v1.IsovalentBGPPeerConfigSpec{},
 	}
 
-	var nodeInstance = &isovalentv1alpha1.IsovalentBGPNodeInstance{
+	var nodeInstance = &v1.IsovalentBGPNodeInstance{
 		Name:     "test-instance",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				PeerAddress: ptr.To[string](peer1Addr.String()),
-				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: peerConfigBFDEnabled.Name,
 				},
 			},
 			{
 				PeerAddress: ptr.To[string](peer2Addr.String()),
-				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: peerConfigBFDEnabled.Name,
 				},
 			},
 			{
 				PeerAddress: ptr.To[string](peer3Addr.String()),
-				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: peerConfigBFDDisabled.Name,
 				},
 			},
@@ -223,7 +223,7 @@ func TestBFDStateReconciler(t *testing.T) {
 
 	var table = []struct {
 		name          string
-		desiredConfig *isovalentv1alpha1.IsovalentBGPNodeInstance
+		desiredConfig *v1.IsovalentBGPNodeInstance
 		peerChanges   []*types.BFDPeerStatus
 		deletePeers   bool
 		expectSignal  bool

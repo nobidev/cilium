@@ -32,7 +32,7 @@ import (
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -280,7 +280,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 
 	r.logger.Debug("Performing CEE Service reconciliation")
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1alpha1.BGPServiceAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1.BGPServiceAdvert)
 	if err != nil {
 		return err
 	}
@@ -565,8 +565,8 @@ func (r *ServiceReconciler) getAllServiceAFPaths(desiredPeerAdverts PeerAdvertis
 	return desiredFamilyAdverts, nil
 }
 
-func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
-	if advert.AdvertisementType != v1alpha1.BGPServiceAdvert {
+func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
+	if advert.AdvertisementType != v1.BGPServiceAdvert {
 		return nil, fmt.Errorf("unexpected advertisement type: %s", advert.AdvertisementType)
 	}
 
@@ -602,7 +602,7 @@ func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert 
 	return desiredRoutes, nil
 }
 
-func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1alpha1.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	// Ignore externalTrafficPolicy == Local && no local EPs.
 	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
@@ -622,7 +622,7 @@ func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1alpha1.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	// Ignore internalTrafficPolicy == Local && no local EPs.
 	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal &&
@@ -652,7 +652,7 @@ func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1alpha1.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v1.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return desiredRoutes
@@ -971,7 +971,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return nil, nil
 	}
@@ -1040,7 +1040,7 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 	return policy, nil
 }
 
-func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	// get the peer address
 	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
@@ -1105,7 +1105,7 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 	return policy, nil
 }
 
-func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	// get the peer address
 	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
@@ -1178,7 +1178,7 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 }
 
 // checkServiceAdvertisement checks if the service advertisement is enabled in the advertisement.
-func checkServiceAdvertisement(advert v1alpha1.BGPAdvertisement, advertServiceType v2alpha1.BGPServiceAddressType) (bool, error) {
+func checkServiceAdvertisement(advert v1.BGPAdvertisement, advertServiceType v2alpha1.BGPServiceAddressType) (bool, error) {
 	if advert.Service == nil {
 		return false, fmt.Errorf("advertisement has no service options")
 	}
@@ -1215,7 +1215,7 @@ func (r *ServiceReconciler) diffID(instanceName string) string {
 	return fmt.Sprintf("%s-%s", r.Name(), instanceName)
 }
 
-func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v1alpha1.BGPAdvertisement) int {
+func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v1.BGPAdvertisement) int {
 	prefixLen := addr.BitLen()
 
 	// If eTP=Local or iTP=Local, we always use the full prefix length.

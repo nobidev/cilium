@@ -19,24 +19,24 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
 func TestToNeighbor(t *testing.T) {
 	table := []struct {
 		name         string
-		nodePeer     *v1alpha1.IsovalentBGPNodePeer
-		peerConfig   *v1alpha1.IsovalentBGPPeerConfigSpec
+		nodePeer     *v1.IsovalentBGPNodePeer
+		peerConfig   *v1.IsovalentBGPPeerConfigSpec
 		authPassword string
 		expected     *types.Neighbor
 	}{
 		{
 			name: "IPv4 Minimal",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("10.0.0.1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			expected: &types.Neighbor{
 				Address: netip.MustParseAddr("10.0.0.1"),
 				ASN:     64512,
@@ -44,11 +44,11 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "IPv6 Minimal",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			expected: &types.Neighbor{
 				Address: netip.MustParseAddr("fd00::1"),
 				ASN:     64512,
@@ -56,12 +56,12 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "LocalAddress",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress:  ptr.To("fd00::1"),
 				PeerASN:      ptr.To(int64(64512)),
 				LocalAddress: ptr.To("fd00::2"),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			expected: &types.Neighbor{
 				Address: netip.MustParseAddr("fd00::1"),
 				ASN:     64512,
@@ -71,37 +71,14 @@ func TestToNeighbor(t *testing.T) {
 			},
 		},
 		{
-			name: "LocalPort",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
-				PeerAddress: ptr.To("fd00::1"),
-				PeerASN:     ptr.To(int64(64512)),
-			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					Transport: &v2alpha1.CiliumBGPTransport{
-						LocalPort: ptr.To(int32(1790)),
-					},
-				},
-			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				Transport: &types.NeighborTransport{
-					LocalPort: 1790,
-				},
-			},
-		},
-		{
 			name: "PeerPort",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					Transport: &v2alpha1.CiliumBGPTransport{
-						PeerPort: ptr.To(int32(1790)),
-					},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				Transport: &v1.IsovalentBGPTransport{
+					PeerPort: ptr.To(int32(1790)),
 				},
 			},
 			expected: &types.Neighbor{
@@ -114,17 +91,15 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "Timers",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					Timers: &v2alpha1.CiliumBGPTimers{
-						ConnectRetryTimeSeconds: ptr.To(int32(1)),
-						HoldTimeSeconds:         ptr.To(int32(3)),
-						KeepAliveTimeSeconds:    ptr.To(int32(1)),
-					},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				Timers: &v2alpha1.CiliumBGPTimers{
+					ConnectRetryTimeSeconds: ptr.To(int32(1)),
+					HoldTimeSeconds:         ptr.To(int32(3)),
+					KeepAliveTimeSeconds:    ptr.To(int32(1)),
 				},
 			},
 			expected: &types.Neighbor{
@@ -139,11 +114,11 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "AuthPassword",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig:   &v1alpha1.IsovalentBGPPeerConfigSpec{},
+			peerConfig:   &v1.IsovalentBGPPeerConfigSpec{},
 			authPassword: "password",
 			expected: &types.Neighbor{
 				Address:      netip.MustParseAddr("fd00::1"),
@@ -153,16 +128,14 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "GracefulRestart",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
-						Enabled:            true,
-						RestartTimeSeconds: ptr.To(int32(3)),
-					},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: ptr.To(int32(3)),
 				},
 			},
 			expected: &types.Neighbor{
@@ -176,14 +149,12 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "EBGPMultihop",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					EBGPMultihop: ptr.To(int32(3)),
-				},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				EBGPMultihop: ptr.To(int32(3)),
 			},
 			expected: &types.Neighbor{
 				Address: netip.MustParseAddr("fd00::1"),
@@ -195,26 +166,24 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "Families",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
 				PeerASN:     ptr.To(int64(64512)),
 			},
 
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-						{
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+					{
 
-							CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-								Afi:  "ipv4",
-								Safi: "unicast",
-							},
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
 						},
-						{
-							CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-								Afi:  "ipv6",
-								Safi: "unicast",
-							},
+					},
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
 						},
 					},
 				},
@@ -236,39 +205,36 @@ func TestToNeighbor(t *testing.T) {
 		},
 		{
 			name: "Maximum",
-			nodePeer: &v1alpha1.IsovalentBGPNodePeer{
+			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress:  ptr.To("fd00::1"),
 				PeerASN:      ptr.To(int64(64512)),
 				LocalAddress: ptr.To("fd00::2"),
 			},
-			peerConfig: &v1alpha1.IsovalentBGPPeerConfigSpec{
-				CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-					Transport: &v2alpha1.CiliumBGPTransport{
-						LocalPort: ptr.To(int32(1790)),
-						PeerPort:  ptr.To(int32(1790)),
-					},
-					Timers: &v2alpha1.CiliumBGPTimers{
-						ConnectRetryTimeSeconds: ptr.To(int32(1)),
-						HoldTimeSeconds:         ptr.To(int32(3)),
-						KeepAliveTimeSeconds:    ptr.To(int32(1)),
-					},
-					GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
-						Enabled:            true,
-						RestartTimeSeconds: ptr.To(int32(3)),
-					},
-					EBGPMultihop: ptr.To(int32(3)),
-					Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-						{
-							CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-								Afi:  "ipv4",
-								Safi: "unicast",
-							},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
+				Transport: &v1.IsovalentBGPTransport{
+					PeerPort: ptr.To(int32(1790)),
+				},
+				Timers: &v2alpha1.CiliumBGPTimers{
+					ConnectRetryTimeSeconds: ptr.To(int32(1)),
+					HoldTimeSeconds:         ptr.To(int32(3)),
+					KeepAliveTimeSeconds:    ptr.To(int32(1)),
+				},
+				GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: ptr.To(int32(3)),
+				},
+				EBGPMultihop: ptr.To(int32(3)),
+				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
 						},
-						{
-							CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-								Afi:  "ipv6",
-								Safi: "unicast",
-							},
+					},
+					{
+						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
 						},
 					},
 				},
@@ -288,7 +254,6 @@ func TestToNeighbor(t *testing.T) {
 				},
 				Transport: &types.NeighborTransport{
 					LocalAddress: "fd00::2",
-					LocalPort:    1790,
 					RemotePort:   1790,
 				},
 				GracefulRestart: &types.NeighborGracefulRestart{

@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -64,42 +64,36 @@ var (
 	egwPrefix2 = netip.MustParsePrefix("10.2.0.2/32")
 
 	// peer config
-	peer = v1alpha1.IsovalentBGPNodePeer{
+	peer = v1.IsovalentBGPNodePeer{
 		Name:        "peer-65001",
 		PeerAddress: ptr.To[string]("10.10.10.1"),
-		PeerConfigRef: &v1alpha1.PeerConfigReference{
-			Group: "isovalent.com",
-			Kind:  "IsovalentBGPPeerConfig",
-			Name:  "peer-config",
+		PeerConfigRef: &v1.PeerConfigReference{
+			Name: "peer-config",
 		},
 	}
 
-	peer2 = v1alpha1.IsovalentBGPNodePeer{
+	peer2 = v1.IsovalentBGPNodePeer{
 		Name:        "peer-65001-2",
 		PeerAddress: ptr.To[string]("10.10.10.2"),
-		PeerConfigRef: &v1alpha1.PeerConfigReference{
-			Group: "isovalent.com",
-			Kind:  "IsovalentBGPPeerConfig",
-			Name:  "peer-config",
+		PeerConfigRef: &v1.PeerConfigReference{
+			Name: "peer-config",
 		},
 	}
 
-	peerConfig = &v1alpha1.IsovalentBGPPeerConfig{
+	peerConfig = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "bgp",
 						},
 					},
 				},
@@ -107,17 +101,17 @@ var (
 		},
 	}
 
-	egwAdvert = &v1alpha1.IsovalentBGPAdvertisement{
+	egwAdvert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "egw-advertisement",
 			Labels: map[string]string{
 				"advertise": "bgp",
 			},
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
-					AdvertisementType: v1alpha1.BGPEGWAdvert,
+					AdvertisementType: v1.BGPEGWAdvert,
 					Selector:          egwLabelSelector,
 					Attributes: &v2alpha1.BGPAttributes{
 						Communities: &v2alpha1.BGPCommunities{
@@ -126,7 +120,7 @@ var (
 					},
 				},
 				{
-					AdvertisementType: v1alpha1.BGPEGWAdvert,
+					AdvertisementType: v1.BGPEGWAdvert,
 					Selector:          egwLabelSelector2,
 					Attributes: &v2alpha1.BGPAttributes{
 						Communities: &v2alpha1.BGPCommunities{
@@ -138,7 +132,7 @@ var (
 		},
 	}
 
-	egw1Peer1RPName = PolicyName("peer-65001", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey.Name)
+	egw1Peer1RPName = PolicyName("peer-65001", "ipv4", v1.BGPEGWAdvert, egwPolicyKey.Name)
 	egw1Peer1RP     = &types.RoutePolicy{
 		Name: egw1Peer1RPName,
 		Type: types.RoutePolicyTypeExport,
@@ -162,7 +156,7 @@ var (
 		},
 	}
 
-	egw1Peer2RPName = PolicyName("peer-65001-2", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey.Name)
+	egw1Peer2RPName = PolicyName("peer-65001-2", "ipv4", v1.BGPEGWAdvert, egwPolicyKey.Name)
 	egw1Peer2RP     = &types.RoutePolicy{
 		Name: egw1Peer2RPName,
 		Type: types.RoutePolicyTypeExport,
@@ -186,7 +180,7 @@ var (
 		},
 	}
 
-	egw2RPName = PolicyName("peer-65001", "ipv4", v1alpha1.BGPEGWAdvert, egwPolicyKey2.Name)
+	egw2RPName = PolicyName("peer-65001", "ipv4", v1.BGPEGWAdvert, egwPolicyKey2.Name)
 	egw2RP     = &types.RoutePolicy{
 		Name: egw2RPName,
 		Type: types.RoutePolicyTypeExport,
@@ -239,11 +233,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 
 	tests := []struct {
 		name                    string
-		advertisement           *v1alpha1.IsovalentBGPAdvertisement
+		advertisement           *v1.IsovalentBGPAdvertisement
 		preconfiguredEGWAFPaths map[resource.Key]map[types.Family]map[string]struct{}
 		preconfiguredRPs        reconcilerv2.ResourceRoutePolicyMap
 		testEGWPolicies         []mockEGWPolicy
-		testBGPInstanceConfig   *v1alpha1.IsovalentBGPNodeInstance
+		testBGPInstanceConfig   *v1.IsovalentBGPNodeInstance
 		expectedEGWAFPaths      map[resource.Key]map[types.Family]map[string]struct{}
 		expectedRPs             reconcilerv2.ResourceRoutePolicyMap
 	}{
@@ -261,10 +255,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					egressIPs: []netip.Addr{egwAddr},
 				},
 			},
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer},
+				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				egwPolicyKey: {
@@ -312,10 +306,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					egressIPs: []netip.Addr{egwAddr2},
 				},
 			},
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer},
+				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				egwPolicyKey: {
@@ -379,10 +373,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					egressIPs: []netip.Addr{egwAddr2},
 				},
 			},
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer},
+				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				egwPolicyKey: {
@@ -429,10 +423,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				},
 			},
 			testEGWPolicies: []mockEGWPolicy{}, // no egw policy present in EGW manager
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer},
+				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
 			expectedRPs:        reconcilerv2.ResourceRoutePolicyMap{},
@@ -479,10 +473,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					egressIPs: []netip.Addr{egwAddr2},
 				},
 			},
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer},
+				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
 			expectedRPs:        reconcilerv2.ResourceRoutePolicyMap{},
@@ -501,10 +495,10 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					egressIPs: []netip.Addr{egwAddr},
 				},
 			},
-			testBGPInstanceConfig: &v1alpha1.IsovalentBGPNodeInstance{
+			testBGPInstanceConfig: &v1.IsovalentBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers:    []v1alpha1.IsovalentBGPNodePeer{peer, peer2},
+				Peers:    []v1.IsovalentBGPNodePeer{peer, peer2},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				egwPolicyKey: {
@@ -526,8 +520,8 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			mockPeerConfigStore := newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-			mockAdvertStore := newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+			mockPeerConfigStore := newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+			mockAdvertStore := newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 
 			reconciler := EgressGatewayIPsReconciler{
 				logger:         logger,

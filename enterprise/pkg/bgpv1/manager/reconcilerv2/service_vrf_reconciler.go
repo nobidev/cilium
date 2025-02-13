@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -107,7 +107,7 @@ type ServiceVRFReconcilerMetadata struct {
 	vrfAdverts VRFAdvertisements
 
 	// vrfConfigs contains BGP RD/RT configuration for VRFs
-	vrfConfigs []v1alpha1.IsovalentBGPNodeVRF
+	vrfConfigs []v1.IsovalentBGPNodeVRF
 
 	// vrfSIDs contains SRv6 SID information for VRFs, like SID structure and behavior
 	vrfSIDs VRFSIDInfo
@@ -167,7 +167,7 @@ func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 		return err
 	}
 
-	desiredVRFAdverts, err := r.adverts.GetConfiguredVRFAdvertisements(iParams.DesiredConfig, v1alpha1.BGPServiceAdvert)
+	desiredVRFAdverts, err := r.adverts.GetConfiguredVRFAdvertisements(iParams.DesiredConfig, v1.BGPServiceAdvert)
 	if err != nil {
 		return fmt.Errorf("failed to get configured VRF advertisements: %w", err)
 	}
@@ -319,7 +319,7 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	return updatedSvcPaths, err
 }
 
-func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, ls sets.Set[resource.Key], bgpVRF v1alpha1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
+func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, ls sets.Set[resource.Key], bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
 	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
 
 	// check for services which are no longer present
@@ -416,7 +416,7 @@ func (r *ServiceVRFReconciler) getDiffPaths(
 	toReconcile []*slim_corev1.Service,
 	toWithdraw []resource.Key,
 	ls sets.Set[resource.Key],
-	bgpVRF v1alpha1.IsovalentBGPNodeVRF,
+	bgpVRF v1.IsovalentBGPNodeVRF,
 	desiredVRFAdverts VRFAdvertisements,
 ) (reconcilerv2.ResourceAFPathsMap, error) {
 
@@ -443,7 +443,7 @@ func (r *ServiceVRFReconciler) getDiffPaths(
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], bgpVRF v1alpha1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.AFPathsMap, error) {
+func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.AFPathsMap, error) {
 	desiredFamilyPaths := make(reconcilerv2.AFPathsMap)
 
 	vrfFamilyAdvertisements, exists := desiredVRFAdverts[bgpVRF.VRFRef]
@@ -546,7 +546,7 @@ func (r *ServiceVRFReconciler) configModified(iParams EnterpriseReconcileParams,
 		!r.vrfSIDInfoEqual(currentMetadata.vrfSIDs, desiredVRFSIDInfo)
 }
 
-func (r *ServiceVRFReconciler) vrfConfigsEqual(firstVRFs, secondVRFs []v1alpha1.IsovalentBGPNodeVRF) bool {
+func (r *ServiceVRFReconciler) vrfConfigsEqual(firstVRFs, secondVRFs []v1.IsovalentBGPNodeVRF) bool {
 	if len(firstVRFs) != len(secondVRFs) {
 		return false
 	}
@@ -588,8 +588,8 @@ func (r *ServiceVRFReconciler) vrfSIDInfoEqual(firstVRFs, secondVRFs VRFSIDInfo)
 	return true
 }
 
-func (r *ServiceVRFReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v1alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
-	if advert.AdvertisementType != v1alpha1.BGPServiceAdvert {
+func (r *ServiceVRFReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
+	if advert.AdvertisementType != v1.BGPServiceAdvert {
 		return nil, fmt.Errorf("BUG: unexpected advertisement type: %s", advert.AdvertisementType)
 	}
 
@@ -655,7 +655,7 @@ func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(svc *slim_corev1.Service, l
 	return desiredPrefixes
 }
 
-func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1alpha1.IsovalentBGPNodeInstance) (VRFSIDInfo, error) {
+func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1.IsovalentBGPNodeInstance) (VRFSIDInfo, error) {
 	desiredVRFSIDInfo := make(VRFSIDInfo)
 	for _, bgpVRF := range bgpConfig.VRFs {
 		vrfInfo, exists := r.srv6Manager.GetVRFByName(k8stypes.NamespacedName{Name: bgpVRF.VRFRef})

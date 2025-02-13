@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/k8s"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
@@ -30,7 +31,7 @@ var ConfigReconcilers = cell.Group(
 	// provide stores
 	cell.Provide(
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig],
-		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPPeerConfig],
 	),
 
 	cell.Provide(

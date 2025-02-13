@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -212,9 +213,9 @@ var (
 		},
 	}
 
-	vrf1BGPAdvert = v1alpha1.BGPAdvertisement{
+	vrf1BGPAdvert = v1.BGPAdvertisement{
 		AdvertisementType: "Service",
-		Service: &v1alpha1.BGPServiceOptions{
+		Service: &v1.BGPServiceOptions{
 			Addresses: []v2alpha1.BGPServiceAddressType{
 				v2alpha1.BGPLoadBalancerIPAddr,
 			},
@@ -223,19 +224,19 @@ var (
 			MatchLabels: vrf1SvcLabel,
 		},
 	}
-	vrf1Advert = &v1alpha1.IsovalentBGPAdvertisement{
+	vrf1Advert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "vrf1-advert",
 			Labels: vrf1AdvertLabel,
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{vrf1BGPAdvert},
 		},
 	}
 
-	vrf2BGPAdvert = v1alpha1.BGPAdvertisement{
+	vrf2BGPAdvert = v1.BGPAdvertisement{
 		AdvertisementType: "Service",
-		Service: &v1alpha1.BGPServiceOptions{
+		Service: &v1.BGPServiceOptions{
 			Addresses: []v2alpha1.BGPServiceAddressType{
 				v2alpha1.BGPLoadBalancerIPAddr,
 			},
@@ -244,13 +245,13 @@ var (
 			MatchLabels: vrf2SvcLabel,
 		},
 	}
-	vrf2Advert = &v1alpha1.IsovalentBGPAdvertisement{
+	vrf2Advert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "vrf2-advert",
 			Labels: vrf2AdvertLabel,
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{vrf2BGPAdvert},
 		},
 	}
 
@@ -260,14 +261,14 @@ var (
 		},
 	}
 
-	vrf1RDConfig = v1alpha1.IsovalentBGPNodeVRF{
+	vrf1RDConfig = v1.IsovalentBGPNodeVRF{
 		VRFRef:    "vrf1",
 		ConfigRef: ptr.To[string]("vrf1-config"),
 		RD:        ptr.To[string]("65001:1"),
 		ImportRTs: []string{"65001:1"},
 		ExportRTs: []string{"65001:1"},
 	}
-	vrf1RDConfigUpdated = v1alpha1.IsovalentBGPNodeVRF{
+	vrf1RDConfigUpdated = v1.IsovalentBGPNodeVRF{
 		VRFRef:    "vrf1",
 		ConfigRef: ptr.To[string]("vrf1-config"),
 		RD:        ptr.To[string]("65101:1"),
@@ -275,14 +276,14 @@ var (
 		ExportRTs: []string{"65101:1"},
 	}
 
-	vrf2RDConfig = v1alpha1.IsovalentBGPNodeVRF{
+	vrf2RDConfig = v1.IsovalentBGPNodeVRF{
 		VRFRef:    "vrf2",
 		ConfigRef: ptr.To[string]("vrf2-config"),
 		RD:        ptr.To[string]("65001:2"),
 		ImportRTs: []string{"65001:2"},
 		ExportRTs: []string{"65001:2"},
 	}
-	vrf2ConfigUpdated = v1alpha1.IsovalentBGPNodeVRF{
+	vrf2ConfigUpdated = v1.IsovalentBGPNodeVRF{
 		VRFRef:    "vrf2",
 		ConfigRef: ptr.To[string]("vrf2-config"),
 		RD:        ptr.To[string]("65101:2"),
@@ -290,22 +291,22 @@ var (
 		ExportRTs: []string{"65101:2"},
 	}
 
-	testBGPNodeInstance = &v1alpha1.IsovalentBGPNodeInstance{
+	testBGPNodeInstance = &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		VRFs:     []v1alpha1.IsovalentBGPNodeVRF{vrf1RDConfig, vrf2RDConfig},
+		VRFs:     []v1.IsovalentBGPNodeVRF{vrf1RDConfig, vrf2RDConfig},
 	}
 
-	testBGPNodeInstanceUpdatedRD = &v1alpha1.IsovalentBGPNodeInstance{
+	testBGPNodeInstanceUpdatedRD = &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		VRFs:     []v1alpha1.IsovalentBGPNodeVRF{vrf1RDConfigUpdated, vrf2ConfigUpdated},
+		VRFs:     []v1.IsovalentBGPNodeVRF{vrf1RDConfigUpdated, vrf2ConfigUpdated},
 	}
 
-	testBGPNodeInstanceUpdatedNoVRF = &v1alpha1.IsovalentBGPNodeInstance{
+	testBGPNodeInstanceUpdatedNoVRF = &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		VRFs:     []v1alpha1.IsovalentBGPNodeVRF{},
+		VRFs:     []v1.IsovalentBGPNodeVRF{},
 	}
 
 	locator = types.MustNewLocator(
@@ -368,10 +369,10 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 		name            string
 		prevMetadata    ServiceVRFReconcilerMetadata
 		vrfConfigs      []*v1alpha1.IsovalentBGPVRFConfig
-		adverts         []*v1alpha1.IsovalentBGPAdvertisement
+		adverts         []*v1.IsovalentBGPAdvertisement
 		services        []*slim_corev1.Service
 		endpoints       []*k8s.Endpoints
-		bgpNodeInstance *v1alpha1.IsovalentBGPNodeInstance
+		bgpNodeInstance *v1.IsovalentBGPNodeInstance
 		expectedAdverts VRFAdvertisements
 		expectedPaths   vrfSimplePathsMap // to keep tests simple, compare nlri which is RD:LBVIP
 	}{
@@ -382,16 +383,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				vrfAdverts: make(VRFAdvertisements),
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -428,21 +429,21 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				},
 				vrfAdverts: VRFAdvertisements{
 					"vrf1": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 					},
 					"vrf2": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 					},
 				},
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -474,15 +475,15 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				},
 				vrfAdverts: VRFAdvertisements{
 					"vrf1": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 					},
 					"vrf2": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 					},
 				},
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{},
+			adverts:         []*v1.IsovalentBGPAdvertisement{},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstance,
@@ -517,15 +518,15 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				},
 				vrfAdverts: VRFAdvertisements{
 					"vrf1": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 					},
 					"vrf2": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 					},
 				},
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstance,
@@ -553,24 +554,24 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				},
 				vrfAdverts: VRFAdvertisements{
 					"vrf1": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 					},
 					"vrf2": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 					},
 				},
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstanceUpdatedRD, // updated RD
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -607,15 +608,15 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				},
 				vrfAdverts: VRFAdvertisements{
 					"vrf1": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 					},
 					"vrf2": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+						{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 					},
 				},
 			},
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
 			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
 			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			bgpNodeInstance: testBGPNodeInstanceUpdatedNoVRF, // No VRFs
@@ -633,7 +634,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			for _, vrfConfig := range tt.vrfConfigs {
 				vrfConfigMockStore.Upsert(vrfConfig)
 			}
-			advertMockStore := newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+			advertMockStore := newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 			for _, advert := range tt.adverts {
 				advertMockStore.Upsert(advert)
 			}
@@ -771,10 +772,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -796,10 +797,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			// No update, after update should be the same as before
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
@@ -821,10 +822,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -846,10 +847,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			updatedServices: []*slim_corev1.Service{vrf1LBSvc, vrfSvcETPCluster(vrf2LBSvc)}, // update 1 service to have eTP=Cluster
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
@@ -870,10 +871,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -890,10 +891,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			updatedServices: []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc}, // set eTP=Local
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
@@ -919,10 +920,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			endpoints: []*k8s.Endpoints{},                           // no endpoints
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{},
@@ -933,10 +934,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			updatedEPs: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1}, // add endpoints
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
@@ -962,10 +963,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPaths: vrfSimplePathsMap{
@@ -991,10 +992,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf1BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
 				},
 				"vrf2": FamilyAdvertisements{
-					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1alpha1.BGPAdvertisement{vrf2BGPAdvert},
+					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf2BGPAdvert},
 				},
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
@@ -1022,7 +1023,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 
 			isoAdverts := &IsovalentAdvertisement{
 				logger:  svcVRFTestLogger,
-				adverts: InitMockStore[*v1alpha1.IsovalentBGPAdvertisement]([]*v1alpha1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert}),
+				adverts: InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert}),
 				vrfs:    store.InitMockStore[*v1alpha1.IsovalentBGPVRFConfig]([]*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config}),
 			}
 			isoAdverts.initialized.Store(true)

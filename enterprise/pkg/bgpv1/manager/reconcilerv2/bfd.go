@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -47,7 +47,7 @@ type BFDStateReconcilerIn struct {
 
 	DB                    *statedb.DB
 	BFDPeersTable         statedb.Table[*types.BFDPeerStatus]
-	BGPPeerConfigResource resource.Resource[*v1alpha1.IsovalentBGPPeerConfig]
+	BGPPeerConfigResource resource.Resource[*v1.IsovalentBGPPeerConfig]
 }
 
 type BFDStateReconcilerOut struct {
@@ -67,7 +67,7 @@ type BFDStateReconciler struct {
 
 	db                 *statedb.DB
 	bfdPeersTable      statedb.Table[*types.BFDPeerStatus]
-	bgpPeerConfigStore resource.Store[*v1alpha1.IsovalentBGPPeerConfig]
+	bgpPeerConfigStore resource.Store[*v1.IsovalentBGPPeerConfig]
 	metadata           map[string]BFDStateReconcilerMetadata
 }
 
@@ -230,7 +230,7 @@ func (r *BFDStateReconciler) setMetadata(i *EnterpriseBGPInstance, m BFDStateRec
 }
 
 // getConfiguredBFDPeers returns set of BFD peers configured in the provided router instance.
-func (r *BFDStateReconciler) getConfiguredBFDPeers(ni *v1alpha1.IsovalentBGPNodeInstance) sets.Set[netip.Addr] {
+func (r *BFDStateReconciler) getConfiguredBFDPeers(ni *v1.IsovalentBGPNodeInstance) sets.Set[netip.Addr] {
 	peers := sets.New(netip.Addr{})
 	for _, peer := range ni.Peers {
 		if peer.PeerAddress == nil {

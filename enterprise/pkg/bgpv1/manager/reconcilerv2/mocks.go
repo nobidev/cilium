@@ -23,7 +23,7 @@ import (
 
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -67,16 +67,16 @@ func (e *egwManagerMock) AdvertisedEgressIPs(policySelector *slimv1.LabelSelecto
 // upgraderMock is a mock implementation of paramUpgrader. This is used to provide the IsovalentBGPNodeInstance
 // configuration for the tests.
 type upgraderMock struct {
-	bgpNodeInstance *v1alpha1.IsovalentBGPNodeInstance
+	bgpNodeInstance *v1.IsovalentBGPNodeInstance
 }
 
-func newUpgraderMock(n *v1alpha1.IsovalentBGPNodeInstance) paramUpgrader {
+func newUpgraderMock(n *v1.IsovalentBGPNodeInstance) paramUpgrader {
 	return &upgraderMock{
 		bgpNodeInstance: n,
 	}
 }
 
-func (u *upgraderMock) setNodeInstance(n *v1alpha1.IsovalentBGPNodeInstance) {
+func (u *upgraderMock) setNodeInstance(n *v1.IsovalentBGPNodeInstance) {
 	u.bgpNodeInstance = n
 }
 

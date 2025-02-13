@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -69,47 +69,45 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
 	}
 
-	instanceConfig := &v1alpha1.IsovalentBGPNodeInstance{
+	instanceConfig := &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []v1alpha1.IsovalentBGPNodePeer{
+		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				Name:        "peer-65001",
 				PeerAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: "peer-config",
 				},
 			},
 		},
 	}
 
-	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
+	peerConfig := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "bgp",
 						},
 					},
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
+				},
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "bgp",
 						},
 					},
 				},
@@ -117,18 +115,18 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 	}
 
-	svcAdvertisement := &v1alpha1.IsovalentBGPAdvertisement{
+	svcAdvertisement := &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "svc-advertisement",
 			Labels: map[string]string{
 				"advertise": "bgp",
 			},
 		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
 				{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 					},
 					Selector: &slim_metav1.LabelSelector{
@@ -149,7 +147,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	}
 
 	svcRoutePolicy := &types.RoutePolicy{
-		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv4", v1alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
+		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv4", v1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -171,7 +169,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	}
 
 	svcRoutePolicyV6 := &types.RoutePolicy{
-		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv6", v1alpha1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
+		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv6", v1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
 		Type: types.RoutePolicyTypeExport,
 		Statements: []*types.RoutePolicyStatement{
 			{
@@ -244,7 +242,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		// name of the test case
 		name string
 		// advertisements to be upserted in the test step
-		upsertedAdverts []*v1alpha1.IsovalentBGPAdvertisement
+		upsertedAdverts []*v1.IsovalentBGPAdvertisement
 		// the services which will be upserted in the test step
 		upsertedServices []*slim_corev1.Service
 		// the services which will be deleted in the test step
@@ -256,7 +254,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	}{
 		{
 			name:             "advertise new service with no health updates",
-			upsertedAdverts:  []*v1alpha1.IsovalentBGPAdvertisement{svcAdvertisement},
+			upsertedAdverts:  []*v1.IsovalentBGPAdvertisement{svcAdvertisement},
 			upsertedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates:   nil,
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -691,8 +689,8 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -816,7 +814,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4LBRPName = PolicyName("red-peer-65001", "ipv4", v1alpha1.BGPServiceAdvert, "red-svc-non-default-LoadBalancerIP")
+	redPeer65001v4LBRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-LoadBalancerIP")
 	redPeer65001v4LBRP     = &types.RoutePolicy{
 		Name: redPeer65001v4LBRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -840,7 +838,7 @@ var (
 		},
 	}
 
-	redPeer65001Svc2v4LBRPName = PolicyName("red-peer-65001", "ipv4", v1alpha1.BGPServiceAdvert, "red-svc2-non-default-LoadBalancerIP")
+	redPeer65001Svc2v4LBRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc2-non-default-LoadBalancerIP")
 	redPeer65001Svc2v4LBRP     = func() *types.RoutePolicy {
 		return &types.RoutePolicy{
 			Name:       redPeer65001Svc2v4LBRPName,
@@ -911,7 +909,7 @@ var (
 		},
 	}
 
-	redPeer65001v6LBRPName = PolicyName("red-peer-65001", "ipv6", v1alpha1.BGPServiceAdvert, "red-svc-non-default-LoadBalancerIP")
+	redPeer65001v6LBRPName = PolicyName("red-peer-65001", "ipv6", v1.BGPServiceAdvert, "red-svc-non-default-LoadBalancerIP")
 	redPeer65001v6LBRP     = &types.RoutePolicy{
 		Name: redPeer65001v6LBRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -934,7 +932,7 @@ var (
 			},
 		},
 	}
-	redPeer65001Svc2v6LBRPName = PolicyName("red-peer-65001", "ipv6", v1alpha1.BGPServiceAdvert, "red-svc2-non-default-LoadBalancerIP")
+	redPeer65001Svc2v6LBRPName = PolicyName("red-peer-65001", "ipv6", v1.BGPServiceAdvert, "red-svc2-non-default-LoadBalancerIP")
 	redPeer65001Svc2v6LBRP     = func() *types.RoutePolicy {
 		return &types.RoutePolicy{
 			Name:       redPeer65001Svc2v6LBRPName,
@@ -964,7 +962,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4ExtRPName = PolicyName("red-peer-65001", "ipv4", v1alpha1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
+	redPeer65001v4ExtRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
 	redPeer65001v4ExtRP     = &types.RoutePolicy{
 		Name: redPeer65001v4ExtRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -1010,7 +1008,7 @@ var (
 		},
 	}
 
-	redPeer65001v6ExtRPName = PolicyName("red-peer-65001", "ipv6", v1alpha1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
+	redPeer65001v6ExtRPName = PolicyName("red-peer-65001", "ipv6", v1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
 	redPeer65001v6ExtRP     = &types.RoutePolicy{
 		Name: redPeer65001v6ExtRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -1095,7 +1093,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4ClusterRPName = PolicyName("red-peer-65001", "ipv4", v1alpha1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
+	redPeer65001v4ClusterRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
 	redPeer65001v4ClusterRP     = &types.RoutePolicy{
 		Name: redPeer65001v4ClusterRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -1180,7 +1178,7 @@ var (
 		},
 	}
 
-	redPeer65001v6ClusterRPName = PolicyName("red-peer-65001", "ipv6", v1alpha1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
+	redPeer65001v6ClusterRPName = PolicyName("red-peer-65001", "ipv6", v1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
 	redPeer65001v6ClusterRP     = &types.RoutePolicy{
 		Name: redPeer65001v6ClusterRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -1236,7 +1234,7 @@ var (
 		return cp
 	}
 
-	redSvcAdvert = &v1alpha1.IsovalentBGPAdvertisement{
+	redSvcAdvert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "red-advertisement",
 			Labels: map[string]string{
@@ -1245,13 +1243,13 @@ var (
 		},
 	}
 
-	redSvcAdvertWithAdvertisements = func(adverts ...v1alpha1.BGPAdvertisement) *v1alpha1.IsovalentBGPAdvertisement {
+	redSvcAdvertWithAdvertisements = func(adverts ...v1.BGPAdvertisement) *v1.IsovalentBGPAdvertisement {
 		cp := redSvcAdvert.DeepCopy()
 		cp.Spec.Advertisements = adverts
 		return cp
 	}
 
-	redV6SvcAdvert = &v1alpha1.IsovalentBGPAdvertisement{
+	redV6SvcAdvert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "red-v6-advertisement",
 			Labels: map[string]string{
@@ -1260,15 +1258,15 @@ var (
 		},
 	}
 
-	redV6SvcAdvertWithAdvertisements = func(adverts ...v1alpha1.BGPAdvertisement) *v1alpha1.IsovalentBGPAdvertisement {
+	redV6SvcAdvertWithAdvertisements = func(adverts ...v1.BGPAdvertisement) *v1.IsovalentBGPAdvertisement {
 		cp := redV6SvcAdvert.DeepCopy()
 		cp.Spec.Advertisements = adverts
 		return cp
 	}
 
-	lbSvcAdvert = v1alpha1.BGPAdvertisement{
-		AdvertisementType: v1alpha1.BGPServiceAdvert,
-		Service: &v1alpha1.BGPServiceOptions{
+	lbSvcAdvert = v1.BGPAdvertisement{
+		AdvertisementType: v1.BGPServiceAdvert,
+		Service: &v1.BGPServiceOptions{
 			Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 		},
 		Attributes: &v2alpha1.BGPAttributes{
@@ -1278,21 +1276,21 @@ var (
 			},
 		},
 	}
-	lbSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1alpha1.BGPAdvertisement {
+	lbSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1.BGPAdvertisement {
 		cp := lbSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		return *cp
 	}
-	lbSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1alpha1.BGPAdvertisement {
+	lbSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1.BGPAdvertisement {
 		cp := lbSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		cp.Service.AggregationLength = ptr.To[int32](prefixLen)
 		return *cp
 	}
 
-	externalSvcAdvert = v1alpha1.BGPAdvertisement{
-		AdvertisementType: v1alpha1.BGPServiceAdvert,
-		Service: &v1alpha1.BGPServiceOptions{
+	externalSvcAdvert = v1.BGPAdvertisement{
+		AdvertisementType: v1.BGPServiceAdvert,
+		Service: &v1.BGPServiceOptions{
 			Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPExternalIPAddr},
 		},
 		Attributes: &v2alpha1.BGPAttributes{
@@ -1303,21 +1301,21 @@ var (
 		},
 	}
 
-	externalSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1alpha1.BGPAdvertisement {
+	externalSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1.BGPAdvertisement {
 		cp := externalSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		return *cp
 	}
-	exSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1alpha1.BGPAdvertisement {
+	exSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1.BGPAdvertisement {
 		cp := externalSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		cp.Service.AggregationLength = ptr.To[int32](prefixLen)
 		return *cp
 	}
 
-	clusterIPSvcAdvert = v1alpha1.BGPAdvertisement{
-		AdvertisementType: v1alpha1.BGPServiceAdvert,
-		Service: &v1alpha1.BGPServiceOptions{
+	clusterIPSvcAdvert = v1.BGPAdvertisement{
+		AdvertisementType: v1.BGPServiceAdvert,
+		Service: &v1.BGPServiceOptions{
 			Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
 		},
 		Attributes: &v2alpha1.BGPAttributes{
@@ -1328,12 +1326,12 @@ var (
 		},
 	}
 
-	clusterIPSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1alpha1.BGPAdvertisement {
+	clusterIPSvcAdvertWithSelector = func(selector *slim_metav1.LabelSelector) v1.BGPAdvertisement {
 		cp := clusterIPSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		return *cp
 	}
-	clusterIPSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1alpha1.BGPAdvertisement {
+	clusterIPSvcAdvertWithSelectorAndPrefixLen = func(selector *slim_metav1.LabelSelector, prefixLen int32) v1.BGPAdvertisement {
 		cp := clusterIPSvcAdvert.DeepCopy()
 		cp.Selector = selector
 		cp.Service.AggregationLength = ptr.To[int32](prefixLen)
@@ -1341,33 +1339,31 @@ var (
 	}
 
 	// red peer config
-	redPeerConfig = &v1alpha1.IsovalentBGPPeerConfig{
+	redPeerConfig = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-red",
 		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp",
-							},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
 						},
 					},
-					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp_v6",
-							},
+				},
+				{
+					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp_v6",
 						},
 					},
 				},
@@ -1375,14 +1371,14 @@ var (
 		},
 	}
 
-	testBGPInstanceConfig = &v1alpha1.IsovalentBGPNodeInstance{
+	testBGPInstanceConfig = &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
 		LocalASN: ptr.To[int64](65001),
-		Peers: []v1alpha1.IsovalentBGPNodePeer{
+		Peers: []v1.IsovalentBGPNodePeer{
 			{
 				Name:        "red-peer-65001",
 				PeerAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &v1alpha1.PeerConfigReference{
+				PeerConfigRef: &v1.PeerConfigReference{
 					Name: "peer-config-red",
 				},
 			},
@@ -1492,15 +1488,15 @@ func Test_ServiceLBReconciler(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		peerConfigs      []*v1alpha1.IsovalentBGPPeerConfig
-		advertisements   []*v1alpha1.IsovalentBGPAdvertisement
+		peerConfigs      []*v1.IsovalentBGPPeerConfig
+		advertisements   []*v1.IsovalentBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
 			name:           "Service (LB) with advertisement( empty )",
-			peerConfigs:    []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redLBSvc},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -1516,9 +1512,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - mismatch labels",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvc},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -1527,10 +1523,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(mismatchSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(mismatchSvcSelector),
 						},
 					},
@@ -1539,9 +1535,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=cluster)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1564,10 +1560,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1576,10 +1572,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, ep on node)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1602,10 +1598,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1614,10 +1610,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, mixed ep)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Mixed},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1640,10 +1636,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1652,10 +1648,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, ep on remote)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Remote},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1664,10 +1660,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1676,10 +1672,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, backends are terminating)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1LocalTerminating},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1688,10 +1684,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1700,9 +1696,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1725,10 +1721,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1737,10 +1733,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - eTP=Local - no prefix aggregation",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1763,10 +1759,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1775,9 +1771,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster), /24 and /32 advertisement",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1801,11 +1797,11 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1824,8 +1820,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -1898,15 +1894,15 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		peerConfigs      []*v1alpha1.IsovalentBGPPeerConfig
-		advertisements   []*v1alpha1.IsovalentBGPAdvertisement
+		peerConfigs      []*v1.IsovalentBGPPeerConfig
+		advertisements   []*v1.IsovalentBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
 			name:           "Service (External) with advertisement( empty )",
-			peerConfigs:    []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redExternalSvc},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -1922,9 +1918,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - mismatch labels",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvc},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -1933,10 +1929,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(mismatchSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(mismatchSvcSelector),
 						},
 					},
@@ -1945,9 +1941,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=cluster)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1970,10 +1966,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -1982,10 +1978,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, ep on node)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2008,10 +2004,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2020,10 +2016,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, mixed ep)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Mixed},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2046,10 +2042,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2058,10 +2054,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, ep on remote)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Remote},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2070,10 +2066,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2082,9 +2078,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with prefix aggregation - eTP=Cluster",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2107,10 +2103,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2119,10 +2115,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - eTP=Local - no prefix aggregation",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2145,10 +2141,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2157,9 +2153,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (External) with advertisement(External) - prefix aggregation (eTP=Cluster), /24 and /32 advertisement",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2183,11 +2179,11 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2206,8 +2202,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -2280,15 +2276,15 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		peerConfigs      []*v1alpha1.IsovalentBGPPeerConfig
-		advertisements   []*v1alpha1.IsovalentBGPAdvertisement
+		peerConfigs      []*v1.IsovalentBGPPeerConfig
+		advertisements   []*v1.IsovalentBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
 			name:           "Service (Cluster) with advertisement( empty )",
-			peerConfigs:    []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redClusterSvc},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -2304,9 +2300,9 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - mismatch labels",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvc},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -2315,10 +2311,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(mismatchSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(mismatchSvcSelector),
 						},
 					},
@@ -2327,9 +2323,9 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (iTP=cluster)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2352,10 +2348,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2364,10 +2360,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, ep on node)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2390,10 +2386,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2402,10 +2398,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, mixed ep)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Mixed},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2428,10 +2424,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2440,10 +2436,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, ep on remote)",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Remote},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2452,10 +2448,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2464,9 +2460,9 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with prefix aggregation - eTP=Cluster",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2489,10 +2485,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2501,10 +2497,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - iTP=Local - no prefix aggregation",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2527,10 +2523,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2539,9 +2535,9 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		},
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - prefix aggregation (iTP=Cluster), /24 and /32 advertisement",
-			peerConfigs: []*v1alpha1.IsovalentBGPPeerConfig{redPeerConfig},
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
-			advertisements: []*v1alpha1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -2565,11 +2561,11 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24),
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
 					},
@@ -2588,8 +2584,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -2662,7 +2658,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 
 	steps := []struct {
 		name             string
-		upsertAdverts    []*v1alpha1.IsovalentBGPAdvertisement
+		upsertAdverts    []*v1.IsovalentBGPAdvertisement
 		upsertServices   []*slim_corev1.Service
 		upsertEPs        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
@@ -2685,10 +2681,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		},
 		{
 			name: "Add service (Cluster, External) with advertisement(Cluster) - matching labels",
-			upsertAdverts: []*v1alpha1.IsovalentBGPAdvertisement{
-				redSvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
 					},
 					Selector: redSvcSelector,
@@ -2699,9 +2695,9 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 						},
 					},
 				}),
-				redV6SvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+				redV6SvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
 					},
 					Selector: redSvcSelector,
@@ -2734,10 +2730,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -2749,10 +2745,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -2770,10 +2766,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		},
 		{
 			name: "Update advertisement(Cluster, External) - matching labels",
-			upsertAdverts: []*v1alpha1.IsovalentBGPAdvertisement{
-				redSvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{
 							v2alpha1.BGPClusterIPAddr,
 							v2alpha1.BGPExternalIPAddr,
@@ -2787,9 +2783,9 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 						},
 					},
 				}),
-				redV6SvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+				redV6SvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{
 							v2alpha1.BGPClusterIPAddr,
 							v2alpha1.BGPExternalIPAddr,
@@ -2828,10 +2824,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2846,10 +2842,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2881,10 +2877,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2899,10 +2895,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2948,10 +2944,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2966,10 +2962,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{
 										v2alpha1.BGPClusterIPAddr,
 										v2alpha1.BGPExternalIPAddr,
@@ -2998,8 +2994,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -3066,7 +3062,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 
 	steps := []struct {
 		name             string
-		upsertAdverts    []*v1alpha1.IsovalentBGPAdvertisement
+		upsertAdverts    []*v1.IsovalentBGPAdvertisement
 		upsertServices   []*slim_corev1.Service
 		deletetServices  []*slim_corev1.Service
 		upsertEPs        []*k8s.Endpoints
@@ -3074,10 +3070,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	}{
 		{
 			name: "Add service 1 (LoadBalancer) with advertisement",
-			upsertAdverts: []*v1alpha1.IsovalentBGPAdvertisement{
-				redSvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 					},
 					Selector: redSvcSelector,
@@ -3088,9 +3084,9 @@ func Test_ServiceVIPSharing(t *testing.T) {
 						},
 					},
 				}),
-				redV6SvcAdvertWithAdvertisements(v1alpha1.BGPAdvertisement{
-					AdvertisementType: v1alpha1.BGPServiceAdvert,
-					Service: &v1alpha1.BGPServiceOptions{
+				redV6SvcAdvertWithAdvertisements(v1.BGPAdvertisement{
+					AdvertisementType: v1.BGPServiceAdvert,
+					Service: &v1.BGPServiceOptions{
 						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 					},
 					Selector: redSvcSelector,
@@ -3122,10 +3118,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3137,10 +3133,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3190,10 +3186,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3205,10 +3201,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3246,10 +3242,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3261,10 +3257,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3288,10 +3284,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					"red-peer-65001": FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3303,10 +3299,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 								},
 							},
 						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1alpha1.BGPAdvertisement{
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
 							{
-								AdvertisementType: v1alpha1.BGPServiceAdvert,
-								Service: &v1alpha1.BGPServiceOptions{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
 									Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPLoadBalancerIPAddr},
 								},
 								Selector: redSvcSelector,
@@ -3331,8 +3327,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1alpha1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1alpha1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)

@@ -22,7 +22,7 @@ import (
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,7 +33,7 @@ import (
 type NeighborReconciler struct {
 	Logger       logrus.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
+	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 	upgrader     paramUpgrader
 	metadata     map[string]NeighborReconcilerMetadata
@@ -49,7 +49,7 @@ type NeighborReconcilerIn struct {
 	cell.In
 	Logger       logrus.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v1alpha1.IsovalentBGPPeerConfig]
+	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 	Upgrader     paramUpgrader
 }
@@ -73,8 +73,8 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 // +deepequal-gen=true
 // Note:  If you change PeerDate, do not forget to 'make generate-k8s-api', which will update DeepEqual method.
 type PeerData struct {
-	Peer     *v1alpha1.IsovalentBGPNodePeer
-	Config   *v1alpha1.IsovalentBGPPeerConfigSpec
+	Peer     *v1.IsovalentBGPNodePeer
+	Config   *v1.IsovalentBGPPeerConfigSpec
 	Password string
 }
 
@@ -285,10 +285,10 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
 // If peerConfig is not specified, returns the default config.
 // If the referenced peerConfig does not exist, exists returns false.
-func (r *NeighborReconciler) getPeerConfig(peerConfig *v1alpha1.PeerConfigReference) (conf *v1alpha1.IsovalentBGPPeerConfigSpec, exists bool, err error) {
+func (r *NeighborReconciler) getPeerConfig(peerConfig *v1.PeerConfigReference) (conf *v1.IsovalentBGPPeerConfigSpec, exists bool, err error) {
 	if peerConfig == nil || peerConfig.Name == "" {
 		// if peer config is not specified, return default config
-		conf = &v1alpha1.IsovalentBGPPeerConfigSpec{}
+		conf = &v1.IsovalentBGPPeerConfigSpec{}
 		conf.SetDefaults()
 		return conf, true, nil
 	}
@@ -303,7 +303,7 @@ func (r *NeighborReconciler) getPeerConfig(peerConfig *v1alpha1.PeerConfigRefere
 	return conf, true, nil
 }
 
-func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v1alpha1.IsovalentBGPPeerConfigSpec) (string, error) {
+func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v1.IsovalentBGPPeerConfigSpec) (string, error) {
 	if config == nil {
 		return "", nil
 	}
@@ -350,7 +350,7 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 // GetPeerAddressFromConfig returns peering address for the given peer from the provided BGPNodeInstance.
 // If no error is returned and "exists" is false, it means that PeerAddress is not (yet) present in peer configuration.
-func GetPeerAddressFromConfig(conf *v1alpha1.IsovalentBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
+func GetPeerAddressFromConfig(conf *v1.IsovalentBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
 	if conf == nil {
 		return netip.Addr{}, false, fmt.Errorf("passed instance is nil")
 	}
@@ -368,6 +368,6 @@ func GetPeerAddressFromConfig(conf *v1alpha1.IsovalentBGPNodeInstance, peerName 
 	return netip.Addr{}, false, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
 
-func (r *NeighborReconciler) neighborID(n *v1alpha1.IsovalentBGPNodePeer) string {
+func (r *NeighborReconciler) neighborID(n *v1.IsovalentBGPNodePeer) string {
 	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
 }

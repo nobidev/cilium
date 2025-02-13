@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -182,7 +183,7 @@ func (r *LocatorPoolReconciler) Reconcile(ctx context.Context, p reconcilerv2.Re
 	}
 
 	// get per peer per family locator pool advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1alpha1.BGPSRv6LocatorPoolAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1.BGPSRv6LocatorPoolAdvert)
 	if err != nil {
 		return err
 	}
@@ -279,13 +280,13 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
-					types.AdvertTypeLogField: v1alpha1.BGPSRv6LocatorPoolAdvert,
+					types.AdvertTypeLogField: v1.BGPSRv6LocatorPoolAdvert,
 				}).Warning("Invalid address family for this advertisement type, skipping")
 				continue
 			}
 			for _, advert := range familyAdverts {
 				// sanity check
-				if advert.AdvertisementType != v1alpha1.BGPSRv6LocatorPoolAdvert {
+				if advert.AdvertisementType != v1.BGPSRv6LocatorPoolAdvert {
 					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
 					continue
 				}
@@ -344,13 +345,13 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
-					types.AdvertTypeLogField: v1alpha1.BGPSRv6LocatorPoolAdvert,
+					types.AdvertTypeLogField: v1.BGPSRv6LocatorPoolAdvert,
 				}).Warning("Invalid address family for this advertisement type, skipping")
 				continue
 			}
 			for _, advert := range familyAdverts {
 				// sanity check
-				if advert.AdvertisementType != v1alpha1.BGPSRv6LocatorPoolAdvert {
+				if advert.AdvertisementType != v1.BGPSRv6LocatorPoolAdvert {
 					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
 					continue
 				}

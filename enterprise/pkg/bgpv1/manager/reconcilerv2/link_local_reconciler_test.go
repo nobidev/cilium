@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/logging"
 )
 
@@ -107,7 +107,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 	instance := &instance.BGPInstance{
 		Name: "test-instance",
 	}
-	iNodeInstance := &isovalentv1alpha1.IsovalentBGPNodeInstance{
+	iNodeInstance := &v1.IsovalentBGPNodeInstance{
 		Name:     instance.Name,
 		LocalASN: ptr.To[int64](65001),
 	}
@@ -129,8 +129,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 
 	var table = []struct {
 		name                 string
-		initPeers            []isovalentv1alpha1.IsovalentBGPNodePeer
-		expectedPeers        []isovalentv1alpha1.IsovalentBGPNodePeer
+		initPeers            []v1.IsovalentBGPNodePeer
+		expectedPeers        []v1.IsovalentBGPNodePeer
 		neighborChanges      []*tables.Neighbor
 		deleteNeighbors      bool
 		expectSignal         bool
@@ -138,7 +138,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 	}{
 		{
 			name: "peer0 with peer address set - no change",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer0",
 					PeerAddress: ptr.To("fc00::aabb"),
@@ -151,7 +151,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: false, // no signal as there is no unnumbered peer configured
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer0",
 					PeerAddress: ptr.To("fc00::aabb"),
@@ -161,7 +161,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer1 with no neighbor entry - no change",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer1",
 					Interface: ptr.To("eth0"),
@@ -169,7 +169,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 			},
 			neighborChanges: nil,
 			expectSignal:    false, // no neighbor change
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer1",
 					Interface: ptr.To("eth0"),
@@ -179,7 +179,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer1 with new neighbor entry - set peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer1",
 					Interface: ptr.To("eth0"),
@@ -192,7 +192,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer1",
 					Interface:   ptr.To("eth0"),
@@ -203,7 +203,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer1 with deleted neighbor entry - keep old peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer1",
 					Interface: ptr.To("eth0"),
@@ -217,7 +217,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 			},
 			deleteNeighbors: true,
 			expectSignal:    true,
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer1",
 					Interface:   ptr.To("eth0"),
@@ -228,7 +228,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer1 with re-inserted neighbor entry - change peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer1",
 					Interface: ptr.To("eth0"),
@@ -241,7 +241,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer1",
 					Interface:   ptr.To("eth0"),
@@ -252,7 +252,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer2 with non-existing interface - do not set peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer2",
 					Interface: ptr.To("eth99"),
@@ -260,7 +260,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 			},
 			neighborChanges: nil,
 			expectSignal:    false,
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer2",
 					Interface: ptr.To("eth99"),
@@ -270,7 +270,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer2 with non-link-local neighbor entry - do not set peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer2",
 					Interface: ptr.To("eth1"),
@@ -283,7 +283,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: false, // not a link-local neighbor update
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer2",
 					Interface: ptr.To("eth1"),
@@ -293,7 +293,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		},
 		{
 			name: "peer2 with a link-local neighbor entry - set peer address",
-			initPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			initPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:      "peer2",
 					Interface: ptr.To("eth1"),
@@ -310,7 +310,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectedPeers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "peer2",
 					Interface:   ptr.To("eth1"),
@@ -410,7 +410,7 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 
 	var table = []struct {
 		name                 string
-		nodeInstance         *isovalentv1alpha1.IsovalentBGPNodeInstance
+		nodeInstance         *v1.IsovalentBGPNodeInstance
 		deleteInstance       bool
 		neighborChanges      []*tables.Neighbor
 		deleteNeighbors      bool
@@ -419,10 +419,10 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 	}{
 		{
 			name: "instance1, peer with peer address set - no signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-1",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:        "peer1",
 						PeerAddress: ptr.To("fc00::aabb"),
@@ -440,10 +440,10 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 		},
 		{
 			name: "instance2, unnumbered peer - signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-2",
 				LocalASN: ptr.To[int64](65002),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:      "peer2",
 						Interface: ptr.To("eth2"),
@@ -461,10 +461,10 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 		},
 		{
 			name: "instance1, unnumbered peer - signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-1",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:      "peer1",
 						Interface: ptr.To("eth1"),
@@ -482,17 +482,17 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 		},
 		{
 			name: "delete instance2",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name: "instance-2",
 			},
 			deleteInstance: true,
 		},
 		{
 			name: "instance1, unnumbered peer - signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-1",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:      "peer2",
 						Interface: ptr.To("eth1"),
@@ -510,17 +510,17 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 		},
 		{
 			name: "delete instance1",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name: "instance-1",
 			},
 			deleteInstance: true,
 		},
 		{
 			name: "instance3, peer with peer address set - no signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-3",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:        "peer3",
 						PeerAddress: ptr.To("fc00::aabb"),
@@ -538,10 +538,10 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 		},
 		{
 			name: "instance3,  unnumbered peer - signal",
-			nodeInstance: &isovalentv1alpha1.IsovalentBGPNodeInstance{
+			nodeInstance: &v1.IsovalentBGPNodeInstance{
 				Name:     "instance-3",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []isovalentv1alpha1.IsovalentBGPNodePeer{
+				Peers: []v1.IsovalentBGPNodePeer{
 					{
 						Name:      "peer4",
 						Interface: ptr.To("eth4"),

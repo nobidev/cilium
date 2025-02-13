@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -57,7 +57,7 @@ func newSRv6Paths(in srv6PathsIn) *srv6Paths {
 	}
 }
 
-func (s *srv6Paths) GetSRv6VPNPath(prefix netip.Prefix, bgpVRF v1alpha1.IsovalentBGPNodeVRF) (*types.Path, string, error) {
+func (s *srv6Paths) GetSRv6VPNPath(prefix netip.Prefix, bgpVRF v1.IsovalentBGPNodeVRF) (*types.Path, string, error) {
 	if bgpVRF.RD == nil || *bgpVRF.RD == "" {
 		return nil, "", fmt.Errorf("cannot map VRF without an RD")
 	}

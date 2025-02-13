@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
@@ -236,7 +237,7 @@ func (r *ImportedVPNRouteReconciler) Reconcile(ctx context.Context, p reconciler
 				Name: name,
 			},
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "isovalent.com/v1alpha1",
+				APIVersion: "isovalent.com/v1",
 				Kind:       "IsovalentSRv6EgressPolicy",
 			},
 			Spec: v1alpha1.IsovalentSRv6EgressPolicySpec{
@@ -269,7 +270,7 @@ func (r *ImportedVPNRouteReconciler) Reconcile(ctx context.Context, p reconciler
 	return nil
 }
 
-func (r *ImportedVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.Context, l logrus.FieldLogger, bgpRouter types.Router, vrfs []v1alpha1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
+func (r *ImportedVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.Context, l logrus.FieldLogger, bgpRouter types.Router, vrfs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
 	l.Debug("Mapping SRv6 VRFs to SRv6 egress policies.")
 
 	var policies []*srv6.EgressPolicy
@@ -304,7 +305,7 @@ func (r *ImportedVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.Cont
 	return policies, nil
 }
 
-func (r *ImportedVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.FieldLogger, attrs []bgp.PathAttributeInterface, bgpVRFs []v1alpha1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
+func (r *ImportedVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.FieldLogger, attrs []bgp.PathAttributeInterface, bgpVRFs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
 	var (
 		// require extended communities for route target.
 		extCommunities *bgp.PathAttributeExtendedCommunities

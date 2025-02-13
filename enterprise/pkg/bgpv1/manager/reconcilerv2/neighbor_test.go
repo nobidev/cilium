@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -40,39 +40,33 @@ type checks struct {
 
 var (
 	peerData1 = PeerData{
-		Peer: &v1alpha1.IsovalentBGPNodePeer{
+		Peer: &v1.IsovalentBGPNodePeer{
 			Name:        "peer-1",
 			PeerAddress: ptr.To[string]("192.168.0.1"),
 			PeerASN:     ptr.To[int64](64124),
-			PeerConfigRef: &v1alpha1.PeerConfigReference{
+			PeerConfigRef: &v1.PeerConfigReference{
 				Name: "peer-config",
 			},
 		},
-		Config: &v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Transport: &v2alpha1.CiliumBGPTransport{
-					LocalPort: ptr.To[int32](v2alpha1.DefaultBGPPeerLocalPort),
-					PeerPort:  ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
-				},
+		Config: &v1.IsovalentBGPPeerConfigSpec{
+			Transport: &v1.IsovalentBGPTransport{
+				PeerPort: ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
 			},
 		},
 	}
 
 	peerData2 = PeerData{
-		Peer: &v1alpha1.IsovalentBGPNodePeer{
+		Peer: &v1.IsovalentBGPNodePeer{
 			Name:        "peer-2",
 			PeerAddress: ptr.To[string]("192.168.0.2"),
 			PeerASN:     ptr.To[int64](64124),
-			PeerConfigRef: &v1alpha1.PeerConfigReference{
+			PeerConfigRef: &v1.PeerConfigReference{
 				Name: "peer-config",
 			},
 		},
-		Config: &v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Transport: &v2alpha1.CiliumBGPTransport{
-					LocalPort: ptr.To[int32](v2alpha1.DefaultBGPPeerLocalPort),
-					PeerPort:  ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
-				},
+		Config: &v1.IsovalentBGPPeerConfigSpec{
+			Transport: &v1.IsovalentBGPTransport{
+				PeerPort: ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
 			},
 		},
 	}
@@ -111,9 +105,8 @@ var (
 			Password: peerData2.Password,
 		}
 
-		peer2Copy.Config.Transport = &v2alpha1.CiliumBGPTransport{
-			LocalPort: ptr.To[int32](1790),
-			PeerPort:  ptr.To[int32](1790),
+		peer2Copy.Config.Transport = &v1.IsovalentBGPTransport{
+			PeerPort: ptr.To[int32](1790),
 		}
 
 		return peer2Copy
@@ -302,16 +295,16 @@ func TestNeighborReconciler(t *testing.T) {
 	}
 }
 
-func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v1alpha1.IsovalentBGPNodeInstance) {
+func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v1.IsovalentBGPNodeInstance) {
 	// Desired BGP Node config
-	nodeConfig := &v1alpha1.IsovalentBGPNodeInstance{
+	nodeConfig := &v1.IsovalentBGPNodeInstance{
 		Name: "bgp-node",
 	}
 
 	// setup fake store for peer config
-	var objects []*v1alpha1.IsovalentBGPPeerConfig
+	var objects []*v1.IsovalentBGPPeerConfig
 	for _, p := range peers {
-		obj := &v1alpha1.IsovalentBGPPeerConfig{
+		obj := &v1.IsovalentBGPPeerConfig{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: p.Peer.PeerConfigRef.Name,
 			},
@@ -403,27 +396,25 @@ func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []
 
 	var runningPeers []PeerData
 	for _, peer := range getPeerResp.Peers {
-		peerObj := &v1alpha1.IsovalentBGPNodePeer{
+		peerObj := &v1.IsovalentBGPNodePeer{
 			PeerAddress: ptr.To[string](peer.PeerAddress),
 			PeerASN:     ptr.To[int64](peer.PeerAsn),
 		}
 
-		peerConfObj := &v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2alpha1.CiliumBGPPeerConfigSpec{
-				Transport: &v2alpha1.CiliumBGPTransport{
-					PeerPort: ptr.To[int32](int32(peer.PeerPort)),
-				},
-				Timers: &v2alpha1.CiliumBGPTimers{
-					ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
-					HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
-					KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
-				},
-				GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
-					Enabled:            peer.GracefulRestart.Enabled,
-					RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
-				},
-				EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
+		peerConfObj := &v1.IsovalentBGPPeerConfigSpec{
+			Transport: &v1.IsovalentBGPTransport{
+				PeerPort: ptr.To[int32](int32(peer.PeerPort)),
 			},
+			Timers: &v2alpha1.CiliumBGPTimers{
+				ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
+				HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
+				KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
+			},
+			GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+				Enabled:            peer.GracefulRestart.Enabled,
+				RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
+			},
+			EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
 		}
 
 		password := ""
