@@ -201,7 +201,7 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
-{{- if .Values.enabelOfflineMode }}
+{{- if .Values.enableOfflineMode }}
         - mountPath: /sys/fs/bpf
           name: bpf-maps
           mountPropagation: HostToContainer
@@ -249,7 +249,7 @@ spec:
           path: /run/xtables.lock
           type: FileOrCreate
         name: xtables-lock
-{{- if .Values.enabelOfflineMode }}
+{{- if .Values.enableOfflineMode }}
       - hostPath:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
