@@ -1,0 +1,272 @@
+name: Enterprise Image CI Build
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main-ce
+      - ft/main-ce/**
+
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - main-ce
+     - ft/main-ce/**
+    types:
+     - completed
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push-prs:
+    timeout-minutes: 45
+    name: Build and Push Images
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./enterprise/images/cilium/Dockerfile
+            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:nonexistent
+            postfix: ubi
+            image_name: cilium
+
+          - name: operator
+            dockerfile: ./enterprise/images/operator/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: operator-generic
+
+          - name: hubble-relay
+            dockerfile: ./enterprise/images/hubble-relay/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: hubble-relay
+
+          - name: clustermesh-apiserver
+            dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: clustermesh-apiserver
+
+
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ steps.tag.outputs.sha }}
+
+      - name: Cleanup Disk space in runner
+        if: runner.name == 'ubuntu-24.04'
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Setup docker volumes into /mnt
+        # This allows us to make use of all available disk.
+        shell: bash
+        run: |
+          sudo systemctl stop docker
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
+          sudo systemctl start docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        # Disable GC entirely to avoid buildkit from GC caches.
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+             gc=false
+
+      - name: Login to quay.io for CI
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
+
+      - name: Login to registry.redhat.io for CI
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+            sha=${{ github.event.pull_request.head.sha }}
+          else
+            sha=${{ github.sha }}
+          fi
+          echo sha=${sha} >> $GITHUB_OUTPUT
+
+          tag=${sha}
+          echo tag=${tag} >> $GITHUB_OUTPUT
+
+          if [[ "${{ github.event_name == 'push' }}" == "true" ]]; then
+            if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
+              floating_tag=latest
+            else
+              floating_tag="${{ github.ref_name }}"
+              # Remove slashes from branch names
+              floating_tag=${floating_tag##*/}
+            fi
+            echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
+          fi
+
+          normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${tag}"
+
+          if [ -n "${floating_tag}" ]; then
+            floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${floating_tag}"
+
+            normal_tag="${normal_tag},${floating_normal_tag}"
+          fi
+
+          echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+
+      # Load Golang cache build from GitHub
+      - name: Restore Golang cache build from GitHub
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.name }}-cache-
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+          docker buildx du
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go
+
+      # Import GitHub's cache build to docker cache
+      - name: Copy ${{ matrix.name }} Golang cache to docker cache
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0
+        with:
+          provenance: false
+          context: /tmp/.cache/go
+          file: ./images/cache/Dockerfile
+          push: false
+          platforms: linux/amd64
+          target: import-cache
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+          docker buildx du
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
+      - name: CI Build ${{ matrix.name }}
+        id: docker_build_ci
+        shell: bash
+        working-directory: ./enterprise/images
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.tag }} \
+          REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} \
+          PUSH=true \
+          RUNTIME_IMAGE=${{ matrix.base_image }} \
+          UBI_IMAGE=${{ matrix.base_image }} \
+          OPERATOR_VARIANT=${{ matrix.image_name }} \
+          EXTRA_ARGS="--tag ${{ steps.tag.outputs.normal_tag }}" \
+          make ${{ matrix.name }}-image
+
+      - name: CI Build ${{ matrix.name }} digest
+        id: docker_digest
+        shell: bash
+        run: |
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.normal_tag }}")
+          echo digest=${digest} >> $GITHUB_OUTPUT
+
+      - name: Sign Container Images
+        run: |
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_digest.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: ${{ steps.tag.outputs.normal_tag }}
+
+      - name: Attach SBOM attestation to container image
+        run: |
+          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.normal_tag }}
+
+      - name: CI Image Releases digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
+            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          fi
+          echo "${{ steps.tag.outputs.normal_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+      - name: Check for disk usage
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          df -h
+
+  image-digests:
+    if: ${{ always() }}
+    name: Display Digests
+    runs-on: ubuntu-24.04
+    needs: build-and-push-prs
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: image-digest/
+          pattern: "*image-digest *"
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
