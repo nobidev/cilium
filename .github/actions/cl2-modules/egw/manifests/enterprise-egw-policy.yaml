@@ -1,0 +1,24 @@
+apiVersion: isovalent.com/v1
+kind: IsovalentEgressGatewayPolicy
+metadata:
+  name: {{.Name}}
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        app.kubernetes.io/name: egw-client
+  - podSelector:
+      matchLabels:
+        name: perf-client-other-node
+  destinationCIDRs:
+  - "{{.ExternalTarget}}/32"
+  egressGroups:
+  - nodeSelector:
+      matchLabels:
+        {{StructuralData .NodeSelector}}
+  # Ensure that the synthetic policies select the gateway node as well.
+  {{ if ne .BaseName "egw-scale-test-route-external" }}
+  - nodeSelector:
+      matchLabels:
+        role.scaffolding/egw-node: "true"
+  {{ end }}
