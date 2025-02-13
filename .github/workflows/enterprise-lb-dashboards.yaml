@@ -1,0 +1,23 @@
+name: Enterprise LoadBalancer Dashboards Validation
+
+on:
+  pull_request:
+    paths:
+      - 'enterprise/dashboards/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync-grafana-to-perses:
+    name: Synchronising Grafana dashboards to Perses
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build Cilium CLI release binaries
+        run: |
+          make sync-grafana-to-perses
+          git diff --exit-code || echo "Please run 'make sync-grafana-to-perses' and submit your changes"
