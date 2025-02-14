@@ -484,6 +484,7 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
+            --log-code-owners \
             --hubble=false \
             --flow-validation=disabled \
             --test=no-unexpected-packet-drops \
@@ -520,6 +521,7 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
+            --log-code-owners \
             --hubble=false \
             --flow-validation=disabled \
             --test=no-interrupted-connections \
@@ -553,6 +555,7 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --force-deploy \
+            --log-code-owners \
             --hubble=false \
             --flow-validation=disabled \
             --external-target=google.com. \

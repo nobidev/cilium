@@ -122,7 +122,7 @@ jobs:
       - name: Run enterprise tests
         run: |
           cilium version
-          cilium connectivity test --debug --collect-sysdump-on-failure
+          cilium connectivity test --log-code-owners --debug --collect-sysdump-on-failure
 
       - name: Cleanup
         if: ${{ always() }}
