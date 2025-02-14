@@ -650,6 +650,11 @@ func (in *IsovalentBGPNodeInstance) DeepCopyInto(out *IsovalentBGPNodeInstance) 
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.RouteReflector != nil {
+		in, out := &in.RouteReflector, &out.RouteReflector
+		*out = new(NodeRouteReflector)
+		**out = **in
+	}
 	return
 }
 

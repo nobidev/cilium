@@ -544,13 +544,20 @@ func toNodeBGPInstance(
 			nodeBGPInstance.Peers = append(nodeBGPInstance.Peers, nodePeer)
 		}
 
-		// Append RouteReflector peers
+		// Propagate the instance's route reflector configuration and
+		// append route reflector peers.
 		if clusterBGPInstance.RouteReflector != nil {
 			cluster, found := cache.RouteReflectorClusters[clusterBGPInstance.RouteReflector.ClusterID]
 			if !found {
 				// This should never happen
 				continue
 			}
+
+			nodeBGPInstance.RouteReflector = &v1.NodeRouteReflector{
+				Role:      clusterBGPInstance.RouteReflector.Role,
+				ClusterID: clusterBGPInstance.RouteReflector.ClusterID,
+			}
+
 			for _, peer := range cluster.ListPeers(instanceID{NodeName: nodeName, InstanceName: clusterBGPInstance.Name}) {
 				nodePeer := v1.IsovalentBGPNodePeer{
 					Name:           peer.Name,

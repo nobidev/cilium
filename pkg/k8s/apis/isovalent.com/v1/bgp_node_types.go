@@ -110,6 +110,12 @@ type IsovalentBGPNodeInstance struct {
 	// +listType=map
 	// +listMapKey=vrfRef
 	VRFs []IsovalentBGPNodeVRF `json:"vrfs,omitempty"`
+
+	// RouteReflector indicates whether this BGP instance is a route
+	// reflector and which route reflector cluster it is joining.
+	//
+	// +kubebuilder:validation:Optional
+	RouteReflector *NodeRouteReflector `json:"routeReflector,omitempty"`
 }
 
 type IsovalentBGPNodePeer struct {

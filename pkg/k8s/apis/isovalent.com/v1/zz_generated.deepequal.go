@@ -606,6 +606,14 @@ func (in *IsovalentBGPNodeInstance) DeepEqual(other *IsovalentBGPNodeInstance) b
 		}
 	}
 
+	if (in.RouteReflector == nil) != (other.RouteReflector == nil) {
+		return false
+	} else if in.RouteReflector != nil {
+		if !in.RouteReflector.DeepEqual(other.RouteReflector) {
+			return false
+		}
+	}
+
 	return true
 }
 
