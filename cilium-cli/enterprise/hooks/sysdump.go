@@ -882,11 +882,11 @@ func addSRv6LocatorPoolSysdumpTasks(collector *sysdump.Collector) {
 
 func addEnterpriseBGPSysdumpTasks(collector *sysdump.Collector) {
 	collector.AddTasks([]sysdump.Task{
-		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPClusterConfig", "isovalentbgpclusterconfigs"),
-		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPPeerConfig", "isovalentbgppeerconfigs"),
-		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPAdvertisement", "isovalentbgpadvertisements"),
-		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPNodeConfig", "isovalentbgpnodeconfigs"),
-		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPNodeConfigOverride", "isovalentbgpnodeconfigoverrides"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPClusterConfig", "isovalentbgpclusterconfigs"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPPeerConfig", "isovalentbgppeerconfigs"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPAdvertisement", "isovalentbgpadvertisements"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPNodeConfig", "isovalentbgpnodeconfigs"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPNodeConfigOverride", "isovalentbgpnodeconfigoverrides"),
 		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPVRFConfig", "isovalentbgpvrfconfigs"),
 	})
 }
@@ -917,6 +917,36 @@ func collectIsovalentV1Alpha1Resource(collector *sysdump.Collector, kind, name s
 			}
 			n := corev1.NamespaceAll
 			v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to collect %s: %w", kind, err)
+			}
+			if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", name), v); err != nil {
+				return fmt.Errorf("failed to collect %s: %w", kind, err)
+			}
+			return nil
+		},
+	}
+}
+
+// collects objects of v1 (primarily) or v1alpha1 (fallback) version of an isovalent.com resource
+func collectIsovalentV1OrV1Alpha1Resource(collector *sysdump.Collector, kind, name string) sysdump.Task {
+	return sysdump.Task{
+		Description: fmt.Sprintf("Collecting %s", kind),
+		Quick:       true,
+		Task: func(ctx context.Context) error {
+			gvr := schema.GroupVersionResource{
+				Group:    "isovalent.com",
+				Resource: name,
+				Version:  "v1",
+			}
+			n := corev1.NamespaceAll
+			// try to collect the v1 version first
+			v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			if err != nil && kerrors.IsNotFound(err) {
+				// if the v1 version does not exist, try to collect the v1alpha1 version
+				gvr.Version = "v1alpha1"
+				v, err = collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			}
 			if err != nil {
 				return fmt.Errorf("failed to collect %s: %w", kind, err)
 			}
