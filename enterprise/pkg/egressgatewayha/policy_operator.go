@@ -550,7 +550,7 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 
 	// finally, back-fill as needed in a round-robin fashion, prioritizing affinity zones with fewer allocations.
 	for allocationRequests(newActiveGatewayIPsByAZ) > 0 {
-		zones := nextAffinityZonesToSatisfy(egressIPsByAZ)
+		zones := nextAffinityZonesToSatisfy(newActiveGatewayIPsByAZ, egressIPsByAZ)
 
 		for _, zone := range zones {
 			// allocate an egress IP for the first gateway of the zone
@@ -590,14 +590,26 @@ func allocationRequests(activeGatewayIPsByAZ map[string][]netip.Addr) int {
 	return n
 }
 
-func nextAffinityZonesToSatisfy(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) []string {
+func nextAffinityZonesToSatisfy(activeGatewayIPsByAZ map[string][]netip.Addr, egressIPsByAZ map[string]map[netip.Addr]netip.Addr) []string {
 	// get the current allocations histogram
 	hist := allocsHistogram(egressIPsByAZ)
 
-	// next zones to consider for allocations are the zones with less addresses
-	zonesToSatisfy := hist[0].zones
+	// prioritize zones with fewer allocations
+	for _, alloc := range hist {
+		zonesToSatisfy := alloc.zones
 
-	return zonesToSatisfy
+		// but do not consider zones with no more pending requests
+		zonesToSatisfy = slices.DeleteFunc(zonesToSatisfy, func(az string) bool {
+			_, found := activeGatewayIPsByAZ[az]
+			return !found
+		})
+
+		if len(zonesToSatisfy) > 0 {
+			return zonesToSatisfy
+		}
+	}
+
+	return nil
 }
 
 type allocsByAZ struct {

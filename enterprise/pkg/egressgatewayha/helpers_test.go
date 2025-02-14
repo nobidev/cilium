@@ -109,6 +109,7 @@ var (
 
 	nodeGroup1LabelsAZ1  = map[string]string{"label1": "1", core_v1.LabelTopologyZone: "az-1"}
 	nodeGroup1LabelsAZ2  = map[string]string{"label1": "1", core_v1.LabelTopologyZone: "az-2"}
+	nodeGroup1LabelsAZ3  = map[string]string{"label1": "1", core_v1.LabelTopologyZone: "az-3"}
 	nodeNoGroupLabelsAZ1 = map[string]string{core_v1.LabelTopologyZone: "az-1"}
 
 	advertisePolicyLabels   = map[string]string{"advertise": "bgp"}

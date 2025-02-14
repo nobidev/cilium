@@ -1958,44 +1958,131 @@ func TestEgressCIDRAllocationWithoutCIDRs(t *testing.T) {
 }
 
 func TestEgressCIDRAllocationWithAZAffinity(t *testing.T) {
-	k := setupEgressGatewayOperatorTestSuite(t)
+	type node struct {
+		name   string
+		ip     string
+		labels map[string]string
+	}
 
-	k.addNode(t, node1Name, node1IP, nodeGroup1LabelsAZ1)
-	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ1)
-	k.addNode(t, node3Name, node3IP, nodeGroup1LabelsAZ2)
-	k.addNode(t, node4Name, node4IP, nodeGroup1LabelsAZ2)
-
-	// Create a new HA policy that selects k8s{1,2,3,4} nodes with a /30 egress CIDR
-	k.addPolicy(t, &policyParams{
-		name:             "policy-1",
-		uid:              policy1UID,
-		endpointLabels:   ep1Labels,
-		destinationCIDRs: []string{destCIDR},
-		egressCIDRs:      []string{"10.100.255.48/30"},
-		azAffinity:       azAffinityLocalOnly,
-		egressGroups:     []egressGroupParams{{nodeLabels: nodeGroup1Labels, iface: testInterface1}},
-	})
-
-	k.assertIegpGatewayStatus(t, gatewayStatus{
-		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
-		activeGatewayIPsByAZ: map[string][]string{
-			"az-1": {node1IP, node2IP},
-			"az-2": {node3IP, node4IP},
-		},
-		egressIPByGatewayIP: map[string]string{
-			node1IP: "10.100.255.48",
-			node2IP: "10.100.255.50",
-			node3IP: "10.100.255.49",
-			node4IP: "10.100.255.51",
-		},
-		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
-	})
-	k.assertIegpStatusConditions(t, []metav1.Condition{
+	testCases := []struct {
+		name       string
+		nodes      []node
+		status     gatewayStatus
+		conditions []metav1.Condition
+	}{
 		{
-			Type:   egwIPAMRequestSatisfied,
-			Status: metav1.ConditionTrue,
+			name: "two-balanced-zones",
+			nodes: []node{
+				{node1Name, node1IP, nodeGroup1LabelsAZ1},
+				{node2Name, node2IP, nodeGroup1LabelsAZ1},
+				{node3Name, node3IP, nodeGroup1LabelsAZ2},
+				{node4Name, node4IP, nodeGroup1LabelsAZ2},
+			},
+			status: gatewayStatus{
+				activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+				activeGatewayIPsByAZ: map[string][]string{
+					"az-1": {node1IP, node2IP},
+					"az-2": {node3IP, node4IP},
+				},
+				egressIPByGatewayIP: map[string]string{
+					node1IP: "10.100.255.48",
+					node2IP: "10.100.255.50",
+					node3IP: "10.100.255.49",
+					node4IP: "10.100.255.51",
+				},
+				healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+			},
+			conditions: []metav1.Condition{
+				{
+					Type:   egwIPAMRequestSatisfied,
+					Status: metav1.ConditionTrue,
+				},
+			},
 		},
-	})
+		{
+			name: "two-unbalanced-zones",
+			nodes: []node{
+				{node1Name, node1IP, nodeGroup1LabelsAZ1},
+				{node3Name, node3IP, nodeGroup1LabelsAZ2},
+				{node4Name, node4IP, nodeGroup1LabelsAZ2},
+			},
+			status: gatewayStatus{
+				activeGatewayIPs: []string{node1IP, node3IP, node4IP},
+				activeGatewayIPsByAZ: map[string][]string{
+					"az-1": {node1IP},
+					"az-2": {node3IP, node4IP},
+				},
+				egressIPByGatewayIP: map[string]string{
+					node1IP: "10.100.255.48",
+					node3IP: "10.100.255.49",
+					node4IP: "10.100.255.50",
+				},
+				healthyGatewayIPs: []string{node1IP, node3IP, node4IP},
+			},
+			conditions: []metav1.Condition{
+				{
+					Type:   egwIPAMRequestSatisfied,
+					Status: metav1.ConditionTrue,
+				},
+			},
+		},
+		{
+			name: "three-unbalanced-zones",
+			nodes: []node{
+				{node1Name, node1IP, nodeGroup1LabelsAZ1},
+				{node2Name, node2IP, nodeGroup1LabelsAZ2},
+				{node3Name, node3IP, nodeGroup1LabelsAZ3},
+				{node4Name, node4IP, nodeGroup1LabelsAZ3},
+				{node5Name, node5IP, nodeGroup1LabelsAZ3},
+			},
+			status: gatewayStatus{
+				activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP, node5IP},
+				activeGatewayIPsByAZ: map[string][]string{
+					"az-1": {node1IP},
+					"az-2": {node2IP},
+					"az-3": {node3IP, node4IP, node5IP},
+				},
+				egressIPByGatewayIP: map[string]string{
+					node1IP: "10.100.255.48",
+					node2IP: "10.100.255.49",
+					node3IP: "10.100.255.50",
+					node4IP: "10.100.255.51",
+					node5IP: "10.100.255.52",
+				},
+				healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP, node5IP},
+			},
+			conditions: []metav1.Condition{
+				{
+					Type:   egwIPAMRequestSatisfied,
+					Status: metav1.ConditionTrue,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			k := setupEgressGatewayOperatorTestSuite(t)
+
+			for _, n := range tc.nodes {
+				k.addNode(t, n.name, n.ip, n.labels)
+			}
+
+			// Create a new HA policy that selects all nodes with a /29 egress CIDR
+			k.addPolicy(t, &policyParams{
+				name:             "policy-1",
+				uid:              policy1UID,
+				endpointLabels:   ep1Labels,
+				destinationCIDRs: []string{destCIDR},
+				egressCIDRs:      []string{"10.100.255.48/29"},
+				azAffinity:       azAffinityLocalOnly,
+				egressGroups:     []egressGroupParams{{nodeLabels: nodeGroup1Labels, iface: testInterface1}},
+			})
+
+			k.assertIegpGatewayStatus(t, tc.status)
+			k.assertIegpStatusConditions(t, tc.conditions)
+		})
+	}
 }
 
 func TestEgressCIDRAllocationWithAZAffinityPoolExhausted(t *testing.T) {
