@@ -89,7 +89,7 @@ type OperatorManager struct {
 	// nodesByIP stores node IP to node mapping
 	nodesByIP map[string]nodeTypes.Node
 
-	// gatewayNodeDatatStore stores all nodes that are acting as a gateway
+	// gatewayNodeDataStore stores all nodes that are acting as a gateway
 	gatewayNodeDataStore map[string]nodeTypes.Node
 
 	// nodes stores nodes sorted by their name
