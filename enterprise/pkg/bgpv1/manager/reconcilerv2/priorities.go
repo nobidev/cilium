@@ -43,8 +43,14 @@ const (
 	PodCIDRVRFReconcilerPriority       = 31
 )
 
-// State reconciler name and priorities
+// State reconciler names
 const (
-	ImportedVPNRouteReconcilerName     = "ImportedVPNRoute"
+	ImportedVPNRouteReconcilerName = "ImportedVPNRoute"
+	CRDStatusReconcilerName        = "IsovalentBGPNodeConfigStatus"
+)
+
+// State reconciler priorities
+const (
 	ImportedVPNRouteReconcilerPriority = 20
+	CRDStatusReconcilerPriority        = 50
 )

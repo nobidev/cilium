@@ -45,11 +45,16 @@ var ConfigReconcilers = cell.Group(
 		NewBFDStateReconciler,
 		NewSRv6LocatorPoolReconciler,
 		NewVPNRoutePolicyReconciler,
-		NewImportedVPNRouteReconciler,
 		NewPodCIDRVRFReconciler,
 		NewServiceVRFReconciler,
 		NewNeighborReconciler,
 		NewPodCIDRReconciler,
+	),
+
+	// state reconcilers
+	cell.Provide(
+		NewImportedVPNRouteReconciler,
+		NewStatusReconciler,
 	),
 
 	// config of the enterprise reconcilers
