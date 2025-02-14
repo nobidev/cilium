@@ -56,7 +56,6 @@ rules:
   resources:
   - isovalentbgppeerconfigs
   - isovalentbgpadvertisements
-  - isovalentbgpnodeconfigs
   - isovalentbgpvrfconfigs
   verbs:
   - list
@@ -70,6 +69,8 @@ rules:
   - isovalentmulticastnodes/status
   - isovalentbfdnodeconfigs
   - isovalentbfdnodeconfigs/status
+  - isovalentbgpnodeconfigs
+  - isovalentbgpnodeconfigs/status
   verbs:
   - create
   - update
