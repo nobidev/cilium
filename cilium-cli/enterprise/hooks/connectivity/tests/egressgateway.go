@@ -375,10 +375,14 @@ func extractClientIPsFromEchoServiceResponses(res string) []net.IP {
 // - reply traffic for services
 // - reply traffic for pods
 func EgressGatewayHA() check.Scenario {
-	return &egressGatewayHA{}
+	return &egressGatewayHA{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayHA struct{}
+type egressGatewayHA struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayHA) Name() string {
 	return "egress-gateway-ha"
@@ -553,10 +557,14 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 //
 // This suite tests the excludedCIDRs property and ensure traffic matching an excluded CIDR does not get masqueraded with the egress IP.
 func EgressGatewayExcludedCIDRs() check.Scenario {
-	return &egressGatewayExcludedCIDRs{}
+	return &egressGatewayExcludedCIDRs{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayExcludedCIDRs struct{}
+type egressGatewayExcludedCIDRs struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayExcludedCIDRs) Name() string {
 	return "egress-gateway-excluded-cidrs"
@@ -647,10 +655,14 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 //
 // tests that requests from the kind=client pods are redirected to _all_ gateways of the egressGroup
 func EgressGatewayMultipleGateways() check.Scenario {
-	return &egressGatewayMultipleGateways{}
+	return &egressGatewayMultipleGateways{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayMultipleGateways struct{}
+type egressGatewayMultipleGateways struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayMultipleGateways) Name() string {
 	return "egress-gateway-multiple-gateway"
@@ -811,10 +823,14 @@ func (s *egressGatewayMultipleGateways) Run(ctx context.Context, t *check.Test) 
 //
 // tests that requests from the kind=client pods are redirected only to the "local" (i.e. same AZ) gateway as the source pod
 func EgressGatewayAZAffinity() check.Scenario {
-	return &egressGatewayAZAffinity{}
+	return &egressGatewayAZAffinity{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayAZAffinity struct{}
+type egressGatewayAZAffinity struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayAZAffinity) Name() string {
 	return "egress-gateway-az-affinity"
@@ -921,10 +937,14 @@ func escapePatchString(str string) string {
 }
 
 func EgressGatewayHAIPAM() check.Scenario {
-	return &egressGatewayHAIPAM{}
+	return &egressGatewayHAIPAM{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayHAIPAM struct{}
+type egressGatewayHAIPAM struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayHAIPAM) Name() string {
 	return "egress-gateway-ha-ipam"
@@ -997,10 +1017,14 @@ func (s *egressGatewayHAIPAM) Run(ctx context.Context, t *check.Test) {
 }
 
 func EgressGatewayHAIPAMMultipleGateways() check.Scenario {
-	return &egressGatewayHAIPAMMultipleGateways{}
+	return &egressGatewayHAIPAMMultipleGateways{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayHAIPAMMultipleGateways struct{}
+type egressGatewayHAIPAMMultipleGateways struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayHAIPAMMultipleGateways) Name() string {
 	return "egress-gateway-ha-ipam-multiple-gateways"

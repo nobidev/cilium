@@ -26,12 +26,14 @@ import (
 // ExternalCiliumDNSProxy returns the scenario for the tests related to the external cilium-dnsproxy component.
 func ExternalCiliumDNSProxy(pods map[string]check.Pod) check.Scenario {
 	return &externalCiliumDNSProxy{
+		ScenarioBase:       check.NewScenarioBase(),
 		ciliumDNSProxyPods: pods,
 	}
 }
 
 // externalCiliumDNSProxy holds needed dependencies for the tests.
 type externalCiliumDNSProxy struct {
+	check.ScenarioBase
 	ciliumDNSProxyPods map[string]check.Pod
 }
 

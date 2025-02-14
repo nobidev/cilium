@@ -20,10 +20,14 @@ import (
 )
 
 func HubbleCLIVersion() check.Scenario {
-	return &hubbleCLIVersion{}
+	return &hubbleCLIVersion{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type hubbleCLIVersion struct{}
+type hubbleCLIVersion struct {
+	check.ScenarioBase
+}
 
 func (s *hubbleCLIVersion) Name() string {
 	return "hubble-cli-version"

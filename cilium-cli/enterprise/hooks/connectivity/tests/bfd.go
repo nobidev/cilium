@@ -96,11 +96,13 @@ type BFDStandAloneParams struct {
 // BFDStandAlone returns test scenario for BFD standalone functionality (without BGP integration).
 func BFDStandAlone(p BFDStandAloneParams) check.Scenario {
 	return &bfdStandAlone{
+		ScenarioBase:        check.NewScenarioBase(),
 		BFDStandAloneParams: p,
 	}
 }
 
 type bfdStandAlone struct {
+	check.ScenarioBase
 	BFDStandAloneParams
 }
 
@@ -235,10 +237,14 @@ func (s *bfdStandAlone) deleteK8sResources(ctx context.Context, t *check.Test) {
 
 // BFDWithBGP returns test scenario for BFD functionality with BGP integration.
 func BFDWithBGP() check.Scenario {
-	return &bfdWithBGP{}
+	return &bfdWithBGP{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type bfdWithBGP struct{}
+type bfdWithBGP struct {
+	check.ScenarioBase
+}
 
 func (s *bfdWithBGP) Name() string {
 	return "bfd-bgp"

@@ -42,10 +42,14 @@ const (
 )
 
 func BGPSvcAdvertisements() check.Scenario {
-	return &bgpSvcAdvertisements{}
+	return &bgpSvcAdvertisements{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type bgpSvcAdvertisements struct{}
+type bgpSvcAdvertisements struct {
+	check.ScenarioBase
+}
 
 func (s *bgpSvcAdvertisements) Name() string {
 	return "bgp-svc-advertisements"

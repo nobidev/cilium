@@ -31,10 +31,14 @@ import (
 // The checks are implemented by curl'ing a server pod from a client pod, and
 // then inspecting tcpdump captures from the client and server pod's nodes.
 func PodToPodEncryptionPolicy() check.Scenario {
-	return &podToPodEncryptionPolicy{}
+	return &podToPodEncryptionPolicy{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type podToPodEncryptionPolicy struct{}
+type podToPodEncryptionPolicy struct {
+	check.ScenarioBase
+}
 
 func (s *podToPodEncryptionPolicy) Name() string {
 	return "pod-to-pod-encryption-policy"

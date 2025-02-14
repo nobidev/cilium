@@ -20,10 +20,14 @@ import (
 )
 
 func PodToPhantomService() check.Scenario {
-	return &podToPhantomService{}
+	return &podToPhantomService{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type podToPhantomService struct{}
+type podToPhantomService struct {
+	check.ScenarioBase
+}
 
 func (s *podToPhantomService) Name() string {
 	return "pod-to-phantom-service"

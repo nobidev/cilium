@@ -28,6 +28,7 @@ type mixedRoutingSetupFnType func(context.Context, *check.ConnectivityTest) erro
 
 func MixedRouting() (check.Scenario, mixedRoutingSetupFnType) {
 	mr := &mixedRouting{
+		ScenarioBase:     check.NewScenarioBase(),
 		clusterUseTunnel: make(map[string]bool),
 		nativeSniffers:   make(map[sniff.Mode]map[check.NodeIdentity]*sniff.Sniffer),
 		tunnelSniffers:   make(map[sniff.Mode]map[check.NodeIdentity]*sniff.Sniffer),
@@ -42,6 +43,7 @@ func MixedRouting() (check.Scenario, mixedRoutingSetupFnType) {
 }
 
 type mixedRouting struct {
+	check.ScenarioBase
 	clusterUseTunnel      map[string]bool
 	crossClusterUseTunnel bool
 
@@ -218,10 +220,14 @@ func (mr *mixedRouting) shouldUseTunnel(self, other check.NodeIdentity) bool {
 		(!sameCluster && mr.crossClusterUseTunnel)
 }
 
-type mixedRoutingExtraTraffic struct{}
+type mixedRoutingExtraTraffic struct {
+	check.ScenarioBase
+}
 
 func MixedRoutingExtraTraffic() check.Scenario {
-	return &mixedRoutingExtraTraffic{}
+	return &mixedRoutingExtraTraffic{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 func (mrt *mixedRoutingExtraTraffic) Name() string {

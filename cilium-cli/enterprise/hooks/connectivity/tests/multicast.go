@@ -51,12 +51,15 @@ var (
 
 func MulticastConnectivity(clients []*enterpriseK8s.EnterpriseClient, numMsg int) check.Scenario {
 	return &multicastConnectivity{
-		entClients:  clients,
-		numMessages: numMsg,
+		ScenarioBase: check.NewScenarioBase(),
+		entClients:   clients,
+		numMessages:  numMsg,
 	}
 }
 
 type multicastConnectivity struct {
+	check.ScenarioBase
+
 	entClients  []*enterpriseK8s.EnterpriseClient
 	numMessages int
 }
@@ -141,6 +144,8 @@ func (m *multicastConnectivity) Run(ctx context.Context, t *check.Test) {
 // Group check test only validates groups are created and BPF map entries are populated, it does not send multicast traffic.
 
 type multicastGroupCheck struct {
+	check.ScenarioBase
+
 	entClients []*enterpriseK8s.EnterpriseClient
 }
 
@@ -150,7 +155,8 @@ func (m *multicastGroupCheck) Name() string {
 
 func MulticastGroupCheck(entClients []*enterpriseK8s.EnterpriseClient) check.Scenario {
 	return &multicastGroupCheck{
-		entClients: entClients,
+		ScenarioBase: check.NewScenarioBase(),
+		entClients:   entClients,
 	}
 }
 
