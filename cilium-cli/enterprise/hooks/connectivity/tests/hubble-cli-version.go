@@ -35,13 +35,13 @@ func (s *hubbleCLIVersion) Run(ctx context.Context, t *check.Test) {
 			cmd := []string{"hubble", "version"}
 			stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				t.Fatalf("'%s' failed on %s: %s", cmd, pod.Name(), err)
+				a.Fatalf("'%s' failed on %s: %s", cmd, pod.Name(), err)
 			}
 			version := strings.TrimSpace(stdout.String())
 			if !strings.Contains(version, "cee") {
-				t.Fatalf("hubble version on %s does not contain 'cee': %s", pod.Name(), version)
+				a.Fatalf("hubble version on %s does not contain 'cee': %s", pod.Name(), version)
 			}
-			t.Debugf("Found a valid hubble cee version: %s", version)
+			a.Debugf("Found a valid hubble cee version: %s", version)
 		})
 	}
 }
