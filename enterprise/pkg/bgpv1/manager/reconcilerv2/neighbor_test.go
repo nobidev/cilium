@@ -430,3 +430,255 @@ func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []
 	}
 	return runningPeers
 }
+
+func TestRouteReflectorPolicy(t *testing.T) {
+	tests := []struct {
+		name     string
+		instance *v1.IsovalentBGPNodeInstance
+		expected reconcilerv2.RoutePolicyMap
+	}{
+		{
+			name:     "non-route-reflector",
+			instance: &v1.IsovalentBGPNodeInstance{},
+			expected: reconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "route-reflector no RR peer",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "client no RR peer",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleClient,
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "route-reflector to route-reflectors",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+				Peers: []v1.IsovalentBGPNodePeer{
+					{
+						PeerAddress: ptr.To("10.0.0.1"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.2"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-rr": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-imports-from-rr",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"rr-rr-allow-all-exports": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-exports",
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "route-reflector to clients",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+				Peers: []v1.IsovalentBGPNodePeer{
+					{
+						PeerAddress: ptr.To("10.0.0.1"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleClient,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.2"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleClient,
+						},
+					},
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-imports-from-clients",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"rr-rr-allow-all-exports": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-exports",
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "route-reflector to clients and route-reflectors",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+				Peers: []v1.IsovalentBGPNodePeer{
+					{
+						PeerAddress: ptr.To("10.0.0.1"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleClient,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.2"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleClient,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.3"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.4"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-imports-from-clients",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"rr-rr-allow-all-imports-from-rr": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-imports-from-rr",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.3/32", "10.0.0.4/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"rr-rr-allow-all-exports": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-exports",
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "client to route-reflectors",
+			instance: &v1.IsovalentBGPNodeInstance{
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleClient,
+				},
+				Peers: []v1.IsovalentBGPNodePeer{
+					{
+						PeerAddress: ptr.To("10.0.0.1"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.2"),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleRouteReflector,
+						},
+					},
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{
+				"rr-client-allow-all-imports-from-rr": &types.RoutePolicy{
+					Name: "rr-client-allow-all-imports-from-rr",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getDesiredRouteReflectorPolicies(tt.instance)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}

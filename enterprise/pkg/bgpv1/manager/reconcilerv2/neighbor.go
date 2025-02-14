@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
@@ -36,7 +37,7 @@ type NeighborReconciler struct {
 	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 	upgrader     paramUpgrader
-	metadata     map[string]NeighborReconcilerMetadata
+	metadata     map[string]*NeighborReconcilerMetadata
 }
 
 type NeighborReconcilerOut struct {
@@ -64,7 +65,7 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
 			upgrader:     params.Upgrader,
-			metadata:     make(map[string]NeighborReconcilerMetadata),
+			metadata:     make(map[string]*NeighborReconcilerMetadata),
 		},
 	}
 }
@@ -80,24 +81,35 @@ type PeerData struct {
 
 // NeighborReconcilerMetadata keeps a map of running peers to peer configuration.
 // Key is the peer name.
-type NeighborReconcilerMetadata map[string]*PeerData
+type NeighborReconcilerMetadata struct {
+	Peers         map[string]*PeerData
+	RoutePolicies ossreconcilerv2.RoutePolicyMap
+}
 
-func (r *NeighborReconciler) getMetadata(i *EnterpriseBGPInstance) NeighborReconcilerMetadata {
+func (r *NeighborReconciler) getMetadata(i *EnterpriseBGPInstance) *NeighborReconcilerMetadata {
 	return r.metadata[i.Name]
 }
 
-func (r *NeighborReconciler) upsertMetadata(i *EnterpriseBGPInstance, d *PeerData) {
+func (r *NeighborReconciler) upsertMetadataPeer(i *EnterpriseBGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-	r.metadata[i.Name][d.Peer.Name] = d
+	m := r.metadata[i.Name]
+	m.Peers[d.Peer.Name] = d
 }
 
-func (r *NeighborReconciler) deleteMetadata(i *EnterpriseBGPInstance, d *PeerData) {
+func (r *NeighborReconciler) deleteMetadataPeer(i *EnterpriseBGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-	delete(r.metadata[i.Name], d.Peer.Name)
+	delete(r.metadata[i.Name].Peers, d.Peer.Name)
+}
+
+func (r *NeighborReconciler) upsertMetadataPolicies(i *EnterpriseBGPInstance, policies ossreconcilerv2.RoutePolicyMap) {
+	if i == nil || policies == nil {
+		return
+	}
+	r.metadata[i.Name].RoutePolicies = policies
 }
 
 func (r *NeighborReconciler) Name() string {
@@ -112,7 +124,10 @@ func (r *NeighborReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
-	r.metadata[i.Name] = make(NeighborReconcilerMetadata)
+	r.metadata[i.Name] = &NeighborReconcilerMetadata{
+		Peers:         make(map[string]*PeerData),
+		RoutePolicies: make(ossreconcilerv2.RoutePolicyMap),
+	}
 	return nil
 }
 
@@ -144,7 +159,8 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 		toRemove []*PeerData
 		toUpdate []*PeerData
 	)
-	curNeigh := r.getMetadata(p.BGPInstance)
+	metadata := r.getMetadata(p.BGPInstance)
+	curNeigh := metadata.Peers
 	newNeigh := p.DesiredConfig.Peers
 
 	l.Debug("Begin reconciling peers")
@@ -253,7 +269,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.deleteMetadata(p.BGPInstance, n)
+		r.deleteMetadataPeer(p.BGPInstance, n)
 	}
 
 	// update neighbors
@@ -264,7 +280,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, n)
+		r.upsertMetadataPeer(p.BGPInstance, n)
 	}
 
 	// create new neighbors
@@ -275,11 +291,156 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, n)
+		r.upsertMetadataPeer(p.BGPInstance, n)
+	}
+
+	if err := r.reconcileRouteReflectorRoutePolicies(ctx, p); err != nil {
+		return fmt.Errorf("failed to reconcile route reflector route policies: %w", err)
 	}
 
 	l.Debug("Done reconciling peers")
 	return nil
+}
+
+func (r *NeighborReconciler) reconcileRouteReflectorRoutePolicies(ctx context.Context, p EnterpriseReconcileParams) error {
+	metadata := r.getMetadata(p.BGPInstance)
+
+	desiredRoutePolicies := getDesiredRouteReflectorPolicies(p.DesiredConfig)
+
+	updatedPolicies, err := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
+		Logger:          r.Logger,
+		Ctx:             ctx,
+		Router:          p.BGPInstance.Router,
+		DesiredPolicies: desiredRoutePolicies,
+		CurrentPolicies: metadata.RoutePolicies,
+	})
+
+	r.upsertMetadataPolicies(p.BGPInstance, updatedPolicies)
+
+	return err
+}
+
+func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) ossreconcilerv2.RoutePolicyMap {
+	desiredRoutePolicies := ossreconcilerv2.RoutePolicyMap{}
+
+	if instance.RouteReflector == nil {
+		return desiredRoutePolicies
+	}
+
+	routeReflectors := []string{}
+	clients := []string{}
+
+	for _, peer := range instance.Peers {
+		if peer.RouteReflector == nil || peer.PeerAddress == nil {
+			continue
+		}
+
+		addr, err := netip.ParseAddr(*peer.PeerAddress)
+		if err != nil {
+			continue
+		}
+
+		var prefix string
+		switch {
+		case addr.Is4():
+			prefix = netip.PrefixFrom(addr, 32).String()
+		case addr.Is6():
+			prefix = netip.PrefixFrom(addr, 128).String()
+		default:
+			continue
+		}
+
+		switch peer.RouteReflector.Role {
+		case v1.RouteReflectorRoleRouteReflector:
+			routeReflectors = append(routeReflectors, prefix)
+		case v1.RouteReflectorRoleClient:
+			clients = append(clients, prefix)
+		}
+	}
+
+	slices.Sort(routeReflectors)
+	slices.Sort(clients)
+
+	switch instance.RouteReflector.Role {
+	case v1.RouteReflectorRoleRouteReflector:
+		if len(routeReflectors) > 0 {
+			// RR allows all imports from RR
+			name := "rr-rr-allow-all-imports-from-rr"
+			desiredRoutePolicies[name] = &types.RoutePolicy{
+				Name: name,
+				Type: types.RoutePolicyTypeImport,
+				Statements: []*types.RoutePolicyStatement{
+					{
+						Conditions: types.RoutePolicyConditions{
+							MatchNeighbors: routeReflectors,
+						},
+						Actions: types.RoutePolicyActions{
+							RouteAction: types.RoutePolicyActionAccept,
+						},
+					},
+				},
+			}
+		}
+
+		if len(clients) > 0 {
+			// RR allows all imports from clients
+			name := "rr-rr-allow-all-imports-from-clients"
+			desiredRoutePolicies[name] = &types.RoutePolicy{
+				Name: name,
+				Type: types.RoutePolicyTypeImport,
+				Statements: []*types.RoutePolicyStatement{
+					{
+						Conditions: types.RoutePolicyConditions{
+							MatchNeighbors: clients,
+						},
+						Actions: types.RoutePolicyActions{
+							RouteAction: types.RoutePolicyActionAccept,
+						},
+					},
+				},
+			}
+		}
+
+		// RR allows all exports to any peers
+		if len(clients) != 0 || len(routeReflectors) != 0 {
+			name := "rr-rr-allow-all-exports"
+			desiredRoutePolicies[name] = &types.RoutePolicy{
+				Name: name,
+				Type: types.RoutePolicyTypeExport,
+				Statements: []*types.RoutePolicyStatement{
+					{
+						Conditions: types.RoutePolicyConditions{},
+						Actions: types.RoutePolicyActions{
+							RouteAction: types.RoutePolicyActionAccept,
+						},
+					},
+				},
+			}
+		}
+
+		// We still don't allow imports from non-route-reflector peers with the default import policy.
+	case v1.RouteReflectorRoleClient:
+		if len(routeReflectors) > 0 {
+			// Client allows all imports from RR
+			name := "rr-client-allow-all-imports-from-rr"
+			desiredRoutePolicies[name] = &types.RoutePolicy{
+				Name: name,
+				Type: types.RoutePolicyTypeImport,
+				Statements: []*types.RoutePolicyStatement{
+					{
+						Conditions: types.RoutePolicyConditions{
+							MatchNeighbors: routeReflectors,
+						},
+						Actions: types.RoutePolicyActions{
+							RouteAction: types.RoutePolicyActionAccept,
+						},
+					},
+				},
+			}
+		}
+		// We already allow all generated routes per neighbor. No need to add additional policies.
+	}
+	return desiredRoutePolicies
 }
 
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
