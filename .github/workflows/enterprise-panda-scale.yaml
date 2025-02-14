@@ -451,7 +451,7 @@ jobs:
           echo "helm_args=${helm_args}" >> $GITHUB_OUTPUT
 
           # Deploy etcd.
-          cat ./.github/actions/cl2-modules/panda/kvstore/etcd-pod.yaml | \
+          cat ./.github/actions/cl2-modules/enterprise/panda/kvstore/etcd-pod.yaml | \
             sed "s|#REPLACE_ME_REPLICAS|${{ steps.vars.outputs.ETCD_NODES }}|g" | \
             sed "s|#REPLACE_ME_INITIAL_CLUSTER|${etcd_initial_cluster}|g" | \
             sed "s/#REPLACE_ME_DOMAIN/${domain}/g" | \
@@ -549,7 +549,7 @@ jobs:
           # Don't run any tasks at this point, just setup the monitoring stack
           ./clusterloader \
             -v=2 \
-            --prometheus-additional-monitors-path=./testing/custom/panda/monitors/ \
+            --prometheus-additional-monitors-path=./testing/custom/enterprise/panda/monitors/ \
             --testconfig=./testing/custom/common/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
@@ -575,16 +575,16 @@ jobs:
 
       - name: Setup Certificates and Cloudprober
         run: |
-          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/certificates.yaml
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/certificates.yaml
           kubectl wait --for=condition=Ready -n cilium-secrets certificate/tls-termination
           kubectl wait --for=condition=Synced bundle/tls-origination
           kubectl wait --for=condition=Synced bundle/tls-interception
 
-          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/policy.yaml
-          kubectl create configmap cloudprober-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.cfg
-          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober.yaml
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/policy.yaml
+          kubectl create configmap cloudprober-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober.cfg
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober.yaml
           kubectl rollout status daemonset cloudprober
-          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/panda/manifests/cloudprober-host.yaml
+          kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober-host.yaml
           kubectl rollout status daemonset cloudprober-host
 
       - name: Label and taint the monitoring node
@@ -707,8 +707,8 @@ jobs:
           export CL2_SYSDUMP_NODES_LIST
           ./clusterloader \
             -v=2 \
-            --prometheus-additional-monitors-path=./testing/custom/panda/monitors/ \
-            --testconfig=./testing/custom/panda/config.yaml \
+            --prometheus-additional-monitors-path=./testing/custom/enterprise/panda/monitors/ \
+            --testconfig=./testing/custom/enterprise/panda/config.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --enable-prometheus-server \
