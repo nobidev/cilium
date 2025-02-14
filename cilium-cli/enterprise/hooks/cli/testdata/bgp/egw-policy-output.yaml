@@ -1,4 +1,4 @@
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
   creationTimestamp: null
@@ -16,7 +16,7 @@ spec:
       matchLabels:
         egw: enabled
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -30,7 +30,7 @@ spec:
     safi: unicast
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
   creationTimestamp: null
@@ -44,8 +44,6 @@ spec:
       peerASN: 65000
       peerAddress: 10.1.2.1
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: worker
   nodeSelector:
     matchLabels:

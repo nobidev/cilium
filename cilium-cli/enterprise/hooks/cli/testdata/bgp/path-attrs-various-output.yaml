@@ -1,4 +1,4 @@
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
   creationTimestamp: null
@@ -21,7 +21,7 @@ spec:
       matchLabels:
         environment: test
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -40,7 +40,7 @@ spec:
     safi: unicast
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
   creationTimestamp: null
@@ -63,7 +63,7 @@ spec:
       matchLabels:
         environment: test
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -82,7 +82,7 @@ spec:
     safi: unicast
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
   creationTimestamp: null
@@ -96,15 +96,11 @@ spec:
       peerASN: 65000
       peerAddress: 172.0.0.1
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-peer-172.0.0.1
     - name: peer-fd00.10.0.1-1
       peerASN: 65000
       peerAddress: fd00:10:0:1::1
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-peer-fd00.10.0.1-1
   nodeSelector:
     matchLabels:

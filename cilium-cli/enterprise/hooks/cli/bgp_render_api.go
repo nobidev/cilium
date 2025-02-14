@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +37,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -170,8 +170,8 @@ func renderBGPv2APIFromYamlFile(inputFile string, buffer *bytes.Buffer) error {
 				return fmt.Errorf("failed rendering CiliumBGPPeeringPolicy: %w", err)
 			}
 		}
-		if gvk != nil && *gvk == v1.SchemeGroupVersion.WithKind("Node") {
-			node := v1.Node{}
+		if gvk != nil && *gvk == corev1.SchemeGroupVersion.WithKind("Node") {
+			node := corev1.Node{}
 			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, &node)
 			if err != nil {
 				return fmt.Errorf("failed converting node from unstructured: %w", err)
@@ -257,15 +257,15 @@ func parseUnstructuredBGPPeeringPolicy(bgpPeeringPolicy *unstructured.Unstructur
 func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPolicy, egwSelectors map[int64]*slimv1.LabelSelector, buffer *bytes.Buffer, printer *printers.YAMLPrinter) error {
 	var k8sObjects []runtime.Object
 
-	clusterConfig := &isovalentv1alpha1.IsovalentBGPClusterConfig{
+	clusterConfig := &isovalentv1.IsovalentBGPClusterConfig{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: isovalentv1alpha1.SchemeGroupVersion.String(),
-			Kind:       isovalentv1alpha1.IsovalentBGPClusterConfigKindDefinition,
+			APIVersion: isovalentv1.SchemeGroupVersion.String(),
+			Kind:       isovalentv1.IsovalentBGPClusterConfigKindDefinition,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: bgpPeeringPolicy.Name,
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+		Spec: isovalentv1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: bgpPeeringPolicy.Spec.NodeSelector,
 		},
 	}
@@ -274,7 +274,7 @@ func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPol
 		if len(vr.Neighbors) == 0 {
 			continue // don't render VirtualRouters without any neighbors - below code counts with at least 1 neighbor
 		}
-		instance := isovalentv1alpha1.IsovalentBGPInstance{
+		instance := isovalentv1.IsovalentBGPInstance{
 			Name:     bgpInstanceName(vr.LocalASN),
 			LocalASN: ptr.To(vr.LocalASN),
 		}
@@ -282,8 +282,8 @@ func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPol
 		// In some cases we can use common BGP advertisement and peer config for all peers, otherwise they
 		// need to be peer-specific. Common peer config can be used only in case that common advertisement is used.
 		var (
-			commonAdvertisement *isovalentv1alpha1.IsovalentBGPAdvertisement
-			commonPeerConfig    *isovalentv1alpha1.IsovalentBGPPeerConfig
+			commonAdvertisement *isovalentv1.IsovalentBGPAdvertisement
+			commonPeerConfig    *isovalentv1.IsovalentBGPPeerConfig
 			err                 error
 		)
 		if useCommonBGPAdvertisement(&vr) {
@@ -307,7 +307,7 @@ func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPol
 			}
 			peerAddr := peerPrefix.Addr()
 
-			var advertisement *isovalentv1alpha1.IsovalentBGPAdvertisement
+			var advertisement *isovalentv1.IsovalentBGPAdvertisement
 			if commonAdvertisement != nil {
 				advertisement = commonAdvertisement
 			} else {
@@ -319,7 +319,7 @@ func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPol
 				k8sObjects = append(k8sObjects, advertisement)
 			}
 
-			var peerConfig *isovalentv1alpha1.IsovalentBGPPeerConfig
+			var peerConfig *isovalentv1.IsovalentBGPPeerConfig
 			if commonPeerConfig != nil {
 				peerConfig = commonPeerConfig
 			} else {
@@ -328,14 +328,12 @@ func renderBGPPeeringPolicy(bgpPeeringPolicy *ciliumv2alpha1.CiliumBGPPeeringPol
 				k8sObjects = append(k8sObjects, peerConfig)
 			}
 
-			instance.Peers = append(instance.Peers, isovalentv1alpha1.IsovalentBGPPeer{
+			instance.Peers = append(instance.Peers, isovalentv1.IsovalentBGPPeer{
 				Name:        bgpPeerName(peerAddr),
 				PeerAddress: ptr.To(peerPrefix.Addr().String()),
 				PeerASN:     ptr.To(neigh.PeerASN),
-				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
-					Group: peerConfig.GroupVersionKind().Group,
-					Kind:  peerConfig.GroupVersionKind().Kind,
-					Name:  peerConfig.Name,
+				PeerConfigRef: &isovalentv1.PeerConfigReference{
+					Name: peerConfig.Name,
 				},
 			})
 		}
@@ -393,13 +391,13 @@ func useCommonBGPPeerConfig(vr *ciliumv2alpha1.CiliumBGPVirtualRouter) bool {
 }
 
 // createBGPAdvertisement creates a new IsovalentBGPAdvertisement with configuration retrieved from the input arguments.
-func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRouter, egwSelectors map[int64]*slimv1.LabelSelector, pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes) (*isovalentv1alpha1.IsovalentBGPAdvertisement, error) {
+func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRouter, egwSelectors map[int64]*slimv1.LabelSelector, pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes) (*isovalentv1.IsovalentBGPAdvertisement, error) {
 	var err error
 
-	advertisement := &isovalentv1alpha1.IsovalentBGPAdvertisement{
+	advertisement := &isovalentv1.IsovalentBGPAdvertisement{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: isovalentv1alpha1.SchemeGroupVersion.String(),
-			Kind:       isovalentv1alpha1.IsovalentBGPAdvertisementKindDefinition,
+			APIVersion: isovalentv1.SchemeGroupVersion.String(),
+			Kind:       isovalentv1.IsovalentBGPAdvertisementKindDefinition,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -409,13 +407,13 @@ func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRoute
 		},
 	}
 	if vr.ExportPodCIDR != nil && *vr.ExportPodCIDR {
-		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1alpha1.BGPAdvertisement{
-			AdvertisementType: isovalentv1alpha1.BGPPodCIDRAdvert,
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
+			AdvertisementType: isovalentv1.BGPPodCIDRAdvert,
 		})
 	}
 	if vr.PodIPPoolSelector != nil {
-		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1alpha1.BGPAdvertisement{
-			AdvertisementType: isovalentv1alpha1.BGPCiliumPodIPPoolAdvert,
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
+			AdvertisementType: isovalentv1.BGPCiliumPodIPPoolAdvert,
 			Selector:          vr.PodIPPoolSelector,
 		})
 	}
@@ -427,17 +425,17 @@ func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRoute
 				ciliumv2alpha1.BGPLoadBalancerIPAddr,
 			}
 		}
-		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1alpha1.BGPAdvertisement{
-			AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
+			AdvertisementType: isovalentv1.BGPServiceAdvert,
 			Selector:          vr.ServiceSelector,
-			Service: &isovalentv1alpha1.BGPServiceOptions{
+			Service: &isovalentv1.BGPServiceOptions{
 				Addresses: svcAdvertisements,
 			},
 		})
 	}
 	if egwSelector, exists := egwSelectors[vr.LocalASN]; exists {
-		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1alpha1.BGPAdvertisement{
-			AdvertisementType: isovalentv1alpha1.BGPEGWAdvert,
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
+			AdvertisementType: isovalentv1.BGPEGWAdvert,
 			Selector:          egwSelector,
 		})
 	}
@@ -452,14 +450,14 @@ func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRoute
 
 // mapBGPPathAttributes maps provided BGPv1 CiliumBGPPathAttributes to BGPv2 BGPAttributes for the provided advertisement.
 // May return an error, as some mappings are not supported.
-func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes, advert *isovalentv1alpha1.BGPAdvertisement) (*ciliumv2alpha1.BGPAttributes, error) {
+func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes, advert *isovalentv1.BGPAdvertisement) (*ciliumv2alpha1.BGPAttributes, error) {
 	var res *ciliumv2alpha1.BGPAttributes
 	for _, attr := range pathAttributes {
 		if attr.SelectorType == ciliumv2alpha1.CiliumLoadBalancerIPPoolSelectorName {
 			return nil, fmt.Errorf("%w: %s advertisedPathAttributes.selectorType can not be translated to BGPv2", errBGPv2MappingUnsupported, attr.SelectorType)
 		}
 		if attr.SelectorType == string(advert.AdvertisementType) ||
-			(attr.SelectorType == egwPolicySelectorType && advert.AdvertisementType == isovalentv1alpha1.BGPEGWAdvert) {
+			(attr.SelectorType == egwPolicySelectorType && advert.AdvertisementType == isovalentv1.BGPEGWAdvert) {
 			if attr.Selector != nil {
 				if attr.SelectorType == ciliumv2alpha1.PodCIDRSelectorName {
 					return nil, fmt.Errorf("%w: %s advertisedPathAttributes.selectorType with non-nil selector can not be translated to BGPv2", errBGPv2MappingUnsupported, attr.SelectorType)
@@ -484,25 +482,23 @@ func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttribute
 }
 
 // createBGPPeerConfig creates a new IsovalentBGPPeerConfig with configuration retrieved from the input arguments.
-func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, advertisement *isovalentv1alpha1.IsovalentBGPAdvertisement) *isovalentv1alpha1.IsovalentBGPPeerConfig {
-	peerConfig := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, advertisement *isovalentv1.IsovalentBGPAdvertisement) *isovalentv1.IsovalentBGPPeerConfig {
+	peerConfig := &isovalentv1.IsovalentBGPPeerConfig{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: isovalentv1alpha1.SchemeGroupVersion.String(),
-			Kind:       isovalentv1alpha1.IsovalentBGPPeerConfigKindDefinition,
+			APIVersion: isovalentv1.SchemeGroupVersion.String(),
+			Kind:       isovalentv1.IsovalentBGPPeerConfigKindDefinition,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
-				AuthSecretRef:   neigh.AuthSecretRef,
-				EBGPMultihop:    neigh.EBGPMultihopTTL,
-				GracefulRestart: neigh.GracefulRestart,
-			},
+		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
+			AuthSecretRef:   neigh.AuthSecretRef,
+			EBGPMultihop:    neigh.EBGPMultihopTTL,
+			GracefulRestart: neigh.GracefulRestart,
 		},
 	}
 	if neigh.PeerPort != nil {
-		peerConfig.Spec.Transport = &ciliumv2alpha1.CiliumBGPTransport{
+		peerConfig.Spec.Transport = &isovalentv1.IsovalentBGPTransport{
 			PeerPort: ptr.To(*neigh.PeerPort),
 		}
 	}
@@ -523,7 +519,7 @@ func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, a
 		families = neigh.Families
 	}
 	for _, family := range families {
-		peerConfig.Spec.CiliumBGPPeerConfigSpec.Families = append(peerConfig.Spec.CiliumBGPPeerConfigSpec.Families,
+		peerConfig.Spec.Families = append(peerConfig.Spec.Families,
 			ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
 				CiliumBGPFamily: family,
 				Advertisements: &slimv1.LabelSelector{
@@ -536,7 +532,7 @@ func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, a
 
 // renderBGPNodeAnnotations renders BGPv1 node annotations from the provided Node object
 // and outputs BGPv2 configuration into the provided buffer using the provided printer.
-func renderBGPNodeAnnotations(node *v1.Node, buffer *bytes.Buffer, printer *printers.YAMLPrinter) error {
+func renderBGPNodeAnnotations(node *corev1.Node, buffer *bytes.Buffer, printer *printers.YAMLPrinter) error {
 	annotationMap, err := agent.NewAnnotationMap(node.Annotations)
 	if err != nil {
 		return fmt.Errorf("failed parsing node annotations: %w", err)
@@ -546,10 +542,10 @@ func renderBGPNodeAnnotations(node *v1.Node, buffer *bytes.Buffer, printer *prin
 		return nil // no overrides necessary
 	}
 
-	override := &isovalentv1alpha1.IsovalentBGPNodeConfigOverride{
+	override := &isovalentv1.IsovalentBGPNodeConfigOverride{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: isovalentv1alpha1.SchemeGroupVersion.String(),
-			Kind:       isovalentv1alpha1.IsovalentBGPNodeConfigOverrideKindDefinition,
+			APIVersion: isovalentv1.SchemeGroupVersion.String(),
+			Kind:       isovalentv1.IsovalentBGPNodeConfigOverrideKindDefinition,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: node.Name,
@@ -557,7 +553,7 @@ func renderBGPNodeAnnotations(node *v1.Node, buffer *bytes.Buffer, printer *prin
 	}
 
 	for _, asn := range slices.Sorted(maps.Keys(annotationMap)) {
-		instanceOverride := isovalentv1alpha1.IsovalentBGPNodeConfigInstanceOverride{
+		instanceOverride := isovalentv1.IsovalentBGPNodeConfigInstanceOverride{
 			Name: bgpInstanceName(asn),
 		}
 		if annotationMap[asn].RouterID != "" {

@@ -1,4 +1,4 @@
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
   creationTimestamp: null
@@ -9,7 +9,7 @@ spec:
   advertisements:
   - advertisementType: PodCIDR
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -25,7 +25,7 @@ spec:
     peerPort: 1179
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -46,7 +46,7 @@ spec:
     keepAliveTimeSeconds: 3
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
   creationTimestamp: null
@@ -64,7 +64,7 @@ spec:
       - LoadBalancerIP
       - ClusterIP
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -79,7 +79,7 @@ spec:
     safi: unicast
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
   creationTimestamp: null
@@ -94,7 +94,7 @@ spec:
     safi: unicast
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
   creationTimestamp: null
@@ -108,15 +108,11 @@ spec:
       peerASN: 65010
       peerAddress: 172.0.0.1
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-65001-peer-172.0.0.1
     - name: peer-fd00.10.0.1-1
       peerASN: 65000
       peerAddress: fd00:10:0:1::1
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-65001-peer-fd00.10.0.1-1
   - localASN: 65002
     name: instance-65002
@@ -125,22 +121,18 @@ spec:
       peerASN: 65020
       peerAddress: 172.0.0.2
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-65002-peer-172.0.0.2
     - name: peer-fd00.10.0.1-2
       peerASN: 65000
       peerAddress: fd00:10:0:1::2
       peerConfigRef:
-        group: isovalent.com
-        kind: IsovalentBGPPeerConfig
         name: tor-65002-peer-fd00.10.0.1-2
   nodeSelector:
     matchLabels:
       bgp: enabled
 status: {}
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPNodeConfigOverride
 metadata:
   creationTimestamp: null
@@ -153,7 +145,7 @@ spec:
   - name: instance-65002
     routerID: 10.0.0.1
 ---
-apiVersion: isovalent.com/v1alpha1
+apiVersion: isovalent.com/v1
 kind: IsovalentBGPNodeConfigOverride
 metadata:
   creationTimestamp: null
