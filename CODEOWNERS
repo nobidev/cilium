@@ -795,6 +795,7 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
 /cilium-dbg/cmd/enterprise_* @isovalent/cli
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
+/contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
