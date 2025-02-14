@@ -346,7 +346,8 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
   - additionalPrinterColumns:
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -664,4 +665,5 @@ spec:
         type: object
     served: true
     storage: false
-    subresources: {}
+    subresources:
+      status: {}

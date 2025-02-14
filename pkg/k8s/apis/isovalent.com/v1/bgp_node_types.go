@@ -14,6 +14,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpnodeconfig",path="isovalentbgpnodeconfigs",scope="Cluster",shortName={ibgpnode}
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
 // IsovalentBGPNodeConfig is node local configuration for BGP agent. Name of the object should be node name.
