@@ -1,0 +1,166 @@
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  creationTimestamp: null
+  name: lbfe-lb-1
+  namespace: default
+spec:
+  nodeSelector:
+    matchLabels:
+      service.cilium.io/node: t2
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      address:
+        socketAddress:
+          address: 100.64.0.100
+          portValue: 80
+      filterChains:
+        - filterChainMatch:
+            directSourcePrefixRanges:
+              - addressPrefix: 172.18.0.0
+                prefixLen: 32
+              - addressPrefix: 172.18.0.1
+                prefixLen: 32
+            transportProtocol: raw_buffer
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                commonHttpProtocolOptions:
+                  headersWithUnderscoresAction: REJECT_REQUEST
+                  maxConnectionDuration: 3600s
+                generateRequestId: true
+                http2ProtocolOptions:
+                  initialConnectionWindowSize: 1048576
+                  initialStreamWindowSize: 65535
+                  maxConcurrentStreams: 100
+                httpFilters:
+                  - name: envoy.filters.http.health_check
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
+                      clusterMinHealthyPercentages:
+                        backend_cluster_lb-1:
+                          value: 20
+                      headers:
+                        - name: :path
+                          stringMatch:
+                            exact: /health
+                        - name: :method
+                          stringMatch:
+                            exact: GET
+                        - name: user-agent
+                          stringMatch:
+                            prefix: cilium-probe/
+                      passThroughMode: false
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                      suppressEnvoyHeaders: true
+                mergeSlashes: true
+                normalizePath: true
+                routeConfig: {}
+                serverName: ilb
+                statPrefix: healthcheck_http_default_lb-1
+                stripMatchingHostPort: true
+                useRemoteAddress: false
+        - filterChainMatch:
+            transportProtocol: raw_buffer
+          filters:
+            - name: envoy.filters.network.rbac
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
+                rules:
+                  action: DENY
+                  policies:
+                    rule-0:
+                      permissions:
+                        - any: true
+                      principals:
+                        - remoteIp:
+                            addressPrefix: 100.64.0.100
+                            prefixLen: 32
+                statPrefix: tcp_default_lb-1
+            - name: envoy.filters.network.tcp_proxy
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+                accessLog:
+                  - name: stdout
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                      logFormat:
+                        textFormatSource:
+                          inlineString: |2+
+
+                cluster: backend_cluster_lb-1
+                statPrefix: tcp_proxy_default_lb-1_0
+      listenerFilters:
+        - name: envoy.filters.listener.tls_inspector
+          typedConfig:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+        - name: cilium.bpf_metadata
+          typedConfig:
+            "@type": type.googleapis.com/cilium.BpfMetadata
+      name: frontend_listener_tcp
+      perConnectionBufferLimitBytes: 32768
+      statPrefix: default_lb-1
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      commonLbConfig:
+        healthyPanicThreshold: {}
+      connectTimeout: 5s
+      dnsFailureRefreshRate:
+        baseInterval: 10s
+        maxInterval: 100s
+      dnsLookupFamily: V4_ONLY
+      dnsRefreshRate: 10s
+      healthChecks:
+        - healthyThreshold: 1
+          interval: 30s
+          noTrafficInterval: 30s
+          tcpHealthCheck: {}
+          timeout: 5s
+          transportSocketMatchCriteria:
+            type: healthcheck
+          unhealthyEdgeInterval: 30s
+          unhealthyInterval: 30s
+          unhealthyThreshold: 1
+      ignoreHealthOnHostRemoval: true
+      loadAssignment:
+        clusterName: backend_cluster_lb-1
+        endpoints:
+          - lbEndpoints:
+              - endpoint:
+                  address:
+                    socketAddress:
+                      address: tcpbin.com.
+                      portValue: 4242
+                loadBalancingWeight: 1
+      name: backend_cluster_lb-1
+      perConnectionBufferLimitBytes: 32768
+      respectDnsTtl: true
+      roundRobinLbConfig: {}
+      transportSocket:
+        name: envoy.transport_sockets.raw_buffer
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      transportSocketMatches:
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+      type: STRICT_DNS
+      typedDnsResolverConfig:
+        name: envoy.network.dns_resolver.cares
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+          dnsResolverOptions:
+            noDefaultSearchDomain: true
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            maxConnectionDuration: 3600s
+          explicitHttpConfig:
+            httpProtocolOptions: {}

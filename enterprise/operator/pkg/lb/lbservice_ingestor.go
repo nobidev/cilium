@@ -363,7 +363,7 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 	}
 
 	return &lbApplicationTCPProxy{
-		tierMode: r.mapTCPProxyTierMode(app),
+		tierMode: r.mapTCPProxyTierMode(app, referencedBackends),
 		routes:   routes,
 	}
 }
@@ -388,7 +388,7 @@ func (r *ingestor) toApplicationUDPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 	}
 
 	return &lbApplicationUDPProxy{
-		tierMode: r.mapUDPProxyTierMode(app),
+		tierMode: r.mapUDPProxyTierMode(app, referencedBackends),
 		routes:   routes,
 	}
 }
@@ -976,7 +976,7 @@ func (*ingestor) toTCPRateLimits(rateLimits *isovalentv1alpha1.LBServiceTCPRoute
 	}
 }
 
-func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
+func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
 	forceDeploymentMode := isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto
 
 	if app.ForceDeploymentMode != nil {
@@ -985,19 +985,19 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 
 	switch forceDeploymentMode {
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto:
-		return r.evaluateTCPProxyAutoTierMode(app)
+		return r.evaluateTCPProxyAutoTierMode(app, referencedBackends)
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
-		return r.evaluateTCPProxyAutoTierMode(app)
+		return r.evaluateTCPProxyAutoTierMode(app, referencedBackends)
 	}
 }
 
-func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy) tierModeType {
+func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
 	for _, ar := range app.Routes {
-		if ar.RateLimits != nil || ar.PersistentBackend != nil {
+		if ar.RateLimits != nil || ar.PersistentBackend != nil || referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2
 		}
 	}
@@ -1005,7 +1005,7 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 	return tierModeT1
 }
 
-func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy) tierModeType {
+func (r *ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
 	forceDeploymentMode := isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto
 
 	if app.ForceDeploymentMode != nil {
@@ -1014,14 +1014,24 @@ func (*ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplication
 
 	switch forceDeploymentMode {
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto:
-		return tierModeT1
+		return r.evaluateUDPProxyAutoTierMode(app, referencedBackends)
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
-		return tierModeT1
+		return r.evaluateUDPProxyAutoTierMode(app, referencedBackends)
 	}
+}
+
+func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
+	for _, ar := range app.Routes {
+		if referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
+			return tierModeT2
+		}
+	}
+
+	return tierModeT1
 }
 
 func (r *ingestor) toDNSResolverConfig(config *isovalentv1alpha1.DNSResolverConfig) *lbBackendDNSResolverConfig {
