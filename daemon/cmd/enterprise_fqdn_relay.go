@@ -13,6 +13,8 @@
 package cmd
 
 import (
+	"net/netip"
+
 	"github.com/cilium/dns"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -26,5 +28,5 @@ func (d *Daemon) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		stat = &dnsproxy.ProxyRequestContext{}
 	}
 	stat.DataSource = "external-proxy"
-	return d.notifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddr, msg, protocol, allowed, stat)
+	return d.notifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, netip.MustParseAddrPort(serverAddr), msg, protocol, allowed, stat)
 }

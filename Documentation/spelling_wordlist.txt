@@ -324,6 +324,7 @@ endpointSelector
 endpointmanager
 enet
 enetc
+enqueuing
 etcd
 etcdinit
 eth
@@ -669,6 +670,7 @@ rbac
 rc
 reStructuredText
 reachability
+readSecretsOnlyFromSecretsNamespace
 rebase
 rebased
 rebasing

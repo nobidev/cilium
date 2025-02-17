@@ -612,6 +612,10 @@
      - TCP port for the KVStoreMesh health API.
      - int
      - ``9881``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.kvstoreMode`
+     - Specify the KVStore mode when running KVStoreMesh Supported values: - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod. - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
+     - string
+     - ``"internal"``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.lifecycle`
      - lifecycle setting for the KVStoreMesh container
      - object
@@ -948,6 +952,10 @@
      - commonLabels allows users to add common labels for all Cilium resources.
      - object
      - ``{}``
+   * - :spelling:ignore:`connectivityProbeFrequencyRatio`
+     - Ratio of the connectivity probe frequency vs resource usage, a float in [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing frequency is dynamically adjusted based on the cluster size.
+     - float64
+     - ``0.5``
    * - :spelling:ignore:`conntrackGCInterval`
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string
@@ -1431,7 +1439,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:0a62df4ef2e56b428414cc9b68404ec5edb6fab3f590371a614238ab9d82b408","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1737536179-7717128c4e264aa4ec7e43f6bb795ab854340b16","useDigest":true}``
+     - ``{"digest":"sha256:ced8a89d642d10d648471afc2d8737238f1479c368955e6f2553ded58029ac88","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1739240299-e85e926b0fa4cec519cefff54b60bd7942d7871b","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2087,7 +2095,7 @@
    * - :spelling:ignore:`hubble.relay.podSecurityContext`
      - hubble-relay pod security context
      - object
-     - ``{"fsGroup":65532}``
+     - ``{"fsGroup":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.pprof.address`
      - Configure pprof listen address for hubble-relay
      - string
@@ -2151,7 +2159,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
@@ -2724,6 +2732,22 @@
      - requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR range via the Kubernetes node resource
      - bool
      - ``false``
+   * - :spelling:ignore:`k8sClientExponentialBackoff`
+     - Configure exponential backoff for client-go in Cilium agent.
+     - object
+     - ``{"backoffBaseSeconds":1,"backoffMaxDurationSeconds":120,"enabled":true}``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.backoffBaseSeconds`
+     - Configure base (in seconds) for exponential backoff.
+     - int
+     - ``1``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.backoffMaxDurationSeconds`
+     - Configure maximum duration (in seconds) for exponential backoff.
+     - int
+     - ``120``
+   * - :spelling:ignore:`k8sClientExponentialBackoff.enabled`
+     - Enable exponential backoff for client-go in Cilium agent.
+     - bool
+     - ``true``
    * - :spelling:ignore:`k8sClientRateLimit`
      - Configure the client side rate limit for the agent  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent will start to throttle requests by delaying them until there is budget or the request times out.
      - object
@@ -2873,7 +2897,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`name`
-     - Agent container name.
+     - Agent daemonset name.
      - string
      - ``"cilium"``
    * - :spelling:ignore:`namespaceOverride`
@@ -3436,6 +3460,10 @@
      - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
      - bool
      - ``false``
+   * - :spelling:ignore:`secretsNamespaceAnnotations`
+     - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+     - object
+     - ``{}``
    * - :spelling:ignore:`securityContext.capabilities.applySysctlOverwrites`
      - capabilities for the ``apply-sysctl-overwrites`` init container
      - list
@@ -3493,9 +3521,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`startupProbe.failureThreshold`
-     - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+     - failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
      - int
-     - ``105``
+     - ``300``
    * - :spelling:ignore:`startupProbe.periodSeconds`
      - interval between checks of the startup probe
      - int
@@ -3569,7 +3597,7 @@
      - object
      - ``{"enabled":null}``
    * - :spelling:ignore:`tls.secretSync.enabled`
-     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
      - string
      - ``nil``
    * - :spelling:ignore:`tls.secretsBackend`

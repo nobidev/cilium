@@ -22,7 +22,7 @@
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
-    ".github/actions/ipsec/configs.yml",
+    ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "cilium-cli/**",
@@ -73,7 +73,6 @@
     "v1.17",
     "v1.16",
     "v1.15",
-    "v1.14",
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -198,7 +197,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -214,7 +212,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -276,17 +273,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
-      ]
-    },
-    {
-      // Do not upgrade etcd as they have removed bash starting from v3.5.5
-      "matchDepNames": [
-        "quay.io/coreos/etcd"
-      ],
-      "allowedVersions": "<3.5.5",
-      "matchBaseBranches": [
-        "v1.14",
       ]
     },
     {
@@ -316,19 +302,6 @@
       "allowedVersions": "<1.10",
     },
     {
-      "matchFiles": [
-        "install/kubernetes/Makefile.values"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/spiffe/spire-agent",
-        "ghcr.io/spiffe/spire-server"
-      ],
-      "matchBaseBranches": [
-        "v1.14"
-      ],
-      "allowedVersions": "<1.7",
-    },
-    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
@@ -346,7 +319,6 @@
       "matchBaseBranches": [
         "v1.16",
         "v1.15",
-        "v1.14",
       ],
     },
     {
@@ -359,7 +331,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14"
       ]
     },
     {
@@ -375,15 +346,6 @@
     },
     {
       "matchPackageNames": [
-        "docker.io/library/alpine"
-      ],
-      "allowedVersions": "<3.19",
-      "matchBaseBranches": [
-        "v1.14"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "quay.io/cilium/certgen",
       ],
       "allowedVersions": "<0.2.0",
@@ -391,7 +353,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -432,7 +393,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14"
       ]
     },
     {
@@ -468,7 +428,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ]
     },
     {
@@ -491,7 +450,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14",
       ],
     },
     {
@@ -617,7 +575,6 @@
         "v1.17",
         "v1.16",
         "v1.15",
-        "v1.14"
       ]
     },
     {
@@ -762,8 +719,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)"',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)"',
         '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)'
       ]

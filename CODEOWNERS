@@ -238,7 +238,7 @@
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
-/.github/actions/ipsec/ @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -246,7 +246,6 @@
 /.github/workflows/*clustermesh*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*gateway-api*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
-/.github/workflows/*externalworkloads*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*hubble*.yaml @cilium/sig-hubble @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
@@ -315,11 +314,13 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/egressgateway.go @cilium/egress-gateway
 /cilium-cli/connectivity/tests/encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/tests/encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/tests/errors.go @cilium/sig-agent @cilium/sig-datapath
 /cilium-cli/connectivity/tests/externalworkload.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/from-cidr.go @cilium/sig-policy
@@ -409,6 +410,7 @@ Makefile* @cilium/build
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/kubernetes/local-redirect-policy.rst @cilium/sig-lb @cilium/docs-structure
+/Documentation/network/kubernetes/ciliumendpointslice.rst @cilium/sig-scalability @cilium/docs-structure
 /Documentation/network/lb-ipam.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/multicast.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure

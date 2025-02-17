@@ -314,6 +314,14 @@ func (ec *EnterpriseConnectivity) addEncryptionPolicyTests(cts ...*check.Connect
 		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
 		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
 	)
+	mustGetTest("pod-to-pod-encryption-v2", cts...).WithFeatureRequirements(
+		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
+		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
+	)
+	mustGetTest("pod-to-pod-with-l7-policy-encryption-v2", cts...).WithFeatureRequirements(
+		features.RequireDisabled(enterpriseFeatures.EncryptionPolicy),
+		features.RequireDisabled(enterpriseFeatures.RemoteEncryptionPolicy),
+	)
 
 	newTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {
 		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
@@ -351,6 +359,8 @@ func (ec *EnterpriseConnectivity) addMixedRoutingTests(cts ...*check.Connectivit
 	// tcpdump filters to assert no unencrypted packet is leaked would be incorrect.
 	mustGetTest("pod-to-pod-encryption", cts...).WithFeatureRequirements(features.RequireDisabled(enterpriseFeatures.MixedRoutingMode))
 	mustGetTest("node-to-node-encryption", cts...).WithFeatureRequirements(features.RequireDisabled(enterpriseFeatures.MixedRoutingMode))
+	mustGetTest("pod-to-pod-encryption-v2", cts...).WithFeatureRequirements(features.RequireDisabled(enterpriseFeatures.MixedRoutingMode))
+	mustGetTest("pod-to-pod-with-l7-policy-encryption-v2", cts...).WithFeatureRequirements(features.RequireDisabled(enterpriseFeatures.MixedRoutingMode))
 
 	// Requirements changes should be additionally applied to the ones guarding
 	// the execution of the associated setup function, so that they always match.
