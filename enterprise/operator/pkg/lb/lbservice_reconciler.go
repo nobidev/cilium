@@ -803,17 +803,11 @@ func (*lbServiceReconciler) getIncompatibleT1MultipleBackendPorts(lbsvc *isovale
 
 	backendsUsedAsT1OnlyBackend := map[string]struct{}{}
 
-	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == nil ||
-		*lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 ||
-		*lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto) { // TODO: remove auto from condition once we support T2 proxy
-
+	if lbsvc.Spec.Applications.TCPProxy != nil && lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
 			backendsUsedAsT1OnlyBackend[t1r.BackendRef.Name] = struct{}{}
 		}
-	} else if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == nil ||
-		*lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 ||
-		*lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto) { // TODO: remove auto from condition once we support T2 proxy
-
+	} else if lbsvc.Spec.Applications.UDPProxy != nil && lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
 			backendsUsedAsT1OnlyBackend[t1r.BackendRef.Name] = struct{}{}
 		}

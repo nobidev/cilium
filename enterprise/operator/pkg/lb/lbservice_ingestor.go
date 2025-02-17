@@ -1000,6 +1000,18 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		if ar.RateLimits != nil || ar.PersistentBackend != nil || referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2
 		}
+
+		// backends with different ports aren't supported by t1-only mode
+		port := uint32(0)
+		for _, be := range referencedBackends[ar.BackendRef.Name].lbBackends {
+			if port == 0 {
+				port = be.port
+			}
+
+			if port != be.port {
+				return tierModeT2
+			}
+		}
 	}
 
 	return tierModeT1
@@ -1028,6 +1040,18 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 	for _, ar := range app.Routes {
 		if referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2
+		}
+
+		// backends with different ports aren't supported by t1-only mode
+		port := uint32(0)
+		for _, be := range referencedBackends[ar.BackendRef.Name].lbBackends {
+			if port == 0 {
+				port = be.port
+			}
+
+			if port != be.port {
+				return tierModeT2
+			}
 		}
 	}
 
