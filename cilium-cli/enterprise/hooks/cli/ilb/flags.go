@@ -29,6 +29,8 @@ var (
 	FlagMode             string
 	FlagSingleNodeIPAddr string
 
+	FlagRun string
+
 	// TODO (sayboras): Remove these flags once we have feature auto-detection
 	FlagUseRemoteAddress  bool
 	FlagXffNumTrustedHops int
