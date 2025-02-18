@@ -153,7 +153,7 @@ type Manager struct {
 
 	// policyConfigsBySourceIP stores slices of policy configs indexed by
 	// the policies' source/endpoint IPs
-	policyConfigsBySourceIP map[string][]*PolicyConfig
+	policyConfigsBySourceIP map[netip.Addr][]*PolicyConfig
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
@@ -306,7 +306,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
-		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
+		policyConfigsBySourceIP:       make(map[netip.Addr][]*PolicyConfig),
 		egressConfigsByPolicy:         make(map[policyID]sets.Set[gwEgressIPConfig]),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -655,13 +655,12 @@ func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 }
 
 func (manager *Manager) updatePoliciesBySourceIP() {
-	manager.policyConfigsBySourceIP = make(map[string][]*PolicyConfig)
+	manager.policyConfigsBySourceIP = make(map[netip.Addr][]*PolicyConfig)
 
 	for _, policy := range manager.policyConfigs {
 		for _, ep := range policy.matchedEndpoints {
 			for _, epIP := range ep.ips {
-				ip := epIP.String()
-				manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
+				manager.policyConfigsBySourceIP[epIP] = append(manager.policyConfigsBySourceIP[epIP], policy)
 			}
 		}
 	}
@@ -877,7 +876,7 @@ func (manager *Manager) removeExpiredCtEntries() error {
 		// If egressgateway-ha enable-egressgatewayha-socket-destroy is enabled we will try to force
 		// this to happen by closing the local client socket via netlink.
 	policyMatches:
-		for _, policyConfig := range manager.policyConfigsBySourceIP[ctKey.SourceAddr.IP().String()] {
+		for _, policyConfig := range manager.policyConfigsBySourceIP[ctKey.SourceAddr.Addr()] {
 			if hasMatch = policyMatchesCtEntry(policyConfig, &ctKey, &ctVal); hasMatch {
 				break policyMatches
 			}
