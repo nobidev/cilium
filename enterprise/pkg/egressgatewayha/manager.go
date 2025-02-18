@@ -679,33 +679,6 @@ func (manager *Manager) updateNodesByIP() {
 	}
 }
 
-// policyMatches returns true if there exists at least one policy matching the
-// given parameters.
-//
-// This method takes:
-//   - a source IP: this is an optimization that allows to iterate only through
-//     policies that reference an endpoint with the given source IP
-//   - a callback function f: this function is invoked for each policy and for
-//     each combination of the policy's endpoints and destination/excludedCIDRs.
-//
-// The callback f takes as arguments:
-// - the given endpoint
-// - the destination CIDR
-// - a boolean value indicating if the CIDR belongs to the excluded ones
-// - the gatewayConfig of the  policy
-//
-// This method returns true whenever the f callback matches one of the endpoint
-// and CIDR tuples (i.e. whenever one callback invocation returns true)
-func (manager *Manager) policyMatches(sourceIP netip.Addr, f func(*endpointMetadata, netip.Prefix, bool, *gatewayConfig) bool) bool {
-	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
-		if policy.matches(f) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (manager *Manager) removeStaleEgressIPConfigs() {
 	for policyID := range manager.egressConfigsByPolicy {
 		if _, found := manager.policyConfigs[policyID]; found {
@@ -775,12 +748,17 @@ func (manager *Manager) relaxRPFilter() error {
 	return manager.sysctl.ApplySettings(sysSettings)
 }
 
-func (manager *Manager) addMissingEgressRules() {
+func (manager *Manager) updateEgressRules() {
 	egressPolicies := map[egressmapha.EgressPolicyKey4]egressmapha.EgressPolicyVal4{}
 	manager.policyMap.IterateWithCallback(
 		func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
 			egressPolicies[*key] = *val
 		})
+
+	// Start with the assumption that all the entries currently present in the
+	// BPF map are stale. Then as we walk the entries below and discover which
+	// entries are actually still needed, shrink this set down.
+	stale := sets.KeySet(egressPolicies)
 
 	addEgressRule := func(endpoint *endpointMetadata, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) {
 		activeGatewayIPs, egressIP := gwc.gatewayConfigForEndpoint(manager, endpoint)
@@ -790,8 +768,12 @@ func (manager *Manager) addMissingEgressRules() {
 
 		for _, endpointIP := range endpoint.ips {
 			policyKey := egressmapha.NewEgressPolicyKey4(endpointIP, dstCIDR)
-			policyVal, policyPresent := egressPolicies[policyKey]
 
+			// This key needs to be present in the BPF map, hence remove it from
+			// the list of stale ones.
+			stale.Delete(policyKey)
+
+			policyVal, policyPresent := egressPolicies[policyKey]
 			if policyPresent && policyVal.Match(egressIP, activeGatewayIPs) {
 				return
 			}
@@ -814,42 +796,12 @@ func (manager *Manager) addMissingEgressRules() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.forEachEndpointAndCIDR(addEgressRule)
 	}
-}
 
-// removeUnusedEgressRules is responsible for removing any entry in the egress policy BPF map which
-// is not baked by an actual k8s IsovalentEgressGatewayPolicy.
-func (manager *Manager) removeUnusedEgressRules() {
-	egressPolicies := map[egressmapha.EgressPolicyKey4]egressmapha.EgressPolicyVal4{}
-	manager.policyMap.IterateWithCallback(
-		func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
-			egressPolicies[*key] = *val
-		})
-
-	for policyKey, policyVal := range egressPolicies {
-		matchPolicy := func(endpoint *endpointMetadata, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) bool {
-			activeGatewayIPs, egressIP := gwc.gatewayConfigForEndpoint(manager, endpoint)
-			if excludedCIDR {
-				activeGatewayIPs = []netip.Addr{ExcludedCIDRIPv4}
-			}
-
-			for _, endpointIP := range endpoint.ips {
-				if policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(egressIP, activeGatewayIPs) {
-					return true
-				}
-			}
-
-			return false
-		}
-
-		if manager.policyMatches(policyKey.GetSourceIP(), matchPolicy) {
-			continue
-		}
-
+	// Remove all the entries still marked as stale.
+	for policyKey := range stale {
 		logger := log.WithFields(logrus.Fields{
 			logfields.SourceIP:        policyKey.GetSourceIP(),
 			logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			logfields.EgressIP:        policyVal.GetEgressIP(),
-			logfields.GatewayIPs:      joinStringers(policyVal.GetGatewayIPs(), ","),
 		})
 
 		if err := egressmapha.RemoveEgressPolicy(manager.policyMap, policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
@@ -1068,10 +1020,8 @@ func (manager *Manager) reconcileLocked() {
 		}
 	}
 
-	// The order of the next 2 function calls matters, as by first adding missing policies and
-	// only then removing obsolete ones we make sure there will be no connectivity disruption
-	manager.addMissingEgressRules()
-	manager.removeUnusedEgressRules()
+	// Update the content of the BPF map.
+	manager.updateEgressRules()
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0

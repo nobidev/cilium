@@ -353,31 +353,3 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(*endpointMetadata, net
 		}
 	}
 }
-
-// matches returns true if at least one of the combinations of (source, destination, egressIP, gatewayIP)
-// from the policy configuration matches the callback f
-//
-// The callback f takes as arguments:
-// - the given endpoint
-// - the destination CIDR
-// - a boolean value indicating if the CIDR belongs to the excluded ones
-// - the gatewayConfig of the  policy
-func (config *PolicyConfig) matches(f func(*endpointMetadata, netip.Prefix, bool, *gatewayConfig) bool) bool {
-	for _, ep := range config.matchedEndpoints {
-		isExcludedCIDR := false
-		for _, dstCIDR := range config.dstCIDRs {
-			if f(ep, dstCIDR, isExcludedCIDR, &config.gatewayConfig) {
-				return true
-			}
-		}
-
-		isExcludedCIDR = true
-		for _, excludedCIDR := range config.excludedCIDRs {
-			if f(ep, excludedCIDR, isExcludedCIDR, &config.gatewayConfig) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
