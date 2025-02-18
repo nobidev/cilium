@@ -10,5 +10,7 @@ spec:
   defaults:
     bpf-lb-algorithm-annotation: "true"
     bpf-lb-mode-annotation: "true"
+    bpf-lb-ipip-sock-mark: "true"
     bpf-lb-dsr-dispatch: ipip
-    bpf-lb-only: "true"
+    routing-mode: "native"
+    enable-pmtu-discovery: "true"
