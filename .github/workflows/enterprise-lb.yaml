@@ -226,10 +226,17 @@ jobs:
              --helm-set=envoyConfig.enabled=true \
              --helm-set=bpf.monitorAggregation=none \
              --helm-set=kubeProxyReplacement=true \
+             --helm-set=routingMode=native \
+             --helm-set=autoDirectNodeRoutes=true \
              --helm-set=loadBalancer.acceleration=native \
              --helm-set-string=extraConfig.enable-ipip-termination=true \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
+             --helm-set-string=extraConfig.bpf-lb-algorithm-annotation=true \
+             --helm-set-string=extraConfig.bpf-lb-mode-annotation=true \
+             --helm-set-string=extraConfig.bpf-lb-ipip-sock-mark=true \
+             --helm-set-string=extraConfig.bpf-lb-dsr-dispatch=ipip \
+             --helm-set-string=extraConfig.enable-ipv4-masquerade=false \
              $EXTRA
 
           cilium status --wait
@@ -242,10 +249,6 @@ jobs:
             sleep 2
           done
           echo ""
-
-          kubectl apply -f enterprise/examples/kubernetes/loadbalancer/lb/t1-nodeconfig.yaml
-          kubectl -n kube-system delete pod -l k8s-app=cilium --field-selector spec.nodeName=kind-control-plane
-          cilium status --wait
 
       - name: Run tests
         if: ${{ env.skip != 'true' }}
