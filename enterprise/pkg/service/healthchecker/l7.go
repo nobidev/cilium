@@ -48,7 +48,7 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 	}
 	url := ""
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+	if option.Config.EnableHealthDatapath && config.DSR {
 		url = getConnURL(config, svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {

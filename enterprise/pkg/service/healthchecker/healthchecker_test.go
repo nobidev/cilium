@@ -149,7 +149,7 @@ func setupTest(t *testing.T, prober Prober) *TestHealthChecker {
 
 	logger := slog.New(logging.SlogNopHandler)
 
-	thc.hc = newHealthChecker(logger, true)
+	thc.hc = newHealthChecker(logger)
 	thc.hc.SetCallback(thc.HealthCheckCBTest)
 
 	if prober != nil {

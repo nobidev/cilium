@@ -39,8 +39,7 @@ import (
 type backendAddrKey struct{}
 
 type HealthChecker struct {
-	logger         *slog.Logger
-	datapathLbOnly bool
+	logger *slog.Logger
 	// Fixme: Replace slice with a set of backends
 	svcMap          map[svcAddr][]beAddr
 	svcMapLock      lock.RWMutex
@@ -109,12 +108,7 @@ func (hc *HealthChecker) SetCallback(cb service.HealthCheckCallbackFunc) {
 }
 
 func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName, svcType lb.SVCType, svcAnnotations map[string]string, backends []*lb.Backend) {
-	if !hc.datapathLbOnly {
-		return
-	}
-
 	svcHealthCheckConfig := getAnnotationHealthCheckConfig(svcAnnotations)
-
 	tmpHealthCheckConfig := HealthCheckConfig{
 		State: HealthCheckDisabled,
 	}
@@ -241,17 +235,15 @@ func (hc *HealthChecker) DeleteService(svcAddr lb.L3n4Addr, name lb.ServiceName)
 }
 
 // newHealthChecker provides an instance of the HealthChecker.
-func newHealthChecker(logger *slog.Logger, datapathLbOnly bool) *HealthChecker {
+func newHealthChecker(logger *slog.Logger) *HealthChecker {
 	return &HealthChecker{
-		logger:         logger,
-		datapathLbOnly: datapathLbOnly,
-		svcMap:         make(map[svcAddr][]beAddr),
-		beMap:          make(map[beAddr]sets.Set[svcAddr]),
-		beHealthMap:    make(map[svcAddr]map[beAddr]*healthData),
-		configMap:      make(map[svcAddr]HealthCheckConfig),
+		logger:      logger,
+		svcMap:      make(map[svcAddr][]beAddr),
+		beMap:       make(map[beAddr]sets.Set[svcAddr]),
+		beHealthMap: make(map[svcAddr]map[beAddr]*healthData),
+		configMap:   make(map[svcAddr]HealthCheckConfig),
 		prober: &probeImpl{
-			logger:         logger,
-			datapathLbOnly: datapathLbOnly,
+			logger: logger,
 		},
 		svcEvents: make(chan svcEvent, eventsChanSize),
 		close:     make(chan struct{}),
@@ -414,8 +406,7 @@ func (hc *HealthChecker) updateHealthChecks(svcAddr lb.L3n4Addr, config HealthCh
 }
 
 type probeImpl struct {
-	logger         *slog.Logger
-	datapathLbOnly bool
+	logger *slog.Logger
 }
 
 func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, healthy bool) {
@@ -556,7 +547,7 @@ func (pr *probeImpl) dialerConnSetupDSRviaIPIP(ctx context.Context, network stri
 	var errCB error
 	var fn func(uintptr)
 
-	if !pr.datapathLbOnly || !option.Config.EnableHealthDatapath {
+	if !option.Config.EnableHealthDatapath {
 		return nil
 	}
 	backend := ctx.Value(backendAddrKey{}).(string)
@@ -647,7 +638,7 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	}
 	connAddr := ""
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+	if option.Config.EnableHealthDatapath && config.DSR {
 		connAddr = getAddrStr(svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {
@@ -677,7 +668,7 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	d := net.Dialer{}
 	connAddr := ""
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if pr.datapathLbOnly && option.Config.EnableHealthDatapath && config.DSR {
+	if option.Config.EnableHealthDatapath && config.DSR {
 		connAddr = getAddrStr(svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {
