@@ -58,7 +58,7 @@ var bpfEgressListCmd = &cobra.Command{
 		bpfEgressList := []egressPolicy{}
 		parse := func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
 			gatewayIPs := []string{}
-			for _, gatewayIP := range val.GetGatewayIPs() {
+			for gatewayIP := range val.GetGatewayIPs() {
 				gatewayIPs = append(gatewayIPs, mapGatewayIP(gatewayIP))
 			}
 

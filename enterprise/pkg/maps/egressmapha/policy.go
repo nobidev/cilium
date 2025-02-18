@@ -12,7 +12,9 @@ package egressmapha
 
 import (
 	"fmt"
+	"iter"
 	"net/netip"
+	"slices"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -178,8 +180,8 @@ func (v *EgressPolicyVal4) Match(egressIP netip.Addr, gatewayIPs []netip.Addr) b
 		return false
 	}
 
-	for i, gwIP := range v.GetGatewayIPs() {
-		if gwIP != gatewayIPs[i] {
+	for i := 0; i < len(gatewayIPs); i++ {
+		if v.GatewayIPs[i].Addr() != gatewayIPs[i] {
 			return false
 		}
 	}
@@ -193,19 +195,19 @@ func (v *EgressPolicyVal4) GetEgressIP() netip.Addr {
 }
 
 // GetGatewayIPs returns the egress policy value's gateway IP.
-func (v *EgressPolicyVal4) GetGatewayIPs() []netip.Addr {
-	gatewayIPs := []netip.Addr{}
-
-	for i := uint32(0); i < v.Size; i++ {
-		gatewayIPs = append(gatewayIPs, v.GatewayIPs[i].Addr())
+func (v *EgressPolicyVal4) GetGatewayIPs() iter.Seq[netip.Addr] {
+	return func(yield func(netip.Addr) bool) {
+		for i := uint32(0); i < v.Size; i++ {
+			if !yield(v.GatewayIPs[i].Addr()) {
+				return
+			}
+		}
 	}
-
-	return gatewayIPs
 }
 
 // String returns the string representation of an egress policy value.
 func (v *EgressPolicyVal4) String() string {
-	return fmt.Sprintf("%v %s", v.GetGatewayIPs(), v.GetEgressIP())
+	return fmt.Sprintf("%v %s", slices.Collect(v.GetGatewayIPs()), v.GetEgressIP())
 }
 
 // Lookup returns the egress policy object associated with the provided (source

@@ -416,7 +416,7 @@ func tryAssertEgressRules(policyMap egressmapha.PolicyMap, rules []egressRule) e
 			}
 		} else {
 			gwFound := false
-			for _, policyGatewayIP := range policyVal.GetGatewayIPs() {
+			for policyGatewayIP := range policyVal.GetGatewayIPs() {
 				if policyGatewayIP == r.gatewayIP {
 					gwFound = true
 					break
@@ -432,7 +432,7 @@ func tryAssertEgressRules(policyMap egressmapha.PolicyMap, rules []egressRule) e
 	policyMap.IterateWithCallback(
 		func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
 		nextPolicyGateway:
-			for _, gatewayIP := range val.GetGatewayIPs() {
+			for gatewayIP := range val.GetGatewayIPs() {
 				for _, r := range parsedRules {
 					if key.Match(r.sourceIP, r.destCIDR) {
 						if val.GetEgressIP() == r.egressIP && gatewayIP == r.gatewayIP {
