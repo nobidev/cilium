@@ -29,10 +29,10 @@ func TestUDPProxySession() {
 			continue
 		}
 
-		fmt.Println("=== RUN   Test UDPProxy force mode " + string(forceDeploymentMode))
+		fmt.Println("=== RUN   Test UDPProxySession force mode " + string(forceDeploymentMode))
 
 		ctx := context.Background()
-		testName := "udp-proxy-" + string(forceDeploymentMode)
+		testName := "udp-proxy-session-" + string(forceDeploymentMode)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
