@@ -17,8 +17,8 @@
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}
 
-{{- $warnings := include "cilium.warnings" . }}
-{{- if $warnings }}
+{{- $warnings := print (include "cilium.warnings" .) (include "enterprise.warnings" .) }}
+{{- if ($warnings | trim) }}
 
 WARNINGS:
 {{ $warnings }}
