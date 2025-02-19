@@ -83,12 +83,12 @@ type fixture struct {
 	nodeResClient        slim_core_v1_client.NodeInterface
 }
 
-func newFixture() *fixture {
+func newFixture(t *testing.T) *fixture {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	f := &fixture{}
 
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
+	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	f.locatorPoolClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6LocatorPools()
 	f.srv6SIDManagerClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 	f.nodeResClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Nodes()
@@ -229,7 +229,7 @@ func Test_PoolValidations(t *testing.T) {
 	}
 
 	// initialize test fixture
-	f := newFixture()
+	f := newFixture(t)
 	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
@@ -381,7 +381,7 @@ func Test_NodeResourceChanges(t *testing.T) {
 	}
 
 	// initialize test fixture
-	f := newFixture()
+	f := newFixture(t)
 	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
@@ -863,7 +863,7 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 	}
 
 	// initialize test fixture
-	f := newFixture()
+	f := newFixture(t)
 	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
@@ -1443,7 +1443,7 @@ func Test_Resync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			f := newFixture()
+			f := newFixture(t)
 			ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 			defer cancel()
 

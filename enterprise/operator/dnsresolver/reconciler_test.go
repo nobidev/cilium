@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus/hooks/test"
 	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,7 @@ func TestReconciler(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	// create fake clientsets
-	cs, _ := k8sClient.NewFakeClientset()
+	cs, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 	clientset := cs.CiliumV2alpha1().CiliumCIDRGroups()
 
 	first, last := make(chan struct{}), make(chan struct{})

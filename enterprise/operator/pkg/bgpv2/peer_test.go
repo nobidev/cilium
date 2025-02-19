@@ -93,7 +93,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(ctx, req, fixtureConfig{enableStatusReport: true})
+			f, ready := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
@@ -210,7 +210,7 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: tt.enableBFD, enableStatusReport: true})
+			f, ready := newFixture(t, ctx, req, fixtureConfig{enableBFD: tt.enableBFD, enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
@@ -258,7 +258,7 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 		cancel()
 	})
 
-	f, ready := newFixture(ctx, req, fixtureConfig{enableBFD: true, enableStatusReport: false})
+	f, ready := newFixture(t, ctx, req, fixtureConfig{enableBFD: true, enableStatusReport: false})
 
 	logger := hivetest.Logger(t)
 

@@ -13,8 +13,10 @@ package bgpv2
 import (
 	"context"
 	"sync"
+	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/watch"
@@ -77,7 +79,7 @@ type fixtureConfig struct {
 	enableStatusReport bool
 }
 
-func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) (*fixture, func()) {
+func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, fc fixtureConfig) (*fixture, func()) {
 	type watchSync struct {
 		once    sync.Once
 		watchCh chan struct{}
@@ -103,7 +105,7 @@ func newFixture(ctx context.Context, req *require.Assertions, fc fixtureConfig) 
 	}
 
 	f := &fixture{}
-	f.fakeClientSet, _ = k8s_client.NewFakeClientset()
+	f.fakeClientSet, _ = k8s_client.NewFakeClientset(hivetest.Logger(t))
 
 	watchReactor := func(tracker k8sTesting.ObjectTracker) func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		return func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
