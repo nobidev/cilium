@@ -1414,6 +1414,16 @@ func (r *LBService) UpdateResourceStatus() {
 	r.Status.Status = resourceStatus
 }
 
+func (r *LBService) AllStatusConditionsMet() bool {
+	for _, c := range r.Status.Conditions {
+		if c.Status == metav1.ConditionFalse {
+			return false
+		}
+	}
+
+	return true
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +deepequal-gen=false

@@ -257,11 +257,14 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	r.updateAssignedIpInStatus(model, lbsvc)
 	r.updateDeploymentModeInStatus(model, lbsvc)
 
-	// Stop reconciliation if assigned IP is not available yet. Also, we
+	// Stop reconciliation if assigned IP is not available or some status
+	// conditions on the LBService aren't met yet. Also, we
 	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
-	// handling the traffic towards the stable VIP, etc.
-	if model.vip.assignedIPv4 == nil {
+	// handling the traffic towards the stable VIP, etc. - or creating
+	// depending resources might fail due to incompatibilities.
+	if model.vip.assignedIPv4 == nil || !lbsvc.AllStatusConditionsMet() {
+		r.logger.Debug("Stopping reconciliation - no IP assigned or status conditions not met (yet)", "ipv4-assigned", model.vip.assignedIPv4 != nil, "statusconditions-met", lbsvc.AllStatusConditionsMet())
 		if err = r.ensureServiceDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure service is deleted: %w", err)
 		}
@@ -846,7 +849,7 @@ func (*lbServiceReconciler) getIncompatibleT1MultipleBackendPorts(lbsvc *isovale
 	return incompatibleBackendMessages
 }
 
-func (*lbServiceReconciler) getIncompatibleT1HostnameBackends(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+func (r *lbServiceReconciler) getIncompatibleT1HostnameBackends(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
 	backendMap := map[string]*isovalentv1alpha1.LBBackendPool{}
 	for _, b := range backends {
 		backendMap[b.Name] = b
