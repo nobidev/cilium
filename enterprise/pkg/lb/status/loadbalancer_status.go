@@ -141,6 +141,15 @@ func (s *LoadbalancerClient) getDeploymentMode(service isovalentv1alpha1.LBServi
 			*service.Status.Applications.TCPProxy.DeploymentMode == isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only {
 			return "T1"
 		}
+	case service.Spec.Applications.UDPProxy != nil:
+		if service.Status.Applications.UDPProxy == nil {
+			return "N/A"
+		}
+
+		if service.Status.Applications.UDPProxy.DeploymentMode != nil &&
+			*service.Status.Applications.UDPProxy.DeploymentMode == isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1Only {
+			return "T1"
+		}
 	}
 
 	return "T1-T2"
