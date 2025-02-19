@@ -2540,14 +2540,6 @@
       },
       "type": "object"
     },
-    "externalWorkloads": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "extraArgs": {
       "items": {},
       "type": "array"
@@ -3359,12 +3351,6 @@
             },
             "annotations": {
               "type": "object"
-            },
-            "dialTimeout": {
-              "type": [
-                "null",
-                "string"
-              ]
             },
             "enabled": {
               "type": "boolean"

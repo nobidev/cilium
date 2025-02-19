@@ -1611,13 +1611,6 @@ hubble:
     # @schema
     # type: [null, string]
     # @schema
-    # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-    #
-    # This option has been deprecated and is a no-op.
-    dialTimeout: ~
-    # @schema
-    # type: [null, string]
-    # @schema
     # -- Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
     retryTimeout: ~
     # @schema
@@ -2600,6 +2593,10 @@ envoy:
 
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
+
+# To include or exclude matched resources from cilium node identity evaluation
+# List of labels just like --labels flag (.Values.labels)
+# nodeLabels: ""
 
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
@@ -3594,10 +3591,6 @@ clustermesh:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
           metricRelabelings: ~
-# -- Configure external workloads support
-externalWorkloads:
-  # -- Enable support for external workloads, such as VMs (false by default).
-  enabled: false
 # -- Configure cgroup related configuration
 cgroup:
   autoMount:
