@@ -22,7 +22,7 @@ nodeport_nat_egress_ipv4_hook(struct __ctx_buff *ctx __maybe_unused,
 					ext_err);
 	if (ret != CTX_ACT_OK)
 		return send_drop_notify_ext(ctx, src_sec_identity, dst_sec_identity, 0, ret,
-					    *ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+					    *ext_err, METRIC_EGRESS);
 #endif
 	return CTX_ACT_OK;
 }

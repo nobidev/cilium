@@ -697,7 +697,7 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 }
 
 // NotifyOnDNSMsghandles propagating DNS response data
-func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, agentAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, agentAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	stat.ProcessingTime.Start()
 	metricError := metricErrorAllow
 	endMetric := func() {
@@ -751,7 +751,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 		Time:       timestamppb.New(lookupTime),
 		Endpoint:   endpoint,
 		EpIPPort:   epIPPort,
-		ServerAddr: agentAddr,
+		ServerAddr: agentAddr.String(),
 		Msg:        dnsMsg,
 		Protocol:   protocol,
 		Allowed:    allowed,

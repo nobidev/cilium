@@ -48,7 +48,6 @@ cilium-operator-azure hive [flags]
       --enable-lb-ipam                                               Enable LB IPAM (default true)
       --enable-multi-network                                         Enable support for multiple pod networks
       --enable-node-ipam                                             Enable Node IPAM
-      --enable-node-port                                             Enable NodePort type services by Cilium
       --enable-policy-secrets-sync                                   Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
       --enforce-ingress-https                                        Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --feature-gates-approved strings                               Features approved to be enabled regardless of maturity level
@@ -66,6 +65,7 @@ cilium-operator-azure hive [flags]
       --identity-gc-rate-interval duration                           Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                                   Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                          Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --identity-management-mode string                              Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ingress-default-lb-mode string                               Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
       --ingress-default-request-timeout duration                     Default request timeout for Ingress.
       --ingress-default-secret-name string                           Default secret name for Ingress.
@@ -83,7 +83,6 @@ cilium-operator-azure hive [flags]
       --k8s-heartbeat-timeout duration                               Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                   Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                                Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --loadbalancer-cp-accesslog-enable-hc                          Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.
       --loadbalancer-cp-accesslog-enable-stdout                      Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane. (default true)
       --loadbalancer-cp-accesslog-enable-tcp                         Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane

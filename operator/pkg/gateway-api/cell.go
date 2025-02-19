@@ -66,9 +66,6 @@ var optionalGVKs = []schema.GroupVersionKind{
 }
 
 type gatewayApiConfig struct {
-	KubeProxyReplacement string
-	EnableNodePort       bool
-
 	EnableGatewayAPISecretsSync            bool
 	EnableGatewayAPIProxyProtocol          bool
 	EnableGatewayAPIAppProtocol            bool
@@ -82,9 +79,6 @@ type gatewayApiConfig struct {
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
-	flags.String("kube-proxy-replacement", r.KubeProxyReplacement, "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
-	flags.Bool("enable-node-port", r.EnableNodePort, "Enable NodePort type services by Cilium")
-
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
@@ -114,8 +108,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if params.GatewayApiConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.GatewayApiConfig.EnableNodePort {
+	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+		!params.OperatorConfig.EnableNodePort {
 		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
@@ -135,8 +129,11 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(translation.Config{
+	cfg := translation.Config{
 		SecretsNamespace: params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
+		},
 		HostNetworkConfig: translation.HostNetworkConfig{
 			Enabled:           params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
 			NodeLabelSelector: translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
@@ -159,13 +156,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 		},
-	})
+	}
+	cecTranslator := translation.NewCECTranslator(cfg)
 
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(
-		cecTranslator,
-		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
-		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
-	)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,

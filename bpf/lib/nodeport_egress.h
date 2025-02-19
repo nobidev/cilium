@@ -112,7 +112,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	/* contrary to tail_handle_snat_fwd_ipv4, we don't check for
 	 *
@@ -245,7 +245,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
@@ -306,7 +306,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off, ret;
-	struct endpoint_info *ep;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -314,7 +313,9 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	if (is_defined(IS_BPF_HOST)) {
+	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
+		struct endpoint_info *ep;
+
 		ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (ep && ep->parent_ifindex && ep->parent_ifindex != THIS_INTERFACE_IFINDEX) {
 			/* This packet came from an endpoint with a parent interface and
@@ -338,6 +339,9 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
 					return DROP_WRITE_ERROR;
 
+				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
+				 * kernel, this can turn into bpf_redirect_neigh() for robustness.
+				 */
 				return ctx_redirect(ctx, ep->parent_ifindex, 0);
 			}
 		}
@@ -416,7 +420,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	/* Don't emit a trace event if the packet has been redirected to another
 	 * interface.
@@ -565,7 +569,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,

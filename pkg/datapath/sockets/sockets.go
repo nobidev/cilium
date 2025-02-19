@@ -126,6 +126,8 @@ func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.Socke
 	return nil
 }
 
+// SocketRequest implements netlink.NetlinkRequestData to be used
+// to send socket requests to netlink.
 type SocketRequest struct {
 	Family   uint8
 	Protocol uint8
