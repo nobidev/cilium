@@ -1218,6 +1218,7 @@ const (
 )
 
 const (
+	IPv4AddressAllocatedConditionReasonAddressNotAllocated       = "AddressNotAllocated"
 	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
 	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
 	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"

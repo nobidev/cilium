@@ -265,6 +265,12 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 		Message:            "Unknown",
 	}
 
+	if lbvip.Status.Addresses.IPv4 == nil {
+		v4Allocated.Status = metav1.ConditionFalse
+		v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNotAllocated
+		v4Allocated.Message = "IPv4 address hasn't been allocated yet"
+	}
+
 	for _, cond := range svc.Status.Conditions {
 		// Map LBIPAM conditions to LBVIP conditions
 		if cond.Type == "cilium.io/IPAMRequestSatisfied" {
