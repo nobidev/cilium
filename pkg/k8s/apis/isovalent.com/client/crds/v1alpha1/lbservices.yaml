@@ -1880,6 +1880,22 @@ spec:
                         - t1-t2
                         type: string
                     type: object
+                  udpProxy:
+                    description: Status information of the UDPProxy application.
+                    properties:
+                      deploymentMode:
+                        description: |-
+                          The applied deployment mode of the UDPProxy application.
+
+                          This depends on the configured forceDeploymentMode on the UDPProxy application.
+                          This is especially important for the mode `auto` where the actual
+                          deployment mode is evaluated based on other configuration / enabled
+                          features.
+                        enum:
+                        - t1-only
+                        - t1-t2
+                        type: string
+                    type: object
                 type: object
               conditions:
                 description: The current conditions of the LBService.

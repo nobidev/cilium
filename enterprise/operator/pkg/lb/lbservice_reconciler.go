@@ -678,6 +678,18 @@ func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc
 		}
 	}
 
+	if model.isUDPProxy() {
+		udpProxyDeploymentMode := isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1T2
+
+		if model.isUDPProxyT1OnlyMode() {
+			udpProxyDeploymentMode = isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1Only
+		}
+
+		appStatus.UDPProxy = &isovalentv1alpha1.LBServiceApplicationUDPProxyStatus{
+			DeploymentMode: &udpProxyDeploymentMode,
+		}
+	}
+
 	lbsvc.Status.Applications = appStatus
 }
 

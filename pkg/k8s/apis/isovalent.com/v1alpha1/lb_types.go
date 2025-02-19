@@ -1132,6 +1132,9 @@ type LBServiceStatus struct {
 type LBServiceApplicationsStatus struct {
 	// Status information of the TCPProxy application.
 	TCPProxy *LBServiceApplicationTCPProxyStatus `json:"tcpProxy,omitempty"`
+
+	// Status information of the UDPProxy application.
+	UDPProxy *LBServiceApplicationUDPProxyStatus `json:"udpProxy,omitempty"`
 }
 
 type LBServiceApplicationTCPProxyStatus struct {
@@ -1150,6 +1153,24 @@ type LBTCPProxyDeploymentModeType string
 const (
 	LBTCPProxyDeploymentModeTypeT1Only LBTCPProxyDeploymentModeType = "t1-only"
 	LBTCPProxyDeploymentModeTypeT1T2   LBTCPProxyDeploymentModeType = "t1-t2"
+)
+
+type LBServiceApplicationUDPProxyStatus struct {
+	// The applied deployment mode of the UDPProxy application.
+	//
+	// This depends on the configured forceDeploymentMode on the UDPProxy application.
+	// This is especially important for the mode `auto` where the actual
+	// deployment mode is evaluated based on other configuration / enabled
+	// features.
+	DeploymentMode *LBUDPProxyDeploymentModeType `json:"deploymentMode,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=t1-only;t1-t2
+type LBUDPProxyDeploymentModeType string
+
+const (
+	LBUDPProxyDeploymentModeTypeT1Only LBUDPProxyDeploymentModeType = "t1-only"
+	LBUDPProxyDeploymentModeTypeT1T2   LBUDPProxyDeploymentModeType = "t1-t2"
 )
 
 const (
