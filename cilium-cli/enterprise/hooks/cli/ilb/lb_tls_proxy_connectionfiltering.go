@@ -111,10 +111,10 @@ func TestTLSProxyConnectionFiltering() {
 		service := lbService(testK8sNamespace, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, opts...)))
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve %s:10080:%s https://%s:10080/", tt.hostName, tt.hostName, vipIP, tt.hostName))

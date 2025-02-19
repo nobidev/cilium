@@ -106,10 +106,10 @@ func TestBasicAuth() {
 		}
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		var curlOpt string
 		if proto == "http" {

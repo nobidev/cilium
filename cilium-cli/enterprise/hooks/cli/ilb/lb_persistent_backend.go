@@ -58,10 +58,10 @@ func TestPersistentBackendWithCookie() {
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceByCookie("session"))))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// 1. Test persistent backend selection with cookie
 	{
@@ -121,10 +121,10 @@ func TestPersistentBackendWithSourceIP() {
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, withHttpBackendPersistenceBySourceIP())))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// 1. Test persistent backend selection with source IP
 	{

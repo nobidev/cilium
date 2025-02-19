@@ -54,10 +54,10 @@ func TestHTTPS() {
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName)))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// 1. Send HTTPs request
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
@@ -135,10 +135,10 @@ func TestHTTPSRoutes() {
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {
@@ -194,10 +194,10 @@ func TestHTTPS_H2() {
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// 1. Send HTTPs request
 	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o/dev/null -w '%%{http_version}' --cacert /tmp/%s --resolve %s:443:%s https://%s:443/", hostName+".crt", hostName, vipIP, hostName))

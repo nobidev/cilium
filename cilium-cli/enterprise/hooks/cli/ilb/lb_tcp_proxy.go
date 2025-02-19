@@ -62,10 +62,10 @@ func TestTCPProxy() {
 		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))

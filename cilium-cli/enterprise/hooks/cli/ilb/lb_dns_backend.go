@@ -169,10 +169,10 @@ func TestDNSBackend() {
 		scenario.createLBService(ctx, service)
 		svcPort := service.Spec.Port
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", vip.Name)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
-
-		maybeSysdump(testName, "")
 
 		var testCmd string
 		if tt.serviceTLS {

@@ -170,10 +170,10 @@ nextTest:
 		service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
@@ -210,7 +210,7 @@ func generateHeaders(numOfIps int) string {
 		xffIPs = append(xffIPs, fmt.Sprintf("1.0.0.%d", i))
 	}
 
-	var headers = map[string]string{
+	headers := map[string]string{
 		"Content-Type":    "application/json",
 		"X-Forwarded-For": strings.Join(xffIPs, ", "),
 	}

@@ -101,10 +101,10 @@ func TestUDPProxyConnectionFiltering() {
 			service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 			scenario.createLBService(ctx, service)
 
+			maybeSysdump(testName, "")
+
 			fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-			maybeSysdump(testName, "")
 
 			for _, tt := range tC.testCalls {
 				testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)

@@ -56,10 +56,10 @@ func TestTCPProxyRatelimiting() {
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(ctx, service)
 
+	maybeSysdump(testName, "")
+
 	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-	maybeSysdump(testName, "")
 
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve tcp.acme.io:10080:%s http://tcp.acme.io:10080/", vipIP))

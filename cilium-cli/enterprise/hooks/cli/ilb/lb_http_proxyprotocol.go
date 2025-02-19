@@ -164,10 +164,10 @@ func TestHTTPProxyProtocol() {
 		service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))

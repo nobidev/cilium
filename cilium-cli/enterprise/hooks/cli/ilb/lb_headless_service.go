@@ -322,10 +322,10 @@ func TestHeadlessService() {
 		scenario.createLBService(ctx, service)
 		svcPort := service.Spec.Port
 
+		maybeSysdump(testName, tt.suffix)
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", vip.Name)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
-
-		maybeSysdump(testName, tt.suffix)
 
 		var testCmd string
 		if tt.serviceTLS {

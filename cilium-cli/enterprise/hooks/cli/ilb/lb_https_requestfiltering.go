@@ -273,10 +273,10 @@ func TestHTTPSRequestFiltering() {
 		service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))
 		scenario.createLBService(ctx, service)
 
+		maybeSysdump(testName, "")
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		maybeSysdump(testName, "")
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))

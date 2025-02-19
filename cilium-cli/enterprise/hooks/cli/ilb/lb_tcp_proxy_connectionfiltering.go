@@ -111,10 +111,10 @@ func TestTCPProxyConnectionFiltering() {
 			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 			scenario.createLBService(ctx, service)
 
+			maybeSysdump(testName, "")
+
 			fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-			maybeSysdump(testName, "")
 
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
