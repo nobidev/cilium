@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/enterprise/operator/pkg/ciliummesh"
+	"github.com/cilium/cilium/enterprise/operator/pkg/kubevirt"
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
@@ -63,6 +64,8 @@ var (
 
 			lb.Cell,
 			lbmetrics.Cell,
+
+			kubevirt.Cell,
 		),
 	)
 )
