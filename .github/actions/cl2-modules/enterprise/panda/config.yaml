@@ -62,6 +62,35 @@ steps:
     Params:
       duration: 2m
 
+- name: Apply oneoff test
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 1m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl apply -f ./testing/custom/enterprise/panda/manifests/cloudprober-oneoff.yaml"
+
+- name: Wait for oneoff cloudprober
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 10m
+      command:
+      - /bin/sh
+      - -c
+      - "kubectl rollout status daemonset cloudprober-oneoff"
+
+- name: Sleep after oneoff
+  measurements:
+  - Identifier: WaitAfterOneOff
+    Method: Sleep
+    Params:
+      duration: 2m
+
 - module:
     path:  /modules/metrics.yaml
     params:

@@ -582,6 +582,7 @@ jobs:
 
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/policy.yaml
           kubectl create configmap cloudprober-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober.cfg
+          kubectl create configmap cloudprober-oneoff-config --from-file=cloudprober.cfg=./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober-oneoff.cfg
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober.yaml
           kubectl rollout status daemonset cloudprober
           kubectl apply -f ./perf-tests/clusterloader2/testing/custom/enterprise/panda/manifests/cloudprober-host.yaml
