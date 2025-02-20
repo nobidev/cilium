@@ -135,20 +135,8 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			})
 
 			// Run tests
-			runRegexp, err := regexp.Compile(ilbCli.FlagRun)
-			if err != nil {
-				return fmt.Errorf("failed to parse run regexp (%s): %w", ilbCli.FlagRun, err)
-			}
-
-			for _, test := range tests {
-				testFuncNameFull := strings.Split(runtime.FuncForPC(reflect.ValueOf(test).Pointer()).Name(), ".")
-				testFuncName := testFuncNameFull[len(testFuncNameFull)-1]
-
-				if runRegexp.Match([]byte(testFuncName)) {
-					fmt.Printf("=== RUN   %s\n", testFuncName)
-					test()
-					ilbCli.RunCleanups()
-				}
+			if err := runTests(); err != nil {
+				return err
 			}
 
 			ilbCli.RunCleanups()
@@ -180,4 +168,34 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().StringVar(&ilbCli.FlagRun, "run", "", "Run only the tests matching the regular expression (only respecting top level test functions)")
 
 	return cmd
+}
+
+func runTests() error {
+	runRegexp, err := regexp.Compile(ilbCli.FlagRun)
+	if err != nil {
+		return fmt.Errorf("failed to parse run regexp (%s): %w", ilbCli.FlagRun, err)
+	}
+
+	testsToExecute := []func(){}
+
+	for _, test := range tests {
+		testFuncName := testName(test)
+		if runRegexp.Match([]byte(testFuncName)) {
+			testsToExecute = append(testsToExecute, test)
+		}
+	}
+
+	for i, test := range testsToExecute {
+		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), testName(test))
+		test()
+		ilbCli.RunCleanups()
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func testName(f func()) string {
+	testFuncNameFull := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
+	return testFuncNameFull[len(testFuncNameFull)-1]
 }
