@@ -12,10 +12,14 @@ package ilb
 
 import (
 	"fmt"
+	"slices"
 )
 
 var cleanupCb = []func(){}
 
+// MaybeCleanupT registers a function to be called when the test complete.
+// Cleanup functions will be executed if cleanup functionality is enabled and
+// will called in last added, first called order.
 func MaybeCleanupT(f func() error) {
 	if FlagCleanup {
 		cleanupCb = append(cleanupCb, func() {
@@ -26,6 +30,7 @@ func MaybeCleanupT(f func() error) {
 	}
 }
 
+// MaybeCleanup immediately tries to execute the given function function if cleanup functionality is enabled.
 func MaybeCleanup(f func() error) {
 	if FlagCleanup {
 		if err := f(); err != nil {
@@ -35,7 +40,7 @@ func MaybeCleanup(f func() error) {
 }
 
 func RunCleanups() {
-	for _, f := range cleanupCb {
+	for _, f := range slices.Backward(cleanupCb) {
 		f()
 	}
 
