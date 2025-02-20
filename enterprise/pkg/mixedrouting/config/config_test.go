@@ -80,12 +80,6 @@ func TestConfigValidate(t *testing.T) {
 			cmcfg:     cecmcfg.Config{EnableClusterAwareAddressing: true, EnableInterClusterSNAT: true, EnablePhantomServices: true},
 			assertion: assert.Error,
 		},
-		{
-			name:      "mixed routing mode enabled, fallback tunnel, datapath LB only mode",
-			cfg:       Config{FallbackRoutingMode: FallbackTunnel},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes, DatapathMode: dpopt.DatapathModeLBOnly},
-			assertion: assert.Error,
-		},
 	}
 
 	for _, tt := range tests {

@@ -256,7 +256,7 @@ func Test_MulticastGroups(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(ctx, req, test.bpfInit)
+			f := newFixture(t, ctx, req, test.bpfInit)
 
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
 			req.NoError(err)
@@ -398,7 +398,7 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(ctx, req, test.bpfInit)
+			f := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup group crd
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
@@ -559,7 +559,7 @@ func Test_MulticastNodeStatus(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(ctx, req, test.bpfInit)
+			f := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup group crd
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
@@ -677,7 +677,7 @@ func Test_LocalEndpoint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(ctx, req, test.bpfInit)
+			f := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup local endpoints
 			for _, ep := range test.endpoints {

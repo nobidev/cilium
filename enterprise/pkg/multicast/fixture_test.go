@@ -14,8 +14,10 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -59,12 +61,12 @@ type fixture struct {
 	bpfMap           maps_multicast.GroupV4Map
 }
 
-func newFixture(ctx context.Context, req *require.Assertions, initBPF map[netip.Addr][]*maps_multicast.SubscriberV4) *fixture {
+func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, initBPF map[netip.Addr][]*maps_multicast.SubscriberV4) *fixture {
 	f := &fixture{}
 
 	f.testCtx = ctx
 	f.req = req
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
+	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	f.mcastGroupClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastGroups()
 	f.mcastNodeClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastNodes()
 	f.endpointClient = f.fakeClientSet.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)

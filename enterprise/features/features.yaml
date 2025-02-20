@@ -422,16 +422,6 @@ features:
       mesh-auth-mutual-enabled: true
     helm:
       authentication.mutual.spire.enabled: true
-      
-  ### External workloads
-  
-  ExternalWorkloads:
-    maturity: Beta
-    description: |
-      Enable support for external workloads.
-    flags: # No flags in the agent, this is a clustermesh-apiserver flag.
-    helm: 
-      externalWorkloads.enabled: true
 
   VTEPIntegration:
     maturity: Beta

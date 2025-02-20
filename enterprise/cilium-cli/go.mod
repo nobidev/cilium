@@ -32,13 +32,13 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/charts v0.0.0-20250204154402-8a35f8210901 // indirect
 	github.com/cilium/ebpf v0.17.1 // indirect
-	github.com/cilium/hive v0.0.0-20250212105618-0e864ff1658b // indirect
-	github.com/cilium/proxy v0.0.0-20241219105110-b2e1bb5839df // indirect
-	github.com/cilium/statedb v0.3.5 // indirect
+	github.com/cilium/hive v0.0.0-20250217113459-914947d44393 // indirect
+	github.com/cilium/proxy v0.0.0-20250214115704-3e4b99dc5d1f // indirect
+	github.com/cilium/statedb v0.3.6 // indirect
 	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744 // indirect
 	github.com/cilium/workerpool v1.2.0 // indirect
 	github.com/cloudflare/cfssl v1.6.5 // indirect
-	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57 // indirect
+	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42 // indirect
 	github.com/containerd/containerd v1.7.24 // indirect
 	github.com/containerd/errdefs v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -57,7 +57,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -188,7 +188,7 @@ require (
 	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
@@ -203,7 +203,7 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241216192217-9240e9c98484 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
@@ -212,16 +212,16 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.17.0 // indirect
-	k8s.io/api v0.32.1 // indirect
-	k8s.io/apiextensions-apiserver v0.32.1 // indirect
-	k8s.io/apimachinery v0.32.1 // indirect
-	k8s.io/apiserver v0.32.1 // indirect
-	k8s.io/cli-runtime v0.32.1 // indirect
-	k8s.io/client-go v0.32.1 // indirect
-	k8s.io/component-base v0.32.1 // indirect
+	k8s.io/api v0.32.2 // indirect
+	k8s.io/apiextensions-apiserver v0.32.2 // indirect
+	k8s.io/apimachinery v0.32.2 // indirect
+	k8s.io/apiserver v0.32.2 // indirect
+	k8s.io/cli-runtime v0.32.2 // indirect
+	k8s.io/client-go v0.32.2 // indirect
+	k8s.io/component-base v0.32.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
-	k8s.io/kubectl v0.32.1 // indirect
+	k8s.io/kubectl v0.32.2 // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/controller-runtime v0.20.1 // indirect
@@ -229,7 +229,7 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/kustomize/api v0.18.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.18.1 // indirect
-	sigs.k8s.io/mcs-api v0.1.1-0.20250116162235-62ede9a032dc // indirect
+	sigs.k8s.io/mcs-api v0.1.1-0.20250129110323-a7986579439f // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )

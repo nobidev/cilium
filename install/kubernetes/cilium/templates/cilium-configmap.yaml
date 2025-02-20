@@ -1,4 +1,4 @@
-{{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
+{{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
 {{- /*  Default values with backwards compatibility */ -}}
 {{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
 {{- $defaultBpfMasquerade := "false" -}}
@@ -405,7 +405,7 @@ data:
 
 {{- if .Values.bpf.authMapMax }}
   # bpf-auth-map-max specifies the maximum number of entries in the auth map
-  bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
+  bpf-auth-map-max: "{{ .Values.bpf.authMapMax | int }}"
 {{- end }}
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
@@ -421,10 +421,10 @@ data:
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
 {{- if $bpfCtTcpMax }}
-  bpf-ct-global-tcp-max: {{ $bpfCtTcpMax | quote }}
+  bpf-ct-global-tcp-max: "{{ $bpfCtTcpMax | int }}"
 {{- end }}
 {{- if $bpfCtAnyMax }}
-  bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
+  bpf-ct-global-any-max: "{{ $bpfCtAnyMax | int }}"
 {{- end }}
 {{- end }}
 {{- if .Values.bpf.ctAccounting }}
@@ -913,6 +913,12 @@ data:
 {{- end }}
   enable-node-selector-labels: {{ .Values.nodeSelectorLabels | quote }}
 
+{{- if hasKey .Values "nodeLabels" }}
+  # To include or exclude matched resources from cilium node identity evaluation
+  # List of labels just like --labels flag (.Values.labels)
+  node-labels: {{ .Values.nodeLabels | quote }}
+{{- end }}
+
 {{- if hasKey .Values "synchronizeK8sNodes" }}
   synchronize-k8s-nodes: {{ .Values.synchronizeK8sNodes | quote }}
 {{- end }}
@@ -1042,7 +1048,7 @@ data:
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
-{{- if hasKey .Values.ipam "multiPoolPreAllocation" }}
+{{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
 {{- end }}
 
