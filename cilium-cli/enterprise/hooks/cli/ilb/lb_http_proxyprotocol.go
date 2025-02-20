@@ -12,8 +12,11 @@ package ilb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
@@ -33,6 +36,7 @@ func TestHTTPProxyProtocol() {
 		backendOpt         backendPoolOption
 		disallowedVersions []int
 		testCalls          []testPPCall
+		notAccepted        bool
 	}{
 		{
 			desc: "allow-all-versions",
@@ -68,6 +72,7 @@ func TestHTTPProxyProtocol() {
 				{clientIP: "10.0.0.1"},
 				{clientIP: "10.0.0.2"},
 			},
+			notAccepted: true,
 		},
 		{
 			desc: "disallow-version-1",
@@ -80,6 +85,7 @@ func TestHTTPProxyProtocol() {
 				{clientIP: "10.0.0.1", blocked: true},
 				{clientIP: "10.0.0.2", blocked: true},
 			},
+			notAccepted: true,
 		},
 		{
 			desc: "deny-by-sourceip",
@@ -166,6 +172,12 @@ func TestHTTPProxyProtocol() {
 
 		maybeSysdump(testName, "")
 
+		if tC.notAccepted {
+			fmt.Printf("Waiting for proxy protocol version validation error %q...\n", testName)
+			waitForProxyProtocolVersionValidationError(ctx, *ciliumCli, testK8sNamespace, testName)
+			return
+		}
+
 		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -198,4 +210,24 @@ func TestHTTPProxyProtocol() {
 			}, shortTimeout, pollInterval)
 		}
 	}
+}
+
+func waitForProxyProtocolVersionValidationError(ctx context.Context, ciliumCli ciliumCli, testK8sNamespace string, testName string) {
+	eventually(func() error {
+		lbsvc, err := ciliumCli.GetLBService(ctx, testK8sNamespace, testName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		c := lbsvc.GetStatusCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible)
+		if c == nil {
+			return errors.New("incompatible backends condition doesn't exist yet")
+		}
+
+		if c.Status != metav1.ConditionFalse || !strings.Contains(c.Message, "incompatible: ProxyProtocolConfig version") {
+			return errors.New("invalid proxyprotocol not detected yet")
+		}
+
+		return nil
+	}, shortTimeout, pollInterval)
 }
