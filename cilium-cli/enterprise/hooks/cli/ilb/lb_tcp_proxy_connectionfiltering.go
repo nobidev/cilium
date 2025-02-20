@@ -89,7 +89,7 @@ func testTCPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBTCP
 		fmt.Printf("Checking %s\n", tC.desc)
 
 		ctx := context.Background()
-		testName := fmt.Sprintf("tcp-proxy-connectionfiltering--%s-%s", string(forceDeploymentMode), tC.desc)
+		testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)

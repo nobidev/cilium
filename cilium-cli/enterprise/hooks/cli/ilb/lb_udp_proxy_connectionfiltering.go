@@ -81,7 +81,7 @@ func testUDPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBUDP
 		}
 
 		ctx := context.Background()
-		testName := fmt.Sprintf("udp-proxy-connectionfiltering--%s-%s", string(forceDeploymentMode), tC.desc)
+		testName := fmt.Sprintf("udp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
@@ -118,7 +118,7 @@ func testUDPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBUDP
 			testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
 			fmt.Printf("Testing %q...\n", testCmd)
 			eventually(func() error {
-				fmt.Printf("Sending UDP request: cmd='%q\n'", testCmd)
+				fmt.Printf("Sending UDP request: cmd=%q\n", testCmd)
 
 				stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
 				if err != nil {

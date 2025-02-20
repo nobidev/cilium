@@ -49,7 +49,7 @@ func toTestAppUDPResponse(response string) testAppUDPResponseData {
 	s := strings.SplitN(response, ":", 3)
 
 	if len(s) != 3 {
-		fmt.Printf("failed to parse udp response: %q\n", response)
+		fmt.Printf("failed to parse udp response: %q - retrying...\n", response)
 		return testAppUDPResponseData{}
 	}
 

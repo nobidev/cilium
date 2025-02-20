@@ -80,7 +80,7 @@ func testUDPProxy(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymen
 	eventually(func() error {
 		cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
 
-		fmt.Printf("Sending UDP request: cmd='%q'\n", cmd)
+		fmt.Printf("Sending UDP request: cmd=%q\n", cmd)
 
 		stdout, stderr, err := client.Exec(ctx, cmd)
 		if err != nil {
