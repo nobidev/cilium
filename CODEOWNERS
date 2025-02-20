@@ -714,6 +714,10 @@ Makefile* @cilium/build
 #   equivalent of @cilium/sig-hubble-api. Review all Hubble Enterprise API
 #   related changes. The team ensures that API changes are backward compatible
 #   or that a new API version is created for backward incompatible changes.
+# - @isovalent/ignore-k8s-crd
+#   An empty team to ignore reviewing some generated K8s CRD related files
+#   where explicit codeownership isn't possible but the fallback to `core-structure`
+#   isn't correct either (deepequal, deepcopy, ...).
 # - @isovalent/infrastructure
 #   Responsible for maintaining files related to cloud infrastructures.
 # - @isovalent/isovalent-loadbalancer
@@ -723,7 +727,7 @@ Makefile* @cilium/build
 # - @isovalent/infrastructure
 #   Responsible for maintaining CI/CD pipelines
 # - @isovalent/openshift
-#   Responsible for maintaing OpenShift related code and pipelines.
+#   Responsible for maintaining OpenShift related code and pipelines.
 # - @isovalent/release-managers
 #   Responsible for maintaining tools for managing releases.
 # - @isovalent/security
@@ -886,6 +890,8 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/v1alpha1/lb_types*  @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/v1alpha1/podnetwork_types.go @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
+/pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
+/pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
 /pkg/k8s/enterprise_overlapping_podcidr* @isovalent/clustermesh
 /pkg/k8s/enterprise_phantom* @isovalent/clustermesh
 /pkg/k8s/enterprise_service_merger* @isovalent/clustermesh
