@@ -21,8 +21,6 @@ import (
 var allUdpForceDeploymentModes = []isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto}
 
 func TestUDPProxy() {
-	fmt.Println("=== RUN   TestUDPProxy")
-
 	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
 		ciliumCli, k8sCli := NewCiliumAndK8sCli()
 		dockerCli := NewDockerCli()

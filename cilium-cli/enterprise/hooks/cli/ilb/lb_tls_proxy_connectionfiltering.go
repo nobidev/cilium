@@ -16,8 +16,6 @@ import (
 )
 
 func TestTLSProxyConnectionFiltering() {
-	fmt.Println("=== RUN   TestTLSProxyConnectionFiltering")
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) tlsRouteOption

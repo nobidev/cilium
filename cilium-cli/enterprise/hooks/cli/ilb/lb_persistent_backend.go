@@ -19,8 +19,6 @@ import (
 )
 
 func TestPersistentBackendWithCookie() {
-	fmt.Println("=== RUN   TestPersistentBackendWithCookie")
-
 	ctx := context.Background()
 	testName := "pers-backend-cookie-1"
 	testK8sNamespace := "default"
@@ -81,8 +79,6 @@ func TestPersistentBackendWithSourceIP() {
 	if skipIfOnSingleNode(">1 FRR clients are not supported") {
 		return
 	}
-
-	fmt.Println("=== RUN   TestPersistentBackendWithSourceIP")
 
 	ctx := context.Background()
 	testName := "pers-backend-sourceip-1"

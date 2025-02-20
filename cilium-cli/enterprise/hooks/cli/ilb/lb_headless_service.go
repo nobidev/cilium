@@ -202,8 +202,6 @@ func TestHeadlessService() {
 		return
 	}
 
-	fmt.Println("=== RUN   TestBasicAuth")
-
 	ctx := context.Background()
 	testName := "headless-service"
 	testK8sNamespace := "default"

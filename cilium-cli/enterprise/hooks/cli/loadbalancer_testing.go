@@ -145,6 +145,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 				testFuncName := testFuncNameFull[len(testFuncNameFull)-1]
 
 				if runRegexp.Match([]byte(testFuncName)) {
+					fmt.Printf("=== RUN   %s\n", testFuncName)
 					test()
 					ilbCli.RunCleanups()
 				}

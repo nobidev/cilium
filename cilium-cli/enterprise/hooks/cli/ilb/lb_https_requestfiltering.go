@@ -16,8 +16,6 @@ import (
 )
 
 func TestHTTPSRequestFiltering() {
-	fmt.Println("=== RUN   TestHTTPSRequestFiltering")
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpApplicationRouteOption

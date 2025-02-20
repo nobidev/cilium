@@ -22,8 +22,6 @@ import (
 )
 
 func TestTCPProxyRatelimiting() {
-	fmt.Println("=== RUN   TestTCPProxyRatelimiting")
-
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-ratelimiting"

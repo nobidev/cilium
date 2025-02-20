@@ -25,8 +25,6 @@ func TestTCPProxyPersistentBackend() {
 		return
 	}
 
-	fmt.Println("=== RUN   TestTCPProxyPersistentBackend")
-
 	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-persistent-backend"

@@ -16,8 +16,6 @@ import (
 )
 
 func TestHTTPS() {
-	fmt.Println("=== RUN   TestHTTPS")
-
 	ctx := context.Background()
 	testName := "https-1"
 	testK8sNamespace := "default"

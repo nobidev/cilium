@@ -16,8 +16,6 @@ import (
 )
 
 func TestTLSPassthrough() {
-	fmt.Println("=== RUN   TestTLSPassthrough")
-
 	ctx := context.Background()
 	testName := "https-passthrough-1"
 	testK8sNamespace := "default"

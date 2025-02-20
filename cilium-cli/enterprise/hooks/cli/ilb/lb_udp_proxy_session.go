@@ -17,8 +17,6 @@ import (
 )
 
 func TestUDPProxySession() {
-	fmt.Println("=== RUN   TestUDPProxySession")
-
 	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
 		ciliumCli, k8sCli := NewCiliumAndK8sCli()
 		dockerCli := NewDockerCli()

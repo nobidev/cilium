@@ -16,8 +16,6 @@ import (
 )
 
 func TestSharedVIP() {
-	fmt.Println("=== RUN   TestSharedVIP")
-
 	ctx := context.Background()
 	testName := "shared-vip-1"
 	testK8sNamespace := "default"
@@ -80,8 +78,6 @@ func TestSharedVIP() {
 }
 
 func TestRequestedVIP() {
-	fmt.Println("=== RUN   TestRequestedVIP")
-
 	ctx := context.Background()
 	testName := "requested-vip-1"
 	testK8sNamespace := "default"

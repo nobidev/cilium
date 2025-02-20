@@ -22,8 +22,6 @@ import (
 )
 
 func TestTLSProxyTCPBackend() {
-	fmt.Println("=== RUN   TestTLSProxyTCPBackend")
-
 	ctx := context.Background()
 	ns := "default"
 	testName := "tls-proxy-tcp-backend"
@@ -121,8 +119,6 @@ func TestTLSProxyTCPBackend() {
 }
 
 func TestTLSProxyTLSBackend() {
-	fmt.Println("=== RUN   TestTLSProxyTLSBackend")
-
 	ctx := context.Background()
 	ns := "default"
 	testName := "tls-proxy-tls-backend"

@@ -17,8 +17,6 @@ import (
 )
 
 func TestTLSPassthroughRatelimiting() {
-	fmt.Println("=== RUN   TestTLSPassthroughRatelimiting")
-
 	ctx := context.Background()
 	testName := "https-passthrough-ratelimiting"
 	testK8sNamespace := "default"

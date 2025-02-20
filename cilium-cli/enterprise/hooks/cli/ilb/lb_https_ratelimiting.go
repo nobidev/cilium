@@ -20,8 +20,6 @@ import (
 )
 
 func TestHTTPSRouteRatelimiting() {
-	fmt.Println("=== RUN   TestHTTPSRouteRatelimiting")
-
 	ctx := context.Background()
 	testName := "https-proxy-route-ratelimiting"
 	testK8sNamespace := "default"

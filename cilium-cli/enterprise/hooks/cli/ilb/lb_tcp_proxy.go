@@ -18,8 +18,6 @@ import (
 )
 
 func TestTCPProxy() {
-	fmt.Println("=== RUN   TestTCPProxy")
-
 	for _, mode := range []isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto} {
 		ciliumCli, k8sCli := NewCiliumAndK8sCli()
 		dockerCli := NewDockerCli()

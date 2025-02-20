@@ -23,8 +23,6 @@ type testClientIPCall struct {
 type runIfFunc func() bool
 
 func TestHTTPClientIP() {
-	fmt.Println("=== RUN   TestHTTPClientIP")
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpApplicationOption

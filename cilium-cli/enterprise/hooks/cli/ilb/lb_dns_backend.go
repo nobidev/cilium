@@ -18,8 +18,6 @@ import (
 )
 
 func TestDNSBackend() {
-	fmt.Println("=== RUN   TestDnsBackend")
-
 	ctx := context.Background()
 	testNameBase := "dns-backend"
 	testK8sNamespace := "default"

@@ -18,8 +18,6 @@ import (
 )
 
 func TestBasicAuth() {
-	fmt.Println("=== RUN   TestBasicAuth")
-
 	for _, proto := range []string{"http", "https"} {
 		fmt.Printf("=== RUN   TestBasicAuth/%s\n", proto)
 

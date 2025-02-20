@@ -16,8 +16,6 @@ import (
 )
 
 func TestUDPProxyConnectionFiltering() {
-	fmt.Println("=== RUN   TestUDPProxyConnectionFiltering")
-
 	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
 
 		ciliumCli, k8sCli := NewCiliumAndK8sCli()

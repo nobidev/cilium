@@ -16,8 +16,6 @@ import (
 )
 
 func TestTLSPassthroughConnectionFiltering() {
-	fmt.Println("=== RUN   TestTLSPassthroughConnectionFiltering")
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) tlsPassthroughRouteOption

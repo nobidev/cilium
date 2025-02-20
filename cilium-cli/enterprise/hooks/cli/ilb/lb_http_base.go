@@ -16,8 +16,6 @@ import (
 )
 
 func TestHTTPAndT2HealthChecks() {
-	fmt.Println("=== RUN   TestHTTPAndT2HealthChecks")
-
 	ctx := context.Background()
 	testName := "http-1"
 	testK8sNamespace := "default"
@@ -111,8 +109,6 @@ func TestHTTPAndT2HealthChecks() {
 }
 
 func TestHTTP2() {
-	fmt.Println("=== RUN   TestHTTP2")
-
 	ctx := context.Background()
 	testName := "http2-1"
 	testK8sNamespace := "default"
@@ -168,8 +164,6 @@ func TestHTTP2() {
 }
 
 func TestHTTPPath() {
-	fmt.Println("=== RUN   TestHTTPPath")
-
 	ctx := context.Background()
 	testName := "http-path-1"
 	testK8sNamespace := "default"
@@ -232,8 +226,6 @@ func TestHTTPPath() {
 }
 
 func TestHTTPRoutes() {
-	fmt.Println("=== RUN   TestHTTPRoutes")
-
 	ctx := context.Background()
 	testName := "http-routes"
 	testK8sNamespace := "default"

@@ -16,8 +16,6 @@ import (
 )
 
 func TestHTTPSConnectionFiltering() {
-	fmt.Println("=== RUN   TestHTTPSConnectionFiltering")
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpsApplicationOption

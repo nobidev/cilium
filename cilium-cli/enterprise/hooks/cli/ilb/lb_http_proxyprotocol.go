@@ -28,8 +28,6 @@ type testPPCall struct {
 }
 
 func TestHTTPProxyProtocol() {
-	fmt.Println("=== RUN   TestHTTPProxyProtocol")
-
 	testCases := []struct {
 		desc               string
 		appOpt             func(clients []*frrContainer) httpApplicationOption

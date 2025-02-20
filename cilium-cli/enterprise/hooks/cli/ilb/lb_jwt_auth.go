@@ -99,8 +99,6 @@ func (p *jwtProvider) JWKS() []byte {
 }
 
 func TestJWTAuth() {
-	fmt.Println("=== RUN   TestJWTAuth")
-
 	for _, proto := range []string{"http", "https"} {
 		fmt.Printf("=== RUN   TestJWTAuth/%s\n", strings.ToUpper(proto))
 

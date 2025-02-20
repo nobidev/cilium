@@ -18,8 +18,6 @@ import (
 )
 
 func TestTCPProxyConnectionFiltering() {
-	fmt.Println("=== RUN   TestTCPProxyConnectionFiltering")
-
 	for _, forceDeploymentMode := range []isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto} {
 
 		ciliumCli, k8sCli := NewCiliumAndK8sCli()

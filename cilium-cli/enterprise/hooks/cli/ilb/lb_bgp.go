@@ -16,8 +16,6 @@ import (
 )
 
 func TestBGPHealthCheck() {
-	fmt.Println("=== RUN   TestBGPHealthCheck")
-
 	ctx := context.Background()
 	testName := "bgp-health-check"
 	testK8sNamespace := "default"
