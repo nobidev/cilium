@@ -142,7 +142,7 @@ func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name
 	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{}); err != nil {
 		fatalf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
-	MaybeCleanupT(func() error {
+	RegisterMaybeCleanupAfterTest(func() error {
 		return k8sCli.AppsV1().Deployments(namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{})
 	})
 
@@ -150,7 +150,7 @@ func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name
 	if _, err := k8sCli.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
 		fatalf("failed to create service (%s): %s", service.Name, err)
 	}
-	MaybeCleanupT(func() error {
+	RegisterMaybeCleanupAfterTest(func() error {
 		return k8sCli.CoreV1().Services(namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
 	})
 

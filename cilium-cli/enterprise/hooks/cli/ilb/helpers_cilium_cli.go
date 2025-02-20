@@ -21,7 +21,7 @@ func MaybeSysdump(testName string) {
 		return
 	}
 
-	MaybeCleanupT(func() error {
+	RegisterMaybeCleanupAfterTest(func() error {
 		if !testFailed {
 			return nil
 		}

@@ -132,7 +132,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := ciliumCli.EnsureLBIPPool(context.Background(), lbIPPool); err != nil {
 				return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
 			}
-			defer ilbCli.MaybeCleanup(func() error {
+			defer ilbCli.MaybeCleanupNow(func() error {
 				return ciliumCli.DeleteLBIPPool(context.Background(), ilbCli.LbIPPoolName, metav1.DeleteOptions{})
 			})
 
@@ -140,7 +140,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := ciliumCli.EnsureBGPClusterConfig(context.Background()); err != nil {
 				return fmt.Errorf("failed to install BGP peering: %w", err)
 			}
-			defer ilbCli.MaybeCleanup(func() error {
+			defer ilbCli.MaybeCleanupNow(func() error {
 				return ciliumCli.DeleteBGPClusterConfig(context.Background())
 			})
 
