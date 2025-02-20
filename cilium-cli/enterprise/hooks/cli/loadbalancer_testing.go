@@ -47,7 +47,8 @@ import (
 // set DOCKER_HOST= to point to the remote node.
 
 var tests = []func(){
-	ilbCli.TestBasicAuth,
+	ilbCli.TestHTTPBasicAuth,
+	ilbCli.TestHTTPSBasicAuth,
 	ilbCli.TestBGPHealthCheck,
 	ilbCli.TestDNSBackend,
 	ilbCli.TestHeadlessService,
