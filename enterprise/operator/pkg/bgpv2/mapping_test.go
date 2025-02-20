@@ -125,8 +125,9 @@ var (
 			},
 			BGPInstances: []v2alpha1.CiliumBGPInstance{
 				{
-					Name:     "instance-1",
-					LocalASN: ptr.To[int64](65001),
+					Name:      "instance-1",
+					LocalASN:  ptr.To[int64](65001),
+					LocalPort: ptr.To[int32](179),
 					Peers: []v2alpha1.CiliumBGPPeer{
 						{
 							Name:        "peer-1",

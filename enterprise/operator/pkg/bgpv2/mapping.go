@@ -287,8 +287,9 @@ func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2a
 
 	for _, bgpInstance := range entClusterConfig.Spec.BGPInstances {
 		ossBGPInstance := v2alpha1.CiliumBGPInstance{
-			Name:     bgpInstance.Name,
-			LocalASN: bgpInstance.LocalASN,
+			Name:      bgpInstance.Name,
+			LocalASN:  bgpInstance.LocalASN,
+			LocalPort: bgpInstance.LocalPort,
 		}
 
 		for _, peer := range bgpInstance.Peers {
