@@ -65,8 +65,6 @@ func TestTLSProxyTCPBackend() {
 	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName))))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -166,8 +164,6 @@ func TestTLSProxyTLSBackend() {
 
 	service := lbService(ns, testName, withPort(10443), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName))))
 	scenario.createLBService(ctx, service)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)

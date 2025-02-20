@@ -109,8 +109,6 @@ func testUDPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBUDP
 		service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 		scenario.createLBService(ctx, service)
 
-		maybeSysdump(testName, "")
-
 		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 

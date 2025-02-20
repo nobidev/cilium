@@ -198,7 +198,9 @@ func runTests() error {
 	}
 
 	for i, test := range testsToExecute {
-		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), testName(test))
+		testName := testName(test)
+		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), testName)
+		ilbCli.MaybeSysdump(testName)
 		test()
 		ilbCli.RunCleanups()
 		fmt.Println()

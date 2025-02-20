@@ -50,8 +50,6 @@ func TestHTTPAndT2HealthChecks() {
 	))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -144,8 +142,6 @@ func TestHTTP2() {
 	))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -199,8 +195,6 @@ func TestHTTPPath() {
 		withHttpRoute(testName, withHttpHostname(hostName), withHttpPath(path)),
 	))
 	scenario.createLBService(ctx, service)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
@@ -272,8 +266,6 @@ func TestHTTPRoutes() {
 	}
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(routes...))
 	scenario.createLBService(ctx, service)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)

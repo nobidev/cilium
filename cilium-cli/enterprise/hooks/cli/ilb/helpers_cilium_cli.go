@@ -16,7 +16,7 @@ import (
 	"os/exec"
 )
 
-func maybeSysdump(testName, suffix string) {
+func MaybeSysdump(testName string) {
 	if !FlagSysdumpOnFailure {
 		return
 	}
@@ -26,7 +26,7 @@ func maybeSysdump(testName, suffix string) {
 			return nil
 		}
 
-		cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", "cilium-sysdump-"+testName+suffix)
+		cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", "cilium-sysdump-"+testName)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

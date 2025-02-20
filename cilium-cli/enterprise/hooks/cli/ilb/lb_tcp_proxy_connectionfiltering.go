@@ -117,8 +117,6 @@ func testTCPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBTCP
 		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 		scenario.createLBService(ctx, service)
 
-		maybeSysdump(testName, "")
-
 		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 

@@ -285,8 +285,6 @@ func testJWTAuth(proto string) {
 
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 

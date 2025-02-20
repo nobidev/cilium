@@ -44,8 +44,6 @@ func TestBGPHealthCheck() {
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 

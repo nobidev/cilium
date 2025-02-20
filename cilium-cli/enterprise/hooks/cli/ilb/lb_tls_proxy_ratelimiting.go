@@ -57,8 +57,6 @@ func TestTLSProxyRatelimiting() {
 	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName), withTLSProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 

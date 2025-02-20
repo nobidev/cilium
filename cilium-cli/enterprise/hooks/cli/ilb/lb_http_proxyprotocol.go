@@ -168,8 +168,6 @@ func TestHTTPProxyProtocol() {
 		service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
 		scenario.createLBService(ctx, service)
 
-		maybeSysdump(testName, "")
-
 		if tC.notAccepted {
 			fmt.Println("Waiting for proxy protocol version validation error...")
 			waitForProxyProtocolVersionValidationError(ctx, *ciliumCli, testK8sNamespace, testName)

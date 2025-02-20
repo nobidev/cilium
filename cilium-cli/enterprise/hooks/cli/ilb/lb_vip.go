@@ -52,8 +52,6 @@ func TestSharedVIP() {
 	service2 := lbService(testK8sNamespace, testName+"-2", withVIPRef(sharedVIPName), withPort(81), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service2)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, sharedVIPName)
 
@@ -110,8 +108,6 @@ func TestRequestedVIP() {
 	fmt.Println("Creating LB Service resources...")
 	service1 := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(ctx, service1)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	_ = scenario.waitForFullVIPConnectivity(ctx, testName)

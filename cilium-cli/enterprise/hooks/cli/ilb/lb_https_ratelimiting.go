@@ -69,8 +69,6 @@ func TestHTTPSRouteRatelimiting() {
 
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -142,8 +140,6 @@ func TestHTTPSApplicationRatelimiting() {
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpConnectionRateLimiting(5, 60), withHttpRoute(testName)))
 	scenario.createLBService(ctx, service)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)

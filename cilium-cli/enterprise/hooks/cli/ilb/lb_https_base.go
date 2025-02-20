@@ -52,8 +52,6 @@ func TestHTTPS() {
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName)))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -133,8 +131,6 @@ func TestHTTPSRoutes() {
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
@@ -191,8 +187,6 @@ func TestHTTPS_H2() {
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(ctx, service)
-
-	maybeSysdump(testName, "")
 
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)

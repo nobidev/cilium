@@ -66,8 +66,6 @@ func TestTCPProxyPersistentBackend() {
 	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(ctx, service)
 
-	maybeSysdump(testName, "")
-
 	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
