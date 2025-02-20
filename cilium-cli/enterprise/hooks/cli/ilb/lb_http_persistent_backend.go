@@ -18,7 +18,7 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestPersistentBackendWithCookie() {
+func TestHTTPPersistentBackendWithCookie() {
 	ctx := context.Background()
 	testName := "pers-backend-cookie-1"
 	testK8sNamespace := "default"
@@ -75,7 +75,7 @@ func TestPersistentBackendWithCookie() {
 	}
 }
 
-func TestPersistentBackendWithSourceIP() {
+func TestHTTPPersistentBackendWithSourceIP() {
 	if skipIfOnSingleNode(">1 FRR clients are not supported") {
 		return
 	}
