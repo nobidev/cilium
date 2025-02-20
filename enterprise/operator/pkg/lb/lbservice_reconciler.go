@@ -856,13 +856,13 @@ func (*lbServiceReconciler) getIncompatibleT1HostnameBackends(lbsvc *isovalentv1
 
 	if lbsvc.Spec.Applications.TCPProxy != nil && lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
-			if backendMap[t1r.BackendRef.Name].Spec.BackendType == isovalentv1alpha1.BackendTypeHostname {
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.BackendType == isovalentv1alpha1.BackendTypeHostname {
 				backendsWithHostname = append(backendsWithHostname, t1r.BackendRef.Name)
 			}
 		}
 	} else if lbsvc.Spec.Applications.UDPProxy != nil && lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
-			if backendMap[t1r.BackendRef.Name].Spec.BackendType == isovalentv1alpha1.BackendTypeHostname {
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.BackendType == isovalentv1alpha1.BackendTypeHostname {
 				backendsWithHostname = append(backendsWithHostname, t1r.BackendRef.Name)
 			}
 		}
