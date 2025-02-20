@@ -149,8 +149,6 @@ func newCmdLoadbalancerTest() *cobra.Command {
 				return err
 			}
 
-			ilbCli.RunCleanups()
-
 			return nil
 		},
 	}
