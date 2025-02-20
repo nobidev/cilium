@@ -60,7 +60,7 @@ func (c *coreDNSContainer) reload(ctx context.Context) error {
 
 	conf := builder.String()
 
-	fmt.Printf("Reloading CoreDNS configuration:\n%s\n", conf)
+	fmt.Printf("Reloading CoreDNS configuration...\n")
 
 	// Upload new Corefile
 	if err := c.Copy(ctx, []byte(conf), "Corefile", "/tmp"); err != nil {
