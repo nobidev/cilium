@@ -273,12 +273,12 @@ func TestHTTPSRequestFiltering() {
 
 		maybeSysdump(testName, "")
 
-		fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
+		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
-			fmt.Printf("Testing %q...", testCmd)
+			fmt.Printf("Testing %q...\n", testCmd)
 			eventually(func() error {
 				stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
 				if !tt.blocked && err != nil {

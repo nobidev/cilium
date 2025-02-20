@@ -101,14 +101,14 @@ func TestUDPProxyConnectionFiltering() {
 
 			maybeSysdump(testName, "")
 
-			fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
+			fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 			for _, tt := range tC.testCalls {
 				testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
-				fmt.Printf("Testing %q...", testCmd)
+				fmt.Printf("Testing %q...\n", testCmd)
 				eventually(func() error {
-					fmt.Printf("Sending UDP request: cmd='%q'", testCmd)
+					fmt.Printf("Sending UDP request: cmd='%q\n'", testCmd)
 
 					stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
 					if err != nil {

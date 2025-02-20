@@ -68,19 +68,19 @@ func TestTCPProxyPersistentBackend() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...", testName)
+	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Test persistent backend selection with source IP
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		fmt.Printf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
 		testPersistenceWith100Requests(ctx, clients[0], testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		fmt.Printf("Testing backend selection persistence of 100 requests: %q...", testCmd)
+		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
 		testPersistenceWith100Requests(ctx, clients[1], testCmd)
 	}
 }

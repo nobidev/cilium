@@ -89,7 +89,7 @@ func TestTLSPassthroughRatelimiting() {
 		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q): %w", testCmd1, stdout, stderr, err)
 	}, longTimeout, pollInterval)
 
-	fmt.Printf("Testing %q and and not expecting connection rate limit ...\n", testCmd2)
+	fmt.Printf("Testing %q and not expecting connection rate limit ...\n", testCmd2)
 	successCount := 0
 	eventually(func() error {
 		stdout, stderr, err := client.Exec(ctx, testCmd2)
