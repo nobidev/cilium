@@ -261,11 +261,16 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 		l.Debug("No peer changes necessary")
 	}
 
+	var selfRRRole v1.RouteReflectorRole
+	if p.DesiredConfig.RouteReflector != nil {
+		selfRRRole = p.DesiredConfig.RouteReflector.Role
+	}
+
 	// remove neighbors
 	for _, n := range toRemove {
 		l.WithField(types.PeerLogField, n.Peer.Name).Info("Removing peer")
 
-		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password)); err != nil {
+		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password, selfRRRole)); err != nil {
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
@@ -276,7 +281,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 	for _, n := range toUpdate {
 		l.WithField(types.PeerLogField, n.Peer.Name).Info("Updating peer")
 
-		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password)); err != nil {
+		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password, selfRRRole)); err != nil {
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
@@ -287,7 +292,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 	for _, n := range toCreate {
 		l.WithField(types.PeerLogField, n.Peer.Name).Info("Adding peer")
 
-		if err := p.BGPInstance.Router.AddNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password)); err != nil {
+		if err := p.BGPInstance.Router.AddNeighbor(ctx, toNeighbor(n.Peer, n.Config, n.Password, selfRRRole)); err != nil {
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata

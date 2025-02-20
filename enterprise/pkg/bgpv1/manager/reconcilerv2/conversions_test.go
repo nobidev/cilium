@@ -28,6 +28,7 @@ func TestToNeighbor(t *testing.T) {
 		nodePeer     *v1.IsovalentBGPNodePeer
 		peerConfig   *v1.IsovalentBGPPeerConfigSpec
 		authPassword string
+		selfRRRole   v1.RouteReflectorRole
 		expected     *types.Neighbor
 	}{
 		{
@@ -165,6 +166,65 @@ func TestToNeighbor(t *testing.T) {
 			},
 		},
 		{
+			name: "RouteReflector to RouteReflector",
+			nodePeer: &v1.IsovalentBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+				RouteReflector: &v1.NodeRouteReflector{
+					Role:      v1.RouteReflectorRoleRouteReflector,
+					ClusterID: "255.0.0.1",
+				},
+			},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
+			selfRRRole: v1.RouteReflectorRoleRouteReflector,
+			expected: &types.Neighbor{
+				Address: netip.MustParseAddr("fd00::1"),
+				ASN:     64512,
+				RouteReflector: &types.NeighborRouteReflector{
+					Client:    true,
+					ClusterID: "255.0.0.1",
+				},
+			},
+		},
+		{
+			name: "RouteReflector to Client",
+			nodePeer: &v1.IsovalentBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+				RouteReflector: &v1.NodeRouteReflector{
+					Role:      v1.RouteReflectorRoleClient,
+					ClusterID: "255.0.0.1",
+				},
+			},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
+			selfRRRole: v1.RouteReflectorRoleRouteReflector,
+			expected: &types.Neighbor{
+				Address: netip.MustParseAddr("fd00::1"),
+				ASN:     64512,
+				RouteReflector: &types.NeighborRouteReflector{
+					Client:    true,
+					ClusterID: "255.0.0.1",
+				},
+			},
+		},
+		{
+			name: "Client to RouteReflector",
+			nodePeer: &v1.IsovalentBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+				RouteReflector: &v1.NodeRouteReflector{
+					Role:      v1.RouteReflectorRoleClient,
+					ClusterID: "255.0.0.1",
+				},
+			},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
+			selfRRRole: v1.RouteReflectorRoleClient,
+			expected: &types.Neighbor{
+				Address: netip.MustParseAddr("fd00::1"),
+				ASN:     64512,
+			},
+		},
+		{
 			name: "Families",
 			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
@@ -275,7 +335,7 @@ func TestToNeighbor(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			neighbor := toNeighbor(tt.nodePeer, tt.peerConfig, tt.authPassword)
+			neighbor := toNeighbor(tt.nodePeer, tt.peerConfig, tt.authPassword, tt.selfRRRole)
 			require.Equal(t, tt.expected, neighbor)
 		})
 	}

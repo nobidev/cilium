@@ -21,14 +21,14 @@ import (
 // toNeighbor converts a IsovalentBGPNodePeer to Neighbor which can be used
 // with Router API. The caller must ensure that the np, np.PeerAddress,
 // np.PeerASN and pc are not nil.
-func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string) *types.Neighbor {
+func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string, selfRRRole v1.RouteReflectorRole) *types.Neighbor {
 	neighbor := &types.Neighbor{}
 
 	neighbor.Address = toPeerAddress(*np.PeerAddress)
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihop(pc.EBGPMultihop)
-	neighbor.RouteReflector = toRouteReflector(np.RouteReflector)
+	neighbor.RouteReflector = toRouteReflector(np.RouteReflector, selfRRRole)
 	neighbor.Timers = toNeighborTimers(pc.Timers)
 	neighbor.Transport = toNeighborTransport(np.LocalAddress, pc.Transport)
 	neighbor.GracefulRestart = toNeighborGracefulRestart(pc.GracefulRestart)
@@ -54,10 +54,13 @@ func toNeighborEbgpMultihop(ebgpMultihop *int32) *types.NeighborEbgpMultihop {
 	}
 }
 
-func toRouteReflector(routeReflector *v1.NodeRouteReflector) *types.NeighborRouteReflector {
-	if routeReflector == nil || routeReflector.Role != v1.RouteReflectorRoleClient {
+func toRouteReflector(routeReflector *v1.NodeRouteReflector, selfRRRole v1.RouteReflectorRole) *types.NeighborRouteReflector {
+	if routeReflector == nil || selfRRRole == "" || selfRRRole == v1.RouteReflectorRoleClient {
 		return nil
 	}
+	// RR to RR peering should be also considered as client peering.
+	// Otherwise, CLUSTER_LIST attributes will not be sent and the peer RR
+	// will reflect the routes to its clients.
 	return &types.NeighborRouteReflector{
 		Client:    true,
 		ClusterID: routeReflector.ClusterID,
