@@ -14,61 +14,71 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestUDPProxySession() {
-	for _, forceDeploymentMode := range allUdpForceDeploymentModes {
-		ciliumCli, k8sCli := NewCiliumAndK8sCli()
-		dockerCli := NewDockerCli()
+func TestUDPProxyT1OnlySession() {
+	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1)
+}
 
-		testK8sNamespace := "default"
+func TestUDPProxyT1T2Session() {
+	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2)
+}
 
-		if skipIfOnSingleNode(">1 backends are not supported") {
-			continue
-		}
+func TestUDPProxyAutoSession() {
+	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto)
+}
 
-		fmt.Println("=== RUN   Test UDPProxySession force mode " + string(forceDeploymentMode))
+func testUDPProxySession(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
-		ctx := context.Background()
-		testName := "udp-proxy-session-" + string(forceDeploymentMode)
+	testK8sNamespace := "default"
 
-		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
-
-		fmt.Println("Creating backend apps...")
-
-		scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
-
-		fmt.Println("Creating clients and add BGP peering ...")
-		client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
-
-		fmt.Println("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(ctx, vip)
-
-		fmt.Println("Creating LB BackendPool resources...")
-		backends := []backendPoolOption{}
-		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
-		}
-		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-		scenario.createLBBackendPool(ctx, backendPool)
-
-		fmt.Println("Creating LB Service resources...")
-		service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name)))
-		scenario.createLBService(ctx, service)
-
-		maybeSysdump(testName, "")
-
-		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
-
-		// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
-		// Do a few attempts, as neither UDP nor nc are reliable.
-		testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 -p 55555 %s 80", vipIP)
-		fmt.Printf("Testing UDP session with 10 requests from same source port: %q...\n", testCmd)
-		testUDPSessionWithNRequests(ctx, client, testCmd, 10)
+	if skipIfOnSingleNode(">1 backends are not supported") {
+		return
 	}
+
+	ctx := context.Background()
+	testName := "udp-proxy-session-" + string(forceDeploymentMode)
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	fmt.Println("Creating backend apps...")
+
+	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+
+	fmt.Println("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+
+	fmt.Println("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(ctx, vip)
+
+	fmt.Println("Creating LB BackendPool resources...")
+	backends := []backendPoolOption{}
+	for _, b := range scenario.backendApps {
+		backends = append(backends, withIPBackend(b.ip, b.port))
+	}
+	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	scenario.createLBBackendPool(ctx, backendPool)
+
+	fmt.Println("Creating LB Service resources...")
+	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name)))
+	scenario.createLBService(ctx, service)
+
+	maybeSysdump(testName, "")
+
+	fmt.Println("Waiting for full VIP connectivity...")
+	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+
+	// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
+	// Do a few attempts, as neither UDP nor nc are reliable.
+	testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 -p 55555 %s 80", vipIP)
+	fmt.Printf("Testing UDP session with 10 requests from same source port: %q...\n", testCmd)
+	testUDPSessionWithNRequests(ctx, client, testCmd, 10)
 }
 
 func testUDPSessionWithNRequests(ctx context.Context, client *frrContainer, testCmd string, total int) {

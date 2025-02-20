@@ -17,117 +17,124 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyConnectionFiltering() {
-	for _, forceDeploymentMode := range []isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto} {
+func TestTCPProxyT1OnlyConnectionFiltering() {
+	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1)
+}
 
-		ciliumCli, k8sCli := NewCiliumAndK8sCli()
-		dockerCli := NewDockerCli()
+func TestTCPProxyT1T2ConnectionFiltering() {
+	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2)
+}
 
-		testK8sNamespace := "default"
+func TestTCPProxyAutoConnectionFiltering() {
+	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto)
+}
 
-		fmt.Println("=== RUN   TestTCPProxyConnectionFiltering/Test TCPProxy force mode " + string(forceDeploymentMode))
+func testTCPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli()
+	dockerCli := NewDockerCli()
 
-		testCases := []struct {
-			desc      string
-			appOpt    func(clients []*frrContainer) tcpRouteOption
-			testCalls []testCall
-		}{
-			{
-				desc: "deny-by-sourceip",
-				appOpt: func(clients []*frrContainer) tcpRouteOption {
-					return withTCPProxyConnectionFilteringDenyBySourceIP(clients[1].ip + "/32")
+	testK8sNamespace := "default"
+
+	testCases := []struct {
+		desc      string
+		appOpt    func(clients []*frrContainer) tcpRouteOption
+		testCalls []testCall
+	}{
+		{
+			desc: "deny-by-sourceip",
+			appOpt: func(clients []*frrContainer) tcpRouteOption {
+				return withTCPProxyConnectionFilteringDenyBySourceIP(clients[1].ip + "/32")
+			},
+			testCalls: []testCall{
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					blocked:  false,
 				},
-				testCalls: []testCall{
-					{
-						clientNr: 0,
-						hostName: "secure.acme.io",
-						path:     "/",
-						blocked:  false,
-					},
-					{
-						clientNr: 1,
-						hostName: "secure.acme.io",
-						path:     "/",
-						blocked:  true,
-					},
+				{
+					clientNr: 1,
+					hostName: "secure.acme.io",
+					path:     "/",
+					blocked:  true,
 				},
 			},
-			{
-				desc: "allow-by-sourceip",
-				appOpt: func(clients []*frrContainer) tcpRouteOption {
-					return withTCPProxyConnectionFilteringAllowBySourceIP(clients[1].ip + "/32")
+		},
+		{
+			desc: "allow-by-sourceip",
+			appOpt: func(clients []*frrContainer) tcpRouteOption {
+				return withTCPProxyConnectionFilteringAllowBySourceIP(clients[1].ip + "/32")
+			},
+			testCalls: []testCall{
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					blocked:  true,
 				},
-				testCalls: []testCall{
-					{
-						clientNr: 0,
-						hostName: "secure.acme.io",
-						path:     "/",
-						blocked:  true,
-					},
-					{
-						clientNr: 1,
-						hostName: "secure.acme.io",
-						path:     "/",
-						blocked:  false,
-					},
+				{
+					clientNr: 1,
+					hostName: "secure.acme.io",
+					path:     "/",
+					blocked:  false,
 				},
 			},
+		},
+	}
+	for _, tC := range testCases {
+		if skipIfOnSingleNode(">1 FRR clients are not supported") {
+			continue
 		}
-		for _, tC := range testCases {
-			if skipIfOnSingleNode(">1 FRR clients are not supported") {
-				continue
-			}
 
-			fmt.Printf("Checking %s\n", tC.desc)
+		fmt.Printf("Checking %s\n", tC.desc)
 
-			ctx := context.Background()
-			testName := fmt.Sprintf("tcp-proxy-connectionfiltering--%s-%s", string(forceDeploymentMode), tC.desc)
+		ctx := context.Background()
+		testName := fmt.Sprintf("tcp-proxy-connectionfiltering--%s-%s", string(forceDeploymentMode), tC.desc)
 
-			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		// 0. Setup test scenario (backends, clients & LB resources)
+		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-			fmt.Println("Creating backend app...")
+		fmt.Println("Creating backend app...")
 
-			backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+		backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
 
-			fmt.Println("Creating client and add BGP peering...")
+		fmt.Println("Creating client and add BGP peering...")
 
-			clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
+		clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
 
-			fmt.Println("Creating LB VIP resources...")
+		fmt.Println("Creating LB VIP resources...")
 
-			vip := lbVIP(testK8sNamespace, testName)
-			scenario.createLBVIP(ctx, vip)
+		vip := lbVIP(testK8sNamespace, testName)
+		scenario.createLBVIP(ctx, vip)
 
-			fmt.Println("Creating LB BackendPool resources...")
+		fmt.Println("Creating LB BackendPool resources...")
 
-			backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
-			scenario.createLBBackendPool(ctx, backendPool)
+		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
+		scenario.createLBBackendPool(ctx, backendPool)
 
-			fmt.Println("Creating LB Service resources...")
+		fmt.Println("Creating LB Service resources...")
 
-			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
-			scenario.createLBService(ctx, service)
+		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
+		scenario.createLBService(ctx, service)
 
-			maybeSysdump(testName, "")
+		maybeSysdump(testName, "")
 
-			fmt.Println("Waiting for full VIP connectivity...")
-			vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		fmt.Println("Waiting for full VIP connectivity...")
+		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
-			for _, tt := range tC.testCalls {
-				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
-				fmt.Printf("Testing %q...\n", testCmd)
-				eventually(func() error {
-					stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
-					if !tt.blocked && err != nil {
-						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-					} else if tt.blocked && (err == nil || err.Error() != fmt.Sprintf("cmd failed: %d", getTCPCurlBlockErrorCode(forceDeploymentMode))) {
-						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-					}
+		for _, tt := range tC.testCalls {
+			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
+			fmt.Printf("Testing %q...\n", testCmd)
+			eventually(func() error {
+				stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
+				if !tt.blocked && err != nil {
+					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+				} else if tt.blocked && (err == nil || err.Error() != fmt.Sprintf("cmd failed: %d", getTCPCurlBlockErrorCode(forceDeploymentMode))) {
+					return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+				}
 
-					return nil
-				}, shortTimeout, pollInterval)
-			}
+				return nil
+			}, shortTimeout, pollInterval)
 		}
 	}
 }

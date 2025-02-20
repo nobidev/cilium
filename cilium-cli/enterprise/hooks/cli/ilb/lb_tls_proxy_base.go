@@ -71,7 +71,7 @@ func TestTLSProxyTCPBackend() {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 3. Test basic connectivity
-	fmt.Println("=== RUN   TestTLSProxyTCPBackend/Basic Connectivity")
+	fmt.Println("Checking Basic Connectivity")
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 
 	fmt.Printf("Testing %q...\n", testCmd)
@@ -86,7 +86,7 @@ func TestTLSProxyTCPBackend() {
 	}, 10*time.Second, 100*time.Millisecond)
 
 	// 4. Test mTLS connectivity
-	fmt.Println("=== RUN   TestTLSProxyTCPBackend/mTLS Connectivity")
+	fmt.Println("Checking mTLS Connectivity")
 	curSvc, err := ciliumCli.GetLBService(ctx, ns, testName, metav1.GetOptions{})
 	if err != nil {
 		fatalf("failed to get LB service (%s): %s", testName, err)
@@ -173,7 +173,7 @@ func TestTLSProxyTLSBackend() {
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 3. Test basic connectivity
-	fmt.Println("=== RUN   TestTLSProxyTLSBackend/Basic Connectivity")
+	fmt.Println("Checking Basic Connectivity")
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", serviceHostName, vipIP))
 
 	fmt.Printf("Testing %q...\n", testCmd)
@@ -188,7 +188,7 @@ func TestTLSProxyTLSBackend() {
 	}, 10*time.Second, 100*time.Millisecond)
 
 	// 4. Test mTLS connectivity
-	fmt.Println("=== RUN   TestTLSProxyTLSBackend/mTLS Connectivity")
+	fmt.Println("Checking mTLS Connectivity")
 	curSvc, err := ciliumCli.GetLBService(ctx, ns, testName, metav1.GetOptions{})
 	if err != nil {
 		fatalf("failed to get LB service (%s): %s", testName, err)

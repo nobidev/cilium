@@ -24,8 +24,6 @@ func TestTCPProxy() {
 
 		testK8sNamespace := "default"
 
-		fmt.Println("=== RUN   TestTCPProxy/Test TCPProxy force mode " + string(mode))
-
 		ctx := context.Background()
 		testName := "tcp-proxy-" + string(mode)
 
