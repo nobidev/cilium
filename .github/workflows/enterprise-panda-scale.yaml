@@ -208,6 +208,8 @@ jobs:
             --set=localRedirectPolicy=true \
             --set=dnsProxy.proxyResponseMaxDelay=250ms \
             --set=bpf.policyMapMax=65536 \
+            --set=bpf.masquerade=true \
+            --set=bpf.hostLegacyRouting=false \
             --set=dnsProxy.minTtl=300 \
             --set=hubble.enabled=true \
             --set=hubble.eventBufferCapacity=65535 \
