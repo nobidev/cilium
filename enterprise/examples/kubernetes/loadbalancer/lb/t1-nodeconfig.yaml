@@ -12,5 +12,5 @@ spec:
     bpf-lb-mode-annotation: "true"
     bpf-lb-ipip-sock-mark: "true"
     bpf-lb-dsr-dispatch: ipip
-    routing-mode: "native"
-    enable-pmtu-discovery: "true"
+    routing-mode: native
+    enable-ipv4-masquerade: "false"
