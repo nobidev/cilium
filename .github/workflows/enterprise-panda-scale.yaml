@@ -200,9 +200,8 @@ jobs:
             --set=envoy.enabled=true \
             --set=ipam.mode="cluster-pool" \
             --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]="10.0.0.0/9" \
-            --set=envoy.updateStrategy.rollingUpdate.maxUnavailable=5% \
+            --set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
             --set-string=extraConfig.external-dns-proxy=true \
-            --set-string=extraConfig.kvstore-pod-network-support=false \
             --set-string=extraConfig.monitor-aggregation-interval=10m \
             --set-string=extraConfig.use-full-tls-context=false \
             --set=localRedirectPolicy=true \
@@ -213,10 +212,14 @@ jobs:
             --set=dnsProxy.minTtl=300 \
             --set=hubble.enabled=true \
             --set=hubble.eventBufferCapacity=65535 \
-            --set=updateStrategy.rollingUpdate.maxUnavailable=5% \
             --values=values-export-aggregation.yaml \
             --values=values-hubble-metrics.yaml \
             --wait=false"
+
+          # To be applied by Panda values:
+          CILIUM_INSTALL_DEFAULTS+=" --set=updateStrategy.rollingUpdate.maxUnavailable=5% \
+                        --set-string=extraConfig.kvstore-pod-network-support=false"
+          # Additionally, qps for operator below
 
           if [[ -z "$VERSION" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
