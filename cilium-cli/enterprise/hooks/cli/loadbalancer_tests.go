@@ -177,6 +177,8 @@ func newCmdLoadbalancerTest() *cobra.Command {
 
 	cmd.Flags().StringVar(&ilbCli.FlagRun, "run", "", "Run only the tests matching the regular expression (only respecting top level test functions)")
 
+	cmd.AddCommand(newCmdLoadbalancerTestList())
+
 	return cmd
 }
 
