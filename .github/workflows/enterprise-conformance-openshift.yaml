@@ -239,7 +239,7 @@ jobs:
         id: cute_config
         working-directory: ./cute
         run: |
-          cute_dir=$(echo ${{ steps.vars.outputs.ocp_minor_version }} | tr '.' '-')
+          cute_dir=ocp-$(echo ${{ steps.vars.outputs.ocp_minor_version }} | tr '.' '-')
           echo dir="${cute_dir}" >> $GITHUB_OUTPUT
           cd "${cute_dir}"
           # Generation of the terraform configuration.
