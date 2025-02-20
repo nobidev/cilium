@@ -1,0 +1,74 @@
+name: Enterprise cilium-envoy release tagging
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+-*
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
+
+jobs:
+  build-and-push:
+    timeout-minutes: 45
+    name: Build and Push Images
+    environment: release-envoy-image
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium-envoy
+            dockerfile: ./images/cilium-envoy/Dockerfile
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@6524bf65af31da8d45b59e8c27de4bd072b392f5 # v3.8.0
+
+      - name: Login to quay.io
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          tag=${GITHUB_REF##*/}
+          echo tag=$tag >> $GITHUB_OUTPUT
+          echo image_tags=quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:$tag >> $GITHUB_OUTPUT
+
+      - name: Generate Envoy Dockerfile
+        run: |
+          grep "cilium/cilium-envoy\|CILIUM_ENVOY_IMAGE" images/cilium/Dockerfile | tee /tmp/Dockerfile
+
+      - name: Release Build ${{ matrix.name }}
+        uses: docker/build-push-action@b32b51a8eda65d6793cd0494a773d4f6bcef32dc # v6.11.0
+        id: docker_build_release
+        with:
+          provenance: false
+          context: .
+          file: /tmp/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.tag.outputs.image_tags }}
