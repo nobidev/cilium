@@ -71,7 +71,7 @@ func TestHTTPSRouteRatelimiting() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
@@ -145,7 +145,7 @@ func TestHTTPSApplicationRatelimiting() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/"))

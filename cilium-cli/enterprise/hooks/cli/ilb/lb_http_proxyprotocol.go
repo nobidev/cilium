@@ -171,12 +171,12 @@ func TestHTTPProxyProtocol() {
 		maybeSysdump(testName, "")
 
 		if tC.notAccepted {
-			fmt.Printf("Waiting for proxy protocol version validation error %q...\n", testName)
+			fmt.Println("Waiting for proxy protocol version validation error...")
 			waitForProxyProtocolVersionValidationError(ctx, *ciliumCli, testK8sNamespace, testName)
 			return
 		}
 
-		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 		for _, tt := range tC.testCalls {

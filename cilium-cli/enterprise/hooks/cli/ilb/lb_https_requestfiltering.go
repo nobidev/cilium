@@ -273,7 +273,7 @@ func TestHTTPSRequestFiltering() {
 
 		maybeSysdump(testName, "")
 
-		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 		for _, tt := range tC.testCalls {

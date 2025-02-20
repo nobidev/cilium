@@ -54,7 +54,7 @@ func TestSharedVIP() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", sharedVIPName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, sharedVIPName)
 
 	// 1. Send two HTTP requests on VIP for both services
@@ -113,7 +113,7 @@ func TestRequestedVIP() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	_ = scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to requested VIP

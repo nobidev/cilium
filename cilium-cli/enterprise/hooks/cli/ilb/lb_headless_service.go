@@ -322,7 +322,7 @@ func TestHeadlessService() {
 
 		maybeSysdump(testName, tt.suffix)
 
-		fmt.Printf("Waiting for full VIP connectivity of %q...\n", vip.Name)
+		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
 
 		var testCmd string

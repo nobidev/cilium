@@ -60,7 +60,7 @@ func TestUDPProxySession() {
 
 		maybeSysdump(testName, "")
 
-		fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+		fmt.Println("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 		// Send UDP request to test basic `client -> LB T1 -> app` connectivity.

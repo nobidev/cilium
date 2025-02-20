@@ -52,7 +52,7 @@ func TestHTTPAndT2HealthChecks() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -146,7 +146,7 @@ func TestHTTP2() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -202,7 +202,7 @@ func TestHTTPPath() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
@@ -275,7 +275,7 @@ func TestHTTPRoutes() {
 
 	maybeSysdump(testName, "")
 
-	fmt.Printf("Waiting for full VIP connectivity of %q...\n", testName)
+	fmt.Println("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
 
 	// calling each route once
