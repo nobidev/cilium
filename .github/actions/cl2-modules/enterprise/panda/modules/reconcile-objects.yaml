@@ -1,5 +1,3 @@
-{{$PER_NAMESPACE_CNPS := DefaultParam .CL2_PER_NAMESPACE_CNPS false}}
-
 {{$actionName := printf "%s objects" .actionName}}
 {{$namespaces := .namespaces}}
 {{$tuningSet := .tuningSet}}
@@ -14,7 +12,7 @@
 {{$slicesUpdates := .slicesUpdates}}
 
 steps:
-- name: {{$actionName}} services
+- name: {{$actionName}} services and cnps
   phases:
   - namespaceRange:
       min: 1
@@ -35,6 +33,16 @@ steps:
       templateFillMap:
         ServiceName: "service"
         ServiceNumber: {{$largeServices}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: {{$fixedTuningSet}}
+    objectBundle:
+    - basename: cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        Replicas: 1
 
 - name: Starting measurement for '{{$actionName}}'
   measurements:
@@ -83,18 +91,3 @@ steps:
     - Identifier: WaitForRunningDeployments
     Params:
       action: gather
-
- {{if $PER_NAMESPACE_CNPS }}
-- name: {{$actionName}}
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 1
-    tuningSet: {{$fixedTuningSet}}
-    objectBundle:
-    - basename: cnp
-      objectTemplatePath: cnp.yaml
-      templateFillMap:
-        Replicas: 1
-{{ end }}

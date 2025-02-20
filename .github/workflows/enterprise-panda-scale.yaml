@@ -700,7 +700,6 @@ jobs:
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 20.0
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "${{ steps.vars.outputs.SCRAPE_INTERVAL }}"
           CL2_DELETE_AUTOMANAGED_NAMESPACES: "false"
-          CL2_PER_NAMESPACE_CNPS: "true"
         run: |
           # Include in the sysdump (a) all control-plane nodes and (b) 10 workload nodes.
           # We don't use the kops.k8s.io/instancegroup=workloads label because it is not guaranteed to have already been applied.
