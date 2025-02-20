@@ -86,7 +86,7 @@ func TestDNSBackend() {
 	}
 
 	for _, tt := range tests {
-		fmt.Printf("=== RUN   TestDnsBackend/%s\n", tt.name)
+		fmt.Printf("Checking %s\n", tt.name)
 
 		testName := testNameBase + tt.suffix
 		backendHostName := fmt.Sprintf("backend.%s.local", testName)

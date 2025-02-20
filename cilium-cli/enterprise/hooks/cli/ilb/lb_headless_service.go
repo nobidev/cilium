@@ -283,7 +283,7 @@ func TestHeadlessService() {
 	}
 
 	for _, tt := range tests {
-		fmt.Printf("=== RUN   TestBasicAuth/%s\n", tt.name)
+		fmt.Printf("Checking %s\n", tt.name)
 
 		resourceName := testName + tt.suffix
 

@@ -124,7 +124,7 @@ func TestHTTPClientIP() {
 
 nextTest:
 	for _, tC := range testCases {
-		fmt.Printf("=== RUN   TestHTTPClientIP/%s\n", tC.desc)
+		fmt.Printf("Checking %s\n", tC.desc)
 
 		for _, runIf := range tC.runIfs {
 			if !runIf() {
