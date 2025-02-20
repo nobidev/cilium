@@ -128,9 +128,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 		select {
 		case <-time.After(pollInterval):
 		case <-ctx.Done():
-			return "",
-				fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (last error: %w)",
-					name, err)
+			return "", fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (status: %v)", name, obj.Status)
 		}
 	}
 }
