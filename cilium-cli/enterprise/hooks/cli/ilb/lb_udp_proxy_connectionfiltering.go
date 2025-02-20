@@ -64,7 +64,7 @@ func TestUDPProxyConnectionFiltering() {
 			},
 		}
 		for _, tC := range testCases {
-			fmt.Printf("=== RUN   TestUDPProxyConnectionFiltering/Test UDPProxy force mode %s/%s", string(forceDeploymentMode), tC.desc)
+			fmt.Printf("Checking %s\n", tC.desc)
 
 			if skipIfOnSingleNode(">1 FRR clients are not supported") {
 				continue

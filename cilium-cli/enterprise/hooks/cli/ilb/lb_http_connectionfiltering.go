@@ -65,7 +65,7 @@ func TestHTTPConnectionFiltering() {
 
 nextTest:
 	for _, tC := range testCases {
-		fmt.Printf("=== RUN   TestHTTPConnectionFiltering/%s\n", tC.desc)
+		fmt.Printf("Checking %s\n", tC.desc)
 
 		if skipIfOnSingleNode(">1 FRR clients are not supported") ||
 			skipIfNotUseRemoteAddress("use-remote-address is not enabled") {

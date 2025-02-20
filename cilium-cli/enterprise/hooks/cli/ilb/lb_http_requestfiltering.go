@@ -221,7 +221,7 @@ func TestHTTPRequestFiltering() {
 			continue
 		}
 
-		fmt.Printf("=== RUN   TestHTTPRequestFiltering/%s\n", tC.desc)
+		fmt.Printf("Checking %s\n", tC.desc)
 
 		ctx := context.Background()
 		testName := fmt.Sprintf("http-requestfiltering-%s", tC.desc)

@@ -78,7 +78,7 @@ func TestTCPProxyConnectionFiltering() {
 				continue
 			}
 
-			fmt.Printf("=== RUN   TestTCPProxyConnectionFiltering/Test TCPProxy force mode "+string(forceDeploymentMode)+"/%s\n", tC.desc)
+			fmt.Printf("Checking %s\n", tC.desc)
 
 			ctx := context.Background()
 			testName := fmt.Sprintf("tcp-proxy-connectionfiltering--%s-%s", string(forceDeploymentMode), tC.desc)

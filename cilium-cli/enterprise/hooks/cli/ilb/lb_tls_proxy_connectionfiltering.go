@@ -67,7 +67,7 @@ func TestTLSProxyConnectionFiltering() {
 			continue
 		}
 
-		fmt.Printf("=== RUN   TestTLSProxyConnectionFiltering/%s\n", tC.desc)
+		fmt.Printf("Checking %s\n", tC.desc)
 
 		ctx := context.Background()
 		testName := fmt.Sprintf("tls-proxy-connectionfiltering-%s", tC.desc)
