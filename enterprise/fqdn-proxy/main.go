@@ -401,24 +401,23 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 			updateAgentReachability(err)
 			return err
 		}
-		break
-	}
 
-	// todo: Obviously the `ps.Recv` method needs to be
-	// inside of a loop, but, as stated above, the current
-	// server implementation does not stream properly yet.
-	log.Info("The agent proxy status stream is established.")
-	agentProxyStatus, err := ps.Recv()
-	if err != nil {
-		updateAgentReachability(err)
-		return fmt.Errorf("error receiving proxy status: %w", err)
+		log.Info("The agent proxy status stream is established.")
+		for {
+			agentProxyStatus, err := ps.Recv()
+			if err != nil {
+				updateAgentReachability(err)
+				return fmt.Errorf("error receiving proxy status: %w", err)
+			}
+			if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
+				pc.rwLock.Lock()
+				pc.ipCacheV1 = true
+				pc.rwLock.Unlock()
+			} else {
+				log.WithField("msg", agentProxyStatus).Infoln("got message")
+			}
+		}
 	}
-	if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
-		pc.rwLock.Lock()
-		defer pc.rwLock.Unlock()
-		pc.ipCacheV1 = true
-	}
-	return nil
 }
 
 func (pc *proxyContext) supportsIPCacheV1() bool {
