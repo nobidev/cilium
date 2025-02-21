@@ -4,10 +4,7 @@
 package cli
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"regexp"
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,61 +43,6 @@ import (
 // and LB app containers, and then running test requests from them. To do so,
 // set DOCKER_HOST= to point to the remote node.
 
-var tests = []func(t ilbCli.T){
-	ilbCli.TestRequestedVIP,
-	ilbCli.TestSharedVIP,
-	ilbCli.TestBGPHealthCheck,
-	ilbCli.TestHTTPAndT2HealthChecks,
-	ilbCli.TestHTTP2,
-	ilbCli.TestHTTPPath,
-	ilbCli.TestHTTPRoutes,
-	ilbCli.TestHTTPClientIP,
-	ilbCli.TestHTTPBasicAuth,
-	ilbCli.TestHTTPJWTAuth,
-	ilbCli.TestHTTPConnectionFiltering,
-	ilbCli.TestHTTPProxyProtocol,
-	ilbCli.TestHTTPRouteRatelimiting,
-	ilbCli.TestHTTPApplicationRatelimiting,
-	ilbCli.TestHTTPRequestFiltering,
-	ilbCli.TestHTTPPersistentBackendWithCookie,
-	ilbCli.TestHTTPPersistentBackendWithSourceIP,
-	ilbCli.TestHTTPS,
-	ilbCli.TestHTTPSRoutes,
-	ilbCli.TestHTTPS_H2,
-	ilbCli.TestHTTPSBasicAuth,
-	ilbCli.TestHTTPSJWTAuth,
-	ilbCli.TestHTTPSConnectionFiltering,
-	ilbCli.TestHTTPSRouteRatelimiting,
-	ilbCli.TestHTTPSApplicationRatelimiting,
-	ilbCli.TestHTTPSRequestFiltering,
-	ilbCli.TestDNSBackend,
-	ilbCli.TestHeadlessService,
-	ilbCli.TestTCPProxyT1OnlyConnectionFiltering,
-	ilbCli.TestTCPProxyT1T2ConnectionFiltering,
-	ilbCli.TestTCPProxyAutoConnectionFiltering,
-	ilbCli.TestTCPProxyPersistentBackend,
-	ilbCli.TestTCPProxyPersistentBackend_Fail_T1Only,
-	ilbCli.TestTCPProxyRatelimiting,
-	ilbCli.TestTCPProxyRatelimiting_Fail_T1Only,
-	ilbCli.TestTCPProxy,
-	ilbCli.TestTLSPassthrough,
-	ilbCli.TestTLSPassthroughConnectionFiltering,
-	ilbCli.TestTLSPassthroughRatelimiting,
-	ilbCli.TestTLSProxyTCPBackend,
-	ilbCli.TestTLSProxyTLSBackend,
-	ilbCli.TestTLSProxyConnectionFiltering,
-	ilbCli.TestTLSProxyRatelimiting,
-	ilbCli.TestUDPProxyT1Only,
-	ilbCli.TestUDPProxyT1T2,
-	ilbCli.TestUDPProxyAuto,
-	ilbCli.TestUDPProxyT1OnlyConnectionFiltering,
-	ilbCli.TestUDPProxyT1T2ConnectionFiltering,
-	ilbCli.TestUDPProxyAutoConnectionFiltering,
-	ilbCli.TestUDPProxyT1OnlySession,
-	ilbCli.TestUDPProxyT1T2Session,
-	ilbCli.TestUDPProxyAutoSession,
-}
-
 func newCmdLoadbalancerTest() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
@@ -110,7 +52,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if ilbCli.FlagMode != "single-node" && ilbCli.FlagMode != "multi-node" {
 				return fmt.Errorf("invalid --mode: %s", ilbCli.FlagMode)
 			}
-			lbTestRun := &lbTestRun{}
+			lbTestRun := ilbCli.NewLBTestRun(c.Context())
 			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
 			dockerCli := ilbCli.NewDockerCli(lbTestRun)
 
@@ -132,7 +74,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := ciliumCli.EnsureLBIPPool(c.Context(), lbIPPool); err != nil {
 				return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
 			}
-			defer lbTestRun.maybeCleanupNow(func() error {
+			lbTestRun.RegisterCleanup(func() error {
 				return ciliumCli.DeleteLBIPPool(c.Context(), ilbCli.LbIPPoolName, metav1.DeleteOptions{})
 			})
 
@@ -140,7 +82,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := ciliumCli.EnsureBGPClusterConfig(c.Context()); err != nil {
 				return fmt.Errorf("failed to install BGP peering: %w", err)
 			}
-			defer lbTestRun.maybeCleanupNow(func() error {
+			lbTestRun.RegisterCleanup(func() error {
 				return ciliumCli.DeleteBGPClusterConfig(c.Context())
 			})
 
@@ -148,6 +90,8 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := lbTestRun.ExecuteTestFuncs(c.Context()); err != nil {
 				return err
 			}
+
+			lbTestRun.RunCleanup()
 
 			return nil
 		},
@@ -179,48 +123,4 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.AddCommand(newCmdLoadbalancerTestList())
 
 	return cmd
-}
-
-type lbTestRun struct{}
-
-func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
-	runRegexp, err := regexp.Compile(ilbCli.FlagRun)
-	if err != nil {
-		return fmt.Errorf("failed to parse run regexp (%s): %w", ilbCli.FlagRun, err)
-	}
-
-	testsToExecute := []*ilbCli.LbTestFunc{}
-
-	for _, test := range tests {
-		tf := ilbCli.NewLBTestFunc(ctx, test)
-		testFuncName := tf.Name()
-		if runRegexp.Match([]byte(testFuncName)) {
-			testsToExecute = append(testsToExecute, tf)
-		}
-	}
-
-	for i, test := range testsToExecute {
-		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
-		test.Run()
-		if !ilbCli.FlagQuiet {
-			// newline to highlight start of new test function
-			fmt.Println()
-		}
-	}
-
-	return nil
-}
-
-func (r *lbTestRun) Failedf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "\nILB testrun failed with error: %s\n", fmt.Sprintf(msg, args...))
-	os.Exit(1)
-}
-
-// maybeCleanupNow immediately tries to execute the given function function if cleanup functionality is enabled.
-func (r *lbTestRun) maybeCleanupNow(f func() error) {
-	if ilbCli.FlagCleanup {
-		if err := f(); err != nil {
-			fmt.Printf("cleanup failed: %s\n", err)
-		}
-	}
 }

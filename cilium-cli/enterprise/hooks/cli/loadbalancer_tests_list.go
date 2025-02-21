@@ -15,8 +15,8 @@ func newCmdLoadbalancerTestList() *cobra.Command {
 		Short: "List available Loadbalancer tests",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
-			for _, test := range tests {
-				tf := ilbCli.NewLBTestFunc(c.Context(), test)
+			for _, test := range ilbCli.Tests {
+				tf := ilbCli.NewLBTestFunc(nil, c.Context(), test)
 				c.Println(tf.Name())
 			}
 			return nil

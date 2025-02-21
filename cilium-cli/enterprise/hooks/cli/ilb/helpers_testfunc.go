@@ -22,7 +22,7 @@ import (
 )
 
 type FailureReporter interface {
-	Failedf(msg string, args ...interface{})
+	Failedf(msg string, args ...any)
 }
 
 type T interface {
@@ -34,21 +34,23 @@ type T interface {
 }
 
 type LbTestFunc struct {
+	run       *lbTestRun
 	ctx       context.Context
 	name      string
 	testFunc  func(t T)
 	failed    bool
-	cleanupCb []func()
+	cleanupCb []func() error
 	// stored log messages to replay for failed tests in quiet mode
 	storedLogMsgs []string
 }
 
-func NewLBTestFunc(ctx context.Context, testFunc func(t T)) *LbTestFunc {
+func NewLBTestFunc(run *lbTestRun, ctx context.Context, testFunc func(t T)) *LbTestFunc {
 	return &LbTestFunc{
+		run:       run,
 		ctx:       ctx,
 		name:      testName(testFunc),
 		testFunc:  testFunc,
-		cleanupCb: []func(){},
+		cleanupCb: []func() error{},
 	}
 }
 
@@ -91,7 +93,7 @@ func (r *LbTestFunc) sysdump() error {
 	return nil
 }
 
-func (r *LbTestFunc) Failedf(msg string, args ...interface{}) {
+func (r *LbTestFunc) Failedf(msg string, args ...any) {
 	r.failed = true
 
 	if FlagQuiet {
@@ -101,30 +103,30 @@ func (r *LbTestFunc) Failedf(msg string, args ...interface{}) {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "\nILB test func failed with error: %s\n", fmt.Sprintf(msg, args...))
+	fmt.Fprintf(os.Stderr, "\nILB test func %q failed with error: %s\n", r.Name(), fmt.Sprintf(msg, args...))
 	r.runCleanups()
-	os.Exit(1)
+	r.run.Failed()
 }
 
 // RegisterCleanup registers a function to be called when the test function completes.
 // Cleanup functions will be executed if cleanup functionality is enabled and
 // will called in last added, first called order.
 func (r *LbTestFunc) RegisterCleanup(f func() error) {
-	if FlagCleanup {
-		r.cleanupCb = append(r.cleanupCb, func() {
-			if err := f(); err != nil {
-				fmt.Printf("cleanup failed %s\n", err)
-			}
-		})
-	}
+	r.cleanupCb = append(r.cleanupCb, f)
 }
 
 func (r *LbTestFunc) runCleanups() {
-	for _, f := range slices.Backward(r.cleanupCb) {
-		f()
+	if !FlagCleanup {
+		return
 	}
 
-	r.cleanupCb = []func(){}
+	for _, f := range slices.Backward(r.cleanupCb) {
+		if err := f(); err != nil {
+			fmt.Printf("cleanup failed %s\n", err)
+		}
+	}
+
+	r.cleanupCb = []func() error{}
 }
 
 func testName(f func(t T)) string {
