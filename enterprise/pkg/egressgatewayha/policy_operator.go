@@ -428,16 +428,21 @@ func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, 
 			}...)
 		}
 
-		// check if this group has at least one active gateway, either in activeGatewayIPs or
-		// activeGatewayIPsByAZ (to account for AZ affinity case), otherwise there is nothing to allocate.
-		if !activeGatewaysInGroup(groupStatuses[i]) {
-			continue
-		}
-
 		// For all still-active gateways we strive to keep the same allocated Egress IP as before.
 		var prevEgressIPs map[netip.Addr]netip.Addr
 		if haveSeenLatestIEGP && i < len(config.groupStatuses) {
 			prevEgressIPs = config.groupStatuses[i].egressIPByGatewayIP
+		}
+
+		// Proceed only if this group meets at least one of the following conditions:
+		// 1. It has at least one healthy but inactive gateway with a previously allocated egress IP.
+		//    This ensures that existing active connections are not disrupted by prematurely releasing
+		//    the egress IP, allowing the inactive gateway to resume handling traffic.
+		// 2. It has at least one active gateway, either in activeGatewayIPs or activeGatewayIPsByAZ
+		//    (to account for AZ affinity).
+		// Otherwise, skip this group as there is nothing to allocate.
+		if !hasHealthyGatewaysWithAllocatedEgressIP(groupStatuses[i], prevEgressIPs) && !activeGatewaysInGroup(groupStatuses[i]) {
+			continue
 		}
 
 		activeGWs := make(map[string][]netip.Addr)
@@ -450,7 +455,7 @@ func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, 
 			activeGWs[affinityZoneNoZone] = groupStatuses[i].activeGatewayIPs
 		}
 
-		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(egressPool, activeGWs, prevEgressIPs)
+		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(egressPool, activeGWs, prevEgressIPs, groupStatuses[i].healthyGatewayIPs)
 		if err != nil {
 			operatorManager.health.Degraded(fmt.Sprintf("unable to fulfill allocations for policy %s", config.id), err)
 			return groupStatuses, conditionsForFailure(config.generation, []meta_v1.Condition{
@@ -511,8 +516,52 @@ func activeGatewaysInGroup(group groupStatus) bool {
 	return false
 }
 
-func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string][]netip.Addr, prevEgressIPs map[netip.Addr]netip.Addr) (map[netip.Addr]netip.Addr, error) {
-	// First, initialize the allocations map creating an entry for each affinity zone.
+func hasHealthyGatewaysWithAllocatedEgressIP(group groupStatus, prevEgressIPs map[netip.Addr]netip.Addr) bool {
+	for _, healthyGW := range group.healthyGatewayIPs {
+		if _, found := prevEgressIPs[healthyGW]; found {
+			return true
+		}
+	}
+	return false
+}
+
+func getInactiveHealthyGateways(activeGatewayIPsByAZ map[string][]netip.Addr, healthyGatewayIPs []netip.Addr) []netip.Addr {
+	activeGatewayIPsSet := make(map[netip.Addr]struct{})
+	for _, gws := range activeGatewayIPsByAZ {
+		for _, gw := range gws {
+			activeGatewayIPsSet[gw] = struct{}{}
+		}
+	}
+
+	var inActiveHealthyGateways []netip.Addr
+	for _, healthyGateway := range healthyGatewayIPs {
+		if _, found := activeGatewayIPsSet[healthyGateway]; !found {
+			inActiveHealthyGateways = append(inActiveHealthyGateways, healthyGateway)
+		}
+	}
+
+	return inActiveHealthyGateways
+}
+
+func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string][]netip.Addr, prevEgressIPs map[netip.Addr]netip.Addr, healthyGatewayIPs []netip.Addr) (map[netip.Addr]netip.Addr, error) {
+	// First, retain the egress IPs of gateways that are healthy but not currently active.
+	// Releasing these IPs could disrupt existing connections that still depend on them.
+	egressIPsOfInactiveGateways := make(map[netip.Addr]netip.Addr)
+	for _, inActiveHealthyGateway := range getInactiveHealthyGateways(activeGatewayIPsByAZ, healthyGatewayIPs) {
+		if egressIP, found := prevEgressIPs[inActiveHealthyGateway]; found {
+			err := egressPool.allocate(egressIP)
+			if err == nil {
+				egressIPsOfInactiveGateways[inActiveHealthyGateway] = egressIP
+				continue
+			}
+			log.WithFields(logrus.Fields{
+				logfields.EgressIP:  egressIP,
+				logfields.GatewayIP: inActiveHealthyGateway,
+			}).WithError(err).Debug("Unable to reserve previously allocated egress IP for in-active gateway")
+		}
+	}
+
+	// Second, initialize the allocations map creating an entry for each affinity zone.
 	egressIPsByAZ := make(map[string]map[netip.Addr]netip.Addr)
 	for az := range activeGatewayIPsByAZ {
 		egressIPsByAZ[az] = make(map[netip.Addr]netip.Addr)
@@ -557,15 +606,13 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 			gw := newActiveGatewayIPsByAZ[zone][0]
 			egressIP, err := egressPool.allocateNext()
 			if err != nil {
-				// no more available addresses. In case of
-				// previously allocated addresses that could be an
-				// imbalance that could leave one or more zones
-				// uncovered (i.e: without any IP).
-				// Try to balance the allocations to guarantee that
-				// all zones will have at least one allocated address,
-				// if possible.
-				egressIPsByAZ = ensureZonesCoverage(activeGatewayIPsByAZ, egressIPsByAZ)
-				return foldAllocations(egressIPsByAZ), err
+				// No more available addresses to allocate. If there were previously allocated addresses,
+				// including IPs assigned to inactive but healthy gateways, an imbalance might occur,
+				// potentially leaving one or more zones without an allocated IP.
+				// Attempt to rebalance the allocations to ensure that each zone has at least one allocated
+				// address, if possible. Prioritize allocating IPs from inactive gateways first.
+				egressIPsByAZ, egressIPsOfInactiveGateways = ensureZonesCoverage(activeGatewayIPsByAZ, egressIPsByAZ, egressIPsOfInactiveGateways)
+				return mergeEgressIPs(foldAllocations(egressIPsByAZ), egressIPsOfInactiveGateways), err
 			}
 			egressIPsByAZ[zone][gw] = egressIP
 
@@ -579,7 +626,7 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 		}
 	}
 
-	return foldAllocations(egressIPsByAZ), nil
+	return mergeEgressIPs(foldAllocations(egressIPsByAZ), egressIPsOfInactiveGateways), nil
 }
 
 func allocationRequests(activeGatewayIPsByAZ map[string][]netip.Addr) int {
@@ -642,7 +689,8 @@ func allocsHistogram(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) []alloc
 func ensureZonesCoverage(
 	activeGatewayIPsByAZ map[string][]netip.Addr,
 	egressIPsByAZ map[string]map[netip.Addr]netip.Addr,
-) map[string]map[netip.Addr]netip.Addr {
+	egressIPsOfInActiveGateways map[netip.Addr]netip.Addr,
+) (map[string]map[netip.Addr]netip.Addr, map[netip.Addr]netip.Addr) {
 	hist := allocsHistogram(egressIPsByAZ)
 
 	// If total # of available egress IPs is less than the # of zones,
@@ -653,28 +701,27 @@ func ensureZonesCoverage(
 	for _, allocs := range egressIPsByAZ {
 		total += len(allocs)
 	}
+	total += len(egressIPsOfInActiveGateways)
 	if total < len(egressIPsByAZ) {
-		return egressIPsByAZ
+		return egressIPsByAZ, egressIPsOfInActiveGateways
 	}
 
 	// loop until there is at least one zone without any IP
 	for hist[0].nAllocs == 0 {
 		// the zone that needs an allocation
 		dstZone := hist[0].zones[0]
-		// the zone that will give up an allocation
-		srcZone := hist[len(hist)-1].zones[0]
 
-		// fetch the list of gateways in the src zone
-		srcGWs := slices.Collect(maps.Keys(egressIPsByAZ[srcZone]))
-		slices.SortFunc(srcGWs, func(a, b netip.Addr) int {
-			return a.Compare(b)
-		})
+		var egressIP netip.Addr
+		if len(egressIPsOfInActiveGateways) > 0 {
+			egressIP, egressIPsOfInActiveGateways = releaseEgressIP(egressIPsOfInActiveGateways)
+		} else {
+			// the zone that will give up an allocation
+			srcZone := hist[len(hist)-1].zones[0]
 
-		// release the egress IP allocation for the last
-		// listed gateway in the src zone
-		srcGW := srcGWs[len(srcGWs)-1]
-		egressIP := egressIPsByAZ[srcZone][srcGW]
-		delete(egressIPsByAZ[srcZone], srcGW)
+			var egressIPs map[netip.Addr]netip.Addr
+			egressIP, egressIPs = releaseEgressIP(egressIPsByAZ[srcZone])
+			egressIPsByAZ[srcZone] = egressIPs
+		}
 
 		// fetch the list of gateways in the dst zone
 		dstGWs := activeGatewayIPsByAZ[dstZone]
@@ -691,7 +738,23 @@ func ensureZonesCoverage(
 		hist = allocsHistogram(egressIPsByAZ)
 	}
 
-	return egressIPsByAZ
+	return egressIPsByAZ, egressIPsOfInActiveGateways
+}
+
+func releaseEgressIP(egressIPs map[netip.Addr]netip.Addr) (netip.Addr, map[netip.Addr]netip.Addr) {
+	// fetch the list of gateways
+	srcGWs := slices.Collect(maps.Keys(egressIPs))
+	slices.SortFunc(srcGWs, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
+
+	// release the egress IP allocation for the last
+	// listed gateway in the src gateway list
+	srcGW := srcGWs[len(srcGWs)-1]
+	egressIP := egressIPs[srcGW]
+	delete(egressIPs, srcGW)
+
+	return egressIP, egressIPs
 }
 
 func foldAllocations(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) map[netip.Addr]netip.Addr {
@@ -699,6 +762,13 @@ func foldAllocations(egressIPsByAZ map[string]map[netip.Addr]netip.Addr) map[net
 	for _, zoneAllocs := range egressIPsByAZ {
 		maps.Copy(egressIPs, zoneAllocs)
 	}
+	return egressIPs
+}
+
+func mergeEgressIPs(allocatedEgressIPs, egressIPsOfInactiveGateways map[netip.Addr]netip.Addr) map[netip.Addr]netip.Addr {
+	egressIPs := make(map[netip.Addr]netip.Addr, len(allocatedEgressIPs)+len(egressIPsOfInactiveGateways))
+	maps.Copy(egressIPs, allocatedEgressIPs)
+	maps.Copy(egressIPs, egressIPsOfInactiveGateways)
 	return egressIPs
 }
 
