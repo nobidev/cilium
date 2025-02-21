@@ -123,11 +123,11 @@ func TestHTTPClientIP(t T) {
 
 nextTest:
 	for _, tC := range testCases {
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		for _, runIf := range tC.runIfs {
 			if !runIf() {
-				fmt.Println("skipping test because of runIfs condition")
+				t.Log("skipping test because of runIfs condition")
 				continue nextTest
 			}
 		}
@@ -141,17 +141,17 @@ nextTest:
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating backend apps...")
+		t.Log("Creating backend apps...")
 		scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		fmt.Println("Creating clients and add BGP peering ...")
+		t.Log("Creating clients and add BGP peering ...")
 		clients := scenario.addFRRClients(1, frrClientConfig{})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 		var backends []backendPoolOption
 		for _, b := range scenario.backendApps {
 			backends = append(backends, withIPBackend(b.ip, b.port))
@@ -159,19 +159,19 @@ nextTest:
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 		opts := []httpApplicationOption{}
 		opts = append(opts, withHttpRoute(testName))
 		opts = append(opts, tC.appOpt(clients))
 		service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
 		scenario.createLBService(service)
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
 				stdout, stderr, err := clients[0].Exec(t.Context(), testCmd)
 				if tt.blocked {
@@ -183,7 +183,7 @@ nextTest:
 						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
 					resp := toTestAppResponse(t, stdout)
-					fmt.Printf("Response: %+v\n", resp)
+					t.Log("Response: %v", resp)
 					if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
 						return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
 					}

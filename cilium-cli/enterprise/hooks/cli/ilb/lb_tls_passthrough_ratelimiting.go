@@ -27,50 +27,50 @@ func TestTLSPassthroughRatelimiting(t T) {
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating cert and secret...")
+	t.Log("Creating cert and secret...")
 	scenario.createBackendServerCertificate(hostName1)
 	scenario.createBackendServerCertificate(hostName2)
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 	backend1 := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: hostName1, listenPort: 8080})[0]
 	backend2 := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: hostName2, listenPort: 8081})[0]
 
-	fmt.Println("Creating clients and add BGP peering ...")
+	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withIPBackend(backend1.ip, 8080), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool1)
 
 	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withIPBackend(backend2.ip, 8081), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool2)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
 		withTLSPassthroughRoute(testName+"-1", withTLSPassthroughHostname(hostName1), withTLSPassthroughConnectionRateLimiting(5, 60)),
 		withTLSPassthroughRoute(testName+"-2"),
 	))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTPs request
 	testCmd1 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
 	testCmd2 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
-		fmt.Printf("Testing %q...\n", testCmd)
+		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 
-	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd1)
+	t.Log("Testing %q and expecting connection rate limit eventually ...", testCmd1)
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd1)
 		if err != nil {
@@ -85,7 +85,7 @@ func TestTLSPassthroughRatelimiting(t T) {
 		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q): %w", testCmd1, stdout, stderr, err)
 	}, longTimeout, pollInterval)
 
-	fmt.Printf("Testing %q and not expecting connection rate limit ...\n", testCmd2)
+	t.Log("Testing %q and not expecting connection rate limit ...", testCmd2)
 	successCount := 0
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd2)

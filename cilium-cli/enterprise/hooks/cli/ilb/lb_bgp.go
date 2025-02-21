@@ -24,29 +24,29 @@ func TestBGPHealthCheck(t T) {
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating backend app...")
+	t.Log("Creating backend app...")
 	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
 
-	fmt.Println("Creating client and add BGP peering ...")
+	t.Log("Creating client and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 	backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port))
 	scenario.createLBBackendPool(backendPool)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. HC Down
-	fmt.Println("Setting T2 HC to fail...")
+	t.Log("Setting T2 HC to fail...")
 	backend.SetHC(t, hcFail)
 
 	// 2. VIP shouldn't be advertised
@@ -57,10 +57,10 @@ func TestBGPHealthCheck(t T) {
 		return nil
 	}, shortTimeout, pollInterval)
 
-	fmt.Println("VIP successfully removed")
+	t.Log("VIP successfully removed")
 
 	// 3. HC Up
-	fmt.Println("Setting T2 HC to ok...")
+	t.Log("Setting T2 HC to ok...")
 	backend.SetHC(t, hcOK)
 
 	// 4. VIP should be advertised
@@ -71,5 +71,5 @@ func TestBGPHealthCheck(t T) {
 		return nil
 	}, shortTimeout, pollInterval)
 
-	fmt.Println("VIP successfully re-advertised")
+	t.Log("VIP successfully re-advertised")
 }

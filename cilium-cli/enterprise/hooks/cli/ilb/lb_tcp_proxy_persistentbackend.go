@@ -32,20 +32,20 @@ func TestTCPProxyPersistentBackend(t T) {
 
 	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating backend app...")
+	t.Log("Creating backend app...")
 
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
-	fmt.Println("Creating client and add BGP peering...")
+	t.Log("Creating client and add BGP peering...")
 
 	clients := scenario.addFRRClients(2, frrClientConfig{})
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
@@ -59,24 +59,24 @@ func TestTCPProxyPersistentBackend(t T) {
 	}
 	scenario.createLBBackendPool(backendPool)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Test persistent backend selection with source IP
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		t.Log("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, clients[0], testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
-		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
+		t.Log("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, clients[1], testCmd)
 	}
 }

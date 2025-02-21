@@ -23,7 +23,7 @@ func TestDNSBackend(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 
 	tests := []struct {
 		name           string
@@ -84,14 +84,14 @@ func TestDNSBackend(t T) {
 	}
 
 	for _, tt := range tests {
-		fmt.Printf("Checking %s\n", tt.name)
+		t.Log("Checking %s", tt.name)
 
 		testName := testNameBase + tt.suffix
 		backendHostName := fmt.Sprintf("backend.%s.local", testName)
 
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating backend apps...")
+		t.Log("Creating backend apps...")
 
 		// FIXME: In the single node mode, we cannot bind two or more backends
 		// to the same name because the port number of the backends are
@@ -118,7 +118,7 @@ func TestDNSBackend(t T) {
 			})
 		}
 
-		fmt.Println("Registering backend apps in CoreDNS...")
+		t.Log("Registering backend apps in CoreDNS...")
 		coredns := scenario.addCoreDNS()
 
 		records := []*coreDNSRecord{}
@@ -132,14 +132,14 @@ func TestDNSBackend(t T) {
 			t.Failedf("failed to add DNS records: %v", err)
 		}
 
-		fmt.Println("Creating clients and add BGP peering ...")
+		t.Log("Creating clients and add BGP peering ...")
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 		var backendPool *isovalentv1alpha1.LBBackendPool
 		if tt.backendTLS {
 			backendPool = lbBackendPool(testK8sNamespace, testName,
@@ -155,7 +155,7 @@ func TestDNSBackend(t T) {
 		}
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 		if tt.serviceTLS {
 			// Server certificate
 			scenario.createLBServerCertificate(testName, "secure.acme.io")
@@ -165,7 +165,7 @@ func TestDNSBackend(t T) {
 		scenario.createLBService(service)
 		svcPort := service.Spec.Port
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
 
 		var testCmd string

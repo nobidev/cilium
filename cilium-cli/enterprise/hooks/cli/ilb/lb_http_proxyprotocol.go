@@ -130,7 +130,7 @@ func TestHTTPProxyProtocol(t T) {
 		},
 	}
 	for _, tC := range testCases {
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		testName := fmt.Sprintf("http-proxyprotocol-%s", tC.desc)
 		testK8sNamespace := "default"
@@ -141,17 +141,17 @@ func TestHTTPProxyProtocol(t T) {
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating backend apps...")
+		t.Log("Creating backend apps...")
 		scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		fmt.Println("Creating clients and add BGP peering ...")
+		t.Log("Creating clients and add BGP peering ...")
 		clients := scenario.addFRRClients(1, frrClientConfig{})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
 		for _, b := range scenario.backendApps {
 			backends = append(backends, withIPBackend(b.ip, b.port), tC.backendOpt)
@@ -159,7 +159,7 @@ func TestHTTPProxyProtocol(t T) {
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 		opts := []httpApplicationOption{}
 		opts = append(opts, withHttpRoute(testName))
 		opts = append(opts, tC.appOpt(clients))
@@ -167,17 +167,17 @@ func TestHTTPProxyProtocol(t T) {
 		scenario.createLBService(service)
 
 		if tC.notAccepted {
-			fmt.Println("Waiting for proxy protocol version validation error...")
+			t.Log("Waiting for proxy protocol version validation error...")
 			waitForProxyProtocolVersionValidationError(t, *ciliumCli, testK8sNamespace, testName)
 			return
 		}
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
 				stdout, stderr, err := clients[0].Exec(t.Context(), testCmd)
 				if tt.blocked {

@@ -66,7 +66,7 @@ func TestTLSProxyConnectionFiltering(t T) {
 			continue
 		}
 
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		testName := fmt.Sprintf("tls-proxy-connectionfiltering-%s", tC.desc)
 		testK8sNamespace := "default"
@@ -77,29 +77,29 @@ func TestTLSProxyConnectionFiltering(t T) {
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating cert and secret...")
+		t.Log("Creating cert and secret...")
 
 		scenario.createLBServerCertificate(testName, "secure.acme.io")
 
-		fmt.Println("Creating backend app...")
+		t.Log("Creating backend app...")
 
 		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		fmt.Println("Creating client and add BGP peering...")
+		t.Log("Creating client and add BGP peering...")
 
 		clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io"}})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 
 		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 
 		opts := []tlsRouteOption{}
 		opts = append(opts, withHostname("secure.acme.io"))
@@ -107,12 +107,12 @@ func TestTLSProxyConnectionFiltering(t T) {
 		service := lbService(testK8sNamespace, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, opts...)))
 		scenario.createLBService(service)
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve %s:10080:%s https://%s:10080/", tt.hostName, tt.hostName, vipIP, tt.hostName))
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
 				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if !tt.blocked && err != nil {

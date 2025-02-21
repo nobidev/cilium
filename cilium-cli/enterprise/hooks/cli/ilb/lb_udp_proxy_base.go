@@ -40,7 +40,7 @@ func testUDPProxy(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDepl
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 
 	backendNum := 2
 	// UDPProxy does not support backends with different ports, so create just 1 backend.
@@ -49,14 +49,14 @@ func testUDPProxy(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDepl
 	}
 	scenario.addBackendApplications(backendNum, backendApplicationConfig{h2cEnabled: true})
 
-	fmt.Println("Creating clients and add BGP peering ...")
+	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
@@ -64,11 +64,11 @@ func testUDPProxy(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDepl
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name)))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
@@ -76,14 +76,14 @@ func testUDPProxy(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDepl
 	eventually(t, func() error {
 		cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
 
-		fmt.Printf("Sending UDP request: cmd=%q\n", cmd)
+		t.Log("Sending UDP request: cmd=%q", cmd)
 
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
 			return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
 		}
 
-		resp := toTestAppUDPResponse(stdout)
+		resp := toTestAppUDPResponse(t, stdout)
 		if resp.Response == "deadbeef" {
 			return nil
 		}

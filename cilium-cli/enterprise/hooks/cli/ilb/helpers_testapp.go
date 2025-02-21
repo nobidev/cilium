@@ -12,7 +12,6 @@ package ilb
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -45,11 +44,11 @@ type testAppUDPResponseData struct {
 }
 
 // <service-name>:<instance-name>:<echo>
-func toTestAppUDPResponse(response string) testAppUDPResponseData {
+func toTestAppUDPResponse(t T, response string) testAppUDPResponseData {
 	s := strings.SplitN(response, ":", 3)
 
 	if len(s) != 3 {
-		fmt.Printf("failed to parse udp response: %q - retrying...\n", response)
+		t.Log("failed to parse udp response: %q - retrying...", response)
 		return testAppUDPResponseData{}
 	}
 

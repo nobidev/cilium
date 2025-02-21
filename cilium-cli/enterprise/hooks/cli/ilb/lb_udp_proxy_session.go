@@ -44,18 +44,18 @@ func testUDPProxySession(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyFo
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
-	fmt.Println("Creating clients and add BGP peering ...")
+	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
@@ -63,17 +63,17 @@ func testUDPProxySession(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyFo
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name)))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
 	// Do a few attempts, as neither UDP nor nc are reliable.
 	testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 -p 55555 %s 80", vipIP)
-	fmt.Printf("Testing UDP session with 10 requests from same source port: %q...\n", testCmd)
+	t.Log("Testing UDP session with 10 requests from same source port: %q...", testCmd)
 	testUDPSessionWithNRequests(t, client, testCmd, 10)
 }
 
@@ -92,7 +92,7 @@ func testUDPSessionWithNRequests(t T, client *frrContainer, testCmd string, tota
 			return fmt.Errorf("empty response %w", err)
 		}
 
-		resp := toTestAppUDPResponse(stdout)
+		resp := toTestAppUDPResponse(t, stdout)
 
 		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
 		previousServiceName = resp.ServiceName

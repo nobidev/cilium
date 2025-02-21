@@ -85,42 +85,42 @@ func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 			continue
 		}
 
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating backend app...")
+		t.Log("Creating backend app...")
 
 		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		fmt.Println("Creating client and add BGP peering...")
+		t.Log("Creating client and add BGP peering...")
 
 		clients := scenario.addFRRClients(2, frrClientConfig{})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 
 		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 
 		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 		scenario.createLBService(service)
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
 				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if !tt.blocked && err != nil {

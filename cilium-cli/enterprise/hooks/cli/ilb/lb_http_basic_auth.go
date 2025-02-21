@@ -35,14 +35,14 @@ func testBasicAuth(t T, proto string) {
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
-		fmt.Println("Creating cert and secret...")
+		t.Log("Creating cert and secret...")
 		scenario.createLBServerCertificate(testName, hostName)
 	}
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
 
-	fmt.Println("Creating clients and add BGP peering ...")
+	t.Log("Creating clients and add BGP peering ...")
 
 	var client *frrContainer
 	if proto == "http" {
@@ -51,14 +51,14 @@ func testBasicAuth(t T, proto string) {
 		client = scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 	}
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 	scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
 
-	fmt.Println("Creating basic auth secret...")
+	t.Log("Creating basic auth secret...")
 	creds := []basicAuthCredential{
 		{
 			username: "user0",
@@ -71,7 +71,7 @@ func testBasicAuth(t T, proto string) {
 	}
 	secretName := scenario.createBasicAuthSecret(creds)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 
 	var service *isovalentv1alpha1.LBService
 	if proto == "http" {
@@ -107,7 +107,7 @@ func testBasicAuth(t T, proto string) {
 	}
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	var curlOpt string
@@ -117,7 +117,7 @@ func testBasicAuth(t T, proto string) {
 		curlOpt = fmt.Sprintf("--cacert /tmp/%s.crt --resolve %s:443:%s", hostName, hostName, vipIP)
 	}
 
-	fmt.Println("Checking valid credentials")
+	t.Log("Checking valid credentials")
 	for _, cred := range creds {
 		cmd := curlCmd(fmt.Sprintf("--max-time 10 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
@@ -126,7 +126,7 @@ func testBasicAuth(t T, proto string) {
 		}
 	}
 
-	fmt.Println("Checking without credentials")
+	t.Log("Checking without credentials")
 	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
 	if err == nil {
 		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
@@ -135,7 +135,7 @@ func testBasicAuth(t T, proto string) {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
-	fmt.Println("Checking invalid credentials")
+	t.Log("Checking invalid credentials")
 	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
 	if err == nil {
 		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
@@ -144,7 +144,7 @@ func testBasicAuth(t T, proto string) {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
-	fmt.Println("Checking per-route exception")
+	t.Log("Checking per-route exception")
 	// Ensure the per-route exception is working
 	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s %s://%s/no-auth", curlOpt, proto, hostName)))
 	if err != nil {

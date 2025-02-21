@@ -66,7 +66,7 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 			continue
 		}
 
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		testName := fmt.Sprintf("tls-passthrough-connectionfiltering-%s", tC.desc)
 		testK8sNamespace := "default"
@@ -77,35 +77,35 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating cert and secret...")
+		t.Log("Creating cert and secret...")
 		scenario.createBackendServerCertificate("secure.acme.io")
 
-		fmt.Println("Creating backend apps...")
+		t.Log("Creating backend apps...")
 		backend := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: "secure.acme.io", listenPort: 8080})[0]
 
-		fmt.Println("Creating clients and add BGP peering ...")
+		t.Log("Creating clients and add BGP peering ...")
 		clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io"}})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 		backendPool1 := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, 8080), withHealthCheckTLS())
 		scenario.createLBBackendPool(backendPool1)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 		service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
 			withTLSPassthroughRoute(testName, tC.appOpt(clients)),
 		))
 		scenario.createLBService(service)
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", tt.hostName+".crt", tt.hostName, vipIP, tt.hostName))
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
 				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if !tt.blocked && err != nil {

@@ -29,36 +29,36 @@ func TestTCPProxyRatelimiting(t T) {
 
 	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
-	fmt.Println("Creating backend app...")
+	t.Log("Creating backend app...")
 
 	backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-	fmt.Println("Creating client and add BGP peering...")
+	t.Log("Creating client and add BGP peering...")
 
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-	fmt.Println("Creating LB VIP resources...")
+	t.Log("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
 	scenario.createLBVIP(vip)
 
-	fmt.Println("Creating LB BackendPool resources...")
+	t.Log("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(backendPool)
 
-	fmt.Println("Creating LB Service resources...")
+	t.Log("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(service)
 
-	fmt.Println("Waiting for full VIP connectivity...")
+	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve tcp.acme.io:10080:%s http://tcp.acme.io:10080/", vipIP))
 
-	fmt.Printf("Testing %q...\n", testCmd)
+	t.Log("Testing %q...", testCmd)
 
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
@@ -69,7 +69,7 @@ func TestTCPProxyRatelimiting(t T) {
 		return err
 	}, 10*time.Second, 100*time.Millisecond)
 
-	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd)
+	t.Log("Testing %q and expecting connection rate limit eventually ...", testCmd)
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {

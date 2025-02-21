@@ -73,7 +73,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		},
 	}
 	for _, tC := range testCases {
-		fmt.Printf("Checking %s\n", tC.desc)
+		t.Log("Checking %s", tC.desc)
 
 		if skipIfOnSingleNode(">1 FRR clients are not supported") {
 			continue
@@ -84,37 +84,37 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating backend app...")
+		t.Log("Creating backend app...")
 
 		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		fmt.Println("Creating client and add BGP peering...")
+		t.Log("Creating client and add BGP peering...")
 
 		clients := scenario.addFRRClients(2, frrClientConfig{})
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 
 		vip := lbVIP(testK8sNamespace, testName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 
 		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 
 		service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 		scenario.createLBService(service)
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
-			fmt.Printf("Testing %q...\n", testCmd)
+			t.Log("Testing %q...", testCmd)
 			eventually(t, func() error {
-				fmt.Printf("Sending UDP request: cmd=%q\n", testCmd)
+				t.Log("Sending UDP request: cmd=%q", testCmd)
 
 				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if err != nil {
@@ -123,7 +123,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 				}
 
 				if !tt.blocked {
-					resp := toTestAppUDPResponse(stdout)
+					resp := toTestAppUDPResponse(t, stdout)
 					if resp.Response != "deadbeef" {
 						return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q, resp: %q): %w", testCmd, stdout, stderr, resp.Response, err)
 					}

@@ -213,7 +213,7 @@ func TestHeadlessService(t T) {
 	tcpBackendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", tcpName, testK8sNamespace)
 	tlsBackendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", tlsName, testK8sNamespace)
 
-	fmt.Println("Creating backend apps...")
+	t.Log("Creating backend apps...")
 	tcpBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tcpName, backendReplicas, false)
 	tlsBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tlsName, backendReplicas, true)
 
@@ -281,20 +281,20 @@ func TestHeadlessService(t T) {
 	}
 
 	for _, tt := range tests {
-		fmt.Printf("Checking %s\n", tt.name)
+		t.Log("Checking %s", tt.name)
 
 		resourceName := testName + tt.suffix
 
 		scenario := newLBTestScenario(t, resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		fmt.Println("Creating clients and add BGP peering ...")
+		t.Log("Creating clients and add BGP peering ...")
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-		fmt.Println("Creating LB VIP resources...")
+		t.Log("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, resourceName)
 		scenario.createLBVIP(vip)
 
-		fmt.Println("Creating LB BackendPool resources...")
+		t.Log("Creating LB BackendPool resources...")
 		var backendPool *isovalentv1alpha1.LBBackendPool
 		if tt.backendTLS {
 			backendPool = lbBackendPool(testK8sNamespace, resourceName,
@@ -308,7 +308,7 @@ func TestHeadlessService(t T) {
 		}
 		scenario.createLBBackendPool(backendPool)
 
-		fmt.Println("Creating LB Service resources...")
+		t.Log("Creating LB Service resources...")
 		if tt.serviceTLS {
 			// Server certificate
 			scenario.createLBServerCertificate(resourceName, "secure.acme.io")
@@ -318,7 +318,7 @@ func TestHeadlessService(t T) {
 		scenario.createLBService(service)
 		svcPort := service.Spec.Port
 
-		fmt.Println("Waiting for full VIP connectivity...")
+		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
 
 		var testCmd string
@@ -328,7 +328,7 @@ func TestHeadlessService(t T) {
 			testCmd = curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:%d:%s http://%s:%d/", tt.serviceHost, svcPort, vipIP, tt.serviceHost, svcPort))
 		}
 
-		fmt.Printf("Testing %q until observing response from all backends bound to %s\n", testCmd, tt.backendHost)
+		t.Log("Testing %q until observing response from all backends bound to %s", testCmd, tt.backendHost)
 
 		observedBackends := make(map[string]struct{})
 		eventually(t, func() error {

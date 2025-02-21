@@ -251,7 +251,7 @@ jobs:
         if: ${{ env.skip != 'true' }}
         shell: bash
         run: |
-          PARAMS="--sysdump-on-failure=true"
+          PARAMS="--sysdump-on-failure=true --quiet=true"
           if [ "${{ matrix.mode }}" == "single-node" ]; then
             export DOCKER_HOST="tcp://127.0.0.1:22376"
             PARAMS="--mode=single-node"

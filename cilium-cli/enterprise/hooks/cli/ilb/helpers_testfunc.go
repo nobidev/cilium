@@ -30,6 +30,7 @@ type T interface {
 	Name() string
 	RegisterCleanup(f func() error)
 	Context() context.Context
+	Log(msg string, a ...any)
 }
 
 type LbTestFunc struct {
@@ -38,6 +39,8 @@ type LbTestFunc struct {
 	testFunc  func(t T)
 	failed    bool
 	cleanupCb []func()
+	// stored log messages to replay for failed tests in quiet mode
+	storedLogMsgs []string
 }
 
 func NewLBTestFunc(ctx context.Context, testFunc func(t T)) *LbTestFunc {
@@ -63,6 +66,15 @@ func (r *LbTestFunc) Context() context.Context {
 	return r.ctx
 }
 
+func (r *LbTestFunc) Log(msg string, a ...any) {
+	if FlagQuiet {
+		r.storedLogMsgs = append(r.storedLogMsgs, fmt.Sprintf(msg, a...))
+		return
+	}
+
+	fmt.Printf(msg+"\n", a...)
+}
+
 func (r *LbTestFunc) sysdump() error {
 	if !FlagSysdumpOnFailure || !r.failed {
 		return nil
@@ -81,6 +93,13 @@ func (r *LbTestFunc) sysdump() error {
 
 func (r *LbTestFunc) Failedf(msg string, args ...interface{}) {
 	r.failed = true
+
+	if FlagQuiet {
+		// output log messages for failed test
+		for _, m := range r.storedLogMsgs {
+			fmt.Println(m)
+		}
+	}
 
 	fmt.Fprintf(os.Stderr, "\nILB test func failed with error: %s\n", fmt.Sprintf(msg, args...))
 	r.runCleanups()
