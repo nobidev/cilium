@@ -120,6 +120,7 @@ message FQDNMapping {
 
 message ProxyStatus {
   optional IPCacheVersion enum = 1;
+  FQDNSelectorUpdate fqdnSelector = 2;
 }
 
 // IPCacheVersion establishes which version of the key for
@@ -130,6 +131,23 @@ message ProxyStatus {
 enum IPCacheVersion {
   Unspecified = 0;
   One = 1;
+}
+
+enum UpdateType {
+  UPDATETYPE_UNSPECIFIED = 0;
+  UPDATETYPE_UPSERT = 1;
+  UPDATETYPE_REMOVE = 2;
+  UPDATETYPE_BOOKMARK = 3;
+}
+
+message FQDNSelectorUpdate {
+  UpdateType type = 1;
+  FQDNSelector selector = 2;
+}
+
+message FQDNSelector {
+  string MatchName = 1;
+  string MatchPattern = 2;
 }
 
 message Success {
