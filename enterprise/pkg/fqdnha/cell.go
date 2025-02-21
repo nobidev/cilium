@@ -12,6 +12,7 @@ package fqdnha
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
@@ -31,6 +32,16 @@ var Cell = cell.Module(
 	cell.Provide(doubleproxy.NewDoubleProxy),
 	cell.Provide(relay.NewFQDNProxyAgentServer),
 	cell.Provide(remoteproxy.NewRemoteFQDNProxy),
+
+	cell.ProvidePrivate(relay.NewFQDNSelectorTable),
+	cell.Invoke(func(db *statedb.DB, table statedb.RWTable[relay.FQDNSelector]) error {
+		return db.RegisterTable(table)
+	}),
+
+	// This wraps/decorates the NameManager so that we can forward the
+	// registration of FQDN Selectors to the fqdn-proxy.
+	cell.DecorateAll(relay.DecorateNameManager),
+	cell.Provide(relay.NewNameManagerWrapper),
 
 	// Convert concrete objects into more restricted interfaces used by fqdn-ha-proxy.
 	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) relay.IPCacheGetter { return ipcache }),

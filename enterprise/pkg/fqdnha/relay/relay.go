@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net"
 	"net/netip"
 	"os"
@@ -15,11 +16,11 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
-	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
-
 	"github.com/cilium/cilium/daemon/cmd"
+	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -49,6 +50,9 @@ type FQDNProxyAgentServer struct {
 	dataSource      DNSProxyDataSource
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
+
+	db        *statedb.DB
+	selectors statedb.RWTable[FQDNSelector]
 }
 
 type params struct {
@@ -59,6 +63,9 @@ type params struct {
 	IPCacheGetter   IPCacheGetter
 	EndpointManager endpointmanager.EndpointManager
 	Cfg             fqdnhaconfig.Config
+
+	DB    *statedb.DB
+	Table statedb.RWTable[FQDNSelector]
 }
 
 func (s *FQDNProxyAgentServer) ProvideMappings(stream pb.FQDNProxyAgent_ProvideMappingsServer) error {
@@ -153,12 +160,75 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 		nil)
 }
 
-func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(empyt *pb.Empty, stream pb.FQDNProxyAgent_SubscribeProxyStatusesServer) error {
+func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
 	log.Info("Streaming proxy status to the external DNS proxy...")
 	ipVer := pb.IPCacheVersion_One
-	return stream.Send(&pb.ProxyStatus{
+	err := stream.Send(&pb.ProxyStatus{
 		Enum: &ipVer,
 	})
+	if err != nil {
+		log.WithError(err).Infoln("Failed to send ipcache version to proxy.")
+		return fmt.Errorf("failed to send ipcache version: %w", err)
+	}
+
+	wtx := s.db.WriteTxn(s.selectors)
+	selUpdates, err := s.selectors.Changes(wtx)
+	defer wtx.Abort()
+	if err != nil {
+		log.WithError(err).Infoln("BUG: failed to subscribe to the selector table.")
+		return err
+	}
+	rtx := wtx.Commit()
+	// Stream what FQDNSelectors are known so far, then send a bookmark.
+	it, _ := selUpdates.Next(rtx)
+	if err := sendSelectorUpdates(stream, it); err != nil {
+		return err
+	}
+	err = stream.Send(&pb.ProxyStatus{
+		FqdnSelector: &pb.FQDNSelectorUpdate{
+			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send FQDN selector bookmark: %w", err)
+	}
+
+	for {
+		rtx := s.db.ReadTxn()
+		it, selWatch := selUpdates.Next(rtx)
+		if err := sendSelectorUpdates(stream, it); err != nil {
+			return err
+		}
+
+		select {
+		case <-selWatch:
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+}
+
+func sendSelectorUpdates(stream grpc.ServerStreamingServer[pb.ProxyStatus], it iter.Seq2[statedb.Change[FQDNSelector], statedb.Revision]) (err error) {
+	for change := range it {
+		t := pb.UpdateType_UPDATETYPE_UPSERT
+		if change.Deleted {
+			t = pb.UpdateType_UPDATETYPE_REMOVE
+		}
+		err = stream.Send(&pb.ProxyStatus{
+			FqdnSelector: &pb.FQDNSelectorUpdate{
+				Type: t,
+				Selector: &pb.FQDNSelector{
+					MatchName:    change.Object.MatchName,
+					MatchPattern: change.Object.MatchPattern,
+				},
+			},
+		})
+		if err != nil {
+			log.WithError(err).Infoln("Failed to send FQDN selector update to proxy.")
+			return fmt.Errorf("failed to send fqdn selector update: %w", err)
+		}
+	}
+	return
 }
 
 func (s *FQDNProxyAgentServer) GetAllRules(ctx context.Context, empty *pb.Empty) (*pb.RestoredRulesMap, error) {
@@ -222,6 +292,8 @@ func NewFQDNProxyAgentServer(
 		restorerPromise: p.RestorerPromise,
 		ipCacheGetter:   p.IPCacheGetter,
 		endpointManager: p.EndpointManager,
+		db:              p.DB,
+		selectors:       p.Table,
 	}
 	lc.Append(s)
 	return s
