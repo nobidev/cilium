@@ -23,7 +23,7 @@ var (
 	// maybeSysdump is only effective when this option is specified.
 	FlagSysdumpOnFailure bool
 
-	FlagQuiet bool
+	FlagVerbose bool
 
 	// By default, we assume cilium-cli is in the PATH. In the CI, we may want to specify custom path.
 	FlagCiliumCLIPath string

@@ -39,8 +39,8 @@ import (
 //        Number of trusted hops in X-Forwarded-For header (default 0)
 //  --run string
 //        Run only the tests matching the regular expression (only respecting top level test functions)
-//  --quiet bool
-//        Quieten log output (default false)
+//  --verbose bool
+//        Verbose log output (default false)
 //
 // One can run in the --mode=single-node using a remote node for deploying client
 // and LB app containers, and then running test requests from them. To do so,
@@ -113,7 +113,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().BoolVar(&ilbCli.FlagCleanup, "cleanup", true, "Cleanup created resources after each test case run")
 	// maybeSysdump is only effective when this option is specified.
 	cmd.Flags().BoolVar(&ilbCli.FlagSysdumpOnFailure, "sysdump-on-failure", false, "Collect sysdump on test failure")
-	cmd.Flags().BoolVar(&ilbCli.FlagQuiet, "quiet", false, "Quieten logging")
+	cmd.Flags().BoolVar(&ilbCli.FlagVerbose, "verbose", false, "Verbose logging")
 
 	// By default, we assume cilium-cli is in the PATH. In the CI, we may want to specify custom path.
 	cmd.Flags().StringVar(&ilbCli.FlagCiliumCLIPath, "cilium-cli-path", "cilium", "cilium-cli binary path")

@@ -53,8 +53,8 @@ func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
 		default:
 			fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
 			test.Run()
-			if !FlagQuiet {
-				// newline to highlight start of new test function
+			if FlagVerbose {
+				// newline to highlight start of new test function in verbose mode
 				fmt.Println()
 			}
 		}

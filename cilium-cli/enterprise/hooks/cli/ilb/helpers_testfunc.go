@@ -41,7 +41,7 @@ type LbTestFunc struct {
 	testFunc  func(t T)
 	failed    bool
 	cleanupCb []func(ctx context.Context) error
-	// stored log messages to replay for failed tests in quiet mode
+	// stored log messages to replay for failed tests in non-verbose mode
 	storedLogMsgs []string
 }
 
@@ -70,7 +70,7 @@ func (r *LbTestFunc) Context() context.Context {
 }
 
 func (r *LbTestFunc) Log(msg string, a ...any) {
-	if FlagQuiet {
+	if !FlagVerbose {
 		r.storedLogMsgs = append(r.storedLogMsgs, fmt.Sprintf(msg, a...))
 		return
 	}
@@ -97,8 +97,8 @@ func (r *LbTestFunc) sysdump(ctx context.Context) error {
 func (r *LbTestFunc) Failedf(msg string, args ...any) {
 	r.failed = true
 
-	if FlagQuiet {
-		// output log messages for failed test
+	if !FlagVerbose {
+		// output log messages for failed test in non-verbose mode
 		for _, m := range r.storedLogMsgs {
 			fmt.Println(m)
 		}
