@@ -1,4 +1,7 @@
-{{- if and .Values.hubble.enabled ( .Values.hubble.k8sExporter.enabled | default .Values.hubble.timescape.enabled )}}
+{{- if and
+  .Values.hubble.enabled
+  (eq (include "hubble.k8s-exporter.enabled" .) "true")
+}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
