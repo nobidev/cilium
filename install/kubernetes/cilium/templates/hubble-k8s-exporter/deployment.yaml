@@ -41,7 +41,6 @@ spec:
         - name: hubble-k8s-exporter
           securityContext:
             {{- toYaml .Values.hubble.k8sExporter.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           image: {{ include "cilium.image" .Values.hubble.k8sExporter.image | quote }}
           imagePullPolicy: {{ .Values.hubble.k8sExporter.image.pullPolicy }}
           command:
