@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 )
 
 type FailureReporter interface {
@@ -28,7 +29,7 @@ type FailureReporter interface {
 type T interface {
 	FailureReporter
 	Name() string
-	RegisterCleanup(f func() error)
+	RegisterCleanup(f func(ctx context.Context) error)
 	Context() context.Context
 	Log(msg string, a ...any)
 }
@@ -39,7 +40,7 @@ type LbTestFunc struct {
 	name      string
 	testFunc  func(t T)
 	failed    bool
-	cleanupCb []func() error
+	cleanupCb []func(ctx context.Context) error
 	// stored log messages to replay for failed tests in quiet mode
 	storedLogMsgs []string
 }
@@ -50,7 +51,7 @@ func NewLBTestFunc(run *lbTestRun, ctx context.Context, testFunc func(t T)) *LbT
 		ctx:       ctx,
 		name:      testName(testFunc),
 		testFunc:  testFunc,
-		cleanupCb: []func() error{},
+		cleanupCb: []func(ctx context.Context) error{},
 	}
 }
 
@@ -77,7 +78,7 @@ func (r *LbTestFunc) Log(msg string, a ...any) {
 	fmt.Printf(msg+"\n", a...)
 }
 
-func (r *LbTestFunc) sysdump() error {
+func (r *LbTestFunc) sysdump(ctx context.Context) error {
 	if !FlagSysdumpOnFailure || !r.failed {
 		return nil
 	}
@@ -111,7 +112,7 @@ func (r *LbTestFunc) Failedf(msg string, args ...any) {
 // RegisterCleanup registers a function to be called when the test function completes.
 // Cleanup functions will be executed if cleanup functionality is enabled and
 // will called in last added, first called order.
-func (r *LbTestFunc) RegisterCleanup(f func() error) {
+func (r *LbTestFunc) RegisterCleanup(f func(ctx context.Context) error) {
 	r.cleanupCb = append(r.cleanupCb, f)
 }
 
@@ -120,13 +121,16 @@ func (r *LbTestFunc) runCleanups() {
 		return
 	}
 
+	cleanupCtx, cancelCleanupCtx := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancelCleanupCtx()
+
 	for _, f := range slices.Backward(r.cleanupCb) {
-		if err := f(); err != nil {
+		if err := f(cleanupCtx); err != nil {
 			fmt.Printf("cleanup failed %s\n", err)
 		}
 	}
 
-	r.cleanupCb = []func() error{}
+	r.cleanupCb = []func(ctx context.Context) error{}
 }
 
 func testName(f func(t T)) string {

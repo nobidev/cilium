@@ -11,6 +11,7 @@
 package ilb
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -141,16 +142,16 @@ func createAndWaitHeadlessServiceBackends(t T, k8sCli *k8s.Clientset, namespace,
 	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(t.Context(), deployment, metav1.CreateOptions{}); err != nil {
 		t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
-	t.RegisterCleanup(func() error {
-		return k8sCli.AppsV1().Deployments(namespace).Delete(t.Context(), deployment.Name, metav1.DeleteOptions{})
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
 	})
 
 	service := backendService(name, 8080)
 	if _, err := k8sCli.CoreV1().Services(namespace).Create(t.Context(), service, metav1.CreateOptions{}); err != nil {
 		t.Failedf("failed to create service (%s): %s", service.Name, err)
 	}
-	t.RegisterCleanup(func() error {
-		return k8sCli.CoreV1().Services(namespace).Delete(t.Context(), service.Name, metav1.DeleteOptions{})
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return k8sCli.CoreV1().Services(namespace).Delete(ctx, service.Name, metav1.DeleteOptions{})
 	})
 
 	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(t.Context(), metav1.ListOptions{

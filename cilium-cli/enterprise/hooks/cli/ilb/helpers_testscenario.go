@@ -123,7 +123,7 @@ func (r *lbTestScenario) addCoreDNS() *coreDNSContainer {
 
 	r.coreDNSContainer = container
 
-	r.t.RegisterCleanup(func() error { return r.dockerCli.deleteContainer(r.t.Context(), id) })
+	r.t.RegisterCleanup(func(ctx context.Context) error { return r.dockerCli.deleteContainer(ctx, id) })
 
 	return container
 }
@@ -151,7 +151,7 @@ func (r *lbTestScenario) addNginx() *nginxContainer {
 
 	r.nginxContainer = container
 
-	r.t.RegisterCleanup(func() error { return r.dockerCli.deleteContainer(r.t.Context(), id) })
+	r.t.RegisterCleanup(func(ctx context.Context) error { return r.dockerCli.deleteContainer(ctx, id) })
 
 	return container
 }
@@ -193,7 +193,7 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 			config.listenPort++
 		}
 
-		r.t.RegisterCleanup(func() error { return r.dockerCli.deleteContainer(r.t.Context(), id) })
+		r.t.RegisterCleanup(func(ctx context.Context) error { return r.dockerCli.deleteContainer(ctx, id) })
 	}
 
 	return containers
@@ -260,7 +260,7 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 
 		containers = append(containers, container)
 
-		r.t.RegisterCleanup(func() error { return r.dockerCli.deleteContainer(r.t.Context(), id) })
+		r.t.RegisterCleanup(func(ctx context.Context) error { return r.dockerCli.deleteContainer(ctx, id) })
 
 		for _, h := range config.trustedCertsHostnames {
 			sc, serverCertFound := r.serverCertificates[h]
@@ -290,7 +290,7 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 		if err := r.doBGPPeeringForClient(r.t.Context(), clientName, ip); err != nil {
 			r.t.Failedf("failed to BGP peer (%s): %s", clientName, err)
 		}
-		r.t.RegisterCleanup(func() error { return r.undoBGPPeeringForClient(r.t.Context(), ip) })
+		r.t.RegisterCleanup(func(ctx context.Context) error { return r.undoBGPPeeringForClient(ctx, ip) })
 	}
 
 	return containers
@@ -329,8 +329,8 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 			r.t.Failedf("failed to create Peer config (%s): %s", obj.Name, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(r.t.Context(), obj.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, obj.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -350,8 +350,8 @@ func (r *lbTestScenario) createBFDProfile() {
 			r.t.Failedf("failed to create BFD profile (%s): %s", obj.Name, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(r.t.Context(), obj.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().Delete(ctx, obj.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -392,7 +392,7 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 			r.t.Failedf("failed to create BGP advertisement (%s): %s", obj.Name, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
+	r.t.RegisterCleanup(func(ctx context.Context) error {
 		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, obj.Name, metav1.DeleteOptions{})
 	})
 }
@@ -475,8 +475,8 @@ func (r *lbTestScenario) createLBVIP(vip *isovalentv1alpha1.LBVIP) {
 			r.t.Failedf("cannot create LB VIP (%s): %s", r.testName, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.ciliumCli.DeleteLBVIP(r.t.Context(), vip.Namespace, vip.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.DeleteLBVIP(ctx, vip.Namespace, vip.Name, metav1.DeleteOptions{})
 	})
 
 	// Create BGPAdvertisement corresponding to the VIP
@@ -489,8 +489,8 @@ func (r *lbTestScenario) createLBBackendPool(bp *isovalentv1alpha1.LBBackendPool
 			r.t.Failedf("cannot create LB BackendPool (%s): %s", r.testName, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.ciliumCli.DeleteLBBackendPool(r.t.Context(), bp.Namespace, bp.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.DeleteLBBackendPool(ctx, bp.Namespace, bp.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -500,8 +500,8 @@ func (r *lbTestScenario) createLBService(svc *isovalentv1alpha1.LBService) {
 			r.t.Failedf("cannot create LB Service (%s): %s", r.testName, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.ciliumCli.DeleteLBService(r.t.Context(), svc.Namespace, svc.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.DeleteLBService(ctx, svc.Namespace, svc.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -532,8 +532,8 @@ func (r *lbTestScenario) createLBServerCertificate(secretName string, hostName s
 		keyBase64:  base64.StdEncoding.EncodeToString(keyBytes),
 	}
 
-	r.t.RegisterCleanup(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(r.t.Context(), secretName, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, secretName, metav1.DeleteOptions{})
 	})
 }
 
@@ -571,8 +571,8 @@ func (r *lbTestScenario) createLBClientCertificate(caName, hostName string) {
 		}
 	}
 
-	r.t.RegisterCleanup(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(r.t.Context(), caSec.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, caSec.Name, metav1.DeleteOptions{})
 	})
 
 	clientPriv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -650,8 +650,8 @@ func (r *lbTestScenario) createBasicAuthSecret(creds []basicAuthCredential) stri
 			r.t.Failedf("failed to create secret (%s): %s", r.testName, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(r.t.Context(), sec.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
 	})
 
 	return sec.Name
@@ -672,8 +672,8 @@ func (r *lbTestScenario) createJWKSSecret(providerName string, jwks []byte) stri
 			r.t.Failedf("failed to create secret (%s): %s", r.testName, err)
 		}
 	}
-	r.t.RegisterCleanup(func() error {
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(r.t.Context(), sec.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, sec.Name, metav1.DeleteOptions{})
 	})
 
 	return sec.Name

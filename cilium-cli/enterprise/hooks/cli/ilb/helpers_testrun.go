@@ -16,15 +16,16 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"time"
 )
 
 type lbTestRun struct {
-	cleanupCb []func() error
+	cleanupCb []func(ctx context.Context) error
 }
 
 func NewLBTestRun(ctx context.Context) *lbTestRun {
 	return &lbTestRun{
-		cleanupCb: []func() error{},
+		cleanupCb: []func(ctx context.Context) error{},
 	}
 }
 
@@ -45,11 +46,17 @@ func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
 	}
 
 	for i, test := range testsToExecute {
-		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
-		test.Run()
-		if !FlagQuiet {
-			// newline to highlight start of new test function
-			fmt.Println()
+		select {
+		case <-ctx.Done():
+			fmt.Println("Cancelled - stopping test execution...")
+			return nil
+		default:
+			fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
+			test.Run()
+			if !FlagQuiet {
+				// newline to highlight start of new test function
+				fmt.Println()
+			}
 		}
 	}
 
@@ -67,7 +74,7 @@ func (r *lbTestRun) Failed() {
 }
 
 // RegisterCleanup registers a cleanup that gets executed when the testrun ends.
-func (r *lbTestRun) RegisterCleanup(f func() error) {
+func (r *lbTestRun) RegisterCleanup(f func(ctx context.Context) error) {
 	r.cleanupCb = append(r.cleanupCb, f)
 }
 
@@ -76,11 +83,14 @@ func (r *lbTestRun) RunCleanup() {
 		return
 	}
 
+	cleanupCtx, cancelCleanupCtx := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancelCleanupCtx()
+
 	for _, f := range slices.Backward(r.cleanupCb) {
-		if err := f(); err != nil {
+		if err := f(cleanupCtx); err != nil {
 			fmt.Printf("cleanup failed %s\n", err)
 		}
 	}
 
-	r.cleanupCb = []func() error{}
+	r.cleanupCb = []func(ctx context.Context) error{}
 }

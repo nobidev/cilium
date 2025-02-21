@@ -4,7 +4,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +52,10 @@ func newCmdLoadbalancerTest() *cobra.Command {
 		Short: "Run Loadbalancer tests",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
+			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+			defer cancel()
+			c.SetContext(ctx)
+
 			if ilbCli.FlagMode != "single-node" && ilbCli.FlagMode != "multi-node" {
 				return fmt.Errorf("invalid --mode: %s", ilbCli.FlagMode)
 			}
@@ -74,16 +81,16 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if err := ciliumCli.EnsureLBIPPool(c.Context(), lbIPPool); err != nil {
 				return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
 			}
-			lbTestRun.RegisterCleanup(func() error {
-				return ciliumCli.DeleteLBIPPool(c.Context(), ilbCli.LbIPPoolName, metav1.DeleteOptions{})
+			lbTestRun.RegisterCleanup(func(ctx context.Context) error {
+				return ciliumCli.DeleteLBIPPool(ctx, ilbCli.LbIPPoolName, metav1.DeleteOptions{})
 			})
 
 			// Create IsovalentBGPClusterConfig (each test case will append its peer to it)
 			if err := ciliumCli.EnsureBGPClusterConfig(c.Context()); err != nil {
 				return fmt.Errorf("failed to install BGP peering: %w", err)
 			}
-			lbTestRun.RegisterCleanup(func() error {
-				return ciliumCli.DeleteBGPClusterConfig(c.Context())
+			lbTestRun.RegisterCleanup(func(ctx context.Context) error {
+				return ciliumCli.DeleteBGPClusterConfig(ctx)
 			})
 
 			// Run tests

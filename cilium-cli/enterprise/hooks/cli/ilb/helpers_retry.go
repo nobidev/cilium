@@ -43,6 +43,8 @@ func eventually(t T, condition func() error, duration time.Duration, waitFor tim
 			lastErr = e
 			// Reset the ticker after we have received a result
 			tick = ticker.C
+		case <-t.Context().Done():
+			return
 		}
 	}
 }
