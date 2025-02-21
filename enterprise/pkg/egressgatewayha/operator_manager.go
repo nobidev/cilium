@@ -13,12 +13,16 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	core_v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -35,6 +39,7 @@ var OperatorCell = cell.Module(
 	"The Egress Gateway Operator manages cluster wide EGW state",
 	cell.Config(defaultOperatorConfig),
 	cell.Provide(NewEgressGatewayOperatorManager),
+	cell.Provide(newNodeResource),
 )
 
 type OperatorConfig struct {
@@ -60,7 +65,8 @@ type OperatorParams struct {
 	Health        cell.Health
 	Clientset     k8sClient.Clientset
 	Policies      resource.Resource[*Policy]
-	Nodes         resource.Resource[*cilium_api_v2.CiliumNode]
+	Nodes         resource.Resource[*slim_corev1.Node]
+	CiliumNodes   resource.Resource[*cilium_api_v2.CiliumNode]
 	Healthchecker healthcheck.Healthchecker
 
 	Lifecycle cell.Lifecycle
@@ -83,8 +89,14 @@ type OperatorManager struct {
 	// policies allows reading policy CRD from k8s.
 	policies resource.Resource[*Policy]
 
-	// nodesResource allows reading node CRD from k8s.
+	// nodeResources allows reading Node CRD from k8s.
+	nodeResources resource.Resource[*slim_corev1.Node]
+
+	// ciliumNodes allows reading CiliumNode CRD from k8s.
 	ciliumNodes resource.Resource[*cilium_api_v2.CiliumNode]
+
+	// k8sNodeDataStore stores node name to k8s node mapping
+	k8sNodeDataStore map[string]k8sNode
 
 	// nodeDataStore stores node name to node mapping
 	nodeDataStore map[string]nodeTypes.Node
@@ -147,7 +159,9 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 		health:               p.Health,
 		clientset:            p.Clientset,
 		policies:             p.Policies,
-		ciliumNodes:          p.Nodes,
+		nodeResources:        p.Nodes,
+		ciliumNodes:          p.CiliumNodes,
+		k8sNodeDataStore:     make(map[string]k8sNode),
 		nodeDataStore:        make(map[string]nodeTypes.Node),
 		nodesByIP:            make(map[string]nodeTypes.Node),
 		gatewayNodeDataStore: make(map[string]nodeTypes.Node),
@@ -193,6 +207,17 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 	return operatorManager
 }
 
+func newNodeResource(lc cell.Lifecycle, cs k8sClient.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes()),
+		opts...,
+	)
+	return resource.New[*slim_corev1.Node](lc, lw, resource.WithMetric("Node")), nil
+}
+
 func (operatorManager *OperatorManager) processEvents(ctx context.Context) {
 	var policySync, nodeSync bool
 	maybeTriggerReconcile := func() {
@@ -212,7 +237,8 @@ func (operatorManager *OperatorManager) processEvents(ctx context.Context) {
 	}
 
 	policyEvents := operatorManager.policies.Events(ctx)
-	nodeEvents := operatorManager.ciliumNodes.Events(ctx)
+	ciliumNodeEvents := operatorManager.ciliumNodes.Events(ctx)
+	nodeEvents := operatorManager.nodeResources.Events(ctx)
 
 	for {
 		select {
@@ -226,6 +252,15 @@ func (operatorManager *OperatorManager) processEvents(ctx context.Context) {
 				event.Done(nil)
 			} else {
 				operatorManager.handlePolicyEvent(event)
+			}
+
+		case event := <-ciliumNodeEvents:
+			if event.Kind == resource.Sync {
+				nodeSync = true
+				maybeTriggerReconcile()
+				event.Done(nil)
+			} else {
+				operatorManager.handleCiliumNodeEvent(event)
 			}
 
 		case event := <-nodeEvents:
@@ -313,8 +348,8 @@ func (operatorManager *OperatorManager) onDeleteEgressPolicy(policy *Policy) {
 	operatorManager.reconciliationTrigger.TriggerWithReason("IsovalentEgressGatewayPolicy deleted")
 }
 
-// handleNodeEvent takes care of node upserts and removals.
-func (operatorManager *OperatorManager) handleNodeEvent(event resource.Event[*cilium_api_v2.CiliumNode]) {
+// handleCiliumNodeEvent takes care of node upserts and removals.
+func (operatorManager *OperatorManager) handleCiliumNodeEvent(event resource.Event[*cilium_api_v2.CiliumNode]) {
 	defer event.Done(nil)
 
 	node := nodeTypes.ParseCiliumNode(event.Object)
@@ -328,6 +363,33 @@ func (operatorManager *OperatorManager) handleNodeEvent(event resource.Event[*ci
 	} else {
 		delete(operatorManager.nodeDataStore, node.Name)
 		operatorManager.onChangeNodeLocked("CiliumNode deleted")
+	}
+}
+
+type k8sNode struct {
+	name   string
+	taints []slim_corev1.Taint
+}
+
+// handleNodeEvent takes care of node upserts and removals.
+func (operatorManager *OperatorManager) handleNodeEvent(event resource.Event[*slim_corev1.Node]) {
+	defer event.Done(nil)
+
+	n := event.Object
+	k8sNode := k8sNode{
+		name:   n.Name,
+		taints: n.Spec.Taints,
+	}
+
+	operatorManager.Lock()
+	defer operatorManager.Unlock()
+
+	if event.Kind == resource.Upsert {
+		operatorManager.k8sNodeDataStore[k8sNode.name] = k8sNode
+		operatorManager.onChangeNodeLocked("K8s Node updated")
+	} else {
+		delete(operatorManager.k8sNodeDataStore, k8sNode.name)
+		operatorManager.onChangeNodeLocked("K8s Node deleted")
 	}
 }
 
@@ -354,6 +416,22 @@ func (operatorManager *OperatorManager) onChangeNodeLocked(event string) {
 
 func (operatorManager *OperatorManager) nodeIsHealthy(nodeName string) bool {
 	return operatorManager.healthchecker.NodeIsHealthy(nodeName)
+}
+
+func (operatorManager *OperatorManager) nodeIsUnschedulable(node nodeTypes.Node) bool {
+	if k8sNode, found := operatorManager.k8sNodeDataStore[node.Name]; found {
+		for _, taint := range k8sNode.taints {
+			if taint.Key == core_v1.TaintNodeUnschedulable && taint.Effect == slim_corev1.TaintEffectNoSchedule {
+				return true
+			}
+		}
+	}
+
+	if val, found := node.Annotations[nodeEgressGatewayPrefix]; found {
+		return val == nodeEgressGatewayUnschedulableValue
+	}
+
+	return false
 }
 
 func (operatorManager *OperatorManager) previousHealthyGateways() []netip.Addr {

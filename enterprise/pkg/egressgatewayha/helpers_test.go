@@ -23,6 +23,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -198,8 +199,24 @@ func deleteEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoi
 	})
 }
 
-func addNode(tb testing.TB, nodes fakeResource[*cilium_api_v2.CiliumNode], node nodeTypes.Node) {
-	nodes.process(tb, resource.Event[*cilium_api_v2.CiliumNode]{
+func addNode(tb testing.TB, nodeResources fakeResource[*slim_corev1.Node], ciliumNodes fakeResource[*cilium_api_v2.CiliumNode], node nodeTypes.Node, taints []slim_corev1.Taint) {
+	if nodeResources != nil {
+		nodeResources.process(tb, resource.Event[*slim_corev1.Node]{
+			Kind: resource.Upsert,
+			Object: &slim_corev1.Node{
+				ObjectMeta: slimv1.ObjectMeta{
+					Name:        node.Name,
+					Labels:      node.Labels,
+					Annotations: node.Annotations,
+				},
+				Spec: slim_corev1.NodeSpec{
+					Taints: taints,
+				},
+			},
+		})
+	}
+
+	ciliumNodes.process(tb, resource.Event[*cilium_api_v2.CiliumNode]{
 		Kind:   resource.Upsert,
 		Object: node.ToCiliumNode(),
 	})

@@ -251,7 +251,7 @@ func unique(slice []string) []string {
 
 func (k *EgressGatewayTestSuite) addNode(t *testing.T, name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
 	node := newCiliumNode(name, nodeIP, nodeLabels)
-	addNode(t, k.ciliumNodes, node)
+	addNode(t, nil, k.ciliumNodes, node, nil)
 	k.waitForReconciliationRun(t)
 
 	return node

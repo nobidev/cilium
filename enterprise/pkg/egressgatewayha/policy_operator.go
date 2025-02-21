@@ -43,6 +43,10 @@ const (
 	egwIPAMUnsupportedEgressIP = "isovalent.com/UnsupportedEgressIP"
 	egwIPAMPoolExhausted       = "isovalent.com/PoolExhausted"
 	egwIPAMPoolConflicting     = "isovalent.com/PoolConflict"
+
+	egressGatewayPrefix                 = "egw.isovalant.com"
+	nodeEgressGatewayPrefix             = egressGatewayPrefix + "/node"
+	nodeEgressGatewayUnschedulableValue = "unschedulable"
 )
 
 // affinityZoneNoZone is the name of an "internal-only" affinity zone used to group together all
@@ -120,9 +124,10 @@ func getIEGPForStatusUpdate(iegp *Policy, groupStatuses []groupStatus, condition
 
 func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus) (groupStatus, error) {
 	healthyGatewayIPs := []netip.Addr{}
+	availableHealthyGatewayIPs := []netip.Addr{}
 
 	activeGatewayIPsByAZ := make(map[string][]netip.Addr)
-	healthyGatewayIPsByAZ := make(map[string][]netip.Addr)
+	availableHealthyGatewayIPsByAZ := make(map[string][]netip.Addr)
 
 	for _, node := range operatorManager.nodes {
 		// if AZ affinity is enabled for the egress group, track the node's AZ.
@@ -132,11 +137,11 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		// (and because of this tracking needs to happen before ignoring a non-gateway node and unhealthy node)
 		if config.azAffinity.enabled() {
 			if nodeAZ, ok := node.Labels[core_v1.LabelTopologyZone]; ok {
-				// as the healthyGatewayIPsByAZ map is used also to keep track of all the available AZs,
+				// as the availableHealthyGatewayIPsByAZ map is used also to keep track of all the available AZs,
 				// always create an empty entry if it doesn't exist yet.
 				// In this way we can ensure all AZs will have a key in the map
-				if _, ok = healthyGatewayIPsByAZ[nodeAZ]; !ok {
-					healthyGatewayIPsByAZ[nodeAZ] = []netip.Addr{}
+				if _, ok = availableHealthyGatewayIPsByAZ[nodeAZ]; !ok {
+					availableHealthyGatewayIPsByAZ[nodeAZ] = []netip.Addr{}
 				}
 			}
 		}
@@ -160,10 +165,16 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		// This list is global (i.e. it doesn't take into account the AZ of the node)
 		healthyGatewayIPs = append(healthyGatewayIPs, nodeIP)
 
+		if operatorManager.nodeIsUnschedulable(node) {
+			continue
+		}
+
+		availableHealthyGatewayIPs = append(availableHealthyGatewayIPs, nodeIP)
+
 		// if AZ affinity is enabled, add the node IP also to the list of healthy gateway IPs
 		if config.azAffinity.enabled() {
 			if nodeAZ, ok := node.Labels[core_v1.LabelTopologyZone]; ok {
-				healthyGatewayIPsByAZ[nodeAZ] = append(healthyGatewayIPsByAZ[nodeAZ], nodeIP)
+				availableHealthyGatewayIPsByAZ[nodeAZ] = append(availableHealthyGatewayIPsByAZ[nodeAZ], nodeIP)
 			} else {
 				log.WithField(logfields.NodeName, node.Name).
 					Warnf("AZ affinity is enabled but node is missing %s label. Node will be ignored", core_v1.LabelTopologyZone)
@@ -176,7 +187,7 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	// If the selected active GW list is not enough, choose from the non-local active GW list later
 	// according to the azAffinity config.
 	if config.azAffinity.enabled() {
-		for az, healthyGatewayIPs := range healthyGatewayIPsByAZ {
+		for az, healthyGatewayIPs := range availableHealthyGatewayIPsByAZ {
 			var currentLocalActiveGWs []netip.Addr
 			if status != nil {
 				currentLocalActiveGWs = gc.selectCurrentLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
@@ -196,13 +207,13 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	// using a target zone name as a seed to make the result deterministic.
 	nonLocalActiveGatewayIPs := func(targetAz string, maxGW int, currentActiveNonLocalGWs []netip.Addr) ([]netip.Addr, error) {
 		// sort the AZs lexicographically
-		sortedAZs := slices.Collect(maps.Keys(healthyGatewayIPsByAZ))
+		sortedAZs := slices.Collect(maps.Keys(availableHealthyGatewayIPsByAZ))
 		slices.Sort(sortedAZs)
 
 		var healthyNonLocalGWs []netip.Addr
 		for _, az := range sortedAZs {
 			if az != targetAz {
-				healthyNonLocalGWs = append(healthyNonLocalGWs, healthyGatewayIPsByAZ[az]...)
+				healthyNonLocalGWs = append(healthyNonLocalGWs, availableHealthyGatewayIPsByAZ[az]...)
 			}
 		}
 
@@ -260,9 +271,9 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	// and back-fill the currently selected group of active gateways, until maxGateways is reached.
 	var currentActiveGWs []netip.Addr
 	if status != nil {
-		currentActiveGWs = gc.excludeUnhealthyAndStaleGWs(operatorManager, status.activeGatewayIPs)
+		currentActiveGWs = gc.excludeUnavailableGWs(operatorManager, status.activeGatewayIPs)
 	}
-	activeGatewayIPs, err := selectActiveGWs(string(config.uid), gc.maxGatewayNodes, currentActiveGWs, healthyGatewayIPs)
+	activeGatewayIPs, err := selectActiveGWs(string(config.uid), gc.maxGatewayNodes, currentActiveGWs, availableHealthyGatewayIPs)
 	if err != nil {
 		return groupStatus{}, err
 	}
@@ -301,15 +312,15 @@ func (gc *groupConfig) selectActiveGWsIf(operatorManager *OperatorManager, az st
 		}
 	}
 
-	return gc.excludeUnhealthyAndStaleGWs(operatorManager, localGWs)
+	return gc.excludeUnavailableGWs(operatorManager, localGWs)
 }
 
-// excludeStaleNodes excludes unhealthy nodes and non-gateway nodes from the current active GWs.
-func (gc *groupConfig) excludeUnhealthyAndStaleGWs(operatorManager *OperatorManager, currentActiveGWs []netip.Addr) []netip.Addr {
+// excludeUnavailableGWs excludes unhealthy or unschedulable or non-gateway nodes from the current active GWs.
+func (gc *groupConfig) excludeUnavailableGWs(operatorManager *OperatorManager, currentActiveGWs []netip.Addr) []netip.Addr {
 	var activeGWs []netip.Addr
 	for _, gw := range currentActiveGWs {
 		node, ok := operatorManager.nodesByIP[gw.String()]
-		if ok && operatorManager.nodeIsHealthy(node.Name) && gc.selectsNodeAsGateway(node) {
+		if ok && operatorManager.nodeIsHealthy(node.Name) && !operatorManager.nodeIsUnschedulable(node) && gc.selectsNodeAsGateway(node) {
 			activeGWs = append(activeGWs, gw)
 		}
 	}

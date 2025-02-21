@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -24,6 +25,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -33,15 +35,17 @@ type EgressGatewayOperatorTestSuite struct {
 	fakeSet           *k8sClient.FakeClientset
 	healthcheckerMock *healthcheckerMock
 
-	policies fakeResource[*Policy]
-	nodes    fakeResource[*cilium_api_v2.CiliumNode]
+	policies      fakeResource[*Policy]
+	nodeResources fakeResource[*slim_corev1.Node]
+	ciliumNodes   fakeResource[*cilium_api_v2.CiliumNode]
 }
 
 func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTestSuite {
 	k := &EgressGatewayOperatorTestSuite{}
 	k.fakeSet = &k8sClient.FakeClientset{CiliumFakeClientset: cilium_fake.NewSimpleClientset()}
 	k.policies = make(fakeResource[*Policy])
-	k.nodes = make(fakeResource[*cilium_api_v2.CiliumNode])
+	k.nodeResources = make(fakeResource[*slim_corev1.Node])
+	k.ciliumNodes = make(fakeResource[*cilium_api_v2.CiliumNode])
 	k.healthcheckerMock = newHealthcheckerMock()
 
 	h, _ := cell.NewSimpleHealth()
@@ -50,7 +54,8 @@ func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTes
 		Health:        h,
 		Clientset:     k.fakeSet,
 		Policies:      k.policies,
-		Nodes:         k.nodes,
+		Nodes:         k.nodeResources,
+		CiliumNodes:   k.ciliumNodes,
 		Healthchecker: k.healthcheckerMock,
 		Lifecycle:     hivetest.Lifecycle(t),
 	})
@@ -67,21 +72,35 @@ func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTes
 	require.NotNil(t, k.manager)
 
 	k.policies.sync(t)
-	k.nodes.sync(t)
+	k.nodeResources.sync(t)
+	k.ciliumNodes.sync(t)
 
 	return k
 }
 
 func (k *EgressGatewayOperatorTestSuite) addNode(t *testing.T, name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
 	node := newCiliumNode(name, nodeIP, nodeLabels)
-	addNode(t, k.nodes, node)
+	addNode(t, k.nodeResources, k.ciliumNodes, node, nil)
 
 	return node
 }
 
 func (k *EgressGatewayOperatorTestSuite) updateNodeLabels(t *testing.T, node nodeTypes.Node, labels map[string]string) nodeTypes.Node {
 	node.Labels = labels
-	addNode(t, k.nodes, node)
+	addNode(t, k.nodeResources, k.ciliumNodes, node, nil)
+
+	return node
+}
+
+func (k *EgressGatewayOperatorTestSuite) updateNodeAnnotations(t *testing.T, node nodeTypes.Node, annotations map[string]string) nodeTypes.Node {
+	node.Annotations = annotations
+	addNode(t, k.nodeResources, k.ciliumNodes, node, nil)
+
+	return node
+}
+
+func (k *EgressGatewayOperatorTestSuite) updateNodeTaints(t *testing.T, node nodeTypes.Node, taints []slim_corev1.Taint) nodeTypes.Node {
+	addNode(t, k.nodeResources, k.ciliumNodes, node, taints)
 
 	return node
 }
@@ -125,6 +144,21 @@ func (k *EgressGatewayOperatorTestSuite) makeNodesHealthy(nodes ...string) {
 func (k *EgressGatewayOperatorTestSuite) makeNodesUnhealthy(nodes ...string) {
 	k.healthcheckerMock.deleteNodes(nodes...)
 	k.manager.reconciliationTrigger.Trigger()
+}
+
+func (k *EgressGatewayOperatorTestSuite) makeNodeUnschedulableByTaint(t *testing.T, node nodeTypes.Node) {
+	k.updateNodeTaints(t, node, []slim_corev1.Taint{
+		{
+			Key:    core_v1.TaintNodeUnschedulable,
+			Effect: slim_corev1.TaintEffectNoSchedule,
+		},
+	})
+}
+
+func (k *EgressGatewayOperatorTestSuite) makeNodeUnschedulableByAnnotation(t *testing.T, node nodeTypes.Node) {
+	k.updateNodeAnnotations(t, node, map[string]string{
+		nodeEgressGatewayPrefix: nodeEgressGatewayUnschedulableValue,
+	})
 }
 
 type gatewayStatus struct {
@@ -256,6 +290,32 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 
 	// Add back k8s1
 	k.updateNodeLabels(t, node1, nodeGroup1Labels)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node1IP, node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
+
+	// Add back k8s1
+	node1 = k.updateNodeTaints(t, node1, nil)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node1IP, node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
+
+	k.makeNodeUnschedulableByAnnotation(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
+
+	// Add back k8s1
+	k.updateNodeAnnotations(t, node1, nil)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node1IP, node2IP},
 		healthyGatewayIPs: []string{node1IP, node2IP},
@@ -485,7 +545,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 	})
 
 	// Add back k8s1
-	k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
+	node1 = k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -496,7 +556,49 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 	})
 
 	// Add back k8s2
-	k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	node2 = k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node2)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s1
+	node1 = k.updateNodeTaints(t, node1, nil)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s2
+	node2 = k.updateNodeTaints(t, node2, nil)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -859,7 +961,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 	})
 
 	// Add back k8s1
-	k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
+	node1 = k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -870,7 +972,49 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 	})
 
 	// Add back k8s2
-	k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	node2 = k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node2)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node3IP, node4IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s1
+	node1 = k.updateNodeTaints(t, node1, nil)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s2
+	node2 = k.updateNodeTaints(t, node2, nil)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1269,7 +1413,7 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 		healthyGatewayIPs: []string{node3IP, node4IP},
 	})
 
-	k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
+	node1 = k.updateNodeLabels(t, node1, nodeGroup1LabelsAZ1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1279,7 +1423,49 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 		healthyGatewayIPs: []string{node1IP, node3IP, node4IP},
 	})
 
-	k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	node2 = k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP, node3IP, node4IP},
+			"az-2": {node1IP, node2IP, node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP, node3IP, node4IP},
+			"az-2": {node2IP, node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodeUnschedulableByTaint(t, node2)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node3IP, node4IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s1
+	node1 = k.updateNodeTaints(t, node1, nil)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node3IP, node4IP},
+			"az-2": {node1IP, node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	// Add back k8s2
+	node2 = k.updateNodeTaints(t, node2, nil)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
