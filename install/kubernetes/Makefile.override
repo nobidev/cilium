@@ -10,14 +10,19 @@
 
 include ../../Makefile.defs
 
+ifeq ($(RELEASE),yes)
+    export CILIUM_ENVOY_REPO:=quay.io/isovalent/cilium-envoy
+    export CILIUM_ENVOY_VERSION:=v$(shell cat ../../VERSION)
+endif
+
 ENTERPRISE_FEATURES_FILE_NAME := cilium/templates/enterprise_features_validate.yaml
 
 $(ENTERPRISE_FEATURES_FILE_NAME): ../../enterprise/features/features.yaml ../../enterprise/features/helm-gen/main.go
-	$(GO) run ../../enterprise/features/helm-gen generate > $@ 
+	$(GO) run ../../enterprise/features/helm-gen generate > $@
 	$(GO) run ../../enterprise/features/helm-gen validate
 
 .PHONY: check-enterprise-features
-check-enterprise-features: 
+check-enterprise-features:
 	$(ECHO_CHECK)$@
 	$(QUIET)$(GO) run ../../enterprise/features/helm-gen generate \
 		| diff -u - "$(ENTERPRISE_FEATURES_FILE_NAME)" \
