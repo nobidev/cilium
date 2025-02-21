@@ -77,7 +77,8 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{
 		Node: nodeTypes.Node{
-			Name: node1Name,
+			Name:   node1Name,
+			Labels: nodeGroup1LabelsAZ1,
 			IPAddresses: []nodeTypes.Address{
 				{Type: addressing.NodeInternalIP, IP: net.ParseIP(node1IP)},
 			},
@@ -957,8 +958,53 @@ func TestEgressGatewayManagerHAGroup(t *testing.T) {
 		{ep1IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 
-	// Add back node1
+	// Remove k8s2
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node2IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, zeroIP4, 0},
+	})
+
+	// Add back k8s1
 	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "", defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
+	})
+
+	// Add back k8s2
+	k.addActiveGatewayToEgressGroup(t, policy1, node2IP, "", defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
+		{ep1IP, destCIDR, egressIP1, node2IP, ifIndex1},
+	})
+
+	// Remove k8s1 from the active GW list
+	k.removeActiveGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	// It should retain egressIP1 as long as the k8s1(local node) is healthy
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node2IP, ifIndex1},
+	})
+
+	// Remove k8s2 from the healthy GW list
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node2IP, defaultEgressGroupID)
+	// It should retain egressIP1 even though no gateway is available
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+	})
+
+	// Remove k8s1 from healthy GW list
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, zeroIP4, 0},
+	})
+
+	// Add back k8s1
+	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "", defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
+	})
+
+	// Add back k8s2
+	k.addActiveGatewayToEgressGroup(t, policy1, node2IP, "", defaultEgressGroupID)
 	k.assertEgressRules(t, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
 		{ep1IP, destCIDR, egressIP1, node2IP, ifIndex1},
@@ -1143,12 +1189,13 @@ func TestEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
 	k.addEndpoint(t, "ep-2", ep2IP, ep1Labels, node2IP)
 	k.assertEgressRules(t, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
-		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
+		{ep2IP, destCIDR, egressIP1, node2IP, ifIndex1},
 	})
 
 	// Remove k8s1
 	k.removeHealthyGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
 	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, zeroIP4, 0},
 		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 
@@ -1156,7 +1203,50 @@ func TestEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
 	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "az-1", defaultEgressGroupID)
 	k.assertEgressRules(t, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
-		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
+		{ep2IP, destCIDR, egressIP1, node2IP, ifIndex1},
+	})
+
+	// Remove k8s1 from the active GW list
+	k.removeActiveGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	// It should retain egressIP1 as long as the k8s1(local node) is healthy
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+		{ep2IP, destCIDR, egressIP1, node2IP, ifIndex1},
+	})
+
+	// Remove k8s2 from the active GW list
+	k.removeActiveGatewayFromEgressGroup(t, policy1, node2IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+		{ep2IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+	})
+
+	// Remove k8s2 from the healthy GW list
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node2IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+		{ep2IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+	})
+
+	// Remove k8s1 from the healthy GW list
+	k.removeHealthyGatewayFromEgressGroup(t, policy1, node1IP, defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, zeroIP4, 0},
+		{ep2IP, destCIDR, zeroIP4, zeroIP4, 0},
+	})
+
+	// Add back node1
+	k.addActiveGatewayToEgressGroup(t, policy1, node1IP, "az-1", defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
+		{ep2IP, destCIDR, egressIP1, zeroIP4, ifIndex1},
+	})
+
+	// Add back node2
+	k.addActiveGatewayToEgressGroup(t, policy1, node2IP, "az-2", defaultEgressGroupID)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
+		{ep2IP, destCIDR, egressIP1, node2IP, ifIndex1},
 	})
 }
 

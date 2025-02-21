@@ -85,6 +85,13 @@ type ipRouteEntry struct {
 func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
 ) {
+	waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, targetEntriesCallback, nil)
+}
+
+func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
+	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
+	entryMatcher func(targetEntry, entry bpfEgressGatewayPolicyEntry) bool,
+) {
 	ct := t.Context()
 
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
@@ -106,7 +113,11 @@ func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 		nextTargetEntry:
 			for _, targetEntry := range targetEntries {
 				for _, entry := range entries {
-					if targetEntry.matches(entry) {
+					if entryMatcher != nil {
+						if entryMatcher(targetEntry, entry) {
+							continue nextTargetEntry
+						}
+					} else if targetEntry.matches(entry) {
 						continue nextTargetEntry
 					}
 				}
@@ -117,7 +128,11 @@ func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 		nextEntry:
 			for _, entry := range entries {
 				for _, targetEntry := range targetEntries {
-					if targetEntry.matches(entry) {
+					if entryMatcher != nil {
+						if entryMatcher(targetEntry, entry) {
+							continue nextEntry
+						}
+					} else if targetEntry.matches(entry) {
 						continue nextEntry
 					}
 				}
@@ -879,15 +894,11 @@ func (s *egressGatewayAZAffinity) Run(ctx context.Context, t *check.Test) {
 	})
 
 	// wait for the policy map to be populated
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		for _, client := range ct.ClientPods() {
-			egressIP := "0.0.0.0"
-			if ciliumPod.Pod.Spec.NodeName == client.Pod.Spec.NodeName {
-				egressIP = getGatewayNodeInternalIP(ct, ciliumPod.Pod.Spec.NodeName).String()
-			}
-
+			egressIP := getGatewayNodeInternalIP(ct, ciliumPod.Pod.Spec.NodeName).String()
 			egressGatewayNodeInternalIPs := []string{
 				getGatewayNodeInternalIP(ct, client.Pod.Spec.NodeName).String(),
 			}
@@ -901,6 +912,19 @@ func (s *egressGatewayAZAffinity) Run(ctx context.Context, t *check.Test) {
 		}
 
 		return targetEntries
+	}, func(targetEntry, entry bpfEgressGatewayPolicyEntry) bool {
+		sort.Strings(targetEntry.GatewayIPs)
+		sort.Strings(entry.GatewayIPs)
+
+		return targetEntry.SourceIP == entry.SourceIP &&
+			targetEntry.DestCIDR == entry.DestCIDR &&
+			// In the version >= 1.18.0, a gateway node retains the egress IP as long as it exists in the healthy
+			// gateway list, regardless of the endpoint's AZ. This is because it must continue handling existing
+			// connections even after being removed from the active gateway list and may receive traffic from a different
+			// AZ depending on the AZ mode.
+			// The egressIP allows both the node IP and 0.0.0.0 to support both the new and old versions.
+			(targetEntry.EgressIP == entry.EgressIP || entry.EgressIP == "0.0.0.0") &&
+			cmp.Equal(targetEntry.GatewayIPs, entry.GatewayIPs, cmpopts.EquateEmpty())
 	})
 
 	// run the test

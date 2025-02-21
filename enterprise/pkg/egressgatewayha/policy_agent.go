@@ -34,19 +34,10 @@ import (
 )
 
 // azActiveGatewayIPs is a list of active gateway IPs for a particular AZ.
-// In addition to the list of IPs, localNodeConfiguredAsGateway specifies if the
-// local node is configured as a gateway for the AZ.
+// In addition to the list of IPs
 type azActiveGatewayIPs struct {
 	// list of active gateway IPs for a given AZ
 	gatewayIPs []netip.Addr
-
-	// with AZ affinity enabled, within an egress group, the same node can be
-	// be configured as gateway for some endpoints, while being not enabled
-	// for others.
-	//
-	// We track this information to determine correctly the egress IP to
-	// use for a given endpoint.
-	localNodeConfiguredAsGateway bool
 }
 
 // gatewayConfig is the gateway configuration derived at runtime from a policy.
@@ -143,15 +134,11 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	for groupIndex, gc := range config.groupConfigs {
 		groupStatus := &config.groupStatuses[groupIndex]
 		// We use the local node IP to determine if the current node
-		// matches the list of active gateway IPs
+		// matches the list of healthy gateway IPs
 		localNodeMatchesGatewayIP := false
 
 		if !gwc.azAffinity.enabled() {
 			gwc.activeGatewayIPs = append(gwc.activeGatewayIPs, groupStatus.activeGatewayIPs...)
-
-			if slices.Contains(groupStatus.activeGatewayIPs, localNodeK8sAddr) {
-				localNodeMatchesGatewayIP = true
-			}
 		} else {
 			for az, gwIPs := range groupStatus.activeGatewayIPsByAZ {
 				azGwIPs, ok := gwc.activeGatewayIPsByAZ[az]
@@ -161,14 +148,15 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 					}
 				}
 				azGwIPs.gatewayIPs = append(azGwIPs.gatewayIPs, gwIPs...)
-
-				if slices.Contains(gwIPs, localNodeK8sAddr) {
-					localNodeMatchesGatewayIP = true
-					azGwIPs.localNodeConfiguredAsGateway = true
-				}
-
 				gwc.activeGatewayIPsByAZ[az] = azGwIPs
 			}
+		}
+		// retain gateway configuration while the local node is healthy regardless of the az so that it can handle
+		// the existing connection seamlessly. Depending on the AZ mode, the gateway node may receive traffic from
+		// endpoints in different AZs, and since the information about which AZ it belonged to when it was active is lost.
+		// So the AZ is not considered here.
+		if slices.Contains(groupStatus.healthyGatewayIPs, localNodeK8sAddr) {
+			localNodeMatchesGatewayIP = true
 		}
 		gwc.healthyGatewayIPs = append(gwc.healthyGatewayIPs, groupStatus.healthyGatewayIPs...)
 
@@ -366,13 +354,6 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 
 		//fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP, egressIfindex
-	}
-
-	egressIP = netip.IPv4Unspecified()
-	egressIfindex = 0
-	if gwc.activeGatewayIPsByAZ[az].localNodeConfiguredAsGateway {
-		egressIP = gwc.egressIP
-		egressIfindex = gwc.egressIfindex
 	}
 
 	return gwc.activeGatewayIPsByAZ[az].gatewayIPs, egressIP, egressIfindex
