@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -53,9 +54,9 @@ var (
 			Name: "peer-config",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -147,7 +148,7 @@ func TestPeerAdvertisements(t *testing.T) {
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: nil,
 				},
 			},
@@ -170,7 +171,7 @@ func TestPeerAdvertisements(t *testing.T) {
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {v1.BGPAdvertisement{
 						AdvertisementType: v1.BGPPodCIDRAdvert,
 					}},
@@ -253,7 +254,7 @@ func TestVRFAdvertisements(t *testing.T) {
 				},
 			},
 			expectedVRFAdverts: VRFAdvertisements{
-				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+				"vrf-1": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: nil,
 				},
 			},
@@ -275,7 +276,7 @@ func TestVRFAdvertisements(t *testing.T) {
 				},
 			},
 			expectedVRFAdverts: VRFAdvertisements{
-				"vrf-1": map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement{
+				"vrf-1": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: {v1.BGPAdvertisement{
 						AdvertisementType: v1.BGPPodCIDRAdvert,
 					}},

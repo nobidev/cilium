@@ -36,6 +36,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -425,13 +426,15 @@ func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRoute
 				ciliumv2alpha1.BGPLoadBalancerIPAddr,
 			}
 		}
-		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
+		bgpAdvert := isovalentv1.BGPAdvertisement{
 			AdvertisementType: isovalentv1.BGPServiceAdvert,
 			Selector:          vr.ServiceSelector,
-			Service: &isovalentv1.BGPServiceOptions{
-				Addresses: svcAdvertisements,
-			},
-		})
+			Service:           &isovalentv1.BGPServiceOptions{},
+		}
+		for _, svcAdvert := range svcAdvertisements {
+			bgpAdvert.Service.Addresses = append(bgpAdvert.Service.Addresses, ciliumv2.BGPServiceAddressType(svcAdvert))
+		}
+		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, bgpAdvert)
 	}
 	if egwSelector, exists := egwSelectors[vr.LocalASN]; exists {
 		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, isovalentv1.BGPAdvertisement{
@@ -450,8 +453,8 @@ func createBGPAdvertisement(name string, vr ciliumv2alpha1.CiliumBGPVirtualRoute
 
 // mapBGPPathAttributes maps provided BGPv1 CiliumBGPPathAttributes to BGPv2 BGPAttributes for the provided advertisement.
 // May return an error, as some mappings are not supported.
-func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes, advert *isovalentv1.BGPAdvertisement) (*ciliumv2alpha1.BGPAttributes, error) {
-	var res *ciliumv2alpha1.BGPAttributes
+func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttributes, advert *isovalentv1.BGPAdvertisement) (*ciliumv2.BGPAttributes, error) {
+	var res *ciliumv2.BGPAttributes
 	for _, attr := range pathAttributes {
 		if attr.SelectorType == ciliumv2alpha1.CiliumLoadBalancerIPPoolSelectorName {
 			return nil, fmt.Errorf("%w: %s advertisedPathAttributes.selectorType can not be translated to BGPv2", errBGPv2MappingUnsupported, attr.SelectorType)
@@ -472,8 +475,8 @@ func mapBGPPathAttributes(pathAttributes []ciliumv2alpha1.CiliumBGPPathAttribute
 			if res != nil {
 				return nil, fmt.Errorf("%w: %s multiple advertisedPathAttributes with the same selectorType can not be translated to BGPv2", errBGPv2MappingUnsupported, attr.SelectorType)
 			}
-			res = &ciliumv2alpha1.BGPAttributes{
-				Communities:     attr.Communities,
+			res = &ciliumv2.BGPAttributes{
+				Communities:     toV2Communities(attr.Communities),
 				LocalPreference: attr.LocalPreference,
 			}
 		}
@@ -492,10 +495,15 @@ func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, a
 			Name: name,
 		},
 		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
-			AuthSecretRef:   neigh.AuthSecretRef,
-			EBGPMultihop:    neigh.EBGPMultihopTTL,
-			GracefulRestart: neigh.GracefulRestart,
+			AuthSecretRef: neigh.AuthSecretRef,
+			EBGPMultihop:  neigh.EBGPMultihopTTL,
 		},
+	}
+	if neigh.GracefulRestart != nil {
+		peerConfig.Spec.GracefulRestart = &ciliumv2.CiliumBGPNeighborGracefulRestart{
+			Enabled:            neigh.GracefulRestart.Enabled,
+			RestartTimeSeconds: neigh.GracefulRestart.RestartTimeSeconds,
+		}
 	}
 	if neigh.PeerPort != nil {
 		peerConfig.Spec.Transport = &isovalentv1.IsovalentBGPTransport{
@@ -503,7 +511,7 @@ func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, a
 		}
 	}
 	if neigh.ConnectRetryTimeSeconds != nil || neigh.HoldTimeSeconds != nil || neigh.KeepAliveTimeSeconds != nil {
-		peerConfig.Spec.Timers = &ciliumv2alpha1.CiliumBGPTimers{
+		peerConfig.Spec.Timers = &ciliumv2.CiliumBGPTimers{
 			ConnectRetryTimeSeconds: neigh.ConnectRetryTimeSeconds,
 			HoldTimeSeconds:         neigh.HoldTimeSeconds,
 			KeepAliveTimeSeconds:    neigh.KeepAliveTimeSeconds,
@@ -520,8 +528,11 @@ func createBGPPeerConfig(name string, neigh *ciliumv2alpha1.CiliumBGPNeighbor, a
 	}
 	for _, family := range families {
 		peerConfig.Spec.Families = append(peerConfig.Spec.Families,
-			ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
-				CiliumBGPFamily: family,
+			ciliumv2.CiliumBGPFamilyWithAdverts{
+				CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+					Afi:  family.Afi,
+					Safi: family.Safi,
+				},
 				Advertisements: &slimv1.LabelSelector{
 					MatchLabels: advertisement.Labels,
 				},
@@ -596,4 +607,21 @@ func convertAddressForResourceName(addr netip.Addr) string {
 	// CRD object name can not contain ":" characters, replace
 	tmp := strings.ReplaceAll(addr.String(), "::", "-")
 	return strings.ReplaceAll(tmp, ":", ".")
+}
+
+func toV2Communities(c *ciliumv2alpha1.BGPCommunities) *ciliumv2.BGPCommunities {
+	if c == nil {
+		return nil
+	}
+	res := &ciliumv2.BGPCommunities{}
+	for _, s := range c.Standard {
+		res.Standard = append(res.Standard, ciliumv2.BGPStandardCommunity(s))
+	}
+	for _, w := range c.WellKnown {
+		res.WellKnown = append(res.WellKnown, ciliumv2.BGPWellKnownCommunity(w))
+	}
+	for _, l := range c.Large {
+		res.Large = append(res.Large, ciliumv2.BGPLargeCommunity(l))
+	}
+	return res
 }

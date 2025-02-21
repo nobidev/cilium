@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
@@ -217,7 +217,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.St
 
 func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v1.IsovalentBGPNodeInstanceStatus, error) {
 	res := &v1.IsovalentBGPNodeInstanceStatus{
-		CiliumBGPNodeInstanceStatus: v2alpha1.CiliumBGPNodeInstanceStatus{
+		CiliumBGPNodeInstanceStatus: v2.CiliumBGPNodeInstanceStatus{
 			Name:     instance.Config.Name,
 			LocalASN: instance.Config.LocalASN,
 		},
@@ -234,7 +234,7 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 			continue
 		}
 
-		peerStatus := v2alpha1.CiliumBGPNodePeerStatus{
+		peerStatus := v2.CiliumBGPNodePeerStatus{
 			Name:        configuredPeers.Name,
 			PeerAddress: *configuredPeers.PeerAddress,
 			PeerASN:     configuredPeers.PeerASN,
@@ -260,14 +260,14 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 			}
 
 			// applied timers
-			peerStatus.Timers = &v2alpha1.CiliumBGPTimersState{
+			peerStatus.Timers = &v2.CiliumBGPTimersState{
 				AppliedHoldTimeSeconds:  ptr.To[int32](int32(runningPeerState.AppliedHoldTimeSeconds)),
 				AppliedKeepaliveSeconds: ptr.To[int32](int32(runningPeerState.AppliedKeepAliveTimeSeconds)),
 			}
 
 			// update route counts
 			for _, af := range runningPeerState.Families {
-				peerStatus.RouteCount = append(peerStatus.RouteCount, v2alpha1.BGPFamilyRouteCount{
+				peerStatus.RouteCount = append(peerStatus.RouteCount, v2.BGPFamilyRouteCount{
 					Afi:        af.Afi,
 					Safi:       af.Safi,
 					Advertised: ptr.To[int32](int32(af.Advertised)),

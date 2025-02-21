@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
@@ -35,25 +35,25 @@ func (m *BGPResourceMapper) reconcileMappings(ctx context.Context) error {
 
 	err := m.mapClusterConfigs(ctx)
 	if err != nil {
-		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPCCKindDefinition).Inc()
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2.BGPCCKindDefinition).Inc()
 	}
 
 	rErr := m.mapPeerConfigs(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPPCKindDefinition).Inc()
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2.BGPPCKindDefinition).Inc()
 	}
 
 	rErr = m.mapAdvertisements(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPAKindDefinition).Inc()
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2.BGPAKindDefinition).Inc()
 	}
 
 	rErr = m.mapNodeConfigOverrides(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPNCOKindDefinition).Inc()
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2.BGPNCOKindDefinition).Inc()
 	}
 
 	return err
@@ -81,7 +81,7 @@ func (m *BGPResourceMapper) mapClusterConfig(ctx context.Context, entClusterConf
 		return err
 	}
 
-	clusterConfigClientSet := m.clientSet.CiliumV2alpha1().CiliumBGPClusterConfigs()
+	clusterConfigClientSet := m.clientSet.CiliumV2().CiliumBGPClusterConfigs()
 
 	switch {
 	case exists && expectedOSSClusterConfig.Spec.DeepEqual(&runningOSSClusterConfig.Spec) &&
@@ -137,7 +137,7 @@ func (m *BGPResourceMapper) mapPeerConfig(ctx context.Context, entPeerConfig *v1
 		return err
 	}
 
-	peerConfigClientSet := m.clientSet.CiliumV2alpha1().CiliumBGPPeerConfigs()
+	peerConfigClientSet := m.clientSet.CiliumV2().CiliumBGPPeerConfigs()
 
 	switch {
 	case exists && expectedOSSPeerConfig.Spec.DeepEqual(&runningOSSPeerConfig.Spec) &&
@@ -193,7 +193,7 @@ func (m *BGPResourceMapper) mapAdvertisement(ctx context.Context, entAdvertiseme
 		return err
 	}
 
-	advertisementClientSet := m.clientSet.CiliumV2alpha1().CiliumBGPAdvertisements()
+	advertisementClientSet := m.clientSet.CiliumV2().CiliumBGPAdvertisements()
 
 	switch {
 	case exists && expectedOSSAdvertisement.Spec.DeepEqual(&runningOSSAdvertisement.Spec) &&
@@ -249,7 +249,7 @@ func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeCo
 		return err
 	}
 
-	nodeConfigOverrideClientSet := m.clientSet.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()
+	nodeConfigOverrideClientSet := m.clientSet.CiliumV2().CiliumBGPNodeConfigOverrides()
 
 	switch {
 	case exists && expectedOSSNodeConfigOverride.Spec.DeepEqual(&runningOSSNodeConfigOverride.Spec) &&
@@ -283,8 +283,8 @@ func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeCo
 	return nil
 }
 
-func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2alpha1.CiliumBGPClusterConfig {
-	newOSSClusterConfig := &v2alpha1.CiliumBGPClusterConfig{
+func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2.CiliumBGPClusterConfig {
+	newOSSClusterConfig := &v2.CiliumBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entClusterConfig.GetName(),
 			Namespace:   entClusterConfig.GetNamespace(),
@@ -299,26 +299,25 @@ func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2a
 				},
 			},
 		},
-		Spec: v2alpha1.CiliumBGPClusterConfigSpec{
+		Spec: v2.CiliumBGPClusterConfigSpec{
 			NodeSelector: entClusterConfig.Spec.NodeSelector,
 		},
 	}
 
 	for _, bgpInstance := range entClusterConfig.Spec.BGPInstances {
-		ossBGPInstance := v2alpha1.CiliumBGPInstance{
-			Name:      bgpInstance.Name,
-			LocalASN:  bgpInstance.LocalASN,
-			LocalPort: bgpInstance.LocalPort,
+		ossBGPInstance := v2.CiliumBGPInstance{
+			Name:     bgpInstance.Name,
+			LocalASN: bgpInstance.LocalASN,
 		}
 
 		for _, peer := range bgpInstance.Peers {
-			p := v2alpha1.CiliumBGPPeer{
+			p := v2.CiliumBGPPeer{
 				Name:        peer.Name,
 				PeerAddress: peer.PeerAddress,
 				PeerASN:     peer.PeerASN,
 			}
 			if peer.PeerConfigRef != nil {
-				p.PeerConfigRef = &v2alpha1.PeerConfigReference{
+				p.PeerConfigRef = &v2.PeerConfigReference{
 					Name: peer.PeerConfigRef.Name,
 				}
 			}
@@ -331,8 +330,8 @@ func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2a
 	return newOSSClusterConfig
 }
 
-func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2alpha1.CiliumBGPPeerConfig {
-	newOSSPeerConfig := &v2alpha1.CiliumBGPPeerConfig{
+func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2.CiliumBGPPeerConfig {
+	newOSSPeerConfig := &v2.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entPeerConfig.GetName(),
 			Namespace:   entPeerConfig.GetNamespace(),
@@ -347,7 +346,7 @@ func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2alpha1.Cil
 				},
 			},
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
+		Spec: v2.CiliumBGPPeerConfigSpec{
 			Timers:          entPeerConfig.Spec.Timers,
 			AuthSecretRef:   entPeerConfig.Spec.AuthSecretRef,
 			GracefulRestart: entPeerConfig.Spec.GracefulRestart,
@@ -356,7 +355,7 @@ func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2alpha1.Cil
 		},
 	}
 	if entPeerConfig.Spec.Transport != nil {
-		newOSSPeerConfig.Spec.Transport = &v2alpha1.CiliumBGPTransport{
+		newOSSPeerConfig.Spec.Transport = &v2.CiliumBGPTransport{
 			PeerPort: entPeerConfig.Spec.Transport.PeerPort,
 		}
 	}
@@ -364,8 +363,8 @@ func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2alpha1.Cil
 	return newOSSPeerConfig
 }
 
-func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2alpha1.CiliumBGPAdvertisement {
-	newOSSAdvertisement := &v2alpha1.CiliumBGPAdvertisement{
+func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2.CiliumBGPAdvertisement {
+	newOSSAdvertisement := &v2.CiliumBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entAdvertisement.GetName(),
 			Namespace:   entAdvertisement.GetNamespace(),
@@ -380,8 +379,8 @@ func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2a
 				},
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{},
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{},
 		},
 	}
 
@@ -392,7 +391,7 @@ func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2a
 			continue
 		}
 
-		ossAdvert := v2alpha1.BGPAdvertisement{
+		ossAdvert := v2.BGPAdvertisement{
 			AdvertisementType: advertType,
 			Service:           ossServiceOptionFromEnt(advert.Service),
 			Selector:          advert.Selector,
@@ -404,30 +403,30 @@ func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2a
 	return newOSSAdvertisement
 }
 
-func ossServiceOptionFromEnt(advert *v1.BGPServiceOptions) *v2alpha1.BGPServiceOptions {
+func ossServiceOptionFromEnt(advert *v1.BGPServiceOptions) *v2.BGPServiceOptions {
 	if advert == nil {
 		return nil
 	}
 
-	return &v2alpha1.BGPServiceOptions{
+	return &v2.BGPServiceOptions{
 		Addresses: advert.Addresses,
 	}
 }
 
-func ossAdvertTypeFromEnt(advert v1.IsovalentBGPAdvertType) v2alpha1.BGPAdvertisementType {
+func ossAdvertTypeFromEnt(advert v1.IsovalentBGPAdvertType) v2.BGPAdvertisementType {
 	switch advert {
 	case v1.BGPPodCIDRAdvert:
-		return v2alpha1.BGPPodCIDRAdvert
+		return v2.BGPPodCIDRAdvert
 	case v1.BGPServiceAdvert:
-		return v2alpha1.BGPServiceAdvert
+		return v2.BGPServiceAdvert
 	case v1.BGPCiliumPodIPPoolAdvert:
-		return v2alpha1.BGPCiliumPodIPPoolAdvert
+		return v2.BGPCiliumPodIPPoolAdvert
 	}
 	return "unknown"
 }
 
-func createOSSNodeConfigOverride(entNodeConfigOverride *v1.IsovalentBGPNodeConfigOverride) *v2alpha1.CiliumBGPNodeConfigOverride {
-	newOSSNodeConfigOverride := &v2alpha1.CiliumBGPNodeConfigOverride{
+func createOSSNodeConfigOverride(entNodeConfigOverride *v1.IsovalentBGPNodeConfigOverride) *v2.CiliumBGPNodeConfigOverride {
+	newOSSNodeConfigOverride := &v2.CiliumBGPNodeConfigOverride{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entNodeConfigOverride.GetName(),
 			Namespace:   entNodeConfigOverride.GetNamespace(),
@@ -445,7 +444,7 @@ func createOSSNodeConfigOverride(entNodeConfigOverride *v1.IsovalentBGPNodeConfi
 	}
 
 	for _, bgpInstance := range entNodeConfigOverride.Spec.BGPInstances {
-		ossBGPInstance := v2alpha1.CiliumBGPNodeConfigInstanceOverride{
+		ossBGPInstance := v2.CiliumBGPNodeConfigInstanceOverride{
 			Name:      bgpInstance.Name,
 			RouterID:  bgpInstance.RouterID,
 			LocalPort: bgpInstance.LocalPort,
@@ -453,7 +452,7 @@ func createOSSNodeConfigOverride(entNodeConfigOverride *v1.IsovalentBGPNodeConfi
 		}
 
 		for _, peer := range bgpInstance.Peers {
-			ossBGPInstance.Peers = append(ossBGPInstance.Peers, v2alpha1.CiliumBGPNodeConfigPeerOverride{
+			ossBGPInstance.Peers = append(ossBGPInstance.Peers, v2.CiliumBGPNodeConfigPeerOverride{
 				Name:         peer.Name,
 				LocalAddress: peer.LocalAddress,
 				LocalPort:    peer.LocalPort,

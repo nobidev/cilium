@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -59,7 +59,7 @@ type IsovalentBGPPeerConfigSpec struct {
 	// If not specified, the default timers are used.
 	//
 	// +kubebuilder:validation:Optional
-	Timers *v2alpha1.CiliumBGPTimers `json:"timers,omitempty"`
+	Timers *v2.CiliumBGPTimers `json:"timers,omitempty"`
 
 	// AuthSecretRef is the name of the secret to use to fetch a TCP
 	// authentication password for this peer.
@@ -75,7 +75,7 @@ type IsovalentBGPPeerConfigSpec struct {
 	// If not specified, the graceful restart capability is disabled.
 	//
 	// +kubebuilder:validation:Optional
-	GracefulRestart *v2alpha1.CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
+	GracefulRestart *v2.CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
 
 	// EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
 	// Its value defines the Time To Live (TTL) value used in BGP
@@ -95,7 +95,7 @@ type IsovalentBGPPeerConfigSpec struct {
 	// If not specified, the default families of IPv6/unicast and IPv4/unicast will be created.
 	//
 	// +kubebuilder:validation:Optional
-	Families []v2alpha1.CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
+	Families []v2.CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
 
 	// BFDProfileRef is the name of the BFD profile used to establish a BFD (Bidirectional Forwarding Detection)
 	// session with the peer. If not set, BFD is not used for this peer.
@@ -142,7 +142,7 @@ var AllBGPPeerConfigConditions = []string{
 
 func (t *IsovalentBGPTransport) SetDefaults() {
 	if t.PeerPort == nil || *t.PeerPort == 0 {
-		t.PeerPort = ptr.To[int32](v2alpha1.DefaultBGPPeerPort)
+		t.PeerPort = ptr.To[int32](v2.DefaultBGPPeerPort)
 	}
 }
 
@@ -157,29 +157,29 @@ func (p *IsovalentBGPPeerConfigSpec) SetDefaults() {
 	p.Transport.SetDefaults()
 
 	if p.Timers == nil {
-		p.Timers = &v2alpha1.CiliumBGPTimers{}
+		p.Timers = &v2.CiliumBGPTimers{}
 	}
 	p.Timers.SetDefaults()
 
 	if p.EBGPMultihop == nil {
-		p.EBGPMultihop = ptr.To[int32](v2alpha1.DefaultBGPEBGPMultihopTTL)
+		p.EBGPMultihop = ptr.To[int32](v2.DefaultBGPEBGPMultihopTTL)
 	}
 
 	if p.GracefulRestart == nil {
-		p.GracefulRestart = &v2alpha1.CiliumBGPNeighborGracefulRestart{}
+		p.GracefulRestart = &v2.CiliumBGPNeighborGracefulRestart{}
 	}
 	p.GracefulRestart.SetDefaults()
 
 	if len(p.Families) == 0 {
-		p.Families = []v2alpha1.CiliumBGPFamilyWithAdverts{
+		p.Families = []v2.CiliumBGPFamilyWithAdverts{
 			{
-				CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+				CiliumBGPFamily: v2.CiliumBGPFamily{
 					Afi:  "ipv6",
 					Safi: "unicast",
 				},
 			},
 			{
-				CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+				CiliumBGPFamily: v2.CiliumBGPFamily{
 					Afi:  "ipv4",
 					Safi: "unicast",
 				},

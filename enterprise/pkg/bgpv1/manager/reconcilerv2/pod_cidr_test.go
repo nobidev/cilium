@@ -27,8 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -48,9 +47,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-red",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -61,7 +60,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv6",
 						Safi: "unicast",
 					},
@@ -80,9 +79,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-red-v4",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -101,9 +100,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-blue",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -114,7 +113,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 					},
 				},
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv6",
 						Safi: "unicast",
 					},
@@ -130,9 +129,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 	redPodCIDRAdvert := v1.BGPAdvertisement{
 		AdvertisementType: v1.BGPPodCIDRAdvert,
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65000:100",
 				},
 			},
@@ -155,9 +154,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 	bluePodCIDRAdvert := v1.BGPAdvertisement{
 		AdvertisementType: v1.BGPPodCIDRAdvert,
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65355:100",
 				},
 			},
@@ -312,7 +311,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		advertisements        []*v1.IsovalentBGPAdvertisement
 		preconfiguredPaths    map[types.Family]map[string]struct{}
 		preconfiguredRPs      reconcilerv2.RoutePolicyMap
-		testCiliumNode        *v2api.CiliumNode
+		testCiliumNode        *v2.CiliumNode
 		testBGPInstanceConfig *v1.IsovalentBGPNodeInstance
 		expectedPaths         map[types.Family]map[string]struct{}
 		expectedRPs           reconcilerv2.RoutePolicyMap
@@ -329,11 +328,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{},
 			preconfiguredRPs:   map[string]*types.RoutePolicy{},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{
 							podCIDR1v4,
@@ -377,11 +376,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				blueAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{
 							podCIDR1v4,
@@ -437,11 +436,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			preconfiguredRPs: map[string]*types.RoutePolicy{
 				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
@@ -489,11 +488,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				bluePeer65001v4PodCIDRRoutePolicy.Name: bluePeer65001v4PodCIDRRoutePolicy,
 				bluePeer65001v6PodCIDRRoutePolicy.Name: bluePeer65001v6PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
@@ -535,11 +534,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redPeer65001v4PodCIDRRoutePolicy.Name: redPeer65001v4PodCIDRRoutePolicy,
 				redPeer65001v6PodCIDRRoutePolicy.Name: redPeer65001v6PodCIDRRoutePolicy,
 			},
-			testCiliumNode: &v2api.CiliumNode{
+			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
-				Spec: v2api.NodeSpec{
+				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
 						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
 					},
@@ -620,12 +619,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				err := podCIDRReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance: &instance.BGPInstance{
 						Name: testBGPInstance.Name,
-						Config: &v2api.CiliumBGPNodeInstance{
+						Config: &v2.CiliumBGPNodeInstance{
 							Name: testBGPInstance.Name,
 						},
 						Router: testBGPInstance.Router,
 					},
-					DesiredConfig: &v2api.CiliumBGPNodeInstance{
+					DesiredConfig: &v2.CiliumBGPNodeInstance{
 						Name: testBGPInstance.Name,
 					},
 					CiliumNode: tt.testCiliumNode,

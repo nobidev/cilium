@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -55,17 +54,6 @@ var Cell = cell.Module(
 		store.NewBGPCPResourceStore[*cilium_v2.CiliumNode],
 	),
 
-	cell.ProvidePrivate(
-		// Provide v2alpha1 OSS resources for the enterprise operator,
-		// as the OSS code is using v2 version already.
-		// TODO: Remove after migration of enterprise code to v2 OSS APIs.
-		newV2alpha1BGPClusterConfigResource,
-		newV2alpha1BGPPeerConfigResource,
-		newV2alpha1BGPAdvertisementResource,
-		newV2alpha1BGPNodeConfigResource,
-		newV2alpha1BGPNodeConfigOverrideResource,
-	),
-
 	cell.ProvidePrivate(signaler.NewBGPCPSignaler),
 
 	cell.Config(config.DefaultConfig),
@@ -88,54 +76,4 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, cc config.Config, 
 		lc, utils.ListerWatcherFromTyped(
 			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
 		))
-}
-
-func newV2alpha1BGPClusterConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumBGPClusterConfig] {
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2alpha1.CiliumBGPClusterConfig](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumBGPClusterConfigList](
-			c.CiliumV2alpha1().CiliumBGPClusterConfigs(),
-		), resource.WithMetric("CiliumBGPClusterConfig"))
-}
-
-func newV2alpha1BGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumBGPPeerConfig] {
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2alpha1.CiliumBGPPeerConfig](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumBGPPeerConfigList](
-			c.CiliumV2alpha1().CiliumBGPPeerConfigs(),
-		), resource.WithMetric("CiliumBGPPeerConfig"))
-}
-
-func newV2alpha1BGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumBGPAdvertisement] {
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2alpha1.CiliumBGPAdvertisement](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumBGPAdvertisementList](
-			c.CiliumV2alpha1().CiliumBGPAdvertisements(),
-		), resource.WithMetric("CiliumBGPAdvertisement"))
-}
-
-func newV2alpha1BGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumBGPNodeConfig] {
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2alpha1.CiliumBGPNodeConfig](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumBGPNodeConfigList](
-			c.CiliumV2alpha1().CiliumBGPNodeConfigs(),
-		), resource.WithMetric("CiliumBGPNodeConfig"))
-}
-
-func newV2alpha1BGPNodeConfigOverrideResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumBGPNodeConfigOverride] {
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2alpha1.CiliumBGPNodeConfigOverride](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumBGPNodeConfigOverrideList](
-			c.CiliumV2alpha1().CiliumBGPNodeConfigOverrides(),
-		), resource.WithMetric("CiliumBGPNodeConfigOverride"))
 }

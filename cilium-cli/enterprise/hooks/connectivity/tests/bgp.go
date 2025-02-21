@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -172,23 +173,23 @@ func configureBGPPeeringV1(ctx context.Context, t *check.Test, ipFamily features
 			Advertisements: []v1.BGPAdvertisement{
 				{
 					AdvertisementType: v1.BGPPodCIDRAdvert,
-					Attributes: &ciliumv2alpha1.BGPAttributes{
-						Communities: &ciliumv2alpha1.BGPCommunities{
-							Standard: []ciliumv2alpha1.BGPStandardCommunity{bgpCommunityPodCIDR},
+					Attributes: &ciliumv2.BGPAttributes{
+						Communities: &ciliumv2.BGPCommunities{
+							Standard: []ciliumv2.BGPStandardCommunity{bgpCommunityPodCIDR},
 						},
 					},
 				},
 				{
 					AdvertisementType: v1.BGPServiceAdvert,
 					Service: &v1.BGPServiceOptions{
-						Addresses: []ciliumv2alpha1.BGPServiceAddressType{ciliumv2alpha1.BGPClusterIPAddr},
+						Addresses: []ciliumv2.BGPServiceAddressType{ciliumv2.BGPClusterIPAddr},
 					},
 					Selector: &slimv1.LabelSelector{
 						MatchLabels: map[string]string{"kind": "echo"},
 					},
-					Attributes: &ciliumv2alpha1.BGPAttributes{
-						Communities: &ciliumv2alpha1.BGPCommunities{
-							Standard: []ciliumv2alpha1.BGPStandardCommunity{bgpCommunityService},
+					Attributes: &ciliumv2.BGPAttributes{
+						Communities: &ciliumv2.BGPCommunities{
+							Standard: []ciliumv2.BGPStandardCommunity{bgpCommunityService},
 						},
 					},
 				},
@@ -202,14 +203,14 @@ func configureBGPPeeringV1(ctx context.Context, t *check.Test, ipFamily features
 			AdvertisementType: v1.BGPServiceAdvert,
 			Service: &v1.BGPServiceOptions{
 				AggregationLength: ptr.To[int32](bgpPrefixAggregateLength),
-				Addresses:         []ciliumv2alpha1.BGPServiceAddressType{ciliumv2alpha1.BGPClusterIPAddr},
+				Addresses:         []ciliumv2.BGPServiceAddressType{ciliumv2.BGPClusterIPAddr},
 			},
 			Selector: &slimv1.LabelSelector{
 				MatchLabels: map[string]string{"kind": "echo"},
 			},
-			Attributes: &ciliumv2alpha1.BGPAttributes{
-				Communities: &ciliumv2alpha1.BGPCommunities{
-					Standard: []ciliumv2alpha1.BGPStandardCommunity{bgpCommunityAggService},
+			Attributes: &ciliumv2.BGPAttributes{
+				Communities: &ciliumv2.BGPCommunities{
+					Standard: []ciliumv2.BGPStandardCommunity{bgpCommunityAggService},
 				},
 			},
 		})
@@ -226,14 +227,14 @@ func configureBGPPeeringV1(ctx context.Context, t *check.Test, ipFamily features
 			Name: bgpPeerConfigName,
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Timers: &ciliumv2alpha1.CiliumBGPTimers{
+			Timers: &ciliumv2.CiliumBGPTimers{
 				ConnectRetryTimeSeconds: ptr.To[int32](1),
 				KeepAliveTimeSeconds:    ptr.To[int32](1),
 				HoldTimeSeconds:         ptr.To[int32](3),
 			},
-			Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
 						Afi:  ipFamily.String(),
 						Safi: "unicast",
 					},

@@ -6,7 +6,7 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -94,7 +94,7 @@ type BGPAdvertisement struct {
 	// If not specified, no additional attributes are set.
 	//
 	// +kubebuilder:validation:Optional
-	Attributes *v2alpha1.BGPAttributes `json:"attributes,omitempty"`
+	Attributes *v2.BGPAttributes `json:"attributes,omitempty"`
 }
 
 // BGPServiceOptions defines the configuration for Service advertisement type.
@@ -103,7 +103,7 @@ type BGPServiceOptions struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Addresses []v2alpha1.BGPServiceAddressType `json:"addresses,omitempty"`
+	Addresses []v2.BGPServiceAddressType `json:"addresses,omitempty"`
 
 	// AggregationLength is the length of the prefix to be advertised.
 	// If not specified, exact route is advertised with prefix length of 32 for IPv4

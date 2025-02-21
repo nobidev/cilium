@@ -9,7 +9,7 @@
 package v1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	apismetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +30,7 @@ func (in *BGPAdvertisement) DeepCopyInto(out *BGPAdvertisement) {
 	}
 	if in.Attributes != nil {
 		in, out := &in.Attributes, &out.Attributes
-		*out = new(v2alpha1.BGPAttributes)
+		*out = new(v2.BGPAttributes)
 		(*in).DeepCopyInto(*out)
 	}
 	return
@@ -51,7 +51,7 @@ func (in *BGPServiceOptions) DeepCopyInto(out *BGPServiceOptions) {
 	*out = *in
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
-		*out = make([]v2alpha1.BGPServiceAddressType, len(*in))
+		*out = make([]v2.BGPServiceAddressType, len(*in))
 		copy(*out, *in)
 	}
 	if in.AggregationLength != nil {
@@ -920,7 +920,7 @@ func (in *IsovalentBGPPeerConfigSpec) DeepCopyInto(out *IsovalentBGPPeerConfigSp
 	}
 	if in.Timers != nil {
 		in, out := &in.Timers, &out.Timers
-		*out = new(v2alpha1.CiliumBGPTimers)
+		*out = new(v2.CiliumBGPTimers)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.AuthSecretRef != nil {
@@ -930,7 +930,7 @@ func (in *IsovalentBGPPeerConfigSpec) DeepCopyInto(out *IsovalentBGPPeerConfigSp
 	}
 	if in.GracefulRestart != nil {
 		in, out := &in.GracefulRestart, &out.GracefulRestart
-		*out = new(v2alpha1.CiliumBGPNeighborGracefulRestart)
+		*out = new(v2.CiliumBGPNeighborGracefulRestart)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.EBGPMultihop != nil {
@@ -940,7 +940,7 @@ func (in *IsovalentBGPPeerConfigSpec) DeepCopyInto(out *IsovalentBGPPeerConfigSp
 	}
 	if in.Families != nil {
 		in, out := &in.Families, &out.Families
-		*out = make([]v2alpha1.CiliumBGPFamilyWithAdverts, len(*in))
+		*out = make([]v2.CiliumBGPFamilyWithAdverts, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

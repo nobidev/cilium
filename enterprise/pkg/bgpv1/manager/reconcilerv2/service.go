@@ -34,7 +34,6 @@ import (
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -545,7 +544,7 @@ func (r *ServiceReconciler) getAllServiceAFPaths(desiredPeerAdverts PeerAdvertis
 
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := bgptypes.ToAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// get prefixes for the service
@@ -597,11 +596,11 @@ func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert 
 	// Loop over the service upsertAdverts and determine the desired routes.
 	for _, svcAdv := range advert.Service.Addresses {
 		switch svcAdv {
-		case v2alpha1.BGPLoadBalancerIPAddr:
+		case v2.BGPLoadBalancerIPAddr:
 			desiredRoutes = append(desiredRoutes, r.getLBSvcPaths(svc, ls, advert)...)
-		case v2alpha1.BGPClusterIPAddr:
+		case v2.BGPClusterIPAddr:
 			desiredRoutes = append(desiredRoutes, r.getClusterIPPaths(svc, ls, advert)...)
-		case v2alpha1.BGPExternalIPAddr:
+		case v2.BGPExternalIPAddr:
 			desiredRoutes = append(desiredRoutes, r.getExternalIPPaths(svc, ls, advert)...)
 		}
 	}
@@ -670,7 +669,7 @@ func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[
 		return desiredRoutes
 	}
 	// Ignore service managed by an unsupported LB class.
-	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1.BGPLoadBalancerClass {
+	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2.BGPLoadBalancerClass {
 		// The service is managed by a different LB class.
 		return desiredRoutes
 	}
@@ -916,7 +915,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 
 	for peer, afAdverts := range desiredPeerAdverts {
 		for fam, adverts := range afAdverts {
-			agentFamily := toAgentFamily(fam)
+			agentFamily := bgptypes.ToAgentFamily(fam)
 
 			for _, advert := range adverts {
 				labelSelector, err := slim_metav1.LabelSelectorAsSelector(advert.Selector)
@@ -988,7 +987,7 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 		return nil, nil
 	}
 	// Ignore service managed by an unsupported LB class.
-	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1.BGPLoadBalancerClass {
+	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2.BGPLoadBalancerClass {
 		// The service is managed by a different LB class.
 		return nil, nil
 	}
@@ -1002,7 +1001,7 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 		return nil, nil // peer address not known yet
 	}
 
-	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPLoadBalancerIPAddr)
+	valid, err := checkServiceAdvertisement(advert, v2.BGPLoadBalancerIPAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check service advertisement: %w", err)
 	}
@@ -1036,9 +1035,9 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPLoadBalancerIPAddr))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPLoadBalancerIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-		Attributes: toV2Attributes(advert.Attributes),
+		Attributes: advert.Attributes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LoadBalancer IP route policy: %w", err)
@@ -1057,7 +1056,7 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 		return nil, nil // peer address not known yet
 	}
 
-	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPExternalIPAddr)
+	valid, err := checkServiceAdvertisement(advert, v2.BGPExternalIPAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check service advertisement: %w", err)
 	}
@@ -1101,9 +1100,9 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPExternalIPAddr))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPExternalIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-		Attributes: toV2Attributes(advert.Attributes),
+		Attributes: advert.Attributes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create external IP route policy: %w", err)
@@ -1122,7 +1121,7 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 		return nil, nil // peer address not known yet
 	}
 
-	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPClusterIPAddr)
+	valid, err := checkServiceAdvertisement(advert, v2.BGPClusterIPAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check service advertisement: %w", err)
 	}
@@ -1173,9 +1172,9 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPClusterIPAddr))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPClusterIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-		Attributes: toV2Attributes(advert.Attributes),
+		Attributes: advert.Attributes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster IP route policy: %w", err)
@@ -1185,7 +1184,7 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 }
 
 // checkServiceAdvertisement checks if the service advertisement is enabled in the advertisement.
-func checkServiceAdvertisement(advert v1.BGPAdvertisement, advertServiceType v2alpha1.BGPServiceAddressType) (bool, error) {
+func checkServiceAdvertisement(advert v1.BGPAdvertisement, advertServiceType v2.BGPServiceAddressType) (bool, error) {
 	if advert.Service == nil {
 		return false, fmt.Errorf("advertisement has no service options")
 	}

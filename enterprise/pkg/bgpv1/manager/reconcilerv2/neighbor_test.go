@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -53,7 +52,7 @@ var (
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
 			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
 			},
 		},
 	}
@@ -69,7 +68,7 @@ var (
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
 			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ptr.To[int32](v2alpha1.DefaultBGPPeerPort),
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
 			},
 		},
 	}
@@ -92,7 +91,7 @@ var (
 			Password: peerData2.Password,
 		}
 
-		peer2Copy.Config.Timers = &v2alpha1.CiliumBGPTimers{
+		peer2Copy.Config.Timers = &v2.CiliumBGPTimers{
 			ConnectRetryTimeSeconds: ptr.To[int32](3),
 			HoldTimeSeconds:         ptr.To[int32](9),
 			KeepAliveTimeSeconds:    ptr.To[int32](3),
@@ -122,7 +121,7 @@ var (
 			Password: peerData2.Password,
 		}
 
-		peer2Copy.Config.GracefulRestart = &v2alpha1.CiliumBGPNeighborGracefulRestart{
+		peer2Copy.Config.GracefulRestart = &v2.CiliumBGPNeighborGracefulRestart{
 			Enabled:            true,
 			RestartTimeSeconds: ptr.To[int32](3),
 		}
@@ -409,12 +408,12 @@ func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []
 			Transport: &v1.IsovalentBGPTransport{
 				PeerPort: ptr.To[int32](int32(peer.PeerPort)),
 			},
-			Timers: &v2alpha1.CiliumBGPTimers{
+			Timers: &v2.CiliumBGPTimers{
 				ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
 				HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
 				KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
 			},
-			GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+			GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
 				Enabled:            peer.GracefulRestart.Enabled,
 				RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
 			},

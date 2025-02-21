@@ -25,8 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -62,13 +61,13 @@ type BGPResourceMapper struct {
 	nodeConfigStore resource.Store[*v1.IsovalentBGPNodeConfig]
 
 	// BGPv2 OSS resources
-	ossClusterConfigStore      resource.Store[*v2alpha1.CiliumBGPClusterConfig]
-	ossPeerConfigStore         resource.Store[*v2alpha1.CiliumBGPPeerConfig]
-	ossAdvertStore             resource.Store[*v2alpha1.CiliumBGPAdvertisement]
-	ossNodeConfigOverrideStore resource.Store[*v2alpha1.CiliumBGPNodeConfigOverride]
+	ossClusterConfigStore      resource.Store[*v2.CiliumBGPClusterConfig]
+	ossPeerConfigStore         resource.Store[*v2.CiliumBGPPeerConfig]
+	ossAdvertStore             resource.Store[*v2.CiliumBGPAdvertisement]
+	ossNodeConfigOverrideStore resource.Store[*v2.CiliumBGPNodeConfigOverride]
 
 	// Cilium node resource
-	ciliumNode store.BGPCPResourceStore[*cilium_v2.CiliumNode]
+	ciliumNode store.BGPCPResourceStore[*v2.CiliumNode]
 
 	// toggle status reporting
 	enableStatusReporting bool
@@ -95,13 +94,13 @@ type BGPResourceManagerParams struct {
 	NodeConfig         resource.Resource[*v1.IsovalentBGPNodeConfig]
 
 	// BGPv2 OSS Resources
-	OSSClusterConfig      resource.Resource[*v2alpha1.CiliumBGPClusterConfig]
-	OSSPeerConfig         resource.Resource[*v2alpha1.CiliumBGPPeerConfig]
-	OSSAdvert             resource.Resource[*v2alpha1.CiliumBGPAdvertisement]
-	OSSNodeConfigOverride resource.Resource[*v2alpha1.CiliumBGPNodeConfigOverride]
+	OSSClusterConfig      resource.Resource[*v2.CiliumBGPClusterConfig]
+	OSSPeerConfig         resource.Resource[*v2.CiliumBGPPeerConfig]
+	OSSAdvert             resource.Resource[*v2.CiliumBGPAdvertisement]
+	OSSNodeConfigOverride resource.Resource[*v2.CiliumBGPNodeConfigOverride]
 
 	// Cilium node resource
-	CiliumNode store.BGPCPResourceStore[*cilium_v2.CiliumNode]
+	CiliumNode store.BGPCPResourceStore[*v2.CiliumNode]
 }
 
 func RegisterBGPResourceMapper(in BGPResourceManagerParams) error {

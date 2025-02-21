@@ -21,7 +21,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -110,30 +110,29 @@ var (
 		return *cpy
 	}
 
-	ossClusterConfig = &v2alpha1.CiliumBGPClusterConfig{
+	ossClusterConfig = &v2.CiliumBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "test-bgp-cluster-config",
 			Labels: map[string]string{
 				"bgp": "dummy_label",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPClusterConfigSpec{
+		Spec: v2.CiliumBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
 				MatchLabels: map[string]slimv1.MatchLabelsValue{
 					"bgp": "rack1",
 				},
 			},
-			BGPInstances: []v2alpha1.CiliumBGPInstance{
+			BGPInstances: []v2.CiliumBGPInstance{
 				{
-					Name:      "instance-1",
-					LocalASN:  ptr.To[int64](65001),
-					LocalPort: ptr.To[int32](179),
-					Peers: []v2alpha1.CiliumBGPPeer{
+					Name:     "instance-1",
+					LocalASN: ptr.To[int64](65001),
+					Peers: []v2.CiliumBGPPeer{
 						{
 							Name:        "peer-1",
 							PeerAddress: ptr.To[string]("192.168.10.10"),
 							PeerASN:     ptr.To[int64](65002),
-							PeerConfigRef: &v2alpha1.PeerConfigReference{
+							PeerConfigRef: &v2.PeerConfigReference{
 								Name: "peer-config-1",
 							},
 						},
@@ -141,7 +140,7 @@ var (
 							Name:        "peer-2",
 							PeerAddress: ptr.To[string]("192.168.10.20"),
 							PeerASN:     ptr.To[int64](65002),
-							PeerConfigRef: &v2alpha1.PeerConfigReference{
+							PeerConfigRef: &v2.PeerConfigReference{
 								Name: "peer-config-2",
 							},
 						},
@@ -155,23 +154,23 @@ var (
 			},
 		},
 	}
-	ossPeerConfigSpec = v2alpha1.CiliumBGPPeerConfigSpec{
-		Transport: &v2alpha1.CiliumBGPTransport{
+	ossPeerConfigSpec = v2.CiliumBGPPeerConfigSpec{
+		Transport: &v2.CiliumBGPTransport{
 			PeerPort: ptr.To[int32](179),
 		},
-		Timers: &v2alpha1.CiliumBGPTimers{
+		Timers: &v2.CiliumBGPTimers{
 			ConnectRetryTimeSeconds: ptr.To[int32](12),
 			HoldTimeSeconds:         ptr.To[int32](9),
 			KeepAliveTimeSeconds:    ptr.To[int32](3),
 		},
 		AuthSecretRef: ptr.To[string]("bgp-secret"),
-		GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+		GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
 			Enabled:            true,
 			RestartTimeSeconds: ptr.To[int32](12),
 		},
-		Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+		Families: []v2.CiliumBGPFamilyWithAdverts{
 			{
-				CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+				CiliumBGPFamily: v2.CiliumBGPFamily{
 					Afi:  "ipv4",
 					Safi: "unicast",
 				},
@@ -201,7 +200,7 @@ var (
 			Families:        ossPeerConfigSpec.Families,
 		},
 	}
-	ossPeerConfig = &v2alpha1.CiliumBGPPeerConfig{
+	ossPeerConfig = &v2.CiliumBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "peer-config-1",
 			Labels: map[string]string{
@@ -222,31 +221,31 @@ var (
 			Advertisements: []v1.BGPAdvertisement{
 				{
 					AdvertisementType: "PodCIDR",
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](99),
 					},
 				},
 				{
 					AdvertisementType: "EgressGateway", // should be ignored by mapper
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](100),
 					},
 				},
 			},
 		},
 	}
-	ossAdvertPodCIDR = &v2alpha1.CiliumBGPAdvertisement{
+	ossAdvertPodCIDR = &v2.CiliumBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-pod-cidr",
 			Labels: map[string]string{
 				"bgp": "advert-1",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{
 				{
 					AdvertisementType: "PodCIDR",
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](99),
 					},
 				},
@@ -270,22 +269,22 @@ var (
 							"pool": "blue",
 						},
 					},
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](101),
 					},
 				},
 			},
 		},
 	}
-	ossAdvertIPPool = &v2alpha1.CiliumBGPAdvertisement{
+	ossAdvertIPPool = &v2.CiliumBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-ip-pool",
 			Labels: map[string]string{
 				"bgp": "advert-2",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{
 				{
 					AdvertisementType: "CiliumPodIPPool",
 					Selector: &slimv1.LabelSelector{
@@ -293,7 +292,7 @@ var (
 							"pool": "blue",
 						},
 					},
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](101),
 					},
 				},
@@ -313,10 +312,10 @@ var (
 				{
 					AdvertisementType: "Service",
 					Service: &v1.BGPServiceOptions{
-						Addresses: []v2alpha1.BGPServiceAddressType{
-							v2alpha1.BGPLoadBalancerIPAddr,
-							v2alpha1.BGPClusterIPAddr,
-							v2alpha1.BGPExternalIPAddr,
+						Addresses: []v2.BGPServiceAddressType{
+							v2.BGPLoadBalancerIPAddr,
+							v2.BGPClusterIPAddr,
+							v2.BGPExternalIPAddr,
 						},
 					},
 					Selector: &slimv1.LabelSelector{
@@ -324,29 +323,29 @@ var (
 							"service": "nginx",
 						},
 					},
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](102),
 					},
 				},
 			},
 		},
 	}
-	ossAdvertService = &v2alpha1.CiliumBGPAdvertisement{
+	ossAdvertService = &v2.CiliumBGPAdvertisement{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "advert-service",
 			Labels: map[string]string{
 				"bgp": "advert-3",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{
 				{
 					AdvertisementType: "Service",
-					Service: &v2alpha1.BGPServiceOptions{
-						Addresses: []v2alpha1.BGPServiceAddressType{
-							v2alpha1.BGPLoadBalancerIPAddr,
-							v2alpha1.BGPClusterIPAddr,
-							v2alpha1.BGPExternalIPAddr,
+					Service: &v2.BGPServiceOptions{
+						Addresses: []v2.BGPServiceAddressType{
+							v2.BGPLoadBalancerIPAddr,
+							v2.BGPClusterIPAddr,
+							v2.BGPExternalIPAddr,
 						},
 					},
 					Selector: &slimv1.LabelSelector{
@@ -354,7 +353,7 @@ var (
 							"service": "nginx",
 						},
 					},
-					Attributes: &v2alpha1.BGPAttributes{
+					Attributes: &v2.BGPAttributes{
 						LocalPreference: ptr.To[int64](102),
 					},
 				},
@@ -370,10 +369,10 @@ func Test_Mapping(t *testing.T) {
 		isoPeerConfig            *v1.IsovalentBGPPeerConfig
 		isoAdvert                *v1.IsovalentBGPAdvertisement
 		isoNodeConfigOR          *v1.IsovalentBGPNodeConfigOverride
-		expectedOSSClusterConfig *v2alpha1.CiliumBGPClusterConfig
-		expectedOSSPeerConfig    *v2alpha1.CiliumBGPPeerConfig
-		expectedOSSAdvert        *v2alpha1.CiliumBGPAdvertisement
-		expectedOSSNodeConfigOR  *v2alpha1.CiliumBGPNodeConfigOverride
+		expectedOSSClusterConfig *v2.CiliumBGPClusterConfig
+		expectedOSSPeerConfig    *v2.CiliumBGPPeerConfig
+		expectedOSSAdvert        *v2.CiliumBGPAdvertisement
+		expectedOSSNodeConfigOR  *v2.CiliumBGPNodeConfigOverride
 	}{
 		{
 			description:              "test cluster config mapping",

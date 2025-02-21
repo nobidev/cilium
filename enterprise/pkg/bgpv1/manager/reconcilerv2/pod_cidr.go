@@ -194,7 +194,7 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 	desiredFamilyAdverts := make(reconcilerv2.AFPathsMap)
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := types.ToAgentFamily(family)
 			pathsPerFamily, exists := desiredFamilyAdverts[agentFamily]
 			if !exists {
 				pathsPerFamily = make(reconcilerv2.PathMap)
@@ -235,7 +235,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams,
 		}
 
 		for family, adverts := range afAdverts {
-			fam := toAgentFamily(family)
+			fam := types.ToAgentFamily(family)
 
 			for _, advert := range adverts {
 				var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
@@ -254,7 +254,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams,
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
 					name := PolicyName(peer, fam.Afi.String(), advert.AdvertisementType, "")
 					policy, err := reconcilerv2.CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-						Attributes: toV2Attributes(advert.Attributes),
+						Attributes: advert.Attributes,
 					})
 					if err != nil {
 						return nil, err

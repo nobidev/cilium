@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -86,9 +86,9 @@ var (
 			Name: "peer-config",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -114,18 +114,18 @@ var (
 				{
 					AdvertisementType: v1.BGPEGWAdvert,
 					Selector:          egwLabelSelector,
-					Attributes: &v2alpha1.BGPAttributes{
-						Communities: &v2alpha1.BGPCommunities{
-							Standard: []v2alpha1.BGPStandardCommunity{"65000:100"},
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard: []v2.BGPStandardCommunity{"65000:100"},
 						},
 					},
 				},
 				{
 					AdvertisementType: v1.BGPEGWAdvert,
 					Selector:          egwLabelSelector2,
-					Attributes: &v2alpha1.BGPAttributes{
-						Communities: &v2alpha1.BGPCommunities{
-							Standard: []v2alpha1.BGPStandardCommunity{"65000:200"},
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard: []v2.BGPStandardCommunity{"65000:200"},
 						},
 					},
 				},

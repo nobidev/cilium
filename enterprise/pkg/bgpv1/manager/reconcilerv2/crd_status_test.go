@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
@@ -90,7 +89,7 @@ func TestDisableStatusReport(t *testing.T) {
 					Status: v1.IsovalentBGPNodeStatus{
 						BGPInstances: []v1.IsovalentBGPNodeInstanceStatus{
 							{
-								CiliumBGPNodeInstanceStatus: v2alpha1.CiliumBGPNodeInstanceStatus{
+								CiliumBGPNodeInstanceStatus: v2.CiliumBGPNodeInstanceStatus{
 									Name: "foo",
 								},
 							},

@@ -278,7 +278,7 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 
 	for _, peerFamilyAdverts := range desiredFamilyAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
@@ -343,7 +343,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 		}
 
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
@@ -387,7 +387,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 					policyName := PolicyName(peer, agentFamily.Afi.String(), advert.AdvertisementType, lp.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, nil,
 						types.PolicyPrefixMatchList{prefixMatch}, v2.BGPAdvertisement{
-							Attributes: toV2Attributes(advert.Attributes),
+							Attributes: advert.Attributes,
 						})
 					if err != nil {
 						return nil, fmt.Errorf("failed to create locator pool route policy: %w", err)

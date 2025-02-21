@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/option"
@@ -142,7 +142,7 @@ func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 	return r.reconcilePaths(ctx, iParams, podCIDRPrefixes, desiredVRFAdverts)
 }
 
-func (r *PodCIDRVRFReconciler) getPodCIDRs(cn *ciliumv2.CiliumNode) ([]netip.Prefix, error) {
+func (r *PodCIDRVRFReconciler) getPodCIDRs(cn *v2.CiliumNode) ([]netip.Prefix, error) {
 	if cn == nil {
 		return nil, fmt.Errorf("CiliumNode is nil")
 	}
@@ -224,7 +224,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 
 		desiredVRFAFPaths := make(reconcilerv2.AFPathsMap)
 		for fam, adverts := range afAdverts {
-			family := toAgentFamily(fam)
+			family := types.ToAgentFamily(fam)
 
 			// we do not care about advertisements for pod CIDRs, as long as there is one,
 			// we will advertise the pod CIDRs

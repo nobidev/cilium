@@ -6,7 +6,7 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // +genclient
@@ -190,7 +190,7 @@ type IsovalentBGPNodeStatus struct {
 }
 
 type IsovalentBGPNodeInstanceStatus struct {
-	v2alpha1.CiliumBGPNodeInstanceStatus `json:",inline"`
+	v2.CiliumBGPNodeInstanceStatus `json:",inline"`
 }
 
 type IsovalentBGPNodeVRF struct {

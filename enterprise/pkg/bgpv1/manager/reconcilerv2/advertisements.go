@@ -25,7 +25,7 @@ import (
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -42,7 +42,7 @@ type (
 	VRFAdvertisements map[string]FamilyAdvertisements
 
 	// FamilyAdvertisements is a map of address family to its advertisements
-	FamilyAdvertisements map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement
+	FamilyAdvertisements map[v2.CiliumBGPFamily][]v1.BGPAdvertisement
 )
 
 type AdvertisementIn struct {
@@ -146,7 +146,7 @@ func (p *IsovalentAdvertisement) GetConfiguredPeerAdvertisements(conf *v1.Isoval
 }
 
 func (p *IsovalentAdvertisement) getPeerAdvertisements(peerConfig *v1.IsovalentBGPPeerConfig, selectAdvertTypes ...v1.IsovalentBGPAdvertType) (FamilyAdvertisements, error) {
-	result := make(map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement)
+	result := make(map[v2.CiliumBGPFamily][]v1.BGPAdvertisement)
 
 	for _, family := range peerConfig.Spec.Families {
 		advert, err := p.getFamilyAdvertisements(family, selectAdvertTypes...)
@@ -158,7 +158,7 @@ func (p *IsovalentAdvertisement) getPeerAdvertisements(peerConfig *v1.IsovalentB
 	return result, nil
 }
 
-func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v2alpha1.CiliumBGPFamilyWithAdverts, selectAdvertTypes ...v1.IsovalentBGPAdvertType) ([]v1.BGPAdvertisement, error) {
+func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v2.CiliumBGPFamilyWithAdverts, selectAdvertTypes ...v1.IsovalentBGPAdvertType) ([]v1.BGPAdvertisement, error) {
 	// get all advertisement CRD objects.
 	advertResources := p.adverts.List()
 
@@ -188,7 +188,7 @@ func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v2alpha1.CiliumB
 	return selectedAdvertisements, nil
 }
 
-func (p *IsovalentAdvertisement) familySelectedAdvertisements(family v2alpha1.CiliumBGPFamilyWithAdverts, adverts []*v1.IsovalentBGPAdvertisement) ([]*v1.IsovalentBGPAdvertisement, error) {
+func (p *IsovalentAdvertisement) familySelectedAdvertisements(family v2.CiliumBGPFamilyWithAdverts, adverts []*v1.IsovalentBGPAdvertisement) ([]*v1.IsovalentBGPAdvertisement, error) {
 	var result []*v1.IsovalentBGPAdvertisement
 	advertSelector, err := slim_metav1.LabelSelectorAsSelector(family.Advertisements)
 	if err != nil {
@@ -243,14 +243,15 @@ func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.Isovale
 }
 
 func (p *IsovalentAdvertisement) getVRFAdvertisements(vrfConfig *v1alpha1.IsovalentBGPVRFConfig, selectAdvertTypes ...v1.IsovalentBGPAdvertType) (FamilyAdvertisements, error) {
-	result := make(map[v2alpha1.CiliumBGPFamily][]v1.BGPAdvertisement)
+	result := make(map[v2.CiliumBGPFamily][]v1.BGPAdvertisement)
 
 	for _, family := range vrfConfig.Spec.Families {
-		advert, err := p.getFamilyAdvertisements(family, selectAdvertTypes...)
+		v2Family := toV2FamilyWithAdverts(family)
+		advert, err := p.getFamilyAdvertisements(v2Family, selectAdvertTypes...)
 		if err != nil {
 			return result, err
 		}
-		result[family.CiliumBGPFamily] = advert
+		result[v2Family.CiliumBGPFamily] = advert
 	}
 	return result, nil
 }

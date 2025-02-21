@@ -18,7 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
@@ -97,7 +97,7 @@ func TestToNeighbor(t *testing.T) {
 				PeerASN:     ptr.To(int64(64512)),
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
-				Timers: &v2alpha1.CiliumBGPTimers{
+				Timers: &v2.CiliumBGPTimers{
 					ConnectRetryTimeSeconds: ptr.To(int32(1)),
 					HoldTimeSeconds:         ptr.To(int32(3)),
 					KeepAliveTimeSeconds:    ptr.To(int32(1)),
@@ -134,7 +134,7 @@ func TestToNeighbor(t *testing.T) {
 				PeerASN:     ptr.To(int64(64512)),
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
-				GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+				GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
 					RestartTimeSeconds: ptr.To(int32(3)),
 				},
@@ -232,16 +232,16 @@ func TestToNeighbor(t *testing.T) {
 			},
 
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
 					{
 
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
 							Afi:  "ipv4",
 							Safi: "unicast",
 						},
 					},
 					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
 							Afi:  "ipv6",
 							Safi: "unicast",
 						},
@@ -274,25 +274,25 @@ func TestToNeighbor(t *testing.T) {
 				Transport: &v1.IsovalentBGPTransport{
 					PeerPort: ptr.To(int32(1790)),
 				},
-				Timers: &v2alpha1.CiliumBGPTimers{
+				Timers: &v2.CiliumBGPTimers{
 					ConnectRetryTimeSeconds: ptr.To(int32(1)),
 					HoldTimeSeconds:         ptr.To(int32(3)),
 					KeepAliveTimeSeconds:    ptr.To(int32(1)),
 				},
-				GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
+				GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
 					RestartTimeSeconds: ptr.To(int32(3)),
 				},
 				EBGPMultihop: ptr.To(int32(3)),
-				Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
 					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
 							Afi:  "ipv4",
 							Safi: "unicast",
 						},
 					},
 					{
-						CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
 							Afi:  "ipv6",
 							Safi: "unicast",
 						},

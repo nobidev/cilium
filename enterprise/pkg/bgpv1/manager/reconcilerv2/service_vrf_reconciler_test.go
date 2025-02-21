@@ -32,7 +32,7 @@ import (
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -217,8 +217,8 @@ var (
 	vrf1BGPAdvert = v1.BGPAdvertisement{
 		AdvertisementType: "Service",
 		Service: &v1.BGPServiceOptions{
-			Addresses: []v2alpha1.BGPServiceAddressType{
-				v2alpha1.BGPLoadBalancerIPAddr,
+			Addresses: []v2.BGPServiceAddressType{
+				v2.BGPLoadBalancerIPAddr,
 			},
 		},
 		Selector: &slimv1.LabelSelector{
@@ -238,8 +238,8 @@ var (
 	vrf2BGPAdvert = v1.BGPAdvertisement{
 		AdvertisementType: "Service",
 		Service: &v1.BGPServiceOptions{
-			Addresses: []v2alpha1.BGPServiceAddressType{
-				v2alpha1.BGPLoadBalancerIPAddr,
+			Addresses: []v2.BGPServiceAddressType{
+				v2.BGPLoadBalancerIPAddr,
 			},
 		},
 		Selector: &slimv1.LabelSelector{
@@ -256,7 +256,7 @@ var (
 		},
 	}
 
-	testCiliumNodeConfig = &v2api.CiliumNode{
+	testCiliumNodeConfig = &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-node",
 		},

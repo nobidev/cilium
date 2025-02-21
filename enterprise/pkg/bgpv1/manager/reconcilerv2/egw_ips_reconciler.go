@@ -211,7 +211,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 
 	for _, egwFamilyAdverts := range desiredFamilyAdverts {
 		for family, familyAdverts := range egwFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := types.ToAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// sanity check
@@ -276,7 +276,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 		}
 
 		for family, familyAdverts := range egwFamilyAdverts {
-			agentFamily := toAgentFamily(family)
+			agentFamily := types.ToAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// sanity check
@@ -321,7 +321,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 
 					policyName := PolicyName(peer, agentFamily.Afi.String(), v1.BGPEGWAdvert, egwID.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-						Attributes: toV2Attributes(advert.Attributes),
+						Attributes: advert.Attributes,
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to create egress gateway route policy: %w", err)

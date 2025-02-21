@@ -68,7 +68,7 @@ func toRouteReflector(routeReflector *v1.NodeRouteReflector, selfRRRole v1.Route
 	}
 }
 
-func toNeighborTimers(apiTimers *v2alpha1.CiliumBGPTimers) *types.NeighborTimers {
+func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *types.NeighborTimers {
 	if apiTimers == nil {
 		return nil
 	}
@@ -110,7 +110,7 @@ func toNeighborTransport(apiLocalAddress *string, apiTransport *v1.IsovalentBGPT
 	return transport
 }
 
-func toNeighborGracefulRestart(apiGR *v2alpha1.CiliumBGPNeighborGracefulRestart) *types.NeighborGracefulRestart {
+func toNeighborGracefulRestart(apiGR *v2.CiliumBGPNeighborGracefulRestart) *types.NeighborGracefulRestart {
 	if apiGR == nil || apiGR.RestartTimeSeconds == nil {
 		return nil
 	}
@@ -120,7 +120,7 @@ func toNeighborGracefulRestart(apiGR *v2alpha1.CiliumBGPNeighborGracefulRestart)
 	}
 }
 
-func toNeighborAfiSafis(families []v2alpha1.CiliumBGPFamilyWithAdverts) []*types.Family {
+func toNeighborAfiSafis(families []v2.CiliumBGPFamilyWithAdverts) []*types.Family {
 	if len(families) == 0 {
 		return nil
 	}
@@ -137,36 +137,12 @@ func toNeighborAfiSafis(families []v2alpha1.CiliumBGPFamilyWithAdverts) []*types
 	return afiSafis
 }
 
-func toAgentFamily(fam v2alpha1.CiliumBGPFamily) types.Family {
-	return types.ToAgentFamily(v2.CiliumBGPFamily{
-		Afi:  fam.Afi,
-		Safi: fam.Safi,
-	})
-}
-
-func toV2Attributes(attr *v2alpha1.BGPAttributes) *v2.BGPAttributes {
-	if attr == nil {
-		return nil
+func toV2FamilyWithAdverts(fam v2alpha1.CiliumBGPFamilyWithAdverts) v2.CiliumBGPFamilyWithAdverts {
+	return v2.CiliumBGPFamilyWithAdverts{
+		CiliumBGPFamily: v2.CiliumBGPFamily{
+			Afi:  fam.Afi,
+			Safi: fam.Safi,
+		},
+		Advertisements: fam.Advertisements,
 	}
-	return &v2.BGPAttributes{
-		Communities:     toV2Communities(attr.Communities),
-		LocalPreference: attr.LocalPreference,
-	}
-}
-
-func toV2Communities(c *v2alpha1.BGPCommunities) *v2.BGPCommunities {
-	if c == nil {
-		return nil
-	}
-	r := &v2.BGPCommunities{}
-	for _, s := range c.Standard {
-		r.Standard = append(r.Standard, v2.BGPStandardCommunity(s))
-	}
-	for _, s := range c.Large {
-		r.Large = append(r.Large, v2.BGPLargeCommunity(s))
-	}
-	for _, s := range c.WellKnown {
-		r.WellKnown = append(r.WellKnown, v2.BGPWellKnownCommunity(s))
-	}
-	return r
 }

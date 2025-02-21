@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -456,7 +456,7 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls se
 	}
 
 	for family, familyAdverts := range vrfFamilyAdvertisements {
-		agentFamily := toAgentFamily(family)
+		agentFamily := types.ToAgentFamily(family)
 
 		for _, advert := range familyAdverts {
 			// get prefixes for the service
@@ -615,7 +615,7 @@ func (r *ServiceVRFReconciler) getServicePrefixes(svc *slim_corev1.Service, adve
 	var desiredRoutes []netip.Prefix
 	// Loop over the service upsertAdverts and determine the desired routes.
 	for _, svcAdv := range advert.Service.Addresses {
-		if svcAdv == v2alpha1.BGPLoadBalancerIPAddr {
+		if svcAdv == v2.BGPLoadBalancerIPAddr {
 			desiredRoutes = append(desiredRoutes, r.getETPLocalLBSvcPaths(svc, ls)...)
 		}
 	}
@@ -640,7 +640,7 @@ func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(svc *slim_corev1.Service, l
 	}
 
 	// Ignore service managed by an unsupported LB class.
-	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1.BGPLoadBalancerClass {
+	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2.BGPLoadBalancerClass {
 		// The service is managed by a different LB class.
 		return desiredPrefixes
 	}

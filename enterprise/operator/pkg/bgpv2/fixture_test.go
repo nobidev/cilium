@@ -25,14 +25,15 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	bfdTypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/hive"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
-	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	isovalent_client_v1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -58,11 +59,11 @@ type fixture struct {
 	isoBGPVrfClient        isovalent_client_v1alpha1.IsovalentBGPVRFConfigInterface
 
 	// oss clients
-	ossClusterClient    cilium_client_v2alpha1.CiliumBGPClusterConfigInterface
-	ossPeerConfClient   cilium_client_v2alpha1.CiliumBGPPeerConfigInterface
-	ossAdvertClient     cilium_client_v2alpha1.CiliumBGPAdvertisementInterface
-	ossNodeConfClient   cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
-	ossNodeConfORClient cilium_client_v2alpha1.CiliumBGPNodeConfigOverrideInterface
+	ossClusterClient    cilium_client_v2.CiliumBGPClusterConfigInterface
+	ossPeerConfClient   cilium_client_v2.CiliumBGPPeerConfigInterface
+	ossAdvertClient     cilium_client_v2.CiliumBGPAdvertisementInterface
+	ossNodeConfClient   cilium_client_v2.CiliumBGPNodeConfigInterface
+	ossNodeConfORClient cilium_client_v2.CiliumBGPNodeConfigOverrideInterface
 
 	// node client
 	nodeClient cilium_client_v2.CiliumNodeInterface
@@ -150,11 +151,11 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, fc f
 	f.isoBGPVrfClient = f.fakeClientSet.IsovalentV1alpha1().IsovalentBGPVRFConfigs()
 
 	// oss clients
-	f.ossClusterClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPClusterConfigs()
-	f.ossPeerConfClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPPeerConfigs()
-	f.ossAdvertClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPAdvertisements()
-	f.ossNodeConfClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPNodeConfigs()
-	f.ossNodeConfORClient = f.fakeClientSet.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()
+	f.ossClusterClient = f.fakeClientSet.CiliumV2().CiliumBGPClusterConfigs()
+	f.ossPeerConfClient = f.fakeClientSet.CiliumV2().CiliumBGPPeerConfigs()
+	f.ossAdvertClient = f.fakeClientSet.CiliumV2().CiliumBGPAdvertisements()
+	f.ossNodeConfClient = f.fakeClientSet.CiliumV2().CiliumBGPNodeConfigs()
+	f.ossNodeConfORClient = f.fakeClientSet.CiliumV2().CiliumBGPNodeConfigOverrides()
 
 	// node client
 	f.nodeClient = f.fakeClientSet.CiliumV2().CiliumNodes()
@@ -163,6 +164,14 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, fc f
 	f.fakeClientSet.SlimFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.SlimFakeClientset.Tracker()))
 
 	f.hive = hive.New(
+		cell.Provide(
+			k8s.CiliumBGPPeerConfigResource,
+			k8s.CiliumBGPAdvertisementResource,
+			k8s.CiliumBGPNodeConfigResource,
+			operatorK8s.CiliumBGPClusterConfigResource,
+			operatorK8s.CiliumBGPNodeConfigOverrideResource,
+		),
+
 		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_v2.CiliumNode] {
 			return resource.New[*cilium_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped(
