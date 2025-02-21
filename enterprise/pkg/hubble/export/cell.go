@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/pkg/hubble"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
@@ -39,33 +40,43 @@ var Cell = cell.Module(
 )
 
 type config struct {
-	FilePath             string        `mapstructure:"export-file-path"`
-	FileMaxSize          int           `mapstructure:"export-file-max-size"`
-	FileRotationInterval time.Duration `mapstructure:"export-file-rotation-interval"`
-	FileMaxBackups       int           `mapstructure:"export-file-max-backups"`
-	FileCompress         bool          `mapstructure:"export-file-compress"`
-	FlowWhitelist        string        `mapstructure:"export-flow-whitelist"`
-	FlowBlacklist        string        `mapstructure:"export-flow-blacklist"`
-	FlowAllowlist        string        `mapstructure:"export-flow-allowlist"`
-	FlowDenylist         string        `mapstructure:"export-flow-denylist"`
-	FormatVersion        string        `mapstructure:"export-format-version"`
-	RateLimit            int           `mapstructure:"export-rate-limit"`
-	NodeName             string        `mapstructure:"export-node-name"`
+	FilePath                     string        `mapstructure:"export-file-path"`
+	FileMaxSize                  int           `mapstructure:"export-file-max-size"`
+	FileRotationInterval         time.Duration `mapstructure:"export-file-rotation-interval"`
+	FileMaxBackups               int           `mapstructure:"export-file-max-backups"`
+	FileCompress                 bool          `mapstructure:"export-file-compress"`
+	FlowWhitelist                string        `mapstructure:"export-flow-whitelist"`
+	FlowBlacklist                string        `mapstructure:"export-flow-blacklist"`
+	FlowAllowlist                string        `mapstructure:"export-flow-allowlist"`
+	FlowDenylist                 string        `mapstructure:"export-flow-denylist"`
+	FormatVersion                string        `mapstructure:"export-format-version"`
+	RateLimit                    int           `mapstructure:"export-rate-limit"`
+	NodeName                     string        `mapstructure:"export-node-name"`
+	Aggregations                 []string      `mapstructure:"export-aggregation"`
+	AggregationIgnoreSourcePort  bool          `mapstructure:"export-aggregation-ignore-source-port"`
+	AggregationRenewTTL          bool          `mapstructure:"export-aggregation-renew-ttl"`
+	AggregationStateChangeFilter []string      `mapstructure:"export-aggregation-state-filter"`
+	AggregationTtl               time.Duration `mapstructure:"export-aggregation-ttl"`
 }
 
 var defaultConfig = config{
-	FilePath:             "",
-	FileMaxSize:          100,
-	FileRotationInterval: 0,
-	FileMaxBackups:       3,
-	FileCompress:         true,
-	FlowWhitelist:        "",
-	FlowBlacklist:        "",
-	FlowAllowlist:        "",
-	FlowDenylist:         "",
-	FormatVersion:        formatVersionV1,
-	RateLimit:            -1,
-	NodeName:             "",
+	FilePath:                     "",
+	FileMaxSize:                  100,
+	FileRotationInterval:         0,
+	FileMaxBackups:               3,
+	FileCompress:                 true,
+	FlowWhitelist:                "",
+	FlowBlacklist:                "",
+	FlowAllowlist:                "",
+	FlowDenylist:                 "",
+	FormatVersion:                formatVersionV1,
+	RateLimit:                    -1,
+	NodeName:                     "",
+	Aggregations:                 []string{},
+	AggregationIgnoreSourcePort:  true,
+	AggregationRenewTTL:          true,
+	AggregationStateChangeFilter: []string{"new", "error", "closed"},
+	AggregationTtl:               30 * time.Second,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -83,6 +94,11 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String("export-format-version", formatVersionV1, "Default to v1 format. Set to '' to use the legacy format")
 	flags.Int("export-rate-limit", def.RateLimit, "Rate limit (per minute) for flow exports. Set to -1 to disable")
 	flags.String("export-node-name", def.NodeName, "Override the node_name field in exported flows")
+	flags.StringSlice("export-aggregation", def.Aggregations, "Perform aggregation pre-storage ('connection', 'identity')")
+	flags.Bool("export-aggregation-ignore-source-port", def.AggregationIgnoreSourcePort, "Ignore source port during aggregation")
+	flags.Bool("export-aggregation-renew-ttl", def.AggregationRenewTTL, "Renew flow TTL when a new flow is observed")
+	flags.StringSlice("export-aggregation-state-filter", def.AggregationStateChangeFilter, "The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed')")
+	flags.Duration("export-aggregation-ttl", def.AggregationTtl, "TTL for flow aggregation")
 }
 
 type hubbleEnterpriseExporterParams struct {
@@ -91,8 +107,6 @@ type hubbleEnterpriseExporterParams struct {
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
 	Config    config
-
-	EnterpriseAggregator *aggregation.EnterpriseAggregator
 
 	// TODO: replace by slog
 	Logger logrus.FieldLogger
@@ -158,7 +172,19 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 			stop := ev.GetFlow() == nil
 			return stop, nil
 		}),
-		exporter.WithOnExportEvent(params.EnterpriseAggregator),
+	}
+
+	// create aggregator
+	if len(params.Config.Aggregations) > 0 {
+		aggregator, err := newHubbleEnterpriseAggregator(params.Config, params.Logger)
+		if err != nil {
+			return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to create enterprise aggregator: %w", err)
+		}
+		exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(aggregator))
+		params.JobGroup.Add(job.OneShot("hubble-flow-aggregator", func(ctx context.Context, _ cell.Health) error {
+			aggregator.Start(ctx)
+			return nil
+		}))
 	}
 
 	// setup rate-limiting
@@ -226,4 +252,18 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 	return HubbleEnterpriseExporterOut{
 		Exporters: []exporter.FlowLogExporter{staticExporter},
 	}, nil
+}
+
+func newHubbleEnterpriseAggregator(config config, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
+	aggFilter, err := aggregator.NewAggregation(
+		config.Aggregations,
+		config.AggregationStateChangeFilter,
+		config.AggregationIgnoreSourcePort,
+		config.AggregationTtl,
+		config.AggregationRenewTTL,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create flow aggregation filter: %w", err)
+	}
+	return aggregation.NewEnterpriseAggregator(aggFilter, logger)
 }
