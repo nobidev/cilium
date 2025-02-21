@@ -11,7 +11,7 @@
 package ilb
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -991,13 +991,13 @@ func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig 
 	return obj
 }
 
-func tlsSecret(namespace, name string, key, cert []byte) *v1.Secret {
-	return &v1.Secret{
+func tlsSecret(namespace, name string, key, cert []byte) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
-		Type: v1.SecretTypeTLS,
+		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{
 			"tls.key": key,
 			"tls.crt": cert,
@@ -1005,13 +1005,13 @@ func tlsSecret(namespace, name string, key, cert []byte) *v1.Secret {
 	}
 }
 
-func caSecret(namespace, name string, cert []byte) *v1.Secret {
-	return &v1.Secret{
+func caSecret(namespace, name string, cert []byte) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
-		Type: v1.SecretTypeOpaque,
+		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
 			"ca.crt": cert,
 		},

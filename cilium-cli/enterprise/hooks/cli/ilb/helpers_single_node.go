@@ -60,21 +60,21 @@ func skipIfNotUseRemoteAddress(msg string) bool {
 	return false
 }
 
-func SetupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
+func SetupSingleNodeMode(ctx context.Context, dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
 	if FlagSingleNodeIPAddr != "" {
 		return nil
 	}
 
-	if err := dockerCli.EnsureImage(context.Background(), FlagUtilsImage); err != nil {
+	if err := dockerCli.EnsureImage(ctx, FlagUtilsImage); err != nil {
 		return fmt.Errorf("failed to ensure %s image: %w", FlagUtilsImage, err)
 	}
 
-	ips, err := getT1NodeIPs(k8sCli)
+	ips, err := getT1NodeIPs(ctx, k8sCli)
 	if err != nil {
 		return fmt.Errorf("failed to derive T1 node IP addrs: %w", err)
 	}
 
-	if err := deriveSingleNodeIP(dockerCli, ips[0]); err != nil {
+	if err := deriveSingleNodeIP(ctx, dockerCli, ips[0]); err != nil {
 		return fmt.Errorf("failed to derive single-node IP addr (you can set -single-node-ip): %w", err)
 	}
 
@@ -83,16 +83,16 @@ func SetupSingleNodeMode(dockerCli *dockerCli, k8sCli *k8s.Clientset) error {
 	return nil
 }
 
-func deriveSingleNodeIP(dockerCli *dockerCli, t1NodeIPAddr string) error {
+func deriveSingleNodeIP(ctx context.Context, dockerCli *dockerCli, t1NodeIPAddr string) error {
 	name := "single-node-ip"
 
 	// It will run in the single-node's host netns
-	_, _, err := dockerCli.createContainer(context.Background(), name, FlagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
+	_, _, err := dockerCli.createContainer(ctx, name, FlagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start %s: %w", name, err)
 	}
-	defer dockerCli.deleteContainer(context.Background(), name)
-	ip, _, err := dockerCli.ContainerExec(context.Background(), name,
+	defer dockerCli.deleteContainer(ctx, name)
+	ip, _, err := dockerCli.ContainerExec(ctx, name,
 		[]string{
 			"/bin/sh", "-c",
 			fmt.Sprintf("ip -4 route get %s | grep -o 'src [0-9\\.]*' | cut -d' ' -f2", t1NodeIPAddr),

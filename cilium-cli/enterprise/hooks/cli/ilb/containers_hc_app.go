@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 	"strings"
 )
@@ -34,7 +33,7 @@ const (
 	hcOK   hcState = "ok"
 )
 
-func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
+func (c *hcAppContainer) SetHC(t T, hc hcState) {
 	scheme := "http"
 	options := "--silent -XPOST"
 
@@ -43,14 +42,14 @@ func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
 		options += " -k"
 	}
 
-	stdout, stderr, err := c.Exec(ctx,
+	stdout, stderr, err := c.Exec(t.Context(),
 		fmt.Sprintf(
 			"curl %s %s://127.0.0.1:%d/control/healthcheck/"+string(hc),
 			options, scheme, c.port,
 		),
 	)
 	if err != nil {
-		fatalf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
+		t.Failedf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
 			string(hc), stdout, stderr, err)
 	}
 
@@ -59,6 +58,6 @@ func (c *hcAppContainer) SetHC(ctx context.Context, hc hcState) {
 		state = "true"
 	}
 	if strings.TrimSpace(stdout) != "healthcheck OK: "+state {
-		fatalf("expected different output, got %q", stdout)
+		t.Failedf("expected different output, got %q", stdout)
 	}
 }

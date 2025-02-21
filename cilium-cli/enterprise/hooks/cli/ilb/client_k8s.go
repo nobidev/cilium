@@ -33,7 +33,7 @@ type ciliumCli struct {
 	*cilium_clientset.Clientset
 }
 
-func NewCiliumAndK8sCli() (*ciliumCli, *k8s.Clientset) {
+func NewCiliumAndK8sCli(f FailureReporter) (*ciliumCli, *k8s.Clientset) {
 	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
 	// use KUBECONFIG env var if set
@@ -44,17 +44,17 @@ func NewCiliumAndK8sCli() (*ciliumCli, *k8s.Clientset) {
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
-		fatalf("failed to read kube config: %s", err)
+		f.Failedf("failed to read kube config: %s", err)
 	}
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
-		fatalf("unable to create k8s REST client: %s", err)
+		f.Failedf("unable to create k8s REST client: %s", err)
 	}
 
 	cli, err := cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
-		fatalf("unable to create cilium k8s client: %s", err)
+		f.Failedf("unable to create cilium k8s client: %s", err)
 	}
 
 	k8s := k8s.NewForConfigOrDie(restConfig)

@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -21,36 +20,35 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTLSProxyTCPBackend() {
-	ctx := context.Background()
+func TestTLSProxyTCPBackend(t T) {
 	ns := "default"
 	testName := "tls-proxy-tcp-backend"
 	serviceHostName := "secure.acme.io"
 	clientCAName := "acme.io"
 	clientHostName := "client.acme.io"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating cert and secret...")
 
-	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
-	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
+	scenario.createLBServerCertificate(testName, serviceHostName)
+	scenario.createLBClientCertificate(clientCAName, clientHostName)
 
 	fmt.Println("Creating backend app...")
 
-	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+	backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating client and add BGP peering...")
 
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
 	clientCASecretName := testName + "-client-ca"
@@ -58,15 +56,15 @@ func TestTLSProxyTCPBackend() {
 	fmt.Println("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName))))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 3. Test basic connectivity
 	fmt.Println("Checking Basic Connectivity")
@@ -74,8 +72,8 @@ func TestTLSProxyTCPBackend() {
 
 	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// Enrich error with curl output
 			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -85,9 +83,9 @@ func TestTLSProxyTCPBackend() {
 
 	// 4. Test mTLS connectivity
 	fmt.Println("Checking mTLS Connectivity")
-	curSvc, err := ciliumCli.GetLBService(ctx, ns, testName, metav1.GetOptions{})
+	curSvc, err := ciliumCli.GetLBService(t.Context(), ns, testName, metav1.GetOptions{})
 	if err != nil {
-		fatalf("failed to get LB service (%s): %s", testName, err)
+		t.Failedf("failed to get LB service (%s): %s", testName, err)
 	}
 
 	// Add validation context to the TLS config and update
@@ -97,8 +95,8 @@ func TestTLSProxyTCPBackend() {
 		},
 	}
 
-	if err := ciliumCli.UpdateLBService(ctx, ns, curSvc, metav1.UpdateOptions{}); err != nil {
-		fatalf("failed to update LB service (%s): %s", testName, err)
+	if err := ciliumCli.UpdateLBService(t.Context(), ns, curSvc, metav1.UpdateOptions{}); err != nil {
+		t.Failedf("failed to update LB service (%s): %s", testName, err)
 	}
 
 	testCmd = curlCmdVerbose(fmt.Sprintf("--max-time 10 --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/",
@@ -106,8 +104,8 @@ func TestTLSProxyTCPBackend() {
 
 	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// Enrich error with curl output
 			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -116,41 +114,40 @@ func TestTLSProxyTCPBackend() {
 	}, 10*time.Second, 100*time.Millisecond)
 }
 
-func TestTLSProxyTLSBackend() {
-	ctx := context.Background()
+func TestTLSProxyTLSBackend(t T) {
 	ns := "default"
 	testName := "tls-proxy-tls-backend"
 	serviceHostName := "secure.acme.io"
 	clientCAName := "acme.io"
 	clientHostName := "client.acme.io"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating cert and secret...")
 
-	scenario.createLBServerCertificate(ctx, testName, serviceHostName)
-	scenario.createLBClientCertificate(ctx, clientCAName, clientHostName)
+	scenario.createLBServerCertificate(testName, serviceHostName)
+	scenario.createLBClientCertificate(clientCAName, clientHostName)
 
 	fmt.Println("Creating client and add BGP peering...")
 
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{serviceHostName}})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating backend certificate...")
 
 	backendHostName := "secure-backend.acme.io"
-	scenario.createBackendServerCertificate(ctx, backendHostName)
+	scenario.createBackendServerCertificate(backendHostName)
 
 	fmt.Println("Creating backend app...")
 
-	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: backendHostName})
+	backends := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: backendHostName})
 
 	// FIXME: Don't expose internal naming convention. Get it from the scenario instead.
 	caCertSecretName := testName + "-client-ca"
@@ -158,15 +155,15 @@ func TestTLSProxyTLSBackend() {
 	fmt.Println("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port), withBackendTLS(), withHealthCheckTLS())
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10443), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName))))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 3. Test basic connectivity
 	fmt.Println("Checking Basic Connectivity")
@@ -174,8 +171,8 @@ func TestTLSProxyTLSBackend() {
 
 	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// Enrich error with curl output
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -185,9 +182,9 @@ func TestTLSProxyTLSBackend() {
 
 	// 4. Test mTLS connectivity
 	fmt.Println("Checking mTLS Connectivity")
-	curSvc, err := ciliumCli.GetLBService(ctx, ns, testName, metav1.GetOptions{})
+	curSvc, err := ciliumCli.GetLBService(t.Context(), ns, testName, metav1.GetOptions{})
 	if err != nil {
-		fatalf("failed to get LB service (%s): %s", testName, err)
+		t.Failedf("failed to get LB service (%s): %s", testName, err)
 	}
 
 	// curl's TLS1.3 implementation doesn't return handshake error
@@ -202,16 +199,16 @@ func TestTLSProxyTLSBackend() {
 		},
 	}
 
-	if err := ciliumCli.UpdateLBService(ctx, ns, curSvc, metav1.UpdateOptions{}); err != nil {
-		fatalf("failed to update LB service (%s): %s", testName, err)
+	if err := ciliumCli.UpdateLBService(t.Context(), ns, curSvc, metav1.UpdateOptions{}); err != nil {
+		t.Failedf("failed to update LB service (%s): %s", testName, err)
 	}
 
 	failTestCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", serviceHostName, vipIP))
 
 	fmt.Printf("Testing %q...\n", failTestCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, failTestCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), failTestCmd)
 		if err == nil {
 			// Enrich error with curl output
 			return fmt.Errorf("curl should have failed but succeeded (cmd: %q, stdout: %q, stderr: %q)", failTestCmd, stdout, stderr)
@@ -228,8 +225,8 @@ func TestTLSProxyTLSBackend() {
 
 	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// Enrich error with curl output
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)

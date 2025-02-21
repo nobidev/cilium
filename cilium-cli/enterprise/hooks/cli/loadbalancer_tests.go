@@ -6,10 +6,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"os"
 	"regexp"
-	"runtime"
-	"strings"
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +44,7 @@ import (
 // and LB app containers, and then running test requests from them. To do so,
 // set DOCKER_HOST= to point to the remote node.
 
-var tests = []func(){
+var tests = []func(t ilbCli.T){
 	ilbCli.TestRequestedVIP,
 	ilbCli.TestSharedVIP,
 	ilbCli.TestBGPHealthCheck,
@@ -110,18 +108,18 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if ilbCli.FlagMode != "single-node" && ilbCli.FlagMode != "multi-node" {
 				return fmt.Errorf("invalid --mode: %s", ilbCli.FlagMode)
 			}
-
-			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli()
-			dockerCli := ilbCli.NewDockerCli()
+			lbTestRun := &lbTestRun{}
+			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
+			dockerCli := ilbCli.NewDockerCli(lbTestRun)
 
 			for _, img := range []string{ilbCli.FlagAppImage, ilbCli.FlagClientImage, ilbCli.FlagCoreDNSImage, ilbCli.FlagNginxImage} {
-				if err := dockerCli.EnsureImage(context.Background(), img); err != nil {
+				if err := dockerCli.EnsureImage(c.Context(), img); err != nil {
 					return fmt.Errorf("failed to ensure Docker image %s: %w", img, err)
 				}
 			}
 
 			if ilbCli.IsSingleNode() {
-				if err := ilbCli.SetupSingleNodeMode(dockerCli, k8sCli); err != nil {
+				if err := ilbCli.SetupSingleNodeMode(c.Context(), dockerCli, k8sCli); err != nil {
 					return fmt.Errorf("failed to set up single-node mode: %w", err)
 				}
 			}
@@ -129,23 +127,23 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			// Create LBIPPool (it is shared among all test cases)
 
 			lbIPPool := ilbCli.LbIPPool(ilbCli.LbIPPoolName, "100.64.0.0/24")
-			if err := ciliumCli.EnsureLBIPPool(context.Background(), lbIPPool); err != nil {
+			if err := ciliumCli.EnsureLBIPPool(c.Context(), lbIPPool); err != nil {
 				return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
 			}
-			defer ilbCli.MaybeCleanupNow(func() error {
-				return ciliumCli.DeleteLBIPPool(context.Background(), ilbCli.LbIPPoolName, metav1.DeleteOptions{})
+			defer lbTestRun.maybeCleanupNow(func() error {
+				return ciliumCli.DeleteLBIPPool(c.Context(), ilbCli.LbIPPoolName, metav1.DeleteOptions{})
 			})
 
 			// Create IsovalentBGPClusterConfig (each test case will append its peer to it)
-			if err := ciliumCli.EnsureBGPClusterConfig(context.Background()); err != nil {
+			if err := ciliumCli.EnsureBGPClusterConfig(c.Context()); err != nil {
 				return fmt.Errorf("failed to install BGP peering: %w", err)
 			}
-			defer ilbCli.MaybeCleanupNow(func() error {
-				return ciliumCli.DeleteBGPClusterConfig(context.Background())
+			defer lbTestRun.maybeCleanupNow(func() error {
+				return ciliumCli.DeleteBGPClusterConfig(c.Context())
 			})
 
 			// Run tests
-			if err := runTests(); err != nil {
+			if err := lbTestRun.ExecuteTestFuncs(c.Context()); err != nil {
 				return err
 			}
 
@@ -180,34 +178,43 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	return cmd
 }
 
-func runTests() error {
+type lbTestRun struct{}
+
+func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
 	runRegexp, err := regexp.Compile(ilbCli.FlagRun)
 	if err != nil {
 		return fmt.Errorf("failed to parse run regexp (%s): %w", ilbCli.FlagRun, err)
 	}
 
-	testsToExecute := []func(){}
+	testsToExecute := []*ilbCli.LbTestFunc{}
 
 	for _, test := range tests {
-		testFuncName := testName(test)
+		tf := ilbCli.NewLBTestFunc(ctx, test)
+		testFuncName := tf.Name()
 		if runRegexp.Match([]byte(testFuncName)) {
-			testsToExecute = append(testsToExecute, test)
+			testsToExecute = append(testsToExecute, tf)
 		}
 	}
 
 	for i, test := range testsToExecute {
-		testName := testName(test)
-		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), testName)
-		ilbCli.MaybeSysdump(testName)
-		test()
-		ilbCli.RunCleanups()
+		fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
+		test.Run()
 		fmt.Println()
 	}
 
 	return nil
 }
 
-func testName(f func()) string {
-	testFuncNameFull := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
-	return testFuncNameFull[len(testFuncNameFull)-1]
+func (r *lbTestRun) Failedf(msg string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "\nILB testrun failed with error: %s\n", fmt.Sprintf(msg, args...))
+	os.Exit(1)
+}
+
+// maybeCleanupNow immediately tries to execute the given function function if cleanup functionality is enabled.
+func (r *lbTestRun) maybeCleanupNow(f func() error) {
+	if ilbCli.FlagCleanup {
+		if err := f(); err != nil {
+			fmt.Printf("cleanup failed: %s\n", err)
+		}
+	}
 }

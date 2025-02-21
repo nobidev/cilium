@@ -11,11 +11,10 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 )
 
-func TestHTTPRequestFiltering() {
+func TestHTTPRequestFiltering(t T) {
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpApplicationRouteOption
@@ -223,25 +222,24 @@ func TestHTTPRequestFiltering() {
 
 		fmt.Printf("Checking %s\n", tC.desc)
 
-		ctx := context.Background()
 		testName := fmt.Sprintf("http-requestfiltering-%s", tC.desc)
 		testK8sNamespace := "default"
 
-		ciliumCli, k8sCli := NewCiliumAndK8sCli()
-		dockerCli := NewDockerCli()
+		ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+		dockerCli := NewDockerCli(t)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 		fmt.Println("Creating backend apps...")
-		scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+		scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 		fmt.Println("Creating clients and add BGP peering ...")
-		clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
+		clients := scenario.addFRRClients(2, frrClientConfig{})
 
 		fmt.Println("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(ctx, vip)
+		scenario.createLBVIP(vip)
 
 		fmt.Println("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
@@ -249,20 +247,20 @@ func TestHTTPRequestFiltering() {
 			backends = append(backends, withIPBackend(b.ip, b.port))
 		}
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-		scenario.createLBBackendPool(ctx, backendPool)
+		scenario.createLBBackendPool(backendPool)
 
 		fmt.Println("Creating LB Service resources...")
 		service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName, tC.appOpt(clients))))
-		scenario.createLBService(ctx, service)
+		scenario.createLBService(service)
 
 		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path))
 			fmt.Printf("Testing %q...\n", testCmd)
-			eventually(func() error {
-				stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
+			eventually(t, func() error {
+				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if !tt.blocked && err != nil {
 					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 				} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 22") {

@@ -11,54 +11,52 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestHTTPBasicAuth() {
-	testBasicAuth("http")
+func TestHTTPBasicAuth(t T) {
+	testBasicAuth(t, "http")
 }
 
-func TestHTTPSBasicAuth() {
-	testBasicAuth("https")
+func TestHTTPSBasicAuth(t T) {
+	testBasicAuth(t, "https")
 }
 
-func testBasicAuth(proto string) {
-	ctx := context.Background()
+func testBasicAuth(t T, proto string) {
 	testName := "basic-auth-" + proto
 	testK8sNamespace := "default"
 	hostName := "basic-auth.acme.io"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
 		fmt.Println("Creating cert and secret...")
-		scenario.createLBServerCertificate(ctx, testName, hostName)
+		scenario.createLBServerCertificate(testName, hostName)
 	}
 
 	fmt.Println("Creating backend apps...")
-	backend := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})[0]
+	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
 
 	fmt.Println("Creating clients and add BGP peering ...")
 
 	var client *frrContainer
 	if proto == "http" {
-		client = scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+		client = scenario.addFRRClients(1, frrClientConfig{})[0]
 	} else {
-		client = scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
+		client = scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 	}
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
+	scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
 
 	fmt.Println("Creating basic auth secret...")
 	creds := []basicAuthCredential{
@@ -71,7 +69,7 @@ func testBasicAuth(proto string) {
 			password: "password1",
 		},
 	}
-	secretName := scenario.createBasicAuthSecret(ctx, creds)
+	secretName := scenario.createBasicAuthSecret(creds)
 
 	fmt.Println("Creating LB Service resources...")
 
@@ -107,10 +105,10 @@ func testBasicAuth(proto string) {
 			),
 		)
 	}
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	var curlOpt string
 	if proto == "http" {
@@ -122,34 +120,34 @@ func testBasicAuth(proto string) {
 	fmt.Println("Checking valid credentials")
 	for _, cred := range creds {
 		cmd := curlCmd(fmt.Sprintf("--max-time 10 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
-		stdout, stderr, err := client.Exec(ctx, cmd)
+		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
-			fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 		}
 	}
 
 	fmt.Println("Checking without credentials")
-	stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
 	if err == nil {
-		fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 	if stdout != "401" {
-		fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
 	fmt.Println("Checking invalid credentials")
-	stdout, stderr, err = client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
 	if err == nil {
-		fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 	if stdout != "401" {
-		fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
 	fmt.Println("Checking per-route exception")
 	// Ensure the per-route exception is working
-	stdout, stderr, err = client.Exec(ctx, curlCmd(fmt.Sprintf("--max-time 10 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s %s://%s/no-auth", curlOpt, proto, hostName)))
 	if err != nil {
-		fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 }

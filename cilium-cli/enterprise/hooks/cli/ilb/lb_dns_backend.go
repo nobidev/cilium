@@ -11,19 +11,17 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestDNSBackend() {
-	ctx := context.Background()
+func TestDNSBackend(t T) {
 	testNameBase := "dns-backend"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	fmt.Println("Creating backend apps...")
 
@@ -91,7 +89,7 @@ func TestDNSBackend() {
 		testName := testNameBase + tt.suffix
 		backendHostName := fmt.Sprintf("backend.%s.local", testName)
 
-		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 		fmt.Println("Creating backend apps...")
 
@@ -110,18 +108,18 @@ func TestDNSBackend() {
 
 		var beContainers []*hcAppContainer
 		if tt.backendTLS {
-			scenario.createBackendServerCertificate(ctx, backendHostName)
-			beContainers = scenario.addBackendApplications(ctx, nbackends, backendApplicationConfig{
+			scenario.createBackendServerCertificate(backendHostName)
+			beContainers = scenario.addBackendApplications(nbackends, backendApplicationConfig{
 				tlsCertHostname: backendHostName,
 			})
 		} else {
-			beContainers = scenario.addBackendApplications(ctx, nbackends, backendApplicationConfig{
+			beContainers = scenario.addBackendApplications(nbackends, backendApplicationConfig{
 				h2cEnabled: true,
 			})
 		}
 
 		fmt.Println("Registering backend apps in CoreDNS...")
-		coredns := scenario.addCoreDNS(ctx)
+		coredns := scenario.addCoreDNS()
 
 		records := []*coreDNSRecord{}
 		for _, be := range beContainers {
@@ -130,16 +128,16 @@ func TestDNSBackend() {
 				IP:       be.ip,
 			})
 		}
-		if err := coredns.AddDNSRecords(ctx, records); err != nil {
-			fatalf("failed to add DNS records: %v", err)
+		if err := coredns.AddDNSRecords(t.Context(), records); err != nil {
+			t.Failedf("failed to add DNS records: %v", err)
 		}
 
 		fmt.Println("Creating clients and add BGP peering ...")
-		client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 		fmt.Println("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(ctx, vip)
+		scenario.createLBVIP(vip)
 
 		fmt.Println("Creating LB BackendPool resources...")
 		var backendPool *isovalentv1alpha1.LBBackendPool
@@ -155,20 +153,20 @@ func TestDNSBackend() {
 				withDNSResolver(coredns.ip, coredns.port),
 			)
 		}
-		scenario.createLBBackendPool(ctx, backendPool)
+		scenario.createLBBackendPool(backendPool)
 
 		fmt.Println("Creating LB Service resources...")
 		if tt.serviceTLS {
 			// Server certificate
-			scenario.createLBServerCertificate(ctx, testName, "secure.acme.io")
+			scenario.createLBServerCertificate(testName, "secure.acme.io")
 		}
 
 		service := lbService(testK8sNamespace, testName, tt.serviceOptions...)
-		scenario.createLBService(ctx, service)
+		scenario.createLBService(service)
 		svcPort := service.Spec.Port
 
 		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
+		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
 
 		var testCmd string
 		if tt.serviceTLS {
@@ -178,13 +176,13 @@ func TestDNSBackend() {
 		}
 
 		observedBackends := make(map[string]struct{})
-		eventually(func() error {
-			stdout, stderr, err := client.Exec(ctx, testCmd)
+		eventually(t, func() error {
+			stdout, stderr, err := client.Exec(t.Context(), testCmd)
 			if err != nil {
 				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 			}
 
-			resp := toTestAppResponse(stdout)
+			resp := toTestAppResponse(t, stdout)
 			observedBackends[resp.InstanceName] = struct{}{}
 
 			if len(observedBackends) != nbackends {

@@ -11,49 +11,47 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 )
 
-func TestBGPHealthCheck() {
-	ctx := context.Background()
+func TestBGPHealthCheck(t T) {
 	testName := "bgp-health-check"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend app...")
-	backend := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})[0]
+	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
 
 	fmt.Println("Creating client and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port))
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. HC Down
 	fmt.Println("Setting T2 HC to fail...")
-	backend.SetHC(ctx, hcFail)
+	backend.SetHC(t, hcFail)
 
 	// 2. VIP shouldn't be advertised
-	eventually(func() error {
-		if err := client.EnsureRoute(ctx, vipIP+"/32"); err == nil {
+	eventually(t, func() error {
+		if err := client.EnsureRoute(t.Context(), vipIP+"/32"); err == nil {
 			return fmt.Errorf("the route %s/32 still exists", vipIP)
 		}
 		return nil
@@ -63,11 +61,11 @@ func TestBGPHealthCheck() {
 
 	// 3. HC Up
 	fmt.Println("Setting T2 HC to ok...")
-	backend.SetHC(ctx, hcOK)
+	backend.SetHC(t, hcOK)
 
 	// 4. VIP should be advertised
-	eventually(func() error {
-		if err := client.EnsureRoute(ctx, vipIP+"/32"); err != nil {
+	eventually(t, func() error {
+		if err := client.EnsureRoute(t.Context(), vipIP+"/32"); err != nil {
 			return fmt.Errorf("the route %s/32 is missing %w", vipIP, err)
 		}
 		return nil

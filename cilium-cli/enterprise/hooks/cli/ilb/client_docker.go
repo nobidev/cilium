@@ -31,10 +31,10 @@ type dockerCli struct {
 	*docker_client.Client
 }
 
-func NewDockerCli() *dockerCli {
+func NewDockerCli(f FailureReporter) *dockerCli {
 	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
 	if err != nil {
-		fatalf("failed to open Docker client: %s", err)
+		f.Failedf("failed to open Docker client: %s", err)
 	}
 
 	return &dockerCli{cli}
@@ -91,7 +91,7 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 }
 
 func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {
-	images, err := c.ImageList(context.Background(), image.ListOptions{})
+	images, err := c.ImageList(ctx, image.ListOptions{})
 	if err != nil {
 		return false, fmt.Errorf("list images: %w", err)
 	}

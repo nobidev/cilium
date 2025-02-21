@@ -11,27 +11,26 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyT1OnlyConnectionFiltering() {
-	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1)
+func TestTCPProxyT1OnlyConnectionFiltering(t T) {
+	testTCPProxyConnectionFiltering(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1)
 }
 
-func TestTCPProxyT1T2ConnectionFiltering() {
-	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2)
+func TestTCPProxyT1T2ConnectionFiltering(t T) {
+	testTCPProxyConnectionFiltering(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2)
 }
 
-func TestTCPProxyAutoConnectionFiltering() {
-	testTCPProxyConnectionFiltering(isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto)
+func TestTCPProxyAutoConnectionFiltering(t T) {
+	testTCPProxyConnectionFiltering(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto)
 }
 
-func testTCPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	testK8sNamespace := "default"
 
@@ -88,43 +87,42 @@ func testTCPProxyConnectionFiltering(forceDeploymentMode isovalentv1alpha1.LBTCP
 
 		fmt.Printf("Checking %s\n", tC.desc)
 
-		ctx := context.Background()
 		testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 		fmt.Println("Creating backend app...")
 
-		backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
 		fmt.Println("Creating client and add BGP peering...")
 
-		clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
+		clients := scenario.addFRRClients(2, frrClientConfig{})
 
 		fmt.Println("Creating LB VIP resources...")
 
 		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(ctx, vip)
+		scenario.createLBVIP(vip)
 
 		fmt.Println("Creating LB BackendPool resources...")
 
 		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
-		scenario.createLBBackendPool(ctx, backendPool)
+		scenario.createLBBackendPool(backendPool)
 
 		fmt.Println("Creating LB Service resources...")
 
 		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
-		scenario.createLBService(ctx, service)
+		scenario.createLBService(service)
 
 		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
 			fmt.Printf("Testing %q...\n", testCmd)
-			eventually(func() error {
-				stdout, stderr, err := clients[tt.clientNr].Exec(ctx, testCmd)
+			eventually(t, func() error {
+				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 				if !tt.blocked && err != nil {
 					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 				} else if tt.blocked && (err == nil || err.Error() != fmt.Sprintf("cmd failed: %d", getTCPCurlBlockErrorCode(forceDeploymentMode))) {

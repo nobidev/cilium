@@ -11,28 +11,27 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestUDPProxyT1OnlySession() {
-	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1)
+func TestUDPProxyT1OnlySession(t T) {
+	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1)
 }
 
-func TestUDPProxyT1T2Session() {
-	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2)
+func TestUDPProxyT1T2Session(t T) {
+	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2)
 }
 
-func TestUDPProxyAutoSession() {
-	testUDPProxySession(isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto)
+func TestUDPProxyAutoSession(t T) {
+	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto)
 }
 
-func testUDPProxySession(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) {
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+func testUDPProxySession(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	testK8sNamespace := "default"
 
@@ -40,22 +39,21 @@ func testUDPProxySession(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDe
 		return
 	}
 
-	ctx := context.Background()
 	testName := "udp-proxy-session-" + string(forceDeploymentMode)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend apps...")
 
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
@@ -63,27 +61,27 @@ func testUDPProxySession(forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDe
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name)))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// Send UDP request to test basic `client -> LB T1 -> app` connectivity.
 	// Do a few attempts, as neither UDP nor nc are reliable.
 	testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 -p 55555 %s 80", vipIP)
 	fmt.Printf("Testing UDP session with 10 requests from same source port: %q...\n", testCmd)
-	testUDPSessionWithNRequests(ctx, client, testCmd, 10)
+	testUDPSessionWithNRequests(t, client, testCmd, 10)
 }
 
-func testUDPSessionWithNRequests(ctx context.Context, client *frrContainer, testCmd string, total int) {
+func testUDPSessionWithNRequests(t T, client *frrContainer, testCmd string, total int) {
 	successCount := 0
 	previousServiceName := ""
-	eventually(func() error {
-		stdout, _, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, _, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// we never expect an error (netcat doesn't return error in case of timeout)
 			return fmt.Errorf("unexpected error %w", err)
@@ -96,7 +94,7 @@ func testUDPSessionWithNRequests(ctx context.Context, client *frrContainer, test
 
 		resp := toTestAppUDPResponse(stdout)
 
-		assertPersistentBackend(previousServiceName, resp.ServiceName)
+		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
 		previousServiceName = resp.ServiceName
 
 		successCount++

@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -21,49 +20,48 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyRatelimiting() {
-	ctx := context.Background()
+func TestTCPProxyRatelimiting(t T) {
 	ns := "default"
 	testName := "tcp-proxy-ratelimiting"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend app...")
 
-	backends := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+	backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating client and add BGP peering...")
 
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 
 	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 3. Test basic connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve tcp.acme.io:10080:%s http://tcp.acme.io:10080/", vipIP))
 
 	fmt.Printf("Testing %q...\n", testCmd)
 
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			// Enrich error with curl output
 			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -72,8 +70,8 @@ func TestTCPProxyRatelimiting() {
 	}, 10*time.Second, 100*time.Millisecond)
 
 	fmt.Printf("Testing %q and expecting connection rate limit eventually ...\n", testCmd)
-	eventually(func() error {
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			if err.Error() != "cmd failed: 56" {
 				return fmt.Errorf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -87,21 +85,20 @@ func TestTCPProxyRatelimiting() {
 	}, longTimeout, pollInterval)
 }
 
-func TestTCPProxyRatelimiting_Fail_T1Only() {
-	ctx := context.Background()
+func TestTCPProxyRatelimiting_Fail_T1Only(t T) {
 	ns := "default"
 	testName := "tcp-proxy-ratelimiting-fail-t1-only"
 
-	ciliumCli, _ := NewCiliumAndK8sCli()
+	ciliumCli, _ := NewCiliumAndK8sCli(t)
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyConnectionRateLimiting(5, 60))))
 
-	err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{})
+	err := ciliumCli.CreateLBService(t.Context(), ns, service, metav1.CreateOptions{})
 	if err == nil {
-		fatalf("CreabeLBService should return an error")
+		t.Failedf("CreabeLBService should return an error")
 	}
 
 	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
-		fatalf("CreateLBService returned the wrong error")
+		t.Failedf("CreateLBService returned the wrong error")
 	}
 }

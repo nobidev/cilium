@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -25,7 +24,7 @@ import (
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-func backendDeployment(name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
+func backendDeployment(t T, name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "SERVICE_NAME",
@@ -51,7 +50,7 @@ func backendDeployment(name string, replicas int32, config backendApplicationCon
 		// it with the client. The client will not verify the cert.
 		key, cert, err := genSelfSignedX509(config.tlsCertHostname)
 		if err != nil {
-			fatalf("failed to gen x509: %s", err)
+			t.Failedf("failed to gen x509: %s", err)
 		}
 		envs = append(envs, corev1.EnvVar{
 			Name:  "TLS_ENABLED",
@@ -126,39 +125,39 @@ func backendService(name string, port int32) *corev1.Service {
 	}
 }
 
-func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
+func createAndWaitHeadlessServiceBackends(t T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
 	var deployment *appsv1.Deployment
 
 	if tls {
-		deployment = backendDeployment(name, replicas, backendApplicationConfig{
+		deployment = backendDeployment(t, name, replicas, backendApplicationConfig{
 			tlsCertHostname: "secure-backend.acme.io",
 		})
 	} else {
-		deployment = backendDeployment(name, replicas, backendApplicationConfig{
+		deployment = backendDeployment(t, name, replicas, backendApplicationConfig{
 			h2cEnabled: true,
 		})
 	}
 
-	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{}); err != nil {
-		fatalf("failed to create deployment (%s): %s", deployment.Name, err)
+	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(t.Context(), deployment, metav1.CreateOptions{}); err != nil {
+		t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
-	RegisterMaybeCleanupAfterTest(func() error {
-		return k8sCli.AppsV1().Deployments(namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{})
+	t.RegisterCleanup(func() error {
+		return k8sCli.AppsV1().Deployments(namespace).Delete(t.Context(), deployment.Name, metav1.DeleteOptions{})
 	})
 
 	service := backendService(name, 8080)
-	if _, err := k8sCli.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
-		fatalf("failed to create service (%s): %s", service.Name, err)
+	if _, err := k8sCli.CoreV1().Services(namespace).Create(t.Context(), service, metav1.CreateOptions{}); err != nil {
+		t.Failedf("failed to create service (%s): %s", service.Name, err)
 	}
-	RegisterMaybeCleanupAfterTest(func() error {
-		return k8sCli.CoreV1().Services(namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
+	t.RegisterCleanup(func() error {
+		return k8sCli.CoreV1().Services(namespace).Delete(t.Context(), service.Name, metav1.DeleteOptions{})
 	})
 
-	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(context.Background(), metav1.ListOptions{
+	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(t.Context(), metav1.ListOptions{
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		fatalf("failed to watch deployment (%s): %s", name, err)
+		t.Failedf("failed to watch deployment (%s): %s", name, err)
 	}
 	defer watch.Stop()
 
@@ -170,7 +169,7 @@ func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name
 		case ev := <-watch.ResultChan():
 			deploy, ok := ev.Object.(*appsv1.Deployment)
 			if !ok {
-				fatalf("unexpected object type: %T", ev.Object)
+				t.Failedf("unexpected object type: %T", ev.Object)
 			}
 			if deploy.Name != name {
 				continue
@@ -180,35 +179,34 @@ func createAndWaitHeadlessServiceBackends(k8sCli *k8s.Clientset, namespace, name
 			}
 			completed = true
 		case <-timeout:
-			fatalf("timed out waiting for deployment (%s)", name)
+			t.Failedf("timed out waiting for deployment (%s)", name)
 		}
 		if completed {
 			break
 		}
 	}
 
-	pods, err := k8sCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+	pods, err := k8sCli.CoreV1().Pods(namespace).List(t.Context(), metav1.ListOptions{
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		fatalf("failed to list pods (%s): %s", name, err)
+		t.Failedf("failed to list pods (%s): %s", name, err)
 	}
 
 	return pods
 }
 
-func TestHeadlessService() {
+func TestHeadlessService(t T) {
 	if skipIfOnSingleNode("DNS backend test uses k8s-based backend services which is not supported in single-node mode") {
 		return
 	}
 
-	ctx := context.Background()
 	testName := "headless-service"
 	testK8sNamespace := "default"
 	backendReplicas := int32(2)
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	tcpName := testName + "-tcp"
 	tlsName := testName + "-tls"
@@ -216,8 +214,8 @@ func TestHeadlessService() {
 	tlsBackendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", tlsName, testK8sNamespace)
 
 	fmt.Println("Creating backend apps...")
-	tcpBackends := createAndWaitHeadlessServiceBackends(k8sCli, testK8sNamespace, tcpName, backendReplicas, false)
-	tlsBackends := createAndWaitHeadlessServiceBackends(k8sCli, testK8sNamespace, tlsName, backendReplicas, true)
+	tcpBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tcpName, backendReplicas, false)
+	tlsBackends := createAndWaitHeadlessServiceBackends(t, k8sCli, testK8sNamespace, tlsName, backendReplicas, true)
 
 	tests := []struct {
 		name            string
@@ -287,14 +285,14 @@ func TestHeadlessService() {
 
 		resourceName := testName + tt.suffix
 
-		scenario := newLBTestScenario(resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 		fmt.Println("Creating clients and add BGP peering ...")
-		client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 		fmt.Println("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, resourceName)
-		scenario.createLBVIP(ctx, vip)
+		scenario.createLBVIP(vip)
 
 		fmt.Println("Creating LB BackendPool resources...")
 		var backendPool *isovalentv1alpha1.LBBackendPool
@@ -308,20 +306,20 @@ func TestHeadlessService() {
 				withHostnameBackend(tcpBackendHostName, 8080),
 			)
 		}
-		scenario.createLBBackendPool(ctx, backendPool)
+		scenario.createLBBackendPool(backendPool)
 
 		fmt.Println("Creating LB Service resources...")
 		if tt.serviceTLS {
 			// Server certificate
-			scenario.createLBServerCertificate(ctx, resourceName, "secure.acme.io")
+			scenario.createLBServerCertificate(resourceName, "secure.acme.io")
 		}
 
 		service := lbService(testK8sNamespace, resourceName, tt.serviceOptions...)
-		scenario.createLBService(ctx, service)
+		scenario.createLBService(service)
 		svcPort := service.Spec.Port
 
 		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, vip.Name)
+		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
 
 		var testCmd string
 		if tt.serviceTLS {
@@ -333,14 +331,14 @@ func TestHeadlessService() {
 		fmt.Printf("Testing %q until observing response from all backends bound to %s\n", testCmd, tt.backendHost)
 
 		observedBackends := make(map[string]struct{})
-		eventually(func() error {
-			stdout, stderr, err := client.Exec(ctx, testCmd)
+		eventually(t, func() error {
+			stdout, stderr, err := client.Exec(t.Context(), testCmd)
 			if err != nil {
 				return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 			}
 
 			// Response from the health check server contains instance name (Pod name in this case)
-			appResponse := toTestAppResponse(stdout)
+			appResponse := toTestAppResponse(t, stdout)
 
 			for _, pod := range tt.desiredBackends.Items {
 				if appResponse.InstanceName == pod.Name {

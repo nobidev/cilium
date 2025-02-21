@@ -11,30 +11,28 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 )
 
-func TestHTTPAndT2HealthChecks() {
-	ctx := context.Background()
+func TestHTTPAndT2HealthChecks(t T) {
 	testName := "http-1"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
@@ -42,23 +40,23 @@ func TestHTTPAndT2HealthChecks() {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withPort(81), withHTTPProxyApplication(
 		withHttpRoute(testName),
 	))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:81/", vipIP))
 	fmt.Printf("Testing %q...\n", testCmd)
-	stdout, stderr, err := client.Exec(ctx, testCmd)
+	stdout, stderr, err := client.Exec(t.Context(), testCmd)
 	if err != nil {
-		fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
 
 	// 2. Healthcheck (T2) testing
@@ -68,15 +66,15 @@ func TestHTTPAndT2HealthChecks() {
 	fmt.Println("Setting T2 HC to fail...")
 
 	for _, b := range scenario.backendApps {
-		b.SetHC(ctx, hcFail)
+		b.SetHC(t, hcFail)
 	}
 
 	// 2.2. Wait until curl fails due to failing HCs
 
 	fmt.Println("Waiting for curl to fails...")
 
-	eventually(func() error {
-		_, _, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		_, _, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			return nil
 		}
@@ -88,15 +86,15 @@ func TestHTTPAndT2HealthChecks() {
 	// 2.3. Bring back both backends
 
 	for _, b := range scenario.backendApps {
-		b.SetHC(ctx, hcOK)
+		b.SetHC(t, hcOK)
 	}
 
 	fmt.Println("Waiting for curl to pass...")
 
 	// 2.4. Expect to pass
 
-	eventually(func() error {
-		_, _, err := client.Exec(ctx, testCmd)
+	eventually(t, func() error {
+		_, _, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			return fmt.Errorf("curl request still fails (expect to succeed")
 		}
@@ -106,27 +104,26 @@ func TestHTTPAndT2HealthChecks() {
 	// TODO(brb) bring back only one backend
 }
 
-func TestHTTP2() {
-	ctx := context.Background()
+func TestHTTP2(t T) {
 	testName := "http2-1"
 	testK8sNamespace := "default"
 	hostName := "mixed.acme.io"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
@@ -134,53 +131,52 @@ func TestHTTP2() {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
 		withHttpRoute(testName, withHttpHostname(hostName)),
 	))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --http2-prior-knowledge -o/dev/null -w '%%{http_version}' --resolve mixed.acme.io:80:%s http://mixed.acme.io:80/", vipIP))
 	fmt.Printf("Testing %q...\n", testCmd)
-	stdout, stderr, err := client.Exec(ctx, testCmd)
+	stdout, stderr, err := client.Exec(t.Context(), testCmd)
 	if err != nil {
-		fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 	}
 
 	// Check HTTP H2
 	if stdout != "2" {
-		fatalf("Expected HTTP 2, got: %s", stdout)
+		t.Failedf("Expected HTTP 2, got: %s", stdout)
 	}
 }
 
-func TestHTTPPath() {
-	ctx := context.Background()
+func TestHTTPPath(t T) {
 	testName := "http-path-1"
 	testK8sNamespace := "default"
 	hostName := "insecure.acme.io"
 	path := "/api/foo-insecure"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
@@ -188,44 +184,43 @@ func TestHTTPPath() {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
 		withHttpRoute(testName, withHttpHostname(hostName), withHttpPath(path)),
 	))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
 		fmt.Printf("Testing %q...\n", testCmd)
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 
 	{
 		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
 		fmt.Printf("Testing failure on other path %q...\n", testCmd)
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err == nil {
-			fatalf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			t.Failedf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 }
 
-func TestHTTPRoutes() {
-	ctx := context.Background()
+func TestHTTPRoutes(t T) {
 	testName := "http-routes"
 	testK8sNamespace := "default"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	serviceBackendMappings := map[string]struct {
 		hostname         string
@@ -239,23 +234,23 @@ func TestHTTPRoutes() {
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend apps...")
-	scenario.addBackendApplications(ctx, 4, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(4, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	// one backendpool per backend app
 	for postfix := range serviceBackendMappings {
 		backend := scenario.backendApps[testName+"-app"+postfix]
-		scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
+		scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
 	}
 
 	fmt.Println("Creating LB Service resources...")
@@ -265,24 +260,24 @@ func TestHTTPRoutes() {
 		routes = append(routes, withHttpRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
 	}
 	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(routes...))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// calling each route once
 	for postfix, rhost := range serviceBackendMappings {
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80%s", rhost.testCallHostname, vipIP, rhost.testCallHostname, fmt.Sprintf("/%s", rhost.path)))
 		fmt.Printf("Testing %q...\n", testCmd)
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 
 		fmt.Println("Check that request is handled by the correct backend")
-		appResponse := toTestAppResponse(stdout)
+		appResponse := toTestAppResponse(t, stdout)
 		if appResponse.ServiceName != testName+"-app"+postfix {
-			fatalf("request not handled by the expected backend %s != %s (cmd: %q, stdout: %q, stderr: %q): %s", appResponse.ServiceName, testName+"-app"+postfix, testCmd, stdout, stderr, err)
+			t.Failedf("request not handled by the expected backend %s != %s (cmd: %q, stdout: %q, stderr: %q): %s", appResponse.ServiceName, testName+"-app"+postfix, testCmd, stdout, stderr, err)
 		}
 	}
 }

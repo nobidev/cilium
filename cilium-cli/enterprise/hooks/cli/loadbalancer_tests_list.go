@@ -5,6 +5,8 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
+
+	ilbCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
 )
 
 func newCmdLoadbalancerTestList() *cobra.Command {
@@ -14,7 +16,8 @@ func newCmdLoadbalancerTestList() *cobra.Command {
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
 			for _, test := range tests {
-				c.Println(testName(test))
+				tf := ilbCli.NewLBTestFunc(c.Context(), test)
+				c.Println(tf.Name())
 			}
 			return nil
 		},

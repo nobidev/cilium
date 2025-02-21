@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +26,7 @@ type testPPCall struct {
 	invisible bool // if the client IP is not visible in the backend
 }
 
-func TestHTTPProxyProtocol() {
+func TestHTTPProxyProtocol(t T) {
 	testCases := []struct {
 		desc               string
 		appOpt             func(clients []*frrContainer) httpApplicationOption
@@ -133,25 +132,24 @@ func TestHTTPProxyProtocol() {
 	for _, tC := range testCases {
 		fmt.Printf("Checking %s\n", tC.desc)
 
-		ctx := context.Background()
 		testName := fmt.Sprintf("http-proxyprotocol-%s", tC.desc)
 		testK8sNamespace := "default"
 
-		ciliumCli, k8sCli := NewCiliumAndK8sCli()
-		dockerCli := NewDockerCli()
+		ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+		dockerCli := NewDockerCli(t)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 		fmt.Println("Creating backend apps...")
-		scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})
+		scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
 		fmt.Println("Creating clients and add BGP peering ...")
-		clients := scenario.addFRRClients(ctx, 1, frrClientConfig{})
+		clients := scenario.addFRRClients(1, frrClientConfig{})
 
 		fmt.Println("Creating LB VIP resources...")
 		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(ctx, vip)
+		scenario.createLBVIP(vip)
 
 		fmt.Println("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
@@ -159,29 +157,29 @@ func TestHTTPProxyProtocol() {
 			backends = append(backends, withIPBackend(b.ip, b.port), tC.backendOpt)
 		}
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-		scenario.createLBBackendPool(ctx, backendPool)
+		scenario.createLBBackendPool(backendPool)
 
 		fmt.Println("Creating LB Service resources...")
 		opts := []httpApplicationOption{}
 		opts = append(opts, withHttpRoute(testName))
 		opts = append(opts, tC.appOpt(clients))
 		service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
-		scenario.createLBService(ctx, service)
+		scenario.createLBService(service)
 
 		if tC.notAccepted {
 			fmt.Println("Waiting for proxy protocol version validation error...")
-			waitForProxyProtocolVersionValidationError(ctx, *ciliumCli, testK8sNamespace, testName)
+			waitForProxyProtocolVersionValidationError(t, *ciliumCli, testK8sNamespace, testName)
 			return
 		}
 
 		fmt.Println("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
 			testCmd := curlCmd(fmt.Sprintf(`--haproxy-protocol --haproxy-clientip %s --ipv4 --max-time 10 -H "Content-Type: application/json" --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/`, tt.clientIP, vipIP))
 			fmt.Printf("Testing %q...\n", testCmd)
-			eventually(func() error {
-				stdout, stderr, err := clients[0].Exec(ctx, testCmd)
+			eventually(t, func() error {
+				stdout, stderr, err := clients[0].Exec(t.Context(), testCmd)
 				if tt.blocked {
 					if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
 						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
@@ -191,7 +189,7 @@ func TestHTTPProxyProtocol() {
 						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
 
-					resp := toTestAppResponse(stdout)
+					resp := toTestAppResponse(t, stdout)
 					// Unlike XFF, the remote address should be the client IP
 					if !tt.invisible && !strings.Contains(resp.RemoteAddr, tt.clientIP) {
 						return fmt.Errorf("expected response to contain remote address %q, got %q", tt.clientIP, resp.RemoteAddr)
@@ -208,9 +206,9 @@ func TestHTTPProxyProtocol() {
 	}
 }
 
-func waitForProxyProtocolVersionValidationError(ctx context.Context, ciliumCli ciliumCli, testK8sNamespace string, testName string) {
-	eventually(func() error {
-		lbsvc, err := ciliumCli.GetLBService(ctx, testK8sNamespace, testName, metav1.GetOptions{})
+func waitForProxyProtocolVersionValidationError(t T, ciliumCli ciliumCli, testK8sNamespace string, testName string) {
+	eventually(t, func() error {
+		lbsvc, err := ciliumCli.GetLBService(t.Context(), testK8sNamespace, testName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

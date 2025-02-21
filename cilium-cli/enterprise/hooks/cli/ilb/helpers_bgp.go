@@ -21,10 +21,10 @@ import (
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-func getT1NodeIPs(k8sCli *k8s.Clientset) ([]string, error) {
+func getT1NodeIPs(ctx context.Context, k8sCli *k8s.Clientset) ([]string, error) {
 	var ips []string
 
-	nodes, err := k8sCli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
+	nodes, err := k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve K8s nodes: %w", err)
 	}
@@ -50,10 +50,10 @@ func getT1NodeIPs(k8sCli *k8s.Clientset) ([]string, error) {
 	return ips, nil
 }
 
-func getBGPNeighborString(k8sCli *k8s.Clientset) string {
-	t1NodeIPs, err := getT1NodeIPs(k8sCli)
+func getBGPNeighborString(t T, k8sCli *k8s.Clientset) string {
+	t1NodeIPs, err := getT1NodeIPs(t.Context(), k8sCli)
 	if err != nil {
-		fatalf("failed to get T1 node ips: %s", err)
+		t.Failedf("failed to get T1 node ips: %s", err)
 	}
 
 	return strings.Join(t1NodeIPs, ";")

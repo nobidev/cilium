@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
@@ -75,15 +74,15 @@ func newJWTProvider(name string) (*jwtProvider, error) {
 	}, nil
 }
 
-func (p *jwtProvider) Issue(issuer string, audiences []string) []byte {
+func (p *jwtProvider) Issue(t T, issuer string, audiences []string) []byte {
 	token, err := jwt.NewBuilder().Issuer(issuer).Audience(audiences).IssuedAt(time.Now()).Build()
 	if err != nil {
-		fatalf("Failed to build token: %v", err)
+		t.Failedf("Failed to build token: %v", err)
 	}
 
 	signed, err := jwt.Sign(token, jwt.WithKey(jwa.EdDSA, p.priv))
 	if err != nil {
-		fatalf("Failed to sign token: %v", err)
+		t.Failedf("Failed to sign token: %v", err)
 	}
 
 	return signed
@@ -97,16 +96,15 @@ func (p *jwtProvider) JWKS() []byte {
 	return p.jwks
 }
 
-func TestHTTPJWTAuth() {
-	testJWTAuth("http")
+func TestHTTPJWTAuth(t T) {
+	testJWTAuth(t, "http")
 }
 
-func TestHTTPSJWTAuth() {
-	testJWTAuth("https")
+func TestHTTPSJWTAuth(t T) {
+	testJWTAuth(t, "https")
 }
 
-func testJWTAuth(proto string) {
-	ctx := context.Background()
+func testJWTAuth(t T, proto string) {
 	testName := "jwt-auth-" + proto
 	testK8sNamespace := "default"
 	hostName := "jwt.acme.io"
@@ -115,67 +113,67 @@ func testJWTAuth(proto string) {
 	invalidIssuer := "invalid-issuer@jwt.acme.io"
 	invalidAudiences := []string{"invalid-audiences@jwt.acme.io"}
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
 		fmt.Println("Creating cert and secret...")
-		scenario.createLBServerCertificate(ctx, testName, hostName)
+		scenario.createLBServerCertificate(testName, hostName)
 	}
 
 	fmt.Println("Creating backend apps...")
-	backend := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{h2cEnabled: true})[0]
+	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
 
 	fmt.Println("Creating clients and add BGP peering ...")
 
 	var client *frrContainer
 	if proto == "http" {
-		client = scenario.addFRRClients(ctx, 1, frrClientConfig{})[0]
+		client = scenario.addFRRClients(1, frrClientConfig{})[0]
 	} else {
-		client = scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
+		client = scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 	}
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(ctx, lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
+	scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
 
 	fmt.Println("Creating Nginx to serve remote provider's JWKS")
-	nginx := scenario.addNginx(ctx)
+	nginx := scenario.addNginx()
 
 	fmt.Println("Creating JWT auth secret...")
 
 	validProvider0, err := newJWTProvider("valid-provider0")
 	if err != nil {
-		fatalf("%s", err)
+		t.Failedf("%s", err)
 	}
-	validProvider0Secret := scenario.createJWKSSecret(ctx, validProvider0.Name(), validProvider0.JWKS())
+	validProvider0Secret := scenario.createJWKSSecret(validProvider0.Name(), validProvider0.JWKS())
 
 	validProvider1, err := newJWTProvider("valid-provider1")
 	if err != nil {
-		fatalf("%s", err)
+		t.Failedf("%s", err)
 	}
-	validProvider1Secret := scenario.createJWKSSecret(ctx, validProvider1.Name(), validProvider1.JWKS())
+	validProvider1Secret := scenario.createJWKSSecret(validProvider1.Name(), validProvider1.JWKS())
 
 	validProvider2, err := newJWTProvider("valid-provider2")
 	if err != nil {
-		fatalf("%s", err)
+		t.Failedf("%s", err)
 	}
-	validProvider2Secret := scenario.createJWKSSecret(ctx, validProvider2.Name(), validProvider2.JWKS())
+	validProvider2Secret := scenario.createJWKSSecret(validProvider2.Name(), validProvider2.JWKS())
 
 	invalidProvider, err := newJWTProvider("invalid-provider")
 	if err != nil {
-		fatalf("%s", err)
+		t.Failedf("%s", err)
 	}
 
 	// An issuer that serves JWKS with remote server
 	remoteProvider0, err := newJWTProvider("remote-provider0")
 	if err != nil {
-		fatalf("%s", err)
+		t.Failedf("%s", err)
 	}
 
 	// URI of the JWKS of the provider. Use HTTP as we
@@ -185,8 +183,8 @@ func testJWTAuth(proto string) {
 	remoteProvider0URI := fmt.Sprintf("http://%s/remote-provider0.jwks", nginx.IP())
 
 	// Serve JWKS with Nginx container
-	if err := nginx.UploadContent(ctx, remoteProvider0.JWKS(), "remote-provider0.jwks"); err != nil {
-		fatalf("%s", err)
+	if err := nginx.UploadContent(t.Context(), remoteProvider0.JWKS(), "remote-provider0.jwks"); err != nil {
+		t.Failedf("%s", err)
 	}
 
 	fmt.Println("Creating LB Service resources...")
@@ -283,10 +281,10 @@ func testJWTAuth(proto string) {
 		)
 	}
 
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	var curlOpt string
 	if proto == "http" {
@@ -301,37 +299,37 @@ func testJWTAuth(proto string) {
 	}{
 		{
 			name:  "ValidateIssuerAndAudiences",
-			token: validProvider0.Issue(validIssuer, validAudiences),
+			token: validProvider0.Issue(t, validIssuer, validAudiences),
 		},
 		{
 			name:  "ValidateIssuerOnly",
-			token: validProvider1.Issue(validIssuer, invalidAudiences),
+			token: validProvider1.Issue(t, validIssuer, invalidAudiences),
 		},
 		{
 			name:  "ValidateAudiencesOnly",
-			token: validProvider2.Issue(invalidIssuer, validAudiences),
+			token: validProvider2.Issue(t, invalidIssuer, validAudiences),
 		},
 		{
 			name:  "RemoteProvider",
-			token: remoteProvider0.Issue(validIssuer, validAudiences),
+			token: remoteProvider0.Issue(t, validIssuer, validAudiences),
 		},
 	}
 	for _, tt := range testsValidToken {
 		fmt.Printf("Checking valid token %s\n", tt.name)
 		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName))
-		stdout, stderr, err := client.Exec(ctx, cmd)
+		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
-			fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 		}
 	}
 
 	fmt.Println("Checking no token")
-	stdout, stderr, err := client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
 	if err == nil {
-		fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 	if stdout != "401" {
-		fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
 	testsInvalidToken := []struct {
@@ -341,17 +339,17 @@ func testJWTAuth(proto string) {
 	}{
 		{
 			name:  "InvalidKey",
-			token: invalidProvider.Issue(validIssuer, validAudiences),
+			token: invalidProvider.Issue(t, validIssuer, validAudiences),
 			code:  "401",
 		},
 		{
 			name:  "InvalidIssuer",
-			token: validProvider0.Issue(invalidIssuer, validAudiences),
+			token: validProvider0.Issue(t, invalidIssuer, validAudiences),
 			code:  "401",
 		},
 		{
 			name:  "InvalidAudience",
-			token: validProvider0.Issue(validIssuer, invalidAudiences),
+			token: validProvider0.Issue(t, validIssuer, invalidAudiences),
 			// Envoy returns "Unauthorized" error for invalid audience (https://github.com/envoyproxy/envoy/pull/7679)
 			code: "403",
 		},
@@ -359,21 +357,21 @@ func testJWTAuth(proto string) {
 
 	for _, tt := range testsInvalidToken {
 		fmt.Printf("Checking invalid token %s\n", tt.name)
-		stdout, stderr, err := client.Exec(ctx, curlCmd(
+		stdout, stderr, err := client.Exec(t.Context(), curlCmd(
 			fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName)),
 		)
 		if err == nil {
-			fatalf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+			t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 		}
 		if stdout != tt.code {
-			fatalf("unexpected error (expect: %s, got: %s): %v\nstderr: %q", tt.code, stdout, err, stderr)
+			t.Failedf("unexpected error (expect: %s, got: %s): %v\nstderr: %q", tt.code, stdout, err, stderr)
 		}
 	}
 
 	fmt.Println("Checking per-route exception")
 	// Ensure the per-route exception is working
-	stdout, stderr, err = client.Exec(ctx, curlCmd(fmt.Sprintf("-m 1 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("-m 1 %s %s://%s/no-auth", curlOpt, proto, hostName)))
 	if err != nil {
-		fatalf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 }

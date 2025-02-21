@@ -11,63 +11,61 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 )
 
-func TestTLSPassthrough() {
-	ctx := context.Background()
+func TestTLSPassthrough(t T) {
 	testName := "https-passthrough-1"
 	testK8sNamespace := "default"
 	hostName1 := "passthrough.acme.io"
 	hostName2 := "passthrough-2.acme.io"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating cert and secret...")
-	scenario.createBackendServerCertificate(ctx, hostName1)
-	scenario.createBackendServerCertificate(ctx, hostName2)
+	scenario.createBackendServerCertificate(hostName1)
+	scenario.createBackendServerCertificate(hostName2)
 
 	fmt.Println("Creating backend apps...")
-	backend1 := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName1, listenPort: 8080})[0]
-	backend2 := scenario.addBackendApplications(ctx, 1, backendApplicationConfig{tlsCertHostname: hostName2, listenPort: 8081})[0]
+	backend1 := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: hostName1, listenPort: 8080})[0]
+	backend2 := scenario.addBackendApplications(1, backendApplicationConfig{tlsCertHostname: hostName2, listenPort: 8081})[0]
 
 	fmt.Println("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(ctx, 1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
+	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
 
 	fmt.Println("Creating LB VIP resources...")
 	vip := lbVIP(testK8sNamespace, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withIPBackend(backend1.ip, 8080), withHealthCheckTLS())
-	scenario.createLBBackendPool(ctx, backendPool1)
+	scenario.createLBBackendPool(backendPool1)
 
 	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withIPBackend(backend2.ip, 8081), withHealthCheckTLS())
-	scenario.createLBBackendPool(ctx, backendPool2)
+	scenario.createLBBackendPool(backendPool2)
 
 	fmt.Println("Creating LB Service resources...")
 	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
 		withTLSPassthroughRoute(testName+"-1", withTLSPassthroughHostname(hostName1)),
 		withTLSPassthroughRoute(testName+"-2"),
 	))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTPs request
 	testCmd1 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
 	testCmd2 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		fmt.Printf("Testing %q...\n", testCmd)
-		stdout, stderr, err := client.Exec(ctx, testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			fatalf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
 	}
 }

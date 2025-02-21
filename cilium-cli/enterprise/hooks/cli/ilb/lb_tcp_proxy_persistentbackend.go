@@ -11,7 +11,6 @@
 package ilb
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -20,32 +19,31 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyPersistentBackend() {
+func TestTCPProxyPersistentBackend(t T) {
 	if skipIfOnSingleNode(">1 FRR clients are not supported") {
 		return
 	}
 
-	ctx := context.Background()
 	ns := "default"
 	testName := "tcp-proxy-persistent-backend"
 
-	ciliumCli, k8sCli := NewCiliumAndK8sCli()
-	dockerCli := NewDockerCli()
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
 	fmt.Println("Creating backend app...")
 
-	scenario.addBackendApplications(ctx, 2, backendApplicationConfig{h2cEnabled: true})
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
 	fmt.Println("Creating client and add BGP peering...")
 
-	clients := scenario.addFRRClients(ctx, 2, frrClientConfig{})
+	clients := scenario.addFRRClients(2, frrClientConfig{})
 
 	fmt.Println("Creating LB VIP resources...")
 
 	vip := lbVIP(ns, testName)
-	scenario.createLBVIP(ctx, vip)
+	scenario.createLBVIP(vip)
 
 	fmt.Println("Creating LB BackendPool resources...")
 
@@ -59,45 +57,44 @@ func TestTCPProxyPersistentBackend() {
 			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
 		},
 	}
-	scenario.createLBBackendPool(ctx, backendPool)
+	scenario.createLBBackendPool(backendPool)
 
 	fmt.Println("Creating LB Service resources...")
 
 	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
-	scenario.createLBService(ctx, service)
+	scenario.createLBService(service)
 
 	fmt.Println("Waiting for full VIP connectivity...")
-	vipIP := scenario.waitForFullVIPConnectivity(ctx, testName)
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Test persistent backend selection with source IP
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
 		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
-		testPersistenceWith100Requests(ctx, clients[0], testCmd)
+		testPersistenceWith100Requests(t, clients[0], testCmd)
 	}
 
 	{
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
 		fmt.Printf("Testing backend selection persistence of 100 requests: %q...\n", testCmd)
-		testPersistenceWith100Requests(ctx, clients[1], testCmd)
+		testPersistenceWith100Requests(t, clients[1], testCmd)
 	}
 }
 
-func TestTCPProxyPersistentBackend_Fail_T1Only() {
-	ctx := context.Background()
+func TestTCPProxyPersistentBackend_Fail_T1Only(t T) {
 	ns := "default"
 	testName := "tcp-proxy-persistent-backend-fail-t1-only"
 
-	ciliumCli, _ := NewCiliumAndK8sCli()
+	ciliumCli, _ := NewCiliumAndK8sCli(t)
 
 	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyBackendPersistenceBySourceIP())))
 
-	err := ciliumCli.CreateLBService(ctx, ns, service, metav1.CreateOptions{})
+	err := ciliumCli.CreateLBService(t.Context(), ns, service, metav1.CreateOptions{})
 	if err == nil {
-		fatalf("CreabeLBService should return an error")
+		t.Failedf("CreabeLBService should return an error")
 	}
 
 	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
-		fatalf("CreateLBService returned the wrong error")
+		t.Failedf("CreateLBService returned the wrong error")
 	}
 }

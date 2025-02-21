@@ -28,11 +28,11 @@ type testAppResponseData struct {
 	XFF          string `json:"x_forwarded_for"`
 }
 
-func toTestAppResponse(response string) testAppResponseData {
+func toTestAppResponse(t T, response string) testAppResponseData {
 	resp := testAppResponseData{}
 
 	if err := json.Unmarshal([]byte(response), &resp); err != nil {
-		fatalf("parsing test app response failed (stdout: %q): %s", response, err)
+		t.Failedf("parsing test app response failed (stdout: %q): %s", response, err)
 	}
 
 	return resp
