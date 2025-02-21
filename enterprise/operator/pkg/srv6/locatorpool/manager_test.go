@@ -13,6 +13,8 @@ package locatorpool
 import (
 	"context"
 	"net/netip"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -83,15 +86,73 @@ type fixture struct {
 	nodeResClient        slim_core_v1_client.NodeInterface
 }
 
-func newFixture(t *testing.T) *fixture {
-	logrus.SetLevel(logrus.DebugLevel)
+func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, sidManagerWatchers int32) (*fixture, func()) {
+	type watchSync struct {
+		cnt     atomic.Int32
+		once    sync.Once
+		watchCh chan struct{}
+	}
 
+	newWatchSync := func(watchCount int32) *watchSync {
+		s := &watchSync{
+			watchCh: make(chan struct{}),
+		}
+		s.cnt.Store(watchCount)
+		return s
+	}
+
+	var resourceWatch = map[string]*watchSync{
+		"nodes": newWatchSync(1),
+		isovalent_api_v1alpha1.SRv6SIDManagerPluralName:  newWatchSync(sidManagerWatchers),
+		isovalent_api_v1alpha1.SRv6LocatorPoolPluralName: newWatchSync(1),
+	}
+
+	watchReactor := func(tracker k8sTesting.ObjectTracker) func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+			w := action.(k8sTesting.WatchAction)
+			gvr := w.GetResource()
+			ns := w.GetNamespace()
+			watchTracker, err := tracker.Watch(gvr, ns)
+			if err != nil {
+				return false, nil, err
+			}
+			watchSync, exists := resourceWatch[w.GetResource().Resource]
+			if !exists {
+				return false, watchTracker, nil
+			}
+			if watchSync.cnt.Add(-1) <= 0 {
+				watchSync.once.Do(func() { close(watchSync.watchCh) })
+			}
+			return true, watchTracker, nil
+		}
+	}
+
+	watcherReadyFn := func() {
+		var group sync.WaitGroup
+		for res, w := range resourceWatch {
+			group.Add(1)
+			go func(res string, w *watchSync) {
+				defer group.Done()
+				select {
+				case <-w.watchCh:
+				case <-ctx.Done():
+					req.Failf("init failed", "%s watcher not initialized", res)
+				}
+			}(res, w)
+		}
+		group.Wait()
+	}
+
+	logrus.SetLevel(logrus.DebugLevel)
 	f := &fixture{}
 
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	f.locatorPoolClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6LocatorPools()
 	f.srv6SIDManagerClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 	f.nodeResClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Nodes()
+
+	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.CiliumFakeClientset.Tracker()))
+	f.fakeClientSet.SlimFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.SlimFakeClientset.Tracker()))
 
 	f.hive = hive.New(
 		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager] {
@@ -132,7 +193,7 @@ func newFixture(t *testing.T) *fixture {
 	// enable locator-pool
 	hive.AddConfigOverride(f.hive, func(cfg *Config) { cfg.Enabled = true })
 
-	return f
+	return f, watcherReadyFn
 }
 
 // Test_PoolValidations tests the LocatorPoolManager's locator pool prefix and sid validations
@@ -228,15 +289,20 @@ func Test_PoolValidations(t *testing.T) {
 		},
 	}
 
-	// initialize test fixture
-	f := newFixture(t)
-	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
 
+	// initialize test fixture
+	f, watchersReady := newFixture(t, ctx, require.New(t), 1)
+	req := require.New(t)
+
+	// start hive
 	log := hivetest.Logger(t)
 	f.hive.Start(log, ctx)
 	defer f.hive.Stop(log, ctx)
+
+	// wait for watchers to be ready
+	watchersReady()
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
@@ -251,7 +317,7 @@ func Test_PoolValidations(t *testing.T) {
 	}
 }
 
-// Test_LocatorPoolResourceChanges tests the LocatorPoolManager's reaction to changes in the Node resources
+// Test_NodeResourceChanges tests the LocatorPoolManager's reaction to changes in the Node resources
 func Test_NodeResourceChanges(t *testing.T) {
 	poolPrefixLen := 48
 	testLocPool := []*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool{
@@ -380,15 +446,12 @@ func Test_NodeResourceChanges(t *testing.T) {
 		},
 	}
 
-	// initialize test fixture
-	f := newFixture(t)
-	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
 
-	log := hivetest.Logger(t)
-	f.hive.Start(log, ctx)
-	defer f.hive.Stop(log, ctx)
+	// initialize test fixture
+	f, watchersReady := newFixture(t, ctx, require.New(t), 2)
+	req := require.New(t)
 
 	// initialize with test nodeAllocations
 	for _, pool := range testLocPool {
@@ -396,15 +459,23 @@ func Test_NodeResourceChanges(t *testing.T) {
 		req.NoError(err)
 	}
 
-	// wait for manager to synchronize
-	req.Eventually(func() bool {
-		return f.manager.synced
-	}, maxTestDuration, time.Millisecond*100)
+	// start hive
+	log := hivetest.Logger(t)
+	f.hive.Start(log, ctx)
+	defer f.hive.Stop(log, ctx)
 
 	// watch for SRv6SIDManagers
 	watch, err := f.srv6SIDManagerClient.Watch(ctx, meta_v1.ListOptions{})
 	req.NoError(err)
 	defer watch.Stop()
+
+	// wait for watchers to be ready
+	watchersReady()
+
+	// wait for manager to synchronize
+	req.Eventually(func() bool {
+		return f.manager.synced
+	}, maxTestDuration, time.Millisecond*100)
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
@@ -862,15 +933,12 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 		},
 	}
 
-	// initialize test fixture
-	f := newFixture(t)
-	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 	defer cancel()
 
-	log := hivetest.Logger(t)
-	f.hive.Start(log, ctx)
-	defer f.hive.Stop(log, ctx)
+	// initialize test fixture
+	f, watchersReady := newFixture(t, ctx, require.New(t), 2) // 2 SIDManager watchers (test + tested code)
+	req := require.New(t)
 
 	// initialize with test nodeAllocations
 	for _, node := range testNodes {
@@ -882,15 +950,23 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 		req.NoError(err)
 	}
 
-	// wait for manager to synchronize
-	req.Eventually(func() bool {
-		return f.manager.synced
-	}, maxTestDuration, time.Millisecond*100)
+	// start hive
+	log := hivetest.Logger(t)
+	f.hive.Start(log, ctx)
+	defer f.hive.Stop(log, ctx)
 
 	// watch for SRv6SIDManagers
 	watch, err := f.srv6SIDManagerClient.Watch(ctx, meta_v1.ListOptions{})
 	req.NoError(err)
 	defer watch.Stop()
+
+	// wait for watchers to be ready
+	watchersReady()
+
+	// wait for manager to synchronize
+	req.Eventually(func() bool {
+		return f.manager.synced
+	}, maxTestDuration, time.Millisecond*100)
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
@@ -1443,9 +1519,10 @@ func Test_Resync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			f := newFixture(t)
 			ctx, cancel := context.WithTimeout(context.Background(), maxTestDuration)
 			defer cancel()
+
+			f, watchersReady := newFixture(t, ctx, require.New(t), 1)
 
 			// initialize test nodeAllocations
 			for _, node := range tt.nodes {
@@ -1472,6 +1549,9 @@ func Test_Resync(t *testing.T) {
 			log := hivetest.Logger(t)
 			f.hive.Start(log, ctx)
 			defer f.hive.Stop(log, ctx)
+
+			// wait for watchers to be ready
+			watchersReady()
 
 			// wait for manager to synchronize
 			req.Eventually(func() bool {
