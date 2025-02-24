@@ -62,3 +62,27 @@ func (p *DetachedIpamAddressPair) String() string {
 		return "<invalid>"
 	}
 }
+
+func (p *DetachedIpamAddressPair) DeepEqual(o *DetachedIpamAddressPair) bool {
+	if o == nil {
+		return false
+	}
+
+	if (p.IPV4 == nil) != (o.IPV4 == nil) {
+		return false
+	} else if p.IPV4 != nil {
+		if *p.IPV4 != *o.IPV4 {
+			return false
+		}
+	}
+
+	if (p.IPV6 == nil) != (o.IPV6 == nil) {
+		return false
+	} else if p.IPV6 != nil {
+		if *p.IPV6 != *o.IPV6 {
+			return false
+		}
+	}
+
+	return true
+}
