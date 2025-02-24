@@ -121,6 +121,7 @@ message FQDNMapping {
 message ProxyStatus {
   optional IPCacheVersion enum = 1;
   FQDNSelectorUpdate fqdnSelector = 2;
+  FQDNIdentityUpdate fqdnIdentity = 3;
 }
 
 // IPCacheVersion establishes which version of the key for
@@ -148,6 +149,19 @@ message FQDNSelectorUpdate {
 message FQDNSelector {
   string MatchName = 1;
   string MatchPattern = 2;
+}
+
+message FQDNIdentityUpdate {
+  UpdateType type = 1;
+
+  repeated Label labels = 2;
+  uint64 identity = 3;
+}
+
+message Label {
+  string Key = 1;
+  string Value = 2;
+  string Source = 3;
 }
 
 message Success {
