@@ -94,7 +94,7 @@ func TestMergeExternalServiceUpdateClusterAware(t *testing.T) {
 			svcMerger.MergeExternalServiceUpdate(&svc, swg)
 
 			// The update event should be triggered.
-			event := <-svcMerger.sc.Events
+			event := <-svcMerger.sc.Events()
 			require.Equal(t, UpdateService, event.Action, "Received incorrect service event")
 			require.Equal(t, id, event.ID, "Received incorrect service event")
 			require.Len(t, event.Endpoints.Backends, 1, "Received incorrect service event")

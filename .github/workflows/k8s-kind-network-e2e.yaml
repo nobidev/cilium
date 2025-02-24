@@ -1,4 +1,4 @@
-name: Conformance K8s Upstream Network
+name: K8s Network E2E tests
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -24,15 +24,15 @@ env:
   cluster_name: cilium-testing
 
 jobs:
-  kubernetes-e2e-net-conformance:
-    name: Installation and Conformance Test
-    runs-on: ubuntu-24.04
+  kubernetes-e2e:
+    name: K8s Network E2E tests
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # TODO add "dual" and "ipv6", "ipv6" fails to install cilium
-        ipFamily: ["ipv4"]
+        # TODO add "ipv6", "ipv6" fails to install cilium
+        ipFamily: ["dual"]
     env:
       IP_FAMILY: ${{ matrix.ipFamily }}
       job_name: "Installation and Conformance Test"
@@ -135,13 +135,15 @@ jobs:
           # to ensure coverage of that feature in cilium connectivity test
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
-            --helm-set=kubeProxyReplacement=true \
-            --helm-set=identityChangeGracePeriod="0s""
+            --helm-set-string=kubeProxyReplacement=true"
+          if [ "${IP_FAMILY}" == "dual" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=ipv6.enabled=true"
+          fi
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
+        uses: cilium/cilium-cli@1432ef0e4e0cd766f5c1ee0544759d7a31cd32b2 # v0.17.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -160,7 +162,7 @@ jobs:
         run: |
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Run Kubernetes sig-network conformance test
+      - name: Run Kubernetes sig-network test
         run: |
           # output_dir
           mkdir -p _artifacts
@@ -170,26 +172,33 @@ jobs:
 
           # Kubernetes e2e tests use ginkgo and tags to select the tests that should run based on two regex, focus and skip:
           # Focus tests:
-          # \[Conformance\]|\[sig-network\]: Conformance tests are defined by the project to guarantee a consistent behaviour and some mandatory features on all clusters
-          #                                  sig-network tests are defined by sig-networkto guarantee a consistent behaviour on all the the k8s network implementations
+          # \[sig-network\]: sig-network tests are defined by sig-network to guarantee a consistent behavior on all the the k8s network implementations
           # Skipped tests:
           # Disruptive|Serial : require to run in serial and perform disruptive operations on clusters (reboots, ...)
           # Federation|PerformanceDNS : unrelated sig-network tests
-          # Feature : skip features that are not GA, however, some of them should be enabled, per example [Feature:ProxyTerminatingEndpoints]
-          # DualStack : only with dualstack clusters
+          # Alpha|Beta|Experimental : skip features that are not GA
           # KubeProxy|kube-proxy : kube-proxy specifics
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
-          # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
+          # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
-          # externalTrafficPolicy : needs investigation
+          # externalTrafficPolicy : Cilium fails externalTrafficPolicy=local test, see https://github.com/cilium/cilium/issues/37613
+          # DualStack : tests that are dual stack specific
+          # IPv6 : tests that are IPv6 specific
+
+          SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy"
+          if [ "${IP_FAMILY}" != "dual" ]; then
+            SKIP_FLAG="${SKIP_FLAG}|DualStack"
+          fi
+          if [ "${IP_FAMILY}" == "ipv4" ]; then
+            SKIP_FLAG="${SKIP_FLAG}|IPv6"
+          fi
 
           # Run tests
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=5                \
-            --focus="(HostPort.*\[Conformance\].*|Services.*\[Conformance\].*|Net.*ol.*)"     \
-            --skip="(Legacy|HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol|should.allow.egress.access.to.server.in.CIDR.block|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|Feature:SCTPConnectivity|should.serve.endpoints.on.same.port.and.different.protocols)" \
+          /usr/local/bin/ginkgo --nodes=25                \
+            --focus="\[sig-network\]"     \
+            --skip="${SKIP_FLAG}"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
@@ -202,7 +211,7 @@ jobs:
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
+          json-filename: "${{ env.job_name }} ${{ matrix.ipFamily }}"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
@@ -217,30 +226,31 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: cilium-sysdumps
+          name: "cilium-sysdumps-${{ matrix.ipFamily }}"
           path: cilium-sysdump-*.zip
           retention-days: 5
+          overwrite: true
 
       - name: Upload features tested
         if: ${{ always() }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: features-tested
+          name: "features-tested-${{ matrix.ipFamily }}"
           path: ${{ env.job_name }}*.json
 
       - name: Upload cluster logs
         if: ${{ !success() }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: kind-logs
+          name: "kind-logs-${{ matrix.ipFamily }}"
           path: ./_artifacts/logs
           retention-days: 5
 
-      - name: Upload Kubernetes e2e Junit Reports
+      - name: Upload Kubernetes e2e Junit Reports [junit]
         if: ${{ success() }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
         with:
-          name: kubernetes-e2e-junit
+          name: "kubernetes-e2e-junit-${{ matrix.ipFamily }}"
           path: './_artifacts/*.xml'
 
       - name: Publish Test Results As GitHub Summary

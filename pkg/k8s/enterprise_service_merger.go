@@ -23,13 +23,13 @@ import (
 // CEServiceMerger wraps a ServiceCache, overriding the cluster service merging
 // logic to support additional enterprise features (e.g., phantom services).
 type CEServiceMerger struct {
-	sc    *ServiceCache
+	sc    *ServiceCacheImpl
 	cmcfg cmcfg.Config
 }
 
-func NewCEServiceMerger(sc *ServiceCache, cmcfg cmcfg.Config) CEServiceMerger {
+func NewCEServiceMerger(sc ServiceCache, cmcfg cmcfg.Config) CEServiceMerger {
 	return CEServiceMerger{
-		sc:    sc,
+		sc:    sc.(*ServiceCacheImpl),
 		cmcfg: cmcfg,
 	}
 }
