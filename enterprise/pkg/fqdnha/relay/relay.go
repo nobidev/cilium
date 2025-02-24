@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/daemon/cmd"
@@ -28,7 +30,11 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	identityCell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
@@ -50,6 +56,7 @@ type FQDNProxyAgentServer struct {
 	dataSource      DNSProxyDataSource
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
+	localIDs        stream.Observable[cache.IdentityChange]
 
 	db        *statedb.DB
 	selectors statedb.RWTable[FQDNSelector]
@@ -58,11 +65,12 @@ type FQDNProxyAgentServer struct {
 type params struct {
 	cell.In
 
-	DaemonPromise   promise.Promise[*cmd.Daemon]
-	RestorerPromise promise.Promise[endpointstate.Restorer]
-	IPCacheGetter   IPCacheGetter
-	EndpointManager endpointmanager.EndpointManager
-	Cfg             fqdnhaconfig.Config
+	DaemonPromise     promise.Promise[*cmd.Daemon]
+	RestorerPromise   promise.Promise[endpointstate.Restorer]
+	IPCacheGetter     IPCacheGetter
+	EndpointManager   endpointmanager.EndpointManager
+	Cfg               fqdnhaconfig.Config
+	IdentityAllocator identityCell.CachingIdentityAllocator
 
 	DB    *statedb.DB
 	Table statedb.RWTable[FQDNSelector]
@@ -160,8 +168,13 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 		nil)
 }
 
-func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
+func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
 	log.Info("Streaming proxy status to the external DNS proxy...")
+	// Writing to the same gRPC stream from multiple goroutines is not safe.
+	stream := &exclusiveStream{
+		ServerStreamingServer: serverStream,
+	}
+
 	ipVer := pb.IPCacheVersion_One
 	err := stream.Send(&pb.ProxyStatus{
 		Enum: &ipVer,
@@ -171,6 +184,93 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.S
 		return fmt.Errorf("failed to send ipcache version: %w", err)
 	}
 
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return s.sendSelectors(stream)
+	})
+	eg.Go(func() error {
+		return s.sendIdentities(stream)
+	})
+
+	err = eg.Wait()
+	if err != nil {
+		log.WithError(err).Infof("ProxyStatus stream ended.")
+	}
+	return nil
+}
+
+type statusStream interface {
+	Send(m *pb.ProxyStatus) error
+	Context() context.Context
+}
+
+type exclusiveStream struct {
+	mu lock.Mutex
+	grpc.ServerStreamingServer[pb.ProxyStatus]
+}
+
+func (s *exclusiveStream) Send(m *pb.ProxyStatus) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.ServerStreamingServer.Send(m)
+}
+
+func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
+	complete := make(chan error)
+	// Subscribe to locally-scoped identities
+	ctx, cancel := context.WithCancelCause(stream.Context())
+	s.localIDs.Observe(ctx, func(ic cache.IdentityChange) {
+		var err error
+
+		switch ic.Kind {
+		case cache.IdentityChangeUpsert:
+			if ic.Labels == nil || !ic.Labels.HasSource(labels.LabelSourceFQDN) {
+				return
+			}
+			err = stream.Send(&pb.ProxyStatus{
+				FqdnIdentity: &pb.FQDNIdentityUpdate{
+					Type:     pb.UpdateType_UPDATETYPE_UPSERT,
+					Identity: uint64(ic.ID),
+					Labels:   fromLabels(ic.Labels),
+				},
+			})
+		case cache.IdentityChangeDelete:
+			err = stream.Send(&pb.ProxyStatus{
+				FqdnIdentity: &pb.FQDNIdentityUpdate{
+					Type:     pb.UpdateType_UPDATETYPE_REMOVE,
+					Identity: uint64(ic.ID),
+				},
+			})
+		case cache.IdentityChangeSync:
+			err = stream.Send(&pb.ProxyStatus{
+				FqdnIdentity: &pb.FQDNIdentityUpdate{
+					Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+				},
+			})
+		default:
+			err = fmt.Errorf("unknown identity change type: %+v", ic)
+		}
+		if err != nil {
+			log.WithError(err).Error("Failed to send policy notification to external DNS cache")
+			cancel(err)
+		}
+	}, func(err error) {
+		// If we've cancelled the context with an error, this will surface it.
+		// If it's a cancelled context, but without a Cause, this will just give
+		// us a Cancelled. If that's not the cause for the Observable to call
+		// complete, we use whatever is passed to us.
+		if cerr := context.Cause(ctx); cerr != nil {
+			complete <- cerr
+			return
+		}
+		complete <- err
+	})
+
+	return <-complete
+}
+
+func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
 	wtx := s.db.WriteTxn(s.selectors)
 	selUpdates, err := s.selectors.Changes(wtx)
 	defer wtx.Abort()
@@ -181,7 +281,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.S
 	rtx := wtx.Commit()
 	// Stream what FQDNSelectors are known so far, then send a bookmark.
 	it, _ := selUpdates.Next(rtx)
-	if err := sendSelectorUpdates(stream, it); err != nil {
+	if err := sendSelectorBatch(stream, it); err != nil {
 		return err
 	}
 	err = stream.Send(&pb.ProxyStatus{
@@ -196,7 +296,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.S
 	for {
 		rtx := s.db.ReadTxn()
 		it, selWatch := selUpdates.Next(rtx)
-		if err := sendSelectorUpdates(stream, it); err != nil {
+		if err := sendSelectorBatch(stream, it); err != nil {
 			return err
 		}
 
@@ -208,7 +308,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.S
 	}
 }
 
-func sendSelectorUpdates(stream grpc.ServerStreamingServer[pb.ProxyStatus], it iter.Seq2[statedb.Change[FQDNSelector], statedb.Revision]) (err error) {
+func sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSelector], statedb.Revision]) (err error) {
 	for change := range it {
 		t := pb.UpdateType_UPDATETYPE_UPSERT
 		if change.Deleted {
@@ -280,6 +380,18 @@ func (s *FQDNProxyAgentServer) GetAllRules(ctx context.Context, empty *pb.Empty)
 	return wholeMsg, nil
 }
 
+func fromLabels(lbls labels.Labels) []*pb.Label {
+	res := make([]*pb.Label, 0, len(lbls))
+	for _, l := range lbls {
+		res = append(res, &pb.Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
+	}
+	return res
+}
+
 func NewFQDNProxyAgentServer(
 	lc cell.Lifecycle,
 	p params,
@@ -292,6 +404,7 @@ func NewFQDNProxyAgentServer(
 		restorerPromise: p.RestorerPromise,
 		ipCacheGetter:   p.IPCacheGetter,
 		endpointManager: p.EndpointManager,
+		localIDs:        p.IdentityAllocator.LocalIdentityChanges(),
 		db:              p.DB,
 		selectors:       p.Table,
 	}
