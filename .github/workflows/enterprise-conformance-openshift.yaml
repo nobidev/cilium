@@ -46,7 +46,7 @@ on:
   # For the purpose of testing the workflow
   # push:
   #   branches:
-  #    - 'pr/fgiloux/openshift-conformance-wf'
+  #     - 'yourbranch'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -258,9 +258,8 @@ jobs:
           cilium_version="${{ steps.vars.outputs.sha }}"
           cilium_path_to_ciliumconfig_file="clife-ciliumconfig.yaml"
           vpc_cidr="10.${range}.0.0/16"
-          openshift_version=${{ steps.vars.outputs.ocp_version }}
+          openshift_version="${{ steps.vars.outputs.ocp_version }}"
           EOF
-          fi
           if [ ${{ steps.vars.outputs.kubevirt }} != 'true' ]; then
             cat >> terraform.tfvars << EOF
           worker_instance_type="m5.xlarge"
@@ -390,7 +389,7 @@ jobs:
         working-directory: ./cute/${{ steps.cute_config.outputs.dir }}
         run: |
           mkdir -p ./test-results
-          cilium status
+          cilium status -n cilium
           cilium sysdump -n cilium --output-filename ./test-results/cilium-sysdump.dmp
 
       # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
