@@ -9,6 +9,7 @@ Cilium DNS Proxy
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-dnsproxy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-dnsproxy. |
+| annotations | object | `{}` | Annotations to add to cilium-dnsproxy DaemonSet |
 | debug | bool | `false` |  |
 | dnsPolicy | string | `""` |  |
 | dnsProxy.dnsRejectResponseCode | string | `"refused"` |  |

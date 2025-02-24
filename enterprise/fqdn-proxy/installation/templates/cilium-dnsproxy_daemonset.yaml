@@ -30,6 +30,10 @@ metadata:
 {{- end }}
   name: cilium-dnsproxy
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
