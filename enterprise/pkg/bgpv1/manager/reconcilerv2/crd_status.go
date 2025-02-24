@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
@@ -371,7 +370,7 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 			{
 				OP:    "replace",
 				Path:  "/status",
-				Value: &v1alpha1.IsovalentBGPNodeStatus{},
+				Value: &v1.IsovalentBGPNodeStatus{},
 			},
 		}
 
