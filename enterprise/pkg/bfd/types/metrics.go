@@ -28,4 +28,8 @@ const (
 	LabelInterface = "interface"
 	// LabelPeerName is the metric label for BFD peer's logical name.
 	LabelPeerName = "peer_name"
+	// LabelResourceKind is the metric label for k8s resource kind.
+	LabelResourceKind = "resource_kind"
+	// LabelResourceName is the metric label for k8s resource name.
+	LabelResourceName = "resource_name"
 )

@@ -48,8 +48,9 @@ var (
 type bfdReconcilerParams struct {
 	cell.In
 
-	Cfg    types.BFDConfig
-	BGPCfg bgpv2config.Config
+	Cfg     types.BFDConfig
+	BGPCfg  bgpv2config.Config
+	Metrics *OperatorMetrics
 
 	Logger    logrus.FieldLogger
 	JobGroup  job.Group
@@ -195,7 +196,11 @@ func (r *bfdReconciler) run(ctx context.Context, health cell.Health) (err error)
 func (r *bfdReconciler) reconcileWithRetry(ctx context.Context, health cell.Health) error {
 	return wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
 		r.Logger.Debug("BFD reconciliation started")
+		reconcileStart := time.Now()
+
 		err := r.reconcileBGPClusterConfigs(ctx)
+
+		r.Metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())
 
 		if err != nil {
 			// log error, continue retry
