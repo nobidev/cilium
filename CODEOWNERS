@@ -803,6 +803,7 @@ Makefile* @cilium/build
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
+/contrib/testing/enterprise-kind-loadbalancer-dev.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
 /daemon/cmd/enterprise_fqdn_relay.go @isovalent/dns-proxy
 /Documentation/cmdref/

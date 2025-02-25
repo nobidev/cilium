@@ -38,8 +38,6 @@ bpf:
 kubeProxyReplacement: true
 loadBalancer:
   acceleration: native
-routingMode: native
-autoDirectNodeRoutes: true
 ipv6:
   enabled: false
 extraConfig:
@@ -52,11 +50,6 @@ extraConfig:
   loadbalancer-cp-accesslog-enable-hc: "true"
   loadbalancer-cp-t2-use-remote-address: "true"
   loadbalancer-cp-t2-xff-num-trusted-hops: "0"
-  bpf-lb-algorithm-annotation: "true"
-  bpf-lb-mode-annotation: "true"
-  bpf-lb-ipip-sock-mark: "true"
-  bpf-lb-dsr-dispatch: "ipip"
-  enable-ipv4-masquerade: "false"
 operator:
   prometheus:
     enabled: true
