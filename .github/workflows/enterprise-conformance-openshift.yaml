@@ -17,7 +17,7 @@ name: Conformance OpenShift (ci-openshift)
 # TODO: Send notifications for scheduled runs (cf enterprise-cute.yaml)
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
