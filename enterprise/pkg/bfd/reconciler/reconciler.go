@@ -62,6 +62,7 @@ type bfdReconcilerParams struct {
 	BFDNodeConfigResource resource.Resource[*v1alpha1.IsovalentBFDNodeConfig]
 
 	BFDServer types.BFDServer
+	Metrics   *BFDMetrics
 }
 
 type bfdReconciler struct {
@@ -235,6 +236,7 @@ func (r *bfdReconciler) triggerReconcile() {
 
 func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	r.Logger.Debug("Starting BFD reconciliation")
+	reconcileStart := time.Now()
 
 	desiredPeers, reconcileErr := r.getDesiredPeerConfigs()
 
@@ -265,6 +267,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to add BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
+			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
 		} else {
 			r.configuredPeers[peer.key()] = peer
 		}
@@ -275,6 +278,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to update BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
+			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
 		} else {
 			r.configuredPeers[peer.key()] = peer
 		}
@@ -285,10 +289,14 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to delete BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
+			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
 		} else {
 			delete(r.configuredPeers, peer.key())
 		}
 	}
+
+	r.Metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())
+
 	return reconcileErr
 }
 
@@ -317,6 +325,7 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 					r.Logger.WithError(err).WithField(types.ProfileNameField, peer.BFDProfileRef).
 						Error("Failed to retrieve BFD profile, skipping peer reconciliation")
 					reconcileErr = errors.Join(reconcileErr, err)
+					r.Metrics.ReconcileErrorCount.WithLabelValues(peer.Name).Inc()
 					continue
 				}
 				if !exists {
@@ -327,6 +336,7 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 					r.Logger.WithError(err).WithField(types.PeerNameField, peer.Name).
 						Error("Failed to generate desired BFD peer config, skipping peer reconciliation")
 					reconcileErr = errors.Join(reconcileErr, err)
+					r.Metrics.ReconcileErrorCount.WithLabelValues(peer.Name).Inc()
 					continue
 				}
 				if cfg == nil {
@@ -653,6 +663,7 @@ func (r *bfdReconciler) deletePeerStateDBObj(cfg *types.BFDPeerConfig) error {
 func (r *bfdReconciler) handlePeerStatusUpdate(peer *types.BFDPeerStatus) {
 	logger := r.Logger.WithFields(logrus.Fields{
 		types.PeerAddressField:   peer.PeerAddress,
+		types.InterfaceNameField: peer.Interface,
 		types.DiscriminatorField: peer.Local.Discriminator,
 		types.SessionStateField:  peer.Local.State,
 	})
@@ -672,6 +683,13 @@ func (r *bfdReconciler) handlePeerStatusUpdate(peer *types.BFDPeerStatus) {
 		return
 	}
 	txn.Commit()
+
+	// Update peer's state in the metrics.
+	up := float64(0)
+	if peer.Local.State == types.BFDStateUp {
+		up = 1
+	}
+	r.Metrics.SessionState.WithLabelValues(peer.PeerAddress.String(), peer.Interface).Set(up)
 }
 
 // ensureEchoInterfaceSysctlConfig ensures necessary sysctl config on the interface used for the provided BFD peer

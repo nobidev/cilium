@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var Cell = cell.Module(
@@ -36,4 +37,6 @@ var Cell = cell.Module(
 	cell.Invoke(func(p bfdReconcilerParams) {
 		newBFDReconciler(p)
 	}),
+
+	metrics.Metric(newBFDMetrics),
 )
