@@ -47,8 +47,12 @@ func (s *externalCiliumDNSProxy) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
+		// Perform a nslookup on each service name using the cluster's default DNS server.
+		//
+		// This emulates the DNS behavior we expect to see in a real cluster, but doesn't allow us to control
+		// the DNS server address being used in the lookup (which often is single-stack even for dual-stack-enabled clusters).
 		for _, svc := range ct.EchoServices() {
-			t.NewAction(s, fmt.Sprintf("nslookup %s", svc.Name()), &client, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+			t.NewAction(s, "nslookup-svc-at-clusterdns", &client, svc, features.IPFamilyAny).Run(func(a *check.Action) {
 				// Iterate enough time to observe the metric evolves, nslookup command will
 				// hit the cilium-dnsproxy pods, note that the iteration is done directly in
 				// the pod for performance concerns.
@@ -62,6 +66,31 @@ func (s *externalCiliumDNSProxy) Run(ctx context.Context, t *check.Test) {
 				}
 
 				a.ValidateMetrics(ctx, dnsProxy, a.GetEgressMetricsRequirements())
+			})
+		}
+
+		// Perform a nslookup using the dns-test-server container of each echo pod as the DNS server.
+		//
+		// This is not a setup we expect to common in the real world, but it allows us to control the IP address
+		// (and therefore IP family) of the DNS server precisely.
+		for _, pod := range ct.EchoPods() {
+			// We are using the pod IP rather than the service IP because there is no service on the echo pods targeting
+			// port 53.
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.NewAction(s, "nslookup-localhost-at-echopod", &client, pod, ipFam).Run(func(a *check.Action) {
+					// A DNS lookup on "localhost" is the only hostname for which the echo pods are able to respond,
+					// as the "local" plugin is the only responder configured. See https://coredns.io/plugins/local/
+					cmd := fmt.Sprintf("for i in `seq 0 25`; do nslookup localhost %s; done", pod.Address(ipFam))
+					a.ExecInPod(ctx, []string{"/bin/sh", "-c", cmd})
+
+					// Retrieve the cilium-dnsproxy pod on the same node as the client.
+					dnsProxy, err := retrievePodOnNode(s.ciliumDNSProxyPods, client.NodeName())
+					if err != nil {
+						a.Fatalf("failed to test external cilium-dnsproxy pod: %s", err)
+					}
+
+					a.ValidateMetrics(ctx, dnsProxy, a.GetEgressMetricsRequirements())
+				})
 			})
 		}
 	}

@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-dns-to-echo
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+        - matchPattern: "*"
+    toEndpoints:
+      - matchLabels:
+          io.kubernetes.pod.namespace: cilium-test
+          kind: echo
