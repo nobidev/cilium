@@ -110,29 +110,29 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	g, _ := errgroup.WithContext(context.Background())
 
 	resourceToCreateFnMapping := map[string]crdCreationFn{
-		synced.CRDResourceName(k8sconstv1alpha1.IFGName):                            createIFGCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6SIDManagerName):                 createSRv6SIDManagerCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6LocatorPoolName):                createSRv6LocatorPoolCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6EgressPolicyName):               createSRv6EgressPolicyCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.VRFName):                            createVRFCRD,
-		synced.CRDResourceName(k8sconstv1.IEGPName):                                 createIEGPCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IPNName):                            createIPNCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.MulticastGroupName):                 createMulticastGroupCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.MulticastNodeName):                  createMulticastNodeCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentMeshEndpointName):          createIsovalentMeshEndpointCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName):            createBFDProfileCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigName):         createBFDNodeConfigCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName): createBFDNodeConfigOverrideCRD,
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPClusterConfigName):            createBGPClusterConfigCRD,
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPPeerConfigName):               createBGPPeerConfigCRD,
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPAdvertisementName):            createBGPAdvertisementCRD,
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigName):               createBGPNodeConfigCRD,
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName):       createBGPNodeConfigOverrideCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createBGPVRFConfigCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createICEPCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                      createLBServiceCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.LBBackendPoolName):                  createLBBackendPoolCRD,
-		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                          createLBVIPCRD,
+		synced.CRDResourceName(k8sconstv1alpha1.IFGName):                            createCRD(IFGCRDName, k8sconstv1alpha1.IFGName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6SIDManagerName):                 createCRD(SRv6SIDManagerName, k8sconstv1alpha1.SRv6SIDManagerName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6LocatorPoolName):                createCRD(SRv6LocatorPoolName, k8sconstv1alpha1.SRv6LocatorPoolName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6EgressPolicyName):               createCRD(SRv6EgressPolicyName, k8sconstv1alpha1.SRv6EgressPolicyName),
+		synced.CRDResourceName(k8sconstv1alpha1.VRFName):                            createCRD(VRFName, k8sconstv1alpha1.VRFName),
+		synced.CRDResourceName(k8sconstv1.IEGPName):                                 createCRD(IEGPCRDName, k8sconstv1.IEGPName),
+		synced.CRDResourceName(k8sconstv1alpha1.IPNName):                            createCRD(IPNCRDName, k8sconstv1alpha1.IPNName),
+		synced.CRDResourceName(k8sconstv1alpha1.MulticastGroupName):                 createCRD(MulticastGroupCRDName, k8sconstv1alpha1.MulticastGroupName),
+		synced.CRDResourceName(k8sconstv1alpha1.MulticastNodeName):                  createCRD(MulticastNodeCRDName, k8sconstv1alpha1.MulticastNodeName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentMeshEndpointName):          createCRD(IsovalentMeshEndpointCRDName, k8sconstv1alpha1.IsovalentMeshEndpointName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName):            createCRD(IsovalentBFDProfileCRDName, k8sconstv1alpha1.IsovalentBFDProfileName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigName):         createCRD(IsovalentBFDNodeConfigCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName): createCRD(IsovalentBFDNodeConfigOverrideCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPClusterConfigName):            createCRD(IsovalentBGPClusterConfigCRDName, k8sconstv1alpha1.IsovalentBGPClusterConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPPeerConfigName):               createCRD(IsovalentBGPPeerConfigCRDName, k8sconstv1alpha1.IsovalentBGPPeerConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPAdvertisementName):            createCRD(IsovalentBGPAdvertisementCRDName, k8sconstv1alpha1.IsovalentBGPAdvertisementName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigName):               createCRD(IsovalentBGPNodeConfigCRDName, k8sconstv1alpha1.IsovalentBGPNodeConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName):       createCRD(IsovalentBGPNodeConfigOverrideCRDName, k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createCRD(IsovalentBGPVRFConfigCRDName, k8sconstv1alpha1.IsovalentBGPVRFConfigName),
+		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createCRD(IsovalentClusterwideEncryptionPolicyCRDName, k8sconstv1alpha1.ICEPName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                      createCRD(LBServiceCRDName, k8sconstv1alpha1.LBServiceName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBBackendPoolName):                  createCRD(LBBackendPoolCRDName, k8sconstv1alpha1.LBBackendPoolName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                          createCRD(LBVIPCRDName, k8sconstv1alpha1.LBVIPName),
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -290,303 +290,19 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 	return ciliumCRD
 }
 
-// createIFGCRD creates and updates the IsovalentFQDNGroup CRD.
-func createIFGCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IFGCRDName)
+// createCRD returns a function that creates and updates a CRD.
+func createCRD(crdName, fullName string) func(clientset apiextensionsclient.Interface) error {
+	return func(clientset apiextensionsclient.Interface) error {
+		ciliumCRD := GetPregeneratedCRD(crdName)
 
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IFGName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createIEGPCRD creates and updates the IsovalentEgressGatewayPolicy CRD.
-func createIEGPCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IEGPCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1.IEGPName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createSRv6SIDManagerCRD creates and updates the IsovalentSRv6SIDManager CRD.
-func createSRv6SIDManagerCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(SRv6SIDManagerName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.SRv6SIDManagerName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createSRv6LocatorPoolCRD creates and updates the IsovalentSRv6LocatorPool CRD.
-func createSRv6LocatorPoolCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(SRv6LocatorPoolName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.SRv6LocatorPoolName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createSRv6EgressPolicyCRD creates and updates the IsovalentSRv6EgressPolicy CRD.
-func createSRv6EgressPolicyCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(SRv6EgressPolicyName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.SRv6EgressPolicyName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createVRFCRD creates and updates the IsovalentVRF CRD.
-func createVRFCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(VRFName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.VRFName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createIPNCRD creates and updates the IsovalentPodNetwork CRD.
-func createIPNCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IPNCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IPNName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createMulticastGroupCRD creates and updates the IsovalentMulticastGroup CRD.
-func createMulticastGroupCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(MulticastGroupCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.MulticastGroupName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createMulticastNodeCRD creates and updates the IsovalentMulticastNode CRD.
-func createMulticastNodeCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(MulticastNodeCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.MulticastNodeName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createIsovalentMeshEndpointCRD creates and updates the IsovalentMeshEndpoint CRD.
-func createIsovalentMeshEndpointCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentMeshEndpointCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentMeshEndpointName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBFDProfileCRD creates and updates the IsovalentBFDProfile CRD.
-func createBFDProfileCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBFDProfileCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBFDProfileName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBFDNodeConfigCRD creates and updates the IsovalentBFDNodeConfig CRD.
-func createBFDNodeConfigCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBFDNodeConfigCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBFDNodeConfigName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBFDNodeConfigOverrideCRD creates and updates the IsovalentBFDNodeConfigOverride CRD.
-func createBFDNodeConfigOverrideCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBFDNodeConfigOverrideCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPClusterConfigCRD creates and updates the IsovalentBGPClusterConfig CRD.
-func createBGPClusterConfigCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPClusterConfigCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPClusterConfigName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPPeerConfigCRD creates and updates the IsovalentBGPPeerConfig CRD.
-func createBGPPeerConfigCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPPeerConfigCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPPeerConfigName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPAdvertisementCRD creates and updates the IsovalentBGPAdvertisement CRD.
-func createBGPAdvertisementCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPAdvertisementCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPAdvertisementName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPNodeConfigCRD creates and updates the IsovalentBGPNodeConfig CRD.
-func createBGPNodeConfigCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPNodeConfigCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPNodeConfigName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPNodeConfigOverrideCRD creates and updates the IsovalentBGPNodeConfigOverride CRD.
-func createBGPNodeConfigOverrideCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPNodeConfigOverrideCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPNodeConfigOverrideName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createBGPVRFConfigCRD creates and updates the IsovalentBGPVRFConfig CRD.
-func createBGPVRFConfigCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentBGPVRFConfigCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.IsovalentBGPVRFConfigName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createICEPCRD creates and updates the IsovalentBGPNodeConfigOverride CRD.
-func createICEPCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(IsovalentClusterwideEncryptionPolicyCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.ICEPName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createLBServiceCRD creates and updates the LBService CRD.
-func createLBServiceCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(LBServiceCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.LBServiceName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createLBBackendPoolCRD creates and updates the LBBackendPool CRD.
-func createLBBackendPoolCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(LBBackendPoolCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.LBBackendPoolName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
-}
-
-// createLBVIPCRD creates and updates the LBVIP CRD.
-func createLBVIPCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(LBVIPCRDName)
-
-	return crdhelpers.CreateUpdateCRD(
-		clientset,
-		constructV1CRD(k8sconstv1alpha1.LBVIPName, ciliumCRD),
-		crdhelpers.NewDefaultPoller(),
-		k8sconst.CustomResourceDefinitionSchemaVersionKey,
-		versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-	)
+		return crdhelpers.CreateUpdateCRD(
+			clientset,
+			constructV1CRD(fullName, ciliumCRD),
+			crdhelpers.NewDefaultPoller(),
+			k8sconst.CustomResourceDefinitionSchemaVersionKey,
+			versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+		)
+	}
 }
 
 func constructV1CRD(
