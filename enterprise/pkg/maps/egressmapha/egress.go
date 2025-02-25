@@ -11,6 +11,8 @@
 package egressmapha
 
 import (
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/hive/cell"
 )
 
@@ -19,5 +21,20 @@ var Cell = cell.Module(
 	"Egressmaps provide access to the egress gateway datapath maps",
 	cell.Config(DefaultPolicyConfig),
 	cell.Provide(createPolicyMapFromDaemonConfig),
+	cell.Provide(createPolicyMapV2FromDaemonConfig),
 	cell.Provide(createCtMapFromDaemonConfig),
 )
+
+type PolicyConfig struct {
+	// EgressGatewayHAPolicyMapMax is the maximum number of entries
+	// allowed in the BPF egress gateway policy map.
+	EgressGatewayHAPolicyMapMax int
+}
+
+var DefaultPolicyConfig = PolicyConfig{
+	EgressGatewayHAPolicyMapMax: 1 << 14,
+}
+
+func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Int("egress-gateway-ha-policy-map-max", def.EgressGatewayHAPolicyMapMax, "Maximum number of entries in egress gatewa HA policy map")
+}

@@ -23,6 +23,17 @@ struct egress_gw_ha_policy_entry *lookup_ip4_egress_gw_ha_policy(__be32 saddr, _
 }
 
 static __always_inline
+struct egress_gw_ha_policy_entry_v2 *lookup_ip4_egress_gw_ha_policy_v2(__be32 saddr, __be32 daddr)
+{
+	struct egress_gw_ha_policy_key key = {
+		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
+		.saddr = saddr,
+		.daddr = daddr,
+	};
+	return map_lookup_elem(&EGRESS_GW_HA_POLICY_MAP_V2, &key);
+}
+
+static __always_inline
 struct egress_gw_ha_ct_entry *lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
 {
 	return map_lookup_elem(&EGRESS_GW_HA_CT_MAP, ct_key);
@@ -71,6 +82,7 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
+	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
 	struct egress_gw_ha_policy_entry *egress_gw_policy;
 	struct egress_gw_ha_ct_entry *egress_ct;
 	struct ipv4_ct_tuple ct_key;
@@ -105,11 +117,19 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 	}
 
 	/* Lookup the (src IP, dst IP) tuple in the the egress policy map */
+	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(ipv4_ct_reverse_tuple_saddr(rtuple),
+								ipv4_ct_reverse_tuple_daddr(rtuple));
+	if (egress_gw_policy_v2) {
+		egress_gw_policy = &egress_gw_policy_v2->policy;
+		goto evaluate_policy;
+	}
+
 	egress_gw_policy = lookup_ip4_egress_gw_ha_policy(ipv4_ct_reverse_tuple_saddr(rtuple),
 							  ipv4_ct_reverse_tuple_daddr(rtuple));
 	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
+evaluate_policy:
 	if (!egress_gw_policy->size) {
 		/* If no gateway is found, drop the packet. */
 		return DROP_NO_EGRESS_GATEWAY;
@@ -137,15 +157,25 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 static __always_inline
 bool egress_gw_ha_snat_needed(__be32 saddr __maybe_unused,
 			      __be32 daddr __maybe_unused,
-			      __be32 *snat_addr __maybe_unused)
+			      __be32 *snat_addr __maybe_unused,
+			      __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
+	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
 	struct egress_gw_ha_policy_entry *egress_gw_policy;
+
+	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(saddr, daddr);
+	if (egress_gw_policy_v2) {
+		egress_gw_policy = &egress_gw_policy_v2->policy;
+		*egress_ifindex = egress_gw_policy_v2->egress_ifindex;
+		goto evaluate_policy;
+	}
 
 	egress_gw_policy = lookup_ip4_egress_gw_ha_policy(saddr, daddr);
 	if (!egress_gw_policy)
 		return false;
 
+evaluate_policy:
 	if (!egress_gw_policy->size)
 		return false;
 
@@ -164,13 +194,21 @@ static __always_inline bool
 egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
+	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
 	struct egress_gw_ha_policy_entry *egress_gw_policy;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
+	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(ip4->daddr, ip4->saddr);
+	if (egress_gw_policy_v2) {
+		egress_gw_policy = &egress_gw_policy_v2->policy;
+		goto evaluate_policy;
+	}
+
 	egress_gw_policy = lookup_ip4_egress_gw_ha_policy(ip4->daddr, ip4->saddr);
 	if (!egress_gw_policy)
 		return false;
 
+evaluate_policy:
 	if (!egress_gw_policy->size)
 		return false;
 

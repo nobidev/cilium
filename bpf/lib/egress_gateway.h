@@ -207,7 +207,7 @@ bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
 		return false;
 
 	return egress_gw_snat_needed(saddr, daddr, snat_addr, egress_ifindex) ||
-	       egress_gw_ha_snat_needed(saddr, daddr, snat_addr);
+	       egress_gw_ha_snat_needed(saddr, daddr, snat_addr, egress_ifindex);
 }
 
 static __always_inline

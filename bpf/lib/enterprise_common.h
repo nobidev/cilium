@@ -24,6 +24,11 @@ struct egress_gw_ha_policy_entry {
 	__be32 gateway_ips[EGRESS_GW_HA_MAX_GATEWAY_NODES];
 };
 
+struct egress_gw_ha_policy_entry_v2 {
+	struct egress_gw_ha_policy_entry policy;
+	__u32 egress_ifindex;
+};
+
 struct egress_gw_ha_ct_entry {
 	__be32 gateway_ip;
 };

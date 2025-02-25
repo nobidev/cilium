@@ -31,10 +31,11 @@ const (
 )
 
 type egressPolicy struct {
-	SourceIP   string
-	DestCIDR   string
-	EgressIP   string
-	GatewayIPs []string
+	SourceIP      string
+	DestCIDR      string
+	EgressIP      string
+	GatewayIPs    []string
+	EgressIfindex uint32
 }
 
 var bpfEgressListCmd = &cobra.Command{
@@ -45,7 +46,7 @@ var bpfEgressListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress list")
 
-		policyMap, err := egressmapha.OpenPinnedPolicyMap()
+		policyMap, err := egressmapha.OpenPinnedPolicyMapV2()
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find egress gateway bpf maps")
@@ -56,17 +57,18 @@ var bpfEgressListCmd = &cobra.Command{
 		}
 
 		bpfEgressList := []egressPolicy{}
-		parse := func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
+		parse := func(key *egressmapha.EgressPolicyV2Key4, val *egressmapha.EgressPolicyV2Val4) {
 			gatewayIPs := []string{}
 			for gatewayIP := range val.GetGatewayIPs() {
 				gatewayIPs = append(gatewayIPs, mapGatewayIP(gatewayIP))
 			}
 
 			bpfEgressList = append(bpfEgressList, egressPolicy{
-				SourceIP:   key.GetSourceIP().String(),
-				DestCIDR:   key.GetDestCIDR().String(),
-				EgressIP:   val.GetEgressIP().String(),
-				GatewayIPs: gatewayIPs,
+				SourceIP:      key.GetSourceIP().String(),
+				DestCIDR:      key.GetDestCIDR().String(),
+				EgressIP:      val.GetEgressIP().String(),
+				GatewayIPs:    gatewayIPs,
+				EgressIfindex: val.EgressIfindex,
 			})
 		}
 
@@ -104,14 +106,14 @@ func mapGatewayIP(ip netip.Addr) string {
 func printEgressList(egressList []egressPolicy) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway\t")
+	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway\tEgress Interface\t")
 	for _, ep := range egressList {
 		gwZero := ""
 		if len(ep.GatewayIPs) > 0 {
 			gwZero = fmt.Sprintf("0 => %s", ep.GatewayIPs[0])
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, gwZero)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, gwZero, ep.EgressIfindex)
 		for i := 1; i < len(ep.GatewayIPs); i++ {
 			fmt.Fprintf(w, "\t\t\t%d => %s\n", i, ep.GatewayIPs[i])
 		}

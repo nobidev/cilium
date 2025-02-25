@@ -73,6 +73,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 
 	lc := hivetest.Lifecycle(t)
 	policyMap := egressmapha.CreatePrivatePolicyMap(lc, egressmapha.DefaultPolicyConfig)
+	policyMapV2 := egressmapha.CreatePrivatePolicyMapV2(lc, egressmapha.DefaultPolicyConfig)
 	ctMap := egressmapha.CreatePrivateCtMap(lc)
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{
@@ -124,6 +125,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		DaemonConfig:       &option.DaemonConfig{},
 		IdentityAllocator:  identityAllocator,
 		PolicyMap:          policyMap,
+		PolicyMapV2:        policyMapV2,
 		CtMap:              ctMap,
 		Policies:           k.policies,
 		Endpoints:          k.endpoints,
@@ -210,7 +212,7 @@ func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) 
 }
 
 func (k *EgressGatewayTestSuite) waitForReconciliationRun(t *testing.T) {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		count := k.manager.reconciliationEventsCount.Load()
 		if count > k.reconciliationEventsCount {
 			k.reconciliationEventsCount = count

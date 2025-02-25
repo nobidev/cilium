@@ -333,14 +333,17 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
 // and egress IP for a given endpoint
 //
 // If the AZ resolution fails, this method will fallback to the non AZ-aware list of active gateway IPs
-func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *endpointMetadata) ([]netip.Addr, netip.Addr) {
+func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *endpointMetadata) ([]netip.Addr, netip.Addr, uint32) {
 	egressIP := netip.IPv4Unspecified()
+	egressIfindex := uint32(0)
+
 	if gwc.localNodeConfiguredAsGateway {
 		egressIP = gwc.egressIP
+		egressIfindex = gwc.egressIfindex
 	}
 
 	if !gwc.azAffinity.enabled() {
-		return gwc.activeGatewayIPs, egressIP
+		return gwc.activeGatewayIPs, egressIP, egressIfindex
 	}
 
 	endpointNode, ok := manager.nodesByIP[endpoint.nodeIP.String()]
@@ -351,7 +354,7 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 		}).Error("cannot find endpoint's node")
 
 		//fallback to the non AZ-aware list of gateway IPs
-		return gwc.activeGatewayIPs, egressIP
+		return gwc.activeGatewayIPs, egressIP, egressIfindex
 	}
 
 	az, ok := endpointNode.Labels[core_v1.LabelTopologyZone]
@@ -362,15 +365,17 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 		}).Errorf("missing node's AZ label")
 
 		//fallback to the non AZ-aware list of gateway IPs
-		return gwc.activeGatewayIPs, egressIP
+		return gwc.activeGatewayIPs, egressIP, egressIfindex
 	}
 
 	egressIP = netip.IPv4Unspecified()
+	egressIfindex = 0
 	if gwc.activeGatewayIPsByAZ[az].localNodeConfiguredAsGateway {
 		egressIP = gwc.egressIP
+		egressIfindex = gwc.egressIfindex
 	}
 
-	return gwc.activeGatewayIPsByAZ[az].gatewayIPs, egressIP
+	return gwc.activeGatewayIPsByAZ[az].gatewayIPs, egressIP, egressIfindex
 }
 
 // forEachEndpointAndCIDR iterates through each combination of endpoints and

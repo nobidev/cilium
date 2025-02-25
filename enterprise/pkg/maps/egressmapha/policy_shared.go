@@ -8,24 +8,20 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package cmd
+package egressmapha
 
-func init() {
-	ExtraCommands = append(ExtraCommands, enterpriseCommands)
-}
+import (
+	"unsafe"
 
-func enterpriseCommands(confDir string, _ string) []string {
-	bpfMapsPath := []string{
-		"tc/globals/cilium_egress_gw_ha_policy_v4",
-		"tc/globals/cilium_egress_gw_ha_policy_v4_v2",
-		"tc/globals/cilium_egress_gw_ha_ct_v4",
-		"tc/globals/cilium_encryption_policy_map",
-	}
-	bpfCommands := bpfMapDumpCommands(bpfMapsPath)
+	"github.com/cilium/cilium/pkg/types"
+)
 
-	infoCommands := []string{
-		"cilium-dbg bpf egress-ha list",
-		"cilium-dbg bpf egress-ha ct list",
-	}
-	return append(bpfCommands, infoCommands...)
-}
+const (
+	// PolicyStaticPrefixBits represents the size in bits of the static
+	// prefix part of an egress policy key (i.e. the source IP).
+	PolicyStaticPrefixBits = uint32(unsafe.Sizeof(types.IPv4{}) * 8)
+	MaxPolicyEntries       = 1 << 14
+
+	// This define must be kept in sync with EGRESS_GW_HA_MAX_GATEWAY_NODES in the datapath.
+	maxGatewayNodes = 64
+)

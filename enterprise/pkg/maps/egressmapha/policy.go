@@ -15,11 +15,9 @@ import (
 	"iter"
 	"net/netip"
 	"slices"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -30,13 +28,6 @@ import (
 
 const (
 	PolicyMapName = "cilium_egress_gw_ha_policy_v4"
-	// PolicyStaticPrefixBits represents the size in bits of the static
-	// prefix part of an egress policy key (i.e. the source IP).
-	PolicyStaticPrefixBits = uint32(unsafe.Sizeof(types.IPv4{}) * 8)
-	MaxPolicyEntries       = 1 << 14
-
-	// This define must be kept in sync with EGRESS_GW_HA_MAX_GATEWAY_NODES in the datapath.
-	maxGatewayNodes = 64
 )
 
 // EgressPolicyKey4 is the key of an egress policy map.
@@ -47,20 +38,6 @@ type EgressPolicyVal4 struct {
 	Size       uint32                      `align:"size"`
 	EgressIP   types.IPv4                  `align:"egress_ip"`
 	GatewayIPs [maxGatewayNodes]types.IPv4 `align:"gateway_ips"`
-}
-
-type PolicyConfig struct {
-	// EgressGatewayHAPolicyMapMax is the maximum number of entries
-	// allowed in the BPF egress gateway policy map.
-	EgressGatewayHAPolicyMapMax int
-}
-
-var DefaultPolicyConfig = PolicyConfig{
-	EgressGatewayHAPolicyMapMax: 1 << 14,
-}
-
-func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
-	flags.Int("egress-gateway-ha-policy-map-max", def.EgressGatewayHAPolicyMapMax, "Maximum number of entries in egress gatewa HA policy map")
 }
 
 // PolicyMap is used to communicate EGW policies to the datapath.
