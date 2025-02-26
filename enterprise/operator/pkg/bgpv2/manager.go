@@ -200,10 +200,10 @@ func (m *BGPResourceMapper) reconcileWithRetry(ctx context.Context) error {
 		if err != nil {
 			if isRetryableError(err) && attempts%5 != 0 {
 				// for retryable error print warning only every 5th attempt
-				m.logger.Debug("Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+				m.logger.WithField(logfields.Error, TrimError(err, maxErrorLen)).Debug("Transient BGP reconciliation error")
 			} else {
 				// log warning, continue retry
-				m.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+				m.logger.WithField(logfields.Error, TrimError(err, maxErrorLen)).Warn("BGP reconciliation error")
 			}
 			return false, nil
 		}
