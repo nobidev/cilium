@@ -34,9 +34,28 @@ func (m *BGPResourceMapper) reconcileMappings(ctx context.Context) error {
 	// we can continue with the next resource if one fails.
 
 	err := m.mapClusterConfigs(ctx)
-	err = errors.Join(err, m.mapPeerConfigs(ctx))
-	err = errors.Join(err, m.mapAdvertisements(ctx))
-	err = errors.Join(err, m.mapNodeConfigOverrides(ctx))
+	if err != nil {
+		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPCCKindDefinition).Add(1)
+	}
+
+	rErr := m.mapPeerConfigs(ctx)
+	if rErr != nil {
+		err = errors.Join(err, rErr)
+		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPPCKindDefinition).Add(1)
+	}
+
+	rErr = m.mapAdvertisements(ctx)
+	if rErr != nil {
+		err = errors.Join(err, rErr)
+		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPAKindDefinition).Add(1)
+	}
+
+	rErr = m.mapNodeConfigOverrides(ctx)
+	if rErr != nil {
+		err = errors.Join(err, rErr)
+		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPNCOKindDefinition).Add(1)
+	}
+
 	return err
 }
 

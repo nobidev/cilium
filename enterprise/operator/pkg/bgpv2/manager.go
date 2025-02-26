@@ -12,6 +12,7 @@ package bgpv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -46,6 +47,7 @@ type BGPResourceMapper struct {
 	signal    *signaler.BGPCPSignaler
 	clientSet client.Clientset
 	dc        *option.DaemonConfig
+	metrics   *OperatorMetrics
 
 	// BGPv2 Resources
 	clusterConfig      store.BGPCPResourceStore[*v1.IsovalentBGPClusterConfig]
@@ -81,6 +83,7 @@ type BGPResourceManagerParams struct {
 	Signal    *signaler.BGPCPSignaler
 	ClientSet client.Clientset
 	DaemonCfg *option.DaemonConfig
+	Metrics   *OperatorMetrics
 
 	// BGPv2 Resources
 	ClusterConfig      store.BGPCPResourceStore[*v1.IsovalentBGPClusterConfig]
@@ -112,6 +115,7 @@ func RegisterBGPResourceMapper(in BGPResourceManagerParams) error {
 		signal:                in.Signal,
 		clientSet:             in.ClientSet,
 		dc:                    in.DaemonCfg,
+		metrics:               in.Metrics,
 		clusterConfig:         in.ClusterConfig,
 		peerConfig:            in.PeerConfig,
 		advertisements:        in.Advertisements,
@@ -212,12 +216,18 @@ func (m *BGPResourceMapper) reconcileWithRetry(ctx context.Context) error {
 }
 
 func (m *BGPResourceMapper) reconcile(ctx context.Context) error {
+	reconcileStart := time.Now()
+
 	err := m.reconcileMappings(ctx)
-	if err != nil {
-		return err
+
+	rErr := m.reconcileClusterConfigs(ctx)
+	if rErr != nil {
+		err = errors.Join(err, rErr)
+		m.metrics.ReconcileErrorCount.WithLabelValues(v1.IsovalentBGPClusterConfigKindDefinition).Add(1)
 	}
 
-	return m.reconcileClusterConfigs(ctx)
+	m.metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())
+	return err
 }
 
 // TrimError trims error message to maxLen.

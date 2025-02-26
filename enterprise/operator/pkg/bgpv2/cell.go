@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -56,6 +57,8 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(signaler.NewBGPCPSignaler),
 
 	cell.Config(config.DefaultConfig),
+	metrics.Metric(newBGPOperatorMetrics),
+
 	cell.Invoke(
 		RegisterBGPResourceMapper,
 		registerPeerConfigStatusReconciler,
