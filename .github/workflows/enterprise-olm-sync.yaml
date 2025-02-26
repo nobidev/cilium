@@ -38,6 +38,7 @@ jobs:
 
       - name: Sync enterprise/olm/manifests
         run: |
+          rm -rf enterprise/olm/manifests
           cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
 
       - name: Create PR
