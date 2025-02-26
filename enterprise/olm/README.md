@@ -178,4 +178,19 @@ Alternatively they can be run from VS Code by configuring settings.json
     },
     "go.testTimeout": "120s"
 }
+```
+
+### Running CI tests on OpenShift
+
+CLife has been added to Cilium Continuous Integration infrastructure, for the main-ce branch at the time of writing. This means that:
+
+- A scheduled workflow, [OLM Sync](../../.github/workflows/enterprise-olm-sync.yaml) runs weekly to synchronize the manifest files used by CLife with changes made to the helm manifests. This workflow creates a pull request with the required changes.
+- A workflow, [OLM Build CI](../../.github/workflows/enterprise-olm-build-ci.yaml), is triggered when changes are made to `enterprise/olm`, for instance the changes made by the pull request mentioned above. This workflow builds a new CLife container image and pushes it to quay.
+- A final workflow, [Conformance OpenShift (ci-openshift)](../../.github/workflows/enterprise-conformance-openshift.yaml), gets also triggered on changes made to `enterprise/olm` and run CLI connectivity, CNI conformance and KubeVirt conformance tests. This latest workflow is integrated with Ariane so that it is possible to trigger it on a pull request using one of the following commands:
+
+```
+/ci-openshift
+/ci-openshift {"ocp_version":"4.17.14"}
+/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}
+```
 
