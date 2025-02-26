@@ -141,8 +141,12 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{
-				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-					ossannotation.ServiceNodeExposure: lbNodeTypeT2,
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      ossannotation.ServiceNodeExposure,
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{lbNodeTypeT2},
+					},
 				},
 			},
 			Resources: envoyResources,
