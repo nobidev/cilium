@@ -35,13 +35,20 @@ jobs:
         run: |
           make -C hubble release
 
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_ID: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_ID }}
+          APP_PEM: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_PEM_KEY }}
+
       - name: Publish a Draft Release
         uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
         with:
           repository: ${{ vars.HUBBLE_RELEASES_REPO }}
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          token: ${{ secrets.HUBBLE_RELEASES_REPO_WRITE }}
+          token: ${{ steps.get_token.outputs.app_token }}
           draft: true
           files: |
             hubble/release/*
