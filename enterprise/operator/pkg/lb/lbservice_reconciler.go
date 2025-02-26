@@ -209,12 +209,12 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Load dependent resources that have relevant input for the model
 	//
 
-	t1NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT1)
+	t1NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT1, lbNodeTypeT1AndT2)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve T1 node ips: %w", err)
 	}
 
-	t2NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT2)
+	t2NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT2, lbNodeTypeT1AndT2)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}

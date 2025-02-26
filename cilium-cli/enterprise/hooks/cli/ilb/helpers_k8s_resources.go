@@ -975,8 +975,15 @@ func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig 
 		},
 		Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
-				MatchLabels: map[string]slimv1.MatchLabelsValue{
-					ossannotation.ServiceNodeExposure: "t1",
+				MatchExpressions: []slimv1.LabelSelectorRequirement{
+					{
+						Key:      ossannotation.ServiceNodeExposure,
+						Operator: slimv1.LabelSelectorOpIn,
+						Values: []string{
+							"t1",
+							"t1-t2",
+						},
+					},
 				},
 			},
 			BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{

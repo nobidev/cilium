@@ -145,7 +145,10 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 					{
 						Key:      ossannotation.ServiceNodeExposure,
 						Operator: slim_metav1.LabelSelectorOpIn,
-						Values:   []string{lbNodeTypeT2},
+						Values: []string{
+							lbNodeTypeT2,
+							lbNodeTypeT1AndT2,
+						},
 					},
 				},
 			},

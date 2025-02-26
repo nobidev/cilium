@@ -51,7 +51,7 @@ func NewLoadbalancerClient(client *enterpriseK8s.EnterpriseClient, params Parame
 }
 
 func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
-	t1Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
+	t1Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		t1NodeNames = append(t1NodeNames, t1.Name)
 	}
 
-	t2Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t2"})
+	t2Nodes, err := s.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t2 , t1-t2 )"})
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@
 package lb
 
 const (
-	lbNodeTypeT1 = "t1"
-	lbNodeTypeT2 = "t2"
+	lbNodeTypeT1      = "t1"
+	lbNodeTypeT2      = "t2"
+	lbNodeTypeT1AndT2 = "t1-t2"
 )

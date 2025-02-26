@@ -14,7 +14,7 @@ metadata:
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: random
     service.cilium.io/proxy-delegation: delegate-if-local
-    service.cilium.io/node-selector: service.cilium.io/node in ( t1 )
+    service.cilium.io/node-selector: service.cilium.io/node in ( t1 , t1-t2 )
     service.cilium.io/type: "LoadBalancer"
   labels:
     loadbalancer.isovalent.com/vip-name: lb-1
