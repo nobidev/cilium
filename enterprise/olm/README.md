@@ -81,7 +81,7 @@ make undeploy
 
 ## Manifests
 
-Follow these steps to generate Cilium Isovalent Operator manifests and to install it using these manifests.
+Follow these steps to generate Cilium Lifecycle Operator manifests and to install it using these manifests.
 
 1. Build the operator for the image built and published in the registry:
 
