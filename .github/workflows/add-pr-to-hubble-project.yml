@@ -13,7 +13,13 @@ jobs:
     timeout-minutes: 5
     if: contains(github.event.pull_request.labels.*.name, 'vertical/hubble')
     steps:
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_ID: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_ID }}
+          APP_PEM: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_PEM_KEY }}
       # adds the PR to the project, sets project status, project sprint and assignee
       - uses: isovalent/reusable-workflows/.github/actions/add-pr-to-hubble-project@eba787424228f0f46198b59a4faa8453cec199c8 # v0.3.1
         with:
-          github-token: ${{ secrets.REPO_PROJECT_READ_WRITE_TOKEN }}
+          github-token: ${{ steps.get_token.outputs.app_token }}
