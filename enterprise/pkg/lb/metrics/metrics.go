@@ -17,7 +17,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -151,7 +150,7 @@ func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event r
 	}
 
 	// only add T1 services to the cache
-	if service.Annotations[annotation.ServiceNodeExposure] != "t1" {
+	if service.Annotations["loadbalancer.isovalent.com/type"] != "t1" {
 		event.Done(nil)
 		return nil
 	}

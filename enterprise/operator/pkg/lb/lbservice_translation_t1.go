@@ -95,6 +95,8 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 		}
 	}
 
+	annotations["loadbalancer.isovalent.com/type"] = "t1"
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
