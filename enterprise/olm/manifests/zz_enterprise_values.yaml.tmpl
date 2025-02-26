@@ -146,7 +146,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.6.0-rc.0
+      tag: v1.6.0
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -157,11 +157,22 @@ hubble:
         # @schema
         override: ~
         repository: docker.io/clickhouse/clickhouse-server
-        tag: 24.8.4.13-alpine
-        digest: "sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c"
+        tag: 24.8.12.28-alpine
+        digest: "sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f"
         useDigest: true
         pullPolicy: "Always"
+      resources: {}
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        capabilities:
+          drop:
+            - ALL
     priorityClassName: null
+    resources: {}
     podSecurityContext:
       fsGroup: 65532
     securityContext:
@@ -218,11 +229,91 @@ hubble:
         capabilities:
           drop:
             - ALL
+    ui:
+      enabled: true
+      image:
+        # @schema
+        # type: [null, string]
+        # @schema
+        override: ~
+        repository: quay.io/isovalent/hubble-timescape-ui
+        tag: "v1.6.0"
+        pullPolicy: IfNotPresent
+        pullSecrets: []
+      securityContext:
+        # readOnlyRootFilesystem: true
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        capabilities:
+          drop:
+            - ALL
+      resources: {}
+      ingress:
+        enabled: false
+        annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+        className: ""
+        hosts:
+          - chart-example.local
+        labels: {}
+        tls: []
+        #  - secretName: chart-example-tls
+        #    hosts:
+        #      - chart-example.local
+      auth:
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        enabled: ~
+        # -- UI session key is used to encrypt the UI session state. Should be a randomly
+        # generated password with at least 16 characters.
+        sessionKey:
+          secretName: hubble-timescape-ui
+          secretKey: session-key
+        oidc:
+          # -- OIDC Server discovery endpoint URL.
+          # e.g. https://my-account.okta.com/oauth2/default/.well-known/openid-configuration
+          # Will default to `.hubble.rbac.auth.oidc.issuerURL` when RBAC is enabled.
+          # @schema
+          # type: [null, string]
+          # @schema
+          issuerURL: ~
+          # -- OIDC custom CA to verify against.
+          # Will default to `.hubble.rbac.auth.oidc.ca` when RBAC is enabled.
+          issuerCA:
+            configMap:
+              # @schema
+              # type: [null, string]
+              # @schema
+              name: ~
+              key: "ca.crt"
+          # -- OID redirect URL.
+          # The URL to redirect to, after the application was authorized. This need to be
+          # set to URI_USED_TO_ACCESS_TIMESCAPE_UI/oauth2/callback.
+          # When the Timescape UI is exposed through `.hubble.timescape.ui.ingress`, the redirect URL will be
+          # populated automatically, using the first hostname
+          # @schema
+          # type: [null, string]
+          # @schema
+          redirectURL: ~
+          # -- OIDC application client ID
+          # @schema
+          # type: [null, string]
+          # @schema
+          ClientID: ~
+          # -- OIDC application client secret
+          clientSecret:
+            secretName: hubble-timescape-ui
+            secretKey: client-secret
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:
     # @schema
-    # type: [null, string]
+    # type: [null, boolean]
     # @schema
     enabled: ~
     image:
@@ -231,7 +322,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.5.3"
+      tag: "v1.6.0"
       digest: ""
       useDigest: false
       pullPolicy: "Always"

@@ -1,6 +1,6 @@
 {{- if and
   .Values.hubble.enabled 
-  ( .Values.hubble.k8sExporter.enabled | default .Values.hubble.timescape.enabled )
+  (eq (include "hubble.k8s-exporter.enabled" .) "true")
   .Values.serviceAccounts.hubbleK8sExporter.create
   .Values.rbac.create
 }}

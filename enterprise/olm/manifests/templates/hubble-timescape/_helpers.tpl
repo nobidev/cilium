@@ -7,6 +7,13 @@
 -}}
 {{- end }}
 
+{{- define "hubble.timescape.ui.auth.enabled" -}}
+{{- or
+  .Values.hubble.timescape.ui.auth.enabled
+  .Values.hubble.rbac.enabled
+-}}
+{{- end }}
+
 {{- define "hubble.timescape.probe" -}}
 exec:
   command:

@@ -103,6 +103,14 @@ k8sClientRateLimit:
     # The rate limiter will allow short bursts with a higher rate.
     # @default -- 200
     burst:
+# -- Configure exponential backoff for client-go in Cilium agent.
+k8sClientExponentialBackoff:
+  # -- Enable exponential backoff for client-go in Cilium agent.
+  enabled: true
+  # -- Configure base (in seconds) for exponential backoff.
+  backoffBaseSeconds: 1
+  # -- Configure maximum duration (in seconds) for exponential backoff.
+  backoffMaxDurationSeconds: 120
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   # It must respect the following constraints:
@@ -185,7 +193,7 @@ serviceAccounts:
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
 agent: true
-# -- Agent container name.
+# -- Agent daemonset name.
 name: cilium
 # -- Roll out cilium agent pods automatically when configmap is updated.
 rollOutCiliumPods: false
@@ -629,7 +637,7 @@ bpf:
   # supported kernels.
   # @default -- `true`
   enableTCX: true
-  # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
+  # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
   # @default -- `veth`
   datapathMode: veth
 # -- Enable BPF clock source probing for more efficient tick retrieval.
@@ -718,6 +726,14 @@ cni:
       memory: 10Mi
   # -- Enable route MTU for pod netns when CNI chaining is used
   enableRouteMTUForCNIChaining: false
+# @schema
+# type: [null, number]
+# @schema
+# -- (float64) Ratio of the connectivity probe frequency vs resource usage, a float in
+# [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing
+# frequency is dynamically adjusted based on the cluster size.
+# @default -- `0.5`
+connectivityProbeFrequencyRatio: ~
 # -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # @default -- `"0s"`
@@ -1520,9 +1536,12 @@ hubble:
     # -- hubble-relay pod security context
     podSecurityContext:
       fsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
     # -- hubble-relay container security context
     securityContext:
       # readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
       runAsNonRoot: true
       runAsUser: 65532
       runAsGroup: 65532
@@ -1583,13 +1602,6 @@ hubble:
         # See https://github.com/cilium/cilium/pull/28709#discussion_r1371792546
         # For GKE Dataplane V2 this should be set to relay.kube-system.svc.cluster.local
         relayName: "ui.hubble-relay.cilium.io"
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-    #
-    # This option has been deprecated and is a no-op.
-    dialTimeout: ~
     # @schema
     # type: [null, string]
     # @schema
@@ -1698,8 +1710,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.13.1"
-        digest: "sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b"
+        tag: "v0.13.2"
+        digest: "sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui backend security context.
@@ -1732,8 +1744,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.13.1"
-        digest: "sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6"
+        tag: "v0.13.2"
+        digest: "sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui frontend security context.
@@ -1925,7 +1937,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.6.0-rc.0
+      tag: v1.6.0
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -1936,11 +1948,22 @@ hubble:
         # @schema
         override: ~
         repository: docker.io/clickhouse/clickhouse-server
-        tag: 24.8.4.13-alpine
-        digest: "sha256:88a45f9e328549b2579256c46ee38e5c0e25ae58303d9eb6d9c7ed8d6d2bbf3c"
+        tag: 24.8.12.28-alpine
+        digest: "sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f"
         useDigest: true
         pullPolicy: "Always"
+      resources: {}
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        capabilities:
+          drop:
+            - ALL
     priorityClassName: null
+    resources: {}
     podSecurityContext:
       fsGroup: 65532
     securityContext:
@@ -1997,11 +2020,91 @@ hubble:
         capabilities:
           drop:
             - ALL
+    ui:
+      enabled: true
+      image:
+        # @schema
+        # type: [null, string]
+        # @schema
+        override: ~
+        repository: quay.io/isovalent/hubble-timescape-ui
+        tag: "v1.6.0"
+        pullPolicy: IfNotPresent
+        pullSecrets: []
+      securityContext:
+        # readOnlyRootFilesystem: true
+        privileged: false
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        capabilities:
+          drop:
+            - ALL
+      resources: {}
+      ingress:
+        enabled: false
+        annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+        className: ""
+        hosts:
+          - chart-example.local
+        labels: {}
+        tls: []
+        #  - secretName: chart-example-tls
+        #    hosts:
+        #      - chart-example.local
+      auth:
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        enabled: ~
+        # -- UI session key is used to encrypt the UI session state. Should be a randomly
+        # generated password with at least 16 characters.
+        sessionKey:
+          secretName: hubble-timescape-ui
+          secretKey: session-key
+        oidc:
+          # -- OIDC Server discovery endpoint URL.
+          # e.g. https://my-account.okta.com/oauth2/default/.well-known/openid-configuration
+          # Will default to `.hubble.rbac.auth.oidc.issuerURL` when RBAC is enabled.
+          # @schema
+          # type: [null, string]
+          # @schema
+          issuerURL: ~
+          # -- OIDC custom CA to verify against.
+          # Will default to `.hubble.rbac.auth.oidc.ca` when RBAC is enabled.
+          issuerCA:
+            configMap:
+              # @schema
+              # type: [null, string]
+              # @schema
+              name: ~
+              key: "ca.crt"
+          # -- OID redirect URL.
+          # The URL to redirect to, after the application was authorized. This need to be
+          # set to URI_USED_TO_ACCESS_TIMESCAPE_UI/oauth2/callback.
+          # When the Timescape UI is exposed through `.hubble.timescape.ui.ingress`, the redirect URL will be
+          # populated automatically, using the first hostname
+          # @schema
+          # type: [null, string]
+          # @schema
+          redirectURL: ~
+          # -- OIDC application client ID
+          # @schema
+          # type: [null, string]
+          # @schema
+          ClientID: ~
+          # -- OIDC application client secret
+          clientSecret:
+            secretName: hubble-timescape-ui
+            secretKey: client-secret
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:
     # @schema
-    # type: [null, string]
+    # type: [null, boolean]
     # @schema
     enabled: ~
     image:
@@ -2010,7 +2113,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.5.3"
+      tag: "v1.6.0"
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -2230,8 +2333,8 @@ keepDeprecatedLabels: false
 keepDeprecatedProbes: false
 startupProbe:
   # -- failure threshold of startup probe.
-  # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
-  failureThreshold: 105
+  # Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
+  failureThreshold: 300
   # -- interval between checks of the startup probe
   periodSeconds: 2
 livenessProbe:
@@ -2578,9 +2681,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.3-1737536179-7717128c4e264aa4ec7e43f6bb795ab854340b16"
+    tag: "v1.32.3-1739534224-3e4b99dc5d1f98ec3606f457af2f54a8e1f36981"
     pullPolicy: "Always"
-    digest: "sha256:0a62df4ef2e56b428414cc9b68404ec5edb6fab3f590371a614238ab9d82b408"
+    digest: "sha256:b5936c5c42c2fa21424b6f59d5e0f86100709bf196492c0e86a613baca08ea57"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2785,6 +2888,10 @@ envoy:
     port: "9964"
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
+# To include or exclude matched resources from cilium node identity evaluation
+# List of labels just like --labels flag (.Values.labels)
+# nodeLabels: ""
+
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
   enabled: false
@@ -2800,6 +2907,8 @@ resourceQuotas:
 ##################
 #sessionAffinity: false
 
+# -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+secretsNamespaceAnnotations: {}
 # -- Do not run Cilium agent when running with clean mode. Useful to completely
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
 # in the node.
@@ -2810,23 +2919,42 @@ svcSourceRangeCheck: true
 synchronizeK8sNodes: true
 # -- Configure TLS configuration in the agent.
 tls:
+  # @schema
+  # type: [null, string]
+  # @schema
   # -- This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies
   # (namely the secrets referenced by terminatingTLS and originatingTLS).
+  # This value is DEPRECATED and will be removed in a future version.
+  # Use `tls.readSecretsOnlyFromSecretsNamespace` instead.
   # Possible values:
   #   - local
   #   - k8s
-  secretsBackend: local
+  secretsBackend: ~
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
+  #    CiliumNetworkPolicy relevant Secrets.
+  #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
+  #    to _all_ secrets in the entire cluster. This is not recommended and is
+  #    included for backwards compatibility.
+  #    This value obsoletes `tls.secretsBackend`, with `true` == `local` in the old
+  #    setting, and `false` == `k8s`.
+  readSecretsOnlyFromSecretsNamespace: ~
+  # -- Configures where secrets used in CiliumNetworkPolicies will be looked for
+  secretsNamespace:
+    # -- Create secrets namespace for TLS Interception secrets.
+    create: true
+    # -- Name of TLS Interception secret namespace.
+    name: cilium-secrets
   # -- Configures settings for synchronization of TLS Interception Secrets
   secretSync:
+    # @schema
+    # type: [null, boolean]
+    # @schema
     # -- Enable synchronization of Secrets for TLS Interception. If disabled and
-    # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
-    enabled: true
-    # -- This configures secret synchronization for secrets used in CiliumNetworkPolicies
-    secretsNamespace:
-      # -- Create secrets namespace for TLS Interception secrets.
-      create: true
-      # -- Name of TLS Interception secret namespace.
-      name: cilium-secrets
+    # tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
+    enabled: ~
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
   # It is neither required nor used when cert-manager is used to generate the certificates.
@@ -3432,6 +3560,11 @@ clustermesh:
             - ALL
       # -- lifecycle setting for the KVStoreMesh container
       lifecycle: {}
+      # -- Specify the KVStore mode when running KVStoreMesh
+      # Supported values:
+      # - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod.
+      # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
+      kvstoreMode: "internal"
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -3744,10 +3877,6 @@ clustermesh:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
           metricRelabelings: ~
-# -- Configure external workloads support
-externalWorkloads:
-  # -- Enable support for external workloads, such as VMs (false by default).
-  enabled: false
 # -- Configure cgroup related configuration
 cgroup:
   autoMount:

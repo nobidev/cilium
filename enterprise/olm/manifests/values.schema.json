@@ -991,6 +991,9 @@
                 "healthPort": {
                   "type": "integer"
                 },
+                "kvstoreMode": {
+                  "type": "string"
+                },
                 "lifecycle": {
                   "type": "object"
                 },
@@ -1490,6 +1493,12 @@
       "type": [
         "null",
         "object"
+      ]
+    },
+    "connectivityProbeFrequencyRatio": {
+      "type": [
+        "null",
+        "number"
       ]
     },
     "conntrackGCInterval": {
@@ -2531,14 +2540,6 @@
       },
       "type": "object"
     },
-    "externalWorkloads": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "extraArgs": {
       "items": {},
       "type": "array"
@@ -2804,7 +2805,7 @@
             "enabled": {
               "type": [
                 "null",
-                "string"
+                "boolean"
               ]
             },
             "export": {
@@ -3351,12 +3352,6 @@
             "annotations": {
               "type": "object"
             },
-            "dialTimeout": {
-              "type": [
-                "null",
-                "string"
-              ]
-            },
             "enabled": {
               "type": "boolean"
             },
@@ -3455,6 +3450,14 @@
               "properties": {
                 "fsGroup": {
                   "type": "integer"
+                },
+                "seccompProfile": {
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"
@@ -3533,6 +3536,9 @@
             },
             "securityContext": {
               "properties": {
+                "allowPrivilegeEscalation": {
+                  "type": "boolean"
+                },
                 "capabilities": {
                   "properties": {
                     "drop": {
@@ -3704,6 +3710,44 @@
                     }
                   },
                   "type": "object"
+                },
+                "resources": {
+                  "type": "object"
+                },
+                "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "privileged": {
+                      "type": "boolean"
+                    },
+                    "runAsGroup": {
+                      "type": "integer"
+                    },
+                    "runAsNonRoot": {
+                      "type": "boolean"
+                    },
+                    "runAsUser": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"
@@ -3764,6 +3808,9 @@
             },
             "priorityClassName": {
               "type": "null"
+            },
+            "resources": {
+              "type": "object"
             },
             "securityContext": {
               "properties": {
@@ -3840,6 +3887,182 @@
                 "null",
                 "string"
               ]
+            },
+            "ui": {
+              "properties": {
+                "auth": {
+                  "properties": {
+                    "enabled": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "oidc": {
+                      "properties": {
+                        "ClientID": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "clientSecret": {
+                          "properties": {
+                            "secretKey": {
+                              "type": "string"
+                            },
+                            "secretName": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "issuerCA": {
+                          "properties": {
+                            "configMap": {
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "issuerURL": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "redirectURL": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "sessionKey": {
+                      "properties": {
+                        "secretKey": {
+                          "type": "string"
+                        },
+                        "secretName": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "image": {
+                  "properties": {
+                    "override": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "pullPolicy": {
+                      "type": "string"
+                    },
+                    "pullSecrets": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "tag": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "ingress": {
+                  "properties": {
+                    "annotations": {
+                      "type": "object"
+                    },
+                    "className": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "hosts": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "labels": {
+                      "type": "object"
+                    },
+                    "tls": {
+                      "items": {},
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "resources": {
+                  "type": "object"
+                },
+                "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "privileged": {
+                      "type": "boolean"
+                    },
+                    "runAsGroup": {
+                      "type": "integer"
+                    },
+                    "runAsNonRoot": {
+                      "type": "boolean"
+                    },
+                    "runAsUser": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
             },
             "vector": {
               "properties": {
@@ -4581,6 +4804,20 @@
           "type": "boolean"
         },
         "requireIPv6PodCIDR": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "k8sClientExponentialBackoff": {
+      "properties": {
+        "backoffBaseSeconds": {
+          "type": "integer"
+        },
+        "backoffMaxDurationSeconds": {
+          "type": "integer"
+        },
+        "enabled": {
           "type": "boolean"
         }
       },
@@ -5746,6 +5983,9 @@
       },
       "type": "object"
     },
+    "secretsNamespaceAnnotations": {
+      "type": "object"
+    },
     "securityContext": {
       "properties": {
         "capabilities": {
@@ -6134,27 +6374,39 @@
           },
           "type": "object"
         },
+        "readSecretsOnlyFromSecretsNamespace": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "secretSync": {
           "properties": {
             "enabled": {
-              "type": "boolean"
-            },
-            "secretsNamespace": {
-              "properties": {
-                "create": {
-                  "type": "boolean"
-                },
-                "name": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
+              "type": [
+                "null",
+                "boolean"
+              ]
             }
           },
           "type": "object"
         },
         "secretsBackend": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "secretsNamespace": {
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
