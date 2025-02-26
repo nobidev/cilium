@@ -10,6 +10,10 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+-*
   workflow_dispatch:
     inputs:
+      tag:
+        description: A tag to build images for.
+        type: string
+        required: false
       build-cilium:
         type: boolean
         default: false
@@ -37,7 +41,7 @@ permissions:
 
 # Avoid building/pushing images for the same ref concurrently.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.tag }}
 
 env:
   # renovate: datasource=golang-version depName=go
@@ -75,13 +79,14 @@ jobs:
     outputs:
       images: ${{ steps.images.outputs.images }}
       image_names: ${{ steps.images.outputs.image_names }}
+      image_tag: ${{ steps.tag.outputs.tag }}
     env:
-      BUILD_CILIUM: ${{ github.event_name == 'push' || github.event.inputs.build-cilium }}
-      BUILD_HUBBLE_RELAY: ${{ github.event_name == 'push' || github.event.inputs.build-hubble-relay }}
-      BUILD_OPERATOR_AWS: ${{ github.event_name == 'push' || github.event.inputs.build-operator-aws }}
-      BUILD_OPERATOR_AZURE: ${{ github.event_name == 'push' || github.event.inputs.build-operator-azure }}
-      BUILD_OPERATOR_ALIBABACLOUD: ${{ github.event_name == 'push' || github.event.inputs.build-operator-alibabacloud }}
-      BUILD_OPERATOR_GENERIC: ${{ github.event_name == 'push' || github.event.inputs.build-operator-generic }}
+      BUILD_CILIUM: ${{ github.event_name == 'push' || inputs.build-cilium }}
+      BUILD_HUBBLE_RELAY: ${{ github.event_name == 'push' || inputs.build-hubble-relay }}
+      BUILD_OPERATOR_AWS: ${{ github.event_name == 'push' || inputs.build-operator-aws }}
+      BUILD_OPERATOR_AZURE: ${{ github.event_name == 'push' || inputs.build-operator-azure }}
+      BUILD_OPERATOR_ALIBABACLOUD: ${{ github.event_name == 'push' || inputs.build-operator-alibabacloud }}
+      BUILD_OPERATOR_GENERIC: ${{ github.event_name == 'push' || inputs.build-operator-generic }}
     steps:
       - name: Build image list
         id: images
@@ -113,10 +118,23 @@ jobs:
           echo "images=$images" >> $GITHUB_OUTPUT
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
+      - name: Getting image tag
+        id: tag
+        run: |
+          if [ "${{ inputs.tag != '' }}" = "true" ]; then
+            tag=${{ inputs.tag }}-fips
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
+            ref=${{ github.ref }}
+            tag=${ref##*/}-fips
+          else
+            tag=${{ github.sha }}-fips
+          fi
+          echo tag=$tag >> $GITHUB_OUTPUT
+
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Image (${{ matrix.name }}, ${{ matrix.platform }})
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
+    environment: ${{ (startsWith(github.ref, 'refs/tags/v') || inputs.tag != '') && 'release' || '' }}
     runs-on: ubuntu-24.04
     needs: [sanity-checks, build-image-list]
     if: ${{ needs.build-image-list.outputs.images != '[]' }}
@@ -200,16 +218,13 @@ jobs:
       - name: Get image information based on the trigger
         id: tags
         run: |
-          # Ensure that this logic is synced with the logic in the next job!
-          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+          tag=${{ needs.build-image-list.outputs.image_tag }}
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') || inputs.tag != '' }}" == "true" ]; then
             target=${{ matrix.name }}
             echo target=$target >> $GITHUB_OUTPUT
 
             base_image_name="quay.io/${{ env.QUAY_ORGANIZATION }}/${target}"
             echo base_image_name=$base_image_name >> $GITHUB_OUTPUT
-
-            tag=${GITHUB_REF##*/}-fips
-            echo tag=$tag >> $GITHUB_OUTPUT
 
             # Need one for each platform and a generic one for the manifest at the end
             echo "image_tag_primary=${base_image_name}:${tag}" >> $GITHUB_OUTPUT
@@ -223,9 +238,6 @@ jobs:
 
             base_image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${target}"
             echo base_image_name=$base_image_name >> $GITHUB_OUTPUT
-
-            tag=${{ github.sha }}-fips
-            echo tag=$tag >> $GITHUB_OUTPUT
 
             if [ "${{ github.ref_name }}" == "main-ce" ]; then
               floating_tag="latest-fips"
@@ -260,7 +272,7 @@ jobs:
           echo "${{ steps.tags.outputs.image_tag_platform }}"
 
       - name: Login to quay.io - release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.tag != '' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
@@ -269,7 +281,7 @@ jobs:
 
       - name: Login to quay.io - non-release
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ ! (startsWith(github.ref, 'refs/tags/') || inputs.tag != '') }}
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -283,6 +295,8 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          # will fallback to default ref if tag is empty
+          ref: ${{ inputs.tag }}
           persist-credentials: false
 
       - name: Fail if fips.go is not present
@@ -393,7 +407,7 @@ jobs:
   create-manifest:
     timeout-minutes: 45
     name: Create final manifest ${{ matrix.name }}
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
+    environment: ${{ (startsWith(github.ref, 'refs/tags/v') || inputs.tag != '') && 'release' || '' }}
     runs-on: ubuntu-24.04
     needs: [build-image-list, build-and-push]
     if: ${{ needs.build-image-list.outputs.images != '[]' }}
@@ -403,7 +417,7 @@ jobs:
         include: ${{ fromJSON(needs.build-image-list.outputs.images) }}
     steps:
       - name: Login to quay.io - release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.tag != '' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
@@ -412,7 +426,7 @@ jobs:
 
       - name: Login to quay.io - non-release
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ ! (startsWith(github.ref, 'refs/tags/') || inputs.tag != '') }}
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -515,20 +529,8 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: create-manifest
+    needs: [build-image-list, create-manifest]
     steps:
-      - name: Getting image tag
-        id: tag
-        run: |
-          # Ensure that this logic is synced with the logic in the previous jobs!
-          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
-            tag=${GITHUB_REF##*/}-fips
-            echo tag=$tag >> $GITHUB_OUTPUT
-          else
-            tag=${{ github.sha }}-fips
-            echo tag=$tag >> $GITHUB_OUTPUT
-          fi
-
       - name: Downloading Image Digests
         shell: bash
         run: |
@@ -561,7 +563,7 @@ jobs:
       - name: Upload artifact digests
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
+          name: image-digest-output.txt-${{ needs.build-image-list.outputs.image_tag }}
           path: image-digest-output.txt
           retention-days: 10
 
@@ -569,6 +571,6 @@ jobs:
       - name: Upload artifact digests
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: Makefile.digests-${{ steps.tag.outputs.tag }}
+          name: Makefile.digests-${{ needs.build-image-list.outputs.image_tag }}
           path: Makefile.digests
           retention-days: 10
