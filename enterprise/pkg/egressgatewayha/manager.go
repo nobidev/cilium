@@ -777,17 +777,20 @@ func (manager *Manager) updateEgressRules() {
 				return
 			}
 
-			logger := log.WithFields(logrus.Fields{
-				logfields.SourceIP:        endpointIP,
-				logfields.DestinationCIDR: dstCIDR.String(),
-				logfields.EgressIP:        egressIP,
-				logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-			})
-
 			if err := egressmapha.ApplyEgressPolicy(manager.policyMap, endpointIP, dstCIDR, egressIP, activeGatewayIPs); err != nil {
-				logger.WithError(err).Error("Error applying egress gateway policy")
-			} else {
-				logger.Debug("Egress gateway policy applied")
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.SourceIP:        endpointIP,
+					logfields.DestinationCIDR: dstCIDR.String(),
+					logfields.EgressIP:        egressIP,
+					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
+				}).Error("Error applying egress gateway policy")
+			} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+				log.WithFields(logrus.Fields{
+					logfields.SourceIP:        endpointIP,
+					logfields.DestinationCIDR: dstCIDR.String(),
+					logfields.EgressIP:        egressIP,
+					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
+				}).Debug("Egress gateway policy applied")
 			}
 		}
 	}
@@ -798,15 +801,16 @@ func (manager *Manager) updateEgressRules() {
 
 	// Remove all the entries still marked as stale.
 	for policyKey := range stale {
-		logger := log.WithFields(logrus.Fields{
-			logfields.SourceIP:        policyKey.GetSourceIP(),
-			logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-		})
-
 		if err := egressmapha.RemoveEgressPolicy(manager.policyMap, policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
-			logger.WithError(err).Error("Error removing egress gateway policy")
-		} else {
-			logger.Debug("Egress gateway policy removed")
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.SourceIP:        policyKey.GetSourceIP(),
+				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
+			}).Error("Error removing egress gateway policy")
+		} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+			log.WithFields(logrus.Fields{
+				logfields.SourceIP:        policyKey.GetSourceIP(),
+				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
+			}).Debug("Egress gateway policy removed")
 		}
 	}
 }
