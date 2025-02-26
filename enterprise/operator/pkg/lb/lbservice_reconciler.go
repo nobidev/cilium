@@ -427,7 +427,7 @@ func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalen
 	return svc, nil
 }
 
-func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeType string) ([]string, error) {
+func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeTypes ...string) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node store: %w", err)
@@ -437,7 +437,7 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 
 	allNodes := nodeStore.List()
 	for _, cn := range allNodes {
-		if v := cn.Labels[ossannotation.ServiceNodeExposure]; v == nodeType {
+		if v := cn.Labels[ossannotation.ServiceNodeExposure]; slices.Contains(nodeTypes, v) {
 			var nodeIP string
 			for _, addr := range cn.Spec.Addresses {
 				if addr.Type == addressing.NodeInternalIP {
@@ -448,7 +448,7 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 			if nodeIP == "" {
 				r.logger.Warn("Could not find InternalIP for CiliumNode",
 					logfields.Resource, cn.Name,
-					logfieldNodeType, nodeType,
+					logfieldNodeType, v,
 				)
 				continue
 			}
