@@ -211,7 +211,7 @@ jobs:
             dir: aks-byocni,
             umbrella: false,
             oss: false,
-            region: eu-north-1,
+            region: westeurope,
             deploy: cute,
             ipsec: false,
             owner: U04GD9ACYTE # Philip
