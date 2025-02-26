@@ -231,7 +231,7 @@ jobs:
             dir: .,
             umbrella: false,
             oss: false,
-            region: eu-west-3,
+            region: westeurope,
             deploy: stable,
             ipsec: false,
             owner: U04GD9ACYTE # Philip
