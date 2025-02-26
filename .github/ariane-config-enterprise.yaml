@@ -57,9 +57,9 @@ triggers:
   /ci-encryption-policy:
     workflows:
     - enterprise-encryption-policy.yaml
-  # `( ?.*=?.*)*` is regex capture group that is used as `extra-args` inputs parameter in the enterprise conformance OpenShift workflow
+  # `(?:\s*)({.*})?` is regex capture group that is used as `extra-args` inputs parameter in the enterprise conformance OpenShift workflow
   # For example: `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}`
-  /ci-openshift ( ?.*=?.*)*:
+  /ci-openshift(?:\s*)({.*})?:
     workflows:
     - enterprise-conformance-openshift.yaml
   /ci-panda-scale(\s+(?:nodes=[0-9]+)?(?:\s*version=[-+.0-9a-z]+)?)?:

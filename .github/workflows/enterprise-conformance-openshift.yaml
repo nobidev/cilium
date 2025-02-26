@@ -135,8 +135,8 @@ jobs:
           fi
 
           extra_args=${{ inputs.extra-args }}
-          kubevirt="$(echo $extra_args | jq '.kubevirt')"
-          ocp_version="$(echo $extra_args | jq '.ocp_version')"
+          kubevirt=$(echo $extra_args | jq -r '.kubevirt')
+          ocp_version=$(echo $extra_args | jq -r '.ocp_version')
           if [ "${{ github.event_name }}" == 'schedule' ]; then
             echo kubevirt='true' >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == 'pull_request_target' ]; then
