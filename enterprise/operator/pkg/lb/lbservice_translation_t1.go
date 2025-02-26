@@ -54,7 +54,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	}
 
 	annotations := map[string]string{
-		ossannotation.ServiceNodeExposure: lbNodeTypeT1,
+		ossannotation.ServiceNodeSelectorExposure: fmt.Sprintf("service.cilium.io/node in ( %s )", lbNodeTypeT1),
 	}
 
 	// Set the assigned IP address of the LBVIP as LB IPAM annotation.

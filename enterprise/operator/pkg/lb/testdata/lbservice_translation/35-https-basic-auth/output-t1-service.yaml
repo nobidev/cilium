@@ -15,7 +15,7 @@ metadata:
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: maglev
     service.cilium.io/proxy-delegation: delegate-if-local
-    service.cilium.io/node: t1
+    service.cilium.io/node-selector: service.cilium.io/node in ( t1 )
     service.cilium.io/type: "LoadBalancer"
     service.cilium.io/forwarding-mode: dsr
   labels:
