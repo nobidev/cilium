@@ -15,7 +15,7 @@ gke: false
 debug: false
 pprof:
   enabled: false
-enableOfflineMode: true
+enableOfflineMode: false
 extraArgs: []
 extraVolumes: []
 extraVolumeMounts: []
@@ -31,12 +31,8 @@ enableCriticalPriorityClass: false
 # -- The priority class to use for cilium-dnsproxy pods
 priorityClassName: ""
 resources: {}
-securityContext:
-  capabilities:
-    add:
-    - BPF
-    - NET_ADMIN
-    - NET_RAW
+# -- The pod security context, by default adds NET_ADMIN, NET_RAW and BPF (if needed).
+securityContext: {}
 metrics:
   # -- Enable Prometheus metrics.
   enabled: true
@@ -80,7 +76,7 @@ affinity:
 # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: ""
 
-# -- Node selector for cilium-dnsproxy
+# -- Node selector for cilium-dnsproxy.
 nodeSelector:
   kubernetes.io/os: linux
 

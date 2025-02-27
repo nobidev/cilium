@@ -74,7 +74,7 @@ const (
 
 var (
 	debug                         = flag.Bool("debug", false, "")
-	enableOfflineMode             = flag.Bool("enable-offline-mode", true, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
+	enableOfflineMode             = flag.Bool("enable-offline-mode", false, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
 	gopsPort                      = flag.Int("gops-port", 8910, "Port for gops server to listen on")
 	enablePprof                   = flag.Bool("pprof", false, "Enable serving the pprof debugging API")
 	pprofPort                     = flag.Int("pprof-port", 8920, "Port that the pprof listens on")

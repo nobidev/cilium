@@ -1,6 +1,6 @@
 # cilium-dnsproxy
 
-![Version: 1.17.0-dev](https://img.shields.io/badge/Version-1.17.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.17.0-dev](https://img.shields.io/badge/AppVersion-1.17.0--dev-informational?style=flat-square)
+![Version: 1.18.0-dev](https://img.shields.io/badge/Version-1.18.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.18.0-dev](https://img.shields.io/badge/AppVersion-1.18.0--dev-informational?style=flat-square)
 
 Cilium DNS Proxy
 
@@ -8,11 +8,12 @@ Cilium DNS Proxy
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-dnsproxy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-dnsproxy. |
+| affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-dnsproxy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-dnsproxy. |
 | debug | bool | `false` |  |
-| dnsProxy.dnsRejectResponseCode | string | `"refused"` |  |
 | dnsPolicy | string | `""` |  |
+| dnsProxy.dnsRejectResponseCode | string | `"refused"` |  |
 | enableCriticalPriorityClass | bool | `false` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for |
+| enableOfflineMode | bool | `false` |  |
 | extraArgs | list | `[]` |  |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
@@ -35,8 +36,7 @@ Cilium DNS Proxy
 | priorityClassName | string | `""` | The priority class to use for cilium-dnsproxy pods |
 | resources | object | `{}` |  |
 | runPath | string | `"/var/run/cilium"` |  |
-| securityContext.capabilities.add[0] | string | `"NET_ADMIN"` |  |
-| securityContext.capabilities.add[1] | string | `"NET_RAW"` |  |
+| securityContext | object | `{}` | The pod security context, by default adds NET_ADMIN, NET_RAW and BPF (if needed). |
 | serviceAccount.annotations | object | `{}` |  |
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |

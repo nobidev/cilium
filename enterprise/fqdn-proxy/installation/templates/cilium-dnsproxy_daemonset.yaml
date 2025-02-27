@@ -191,9 +191,23 @@ spec:
           {{- toYaml .Values.resources | trim | nindent 10 }}
 {{- end }}
         name: cilium-dnsproxy
-        {{- with .Values.securityContext }}
+        {{- /* Add BPF cap if needed for offline mode */}}
+        {{- if .Values.securityContext }}
         securityContext:
-          {{- toYaml . | nindent 10 }}
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- else if .Values.enableOfflineMode }}
+        securityContext:
+          capabilities:
+            add:
+            - BPF
+            - NET_ADMIN
+            - NET_RAW
+        {{- else }}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
         {{- end }}
         volumeMounts:
         - mountPath: /var/run/cilium
