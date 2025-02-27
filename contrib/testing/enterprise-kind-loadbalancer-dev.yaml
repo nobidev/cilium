@@ -1,6 +1,3 @@
-image:
-  override: "quay.io/isovalent-dev/cilium-ci:latest"
-  pullPolicy: IfNotPresent
 enterprise:
   loadbalancer:
     enabled: true
@@ -55,10 +52,6 @@ operator:
     enabled: true
     serviceMonitor:
       enabled: true
-  image:
-    override: "quay.io/isovalent-dev/operator-generic-ci:latest"
-    suffix: ""
-    pullPolicy: IfNotPresent
 prometheus:
   enabled: true
   serviceMonitor:
