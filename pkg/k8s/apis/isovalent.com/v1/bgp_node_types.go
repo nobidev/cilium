@@ -187,6 +187,14 @@ type IsovalentBGPNodeStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	BGPInstances []IsovalentBGPNodeInstanceStatus `json:"bgpInstances,omitempty"`
+
+	// The current conditions of the CiliumBGPNodeConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type IsovalentBGPNodeInstanceStatus struct {
@@ -223,3 +231,7 @@ type IsovalentBGPNodeVRF struct {
 	// +listType=set
 	ExportRTs []string `json:"exportRTs,omitempty"`
 }
+
+const (
+	BGPInstanceConditionReconcileError = "isovalent.com/BGPReconcileError"
+)

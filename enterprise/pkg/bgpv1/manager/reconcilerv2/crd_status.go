@@ -14,12 +14,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
 	"github.com/lthibault/jitterbug/v2"
 	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,11 +34,14 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -47,23 +55,30 @@ const (
 type StatusReconciler struct {
 	lock.Mutex
 
-	Logger            logrus.FieldLogger
-	ClientSet         k8s_client.Clientset
-	LocalNodeStore    *node.LocalNodeStore
-	nodeName          string
-	desiredStatus     *v1.IsovalentBGPNodeStatus
-	runningStatus     *v1.IsovalentBGPNodeStatus
-	reconcileInterval time.Duration
+	Logger              logrus.FieldLogger
+	ClientSet           k8s_client.Clientset
+	LocalNodeStore      *node.LocalNodeStore
+	db                  *statedb.DB
+	reconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
+	bgpNodeConfig       store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig]
+	nodeName            string
+	desiredStatus       *v1.IsovalentBGPNodeStatus
+	runningStatus       *v1.IsovalentBGPNodeStatus
+	reconcileInterval   time.Duration
+	conditionsUpdated   bool
 }
 
 type StatusReconcilerIn struct {
 	cell.In
 
-	BGPConfig      config.Config
-	Job            job.Group
-	ClientSet      k8s_client.Clientset
-	Logger         logrus.FieldLogger
-	LocalNodeStore *node.LocalNodeStore
+	BGPConfig           config.Config
+	Job                 job.Group
+	ClientSet           k8s_client.Clientset
+	Logger              logrus.FieldLogger
+	LocalNodeStore      *node.LocalNodeStore
+	DB                  *statedb.DB
+	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
+	BGPNodeConfig       store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig]
 }
 
 type StatusReconcilerOut struct {
@@ -82,12 +97,15 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	}
 
 	r := &StatusReconciler{
-		Logger:            in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
-		LocalNodeStore:    in.LocalNodeStore,
-		ClientSet:         in.ClientSet,
-		desiredStatus:     &v1.IsovalentBGPNodeStatus{},
-		runningStatus:     &v1.IsovalentBGPNodeStatus{},
-		reconcileInterval: CRDStatusUpdateInterval,
+		Logger:              in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
+		LocalNodeStore:      in.LocalNodeStore,
+		ClientSet:           in.ClientSet,
+		db:                  in.DB,
+		reconcileErrorTable: in.ReconcileErrorTable,
+		bgpNodeConfig:       in.BGPNodeConfig,
+		desiredStatus:       &v1.IsovalentBGPNodeStatus{},
+		runningStatus:       &v1.IsovalentBGPNodeStatus{},
+		reconcileInterval:   CRDStatusUpdateInterval,
 	}
 
 	// If the status reporting is disabled, schedule a job to cleanup
@@ -145,6 +163,19 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 				return nil
 			}
 		}
+	}))
+
+	in.Job.Add(job.OneShot("bgp-reconcile-error-statedb-tracker", func(ctx context.Context, health cell.Health) error {
+		r.Logger.Debug("StateDB reconcile-error tracker running")
+		observable := statedb.Observable[*tables.BGPReconcileError](in.DB, in.ReconcileErrorTable)
+		ch := stream.ToChannel[statedb.Change[*tables.BGPReconcileError]](ctx, observable)
+
+		for range ch {
+			if err := r.updateErrorConditions(); err != nil {
+				r.Logger.WithError(err).Error("Failed to update error conditions")
+			}
+		}
+		return nil
 	}))
 
 	return StatusReconcilerOut{
@@ -212,6 +243,70 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.St
 	}
 
 	r.desiredStatus = current
+	return nil
+}
+
+func (r *StatusReconciler) updateErrorConditions() error {
+	r.Lock()
+	defer r.Unlock()
+
+	// Node name is not set yet
+	if r.nodeName == "" {
+		return nil
+	}
+
+	bgpNodeConfig, exists, err := r.bgpNodeConfig.GetByKey(resource.Key{Name: r.nodeName})
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		// BGPNodeConfig object not found, there is nowhere to update the status.
+		r.Logger.Debugf("BGP node config with name %s not found", r.nodeName)
+		return nil
+	}
+
+	var instanceErrors []tables.BGPReconcileError
+	for errObj := range r.reconcileErrorTable.All(r.db.ReadTxn()) {
+		if errObj == nil {
+			continue
+		}
+		instanceErrors = append(instanceErrors, *errObj)
+	}
+
+	// sort instance errors by instance name and then by error ID
+	sort.Slice(instanceErrors, func(i, j int) bool {
+		if strings.Compare(instanceErrors[i].Instance, instanceErrors[j].Instance) == 0 {
+			return instanceErrors[i].ErrorID < instanceErrors[j].ErrorID
+		}
+		return strings.Compare(instanceErrors[i].Instance, instanceErrors[j].Instance) < 0
+	})
+
+	// combine all errors into a single message
+	var message strings.Builder
+	for _, errObj := range instanceErrors {
+		// maximum length of message can be 32*1024
+		if message.Len()+len(errObj.String()) >= reconcilerv2.MaxConditionsMessageLen {
+			break
+		}
+		message.WriteString(fmt.Sprintf("%s: %s\n", errObj.Instance, errObj.Error))
+	}
+
+	cond := metav1.Condition{
+		Type:               v1.BGPInstanceConditionReconcileError,
+		Status:             metav1.ConditionFalse,
+		ObservedGeneration: bgpNodeConfig.GetGeneration(),
+		Reason:             "BGPReconcileError",
+	}
+
+	if len(instanceErrors) > 0 {
+		cond.Status = metav1.ConditionTrue
+		cond.Message = message.String()
+	}
+
+	if updated := meta.SetStatusCondition(&r.desiredStatus.Conditions, cond); updated {
+		r.conditionsUpdated = true
+	}
 	return nil
 }
 
@@ -316,7 +411,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 		return nil
 	}
 
-	if r.desiredStatus.DeepEqual(r.runningStatus) {
+	if r.desiredStatus.DeepEqual(r.runningStatus) && !r.conditionsUpdated {
 		return nil
 	}
 
@@ -352,6 +447,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 	}
 
 	r.runningStatus = statusCpy
+	r.conditionsUpdated = false // reset conditions updated flag
 	r.Logger.WithField(types.BGPNodeConfigLogField, r.nodeName).Debug("Updated resource status")
 	return nil
 }

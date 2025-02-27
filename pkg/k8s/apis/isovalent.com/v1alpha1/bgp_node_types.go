@@ -55,6 +55,14 @@ type IsovalentBGPNodeSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	BGPInstances []IsovalentBGPNodeInstance `json:"bgpInstances"`
+
+	// The current conditions of the CiliumBGPNodeConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // IsovalentBGPNodeInstance is a single BGP router instance configuration on the node.
@@ -196,3 +204,7 @@ type IsovalentBGPNodeVRF struct {
 	// +listType=set
 	ExportRTs []string `json:"exportRTs,omitempty"`
 }
+
+const (
+	BGPInstanceConditionReconcileError = "isovalent.com/BGPReconcileError"
+)
