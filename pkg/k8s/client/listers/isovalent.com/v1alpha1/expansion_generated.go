@@ -45,6 +45,10 @@ type IsovalentBGPVRFConfigListerExpansion interface{}
 // IsovalentClusterwideEncryptionPolicyLister.
 type IsovalentClusterwideEncryptionPolicyListerExpansion interface{}
 
+// IsovalentClusterwideNetworkPolicyListerExpansion allows custom methods to be added to
+// IsovalentClusterwideNetworkPolicyLister.
+type IsovalentClusterwideNetworkPolicyListerExpansion interface{}
+
 // IsovalentFQDNGroupListerExpansion allows custom methods to be added to
 // IsovalentFQDNGroupLister.
 type IsovalentFQDNGroupListerExpansion interface{}
@@ -64,6 +68,14 @@ type IsovalentMulticastGroupListerExpansion interface{}
 // IsovalentMulticastNodeListerExpansion allows custom methods to be added to
 // IsovalentMulticastNodeLister.
 type IsovalentMulticastNodeListerExpansion interface{}
+
+// IsovalentNetworkPolicyListerExpansion allows custom methods to be added to
+// IsovalentNetworkPolicyLister.
+type IsovalentNetworkPolicyListerExpansion interface{}
+
+// IsovalentNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
+// IsovalentNetworkPolicyNamespaceLister.
+type IsovalentNetworkPolicyNamespaceListerExpansion interface{}
 
 // IsovalentPodNetworkListerExpansion allows custom methods to be added to
 // IsovalentPodNetworkLister.

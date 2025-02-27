@@ -25,6 +25,8 @@ type IsovalentBGPVRFConfigExpansion interface{}
 
 type IsovalentClusterwideEncryptionPolicyExpansion interface{}
 
+type IsovalentClusterwideNetworkPolicyExpansion interface{}
+
 type IsovalentFQDNGroupExpansion interface{}
 
 type IsovalentMeshEndpointExpansion interface{}
@@ -32,6 +34,8 @@ type IsovalentMeshEndpointExpansion interface{}
 type IsovalentMulticastGroupExpansion interface{}
 
 type IsovalentMulticastNodeExpansion interface{}
+
+type IsovalentNetworkPolicyExpansion interface{}
 
 type IsovalentPodNetworkExpansion interface{}
 

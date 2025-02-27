@@ -97,6 +97,12 @@ const (
 
 	// LBVIPCRDName is the full name of the LBVIP CRD.
 	LBVIPCRDName = k8sconstv1alpha1.LBVIPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// IsovalentNetworkPolicyName is the full name of the IsovalentNetworkPolicy CRD.
+	IsovalentNetworkPolicyCRDName = k8sconstv1alpha1.IsovalentNetworkPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// IsovalentClusterwideNetworkPolicyName is the full name of the IsovalentClusterwideNetworkPolicy CRD.
+	IsovalentClusterwideNetworkPolicyCRDName = k8sconstv1alpha1.IsovalentClusterwideNetworkPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -110,29 +116,31 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	g, _ := errgroup.WithContext(context.Background())
 
 	resourceToCreateFnMapping := map[string]crdCreationFn{
-		synced.CRDResourceName(k8sconstv1alpha1.IFGName):                            createCRD(IFGCRDName, k8sconstv1alpha1.IFGName),
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6SIDManagerName):                 createCRD(SRv6SIDManagerName, k8sconstv1alpha1.SRv6SIDManagerName),
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6LocatorPoolName):                createCRD(SRv6LocatorPoolName, k8sconstv1alpha1.SRv6LocatorPoolName),
-		synced.CRDResourceName(k8sconstv1alpha1.SRv6EgressPolicyName):               createCRD(SRv6EgressPolicyName, k8sconstv1alpha1.SRv6EgressPolicyName),
-		synced.CRDResourceName(k8sconstv1alpha1.VRFName):                            createCRD(VRFName, k8sconstv1alpha1.VRFName),
-		synced.CRDResourceName(k8sconstv1.IEGPName):                                 createCRD(IEGPCRDName, k8sconstv1.IEGPName),
-		synced.CRDResourceName(k8sconstv1alpha1.IPNName):                            createCRD(IPNCRDName, k8sconstv1alpha1.IPNName),
-		synced.CRDResourceName(k8sconstv1alpha1.MulticastGroupName):                 createCRD(MulticastGroupCRDName, k8sconstv1alpha1.MulticastGroupName),
-		synced.CRDResourceName(k8sconstv1alpha1.MulticastNodeName):                  createCRD(MulticastNodeCRDName, k8sconstv1alpha1.MulticastNodeName),
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentMeshEndpointName):          createCRD(IsovalentMeshEndpointCRDName, k8sconstv1alpha1.IsovalentMeshEndpointName),
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName):            createCRD(IsovalentBFDProfileCRDName, k8sconstv1alpha1.IsovalentBFDProfileName),
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigName):         createCRD(IsovalentBFDNodeConfigCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigName),
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName): createCRD(IsovalentBFDNodeConfigOverrideCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName),
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPClusterConfigName):            createCRD(IsovalentBGPClusterConfigCRDName, k8sconstv1.IsovalentBGPClusterConfigName),
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPPeerConfigName):               createCRD(IsovalentBGPPeerConfigCRDName, k8sconstv1.IsovalentBGPPeerConfigName),
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPAdvertisementName):            createCRD(IsovalentBGPAdvertisementCRDName, k8sconstv1.IsovalentBGPAdvertisementName),
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigName):               createCRD(IsovalentBGPNodeConfigCRDName, k8sconstv1.IsovalentBGPNodeConfigName),
-		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName):       createCRD(IsovalentBGPNodeConfigOverrideCRDName, k8sconstv1.IsovalentBGPNodeConfigOverrideName),
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):          createCRD(IsovalentBGPVRFConfigCRDName, k8sconstv1alpha1.IsovalentBGPVRFConfigName),
-		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                           createCRD(IsovalentClusterwideEncryptionPolicyCRDName, k8sconstv1alpha1.ICEPName),
-		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                      createCRD(LBServiceCRDName, k8sconstv1alpha1.LBServiceName),
-		synced.CRDResourceName(k8sconstv1alpha1.LBBackendPoolName):                  createCRD(LBBackendPoolCRDName, k8sconstv1alpha1.LBBackendPoolName),
-		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                          createCRD(LBVIPCRDName, k8sconstv1alpha1.LBVIPName),
+		synced.CRDResourceName(k8sconstv1alpha1.IFGName):                               createCRD(IFGCRDName, k8sconstv1alpha1.IFGName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6SIDManagerName):                    createCRD(SRv6SIDManagerName, k8sconstv1alpha1.SRv6SIDManagerName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6LocatorPoolName):                   createCRD(SRv6LocatorPoolName, k8sconstv1alpha1.SRv6LocatorPoolName),
+		synced.CRDResourceName(k8sconstv1alpha1.SRv6EgressPolicyName):                  createCRD(SRv6EgressPolicyName, k8sconstv1alpha1.SRv6EgressPolicyName),
+		synced.CRDResourceName(k8sconstv1alpha1.VRFName):                               createCRD(VRFName, k8sconstv1alpha1.VRFName),
+		synced.CRDResourceName(k8sconstv1.IEGPName):                                    createCRD(IEGPCRDName, k8sconstv1.IEGPName),
+		synced.CRDResourceName(k8sconstv1alpha1.IPNName):                               createCRD(IPNCRDName, k8sconstv1alpha1.IPNName),
+		synced.CRDResourceName(k8sconstv1alpha1.MulticastGroupName):                    createCRD(MulticastGroupCRDName, k8sconstv1alpha1.MulticastGroupName),
+		synced.CRDResourceName(k8sconstv1alpha1.MulticastNodeName):                     createCRD(MulticastNodeCRDName, k8sconstv1alpha1.MulticastNodeName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentMeshEndpointName):             createCRD(IsovalentMeshEndpointCRDName, k8sconstv1alpha1.IsovalentMeshEndpointName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName):               createCRD(IsovalentBFDProfileCRDName, k8sconstv1alpha1.IsovalentBFDProfileName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigName):            createCRD(IsovalentBFDNodeConfigCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName):    createCRD(IsovalentBFDNodeConfigOverrideCRDName, k8sconstv1alpha1.IsovalentBFDNodeConfigOverrideName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPClusterConfigName):               createCRD(IsovalentBGPClusterConfigCRDName, k8sconstv1.IsovalentBGPClusterConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPPeerConfigName):                  createCRD(IsovalentBGPPeerConfigCRDName, k8sconstv1.IsovalentBGPPeerConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPAdvertisementName):               createCRD(IsovalentBGPAdvertisementCRDName, k8sconstv1.IsovalentBGPAdvertisementName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigName):                  createCRD(IsovalentBGPNodeConfigCRDName, k8sconstv1.IsovalentBGPNodeConfigName),
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName):          createCRD(IsovalentBGPNodeConfigOverrideCRDName, k8sconstv1.IsovalentBGPNodeConfigOverrideName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName):             createCRD(IsovalentBGPVRFConfigCRDName, k8sconstv1alpha1.IsovalentBGPVRFConfigName),
+		synced.CRDResourceName(k8sconstv1alpha1.ICEPName):                              createCRD(IsovalentClusterwideEncryptionPolicyCRDName, k8sconstv1alpha1.ICEPName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBServiceName):                         createCRD(LBServiceCRDName, k8sconstv1alpha1.LBServiceName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBBackendPoolName):                     createCRD(LBBackendPoolCRDName, k8sconstv1alpha1.LBBackendPoolName),
+		synced.CRDResourceName(k8sconstv1alpha1.LBVIPName):                             createCRD(LBVIPCRDName, k8sconstv1alpha1.LBVIPName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentNetworkPolicyName):            createCRD(IsovalentNetworkPolicyCRDName, k8sconstv1alpha1.IsovalentNetworkPolicyName),
+		synced.CRDResourceName(k8sconstv1alpha1.IsovalentClusterwideNetworkPolicyName): createCRD(IsovalentClusterwideNetworkPolicyCRDName, k8sconstv1alpha1.IsovalentClusterwideNetworkPolicyName),
 	}
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -216,6 +224,12 @@ var (
 
 	//go:embed crds/v1alpha1/lbvips.yaml
 	crdsv1Alpha1LBVIPs []byte
+
+	//go:embed crds/v1alpha1/isovalentnetworkpolicies.yaml
+	crdsv1Alpha1IsovalentNetworkPolicies []byte
+
+	//go:embed crds/v1alpha1/isovalentclusterwidenetworkpolicies.yaml
+	crdsv1Alpha1IsovalentClusterwideNetworkPolicies []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -277,6 +291,10 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1LBBackendPools
 	case LBVIPCRDName:
 		crdBytes = crdsv1Alpha1LBVIPs
+	case IsovalentNetworkPolicyCRDName:
+		crdBytes = crdsv1Alpha1IsovalentNetworkPolicies
+	case IsovalentClusterwideNetworkPolicyCRDName:
+		crdBytes = crdsv1Alpha1IsovalentClusterwideNetworkPolicies
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}

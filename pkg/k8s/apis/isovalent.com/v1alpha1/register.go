@@ -103,6 +103,14 @@ const (
 	LBVIPPluralName     = "lbvips"
 	LBVIPKindDefinition = "LBVIP"
 	LBVIPName           = LBVIPPluralName + "." + CustomResourceDefinitionGroup
+
+	// IsovalentNetworkPolicy (INP/INCP)
+	IsovalentNetworkPolicyPluralName                = "isovalentnetworkpolicies"
+	IsovalentClusterwideNetworkPolicyPluralName     = "isovalentclusterwidenetworkpolicies"
+	IsovalentNetworkPolicyKindDefinition            = "IsovalentNetworkPolicy"
+	IsovalentClusterwideNetworkPolicyKindDefinition = "IsovalentClusterwideNetworkPolicy"
+	IsovalentNetworkPolicyName                      = IsovalentNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
+	IsovalentClusterwideNetworkPolicyName           = IsovalentClusterwideNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects

@@ -55,6 +55,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentClusterwideEncryptionPolicies() v1alpha
 	return newFakeIsovalentClusterwideEncryptionPolicies(c)
 }
 
+func (c *FakeIsovalentV1alpha1) IsovalentClusterwideNetworkPolicies() v1alpha1.IsovalentClusterwideNetworkPolicyInterface {
+	return newFakeIsovalentClusterwideNetworkPolicies(c)
+}
+
 func (c *FakeIsovalentV1alpha1) IsovalentFQDNGroups() v1alpha1.IsovalentFQDNGroupInterface {
 	return newFakeIsovalentFQDNGroups(c)
 }
@@ -69,6 +73,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentMulticastGroups() v1alpha1.IsovalentMul
 
 func (c *FakeIsovalentV1alpha1) IsovalentMulticastNodes() v1alpha1.IsovalentMulticastNodeInterface {
 	return newFakeIsovalentMulticastNodes(c)
+}
+
+func (c *FakeIsovalentV1alpha1) IsovalentNetworkPolicies(namespace string) v1alpha1.IsovalentNetworkPolicyInterface {
+	return newFakeIsovalentNetworkPolicies(c, namespace)
 }
 
 func (c *FakeIsovalentV1alpha1) IsovalentPodNetworks() v1alpha1.IsovalentPodNetworkInterface {

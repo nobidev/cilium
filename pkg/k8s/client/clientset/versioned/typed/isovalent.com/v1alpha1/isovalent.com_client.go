@@ -25,10 +25,12 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentBGPPeerConfigsGetter
 	IsovalentBGPVRFConfigsGetter
 	IsovalentClusterwideEncryptionPoliciesGetter
+	IsovalentClusterwideNetworkPoliciesGetter
 	IsovalentFQDNGroupsGetter
 	IsovalentMeshEndpointsGetter
 	IsovalentMulticastGroupsGetter
 	IsovalentMulticastNodesGetter
+	IsovalentNetworkPoliciesGetter
 	IsovalentPodNetworksGetter
 	IsovalentSRv6EgressPoliciesGetter
 	IsovalentSRv6LocatorPoolsGetter
@@ -84,6 +86,10 @@ func (c *IsovalentV1alpha1Client) IsovalentClusterwideEncryptionPolicies() Isova
 	return newIsovalentClusterwideEncryptionPolicies(c)
 }
 
+func (c *IsovalentV1alpha1Client) IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInterface {
+	return newIsovalentClusterwideNetworkPolicies(c)
+}
+
 func (c *IsovalentV1alpha1Client) IsovalentFQDNGroups() IsovalentFQDNGroupInterface {
 	return newIsovalentFQDNGroups(c)
 }
@@ -98,6 +104,10 @@ func (c *IsovalentV1alpha1Client) IsovalentMulticastGroups() IsovalentMulticastG
 
 func (c *IsovalentV1alpha1Client) IsovalentMulticastNodes() IsovalentMulticastNodeInterface {
 	return newIsovalentMulticastNodes(c)
+}
+
+func (c *IsovalentV1alpha1Client) IsovalentNetworkPolicies(namespace string) IsovalentNetworkPolicyInterface {
+	return newIsovalentNetworkPolicies(c, namespace)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentPodNetworks() IsovalentPodNetworkInterface {

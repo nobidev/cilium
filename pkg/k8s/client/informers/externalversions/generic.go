@@ -127,6 +127,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentBGPVRFConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentclusterwideencryptionpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentClusterwideEncryptionPolicies().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("isovalentclusterwidenetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentClusterwideNetworkPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentfqdngroups"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentFQDNGroups().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentmeshendpoints"):
@@ -135,6 +137,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentMulticastGroups().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentmulticastnodes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentMulticastNodes().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("isovalentnetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentNetworkPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentpodnetworks"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentPodNetworks().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6egresspolicies"):

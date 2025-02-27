@@ -31,6 +31,8 @@ type Interface interface {
 	IsovalentBGPVRFConfigs() IsovalentBGPVRFConfigInformer
 	// IsovalentClusterwideEncryptionPolicies returns a IsovalentClusterwideEncryptionPolicyInformer.
 	IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideEncryptionPolicyInformer
+	// IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.
+	IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInformer
 	// IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 	IsovalentFQDNGroups() IsovalentFQDNGroupInformer
 	// IsovalentMeshEndpoints returns a IsovalentMeshEndpointInformer.
@@ -39,6 +41,8 @@ type Interface interface {
 	IsovalentMulticastGroups() IsovalentMulticastGroupInformer
 	// IsovalentMulticastNodes returns a IsovalentMulticastNodeInformer.
 	IsovalentMulticastNodes() IsovalentMulticastNodeInformer
+	// IsovalentNetworkPolicies returns a IsovalentNetworkPolicyInformer.
+	IsovalentNetworkPolicies() IsovalentNetworkPolicyInformer
 	// IsovalentPodNetworks returns a IsovalentPodNetworkInformer.
 	IsovalentPodNetworks() IsovalentPodNetworkInformer
 	// IsovalentSRv6EgressPolicies returns a IsovalentSRv6EgressPolicyInformer.
@@ -118,6 +122,11 @@ func (v *version) IsovalentClusterwideEncryptionPolicies() IsovalentClusterwideE
 	return &isovalentClusterwideEncryptionPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.
+func (v *version) IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInformer {
+	return &isovalentClusterwideNetworkPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // IsovalentFQDNGroups returns a IsovalentFQDNGroupInformer.
 func (v *version) IsovalentFQDNGroups() IsovalentFQDNGroupInformer {
 	return &isovalentFQDNGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -136,6 +145,11 @@ func (v *version) IsovalentMulticastGroups() IsovalentMulticastGroupInformer {
 // IsovalentMulticastNodes returns a IsovalentMulticastNodeInformer.
 func (v *version) IsovalentMulticastNodes() IsovalentMulticastNodeInformer {
 	return &isovalentMulticastNodeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentNetworkPolicies returns a IsovalentNetworkPolicyInformer.
+func (v *version) IsovalentNetworkPolicies() IsovalentNetworkPolicyInformer {
+	return &isovalentNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentPodNetworks returns a IsovalentPodNetworkInformer.

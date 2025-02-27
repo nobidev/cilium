@@ -725,6 +725,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining CI/CD pipelines
 # - @isovalent/openshift
 #   Responsible for maintaining OpenShift related code and pipelines.
+# - @isovalent/policy-identity-networking
+#   Responsible for maintaining Cilium policy and identity subsystems.
 # - @isovalent/release-managers
 #   Responsible for maintaining tools for managing releases.
 # - @isovalent/security
@@ -883,6 +885,8 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbfd*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbgp*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentclusterwideencryptionpolicies.yaml @isovalent/encryption
+/pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentclusterwidenetworkpolicies.yaml @isovalent/policy-identity-networking
+/pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentnetworkpolicies.yaml @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentpodnetworks.yaml @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/lb*.yaml @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/client/crds/v1/isovalentegressgatewaypolicies.yaml @isovalent/egress-gateway
@@ -891,6 +895,8 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/v1alpha1/encryption_types.go @isovalent/encryption
 /pkg/k8s/apis/isovalent.com/v1alpha1/lb_types*  @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/v1alpha1/podnetwork_types.go @isovalent/multi-network
+/pkg/k8s/apis/isovalent.com/v1alpha1/icnp_types.go @isovalent/policy-identity-networking
+/pkg/k8s/apis/isovalent.com/v1alpha1/inp_types.go @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
