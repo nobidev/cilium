@@ -13,9 +13,6 @@ debug:
   enabled: true
   verbose: "envoy datapath"
 envoy:
-  debug:
-    admin:
-      enabled: true
   prometheus:
     enabled: true
     serviceMonitor:
