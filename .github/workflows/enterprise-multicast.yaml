@@ -193,7 +193,8 @@ jobs:
 
       - name: Run multicast connectivity test
         run: |
-          cilium connectivity test --test='multicast' --test='check-log-errors' --debug --log-code-owners
+          cilium connectivity test --test='multicast' --test='check-log-errors' --debug \
+          --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}
 
       - name: Fetch artifacts
         if: ${{ !success() }}

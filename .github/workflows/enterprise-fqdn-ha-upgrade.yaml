@@ -205,7 +205,7 @@ jobs:
           # required. The full suite is run in other workflows already.
           CONNECTIVITY_TEST_DEFAULTS=" \
             --namespace kube-system \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \

@@ -145,7 +145,7 @@ jobs:
             --helm-set=enterprise.multiNetwork.autoCreateDefaultPodNetwork=true"
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --deployment-pod-annotations='{ \
               \"*\":{\"network.v1alpha1.isovalent.com/pod-networks\":\"default,secondary-network\"}, \
               \"echo-other-node\":{\"network.v1alpha1.isovalent.com/pod-networks\":\"secondary-network\"}, \
