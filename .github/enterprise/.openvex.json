@@ -609,6 +609,267 @@
       "status": "not_affected",
       "status_notes": "The affected functionality is not used in this image",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1390"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1390"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1377"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1376"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1371"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1372"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1365"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-1352"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-12243"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-24528"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-12133"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected functionality is not used in this image",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-22866"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        },
+        {
+          "@id": "pkg:oci/clustermesh-apiserver-ci"
+        },
+        {
+          "@id": "pkg:oci/docker-plugin-ci"
+        },
+        {
+          "@id": "pkg:oci/hubble-relay-ci"
+        },
+        {
+          "@id": "pkg:oci/operator-generic-ci"
+        },
+        {
+          "@id": "pkg:oci/kvstoremesh-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The packages in which this issue flags are not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-45341"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        },
+        {
+          "@id": "pkg:oci/hubble-relay-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-45336"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        },
+        {
+          "@id": "pkg:oci/hubble-relay-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-0395"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-h78m-j95m-5356"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-9m5p-c77c-f9j7"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-c6gw-w398-hv78"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        },
+        {
+          "@id": "pkg:oci/hubble-relay-ci"
+        },
+        {
+          "@id": "pkg:oci/operator-generic-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
