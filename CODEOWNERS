@@ -755,6 +755,7 @@ Makefile* @cilium/build
 /.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
 /.github/actions/cl2-modules/**/enterprise* @isovalent/scalability-performance
 /.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
+/.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
 /.github/workflows/enterprise-build-cilium-cli-release-image.yaml @isovalent/cli
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
