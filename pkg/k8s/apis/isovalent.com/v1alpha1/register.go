@@ -80,24 +80,9 @@ const (
 	IsovalentBFDNodeConfigOverrideName           = IsovalentBFDNodeConfigOverridePluralName + "." + CustomResourceDefinitionGroup
 
 	// Isovalent BGPv2 CRDs
-	IsovalentBGPClusterConfigPluralName          = "isovalentbgpclusterconfigs"
-	IsovalentBGPPeerConfigPluralName             = "isovalentbgppeerconfigs"
-	IsovalentBGPAdvertisementPluralName          = "isovalentbgpadvertisements"
-	IsovalentBGPNodeConfigPluralName             = "isovalentbgpnodeconfigs"
-	IsovalentBGPNodeConfigOverridePluralName     = "isovalentbgpnodeconfigoverrides"
-	IsovalentBGPVRFConfigPluralName              = "isovalentbgpvrfconfigs"
-	IsovalentBGPClusterConfigKindDefinition      = "IsovalentBGPClusterConfig"
-	IsovalentBGPPeerConfigKindDefinition         = "IsovalentBGPPeerConfig"
-	IsovalentBGPAdvertisementKindDefinition      = "IsovalentBGPAdvertisement"
-	IsovalentBGPNodeConfigKindDefinition         = "IsovalentBGPNodeConfig"
-	IsovalentBGPNodeConfigOverrideKindDefinition = "IsovalentBGPNodeConfigOverride"
-	IsovalentBGPVRFConfigKindDefinition          = "IsovalentBGPVRFConfig"
-	IsovalentBGPClusterConfigName                = IsovalentBGPClusterConfigPluralName + "." + CustomResourceDefinitionGroup
-	IsovalentBGPPeerConfigName                   = IsovalentBGPPeerConfigPluralName + "." + CustomResourceDefinitionGroup
-	IsovalentBGPAdvertisementName                = IsovalentBGPAdvertisementPluralName + "." + CustomResourceDefinitionGroup
-	IsovalentBGPNodeConfigName                   = IsovalentBGPNodeConfigPluralName + "." + CustomResourceDefinitionGroup
-	IsovalentBGPNodeConfigOverrideName           = IsovalentBGPNodeConfigOverridePluralName + "." + CustomResourceDefinitionGroup
-	IsovalentBGPVRFConfigName                    = IsovalentBGPVRFConfigPluralName + "." + CustomResourceDefinitionGroup
+	IsovalentBGPVRFConfigPluralName     = "isovalentbgpvrfconfigs"
+	IsovalentBGPVRFConfigKindDefinition = "IsovalentBGPVRFConfig"
+	IsovalentBGPVRFConfigName           = IsovalentBGPVRFConfigPluralName + "." + CustomResourceDefinitionGroup
 
 	// IsovalentEncryptionPolicy (IEP/ICEP)
 	ICEPPluralName     = "isovalentclusterwideencryptionpolicies"
