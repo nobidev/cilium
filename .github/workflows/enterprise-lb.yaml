@@ -229,14 +229,8 @@ jobs:
              --helm-set=routingMode=native \
              --helm-set=autoDirectNodeRoutes=true \
              --helm-set=loadBalancer.acceleration=native \
-             --helm-set-string=extraConfig.enable-ipip-termination=true \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
-             --helm-set-string=extraConfig.bpf-lb-algorithm-annotation=true \
-             --helm-set-string=extraConfig.bpf-lb-mode-annotation=true \
-             --helm-set-string=extraConfig.bpf-lb-ipip-sock-mark=true \
-             --helm-set-string=extraConfig.bpf-lb-dsr-dispatch=ipip \
-             --helm-set-string=extraConfig.enable-ipv4-masquerade=false \
              $EXTRA
 
           cilium status --wait
