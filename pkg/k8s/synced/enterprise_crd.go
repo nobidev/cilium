@@ -21,19 +21,28 @@ import (
 func AllIsovalentCRDResourceNames() []string {
 	result := []string{
 		CRDResourceName(v1alpha1.IFGName),
-		CRDResourceName(v1alpha1.SRv6SIDManagerName),
-		CRDResourceName(v1alpha1.SRv6LocatorPoolName),
-		CRDResourceName(v1alpha1.SRv6EgressPolicyName),
-		CRDResourceName(v1alpha1.VRFName),
 		CRDResourceName(v1alpha1.IPNName),
-		CRDResourceName(v1alpha1.MulticastGroupName),
-		CRDResourceName(v1alpha1.MulticastNodeName),
-		CRDResourceName(v1alpha1.IsovalentBFDProfileName),
-		CRDResourceName(v1alpha1.IsovalentBFDNodeConfigName),
-		CRDResourceName(v1alpha1.IsovalentBFDNodeConfigOverrideName),
 		CRDResourceName(v1alpha1.ICEPName),
 		CRDResourceName(v1alpha1.IsovalentNetworkPolicyName),
 		CRDResourceName(v1alpha1.IsovalentClusterwideNetworkPolicyName),
+	}
+
+	if option.Config.EnableSRv6 {
+		result = append(result, CRDResourceName(v1alpha1.SRv6SIDManagerName))
+		result = append(result, CRDResourceName(v1alpha1.SRv6LocatorPoolName))
+		result = append(result, CRDResourceName(v1alpha1.SRv6EgressPolicyName))
+		result = append(result, CRDResourceName(v1alpha1.VRFName))
+	}
+
+	if option.Config.EnableMulticast {
+		result = append(result, CRDResourceName(v1alpha1.MulticastGroupName))
+		result = append(result, CRDResourceName(v1alpha1.MulticastNodeName))
+	}
+
+	if option.Config.EnableBFD {
+		result = append(result, CRDResourceName(v1alpha1.IsovalentBFDProfileName))
+		result = append(result, CRDResourceName(v1alpha1.IsovalentBFDNodeConfigName))
+		result = append(result, CRDResourceName(v1alpha1.IsovalentBFDNodeConfigOverrideName))
 	}
 
 	if option.Config.EnableEnterpriseBGPControlPlane {

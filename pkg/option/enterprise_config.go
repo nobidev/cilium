@@ -10,7 +10,12 @@
 
 package option
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+
+	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	bfdtypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
+)
 
 // Enterprise specific command line arguments.
 const (
@@ -23,8 +28,8 @@ const (
 	// LoadbalancerControlplaneEnabled enables Loadbalancer control plane
 	LoadbalancerControlplaneEnabled = "loadbalancer-cp-enabled"
 
-	// EnableEnterpriseBGPControlPlane enables the Enterprise BGP control plane
-	EnableEnterpriseBGPControlPlane = "enable-enterprise-bgp-control-plane"
+	// MulticastEnabled enables the Multicast feature
+	MulticastEnabled = "multicast-enabled"
 )
 
 type EnterpriseDaemonConfig struct {
@@ -39,11 +44,19 @@ type EnterpriseDaemonConfig struct {
 
 	// Enable Enterprise BGP control plane
 	EnableEnterpriseBGPControlPlane bool
+
+	// Enable multicast feature
+	EnableMulticast bool
+
+	// Enable BFD subsystem
+	EnableBFD bool
 }
 
 func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
 	ec.EnableIPv4EgressGatewayHA = vp.GetBool(EnableIPv4EgressGatewayHA)
 	ec.EnableCiliumMesh = vp.GetBool(EnableCiliumMesh)
 	ec.LoadbalancerControlplaneEnabled = vp.GetBool(LoadbalancerControlplaneEnabled)
-	ec.EnableEnterpriseBGPControlPlane = vp.GetBool(EnableEnterpriseBGPControlPlane)
+	ec.EnableEnterpriseBGPControlPlane = vp.GetBool(bgpconfig.EnterpriseBGPEnabled)
+	ec.EnableMulticast = vp.GetBool(MulticastEnabled)
+	ec.EnableBFD = vp.GetBool(bfdtypes.EnableBFDFlag)
 }
