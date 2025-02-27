@@ -69,9 +69,10 @@ steps:
     Params:
       timeout: 1m
       command:
-      - /bin/sh
-      - -c
-      - "kubectl apply -f ./testing/custom/enterprise/panda/manifests/cloudprober-oneoff.yaml"
+      - kubectl
+      - apply
+      - -f
+      - ./testing/custom/enterprise/panda/manifests/cloudprober-oneoff.yaml
 
 - name: Wait for oneoff cloudprober
   measurements:
@@ -80,9 +81,11 @@ steps:
     Params:
       timeout: 10m
       command:
-      - /bin/sh
-      - -c
-      - "kubectl rollout status daemonset cloudprober-oneoff"
+      - kubectl
+      - rollout
+      - status
+      - daemonset
+      - cloudprober-oneoff
 
 - name: Sleep after oneoff
   measurements:
@@ -114,9 +117,11 @@ steps:
     Params:
       timeout: 20m
       command:
-      - /bin/sh
-      - -c
-      - "cilium sysdump --output-filename cilium-sysdump-middle --node-list={{DefaultParam .CL2_SYSDUMP_NODES_LIST ""}}"
+      - cilium
+      - sysdump
+      - --output-filename
+      - cilium-sysdump-middle
+      - --node-list={{DefaultParam .CL2_SYSDUMP_NODES_LIST ""}}
 
 - name: Restart Agent
   measurements:
@@ -125,9 +130,13 @@ steps:
     Params:
       timeout: 1m
       command:
-      - /bin/sh
-      - -c
-      - "kubectl rollout restart daemonset cilium -n kube-system"
+      - kubectl
+      - rollout
+      - restart
+      - daemonset
+      - cilium
+      - -n
+      - kube-system
 
 - name: Wait for restarting Agent
   measurements:
@@ -136,9 +145,13 @@ steps:
     Params:
       timeout: 25m
       command:
-      - /bin/sh
-      - -c
-      - "kubectl rollout status daemonset cilium -n kube-system"
+      - kubectl
+      - rollout
+      - status
+      - daemonset
+      - cilium
+      - -n
+      - kube-system
 
 - name: Sleep Agent
   measurements:
@@ -166,9 +179,13 @@ steps:
     Params:
       timeout: 1m
       command:
-      - /bin/sh
-      - -c
-      - "kubectl rollout restart daemonset cilium-envoy -n kube-system"
+      - kubectl
+      - rollout
+      - restart
+      - daemonset
+      - cilium-envoy
+      - -n
+      - kube-system
 
 - name: Wait for restarting Envoy
   measurements:
