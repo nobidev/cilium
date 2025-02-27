@@ -823,6 +823,7 @@ Makefile* @cilium/build
 /enterprise/features/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
+/enterprise/fqdn-proxy/installation/ @isovalent/dns-proxy @isovalent/helm
 /enterprise/dashboards/ @isovalent/isovalent-loadbalancer
 /enterprise/hubble-relay/ @isovalent/hubble
 /enterprise/olm/ @isovalent/openshift
