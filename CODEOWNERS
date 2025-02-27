@@ -726,6 +726,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining the enterprise-specific Isovalent LoadBalancer
 # - @isovalent/multi-network
 #   Responsible for maintaining the Cilium-native multi-network feature
+# - @isovalent/networking-framework
+#   Responsible for IPAM, multi-homing, loader, CNI bootstrap, platform frameworks
 # - @isovalent/infrastructure
 #   Responsible for maintaining CI/CD pipelines
 # - @isovalent/openshift
@@ -839,6 +841,7 @@ Makefile* @cilium/build
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/ciliummesh @isovalent/cilium-mesh
+/enterprise/operator/pkg/kubevirt/ @isovalent/networking-framework
 /enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/operator/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
@@ -853,6 +856,7 @@ Makefile* @cilium/build
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
 /enterprise/pkg/hubble/ @isovalent/hubble
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
+/enterprise/pkg/ipmigration/ @isovalent/networking-framework
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
