@@ -247,4 +247,28 @@ rules:
   verbs:
   - create
 {{- end }}
+- apiGroups:
+  - isovalent.com
+  resources:
+  - isovalentnetworkpolicies
+  - isovalentclusterwidenetworkpolicies
+  verbs:
+  # Create auto-generated INPs and ICNPs from Policies that have 'toGroups'
+  - create
+  - update
+  - deletecollection
+  # To update the status of the INPs and ICNPs
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - isovalent.com
+  resources:
+  - isovalentnetworkpolicies/status
+  - isovalentclusterwidenetworkpolicies/status
+  verbs:
+  # Update the auto-generated INPs and ICNPs status.
+  - patch
+  - update
 {{- end }}
