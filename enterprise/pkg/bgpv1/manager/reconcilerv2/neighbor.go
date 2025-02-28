@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -48,6 +49,7 @@ type NeighborReconcilerOut struct {
 
 type NeighborReconcilerIn struct {
 	cell.In
+	BGPConfig    config.Config
 	Logger       logrus.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
@@ -56,6 +58,10 @@ type NeighborReconcilerIn struct {
 }
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
+	if !params.BGPConfig.Enabled {
+		return NeighborReconcilerOut{}
+	}
+
 	logger := params.Logger.WithField(types.ReconcilerLogField, "Neighbor")
 
 	return NeighborReconcilerOut{

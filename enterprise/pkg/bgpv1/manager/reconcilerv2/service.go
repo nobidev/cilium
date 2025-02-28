@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	enterpriseannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -85,6 +86,7 @@ type ServiceReconcilerIn struct {
 	Lifecycle cell.Lifecycle
 
 	Cfg                Config
+	BGPConfig          config.Config
 	Logger             logrus.FieldLogger
 	Signaler           *signaler.BGPCPSignaler
 	Upgrader           paramUpgrader
@@ -111,7 +113,7 @@ type ServiceReconcilerMetadata struct {
 }
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
-	if in.SvcDiffStore == nil || in.EPDiffStore == nil {
+	if !in.BGPConfig.Enabled || in.SvcDiffStore == nil || in.EPDiffStore == nil {
 		return ServiceReconcilerOut{}
 	}
 

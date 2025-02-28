@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -702,8 +703,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			SvcHealthCheckingEnabled:    true,
 			RouterAdvertisementInterval: defaultConfig.RouterAdvertisementInterval,
 		},
-		Logger:   svcTestLogger,
-		Upgrader: newUpgraderMock(instanceConfig),
+		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:    svcTestLogger,
+		Upgrader:  newUpgraderMock(instanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:     logger,
 			peerConfig: mockPeerConfigStore,
@@ -1830,6 +1832,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
+				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -2212,6 +2215,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
+				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -2594,6 +2598,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				In:        cell.In{},
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
+				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
@@ -3004,6 +3009,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       defaultConfig,
+		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
@@ -3337,6 +3343,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       defaultConfig,
+		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{

@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -335,6 +336,7 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v1.IsovalentBGPNod
 	secretStore := store.InitMockStore(secretObjs)
 
 	return NeighborReconcilerIn{
+		BGPConfig:   config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:      logrus.WithField("unit_test", "neighbors"),
 		SecretStore: secretStore,
 		PeerConfig:  peerConfigStore,

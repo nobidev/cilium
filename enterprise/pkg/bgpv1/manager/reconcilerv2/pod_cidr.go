@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -35,6 +36,7 @@ type PodCIDRReconcilerOut struct {
 type PodCIDRReconcilerIn struct {
 	cell.In
 
+	BGPConfig    config.Config
 	Logger       logrus.FieldLogger
 	PeerAdvert   *IsovalentAdvertisement
 	DaemonConfig *option.DaemonConfig
@@ -55,6 +57,10 @@ type PodCIDRReconcilerMetadata struct {
 }
 
 func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
+	if !params.BGPConfig.Enabled {
+		return PodCIDRReconcilerOut{}
+	}
+
 	// Don't provide the reconciler if the IPAM mode is not supported
 	if !types.CanAdvertisePodCIDR(params.DaemonConfig.IPAMMode()) {
 		params.Logger.Info("Unsupported IPAM mode, disabling PodCIDR advertisements.")

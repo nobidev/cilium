@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -575,7 +576,8 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			req := require.New(t)
 
 			out := NewPodCIDRReconciler(PodCIDRReconcilerIn{
-				Logger: logger,
+				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
+				Logger:    logger,
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:     logger,
 					peerConfig: InitMockStore(tt.peerConfig),
