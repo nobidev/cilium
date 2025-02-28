@@ -28,7 +28,7 @@ image_dir="${2}"
 
 output="${3}"
 builder="${4}"
-base_image="${5}"
+extra_args="${5}"
 shift 5
 
 registries=("${@}")
@@ -98,14 +98,7 @@ run_buildx() {
     "--builder=${builder}"
     "--file=${image_dir}/Dockerfile"
   )
-  if [ "${image_name}" = "cilium-ubi-dev" ]; then
-    build_args+=("--target=release")
-    # TODO: this should be an array so that the envoy proxy image can also be changed for instance
-    build_args+=(--build-arg "CILIUM_RUNTIME_IMAGE=${base_image}")
-  fi
-  if [ "${image_name}" = "cilium-runtime-ubi-dev" ]; then
-    build_args+=(--build-arg "CILIUM_LLVM_IMAGE=${base_image}")    
-  fi
+  build_args+=(${extra_args})    
   if [ "${with_root_context}" = "false" ] ; then
     build_args+=("${image_dir}")
   else
