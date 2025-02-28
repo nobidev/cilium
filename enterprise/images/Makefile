@@ -53,6 +53,14 @@ hubble-relay-image: .buildx_builder
 	ROOT_CONTEXT=true PUSH=true ./scripts/build-image.sh hubble-relay-ubi-stage $(abspath ../../images/hubble-relay) $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
 	./scripts/build-image.sh hubble-relay-ubi enterprise/images/hubble-relay $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/hubble-relay-ubi-stage:$$(../../images/scripts/make-image-tag.sh) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ')" $(REGISTRIES)
 
+clustermesh-apiserver-image: .buildx_builder
+	# The build is split into two stages so that the standard Dockerfile and context can be used and the specificities for Red Hat get layered on top of it without modification of the OSS files:
+	# - license file
+	# - labels
+	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
+	ROOT_CONTEXT=true PUSH=true ./scripts/build-image.sh clustermesh-apiserver-ubi-stage $(abspath ../../images/clustermesh-apiserver) $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
+	./scripts/build-image.sh clustermesh-apiserver-ubi enterprise/images/clustermesh-apiserver $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/clustermesh-apiserver-ubi-stage:$$(../../images/scripts/make-image-tag.sh) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ')" $(REGISTRIES)
+
 update-envoy-image:
 	echo "TODO: update the reference to the actual envoy proxy UBI image, cf: scripts/update-cilium-envoy-image.sh, to pass to the Dockerfile of the Cilium agent"
 
