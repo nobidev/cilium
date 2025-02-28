@@ -799,6 +799,48 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 				return errs
 			},
 		},
+		{
+			Description: "Collecting Isovalent network policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "isovalentnetworkpolicies"
+				inps := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: resource,
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, inps, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Isovalent network policies: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
+					return fmt.Errorf("failed to collect Isovalent network policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Isovalent cluster-wide network policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "isovalentclusterwidenetworkpolicies"
+				icnps := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: resource,
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, icnps, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Isovalent cluster-wide network policies: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
+					return fmt.Errorf("failed to collect Isovaletn cluster-wide network policies: %w", err)
+				}
+				return nil
+			},
+		},
 	})
 
 	if collector.FeatureSet[enterpriseFeatures.SRv6].Enabled {
