@@ -6,7 +6,7 @@ ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:51116e48ca6d75a14bfec2199
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.32.3-1739534224-3e4b99dc5d1f98ec3606f457af2f54a8e1f36981@sha256:b5936c5c42c2fa21424b6f59d5e0f86100709bf196492c0e86a613baca08ea57
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.32.3-1739965348-66cb64b47090969d3f0e2ce449a6563a3772c098@sha256:6f1174ffbff7e12ae6bdc01fdf9d07592934aa187db317e11ec724b572428d28
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
@@ -61,23 +61,23 @@ RUN set -xe && \
     export D=/tmp/debug/${TARGETOS}/${TARGETARCH} && \
     cd /tmp/install/${TARGETOS}/${TARGETARCH} && \
     find . -type f \
-      -executable \
-      -exec sh -c \
-        'filename=$(basename ${0}) && \
-         objcopy --only-keep-debug ${0} ${0}.debug && \
-         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
-         mkdir -p $(dirname ${D}/${0}) && \
-         mv -v ${0}.debug ${D}/${0}.debug' \
-      {} \;
+    -executable \
+    -exec sh -c \
+    'filename=$(basename ${0}) && \
+    objcopy --only-keep-debug ${0} ${0}.debug && \
+    if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
+    mkdir -p $(dirname ${D}/${0}) && \
+    mv -v ${0}.debug ${D}/${0}.debug' \
+    {} \;
 
 # Check debug symbols are present
 RUN for f in $(find /tmp/debug -type f -name '*.debug') ; do readelf -S ${f} | grep -q \\.symtab || \
     (echo Debug symbols are missing in ${f} - possibly due to incorrect build parameters && false); done
 
 COPY images/cilium/init-container.sh \
-     plugins/cilium-cni/install-plugin.sh \
-     plugins/cilium-cni/cni-uninstall.sh \
-       /tmp/install/${TARGETOS}/${TARGETARCH}
+    plugins/cilium-cni/install-plugin.sh \
+    plugins/cilium-cni/cni-uninstall.sh \
+    /tmp/install/${TARGETOS}/${TARGETARCH}
 
 #
 # Cilium runtime install.

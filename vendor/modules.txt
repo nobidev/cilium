@@ -425,7 +425,6 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/oauth2/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/on_demand/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/original_src/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/proto_message_extraction/v3
-github.com/cilium/proxy/go/envoy/extensions/filters/http/proto_message_logging/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/rate_limit_quota/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3
@@ -593,7 +592,6 @@ github.com/cilium/proxy/go/envoy/service/runtime/v3
 github.com/cilium/proxy/go/envoy/service/secret/v3
 github.com/cilium/proxy/go/envoy/service/status/v3
 github.com/cilium/proxy/go/envoy/service/tap/v3
-github.com/cilium/proxy/go/envoy/service/trace/v3
 github.com/cilium/proxy/go/envoy/type
 github.com/cilium/proxy/go/envoy/type/http/v3
 github.com/cilium/proxy/go/envoy/type/matcher
@@ -1567,7 +1565,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.1-0.20250209162617-655392bc778a
+# github.com/vishvananda/netlink v1.3.1-0.20250221194427-0af32151e72b
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl

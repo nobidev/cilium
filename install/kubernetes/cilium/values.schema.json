@@ -2309,6 +2309,12 @@
           },
           "type": "object"
         },
+        "policyRestoreTimeoutDuration": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "priorityClassName": {
           "type": [
             "null",
@@ -4868,6 +4874,23 @@
     "k8sServiceHost": {
       "type": "string"
     },
+    "k8sServiceHostRef": {
+      "properties": {
+        "key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "k8sServiceLookupConfigMapName": {
       "type": [
         "null",
@@ -6429,6 +6452,9 @@
       "type": "integer"
     },
     "tunnelProtocol": {
+      "type": "string"
+    },
+    "tunnelSourcePortRange": {
       "type": "string"
     },
     "updateStrategy": {
