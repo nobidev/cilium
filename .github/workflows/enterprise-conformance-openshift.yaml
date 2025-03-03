@@ -149,7 +149,7 @@ jobs:
           else
             echo kubevirt=${kubevirt} >> $GITHUB_OUTPUT
           fi
-          if [ "${ocp_version}" == "null" ]; then
+          if [ "${ocp_version}" == "null" || "${ocp_version}" == "" ]; then
             ocp_version=$(echo ${{ env.ocp_version_multi }} | cut -f1 -d "-")
           fi
           ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
