@@ -21,7 +21,7 @@ jobs:
       matrix:
         include:
           - name: cilium-cli
-            dockerfile: ./enterprise/cilium-cli/Dockerfile
+            dockerfile: ./cilium-cli/enterprise/Dockerfile
 
     steps:
       - name: Checkout main branch to access local actions

@@ -794,6 +794,7 @@ Makefile* @cilium/build
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
 /bpf/tests/lib/enterprise_encryption_policy.h @isovalent/encryption
 /bugtool/cmd/enterprise_* @isovalent/cli
+/cilium-cli/Makefile.override @isovalent/cli
 /cilium-cli/enterprise/ @isovalent/cli
 /cilium-cli/enterprise/hooks/cli/bgp* @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
@@ -821,7 +822,6 @@ Makefile* @cilium/build
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
 /enterprise/api/extensions @isovalent/hubble-api
-/enterprise/cilium-cli/ @isovalent/cli
 /enterprise/cilium-cni/ @isovalent/cilium-agent
 /enterprise/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/cilium-dbg/ @isovalent/cli

@@ -1,0 +1,30 @@
+# Copyright (C) Isovalent, Inc. - All Rights Reserved.
+#
+# NOTICE: All information contained herein is, and remains the property of
+# Isovalent Inc and its suppliers, if any. The intellectual and technical
+# concepts contained herein are proprietary to Isovalent Inc and its suppliers
+# and may be covered by U.S. and Foreign Patents, patents in process, and are
+# protected by trade secret or copyright law.  Dissemination of this information
+# or reproduction of this material is strictly forbidden unless prior written
+# permission is obtained from Isovalent Inc.
+#
+CLI_MAIN_DIR = ./enterprise/cmd/cilium
+VERSION = $(shell git describe --tags --always --match="enterprise/cilium-cli/v*")
+RELEASE_UID = $(shell id -u)
+RELEASE_GID = $(shell id -g)
+
+release:
+	# Create a volume from the top-level directory so that the top-level
+	# go.mod is available from inside the docker container.
+	cd .. && \
+	$(CONTAINER_ENGINE) run \
+		--rm \
+		--workdir /cilium \
+		--env GIT_CONFIG_COUNT=1 \
+		--env GIT_CONFIG_KEY_0=safe.directory \
+		--env GIT_CONFIG_VALUE_0=/cilium \
+		--volume `pwd`:/cilium $(CILIUM_BUILDER_IMAGE) \
+		sh -c "cd cilium-cli && apt-get update && apt-get install -y zip && \
+			setpriv --reuid=$(RELEASE_UID) --regid=$(RELEASE_GID) --clear-groups make GOCACHE=/tmp/gocache local-release"
+
+.PHONY: release
