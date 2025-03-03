@@ -81,18 +81,54 @@ jobs:
           if-no-files-found: ignore
 
   check-scan-results:
-      # Fails the entire workflow if any scanning job run has failed, despite the
-      # use of `continue-on-error` in the previous job.
-      name: Check Scan Results
-      runs-on: ubuntu-24.04
-      needs: container-scan
-      steps:
-        - name: Check if any scans failed
-          run: |
-            if [ "${{ needs.container-scan.outputs.scan_result }}" = "failure" ]; then
-              echo "One or more container scans failed. Check the uploaded artifacts to" \
-              "view the CVEs causing the failures."
-              exit 1
-            else
-              echo "All container scans succeeded."
-            fi
+    # Fails the entire workflow if any scanning job run has failed, despite the
+    # use of `continue-on-error` in the previous job.
+    name: Check Scan Results
+    runs-on: ubuntu-24.04
+    needs: container-scan
+    steps:
+      - name: Check if any scans failed
+        run: |
+          if [ "${{ needs.container-scan.outputs.scan_result }}" = "failure" ]; then
+            echo "One or more container scans failed. Check the uploaded artifacts to" \
+            "view the CVEs causing the failures."
+            exit 1
+          else
+            echo "All container scans succeeded."
+          fi
+
+  summarize-scan-results:
+    name: Summarize Scan Results
+    runs-on: ubuntu-24.04
+    needs: container-scan
+    steps:
+      - name: Download all scan results
+        uses: actions/download-artifact@v4
+        with:
+          path: scan-results
+      - name: Combine JSON results
+        run: |
+          find scan-results -type f -name '*.json' -exec cat {} + | jq -s '.' > combined-results.json
+      - name: Summarize CVE Data
+        id: summarize
+        run: |
+          cat combined-results.json | jq 'reduce (.[][]) as $item ({};
+            .[$item.id].name += [$item.name] |
+            .[$item.id].images += [$item.image] |
+            .[$item.id].severity = $item.severity |
+            .[$item.id].link = "https://www.cve.org/CVERecord?id=" + $item.id
+          ) | to_entries | map({
+            id: .key,
+            name: (.value.name | unique),
+            severity: .value.severity,
+            affected_images: (.value.images | unique),
+            link: .value.link
+          }) | sort_by(.severity) | reverse' > summary.json
+      - name: Output summary
+        run: |
+          cat summary.json
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary.json
+          path: summary.json
