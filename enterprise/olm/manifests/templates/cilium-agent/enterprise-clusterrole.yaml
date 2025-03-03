@@ -23,6 +23,8 @@ rules:
   - isovalentmulticastgroups
   - isovalentmeshendpoints
   - isovalentbfdprofiles
+  - isovalentnetworkpolicies
+  - isovalentclusterwidenetworkpolicies
   verbs:
   - list
   - watch
