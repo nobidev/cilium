@@ -224,10 +224,14 @@ jobs:
              --helm-set=envoy.dnsPolicy=ClusterFirstWithHostNet \
              --helm-set=envoyConfig.enabled=true \
              --helm-set=bpf.monitorAggregation=none \
+             --helm-set=bpf.lbAlgorithmAnnotation=true \
+             --helm-set=bpf.lbModeAnnotation=true \
              --helm-set=kubeProxyReplacement=true \
              --helm-set=routingMode=native \
              --helm-set=autoDirectNodeRoutes=true \
+             --helm-set=enableIPv4Masquerade=false \
              --helm-set=loadBalancer.acceleration=native \
+             --helm-set=loadBalancer.dsrDispatch=ipip \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
              $EXTRA

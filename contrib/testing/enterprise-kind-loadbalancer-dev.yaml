@@ -27,13 +27,17 @@ envoy:
 envoyConfig:
   enabled: true
 bpf:
+  lbAlgorithmAnnotation: true
+  lbModeAnnotation: true
   monitorAggregation: none
   ctAccounting: true
 kubeProxyReplacement: true
 loadBalancer:
   acceleration: native
+  dsrDispatch: ipip
 routingMode: native
 autoDirectNodeRoutes: true
+enableIPv4Masquerade: false
 ipv6:
   enabled: false
 extraConfig:
