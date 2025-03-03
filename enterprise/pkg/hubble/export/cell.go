@@ -128,7 +128,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 	}
 
 	builder := &exportercell.FlowLogExporterBuilder{
-		Name: "static-ee-exporter",
+		Name:     "static-ee-exporter",
+		Replaces: "static-exporter",
 		Build: func() (exporter.FlowLogExporter, error) {
 			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble EE static exporter")
 
