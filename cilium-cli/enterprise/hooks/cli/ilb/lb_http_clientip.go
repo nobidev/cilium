@@ -166,27 +166,29 @@ func TestHTTPClientIP(t T) {
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 		for _, tt := range tC.testCalls {
-			testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
-			t.Log("Testing %q...", testCmd)
-			eventually(t, func() error {
-				stdout, stderr, err := clients[0].Exec(t.Context(), testCmd)
-				if tt.blocked {
-					if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
-						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+			t.RunTestCase(func(t T) {
+				testCmd := curlCmd(fmt.Sprintf("--max-time 10 %s --resolve insecure.acme.io:80:%s http://insecure.acme.io:80/", generateHeaders(FlagXffNumTrustedHops), vipIP))
+				t.Log("Testing %q...", testCmd)
+				eventually(t, func() error {
+					stdout, stderr, err := clients[0].Exec(t.Context(), testCmd)
+					if tt.blocked {
+						if err == nil || (err.Error() != "cmd failed: 52" && err.Error() != "cmd failed: 22") {
+							return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+						}
+					} else {
+						if err != nil {
+							return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+						}
+						resp := toTestAppResponse(t, stdout)
+						t.Log("Response: %v", resp)
+						if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
+							return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
+						}
 					}
-				} else {
-					if err != nil {
-						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-					}
-					resp := toTestAppResponse(t, stdout)
-					t.Log("Response: %v", resp)
-					if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
-						return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
-					}
-				}
 
-				return nil
-			}, shortTimeout, pollInterval)
+					return nil
+				}, shortTimeout, pollInterval)
+			})
 		}
 	}
 }

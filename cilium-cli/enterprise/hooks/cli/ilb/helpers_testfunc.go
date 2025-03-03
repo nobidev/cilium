@@ -30,6 +30,7 @@ type T interface {
 	FailureReporter
 	Name() string
 	RegisterCleanup(f func(ctx context.Context) error)
+	RunTestCase(f func(t T))
 	Context() context.Context
 	Log(msg string, a ...any)
 }
@@ -114,6 +115,11 @@ func (r *LbTestFunc) Failedf(msg string, args ...any) {
 // will called in last added, first called order.
 func (r *LbTestFunc) RegisterCleanup(f func(ctx context.Context) error) {
 	r.cleanupCb = append(r.cleanupCb, f)
+}
+
+func (r *LbTestFunc) RunTestCase(f func(t T)) {
+	f(r)
+	r.runCleanups()
 }
 
 func (r *LbTestFunc) runCleanups() {

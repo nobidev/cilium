@@ -17,54 +17,56 @@ import (
 )
 
 func TestTCPProxy(t T) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	testK8sNamespace := "default"
+
 	for _, mode := range []isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto} {
-		ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
-		dockerCli := NewDockerCli(t)
+		t.RunTestCase(func(t T) {
+			testName := "tcp-proxy-" + string(mode)
 
-		testK8sNamespace := "default"
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		testName := "tcp-proxy-" + string(mode)
+			t.Log("Creating backend apps...")
 
-		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			backendNum := 2
+			// TCPProxy does not support backends with different ports, so create just 1 backend.
+			if IsSingleNode() {
+				backendNum = 1
+			}
+			scenario.addBackendApplications(backendNum, backendApplicationConfig{h2cEnabled: true})
 
-		t.Log("Creating backend apps...")
+			t.Log("Creating clients and add BGP peering ...")
+			client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
-		backendNum := 2
-		// TCPProxy does not support backends with different ports, so create just 1 backend.
-		if IsSingleNode() {
-			backendNum = 1
-		}
-		scenario.addBackendApplications(backendNum, backendApplicationConfig{h2cEnabled: true})
+			t.Log("Creating LB VIP resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(vip)
 
-		t.Log("Creating clients and add BGP peering ...")
-		client := scenario.addFRRClients(1, frrClientConfig{})[0]
+			t.Log("Creating LB BackendPool resources...")
+			backends := []backendPoolOption{}
+			for _, b := range scenario.backendApps {
+				backends = append(backends, withIPBackend(b.ip, b.port))
+			}
+			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			scenario.createLBBackendPool(backendPool)
 
-		t.Log("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(vip)
+			t.Log("Creating LB Service resources...")
+			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
+			scenario.createLBService(service)
 
-		t.Log("Creating LB BackendPool resources...")
-		backends := []backendPoolOption{}
-		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
-		}
-		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-		scenario.createLBBackendPool(backendPool)
+			t.Log("Waiting for full VIP connectivity...")
+			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
-		t.Log("Creating LB Service resources...")
-		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
-		scenario.createLBService(service)
-
-		t.Log("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(testName)
-
-		// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
-		t.Log("Testing %q...", testCmd)
-		stdout, stderr, err := client.Exec(t.Context(), testCmd)
-		if err != nil {
-			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
-		}
+			// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
+			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+			t.Log("Testing %q...", testCmd)
+			stdout, stderr, err := client.Exec(t.Context(), testCmd)
+			if err != nil {
+				t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+			}
+		})
 	}
 }

@@ -73,67 +73,70 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		},
 	}
 	for _, tC := range testCases {
-		t.Log("Checking %s", tC.desc)
-
 		if skipIfOnSingleNode(">1 FRR clients are not supported") {
 			continue
 		}
 
-		testName := fmt.Sprintf("udp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
+		t.RunTestCase(func(t T) {
+			t.Log("Checking %s", tC.desc)
 
-		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			testName := fmt.Sprintf("udp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
-		t.Log("Creating backend app...")
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
+			t.Log("Creating backend app...")
 
-		t.Log("Creating client and add BGP peering...")
+			backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		clients := scenario.addFRRClients(2, frrClientConfig{})
+			t.Log("Creating client and add BGP peering...")
 
-		t.Log("Creating LB VIP resources...")
+			clients := scenario.addFRRClients(2, frrClientConfig{})
 
-		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(vip)
+			t.Log("Creating LB VIP resources...")
 
-		t.Log("Creating LB BackendPool resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(vip)
 
-		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
-		scenario.createLBBackendPool(backendPool)
+			t.Log("Creating LB BackendPool resources...")
 
-		t.Log("Creating LB Service resources...")
+			backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
+			scenario.createLBBackendPool(backendPool)
 
-		service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, tC.appOpt(clients))))
-		scenario.createLBService(service)
+			t.Log("Creating LB Service resources...")
 
-		t.Log("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(testName)
+			service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, tC.appOpt(clients))))
+			scenario.createLBService(service)
 
-		for _, tt := range tC.testCalls {
-			testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
-			t.Log("Testing %q...", testCmd)
-			eventually(t, func() error {
-				t.Log("Sending UDP request: cmd=%q", testCmd)
+			t.Log("Waiting for full VIP connectivity...")
+			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
-				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
-				if err != nil {
-					// we never expect an error (netcat doesn't return error in case of timeout)
-					return fmt.Errorf("unexpected error %w", err)
-				}
+			for _, tt := range tC.testCalls {
+				testCmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -u -w 1 %s 80", vipIP)
+				t.Log("Testing %q...", testCmd)
+				eventually(t, func() error {
+					t.Log("Sending UDP request: cmd=%q", testCmd)
 
-				if !tt.blocked {
-					resp := toTestAppUDPResponse(t, stdout)
-					if resp.Response != "deadbeef" {
-						return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q, resp: %q): %w", testCmd, stdout, stderr, resp.Response, err)
+					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
+					if err != nil {
+						// we never expect an error (netcat doesn't return error in case of timeout)
+						return fmt.Errorf("unexpected error %w", err)
 					}
-				} else if tt.blocked && stdout != "" {
-					return fmt.Errorf("UDP request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				}
 
-				return nil
-			}, shortTimeout, pollInterval)
-		}
+					if !tt.blocked {
+						resp := toTestAppUDPResponse(t, stdout)
+						if resp.Response != "deadbeef" {
+							return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q, resp: %q): %w", testCmd, stdout, stderr, resp.Response, err)
+						}
+					} else if tt.blocked && stdout != "" {
+						return fmt.Errorf("UDP request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					}
+
+					return nil
+				}, shortTimeout, pollInterval)
+			}
+		})
+
 	}
 }
 

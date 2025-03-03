@@ -66,62 +66,64 @@ func TestHTTPSConnectionFiltering(t T) {
 			continue
 		}
 
-		t.Log("Checking %s", tC.desc)
+		t.RunTestCase(func(t T) {
+			t.Log("Checking %s", tC.desc)
 
-		testName := fmt.Sprintf("https-connectionfiltering-%s", tC.desc)
-		testK8sNamespace := "default"
+			testName := fmt.Sprintf("https-connectionfiltering-%s", tC.desc)
+			testK8sNamespace := "default"
 
-		ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
-		dockerCli := NewDockerCli(t)
+			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+			dockerCli := NewDockerCli(t)
 
-		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		t.Log("Creating cert and secret...")
-		scenario.createLBServerCertificate(testName, "secure.acme.io")
+			t.Log("Creating cert and secret...")
+			scenario.createLBServerCertificate(testName, "secure.acme.io")
 
-		t.Log("Creating backend apps...")
-		scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
+			t.Log("Creating backend apps...")
+			scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
 
-		t.Log("Creating clients and add BGP peering ...")
-		clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io"}})
+			t.Log("Creating clients and add BGP peering ...")
+			clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io"}})
 
-		t.Log("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(vip)
+			t.Log("Creating LB VIP resources...")
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(vip)
 
-		t.Log("Creating LB BackendPool resources...")
-		backends := []backendPoolOption{}
-		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
-		}
-		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-		scenario.createLBBackendPool(backendPool)
+			t.Log("Creating LB BackendPool resources...")
+			backends := []backendPoolOption{}
+			for _, b := range scenario.backendApps {
+				backends = append(backends, withIPBackend(b.ip, b.port))
+			}
+			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			scenario.createLBBackendPool(backendPool)
 
-		t.Log("Creating LB Service resources...")
-		opts := []httpsApplicationOption{}
-		opts = append(opts, withHttpsRoute(testName, withHttpHostname("secure.acme.io")))
-		opts = append(opts, withCertificate(testName))
-		opts = append(opts, tC.appOpt(clients))
-		service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))
-		scenario.createLBService(service)
+			t.Log("Creating LB Service resources...")
+			opts := []httpsApplicationOption{}
+			opts = append(opts, withHttpsRoute(testName, withHttpHostname("secure.acme.io")))
+			opts = append(opts, withCertificate(testName))
+			opts = append(opts, tC.appOpt(clients))
+			service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))
+			scenario.createLBService(service)
 
-		t.Log("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(testName)
+			t.Log("Waiting for full VIP connectivity...")
+			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
-		for _, tt := range tC.testCalls {
-			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
-			t.Log("Testing %q...", testCmd)
-			eventually(t, func() error {
-				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
-				if !tt.blocked && err != nil {
-					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 56") {
-					return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				}
+			for _, tt := range tC.testCalls {
+				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
+				t.Log("Testing %q...", testCmd)
+				eventually(t, func() error {
+					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
+					if !tt.blocked && err != nil {
+						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 56") {
+						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					}
 
-				return nil
-			}, shortTimeout, pollInterval)
-		}
+					return nil
+				}, shortTimeout, pollInterval)
+			}
+		})
 	}
 }

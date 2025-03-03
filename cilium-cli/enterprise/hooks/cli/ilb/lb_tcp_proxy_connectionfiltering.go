@@ -85,53 +85,56 @@ func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 			continue
 		}
 
-		t.Log("Checking %s", tC.desc)
+		t.RunTestCase(func(t T) {
+			t.Log("Checking %s", tC.desc)
 
-		testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
+			testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
-		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			// 0. Setup test scenario (backends, clients & LB resources)
+			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
-		t.Log("Creating backend app...")
+			t.Log("Creating backend app...")
 
-		backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
+			backends := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
 
-		t.Log("Creating client and add BGP peering...")
+			t.Log("Creating client and add BGP peering...")
 
-		clients := scenario.addFRRClients(2, frrClientConfig{})
+			clients := scenario.addFRRClients(2, frrClientConfig{})
 
-		t.Log("Creating LB VIP resources...")
+			t.Log("Creating LB VIP resources...")
 
-		vip := lbVIP(testK8sNamespace, testName)
-		scenario.createLBVIP(vip)
+			vip := lbVIP(testK8sNamespace, testName)
+			scenario.createLBVIP(vip)
 
-		t.Log("Creating LB BackendPool resources...")
+			t.Log("Creating LB BackendPool resources...")
 
-		backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
-		scenario.createLBBackendPool(backendPool)
+			backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
+			scenario.createLBBackendPool(backendPool)
 
-		t.Log("Creating LB Service resources...")
+			t.Log("Creating LB Service resources...")
 
-		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
-		scenario.createLBService(service)
+			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
+			scenario.createLBService(service)
 
-		t.Log("Waiting for full VIP connectivity...")
-		vipIP := scenario.waitForFullVIPConnectivity(testName)
+			t.Log("Waiting for full VIP connectivity...")
+			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
-		for _, tt := range tC.testCalls {
-			testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
-			t.Log("Testing %q...", testCmd)
-			eventually(t, func() error {
-				stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
-				if !tt.blocked && err != nil {
-					return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				} else if tt.blocked && (err == nil || err.Error() != fmt.Sprintf("cmd failed: %d", getTCPCurlBlockErrorCode(forceDeploymentMode))) {
-					return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-				}
+			for _, tt := range tC.testCalls {
+				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 5 --resolve %s:80:%s http://%s:80/", tt.hostName, vipIP, tt.hostName))
+				t.Log("Testing %q...", testCmd)
+				eventually(t, func() error {
+					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
+					if !tt.blocked && err != nil {
+						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					} else if tt.blocked && (err == nil || err.Error() != fmt.Sprintf("cmd failed: %d", getTCPCurlBlockErrorCode(forceDeploymentMode))) {
+						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+					}
 
-				return nil
-			}, shortTimeout, pollInterval)
-		}
+					return nil
+				}, shortTimeout, pollInterval)
+			}
+		})
+
 	}
 }
 
