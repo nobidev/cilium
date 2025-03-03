@@ -121,15 +121,11 @@ func TestHTTPClientIP(t T) {
 		},
 	}
 
-nextTest:
 	for _, tC := range testCases {
 		t.Log("Checking %s", tC.desc)
 
-		for _, runIf := range tC.runIfs {
-			if !runIf() {
-				t.Log("skipping test because of runIfs condition")
-				continue nextTest
-			}
+		if !shouldRun(t, tC.runIfs) {
+			continue
 		}
 
 		testName := fmt.Sprintf("http-clientip-%s", tC.desc)
@@ -215,4 +211,15 @@ func generateHeaders(numOfIps int) string {
 	}
 
 	return res
+}
+
+func shouldRun(t T, runIfs map[string]runIfFunc) bool {
+	for name, runIf := range runIfs {
+		if !runIf() {
+			t.Log("skipping test because of runIfs condition %q", name)
+			return false
+		}
+	}
+
+	return true
 }
