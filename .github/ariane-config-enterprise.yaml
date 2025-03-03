@@ -84,10 +84,10 @@ workflows:
   enterprise-multicast.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   enterprise-lb.yaml:
-    paths-ignore-regex: Documentation/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
+    paths-ignore-regex: (Documentation/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   enterprise-encryption-policy.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   enterprise-lb-vsphere.yaml:
-    paths-ignore-regex: Documentation/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
+    paths-ignore-regex: (Documentation/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   enterprise-conformance-openshift.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
