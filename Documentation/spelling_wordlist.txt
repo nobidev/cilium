@@ -773,6 +773,7 @@ systemtap
 targetPort
 tc
 tcp
+tcpSocket
 tcpdump
 tcplife
 tcptop

@@ -2047,7 +2047,7 @@
    * - :spelling:ignore:`hubble.rbac`
      - Enables experimental support for using Hubble RBAC with Hubble Relay. This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
      - object
-     - ``{"auth":{"oidc":{"ca":{"configMap":{"key":"ca.crt","name":null}},"clientID":null,"issuerUrl":null}},"enabled":false,"extraArgs":{},"extraEnv":[],"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-rbac","tag":"v1.8.1","useDigest":false},"listenPort":4245,"loggingLevel":"info","policy":{"configMap":{"bindings":[],"create":true,"key":"hubble-rbac-policy.yaml","name":"hubble-rbac-policy","roles":[]},"logRoles":false},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}}``
+     - ``{"auth":{"oidc":{"ca":{"configMap":{"key":"ca.crt","name":null}},"clientID":null,"issuerUrl":null}},"enabled":false,"extraArgs":{},"extraEnv":[],"healthCheckPort":8079,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-rbac","tag":"v1.10.0","useDigest":false},"listenPort":4245,"loggingLevel":"info","policy":{"configMap":{"bindings":[],"create":true,"key":"hubble-rbac-policy.yaml","name":"hubble-rbac-policy","roles":[]},"logRoles":false},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"useKubernetesGrpcProbes":true}``
    * - :spelling:ignore:`hubble.rbac.enabled`
      - Enables hubble-rbac by running it as a sidecar in hubble-relay.
      - bool
@@ -2080,6 +2080,10 @@
      - Whether to enable logging of a user's roles to debug logs when they authenticate and make requests.
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.rbac.useKubernetesGrpcProbes`
+     - Whether to use native Kubernetes gRPC-based probes (startup, liveness, readiness) which are stable since Kubernetes 1.27. If false, fallback to tcpSocket probes.
+     - bool
+     - ``true``
    * - :spelling:ignore:`hubble.redact`
      - Enables redacting sensitive information present in Layer 7 flows.
      - object

@@ -23,6 +23,7 @@ resources:
 command:
   - /usr/bin/hubble-rbac
 args:
+  - --health-listen-address=:{{ .Values.hubble.rbac.healthCheckPort }}
   - --logging-level={{ .Values.hubble.rbac.loggingLevel }}
   - --hubble-policy-mode=config
   - --hubble-policy-file=/etc/hubble-rbac/policy/{{ .Values.hubble.rbac.policy.configMap.key }}
@@ -64,10 +65,11 @@ readinessProbe:
 {{- end -}}
 
 {{- define "container.rbac.probe" -}}
-exec:
-  command:
-  - /usr/bin/grpc_health_probe
-  - -addr=localhost:{{ .Values.hubble.rbac.listenPort }}
-  - -tls
-  - -tls-no-verify
+{{- if .Values.hubble.rbac.useKubernetesGrpcProbes }}
+grpc:
+  port: {{ .Values.hubble.rbac.healthCheckPort }}
+{{- else }}
+tcpSocket:
+  port: {{ .Values.hubble.rbac.healthCheckPort }}
+{{- end }}
 {{- end }}

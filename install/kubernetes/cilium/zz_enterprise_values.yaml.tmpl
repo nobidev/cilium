@@ -500,7 +500,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.8.1
+      tag: v1.10.0
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -521,6 +521,11 @@ hubble:
           - ALL
 
     loggingLevel: info
+
+    # -- Whether to use native Kubernetes gRPC-based probes (startup, liveness, readiness)
+    # which are stable since Kubernetes 1.27. If false, fallback to tcpSocket probes.
+    useKubernetesGrpcProbes: true
+    healthCheckPort: 8079
 
     listenPort: 4245
 
