@@ -18,7 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/k8s"
 
@@ -130,7 +130,7 @@ func newPhantomService() *corev1.Service {
 			IPFamilyPolicy: &ipFamPol,
 
 			// Prevent real LoadBalancer implementations from reconciling this service.
-			LoadBalancerClass: pointer.String("isovalent.com/none"),
+			LoadBalancerClass: ptr.To("isovalent.com/none"),
 		},
 	}
 }
