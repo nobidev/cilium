@@ -231,7 +231,7 @@ jobs:
         id: ips
         run: |
           for pod in client client2 echo-same-node echo-other-node; do
-            kubectl get pod -n cilium-test-1 -l "name=${pod}" -o jsonpath="${pod}={.items[*].status.podIP}{'\n'}" >> "$GITHUB_OUTPUT"
+            kubectl get pod -A -l "name=${pod}" -o jsonpath="${pod}={.items[*].status.podIP}{'\n'}" >> "$GITHUB_OUTPUT"
           done
 
           for pool in cilium-test-pool client-pool echo-other-node-pool; do
@@ -243,10 +243,17 @@ jobs:
         run: |
           from ipaddress import ip_address, ip_network
 
-          assert ip_address("${{ steps.ips.outputs.client }}") in ip_network("${{ steps.ips.outputs.client-pool }}"), "client pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.client2 }}") in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "client2 pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.echo-same-node }}") in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "echo-same-node pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.echo-other-node }}") in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
+          for ip in "${{ steps.ips.outputs.client }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.client-pool }}"), "client pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.client2 }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "client2 pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.echo-same-node }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "echo-same-node pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.echo-other-node }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
