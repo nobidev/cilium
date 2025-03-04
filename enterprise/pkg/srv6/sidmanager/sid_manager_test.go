@@ -14,6 +14,7 @@ import (
 	"context"
 	"maps"
 	"net/netip"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -166,7 +169,43 @@ var (
 	}
 )
 
-func newHive(t *testing.T, invoke ...any) *hive.Hive {
+func newHive(ctx context.Context, t *testing.T, invoke ...any) (*hive.Hive, func()) {
+	rws := map[string]*struct {
+		once    sync.Once
+		watchCh chan any
+	}{
+		"isovalentsrv6sidmanagers": {watchCh: make(chan any)},
+	}
+
+	fakeClientSet, _ := k8sclient.NewFakeClientset(hivetest.Logger(t))
+	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		w := action.(k8sTesting.WatchAction)
+		gvr := w.GetResource()
+		ns := w.GetNamespace()
+		watch, err := fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+		if err != nil {
+			return false, nil, err
+		}
+		rw, ok := rws[w.GetResource().Resource]
+		if !ok {
+			return false, watch, nil
+		}
+		rw.once.Do(func() { close(rw.watchCh) })
+		return true, watch, nil
+	}
+	fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
+
+	// make sure watchers are initialized before the test starts
+	watchersReadyFn := func() {
+		for name, rw := range rws {
+			select {
+			case <-ctx.Done():
+				t.Fatalf("Context expired while waiting for %s", name)
+			case <-rw.watchCh:
+			}
+		}
+	}
+
 	return hive.New(
 		SIDManagerCell,
 		// Test module so that newTestObserver gets a job.Group.
@@ -174,13 +213,13 @@ func newHive(t *testing.T, invoke ...any) *hive.Hive {
 			cell.Provide(newTestObserver),
 		),
 		cell.Provide(
-			k8sclient.NewFakeClientset,
+			func() k8sclient.Clientset { return fakeClientSet },
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{EnableSRv6: true}
 			},
 		),
 		cell.Invoke(invoke...),
-	)
+	), watchersReadyFn
 }
 
 func eventuallyWithT(t *testing.T, f func(collect *assert.CollectT)) {
@@ -194,17 +233,22 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 		c clientV1Alpha1.IsovalentSRv6SIDManagerInterface
 	)
 
-	hive := newHive(t, func(observer *testObserver, clientset k8sclient.Clientset) {
+	testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	hive, ready := newHive(testCtx, t, func(observer *testObserver, clientset k8sclient.Clientset) {
 		o = observer
 		c = clientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 	})
 
 	log := hivetest.Logger(t)
-	err := hive.Start(log, context.TODO())
+	err := hive.Start(log, testCtx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		hive.Stop(log, context.TODO())
+		hive.Stop(log, testCtx)
 	})
+
+	ready()
 
 	sidmanager := v1alpha1.IsovalentSRv6SIDManager{
 		ObjectMeta: metav1.ObjectMeta{
@@ -328,17 +372,22 @@ func TestSIDManagerStatusReconciliation(t *testing.T) {
 		c clientV1Alpha1.IsovalentSRv6SIDManagerInterface
 	)
 
-	hive := newHive(t, func(observer *testObserver, clientset k8sclient.Clientset) {
+	testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	hive, ready := newHive(testCtx, t, func(observer *testObserver, clientset k8sclient.Clientset) {
 		o = observer
 		c = clientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 	})
 
 	log := hivetest.Logger(t)
-	err := hive.Start(log, context.TODO())
+	err := hive.Start(log, testCtx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		hive.Stop(log, context.TODO())
+		hive.Stop(log, testCtx)
 	})
+
+	ready()
 
 	nodeName := nodetypes.GetName()
 
@@ -472,17 +521,22 @@ func TestSIDManagerRestoration(t *testing.T) {
 				c clientV1Alpha1.IsovalentSRv6SIDManagerInterface
 			)
 
-			hive := newHive(t, func(observer *testObserver, clientset k8sclient.Clientset) {
+			testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			hive, ready := newHive(testCtx, t, func(observer *testObserver, clientset k8sclient.Clientset) {
 				o = observer
 				c = clientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 			})
 
 			log := hivetest.Logger(t)
-			err := hive.Start(log, context.TODO())
+			err := hive.Start(log, testCtx)
 			require.NoError(t, err)
 			t.Cleanup(func() {
-				hive.Stop(log, context.TODO())
+				hive.Stop(log, testCtx)
 			})
+
+			ready()
 
 			sidmanager := &v1alpha1.IsovalentSRv6SIDManager{
 				ObjectMeta: metav1.ObjectMeta{
