@@ -2814,6 +2814,36 @@
             },
             "static": {
               "properties": {
+                "aggregation": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationIgnoreSourcePort": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationRenewTTL": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationStateFilter": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationTTL": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "allowList": {
                   "items": {},
                   "type": "array"
@@ -2840,6 +2870,27 @@
                 },
                 "filePath": {
                   "type": "string"
+                },
+                "fileRotationInterval": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "formatVersion": {
+                  "type": "string"
+                },
+                "overrideNodeName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "rateLimit": {
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 }
               },
               "type": "object"

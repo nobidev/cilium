@@ -1815,7 +1815,7 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
@@ -1835,7 +1835,27 @@
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+     - ``{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null}``
+   * - :spelling:ignore:`hubble.export.static.aggregation`
+     - - Defines the aggregation to perform pre-storage ('connection', 'identity'). Leave empty to disable aggregation. @schema type: [null, array] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.static.aggregationIgnoreSourcePort`
+     - - Defines whether to ignore source port during aggregation. @schema type: [null, boolean] @schema
+     - string
+     - ``true``
+   * - :spelling:ignore:`hubble.export.static.aggregationRenewTTL`
+     - - Defines whether to renew the flow TTL when a new flow is observed. @schema type: [null, boolean] @schema
+     - string
+     - ``true``
+   * - :spelling:ignore:`hubble.export.static.aggregationStateFilter`
+     - - Defines the state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed'). @schema type: [null, array] @schema
+     - string
+     - ``["new", "error", "closed"]``
+   * - :spelling:ignore:`hubble.export.static.aggregationTTL`
+     - - Defines the TTL for flow aggregation. @schema type: [null, string] @schema
+     - string
+     - ``30s``
    * - :spelling:ignore:`hubble.export.static.fileCompress`
      - - Enable compression of rotated files.
      - bool
@@ -1848,6 +1868,22 @@
      - - Defines max file size of output file before it gets rotated.
      - int
      - ``10``
+   * - :spelling:ignore:`hubble.export.static.fileRotationInterval`
+     - - Defines interval at which to rotate output file (15s, 5m, 1h). Leave unset or set to 0s to disable time-based file rotation. @schema type: [null, string] @schema
+     - string
+     - ``0s``
+   * - :spelling:ignore:`hubble.export.static.formatVersion`
+     - - Defines API format used to encode output file. Set to '' to use legacy format.
+     - string
+     - ``"v1"``
+   * - :spelling:ignore:`hubble.export.static.overrideNodeName`
+     - - Override the node_name field in exported events. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.static.rateLimit`
+     - - Defines the amount of events to allow per minute before being rate-limited. Leave unset or set to -1 to disable rate-limiting. @schema type: [null, integer] @schema
+     - string
+     - ``-1``
    * - :spelling:ignore:`hubble.k8sExporter`
      - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
      - object

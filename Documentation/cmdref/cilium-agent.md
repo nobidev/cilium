@@ -262,6 +262,11 @@ cilium-agent [flags]
       --hubble-dynamic-metrics-config-path string                      Filepath with dynamic configuration of hubble metrics
       --hubble-event-buffer-capacity int                               Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                                    Buffer size of the channel to receive monitor events.
+      --hubble-export-aggregation strings                              Perform aggregation pre-storage ('connection', 'identity')
+      --hubble-export-aggregation-ignore-source-port                   Ignore source port during aggregation (default true)
+      --hubble-export-aggregation-renew-ttl                            Renew flow TTL when a new flow is observed (default true)
+      --hubble-export-aggregation-state-filter strings                 The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])
+      --hubble-export-aggregation-ttl duration                         TTL for flow aggregation (default 30s)
       --hubble-export-allowlist string                                 Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
       --hubble-export-denylist string                                  Specify denylist as JSON encoded FlowFilters to Hubble exporter.
       --hubble-export-fieldmask strings                                Specify list of fields to use for field mask in Hubble exporter.
@@ -269,6 +274,10 @@ cilium-agent [flags]
       --hubble-export-file-max-backups int                             Number of rotated Hubble export files to keep. (default 5)
       --hubble-export-file-max-size-mb int                             Size in MB at which to rotate Hubble export file. (default 10)
       --hubble-export-file-path stdout                                 Filepath to write Hubble events to. By specifying stdout the flows are logged instead of written to a rotated file.
+      --hubble-export-file-rotation-interval duration                  Interval at which to rotate JSON export files in addition to rotating them by size
+      --hubble-export-format-version string                            Default to v1 format. Set to '' to use the legacy format (default "v1")
+      --hubble-export-node-name string                                 Override the node_name field in exported flows
+      --hubble-export-rate-limit int                                   Rate limit (per minute) for flow exports. Set to -1 to disable (default -1)
       --hubble-flowlogs-config-path string                             Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                                   An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics string                                          List of Hubble metrics to enable.

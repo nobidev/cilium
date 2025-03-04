@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -37,11 +38,59 @@ var Cell = cell.Module(
 	"enterprise-hubble-exporter",
 	"Hubble Enterprise flow log exporter",
 
+	cell.Provide(newMergedConfig),
 	cell.Provide(newHubbleEnterpriseExporter),
 	cell.Config(defaultConfig),
+	cell.Config(defaultLegacyConfig),
 )
 
+// config represent the EE static exporter configuration used by Cilium >=1.18.0.
+//
+// These are colocated with the OSS static exporter options in the helm chart under the
+// `hubble.export.static` field. They also take precedence over the configuration from
+// legacyConfig.
 type config struct {
+	FileRotationInterval         time.Duration `mapstructure:"hubble-export-file-rotation-interval"`
+	FormatVersion                string        `mapstructure:"hubble-export-format-version"`
+	RateLimit                    int           `mapstructure:"hubble-export-rate-limit"`
+	NodeName                     string        `mapstructure:"hubble-export-node-name"`
+	Aggregations                 []string      `mapstructure:"hubble-export-aggregation"`
+	AggregationIgnoreSourcePort  bool          `mapstructure:"hubble-export-aggregation-ignore-source-port"`
+	AggregationRenewTTL          bool          `mapstructure:"hubble-export-aggregation-renew-ttl"`
+	AggregationStateChangeFilter []string      `mapstructure:"hubble-export-aggregation-state-filter"`
+	AggregationTtl               time.Duration `mapstructure:"hubble-export-aggregation-ttl"`
+}
+
+var defaultConfig = config{
+	FileRotationInterval:         0,
+	FormatVersion:                formatVersionV1,
+	RateLimit:                    -1,
+	NodeName:                     "",
+	Aggregations:                 []string{},
+	AggregationIgnoreSourcePort:  true,
+	AggregationRenewTTL:          true,
+	AggregationStateChangeFilter: []string{"new", "error", "closed"},
+	AggregationTtl:               30 * time.Second,
+}
+
+func (def config) Flags(flags *pflag.FlagSet) {
+	flags.Duration("hubble-export-file-rotation-interval", def.FileRotationInterval, "Interval at which to rotate JSON export files in addition to rotating them by size")
+	flags.String("hubble-export-format-version", def.FormatVersion, "Default to v1 format. Set to '' to use the legacy format")
+	flags.Int("hubble-export-rate-limit", def.RateLimit, "Rate limit (per minute) for flow exports. Set to -1 to disable")
+	flags.String("hubble-export-node-name", def.NodeName, "Override the node_name field in exported flows")
+	flags.StringSlice("hubble-export-aggregation", def.Aggregations, "Perform aggregation pre-storage ('connection', 'identity')")
+	flags.Bool("hubble-export-aggregation-ignore-source-port", def.AggregationIgnoreSourcePort, "Ignore source port during aggregation")
+	flags.Bool("hubble-export-aggregation-renew-ttl", def.AggregationRenewTTL, "Renew flow TTL when a new flow is observed")
+	flags.StringSlice("hubble-export-aggregation-state-filter", def.AggregationStateChangeFilter, "The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed')")
+	flags.Duration("hubble-export-aggregation-ttl", def.AggregationTtl, "TTL for flow aggregation")
+}
+
+// legacyConfig represents the `deprecated` EE static exporter configuration used by Cilium <1.18.0.
+//
+// These are sourced in the helm chart from the `extraConfig` free-form field and are
+// superseded by native configuration merged with the OSS exporter values under:
+// `hubble.export.static`.
+type legacyConfig struct {
 	FilePath                     string        `mapstructure:"export-file-path"`
 	FileMaxSize                  int           `mapstructure:"export-file-max-size"`
 	FileRotationInterval         time.Duration `mapstructure:"export-file-rotation-interval"`
@@ -61,7 +110,7 @@ type config struct {
 	AggregationTtl               time.Duration `mapstructure:"export-aggregation-ttl"`
 }
 
-var defaultConfig = config{
+var defaultLegacyConfig = legacyConfig{
 	FilePath:                     "",
 	FileMaxSize:                  100,
 	FileRotationInterval:         0,
@@ -81,7 +130,7 @@ var defaultConfig = config{
 	AggregationTtl:               30 * time.Second,
 }
 
-func (def config) Flags(flags *pflag.FlagSet) {
+func (def legacyConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("export-file-path", def.FilePath, "Absolute path of the export file location. An empty string disables the flow export")
 	flags.Int("export-file-max-size", def.FileMaxSize, "Maximum size of the file in megabytes")
 	flags.Duration("export-file-rotation-interval", def.FileRotationInterval, "Interval at which to rotate JSON export files in addition to rotating them by size")
@@ -103,12 +152,79 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("export-aggregation-ttl", def.AggregationTtl, "TTL for flow aggregation")
 }
 
+// mergedConfig depends on all configurations and merges them together
+// in-order: OSS -> EE legacy and EE -> EE legacy.
+type mergedConfig struct {
+	oss exportercell.ValidatedConfig
+	ee  config
+}
+
+func newMergedConfig(oss exportercell.ValidatedConfig, eeLegacy legacyConfig, ee config) mergedConfig {
+	// merge oss with eeLegacy (OSS takes precedence)
+	ossDefault := exportercell.DefaultConfig
+	if oss.ExportFilePath == ossDefault.ExportFilePath {
+		oss.ExportFilePath = eeLegacy.FilePath
+	}
+	if oss.ExportFileMaxSizeMB == ossDefault.ExportFileMaxSizeMB {
+		oss.ExportFileMaxSizeMB = eeLegacy.FileMaxSize
+	}
+	if oss.ExportFileMaxBackups == ossDefault.ExportFileMaxBackups {
+		oss.ExportFileMaxBackups = eeLegacy.FileMaxBackups
+	}
+	if oss.ExportFileCompress == ossDefault.ExportFileCompress {
+		oss.ExportFileCompress = eeLegacy.FileCompress
+	}
+	if oss.ExportAllowlist == ossDefault.ExportAllowlist {
+		oss.ExportAllowlist = eeLegacy.FlowAllowlist
+		if oss.ExportAllowlist == defaultLegacyConfig.FlowAllowlist {
+			oss.ExportAllowlist = eeLegacy.FlowWhitelist
+		}
+	}
+	if oss.ExportDenylist == ossDefault.ExportDenylist {
+		oss.ExportDenylist = eeLegacy.FlowDenylist
+		if oss.ExportDenylist == defaultLegacyConfig.FlowDenylist {
+			oss.ExportDenylist = eeLegacy.FlowBlacklist
+		}
+	}
+
+	// merge ee with eeLegacy (EE takes precedence)
+	if ee.FileRotationInterval == defaultConfig.FileRotationInterval {
+		ee.FileRotationInterval = eeLegacy.FileRotationInterval
+	}
+	if ee.FormatVersion == defaultConfig.FormatVersion {
+		ee.FormatVersion = eeLegacy.FormatVersion
+	}
+	if ee.RateLimit == defaultConfig.RateLimit {
+		ee.RateLimit = eeLegacy.RateLimit
+	}
+	if ee.NodeName == defaultConfig.NodeName {
+		ee.NodeName = eeLegacy.NodeName
+	}
+	if slices.Equal(ee.Aggregations, defaultConfig.Aggregations) {
+		ee.Aggregations = eeLegacy.Aggregations
+	}
+	if ee.AggregationIgnoreSourcePort == defaultConfig.AggregationIgnoreSourcePort {
+		ee.AggregationIgnoreSourcePort = eeLegacy.AggregationIgnoreSourcePort
+	}
+	if ee.AggregationRenewTTL == defaultConfig.AggregationRenewTTL {
+		ee.AggregationRenewTTL = eeLegacy.AggregationRenewTTL
+	}
+	if slices.Equal(ee.AggregationStateChangeFilter, defaultConfig.AggregationStateChangeFilter) {
+		ee.AggregationStateChangeFilter = eeLegacy.AggregationStateChangeFilter
+	}
+	if ee.AggregationTtl == defaultConfig.AggregationTtl {
+		ee.AggregationTtl = eeLegacy.AggregationTtl
+	}
+
+	return mergedConfig{oss: oss, ee: ee}
+}
+
 type hubbleEnterpriseExporterParams struct {
 	cell.In
 
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
-	Config    config
+	Config    mergedConfig
 
 	// TODO: replace by slog
 	Logger  logrus.FieldLogger
@@ -122,7 +238,7 @@ type HubbleEnterpriseExporterOut struct {
 }
 
 func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleEnterpriseExporterOut, error) {
-	if params.Config.FilePath == "" {
+	if params.Config.oss.ExportFilePath == "" {
 		params.Logger.Info("The Hubble EE static exporter is disabled")
 		return HubbleEnterpriseExporterOut{}, nil
 	}
@@ -133,31 +249,21 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 		Build: func() (exporter.FlowLogExporter, error) {
 			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble EE static exporter")
 
-			// keep support for deprecated flags
-			allowlistFlag := params.Config.FlowAllowlist
-			if allowlistFlag == "" {
-				allowlistFlag = params.Config.FlowWhitelist
-			}
-			denylistFlag := params.Config.FlowDenylist
-			if denylistFlag == "" {
-				denylistFlag = params.Config.FlowBlacklist
-			}
-
-			allowList, err := hubble.ParseFlowFilters(allowlistFlag)
+			allowList, err := hubble.ParseFlowFilters(params.Config.oss.ExportAllowlist)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse allowlist: %w", err)
 			}
-			denyList, err := hubble.ParseFlowFilters(denylistFlag)
+			denyList, err := hubble.ParseFlowFilters(params.Config.oss.ExportDenylist)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse denylist: %w", err)
 			}
 
 			// create file writer
 			writer := &lumberjack.Logger{
-				Filename:   params.Config.FilePath,
-				MaxSize:    params.Config.FileMaxSize,
-				MaxBackups: params.Config.FileMaxBackups,
-				Compress:   params.Config.FileCompress,
+				Filename:   params.Config.oss.ExportFilePath,
+				MaxSize:    params.Config.oss.ExportFileMaxSizeMB,
+				MaxBackups: params.Config.oss.ExportFileMaxBackups,
+				Compress:   params.Config.oss.ExportFileCompress,
 			}
 
 			// register flow metrics
@@ -174,7 +280,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 					return writer, nil
 				}),
 				exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
-					return newEnterpriseJsonEncoder(params.Config, writer), nil
+					return newEnterpriseJsonEncoder(params.Config.ee, writer), nil
 				}),
 				exporter.WithOnExportEventFunc(func(_ context.Context, ev *v1.Event, _ exporter.Encoder) (bool, error) {
 					// stop export pipeline for non-flow events
@@ -184,8 +290,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 			}
 
 			// create aggregator
-			if len(params.Config.Aggregations) > 0 {
-				aggregator, err := newHubbleEnterpriseAggregator(params.Config, params.Logger)
+			if len(params.Config.ee.Aggregations) > 0 {
+				aggregator, err := newHubbleEnterpriseAggregator(params.Config.ee, params.Logger)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create enterprise aggregator: %w", err)
 				}
@@ -197,8 +303,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 			}
 
 			// setup rate-limiting
-			if params.Config.RateLimit >= 0 {
-				ratelimiter, err := newEnterpriseRateLimiter(params.Config, params.Logger)
+			if params.Config.ee.RateLimit >= 0 {
+				ratelimiter, err := newEnterpriseRateLimiter(params.Config.ee, params.Logger)
 				if err != nil {
 					// non-fatal failure, log and continue
 					params.Logger.WithError(err).Warn("Failed to create flow export rate limiter")
@@ -231,10 +337,10 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				return nil, nil
 			}
 
-			if params.Config.FileRotationInterval != 0 {
-				params.Logger.WithField("interval", params.Config.FileRotationInterval).Info("Periodically rotating JSON export file")
+			if params.Config.ee.FileRotationInterval != 0 {
+				params.Logger.WithField("interval", params.Config.ee.FileRotationInterval).Info("Periodically rotating JSON export file")
 				params.JobGroup.Add(job.OneShot("hubble-exporter-file-rotate", func(ctx context.Context, health cell.Health) error {
-					ticker := time.NewTicker(params.Config.FileRotationInterval)
+					ticker := time.NewTicker(params.Config.ee.FileRotationInterval)
 					for {
 						select {
 						case <-ctx.Done():
@@ -242,7 +348,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 						case <-ticker.C:
 							if err := writer.Rotate(); err != nil {
 								params.Logger.WithError(err).
-									WithField("filename", params.Config.FilePath).
+									WithField("filename", params.Config.oss.ExportFilePath).
 									Warn("Failed to rotate JSON export file")
 							}
 						}

@@ -439,3 +439,58 @@ hubble:
         roles: []
         # -- The list of bindings between claims and roles.
         bindings: []
+  export:
+    static:
+      # --- Defines interval at which to rotate output file (15s, 5m, 1h).
+      # Leave unset or set to 0s to disable time-based file rotation.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `0s`
+      fileRotationInterval: ~
+      # --- Defines API format used to encode output file.
+      # Set to '' to use legacy format.
+      formatVersion: v1
+      # --- Defines the amount of events to allow per minute before being rate-limited.
+      # Leave unset or set to -1 to disable rate-limiting.
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # @default -- `-1`
+      rateLimit: ~
+      # --- Override the node_name field in exported events.
+      # @schema
+      # type: [null, string]
+      # @schema
+      overrideNodeName: ~
+      # --- Defines the aggregation to perform pre-storage ('connection', 'identity').
+      # Leave empty to disable aggregation.
+      # @schema
+      # type: [null, array]
+      # @schema
+      aggregation: ~
+      # --- Defines whether to ignore source port during aggregation.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationIgnoreSourcePort: ~
+      # --- Defines whether to renew the flow TTL when a new flow is observed.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationRenewTTL: ~
+      # --- Defines the state changes to include while aggregating
+      # ('new', 'established', 'first_error', 'error', 'closed').
+      # @schema
+      # type: [null, array]
+      # @schema
+      # @default -- `["new", "error", "closed"]`
+      aggregationStateFilter: ~
+      # --- Defines the TTL for flow aggregation.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `30s`
+      aggregationTTL: ~
