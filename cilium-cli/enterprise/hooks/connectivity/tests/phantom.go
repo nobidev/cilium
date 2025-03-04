@@ -39,6 +39,7 @@ func (s *podToPhantomService) Run(ctx context.Context, t *check.Test) {
 
 		ct  = t.Context()
 		dst = deploy.MustGetEchoPodOtherNode(ct) // Used for flow validation
+		idx = ct.Params().TestNamespaceIndex
 	)
 
 	for _, pod := range ct.ClientPods() {
@@ -46,7 +47,7 @@ func (s *podToPhantomService) Run(ctx context.Context, t *check.Test) {
 
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
 			target := check.HTTPEndpoint(fmt.Sprintf("phantom-service-%s", ipFam),
-				fmt.Sprintf("http://%s:%d", deploy.PhantomServiceAddress(ipFam), deploy.PhantomServicePort))
+				fmt.Sprintf("http://%s:%d", deploy.PhantomServiceAddress(ipFam, idx), deploy.PhantomServicePort))
 
 			t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, target, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ct.CurlCommand(target, ipFam))

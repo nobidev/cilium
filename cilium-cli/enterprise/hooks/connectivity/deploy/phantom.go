@@ -30,14 +30,14 @@ const (
 	PhantomServicePort = 9090
 )
 
-func PhantomServiceAddress(ipFam features.IPFamily) string {
+func PhantomServiceAddress(ipFam features.IPFamily, idx int) string {
 	if ipFam == features.IPFamilyV6 {
 		// The 2001:db8::/32 subnet is reserved for documentation by https://www.rfc-editor.org/rfc/rfc3849
-		return "2001:db8::94"
+		return fmt.Sprintf("2001:db8::%x", idx+1)
 	}
 
 	// The 192.0.2.0/24 subnet is reserved for documentation by https://www.rfc-editor.org/rfc/rfc5737.html
-	return "192.0.2.94"
+	return fmt.Sprintf("192.0.2.%d", idx+1)
 }
 
 // PhantomService deploys the phantom service associated with the echo-other-node pod,
@@ -84,7 +84,7 @@ func PhantomService(ctx context.Context, t *check.Test, ct *check.ConnectivityTe
 	dummy.Spec.ClusterIPs = nil
 
 	for _, family := range ct.Features.IPFamilies() {
-		address := PhantomServiceAddress(family)
+		address := PhantomServiceAddress(family, ct.Params().TestNamespaceIndex)
 		dummy.Spec.ClusterIPs = append(dummy.Spec.ClusterIPs, address)
 		svc.Status.LoadBalancer.Ingress = append(svc.Status.LoadBalancer.Ingress,
 			corev1.LoadBalancerIngress{IP: address})
