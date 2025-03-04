@@ -6,6 +6,8 @@ set -o pipefail
 UPSTREAM_REPO="cilium\/cilium"
 UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-main}"
 
+ARGS=()
+
 # IGNORE_HUNK_REGEXES is an array of flags to 'git diff' that specify string
 # matches within a hunk that should be ignored for the purpose of determining
 # the mindfulness of the change compared with the merge-base of the upstream
@@ -88,7 +90,7 @@ BPF_NOISY_GLOBS=(
 )
 
 usage() {
-  echo -e "$0 [-d|--debug] [--exit-code] [-f|--fetch] [-h|--help] [-n|--noisy] [-r|--repo REPO] [COMMIT]"
+  echo -e "$0 [FLAGS] [COMMIT]"
   echo
   echo -e 'Print a diff of file changes compared with the upstream tree at the most recent merge-base.'
   echo
@@ -96,6 +98,7 @@ usage() {
   echo -e 'COMMIT\tCommit to compare with (default: Compare with merge-base of upstream default branch)'
   echo
   echo -e 'Flags:'
+  echo -e '-a | --apply\tApply the diff to the local tree to sync with upstream'
   echo -e '-d | --debug\tRun the script with debug output (-x)'
   echo -e '     --exit-code\tBehave like diff(1) when encountering a diff (ie exit status 1 on diff)'
   echo -e '-f | --fetch\tFetch the latest upstream repo before assessing mindfulness'
@@ -104,17 +107,32 @@ usage() {
   echo -e '-r | --repo\tSpecify the target repository to sync (example: "cilium/cilium")'
 }
 
+# $1 - target commit
+diff_upstream() {
+  commit="$1"
+
+  git diff "$commit" "HEAD" "${ARGS[@]}" \
+    --merge-base --diff-filter=BMUX \
+    "${IGNORE_HUNK_REGEXES[@]}" \
+    -- "${DIFF_EXCL_GLOBS[@]}" \
+       "${DIFF_NOISY_GLOBS[@]}" \
+       "${BPF_NOISY_GLOBS[@]}"
+}
+
 main() {
-  local upstream_remote="" commit="" debug="" exit_code="" fetch="" stat=""
+  local apply="" upstream_remote="" commit="" debug="" fetch=""
 
   set +e
   while [[ $# -gt 0 ]]; do
     case $1 in
+      -a|--apply)
+        apply=1
+        ;;
       -d|--debug)
         debug=1
         ;;
       --exit-code)
-        exit_code="--exit-code"
+        ARGS+=('--exit-code')
         ;;
       -f|--fetch)
         fetch=1
@@ -132,7 +150,7 @@ main() {
         shift
           ;;
       -s|--stat)
-        stat="--stat"
+        ARGS+=('--stat')
         ;;
       -*)
         >&2 echo "unknown option: $1"
@@ -161,19 +179,20 @@ main() {
     if [[ -n "$fetch" ]]; then
       git fetch --quiet "$upstream_remote"
     fi
-    commit=$(git merge-base HEAD "$upstream_remote/${UPSTREAM_BRANCH}")
+    commit="$upstream_remote/${UPSTREAM_BRANCH}"
   fi
 
   >&2 echo "Scanning diff HEAD..$commit:"
   >&2 git log -1 --oneline "$commit"
 
-  git diff "HEAD..$commit" \
-    --diff-filter=BMUX \
-    $exit_code $stat \
-    ${IGNORE_HUNK_REGEXES[*]} \
-    -- ${DIFF_EXCL_GLOBS[*]} \
-       ${DIFF_NOISY_GLOBS[*]} \
-       ${BPF_NOISY_GLOBS[*]}
+  if [[ -z $apply ]]; then
+    diff_upstream "$commit"
+  else
+    patch=$(mktemp tmp.XXXXXXXX.patch)
+    trap 'rm $patch' EXIT
+    diff_upstream "$commit" > "$patch"
+    git apply --reverse "$patch"
+  fi
 }
 
 main "$@"
