@@ -1,3 +1,8 @@
+enterprise:
+  featureGate:
+    approved:
+    - HubbleTimescape
+
 operator:
   replicas: 1
 
