@@ -11,8 +11,8 @@ import (
 
 // OperatorMetrics contains metrics of the BGP operator.
 type OperatorMetrics struct {
-	// ReconcileErrorCount is the number of errors during reconciliation of the BGP configuration.
-	ReconcileErrorCount metric.Vec[metric.Counter]
+	// ReconcileErrorsTotal is the number of errors during reconciliation of the BGP configuration.
+	ReconcileErrorsTotal metric.Vec[metric.Counter]
 
 	// ReconcileRunDuration measures the duration of the reconciliation run. Histogram can
 	// be used to observe the total number of reconciliation runs and distribution of the run duration.
@@ -22,10 +22,10 @@ type OperatorMetrics struct {
 // newBGPOperatorMetrics returns a new OperatorMetrics with all metrics initialized.
 func newBGPOperatorMetrics() *OperatorMetrics {
 	return &OperatorMetrics{
-		ReconcileErrorCount: metric.NewCounterVec(metric.CounterOpts{
+		ReconcileErrorsTotal: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: types.MetricsSubsystem,
-			Name:      types.MetricReconcileErrorCount,
+			Name:      types.MetricReconcileErrorsTotal,
 			Help:      "The number of errors during reconciliation of BGP configuration",
 		}, []string{types.LabelResourceKind}),
 		ReconcileRunDuration: metric.NewHistogramVec(metric.HistogramOpts{

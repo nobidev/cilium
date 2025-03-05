@@ -35,25 +35,25 @@ func (m *BGPResourceMapper) reconcileMappings(ctx context.Context) error {
 
 	err := m.mapClusterConfigs(ctx)
 	if err != nil {
-		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPCCKindDefinition).Add(1)
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPCCKindDefinition).Inc()
 	}
 
 	rErr := m.mapPeerConfigs(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPPCKindDefinition).Add(1)
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPPCKindDefinition).Inc()
 	}
 
 	rErr = m.mapAdvertisements(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPAKindDefinition).Add(1)
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPAKindDefinition).Inc()
 	}
 
 	rErr = m.mapNodeConfigOverrides(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorCount.WithLabelValues(v2alpha1.BGPNCOKindDefinition).Add(1)
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPNCOKindDefinition).Inc()
 	}
 
 	return err

@@ -223,7 +223,7 @@ func (m *BGPResourceMapper) reconcile(ctx context.Context) error {
 	rErr := m.reconcileClusterConfigs(ctx)
 	if rErr != nil {
 		err = errors.Join(err, rErr)
-		m.metrics.ReconcileErrorCount.WithLabelValues(v1.IsovalentBGPClusterConfigKindDefinition).Add(1)
+		m.metrics.ReconcileErrorsTotal.WithLabelValues(v1.IsovalentBGPClusterConfigKindDefinition).Inc()
 	}
 
 	m.metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())

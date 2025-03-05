@@ -14,8 +14,8 @@ const (
 	// MetricsSubsystem is the name of the metrics subsystem for enterprise BGP Control Plane.
 	MetricsSubsystem = "enterprise_bgp_control_plane"
 
-	// MetricReconcileErrorCount is the name of the metric with the number of errors during reconciliation.
-	MetricReconcileErrorCount = "reconcile_error_count"
+	// MetricReconcileErrorsTotal is the name of the metric with the number of errors during reconciliation.
+	MetricReconcileErrorsTotal = "reconcile_errors_total"
 	// MetricReconcileRunDuration is the name of the metric with the duration of the BGP reconciliation run.
 	MetricReconcileRunDuration = "reconcile_run_duration_seconds"
 
