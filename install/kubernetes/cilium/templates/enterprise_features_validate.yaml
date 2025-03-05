@@ -7,6 +7,9 @@
 {{- end -}}
 {{- end -}}
 {{- $minimumMaturityOrder := 0 -}}
+{{- if hasKey .enterprise.featureGate "minimumMaturity" -}}
+{{- $minimumMaturityOrder = get $featureMaturityLevels .enterprise.featureGate.minimumMaturity -}}
+{{- end -}}
 {{- $strictFeatureGates := .enterprise.featureGate.strict -}}
 {{- $fails := false -}}
 {{- if (eq "true" (print .enterprise.bfd.enabled))  -}}
