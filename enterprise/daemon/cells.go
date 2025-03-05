@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
-	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/mixedrouting"
 	"github.com/cilium/cilium/enterprise/pkg/multicast"
 	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
@@ -74,7 +73,6 @@ var (
 		srv6manager.Cell,
 		bgpv1.Cell,
 		bfd.Cell,
-		egressmapha.Cell,
 		egressgatewayha.Cell,
 		egressgatewayha.PolicyCell,
 		cell.Invoke(func(*egressgatewayha.Manager) {}),

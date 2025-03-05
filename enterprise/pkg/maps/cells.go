@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
+	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
 )
 
@@ -27,6 +28,9 @@ var Cell = cell.Module(
 
 	// Cilium Mesh map
 	ciliummeshpolicymap.Cell,
+
+	// Egress Gateway HA maps
+	egressmapha.Cell,
 
 	// Encryption policy map
 	encryptionpolicymap.Cell,
