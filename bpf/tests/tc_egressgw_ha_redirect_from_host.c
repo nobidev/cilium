@@ -56,7 +56,7 @@ int egressgw_ha_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_HA_REDIRECT));
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
-				     { GATEWAY_NODE_IP }, EGRESS_IP);
+				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -93,9 +93,9 @@ int egressgw_ha_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_HA_REDIRECT_EXCL_CIDR));
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
-				     { GATEWAY_NODE_IP }, EGRESS_IP);
+				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 1,
-				     { EGRESS_GATEWAY_EXCLUDED_CIDR }, EGRESS_IP);
+				     { EGRESS_GATEWAY_EXCLUDED_CIDR }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -133,7 +133,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_HA_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 0, {},
-				     EGRESS_IP);
+				     EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -187,7 +187,7 @@ int egressgw_ha_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 	create_ct_entry(ctx, client_port(TEST_HA_DROP_NO_EGRESS_IP));
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 1,
 				     { GATEWAY_NODE_IP },
-				     EGRESS_GATEWAY_NO_EGRESS_IP);
+				     EGRESS_GATEWAY_NO_EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);

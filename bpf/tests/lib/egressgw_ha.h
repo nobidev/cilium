@@ -15,21 +15,25 @@ enum egressgw_ha_test {
 };
 
 // From https://github.com/isovalent/cilium/commit/74df7db70f538453ff9677ad64d29d726a438d61
-#define add_egressgw_ha_policy_entry(_saddr, _daddr, _cidr, _size, _gateway_ips, _egress_ip)	\
+#define add_egressgw_ha_policy_entry(_saddr, _daddr, _cidr, _size, _gateway_ips, _egress_ip,	\
+				     _egress_ifindex)						\
 {												\
-	struct egress_gw_ha_policy_key in_key = {							\
+	struct egress_gw_ha_policy_key in_key = {						\
 		.lpm_key = { EGRESS_PREFIX_LEN(_cidr), {} },					\
 		.saddr   = _saddr,								\
 		.daddr   = _daddr,								\
 	};											\
 												\
-	struct egress_gw_ha_policy_entry in_val = {						\
-		.size        = _size,								\
-		.egress_ip   = _egress_ip,							\
-		.gateway_ips = _gateway_ips,							\
+	struct egress_gw_ha_policy_entry_v2 in_val = {						\
+		.policy = {									\
+			.size        = _size,							\
+			.egress_ip   = _egress_ip,						\
+			.gateway_ips = _gateway_ips,						\
+		},										\
+		.egress_ifindex = _egress_ifindex,						\
 	};											\
 												\
-	map_update_elem(&EGRESS_GW_HA_POLICY_MAP, &in_key, &in_val, 0);				\
+	map_update_elem(&EGRESS_GW_HA_POLICY_MAP_V2, &in_key, &in_val, 0);			\
 }
 
 static __always_inline void del_egressgw_ha_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
@@ -40,5 +44,5 @@ static __always_inline void del_egressgw_ha_policy_entry(__be32 saddr, __be32 da
 		.daddr   = daddr,
 	};
 
-	map_delete_elem(&EGRESS_GW_HA_POLICY_MAP, &in_key);
+	map_delete_elem(&EGRESS_GW_HA_POLICY_MAP_V2, &in_key);
 }

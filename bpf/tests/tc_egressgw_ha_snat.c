@@ -88,7 +88,8 @@ int egressgw_ha_snat1_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_ha_snat1")
 int egressgw_ha_snat1_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1, { GATEWAY_NODE_IP }, EGRESS_IP);
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
+				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	ctx_egw_done_set(ctx);
@@ -190,7 +191,7 @@ SETUP("tc", "tc_egressgw_ha_tuple_collision1")
 int egressgw_ha_tuple_collision1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
-				     { GATEWAY_NODE_IP }, EGRESS_IP);
+				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
 	ctx_egw_done_set(ctx);
@@ -225,7 +226,7 @@ SETUP("tc", "tc_egressgw_ha_tuple_collision2")
 int egressgw_ha_tuple_collision2_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
-				     { GATEWAY_NODE_IP }, EGRESS_IP3);
+				     { GATEWAY_NODE_IP }, EGRESS_IP3, 0);
 
 	/* Jump into the entrypoint */
 	ctx_egw_done_set(ctx);
@@ -300,8 +301,10 @@ int egressgw_ha_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_ha_skip_excluded_cidr_snat")
 int egressgw_ha_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1, { GATEWAY_NODE_IP }, 0);
-	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 1, { EGRESS_GATEWAY_EXCLUDED_CIDR }, 0);
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
+				     { GATEWAY_NODE_IP }, 0, 0);
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 1, {
+				     EGRESS_GATEWAY_EXCLUDED_CIDR }, 0, 0);
 
 	/* Jump into the entrypoint */
 	ctx_egw_done_set(ctx);
@@ -377,7 +380,8 @@ int egressgw_fib_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_fib_redirect")
 int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1, { GATEWAY_NODE_IP }, EGRESS_IP2);
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
+				     { GATEWAY_NODE_IP }, EGRESS_IP2, 0);
 
 	/* Jump into the entrypoint */
 	ctx_egw_done_set(ctx);
