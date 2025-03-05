@@ -11,8 +11,8 @@ import (
 
 // OperatorMetrics contains metrics of the BFD operator.
 type OperatorMetrics struct {
-	// ReconcileErrorCount is the number of errors during reconciliation of the BFD configuration.
-	ReconcileErrorCount metric.Vec[metric.Counter]
+	// ReconcileErrorsTotal is the number of errors during reconciliation of the BFD configuration.
+	ReconcileErrorsTotal metric.Vec[metric.Counter]
 
 	// ReconcileRunDuration measures the duration of the reconciliation run. Histogram can
 	// be used to observe the total number of reconciliation runs and distribution of the run duration.
@@ -22,10 +22,10 @@ type OperatorMetrics struct {
 // newBFDOperatorMetrics returns a new OperatorMetrics with all metrics initialized.
 func newBFDOperatorMetrics() *OperatorMetrics {
 	return &OperatorMetrics{
-		ReconcileErrorCount: metric.NewCounterVec(metric.CounterOpts{
+		ReconcileErrorsTotal: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: types.MetricsSubsystem,
-			Name:      types.MetricReconcileErrorCount,
+			Name:      types.MetricReconcileErrorsTotal,
 			Help:      "The number of errors during reconciliation of BFD configuration",
 		}, []string{types.LabelResourceKind, types.LabelResourceName}),
 		ReconcileRunDuration: metric.NewHistogramVec(metric.HistogramOpts{

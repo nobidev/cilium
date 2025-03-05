@@ -17,8 +17,8 @@ const (
 	// MetricSessionState is the name of the metric with the current state of the BFD session with the BFD peer
 	// (Up = 1 or Down = 0).
 	MetricSessionState = "session_state"
-	// MetricReconcileErrorCount is the name of the metric with the number of errors during reconciliation.
-	MetricReconcileErrorCount = "reconcile_error_count"
+	// MetricReconcileErrorsTotal is the name of the metric with the number of errors during reconciliation.
+	MetricReconcileErrorsTotal = "reconcile_errors_total"
 	// MetricReconcileRunDuration is the name of the metric with the duration of the BFD reconciliation run.
 	MetricReconcileRunDuration = "reconcile_run_duration_seconds"
 

@@ -267,7 +267,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to add BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
-			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
+			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
 			r.configuredPeers[peer.key()] = peer
 		}
@@ -278,7 +278,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to update BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
-			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
+			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
 			r.configuredPeers[peer.key()] = peer
 		}
@@ -289,7 +289,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 			r.Logger.WithError(err).WithFields(peer.logFields()).
 				Error("Failed to delete BFD peer, BFD peer configuration may be inconsistent")
 			reconcileErr = errors.Join(reconcileErr, err)
-			r.Metrics.ReconcileErrorCount.WithLabelValues(peer.peerName).Inc()
+			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
 			delete(r.configuredPeers, peer.key())
 		}
@@ -325,7 +325,7 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 					r.Logger.WithError(err).WithField(types.ProfileNameField, peer.BFDProfileRef).
 						Error("Failed to retrieve BFD profile, skipping peer reconciliation")
 					reconcileErr = errors.Join(reconcileErr, err)
-					r.Metrics.ReconcileErrorCount.WithLabelValues(peer.Name).Inc()
+					r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.Name).Inc()
 					continue
 				}
 				if !exists {
@@ -336,7 +336,7 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 					r.Logger.WithError(err).WithField(types.PeerNameField, peer.Name).
 						Error("Failed to generate desired BFD peer config, skipping peer reconciliation")
 					reconcileErr = errors.Join(reconcileErr, err)
-					r.Metrics.ReconcileErrorCount.WithLabelValues(peer.Name).Inc()
+					r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.Name).Inc()
 					continue
 				}
 				if cfg == nil {

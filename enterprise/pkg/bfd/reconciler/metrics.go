@@ -20,8 +20,8 @@ type BFDMetrics struct {
 	// SessionState contains the current state of the BFD session with the peer.
 	SessionState metric.Vec[metric.Gauge]
 
-	// ReconcileErrorCount is the number of errors during reconciliation of the BFD configuration.
-	ReconcileErrorCount metric.Vec[metric.Counter]
+	// ReconcileErrorsTotal is the number of errors during reconciliation of the BFD configuration.
+	ReconcileErrorsTotal metric.Vec[metric.Counter]
 
 	// ReconcileRunDuration measures the duration of the reconciliation run. Histogram can
 	// be used to observe the total number of reconciliation runs and distribution of the run duration.
@@ -36,10 +36,10 @@ func newBFDMetrics() *BFDMetrics {
 			Name:      types.MetricSessionState,
 			Help:      "Current state of the BFD session with the peer, Up = 1 or Down = 0",
 		}, []string{types.LabelPeerIP, types.LabelInterface}),
-		ReconcileErrorCount: metric.NewCounterVec(metric.CounterOpts{
+		ReconcileErrorsTotal: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: types.MetricsSubsystem,
-			Name:      types.MetricReconcileErrorCount,
+			Name:      types.MetricReconcileErrorsTotal,
 			Help:      "The number of errors during reconciliation of BFD configuration",
 		}, []string{types.LabelPeerName}),
 		ReconcileRunDuration: metric.NewHistogramVec(metric.HistogramOpts{

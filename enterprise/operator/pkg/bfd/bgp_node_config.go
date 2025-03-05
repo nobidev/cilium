@@ -56,7 +56,7 @@ func (r *bfdReconciler) reconcileBGPClusterConfigs(ctx context.Context) error {
 		rcErr := r.reconcileBGPClusterConfig(ctx, cc)
 		if rcErr != nil {
 			err = errors.Join(err, rcErr)
-			r.Metrics.ReconcileErrorCount.WithLabelValues(v1.IsovalentBGPClusterConfigKindDefinition, cc.Name).Inc()
+			r.Metrics.ReconcileErrorsTotal.WithLabelValues(v1.IsovalentBGPClusterConfigKindDefinition, cc.Name).Inc()
 		}
 	}
 	return err
