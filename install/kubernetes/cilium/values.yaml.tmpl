@@ -38,6 +38,15 @@ debug:
   # - datapath
   # - policy
   verbose: ~
+
+  # -- Set the agent-internal metrics sampling frequency. This sets the
+  # frequency of the internal sampling of the agent metrics. These are
+  # available via the "cilium-dbg shell -- metrics -s" command and are
+  # part of the metrics HTML page included in the sysdump.
+  # @schema
+  # type: [null, string]
+  # @schema
+  metricsSamplingInterval: "5m"
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
@@ -577,6 +586,11 @@ bpf:
   # type: [null, integer]
   # @schema
   policyMapMax: 16384
+  # -- Configure the maximum number of entries in global policy stats map.
+  # @schema
+  # type: [null, integer]
+  # @schema
+  policyStatsMapMax: 65536
   # @schema
   # type: [null, number]
   # @schema
@@ -1272,6 +1286,11 @@ hubble:
       jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # -- Relabeling configs for the ServiceMonitor hubble
       relabelings:
         - sourceLabels:
@@ -1657,6 +1676,11 @@ hubble:
         annotations: {}
         # -- Interval for scrape metrics.
         interval: "10s"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Timeout after which scrape is considered to be failed.
+        scrapeTimeout: ~
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
@@ -2276,6 +2300,11 @@ prometheus:
     jobLabel: ""
     # -- Interval for scrape metrics.
     interval: "10s"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Timeout after which scrape is considered to be failed.
+    scrapeTimeout: ~
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -2386,6 +2415,9 @@ envoy:
   # -- Set Envoy upstream HTTP idle connection timeout seconds.
   # Does not apply to connections with pending requests. Default 60s
   idleTimeoutDurationSeconds: 60
+  # -- Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity.
+  # default 5 minutes
+  streamIdleTimeoutDurationSeconds: 300
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
@@ -2589,6 +2621,11 @@ envoy:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # -- Specify the Kubernetes namespace where Prometheus expects to find
       # service monitors configured.
       # namespace: ""
@@ -2915,6 +2952,11 @@ operator:
       jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # @schema
       # type: [null, array]
       # @schema
@@ -3576,6 +3618,11 @@ clustermesh:
         # -- Interval for scrape metrics (apiserver metrics)
         interval: "10s"
         # @schema
+        # type: [null, string]
+        # @schema
+        # -- Timeout after which scrape is considered to be failed.
+        scrapeTimeout: ~
+        # @schema
         # type: [null, array]
         # @schema
         # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
@@ -3589,6 +3636,11 @@ clustermesh:
           # -- Interval for scrape metrics (KVStoreMesh metrics)
           interval: "10s"
           # @schema
+          # type: [null, string]
+          # @schema
+          # -- Timeout after which scrape is considered to be failed.
+          scrapeTimeout: ~
+          # @schema
           # type: [null, array]
           # @schema
           # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
@@ -3601,6 +3653,11 @@ clustermesh:
         etcd:
           # -- Interval for scrape metrics (etcd metrics)
           interval: "10s"
+          # @schema
+          # type: [null, string]
+          # @schema
+          # -- Timeout after which scrape is considered to be failed.
+          scrapeTimeout: ~
           # @schema
           # type: [null, array]
           # @schema

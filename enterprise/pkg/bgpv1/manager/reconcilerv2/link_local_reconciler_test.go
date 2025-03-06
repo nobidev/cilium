@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -111,7 +111,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 		Name:     instance.Name,
 		LocalASN: ptr.To[int64](65001),
 	}
-	ossNodeInstance := &v2alpha1.CiliumBGPNodeInstance{
+	ossNodeInstance := &v2.CiliumBGPNodeInstance{
 		Name:     iNodeInstance.Name,
 		LocalASN: iNodeInstance.LocalASN,
 	}
@@ -354,7 +354,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 			iNodeInstance.Peers = tt.initPeers
 			ossNodeInstance.Peers = nil
 			for _, peer := range tt.initPeers {
-				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2alpha1.CiliumBGPNodePeer{
+				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2.CiliumBGPNodePeer{
 					Name:        peer.Name,
 					PeerAddress: peer.PeerAddress,
 				})
@@ -582,12 +582,12 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 			instance := &instance.BGPInstance{
 				Name: tt.nodeInstance.Name,
 			}
-			ossNodeInstance := &v2alpha1.CiliumBGPNodeInstance{
+			ossNodeInstance := &v2.CiliumBGPNodeInstance{
 				Name:     tt.nodeInstance.Name,
 				LocalASN: tt.nodeInstance.LocalASN,
 			}
 			for _, peer := range tt.nodeInstance.Peers {
-				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2alpha1.CiliumBGPNodePeer{
+				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2.CiliumBGPNodePeer{
 					Name:        peer.Name,
 					PeerAddress: peer.PeerAddress,
 				})

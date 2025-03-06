@@ -220,7 +220,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 
 		desiredVRFAFPaths := make(reconcilerv2.AFPathsMap)
 		for fam, adverts := range afAdverts {
-			family := types.ToAgentFamily(fam)
+			family := toAgentFamily(fam)
 
 			// we do not care about advertisements for pod CIDRs, as long as there is one,
 			// we will advertise the pod CIDRs

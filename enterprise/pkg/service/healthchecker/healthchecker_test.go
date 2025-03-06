@@ -21,7 +21,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -147,7 +146,7 @@ func setupTest(t *testing.T, prober Prober) *TestHealthChecker {
 		Events: make(chan TestHealthCheckCBEvent),
 	}
 
-	logger := slog.New(logging.SlogNopHandler)
+	logger := slog.New(slog.DiscardHandler)
 
 	thc.hc = newHealthChecker(logger)
 	thc.hc.SetCallback(thc.HealthCheckCBTest)

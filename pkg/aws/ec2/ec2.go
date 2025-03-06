@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -22,7 +23,6 @@ import (
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -53,10 +53,11 @@ const (
 	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ec2")
+var syslogAttr = []any{logfields.LogSubsys, "ec2"}
 
 // Client represents an EC2 API client
 type Client struct {
+	logger              *slog.Logger
 	ec2Client           *ec2.Client
 	limiter             *helpers.APILimiter
 	metricsAPI          MetricsAPI
@@ -73,13 +74,14 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
+func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
 	eniTagSpecification := ec2_types.TagSpecification{
 		ResourceType: ec2_types.ResourceTypeNetworkInterface,
 		Tags:         createAWSTagSlice(eniTags),
 	}
 
 	return &Client{
+		logger:              logger.With(syslogAttr...),
 		ec2Client:           ec2Client,
 		metricsAPI:          metrics,
 		limiter:             helpers.NewAPILimiter(metrics, rateLimit, burst),
@@ -624,8 +626,11 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		Groups:      groups,
 	}
 	if allocatePrefixes {
-		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)))
-		log.Debugf("Creating interface with %v prefixes", input.Ipv4PrefixCount)
+		prefixCount := ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)
+		input.Ipv4PrefixCount = aws.Int32(int32(prefixCount))
+		c.logger.Debug("Creating interface with prefixes",
+			logfields.PrefixCount, prefixCount,
+		)
 	} else {
 		input.SecondaryPrivateIpAddressCount = aws.Int32(toAllocate)
 	}
@@ -710,7 +715,7 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 
 // AssignPrivateIpAddresses assigns the specified number of secondary IP
 // addresses
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId:             aws.String(eniID),
 		SecondaryPrivateIpAddressCount: aws.Int32(addresses),
@@ -718,9 +723,16 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 
 	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
-	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
+	output, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
-	return err
+	if err != nil {
+		return nil, err
+	}
+	assignedIPs := make([]string, addresses)
+	for i, ip := range output.AssignedPrivateIpAddresses {
+		assignedIPs[i] = aws.ToString(ip.PrivateIpAddress)
+	}
+	return assignedIPs, nil
 }
 
 // UnassignPrivateIpAddresses unassigns specified IP addresses from ENI
@@ -787,7 +799,11 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Found %d EIPs corresponding to tags %v", len(addresses.Addresses), eipTags)
+	c.logger.Info(
+		"Found EIPs corresponding to tags",
+		logfields.LenEIPS, len(addresses.Addresses),
+		logfields.Tags, eipTags,
+	)
 
 	for _, address := range addresses.Addresses {
 		// Only pick unassociated EIPs
@@ -804,7 +820,12 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 			if err != nil {
 				return "", err
 			}
-			log.Infof("Associated EIP %s with instance %s (association ID: %s)", *address.PublicIp, instanceID, *association.AssociationId)
+			c.logger.Info(
+				"Associated EIP successfully",
+				logfields.EIP, *address.PublicIp,
+				logfields.InstanceID, instanceID,
+				logfields.AssociationID, *association.AssociationId,
+			)
 			return *address.PublicIp, nil
 		}
 	}

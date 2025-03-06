@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
@@ -269,7 +270,9 @@ func (e *Engine) finishInitializer(initializer func(txn statedb.WriteTxn)) {
 
 // handlePolicyChange reacts to changes in IsovalentClusterwideEncryptionPolicy resources (invoked by an observer job)
 func (e *Engine) handlePolicyChange(ctx context.Context, event resource.Event[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy]) error {
-	e.log.Debug("Handling policy event", slog.Any("kind", event.Kind), slog.Any("obj", event.Object))
+	e.log.Debug("Handling policy event",
+		logfields.Kind, event.Kind,
+		logfields.Object, event.Object)
 	var err error
 	switch event.Kind {
 	case resource.Upsert:
@@ -282,8 +285,9 @@ func (e *Engine) handlePolicyChange(ctx context.Context, event resource.Event[*i
 	}
 	if err != nil {
 		e.log.Warn("Unable to handle policy event",
-			slog.Any("kind", event.Kind), slog.Any("resource", event.Key),
-			slog.Any("error", err))
+			logfields.Kind, event.Kind,
+			logfields.Resource, event.Key,
+			logfields.Error, err)
 	}
 	event.Done(err)
 	return nil
@@ -291,7 +295,8 @@ func (e *Engine) handlePolicyChange(ctx context.Context, event resource.Event[*i
 
 // handleIdentityChange reacts to changes in Cilium identities (invoked by an observer job)
 func (e *Engine) handleIdentityChange(ctx context.Context, event IdentityChangeBatch) error {
-	e.log.Debug("Updating selector cache due to identity change(s)", slog.Any("event", event))
+	e.log.Debug("Updating selector cache due to identity change(s)",
+		logfields.Event, event)
 
 	// Start a new transaction here. This is needed because an update to a single
 	// identity may lead multiple subject and peer selectors being notified

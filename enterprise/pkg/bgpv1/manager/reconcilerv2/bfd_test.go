@@ -34,7 +34,7 @@ import (
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
@@ -208,14 +208,14 @@ func TestBFDStateReconciler(t *testing.T) {
 			},
 		},
 	}
-	var ossNodeInstance = &v2alpha1.CiliumBGPNodeInstance{
+	var ossNodeInstance = &v2.CiliumBGPNodeInstance{
 		Name:     nodeInstance.Name,
 		LocalASN: nodeInstance.LocalASN,
 	}
 	for _, peer := range nodeInstance.Peers {
-		ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2alpha1.CiliumBGPNodePeer{
+		ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2.CiliumBGPNodePeer{
 			PeerAddress: peer.PeerAddress,
-			PeerConfigRef: &v2alpha1.PeerConfigReference{
+			PeerConfigRef: &v2.PeerConfigReference{
 				Name: peer.PeerConfigRef.Name,
 			},
 		})

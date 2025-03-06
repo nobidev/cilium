@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/hubble/enterprise/plugins/hubble-login/oauth2params"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
 	"github.com/cilium/cilium/hubble/pkg/logger"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -60,6 +61,14 @@ var (
 	_                   plugins.Instance    = New
 	_                   plugins.AddCommands = &loginPlugin{}
 	_                   plugins.AddFlags    = &loginPlugin{}
+)
+
+const (
+	logfieldIssuer    = "issuer"
+	logfieldComponent = "component"
+	logfieldTokenType = "tokenType"
+	logfieldTokenFile = "tokenFile"
+	logfieldExpiry    = "expiry"
 )
 
 func init() {
@@ -281,7 +290,8 @@ func login(ctx context.Context, provider *oidc.Provider, l *Login, params loginP
 		logger.Logger.Debug("Checking if credentials already exist and can be refreshed")
 		savedToken, err := readToken(l.Issuer)
 		if err != nil {
-			logger.Logger.Debug("Unable to get existing credentials", "error", err)
+			logger.Logger.Debug("Unable to get existing credentials",
+				logfields.Error, err)
 		} else if savedToken.RefreshToken != "" {
 			if !supportedGrants.Refresh {
 				logger.Logger.Warn("Found existing refresh token, but IDP does not list refresh_token as supported grant type")
@@ -291,7 +301,9 @@ func login(ctx context.Context, provider *oidc.Provider, l *Login, params loginP
 				RefreshToken: savedToken.RefreshToken,
 			}).Token()
 			if err != nil {
-				logger.Logger.Warn("Unable to refresh existing credentials", "issuer", l.Issuer, "error", err)
+				logger.Logger.Warn("Unable to refresh existing credentials",
+					logfieldIssuer, l.Issuer,
+					logfields.Error, err)
 			} else {
 				fmt.Printf("You got a valid token until %s\n", token.Expiry.Local())
 				return token, nil
@@ -320,7 +332,7 @@ func login(ctx context.Context, provider *oidc.Provider, l *Login, params loginP
 			TokenRequestOptions:    pkce.TokenRequestOptions(),
 			LocalServerReadyChan:   ready,
 			LocalServerBindAddress: []string{net.JoinHostPort("localhost", strconv.Itoa(params.localServerPort))},
-			Logger:                 logger.Logger.With("component", "server"),
+			Logger:                 logger.Logger.With(logfieldComponent, "server"),
 		}
 
 		eg, ctx := errgroup.WithContext(ctx)
@@ -653,7 +665,9 @@ func getCredentials(ctx context.Context, vp *viper.Viper) (credentials.PerRPCCre
 			return nil, fmt.Errorf("error reading --token-file: %w", err)
 		}
 		tokenStr := string(bytes.TrimSpace(tokenBytes))
-		logger.Logger.Debug("using token-file for auth", "token-type", tokenType, "token-file", tokenFile)
+		logger.Logger.Debug("using token-file for auth",
+			logfieldTokenType, tokenType,
+			logfieldTokenFile, tokenFile)
 
 		token := &oauth2.Token{
 			AccessToken: tokenStr,
@@ -735,13 +749,15 @@ func getCredentials(ctx context.Context, vp *viper.Viper) (credentials.PerRPCCre
 				return nil, fmt.Errorf("failed to login: %w", err)
 			}
 
-			logger.Logger.Debug("Successfully refreshed credentials", "expiry", token.IDTokenExpiry.Local())
+			logger.Logger.Debug("Successfully refreshed credentials",
+				logfieldExpiry, token.IDTokenExpiry.Local())
 			err = saveCredentials(l, token, "")
 			if err != nil {
 				return nil, fmt.Errorf("failed to save credentials: %w", err)
 			}
 		}
-		logger.Logger.Debug("Found existing credentials", "token-type", token.TokenType)
+		logger.Logger.Debug("Found existing credentials",
+			logfieldTokenType, token.TokenType)
 		return token, nil
 	}
 }

@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
-	troubleshoot "github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
+	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
@@ -88,18 +88,10 @@ var (
 		"Operator Infrastructure",
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
-		pprof.Cell,
 		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
-			return pprof.Config{
-				Pprof:        cfg.OperatorPprof,
-				PprofAddress: cfg.OperatorPprofAddress,
-				PprofPort:    cfg.OperatorPprofPort,
-			}
+			return cfg.Config()
 		}),
-		cell.Config(operatorPprofConfig{
-			OperatorPprofAddress: operatorOption.PprofAddressOperator,
-			OperatorPprofPort:    operatorOption.PprofPortOperator,
-		}),
+		pprof.Cell(defaultOperatorPprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
@@ -588,7 +580,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(legacy.ctx); err != nil {
+		if err := alloc.Init(legacy.ctx, logging.DefaultSlogLogger); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 

@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -276,7 +276,7 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 
 	for _, peerFamilyAdverts := range desiredFamilyAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := types.ToAgentFamily(family)
+			agentFamily := toAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
@@ -341,7 +341,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 		}
 
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := types.ToAgentFamily(family)
+			agentFamily := toAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
 				r.logger.WithFields(logrus.Fields{
 					types.FamilyLogField:     agentFamily.Afi,
@@ -384,8 +384,8 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 
 					policyName := PolicyName(peer, agentFamily.Afi.String(), advert.AdvertisementType, lp.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, nil,
-						types.PolicyPrefixMatchList{prefixMatch}, v2alpha1.BGPAdvertisement{
-							Attributes: advert.Attributes,
+						types.PolicyPrefixMatchList{prefixMatch}, v2.BGPAdvertisement{
+							Attributes: toV2Attributes(advert.Attributes),
 						})
 					if err != nil {
 						return nil, fmt.Errorf("failed to create locator pool route policy: %w", err)

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -257,7 +258,7 @@ func TestNeighborReconciler(t *testing.T) {
 			defer neighborReconciler.Cleanup(testInstance)
 			reconcileParams := reconcilerv2.ReconcileParams{
 				BGPInstance: testInstance,
-				DesiredConfig: &v2alpha1.CiliumBGPNodeInstance{
+				DesiredConfig: &v2.CiliumBGPNodeInstance{
 					// Enterprise-specific logic. As the
 					// NodeInstance is upgraded internally,
 					// we only need to provide the name of
@@ -279,7 +280,7 @@ func TestNeighborReconciler(t *testing.T) {
 			neighborReconciler.(*NeighborReconciler).upgrader = params.Upgrader
 			reconcileParams = reconcilerv2.ReconcileParams{
 				BGPInstance: testInstance,
-				DesiredConfig: &v2alpha1.CiliumBGPNodeInstance{
+				DesiredConfig: &v2.CiliumBGPNodeInstance{
 					// Enterprise-specific logic. As the
 					// NodeInstance is upgraded internally,
 					// we only need to provide the name of

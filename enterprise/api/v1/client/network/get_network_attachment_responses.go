@@ -16,6 +16,7 @@ package network
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -101,11 +102,13 @@ func (o *GetNetworkAttachmentOK) Code() int {
 }
 
 func (o *GetNetworkAttachmentOK) Error() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentOK %s", 200, payload)
 }
 
 func (o *GetNetworkAttachmentOK) String() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentOK %s", 200, payload)
 }
 
 func (o *GetNetworkAttachmentOK) GetPayload() *models.NetworkAttachmentList {
@@ -169,11 +172,13 @@ func (o *GetNetworkAttachmentFailure) Code() int {
 }
 
 func (o *GetNetworkAttachmentFailure) Error() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentFailure %s", 500, payload)
 }
 
 func (o *GetNetworkAttachmentFailure) String() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentFailure %s", 500, payload)
 }
 
 func (o *GetNetworkAttachmentFailure) GetPayload() models.Error {
@@ -234,11 +239,11 @@ func (o *GetNetworkAttachmentDisabled) Code() int {
 }
 
 func (o *GetNetworkAttachmentDisabled) Error() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentDisabled ", 501)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentDisabled", 501)
 }
 
 func (o *GetNetworkAttachmentDisabled) String() string {
-	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentDisabled ", 501)
+	return fmt.Sprintf("[GET /network/attachment][%d] getNetworkAttachmentDisabled", 501)
 }
 
 func (o *GetNetworkAttachmentDisabled) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

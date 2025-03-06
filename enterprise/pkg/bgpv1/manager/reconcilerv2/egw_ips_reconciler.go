@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -208,7 +208,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 
 	for _, egwFamilyAdverts := range desiredFamilyAdverts {
 		for family, familyAdverts := range egwFamilyAdverts {
-			agentFamily := types.ToAgentFamily(family)
+			agentFamily := toAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// sanity check
@@ -273,7 +273,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 		}
 
 		for family, familyAdverts := range egwFamilyAdverts {
-			agentFamily := types.ToAgentFamily(family)
+			agentFamily := toAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// sanity check
@@ -317,8 +317,8 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 					}
 
 					policyName := PolicyName(peer, agentFamily.Afi.String(), v1.BGPEGWAdvert, egwID.Name)
-					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
-						Attributes: advert.Attributes,
+					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
+						Attributes: toV2Attributes(advert.Attributes),
 					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to create egress gateway route policy: %w", err)

@@ -28,7 +28,6 @@ import (
 	ceeannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestLBVIPReconciler(t *testing.T) {
@@ -77,7 +76,7 @@ func TestLBVIPReconciler(t *testing.T) {
 				WithStatusSubresource(&isovalentv1alpha1.LBVIP{}).
 				Build()
 
-			logger := slog.New(logging.SlogNopHandler)
+			logger := slog.New(slog.DiscardHandler)
 
 			r := newLBVIPReconciler(lbVIPReconcilerParams{
 				logger: logger,

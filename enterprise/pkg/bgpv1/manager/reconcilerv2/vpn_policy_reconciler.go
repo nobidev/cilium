@@ -183,7 +183,7 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 		// allow importing routes from peers which have ipv4-l3vpn family configured
 		vpnPeer := false
 		for _, fam := range peerConfig.Spec.Families {
-			agentFamily := types.ToAgentFamily(fam.CiliumBGPFamily)
+			agentFamily := toAgentFamily(fam.CiliumBGPFamily)
 			if agentFamily.Afi == types.AfiIPv4 && agentFamily.Safi == types.SafiMplsVpn {
 				vpnPeer = true
 				break

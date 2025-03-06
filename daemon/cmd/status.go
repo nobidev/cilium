@@ -358,6 +358,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)
 	}
 	features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
+	features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
 	features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
 	if option.Config.EnableSVCSourceRangeCheck {
 		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
@@ -396,7 +397,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(option.Config.CTMapEntriesGlobalTCP),
 			},
 			{
-				Name: "Endpoint policy",
+				Name: "Endpoints",
 				Size: int64(lxcmap.MaxEntries),
 			},
 			{
@@ -456,8 +457,12 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(option.Config.NeighMapEntriesGlobal),
 			},
 			{
-				Name: "Global policy",
-				Size: int64(option.Config.PolicyMapEntries),
+				Name: "Endpoint policy",
+				Size: int64(d.policyMapFactory.PolicyMaxEntries()),
+			},
+			{
+				Name: "Policy stats",
+				Size: int64(d.policyMapFactory.StatsMaxEntries()),
 			},
 			{
 				Name: "Session affinity",

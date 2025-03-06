@@ -393,7 +393,7 @@ struct policy_key {
 	__u8		egress:1,
 			pad:7;
 	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
-	__u16		dport; /* can be wildcarded with CIDR-like prefix */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
 };
 
 /* POLICY_FULL_PREFIX gets full prefix length of policy_key */
@@ -410,8 +410,6 @@ struct policy_entry {
 	__u8		proxy_port_priority;
 	__u8		pad1;
 	__u16	        pad2;
-	__u64		packets;
-	__u64		bytes;
 };
 
 /*
@@ -420,6 +418,25 @@ struct policy_entry {
  */
 #define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
 #define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/*
+ * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
+ */
+struct policy_stats_key {
+	__u16		endpoint_id;
+	__u8		pad1;
+	__u8		prefix_len;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+struct policy_stats_value {
+	__u64		packets;
+	__u64		bytes;
+};
 
 struct auth_key {
 	__u32       local_sec_label;
@@ -701,9 +718,6 @@ enum metric_dir {
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
-/* used to identify encrypted overlay traffic post decryption.
- * therefore, SPI bit can be reused to not steal an additional magic mark value.
- */
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200

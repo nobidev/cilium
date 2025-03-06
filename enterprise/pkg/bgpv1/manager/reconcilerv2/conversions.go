@@ -14,6 +14,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
@@ -134,4 +135,38 @@ func toNeighborAfiSafis(families []v2alpha1.CiliumBGPFamilyWithAdverts) []*types
 	}
 
 	return afiSafis
+}
+
+func toAgentFamily(fam v2alpha1.CiliumBGPFamily) types.Family {
+	return types.ToAgentFamily(v2.CiliumBGPFamily{
+		Afi:  fam.Afi,
+		Safi: fam.Safi,
+	})
+}
+
+func toV2Attributes(attr *v2alpha1.BGPAttributes) *v2.BGPAttributes {
+	if attr == nil {
+		return nil
+	}
+	return &v2.BGPAttributes{
+		Communities:     toV2Communities(attr.Communities),
+		LocalPreference: attr.LocalPreference,
+	}
+}
+
+func toV2Communities(c *v2alpha1.BGPCommunities) *v2.BGPCommunities {
+	if c == nil {
+		return nil
+	}
+	r := &v2.BGPCommunities{}
+	for _, s := range c.Standard {
+		r.Standard = append(r.Standard, v2.BGPStandardCommunity(s))
+	}
+	for _, s := range c.Large {
+		r.Large = append(r.Large, v2.BGPLargeCommunity(s))
+	}
+	for _, s := range c.WellKnown {
+		r.WellKnown = append(r.WellKnown, v2.BGPWellKnownCommunity(s))
+	}
+	return r
 }

@@ -253,7 +253,7 @@ func (mrt *mixedRoutingExtraTraffic) Run(ctx context.Context, t *check.Test) {
 			}
 
 			dst := check.HTTPEndpoint(other.Name, fmt.Sprintf("http://%s:4240/hello", addr))
-			fn := func(a *check.Action) { a.ExecInPod(ctx, ct.CurlCommand(dst, ipFam)) }
+			fn := func(a *check.Action) { a.ExecInPod(ctx, ct.CurlCommand(dst, ipFam, true, nil)) }
 			t.NewAction(mrt, other.Name, client, dst, ipFam).Run(fn)
 			t.NewAction(mrt, other.Name, &echo, dst, ipFam).Run(fn)
 		})

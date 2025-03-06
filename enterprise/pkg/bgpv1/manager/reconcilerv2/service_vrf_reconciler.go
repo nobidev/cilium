@@ -453,7 +453,7 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls se
 	}
 
 	for family, familyAdverts := range vrfFamilyAdvertisements {
-		agentFamily := types.ToAgentFamily(family)
+		agentFamily := toAgentFamily(family)
 
 		for _, advert := range familyAdverts {
 			// get prefixes for the service

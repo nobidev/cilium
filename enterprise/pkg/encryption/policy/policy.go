@@ -11,7 +11,6 @@
 package policy
 
 import (
-	"log/slog"
 	"slices"
 
 	"github.com/cilium/statedb"
@@ -21,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -328,8 +328,8 @@ func (e *Engine) insertTuple(txn statedb.WriteTxn, owner RuleKey, tuple Encrypti
 		e.log.Error("BUG: Internal error while attempting to update encryption policy tuple. "+
 			"Traffic may be leaked in plaintext. "+
 			"Please report this bug to Cilium developers.",
-			slog.Any("key", owner),
-			slog.Any("error", err))
+			logfields.Key, owner,
+			logfields.Error, err)
 	}
 }
 
@@ -362,8 +362,8 @@ func (e *Engine) deleteTuple(txn statedb.WriteTxn, owner RuleKey, tuple Encrypti
 		e.log.Error("BUG: Internal error while attempting to delete encryption policy tuple. "+
 			"Encryption policy map entries will be leaked. "+
 			"Please report this bug to Cilium developers.",
-			slog.Any("key", owner),
-			slog.Any("error", err))
+			logfields.Key, owner,
+			logfields.Error, err)
 	}
 }
 
@@ -390,8 +390,8 @@ func (e *Engine) deleteTuplesForRule(txn statedb.WriteTxn, owner RuleKey) {
 			e.log.Error("BUG: Internal error while attempting to delete encryption policy tuple. "+
 				"Encryption policy map entries will be leaked. "+
 				"Please report this bug to Cilium developers.",
-				slog.Any("key", owner),
-				slog.Any("error", err))
+				logfields.Key, owner,
+				logfields.Error, err)
 		}
 	}
 }

@@ -58,6 +58,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -80,6 +81,11 @@ const (
 	kubeVirtReadyTimeAnnotation      = "kubevirt.io/migration-target-ready-timestamp"
 	kubeVirtNodeNameLabel            = "kubevirt.io/nodeName"
 	kubeVirtVMNameLabel              = "vm.kubevirt.io/name"
+
+	logfieldVM         = "vm"
+	logfieldNewVM      = "newvm"
+	logfieldOldVM      = "oldvm"
+	logfieldPrimaryPod = "primaryPod"
 )
 
 const kubeVirtTimeFormat = "2006-01-02 15:04:05.999999999 -0700 MST"
@@ -179,7 +185,8 @@ func (m *migrator) handlePodEvent(event resource.Event[*slim_corev1.Pod]) {
 
 	primaryNodeName, ok := event.Object.Labels[kubeVirtNodeNameLabel]
 	if !ok {
-		m.log.Debug("kubevirt pod without node name label", slog.String("pod", event.Key.String()))
+		m.log.Debug("kubevirt pod without node name label",
+			logfields.Pod, event.Key)
 		return
 	}
 
@@ -198,8 +205,8 @@ func (m *migrator) extractIPPair(pod *slim_corev1.Pod) types.DetachedIpamAddress
 		ip, err := netip.ParseAddr(podIP.IP)
 		if err != nil {
 			m.log.Error("unexpected invalid pod IP in pod status",
-				slog.Any("error", err),
-				slog.String("pod", pod.Namespace+"/"+pod.Name))
+				logfields.Error, err,
+				logfields.Pod, pod.Namespace+"/"+pod.Name)
 			continue
 		}
 
@@ -224,7 +231,8 @@ func (m *migrator) removePodFromVM(pod, vmKey resource.Key) {
 	vm, _, ok := m.vmTable.Get(txn, KubeVirtVMNameIndex.Query(vmKey))
 	if !ok {
 		m.log.Warn("pod deletion event for unknown VM",
-			slog.String("pod", pod.String()), slog.String("vm", vmKey.String()))
+			logfields.Pod, pod,
+			logfieldVM, vmKey)
 		return
 	}
 
@@ -246,7 +254,7 @@ func (m *migrator) removePodFromVM(pod, vmKey resource.Key) {
 		// This should never happen in practice
 		m.log.Error("BUG: Internal error while attempting to update kubevirt VM state. "+
 			"Please report this bug to Cilium developers.",
-			slog.Any("error", err))
+			logfields.Error, err)
 	}
 }
 
@@ -284,9 +292,8 @@ func (m *migrator) addPodToVM(pod *slim_corev1.Pod, vmKey resource.Key, primaryN
 		targetReady, err = time.Parse(kubeVirtTimeFormat, targetReadyStr)
 		if err != nil {
 			m.log.Warn("unable to parse "+kubeVirtReadyTimeAnnotation+" as a timestamp.",
-				slog.Any("error", err),
-				slog.String("pod", podKey.String()),
-			)
+				logfields.Error, err,
+				logfields.Pod, podKey)
 			return
 		}
 	}
@@ -311,14 +318,16 @@ func (m *migrator) addPodToVM(pod *slim_corev1.Pod, vmKey resource.Key, primaryN
 		newVM.Status = reconciler.StatusPending()
 	}
 
-	m.log.Debug("Updating kubevirt VM", slog.Any("newVM", newVM), slog.Any("oldVM", oldVM))
+	m.log.Debug("Updating kubevirt VM",
+		logfieldNewVM, newVM,
+		logfieldOldVM, oldVM)
 
 	_, _, err := m.vmTable.Insert(txn, newVM)
 	if err != nil {
 		// This should never happen in practice
 		m.log.Error("BUG: Internal error while attempting to update kubevirt VM state. "+
 			"Please report this bug to Cilium developers.",
-			slog.Any("error", err))
+			logfields.Error, err)
 	}
 }
 
@@ -367,9 +376,8 @@ func newVmReconcilerOps(cfg Config, log *slog.Logger, clientset k8sClient.Client
 // Update implements reconciler.Operations[*KubeVirtVM]
 func (v *vmReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, vm *KubeVirtVM) error {
 	v.log.Info("Reconciling pod annotations for KubeVirt VM",
-		slog.String("primary-pod", vm.PrimaryPod.String()),
-		slog.String("vm", vm.VMName.String()),
-	)
+		logfieldPrimaryPod, vm.PrimaryPod,
+		logfieldVM, vm.VMName)
 
 	if !vm.IPAM.IsValid() {
 		return fmt.Errorf("reconciliation was triggerd with invalid IPAM for VM %s", vm.VMName.String())
@@ -384,24 +392,26 @@ func (v *vmReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, vm *K
 	addAnnotationPatch := fmt.Sprintf(`{"metadata":{"annotations":{%q:%q}}}`, types.DetachedAnnotation, ipamValue)
 
 	for _, pod := range vm.Pods {
-		scopedLog := v.log.With(
-			"vm", vm.VMName.String(),
-			"pod", pod.Namespace+"/"+pod.Name,
+		var (
+			patch  string
+			action string
 		)
-
-		var patch string
 		if pod == vm.PrimaryPod {
 			// remove detach annotation from primary
 			patch = delAnnotationPatch
-			scopedLog = scopedLog.With("action", "attach-pod")
+			action = "attach-pod"
 		} else {
 			// add detach annotation to non-primary
 			patch = addAnnotationPatch
-			scopedLog = scopedLog.With("action", "detach-pod")
+			action = "detach-pod"
 		}
 
 		// Patch the Pod's annotations
-		scopedLog.Debug("Patching " + types.DetachedAnnotation + " annotation on VM pod")
+		v.log.Debug("Patching "+types.DetachedAnnotation+" annotation on VM pod",
+			logfieldVM, vm.VMName,
+			logfields.Pod, pod.Namespace+"/"+pod.Name,
+			logfields.Action, action,
+		)
 		_, err = v.clientset.CoreV1().Pods(pod.Namespace).Patch(
 			ctx,
 			pod.Name,

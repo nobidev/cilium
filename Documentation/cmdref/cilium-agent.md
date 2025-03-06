@@ -60,6 +60,7 @@ cilium-agent [flags]
       --bpf-neigh-global-max int                                     Maximum number of entries for the global BPF neighbor table (default 524288)
       --bpf-node-map-max uint32                                      Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                       Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
+      --bpf-policy-stats-map-max int                                 Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-root string                                              Path to BPF filesystem
       --bpf-sock-rev-map-max int                                     Maximum number of entries for the SockRevNAT BPF map (default 262144)
       --certificates-directory string                                Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
@@ -252,6 +253,7 @@ cilium-agent [flags]
       --http-request-timeout uint                                    Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                                        Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                      Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --http-stream-idle-timeout uint                                Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s (default 300)
       --hubble-disable-tls                                           Allow Hubble server to run on the given listen address without TLS.
       --hubble-drop-events                                           Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                         Minimum time between emitting same events (default 2m0s)
@@ -363,6 +365,7 @@ cilium-agent [flags]
       --mesh-auth-spiffe-trust-domain string                         The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string                          The path for the SPIRE admin agent Unix socket.
       --metrics strings                                              Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
+      --metrics-sampling-interval duration                           Set the internal metrics sampling interval (default 5m0s)
       --monitor-aggregation string                                   Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                            TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
       --monitor-aggregation-interval duration                        Monitor report interval when monitor aggregation is enabled (default 5s)

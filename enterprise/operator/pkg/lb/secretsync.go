@@ -46,7 +46,8 @@ func enqueueTLSSecrets(_ client.Client, logger *slog.Logger) handler.EventHandle
 				Name:      secretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.Debug("Enqueued secret for LBService", "secret", s)
+			scopedLog.Debug("Enqueued secret for LBService",
+				logfields.Secret, s)
 		}
 
 		return reqs
