@@ -122,7 +122,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().StringVar(&ilbCli.FlagSingleNodeIPAddr, "single-node-ip", "", "The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
 
 	// TODO (sayboras): Remove these flags once we have feature auto-detection
-	cmd.Flags().BoolVar(&ilbCli.FlagUseRemoteAddress, "use-remote-address", false, "Use remote address for client IP in HTTP requests")
+	cmd.Flags().BoolVar(&ilbCli.FlagUseRemoteAddress, "use-remote-address", true, "Use remote address for client IP in HTTP requests")
 	cmd.Flags().IntVar(&ilbCli.FlagXffNumTrustedHops, "xff-num-trusted-hops", 2, "Number of trusted hops in X-Forwarded-For header")
 
 	cmd.Flags().StringVar(&ilbCli.FlagRun, "run", "", "Run only the tests matching the regular expression (only respecting top level test functions)")
