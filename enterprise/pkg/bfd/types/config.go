@@ -12,6 +12,11 @@ package types
 
 import "github.com/spf13/pflag"
 
+const (
+	// EnableBFDFlag is the name of flag that enables the BFD subsystem.
+	EnableBFDFlag = "enable-bfd"
+)
+
 // BFDConfig holds configuration options of the BFD subsystem.
 type BFDConfig struct {
 	BFDEnabled bool `mapstructure:"enable-bfd"`
@@ -19,7 +24,7 @@ type BFDConfig struct {
 
 // Flags implements cell.Flagger interface to register the configuration options as command-line flags.
 func (cfg BFDConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-bfd", cfg.BFDEnabled, "Enables BFD subsystem")
+	flags.Bool(EnableBFDFlag, cfg.BFDEnabled, "Enables BFD subsystem")
 }
 
 var DefaultConfig = BFDConfig{
