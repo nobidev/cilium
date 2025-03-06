@@ -54,11 +54,16 @@ func (r *flowLogProcessor) startProcessing(ctx context.Context, health cell.Heal
 			r.logger.Info("Stopping flow log processing", logfields.Error, ctx.Err())
 			return ctx.Err()
 		case entry := <-r.reader.flowLogs():
+			firstTs := newFlowLogs[entry.Key].firstTs
+			if firstTs.IsZero() {
+				firstTs = entry.ts
+			}
 			newFlowLogs[entry.Key] = FlowLogEntry{
 				Key:     entry.Key,
 				Packets: newFlowLogs[entry.Key].Packets + entry.Packets,
 				Bytes:   newFlowLogs[entry.Key].Bytes + entry.Bytes,
 				ts:      entry.ts,
+				firstTs: firstTs,
 			}
 		case <-reportTicker.C:
 			r.logger.Debug("Reporting flow logs via sender")
@@ -96,10 +101,16 @@ func (r *flowLogProcessor) mergeFlowLogs(newFlowLogs, allFlowLogs FlowLogTable) 
 		totalPackets += v.Packets
 		totalBytes += v.Bytes
 
+		firstTs := allFlowLogs[k].firstTs
+		if firstTs.IsZero() {
+			firstTs = v.firstTs
+		}
+
 		e := FlowLogEntry{
 			Packets: allFlowLogs[k].Packets + v.Packets,
 			Bytes:   allFlowLogs[k].Bytes + v.Bytes,
 			ts:      v.ts,
+			firstTs: firstTs,
 		}
 		allFlowLogs[k] = e
 	}
@@ -123,11 +134,11 @@ func (r *flowLogProcessor) debugDumpFlowLogs(allFlowLogs FlowLogTable) {
 	for key := range allFlowLogs {
 		keys = append(keys, key)
 	}
-	sort.SliceStable(keys, func(i, j int) bool { return allFlowLogs[keys[i]].ts.Before(allFlowLogs[keys[j]].ts) })
+	sort.SliceStable(keys, func(i, j int) bool { return allFlowLogs[keys[i]].firstTs.Before(allFlowLogs[keys[j]].firstTs) })
 
 	for _, k := range keys {
 		v := allFlowLogs[k]
-		r.logger.Debug("Flow log table entry", "timestamp", v.ts, "key", r.flowLogRecordKeyToString(k), "packets", v.Packets, "bytes", v.Bytes)
+		r.logger.Debug("Flow log table entry", "start", v.firstTs, "last", v.ts, "key", r.flowLogRecordKeyToString(k), "packets", v.Packets, "bytes", v.Bytes)
 	}
 }
 

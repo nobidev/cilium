@@ -108,6 +108,7 @@ type FlowLogEntry = struct {
 	Key     FlowLogKey
 	Packets uint64    // ATM, the # of records received
 	Bytes   uint64    // bytes, accumulated from summind records
+	firstTs time.Time // the first update
 	ts      time.Time // the last update
 }
 

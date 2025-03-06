@@ -58,7 +58,16 @@ func (r *flowLogStdoutSender) SendFlowLogs(flowLogs FlowLogTable) error {
 			ifName = "<unknown>"
 		}
 
-		r.logger.Info("Received flow log entry", "interface", ifName, "srcIP", srcIP, "srcPort", srcPort, "dstIP", dstIP, "dstPort", dstPort, "protocol", protocol, "packetsTotal", packetsTotal, "bytesTotal", bytesTotal)
+		r.logger.Info("Received flow log entry",
+			"interface", ifName,
+			"srcIP", srcIP,
+			"srcPort", srcPort,
+			"dstIP", dstIP,
+			"dstPort", dstPort,
+			"protocol", protocol,
+			"packetsTotal", packetsTotal,
+			"bytesTotal", bytesTotal,
+		)
 	}
 
 	return nil

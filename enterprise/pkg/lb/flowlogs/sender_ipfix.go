@@ -32,6 +32,8 @@ var ieFields = []string{
 	"protocolIdentifier",
 	"packetTotalCount",
 	"octetTotalCount",
+	"flowStartMilliseconds",
+	"flowEndMilliseconds",
 }
 
 var _ FlowLogSender = &flowLogIPFixSender{}
@@ -104,6 +106,11 @@ func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentr
 			ie = entities.NewUnsigned64InfoElement(element, packetsTotal)
 		case "octetTotalCount":
 			ie = entities.NewUnsigned64InfoElement(element, bytesTotal)
+		case "flowStartMilliseconds":
+			ie = entities.NewDateTimeMillisecondsInfoElement(element, uint64(flentry.firstTs.UnixMilli()))
+		case "flowEndMilliseconds":
+			ie = entities.NewDateTimeMillisecondsInfoElement(element, uint64(flentry.ts.UnixMilli()))
+
 		}
 		elements = append(elements, ie)
 	}
