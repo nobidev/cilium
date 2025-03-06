@@ -232,7 +232,8 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          cilium connectivity test --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+          cilium connectivity test --test-concurrency=5 \
+            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --log-code-owners \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
