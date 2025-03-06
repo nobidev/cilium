@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	// enterpriseBGPEnabled is the name of the flag to enable the BGP control plane.
-	enterpriseBGPEnabled = "enable-enterprise-bgp-control-plane"
-	// enterpriseBGPStatusReportEnabled is the name of the flag to enable the BGP control plane status report.
-	enterpriseBGPStatusReportEnabled = "enable-enterprise-bgp-control-plane-status-report"
+	// EnterpriseBGPEnabled is the name of the flag to enable the BGP control plane.
+	EnterpriseBGPEnabled = "enable-enterprise-bgp-control-plane"
+	// EnterpriseBGPStatusReportEnabled is the name of the flag to enable the BGP control plane status report.
+	EnterpriseBGPStatusReportEnabled = "enable-enterprise-bgp-control-plane-status-report"
 )
 
 // Config parameters for enterprise BGP.
@@ -29,8 +29,8 @@ type Config struct {
 
 // Flags implements cell.Flagger interface.
 func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool(enterpriseBGPEnabled, cfg.Enabled, "Enable enterprise BGP in Cilium")
-	flags.Bool(enterpriseBGPStatusReportEnabled, cfg.StatusReportEnabled, "Enable enterprise BGP status report in Cilium")
+	flags.Bool(EnterpriseBGPEnabled, cfg.Enabled, "Enable enterprise BGP in Cilium")
+	flags.Bool(EnterpriseBGPStatusReportEnabled, cfg.StatusReportEnabled, "Enable enterprise BGP status report in Cilium")
 }
 
 var DefaultConfig = Config{
