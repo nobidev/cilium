@@ -176,7 +176,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 	}
 
 	nrPeers := 0
-	activePeers := map[string]string{} // => "", "established", "healthy"
+	activePeers := map[string]string{}
 
 	for _, p := range nodeBGPPeers {
 		for _, pp := range p {
@@ -185,6 +185,8 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 				continue
 			}
 			nrPeers++
+
+			// peer is healthy if the session state is "established"
 			activePeers[name] = pp.SessionState
 		}
 	}
@@ -196,7 +198,6 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
 				name := fmt.Sprintf("%s-%d", br.Neighbor, br.RouterAsn)
 				if v, ok := activePeers[name]; ok && v == "established" {
-					activePeers[name] = "ok"
 					nrOk++
 				}
 			}
@@ -205,7 +206,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 
 	peers := make([]BGPPeer, 0, len(activePeers))
 	for name, healthy := range activePeers {
-		peers = append(peers, BGPPeer{name, healthy == "ok"})
+		peers = append(peers, BGPPeer{name, healthy == "established"})
 	}
 
 	return BGPPeerStatus{
