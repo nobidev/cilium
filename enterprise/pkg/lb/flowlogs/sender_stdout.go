@@ -12,6 +12,9 @@ package lbflowlogs
 
 import (
 	"encoding/binary"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"log/slog"
 	"net"
 )
@@ -39,16 +42,23 @@ func (r *flowLogStdoutSender) Name() string {
 func (r *flowLogStdoutSender) SendFlowLogs(flowLogs FlowLogTable) error {
 	for flkey, flentry := range flowLogs {
 		bytes := []byte(flkey)
-		srcIP := net.IP(bytes[0:4])
-		dstIP := net.IP(bytes[4:8])
-		srcPort := binary.BigEndian.Uint16(bytes[8:10])
-		dstPort := binary.BigEndian.Uint16(bytes[10:12])
-		protocol := bytes[12]
+		ifindex := int(binary.NativeEndian.Uint32(bytes[ifindexStart : ifindexStart+ifindexSize]))
+		srcIP := net.IP(bytes[saddrStart : saddrStart+saddrSize])
+		dstIP := net.IP(bytes[daddrStart : daddrStart+daddrSize])
+		srcPort := binary.BigEndian.Uint16(bytes[sportStart : sportStart+sportSize])
+		dstPort := binary.BigEndian.Uint16(bytes[dportStart : dportStart+dportSize])
+		protocol := bytes[nexthdrStart]
 
 		packetsTotal := flentry.Packets
 		bytesTotal := flentry.Bytes
 
-		r.logger.Info("Received flow log entry", "srcIP", srcIP, "srcPort", srcPort, "dstIP", dstIP, "dstPort", dstPort, "protocol", protocol, "packetsTotal", packetsTotal, "bytesTotal", bytesTotal)
+		ifName, err := InterfaceByIndex(ifindex)
+		if err != nil {
+			r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+			ifName = "<unknown>"
+		}
+
+		r.logger.Info("Received flow log entry", "interface", ifName, "srcIP", srcIP, "srcPort", srcPort, "dstIP", dstIP, "dstPort", dstPort, "protocol", protocol, "packetsTotal", packetsTotal, "bytesTotal", bytesTotal)
 	}
 
 	return nil

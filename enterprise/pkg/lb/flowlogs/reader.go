@@ -64,14 +64,14 @@ func (r *flowLogReader) readEntry(reader RingBufferReader) (*FlowLogEntry, error
 	}
 
 	n := len(rec.RawSample)
-	if (n < 24) || (n%24 != 0) {
-		return nil, fmt.Errorf("unexpected record size in flow log [size %d, expected 24]", len(rec.RawSample))
+	if (n < 32) || (n%32 != 0) {
+		return nil, fmt.Errorf("unexpected record size in flow log [size %d, expected 32]", len(rec.RawSample))
 	}
 
 	return &FlowLogEntry{
-		Key:     string(rec.RawSample[0:16]),
+		Key:     string(rec.RawSample[0:bytesStart]),
 		Packets: 1,
-		Bytes:   binary.LittleEndian.Uint64(rec.RawSample[16:24]),
+		Bytes:   binary.LittleEndian.Uint64(rec.RawSample[bytesStart : bytesStart+bytesSize]),
 		ts:      time.Now(),
 	}, nil
 }

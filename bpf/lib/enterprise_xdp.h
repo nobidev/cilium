@@ -5,20 +5,21 @@
 
 #ifdef LB_FLOW_LOGS_ENABLED
 #ifdef ENABLE_IPV4
-/* Format must be the same as FlowLogRecord defined in enterprise/pkg/lb/flowlogs/map.go */
+/* Format must be in sync with enterprise/pkg/lb/flowlogs */
 struct lb_flow_log_entry_v4 {
 	/* Key */
+	__u32 ifindex;
 	__be32 saddr;
 	__be32 daddr;
 	__be16 sport;
 	__be16 dport;
 	__u8 nexthdr;
 	__u8 pad0;
-	__u8 pad1;
-	__u8 pad2;
+	__u16 pad1;
+	__u32 pad2;
 	/* Value */
 	__u64 bytes;
-};
+} __attribute__((packed));
 
 static __always_inline int lb_flow_log_v4(struct __ctx_buff *ctx)
 {
@@ -35,6 +36,9 @@ static __always_inline int lb_flow_log_v4(struct __ctx_buff *ctx)
 	if (!e)
 		return CTX_ACT_OK;
 
+	memset(e, 0, sizeof(*e));
+
+	e->ifindex = ctx->ingress_ifindex;
 	e->saddr = ipv4_hdr->saddr;
 	e->daddr = ipv4_hdr->daddr;
 	e->nexthdr = ipv4_hdr->protocol;
@@ -46,7 +50,7 @@ static __always_inline int lb_flow_log_v4(struct __ctx_buff *ctx)
 		}
 	}
 
-	e->bytes += data_end - data;
+	e->bytes = data_end - data;
 
 	ringbuf_submit(e, 0);
 	return CTX_ACT_OK;

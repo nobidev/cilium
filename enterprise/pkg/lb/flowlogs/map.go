@@ -12,6 +12,7 @@ package lbflowlogs
 
 import (
 	"fmt"
+	"net"
 
 	ebpfRingBuf "github.com/cilium/ebpf/ringbuf"
 
@@ -75,7 +76,33 @@ func (m *lbFlowLogMap) newRingBufferReader() (RingBufferReader, error) {
 	return reader, nil
 }
 
+// The FlowLogKey format should be in sync with bpf/lib/enterprise_xdp.h
 type FlowLogKey = string
+
+const (
+	ifindexStart = 0
+	ifindexSize  = 4
+
+	saddrStart = ifindexStart + ifindexSize
+	saddrSize  = 4
+
+	daddrStart = saddrStart + saddrSize
+	daddrSize  = 4
+
+	sportStart = daddrStart + daddrSize
+	sportSize  = 2
+
+	dportStart = sportStart + sportSize
+	dportSize  = 2
+
+	nexthdrStart = dportStart + dportSize
+	nexthdrSize  = 1
+
+	padSize = 7
+
+	bytesStart = nexthdrStart + nexthdrSize + padSize
+	bytesSize  = 8
+)
 
 type FlowLogEntry = struct {
 	Key     FlowLogKey
@@ -85,3 +112,19 @@ type FlowLogEntry = struct {
 }
 
 type FlowLogTable = map[FlowLogKey]FlowLogEntry
+
+var ifaces = map[int]string{}
+
+func InterfaceByIndex(ifindex int) (string, error) {
+	if name, ok := ifaces[ifindex]; ok {
+		return name, nil
+	}
+
+	iface, err := net.InterfaceByIndex(ifindex)
+	if err != nil {
+		return "", err
+	}
+
+	ifaces[ifindex] = iface.Name
+	return iface.Name, nil
+}

@@ -63,7 +63,11 @@ func (r *flowLogProcessor) startProcessing(ctx context.Context, health cell.Heal
 		case <-reportTicker.C:
 			r.logger.Debug("Reporting flow logs via sender")
 			r.mergeFlowLogs(newFlowLogs, allFlowLogs)
-			r.debugDumpFlowLogs(allFlowLogs)
+
+			// keep it in code, but do not execute
+			if false {
+				r.debugDumpFlowLogs(allFlowLogs)
+			}
 
 			if err := r.sender.SendFlowLogs(allFlowLogs); err != nil {
 				r.logger.Error("Failed to send flow logs", logfields.Error, err)
@@ -130,14 +134,20 @@ func (r *flowLogProcessor) debugDumpFlowLogs(allFlowLogs FlowLogTable) {
 func (r *flowLogProcessor) flowLogRecordKeyToString(key string) string {
 	bytes := []byte(key)
 
-	srcIP := binary.BigEndian.Uint32(bytes[0:4])
-	dstIP := binary.BigEndian.Uint32(bytes[4:8])
-	srcPort := binary.BigEndian.Uint16(bytes[8:10])
-	dstPort := binary.BigEndian.Uint16(bytes[10:12])
+	ifindex := int(binary.NativeEndian.Uint32(bytes[ifindexStart : ifindexStart+ifindexSize]))
+	srcIP := binary.BigEndian.Uint32(bytes[saddrStart : saddrStart+saddrSize])
+	dstIP := binary.BigEndian.Uint32(bytes[daddrStart : daddrStart+daddrSize])
+	srcPort := binary.BigEndian.Uint16(bytes[sportStart : sportStart+sportSize])
+	dstPort := binary.BigEndian.Uint16(bytes[dportStart : dportStart+dportSize])
+	nexthdr := bytes[nexthdrStart]
+
+	ifName, err := InterfaceByIndex(ifindex)
+	if err != nil {
+		r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+		ifName = "<unknown>"
+	}
 
 	protocol := ""
-	nexthdr := bytes[12]
-
 	switch nexthdr {
 	case 6:
 		protocol = "tcp"
@@ -146,9 +156,9 @@ func (r *flowLogProcessor) flowLogRecordKeyToString(key string) string {
 	case 1:
 		protocol = "icmp"
 	default:
-		protocol = "unknown"
+		protocol = "<unknown>"
 		r.logger.Warn("Unexpected flow log protocol", "nexthdr", nexthdr)
 	}
 
-	return fmt.Sprintf("%08x:%d -> %08x:%d [%s]", srcIP, srcPort, dstIP, dstPort, protocol)
+	return fmt.Sprintf("[%s] %08x:%d -> %08x:%d [%s]", ifName, srcIP, srcPort, dstIP, dstPort, protocol)
 }

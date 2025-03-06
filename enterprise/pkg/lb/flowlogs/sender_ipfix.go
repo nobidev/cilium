@@ -16,12 +16,15 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/vmware/go-ipfix/pkg/entities"
 	"github.com/vmware/go-ipfix/pkg/exporter"
 	"github.com/vmware/go-ipfix/pkg/registry"
 )
 
 var ieFields = []string{
+	"interfaceName",
 	"sourceIPv4Address",
 	"destinationIPv4Address",
 	"sourceTransportPort",
@@ -65,11 +68,12 @@ func (r *flowLogIPFixSender) loadRegistry() {
 
 func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentry FlowLogEntry) []entities.InfoElementWithValue {
 	bytes := []byte(flkey)
-	srcIP := net.IP(bytes[0:4])
-	dstIP := net.IP(bytes[4:8])
-	srcPort := binary.BigEndian.Uint16(bytes[8:10])
-	dstPort := binary.BigEndian.Uint16(bytes[10:12])
-	protocol := bytes[12]
+	ifindex := int(binary.NativeEndian.Uint32(bytes[ifindexStart : ifindexStart+ifindexSize]))
+	srcIP := net.IP(bytes[saddrStart : saddrStart+saddrSize])
+	dstIP := net.IP(bytes[daddrStart : daddrStart+daddrSize])
+	srcPort := binary.BigEndian.Uint16(bytes[sportStart : sportStart+sportSize])
+	dstPort := binary.BigEndian.Uint16(bytes[dportStart : dportStart+dportSize])
+	protocol := bytes[nexthdrStart]
 
 	packetsTotal := flentry.Packets
 	bytesTotal := flentry.Bytes
@@ -79,6 +83,13 @@ func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentr
 		element, _ := registry.GetInfoElement(name, registry.IANAEnterpriseID)
 		var ie entities.InfoElementWithValue
 		switch name {
+		case "interfaceName":
+			ifName, err := InterfaceByIndex(ifindex)
+			if err != nil {
+				r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+				ifName = "<unknown>"
+			}
+			ie = entities.NewStringInfoElement(element, ifName)
 		case "sourceIPv4Address":
 			ie = entities.NewIPAddressInfoElement(element, srcIP)
 		case "destinationIPv4Address":
