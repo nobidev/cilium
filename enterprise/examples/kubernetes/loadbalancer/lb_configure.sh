@@ -5,7 +5,6 @@ set -u          # Exit in error if there is a reference to a non previously defi
 set -o pipefail # Exit if any command in a pipeline fails, that return code will be used as the return code of the whole pipeline.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${script_dir}/common.sh"
 
 # Define T1 and T2 nodes
 t1Nodes=(

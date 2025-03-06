@@ -25,12 +25,16 @@ Recompiling and deploying Cilium/ILB with the local changes run:
 make kind-image-enterprise-fast
 ```
 
-## Deploy & Test LoadBalancer example
+## Test LoadBalancer
+
+Compile `./cilium-cli` and run some tests:
 
 ```sh
-./enterprise/examples/kubernetes/loadbalancer/example_install.sh && \
-./enterprise/examples/kubernetes/loadbalancer/example_test.sh
+cd ./cilium-cli && make
+./cilium lb test --run 'TestHTTP.*'
 ```
+
+To avoid removal of test containers and services after a tests run, use `--cleanup=false`.
 
 ## Observability
 

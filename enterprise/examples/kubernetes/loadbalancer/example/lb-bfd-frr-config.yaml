@@ -1,8 +1,0 @@
-apiVersion: isovalent.com/v1alpha1
-kind: IsovalentBFDProfile
-metadata:
-  name: frr
-spec:
-  detectMultiplier: 3
-  receiveIntervalMilliseconds: 300
-  transmitIntervalMilliseconds: 300
