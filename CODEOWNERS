@@ -914,3 +914,4 @@ Makefile* @cilium/build
 /pkg/k8s/enterprise_phantom* @isovalent/clustermesh
 /pkg/k8s/enterprise_service_merger* @isovalent/clustermesh
 /pkg/k8s/synced/enterprise_* @isovalent/sig-k8s
+/pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
