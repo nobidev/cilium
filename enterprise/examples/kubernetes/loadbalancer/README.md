@@ -7,7 +7,7 @@ The next set of commands will install ILB with the default configuration and Pro
 ```sh
 make kind-loadbalancer && \
 kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
-ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer-dev.yaml make kind-install-cilium-fast && \
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast && \
 make kind-image-enterprise-fast && \
 ./enterprise/examples/kubernetes/loadbalancer/lb_configure.sh && \
 ./enterprise/examples/kubernetes/loadbalancer/deploy_perses.sh

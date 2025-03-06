@@ -1,6 +1,3 @@
-image:
-  override: "quay.io/isovalent-dev/cilium-ci:latest"
-  pullPolicy: IfNotPresent
 enterprise:
   loadbalancer:
     enabled: true
@@ -9,6 +6,9 @@ enterprise:
     enableServiceHealthChecking: true
   bfd:
     enabled: true
+debug:
+  enabled: true
+  verbose: "envoy datapath"
 envoy:
   prometheus:
     enabled: true
@@ -16,6 +16,14 @@ envoy:
       enabled: true
   # To make DNS-based backend discovery work within the cluster.
   dnsPolicy: ClusterFirstWithHostNet
+  # Mount Envoy Accesslog from Container to Host
+  extraHostPathMounts:
+    - name: envoy-accesslog
+      mountPath: /var/log/envoy
+      hostPath: /var/log/envoy
+      hostPathType: DirectoryOrCreate
+      readOnly: false
+      mountPropagation: HostToContainer
 envoyConfig:
   enabled: true
 bpf:
@@ -28,22 +36,23 @@ loadBalancer:
   acceleration: native
   dsrDispatch: ipip
 routingMode: native
-enableIPv4Masquerade: false
 autoDirectNodeRoutes: true
+enableIPv4Masquerade: false
 ipv6:
   enabled: false
 extraConfig:
   loadbalancer-cp-requestid-generate: "true"
   loadbalancer-cp-requestid-response: "true"
+  loadbalancer-cp-accesslog-file-path: "/var/log/envoy/accesslog.log"
+  loadbalancer-cp-accesslog-enable-tcp: "true"
+  loadbalancer-cp-accesslog-enable-hc: "true"
+  loadbalancer-cp-t2-use-remote-address: "true"
+  loadbalancer-cp-t2-xff-num-trusted-hops: "0"
 operator:
   prometheus:
     enabled: true
     serviceMonitor:
       enabled: true
-  image:
-    override: "quay.io/isovalent-dev/operator-generic-ci:latest"
-    suffix: ""
-    pullPolicy: IfNotPresent
 prometheus:
   enabled: true
   serviceMonitor:
