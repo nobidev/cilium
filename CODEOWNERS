@@ -687,6 +687,10 @@ Makefile* @cilium/build
 #   consistency of flags and options.
 # - @isovalent/clustermesh
 #   Responsible for maintaining enterprise-specific cluster mesh features
+# - @isovalent/ci-structure
+#   Responsible for triaging multi-owner workflow files to identify failures
+#   above a pre-defined threshold and determine a path to lowering the failure
+#   rate with other teams.
 # - @isovalent/cilium-agent
 #   Responsible for maintaining enterprise-specific agent code
 # - @isovalent/cilium-datapath
@@ -926,3 +930,4 @@ Makefile* @cilium/build
 /pkg/k8s/enterprise_service_merger* @isovalent/clustermesh
 /pkg/k8s/synced/enterprise_* @isovalent/sig-k8s
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
+/TESTOWNERS.enterprise @isovalent/ci-structure
