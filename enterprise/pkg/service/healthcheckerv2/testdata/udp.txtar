@@ -1,0 +1,101 @@
+# Setup input files. We're relying here that the allocated ports are 5 chars long.
+replace '$PORT' $UDP_PORT endpointslice.yaml
+replace '$PORT' $UDP_PORT healthchecks.table
+replace '$PORT' $UDP_PORT maps-healthy.expected
+
+# Start and wait for reflectors to catch up.
+hive/start
+db/initialized
+
+# Add service with an endpoint to health check
+k8s/add service.yaml endpointslice.yaml
+
+# Wait for health check to succeed
+db/cmp service-healthchecks healthchecks.table
+
+# Check that backend not quarantined
+lb/maps-dump maps.actual
+* cmp maps.actual maps-healthy.expected
+
+# Change out the backend port to bad one.
+sed 'port: \d+' 'port: 1' endpointslice.yaml
+k8s/update endpointslice.yaml
+
+# Wait for health check to now fail
+db/cmp service-healthchecks healthchecks-bad.table
+
+# Check that we have a new backend and that it is quarantined.
+lb/maps-dump maps.actual
+* cmp maps.actual maps-bad.expected
+
+-- healthchecks.table --
+Backend               Service     Healthy   UnhealthyBackends   Message
+127.0.0.1:$PORT/UDP   test/echo   true      0                   success
+
+-- healthchecks-bad.table --
+Backend           Service     Healthy  HealthyBackends
+127.0.0.1:1/UDP   test/echo   false    0
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/health-check-probe-interval:      20ms
+    service.cilium.io/health-check-probe-timeout:       100ms
+    service.cilium.io/health-check-threshold-healthy:   "1"
+    service.cilium.io/health-check-threshold-unhealthy: "1"
+    service.cilium.io/health-check-quarantine-timeout:  20s
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 127.0.0.1
+  nodeName: othernode
+ports:
+- name: http
+  port: $PORT
+  protocol: UDP
+
+-- maps-healthy.expected --
+BE: ID=1 ADDR=127.0.0.1:$PORT/UDP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=10.96.50.104:80/UDP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/UDP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=172.16.1.1:80/UDP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=172.16.1.1:80/UDP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+-- maps-bad.expected --
+BE: ID=2 ADDR=127.0.0.1:1/UDP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=10.96.50.104:80/UDP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=172.16.1.1:80/UDP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=172.16.1.1:80/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer

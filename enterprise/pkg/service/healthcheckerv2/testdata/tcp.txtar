@@ -1,0 +1,149 @@
+# Setup input files. We're relying here that the allocated ports are 5 chars long.
+replace '$PORT' $HTTP_PORT endpointslice.yaml
+replace '$PORT' $HTTP_PORT healthchecks.table
+replace '$PORT' $HTTP_PORT maps-healthy.expected
+
+# Start and wait for reflectors to catch up.
+hive/start
+db/initialized
+
+# Add service with an endpoint to health check
+k8s/add service.yaml endpointslice.yaml
+
+# Wait for health check to succeed
+db/cmp service-healthchecks healthchecks.table
+
+# Check that backend not quarantined
+lb/maps-dump maps.actual
+* cmp maps.actual maps-healthy.expected
+
+# Change out the backend port to bad one.
+sed 'port: \d+' 'port: 1' endpointslice.yaml
+k8s/update endpointslice.yaml
+
+# Wait for health check to now fail
+db/cmp service-healthchecks healthchecks-bad.table
+
+# Check that we have a new backend and that it is quarantined.
+lb/maps-dump maps.actual
+* cmp maps.actual maps-bad.expected
+
+# Validate the JSON serialization for sysdump
+db/show service-healthchecks -f json -o healthchecks.json
+sed '.*ProbedAt.*' '  "ProbedAt": "<redacted>",' healthchecks.json
+sed '.*UpdatedAt.*' '  "UpdatedAt": "<redacted>",' healthchecks.json
+cmp healthchecks-expected.json healthchecks.json
+
+-- healthchecks.table --
+Backend               Service     Healthy   UnhealthyBackends   Message
+127.0.0.1:$PORT/TCP   test/echo   true      0                   success
+
+-- healthchecks-bad.table --
+Backend           Service     Healthy  HealthyBackends  Message
+127.0.0.1:1/TCP   test/echo   false    0                failed: err: dial tcp 127.0.0.1:1: connect: connection refused
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/health-check-probe-interval:      20ms
+    service.cilium.io/health-check-probe-timeout:       100ms
+    service.cilium.io/health-check-threshold-healthy:   "1"
+    service.cilium.io/health-check-threshold-unhealthy: "1"
+    service.cilium.io/health-check-quarantine-timeout:  20s
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 127.0.0.1
+  nodeName: othernode
+ports:
+- name: http
+  port: $PORT
+  protocol: TCP
+
+-- healthchecks-expected.json --
+{
+  "Service": {
+    "Namespace": "test",
+    "Name": "echo",
+    "Cluster": ""
+  },
+  "Backend": {
+    "AddrCluster": "127.0.0.1",
+    "Protocol": "TCP",
+    "Port": 1,
+    "Scope": 0
+  },
+  "Config": {
+    "State": 1,
+    "L7": false,
+    "ProbeInterval": 20000000,
+    "ProbeTimeout": 100000000,
+    "QuarantineTimeout": 20000000000,
+    "ThresholdHealthy": 1,
+    "ThresholdUnhealthy": 1,
+    "HTTPScheme": 0,
+    "HTTPMethod": 0,
+    "HTTPPath": "",
+    "HTTPHost": "",
+    "DSR": false
+  },
+  "Frontends": [
+    {
+      "AddrCluster": "172.16.1.1",
+      "Protocol": "TCP",
+      "Port": 80,
+      "Scope": 0
+    }
+  ],
+  "UpdatedAt": "<redacted>",
+  "ProbedAt": "<redacted>",
+  "Healthy": false,
+  "HealthyBackendsCount": 0,
+  "UnhealthyBackendsCount": 1,
+  "Message": "failed: err: dial tcp 127.0.0.1:1: connect: connection refused"
+}
+-- maps-healthy.expected --
+BE: ID=1 ADDR=127.0.0.1:$PORT/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+-- maps-bad.expected --
+BE: ID=2 ADDR=127.0.0.1:1/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=0 QCOUNT=1 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
