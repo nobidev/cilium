@@ -116,7 +116,8 @@ jobs:
         run: |
           cilium version
           cilium connectivity test \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --debug --collect-sysdump-on-failure
 
       - name: Cleanup

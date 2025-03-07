@@ -232,9 +232,10 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          cilium connectivity test --test-concurrency=5
+          cilium connectivity test --test-concurrency=5 \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})"

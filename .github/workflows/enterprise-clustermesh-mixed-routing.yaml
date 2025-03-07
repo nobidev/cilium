@@ -484,7 +484,8 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false \
             --flow-validation=disabled \
             --test=no-unexpected-packet-drops \
@@ -521,7 +522,8 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false \
             --flow-validation=disabled \
             --test=no-interrupted-connections \
@@ -555,7 +557,8 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --force-deploy \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false \
             --flow-validation=disabled \
             --external-target=google.com. \
