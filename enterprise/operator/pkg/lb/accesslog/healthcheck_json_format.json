@@ -24,8 +24,5 @@
   "downstream.local-address": "%DOWNSTREAM_LOCAL_ADDRESS%",
   "downstream.direct-remote-address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
   "downstream.remote-address": "%DOWNSTREAM_REMOTE_ADDRESS%",
-  "downstream.transport-failure-reason": "%DOWNSTREAM_TRANSPORT_FAILURE_REASON%",
-  "downstream.tls.cipher": "%DOWNSTREAM_TLS_CIPHER%",
-  "downstream.tls.version": "%DOWNSTREAM_TLS_VERSION%",
-  "downstream.tls.session-id": "%DOWNSTREAM_TLS_SESSION_ID%"
+  "downstream.transport-failure-reason": "%DOWNSTREAM_TRANSPORT_FAILURE_REASON%"
 }
