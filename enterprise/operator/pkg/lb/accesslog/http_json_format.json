@@ -2,6 +2,8 @@
   "start_time": "%START_TIME%",
   "logger": "access",
   "type": "http",
+  "service.namespace": "%SERVICE_NAMESPACE%",
+  "service.name": "%SERVICE_NAME%",
   "protocol": "%PROTOCOL%",
   "http.req.method": "%REQ(:METHOD)%",
   "http.req.authority": "%REQ(:AUTHORITY)%",

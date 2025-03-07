@@ -1,4 +1,6 @@
 [%START_TIME%][access][tls]
+service.namespace="%SERVICE_NAMESPACE%"
+service.name="%SERVICE_NAME%"
 protocol="%PROTOCOL%"
 response.flags="%RESPONSE_FLAGS%"
 response.flags-long="%RESPONSE_FLAGS_LONG%"

@@ -1,11 +1,11 @@
 SecretsNamespace: ""
 AccessLog:
-  EnableStdOut: false
+  EnableStdOut: true
   FilePath: "/var/log/envoy-accesslog.log"
-  FormatHTTP: "ACCESSLOG_FORMAT_STRING"
-  JSONFormatHTTP: "{}"
-  FormatHC: "ACCESSLOG_HC_FORMAT_STRING"
-  JSONFormatHC: "{}"
+  FormatHTTP: "ACCESSLOG_FORMAT_STRING HTTP %SERVICE_NAMESPACE% %SERVICE_NAME%"
+  JSONFormatHTTP: '{ "type": "http", "service.namespace": "%SERVICE_NAMESPACE%", "service.name": "%SERVICE_NAME%" }'
+  FormatHC: "ACCESSLOG_FORMAT_STRING HC %SERVICE_NAMESPACE% %SERVICE_NAME%"
+  JSONFormatHC: '{ "type": "hc", "service.namespace": "%SERVICE_NAMESPACE%", "service.name": "%SERVICE_NAME%" }'
   EnableHC: true
 RequestID:
   Generate: true

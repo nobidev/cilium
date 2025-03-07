@@ -166,7 +166,7 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableTCP {
-		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP)
+		accessLoggers = r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP)
 	}
 
 	return &envoy_config_listener_v3.Listener{
@@ -271,7 +271,7 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService)
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableUDP {
-		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatUDP, r.config.AccessLog.JSONFormatUDP)
+		accessLoggers = r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatUDP, r.config.AccessLog.JSONFormatUDP)
 	}
 
 	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
@@ -433,7 +433,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableHC {
-		accessLoggers = r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHC, r.config.AccessLog.JSONFormatHC)
+		accessLoggers = r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatHC, r.config.AccessLog.JSONFormatHC)
 	}
 
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
@@ -466,7 +466,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHTTPHCM(model *lb
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -905,7 +905,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,
@@ -1027,7 +1027,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
+					AccessLog:  r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("tls_passthrough_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicyForTLS(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -1083,7 +1083,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
+					AccessLog:  r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
 					StatPrefix: fmt.Sprintf("tls_proxy_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicyForTLS(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -1153,7 +1153,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTCPProxyFilterChains(model *
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP),
+					AccessLog:  r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP),
 					StatPrefix: fmt.Sprintf("tcp_proxy_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicy(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
@@ -1176,8 +1176,13 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTCPProxyFilterChains(model *
 	return tcpProxyFilterChains
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(textFormatString string, jsonFormatString string) []*envoy_config_accesslog_v3.AccessLog {
+func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(model *lbService, textFormatString string, jsonFormatString string) []*envoy_config_accesslog_v3.AccessLog {
 	accessLoggers := []*envoy_config_accesslog_v3.AccessLog{}
+
+	textFormatString = strings.ReplaceAll(textFormatString, "%SERVICE_NAMESPACE%", model.namespace)
+	textFormatString = strings.ReplaceAll(textFormatString, "%SERVICE_NAME%", model.name)
+	jsonFormatString = strings.ReplaceAll(jsonFormatString, "%SERVICE_NAMESPACE%", model.namespace)
+	jsonFormatString = strings.ReplaceAll(jsonFormatString, "%SERVICE_NAME%", model.name)
 
 	if r.config.AccessLog.EnableStdOut {
 		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
