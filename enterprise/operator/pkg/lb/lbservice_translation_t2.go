@@ -912,7 +912,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
 	return &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{
 		ServerName:                   r.config.ServerName,
-		AccessLog:                    r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatHTTP, r.config.AccessLog.JSONFormatHTTP),
+		AccessLog:                    r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatHTTPS, r.config.AccessLog.JSONFormatHTTPS),
 		GenerateRequestId:            wrapperspb.Bool(r.config.RequestID.Generate),
 		PreserveExternalRequestId:    r.config.RequestID.Preserve,
 		AlwaysSetRequestIdInResponse: r.config.RequestID.Response,

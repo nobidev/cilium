@@ -1,4 +1,4 @@
-[%START_TIME%][access][http]
+[%START_TIME%][access][https]
 service.namespace="%SERVICE_NAMESPACE%"
 service.name="%SERVICE_NAME%"
 protocol="%PROTOCOL%"
@@ -23,6 +23,9 @@ downstream.local-address="%DOWNSTREAM_LOCAL_ADDRESS%"
 downstream.direct-remote-address="%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%"
 downstream.remote-address="%DOWNSTREAM_REMOTE_ADDRESS%"
 downstream.transport-failure-reason="%DOWNSTREAM_TRANSPORT_FAILURE_REASON%"
+downstream.tls.cipher="%DOWNSTREAM_TLS_CIPHER%"
+downstream.tls.version="%DOWNSTREAM_TLS_VERSION%"
+downstream.tls.session-id="%DOWNSTREAM_TLS_SESSION_ID%"
 upstream.connection-id="%UPSTREAM_CONNECTION_ID%"
 upstream.host="%UPSTREAM_HOST%"
 upstream.local-address="%UPSTREAM_LOCAL_ADDRESS%"

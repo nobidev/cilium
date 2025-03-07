@@ -39,8 +39,14 @@ var tlsTextFormat string
 //go:embed tls_json_format.json
 var tlsJSONFormat string
 
+//go:embed https_text_format.txt
+var httpsTextFormat string
+
 //go:embed http_text_format.txt
 var httpTextFormat string
+
+//go:embed https_json_format.json
+var httpsJSONFormat string
 
 //go:embed http_json_format.json
 var httpJSONFormat string
@@ -52,6 +58,7 @@ const (
 	AccessLogTypeTCP
 	AccessLogTypeUDP
 	AccessLogTypeTLS
+	AccessLogTypeHTTPS
 	AccessLogTypeHTTP
 )
 
@@ -74,6 +81,8 @@ func getFormatText(alType AccessLogType) string {
 		return udpTextFormat
 	case AccessLogTypeTLS:
 		return tlsTextFormat
+	case AccessLogTypeHTTPS:
+		return httpsTextFormat
 	case AccessLogTypeHTTP:
 		return httpTextFormat
 	}
@@ -99,6 +108,8 @@ func getFormatJSON(alType AccessLogType) string {
 		return udpJSONFormat
 	case AccessLogTypeTLS:
 		return tlsJSONFormat
+	case AccessLogTypeHTTPS:
+		return httpsJSONFormat
 	case AccessLogTypeHTTP:
 		return httpJSONFormat
 	}
