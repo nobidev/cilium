@@ -33,6 +33,12 @@ var udpTextFormat string
 //go:embed udp_json_format.json
 var udpJSONFormat string
 
+//go:embed tls_passthrough_text_format.txt
+var tlsPassthroughTextFormat string
+
+//go:embed tls_passthrough_json_format.json
+var tlsPassthroughJSONFormat string
+
 //go:embed tls_text_format.txt
 var tlsTextFormat string
 
@@ -57,6 +63,7 @@ const (
 	AccessLogTypeHealthCheck AccessLogType = iota
 	AccessLogTypeTCP
 	AccessLogTypeUDP
+	AccessLogTypeTLSPassthrough
 	AccessLogTypeTLS
 	AccessLogTypeHTTPS
 	AccessLogTypeHTTP
@@ -79,6 +86,8 @@ func getFormatText(alType AccessLogType) string {
 		return tcpTextFormat
 	case AccessLogTypeUDP:
 		return udpTextFormat
+	case AccessLogTypeTLSPassthrough:
+		return tlsPassthroughTextFormat
 	case AccessLogTypeTLS:
 		return tlsTextFormat
 	case AccessLogTypeHTTPS:
@@ -106,6 +115,8 @@ func getFormatJSON(alType AccessLogType) string {
 		return tcpJSONFormat
 	case AccessLogTypeUDP:
 		return udpJSONFormat
+	case AccessLogTypeTLSPassthrough:
+		return tlsPassthroughJSONFormat
 	case AccessLogTypeTLS:
 		return tlsJSONFormat
 	case AccessLogTypeHTTPS:

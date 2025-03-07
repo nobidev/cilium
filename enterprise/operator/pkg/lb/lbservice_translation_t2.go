@@ -1034,7 +1034,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_extensions_filters_network_tcpproxy_v3.TcpProxy{
-					AccessLog:  r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTLS, r.config.AccessLog.JSONFormatTLS),
+					AccessLog:  r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTLSPassthrough, r.config.AccessLog.JSONFormatTLSPassthrough),
 					StatPrefix: fmt.Sprintf("tls_passthrough_%s_%s_%d", model.namespace, model.name, i),
 					HashPolicy: r.toTCPProxyHashpolicyForTLS(tr.persistentBackend),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcpproxy_v3.TcpProxy_Cluster{
