@@ -81,7 +81,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 	cmd.Flags().StringVar(&accessLogRequestIdFilter, "request-id", "", "Request id to filter the access log for")
 	cmd.Flags().StringVar(&accessLogVIPAndPortFilter, "vip-and-port", "", "VIP and Port to filter the access log for (VIP:PORT)")
 	cmd.Flags().StringSliceVar(&accessLogGenericFilters, "filters", []string{}, "Attribute filters to filter the access log for (attribute=value,attribute2=value2). All of the filters must match.")
-	cmd.Flags().StringSliceVar(&accessLogProtocolsFilter, "protocols", []string{"udp", "tcp", "tls", "https", "http"}, "Filter for the provided protocols")
+	cmd.Flags().StringSliceVar(&accessLogProtocolsFilter, "protocols", []string{"udp", "tcp", "tls_passthrough", "tls", "https", "http"}, "Filter for the provided protocols")
 	cmd.Flags().BoolVar(&accessLogIncludeHTTPHealthCheckFilter, "healthcheck", false, "Include HTTP Healthcheck accesslog")
 	cmd.Flags().BoolVar(&accessLogFollow, "follow", false, "Specify if the logs should be streamed")
 
