@@ -33,10 +33,10 @@ shift 5
 
 registries=("${@}")
 
-if [ "${with_root_context}" = "false" ] ; then
-  image_tag="$("${root_dir}/images/scripts/make-image-tag.sh" "${image_dir}")"
-else
+if [ -z "${IMAGE_TAG+x}" ] ; then
   image_tag="$("/${root_dir}/images/scripts/make-image-tag.sh")"
+else
+  image_tag="${IMAGE_TAG}"
 fi
 
 tag_args=()
