@@ -22,6 +22,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 func TestL7Probe(t *testing.T) {
@@ -229,6 +230,9 @@ func TestL7Probe(t *testing.T) {
 
 	probe := probeImpl{logger: slog.New(slog.DiscardHandler)}
 	probeChan := make(chan ProbeData, 1)
+
+	// init node handler needed for sendL7Probe
+	node.SetTestLocalNodeStore()
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
