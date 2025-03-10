@@ -29,6 +29,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
@@ -653,8 +654,10 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 		Timeout: config.ProbeTimeout,
 	}
 	connAddr := ""
+	beIsLocal := node.IsNodeIP(beAddr.AddrCluster.Addr()) != ""
+
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && config.DSR {
+	if option.Config.EnableHealthDatapath && config.DSR && !beIsLocal {
 		connAddr = getAddrStr(svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {
@@ -687,8 +690,10 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L3n4Addr, probeOut chan ProbeData) {
 	d := net.Dialer{}
 	connAddr := ""
+	beIsLocal := node.IsNodeIP(beAddr.AddrCluster.Addr()) != ""
+
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && config.DSR {
+	if option.Config.EnableHealthDatapath && config.DSR && !beIsLocal {
 		connAddr = getAddrStr(svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {
