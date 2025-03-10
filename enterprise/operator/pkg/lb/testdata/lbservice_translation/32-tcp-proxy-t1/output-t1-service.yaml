@@ -12,6 +12,7 @@ metadata:
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: random
+    service.cilium.io/proxy-delegation: delegate-if-local
     service.cilium.io/node: t1
     service.cilium.io/src-ranges-policy: deny
     service.cilium.io/type: "LoadBalancer"
