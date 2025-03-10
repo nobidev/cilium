@@ -81,6 +81,10 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// T1 -> {T2 | Backend} health checking
 	maps.Copy(annotations, r.getHealthCheckAnnotations(model))
 
+	// T1 -> T2 delegation: If T2 is on the same node, just push the packet up to
+	// T2 instead of IPIP encapsulation
+	annotations[ossannotation.ServiceProxyDelegation] = string(loadbalancer.SVCProxyDelegationDelegateIfLocal)
+
 	// T1-only connectionfiltering
 	var lbSourceRanges []string = nil
 
