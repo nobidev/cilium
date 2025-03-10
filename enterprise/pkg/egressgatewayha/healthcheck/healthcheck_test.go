@@ -29,8 +29,6 @@ import (
 )
 
 func TestHealthCheckerHealthyNode(t *testing.T) {
-	t.Parallel()
-
 	hc, nodeAddr := setup(t, 50*time.Millisecond,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -62,8 +60,6 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 }
 
 func TestHealthCheckerUnhealthyNode(t *testing.T) {
-	t.Parallel()
-
 	hc, nodeAddr := setup(t, 50*time.Millisecond,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
