@@ -161,4 +161,9 @@ enable-ipip-termination: "true"
 bpf-lb-ipip-sock-mark: "true"
 {{- end }}
 
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+envoy-config-policy-mode: {{ .Values.envoyConfig.policy.mode | quote }}
+envoy-config-policy-regen-interval: {{ include "validateDuration" .Values.envoyConfig.policy.regenerationInterval | quote }}
+{{- end }}
+
 {{- end }}

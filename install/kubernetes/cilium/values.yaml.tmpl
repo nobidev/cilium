@@ -903,6 +903,18 @@ envoyConfig:
     name: cilium-secrets
   # -- Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.
   retryInterval: 15s
+  policy:
+    # @schema
+    # oneOf:
+    # - type: [string]
+    # - enum: [global,dedicated]
+    # @schema
+    # -- Enable a dedicated policy enforcement for each CiliumEnvoyConfig instead of using the ClusterwideCiliumNetworkPolicy.
+    # Applicable values: global, dedicated
+    mode: "global"
+    # -- Interval in which the related policy will be regenerated.
+    # Applies to the dedicated mode only
+    regenerationInterval: 30s
 ingressController:
   # -- Enable cilium ingress controller
   # This will automatically set enable-envoy-config as well.

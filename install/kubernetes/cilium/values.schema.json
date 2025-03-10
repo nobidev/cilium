@@ -2550,6 +2550,27 @@
         "enabled": {
           "type": "boolean"
         },
+        "policy": {
+          "properties": {
+            "mode": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "global",
+                    "dedicated"
+                  ]
+                }
+              ]
+            },
+            "regenerationInterval": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "retryInterval": {
           "type": "string"
         },

@@ -1648,6 +1648,14 @@
      - Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
      - bool
      - ``false``
+   * - :spelling:ignore:`envoyConfig.policy.mode`
+     - Enable a dedicated policy enforcement for each CiliumEnvoyConfig instead of using the ClusterwideCiliumNetworkPolicy.
+     - string
+     - ``"global"``
+   * - :spelling:ignore:`envoyConfig.policy.regenerationInterval`
+     - Interval in which the related policy will be regenerated. Applies to the dedicated mode only
+     - string
+     - ``"30s"``
    * - :spelling:ignore:`envoyConfig.retryInterval`
      - Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.
      - string

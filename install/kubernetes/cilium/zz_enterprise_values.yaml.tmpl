@@ -624,3 +624,16 @@ hubble:
       # @schema
       # @default -- `30s`
       aggregationTTL: ~
+
+envoyConfig:
+  policy:
+    # @schema
+    # oneOf:
+    # - type: [null]
+    # - enum: [global,dedicated]
+    # @schema
+    # -- Enable a dedicated policy enforcement for each CiliumEnvoyConfig instead of using the ClusterwideCiliumNetworkPolicy.
+    mode: "global"
+    # -- Interval in which the related policy will be regenerated.
+    # Applies to the dedicated mode only
+    regenerationInterval: 30s
