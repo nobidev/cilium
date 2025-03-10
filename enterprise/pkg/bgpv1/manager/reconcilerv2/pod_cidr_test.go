@@ -618,12 +618,12 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				err := podCIDRReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance: &instance.BGPInstance{
 						Name: testBGPInstance.Name,
-						Config: &v2alpha1.CiliumBGPNodeInstance{
+						Config: &v2api.CiliumBGPNodeInstance{
 							Name: testBGPInstance.Name,
 						},
 						Router: testBGPInstance.Router,
 					},
-					DesiredConfig: &v2alpha1.CiliumBGPNodeInstance{
+					DesiredConfig: &v2api.CiliumBGPNodeInstance{
 						Name: testBGPInstance.Name,
 					},
 					CiliumNode: tt.testCiliumNode,

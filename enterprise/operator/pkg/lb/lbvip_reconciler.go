@@ -223,7 +223,7 @@ func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredServ
 
 	r.logger.Debug("Service has been update",
 		logfields.Resource, client.ObjectKeyFromObject(svc),
-		"result", result,
+		logfieldResult, result,
 	)
 
 	return nil

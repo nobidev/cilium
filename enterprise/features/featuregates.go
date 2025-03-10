@@ -34,6 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+const (
+	logfieldID      = "id"
+	logfieldFlags   = "flags"
+	logfieldValues  = "values"
+	logfieldFeature = "feature"
+)
+
 var ErrUnsupportedFeatures = errors.New("Unsupported feature(s) enabled")
 
 func featureCheckError(id ID, feat YAMLFeature) error {
@@ -126,7 +133,10 @@ func validateFeatureGates(log *slog.Logger, cfg FeatureGatesConfig, settings cel
 			}
 		}
 		if len(feat.Flags) > 0 && enableCount == len(feat.Flags) {
-			gc.log.Debug("Feature enabled, checking feature gates", "id", id, "flags", feat.Flags, "values", featValues)
+			gc.log.Debug("Feature enabled, checking feature gates",
+				logfieldID, id,
+				logfieldFlags, feat.Flags,
+				logfieldValues, featValues)
 			if err := gc.CheckFeatureGates(id, feat); err != nil {
 				// We swallow the error type here and produce a string in order to produce
 				// a nicer concatenated error below.
@@ -172,7 +182,8 @@ func NewGateChecker(log *slog.Logger, fcfg FeatureGatesConfig) (*gateChecker, er
 		} else {
 			// Only log a warning since we might be upgrading and some agents might
 			// be running an older version that doesn't yet know about this feature.
-			log.Warn("unknown feature in feature gates", "feature", feature)
+			log.Warn("unknown feature in feature gates",
+				logfieldFeature, feature)
 		}
 	}
 	return gc, nil

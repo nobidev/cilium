@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/int128/listener"
 	"golang.org/x/sync/errgroup"
 )
@@ -88,8 +90,10 @@ func receiveCodeViaLocalServer(ctx context.Context, c *ServerConfig) (string, er
 	var eg errgroup.Group
 	eg.Go(func() error {
 		defer close(respCh)
-		c.Logger.Debug("starting a server", "addr", l.Addr())
-		defer c.Logger.Debug("stopped the server", "addr", l.Addr())
+		c.Logger.Debug("starting a server",
+			logfields.Address, l.Addr())
+		defer c.Logger.Debug("stopped the server",
+			logfields.Address, l.Addr())
 		if c.isLocalServerHTTPS() {
 			if err := server.ServeTLS(l, c.LocalServerCertFile, c.LocalServerKeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				return fmt.Errorf("could not start HTTPS server: %w", err)
@@ -118,11 +122,13 @@ func receiveCodeViaLocalServer(ctx context.Context, c *ServerConfig) (string, er
 		// Gracefully shutdown the server in the timeout.
 		// If the server has not started, Shutdown returns nil and this returns immediately.
 		// If Shutdown has failed, force-close the server.
-		c.Logger.Debug("shutting down the server", "addr", l.Addr())
+		c.Logger.Debug("shutting down the server",
+			logfields.Address, l.Addr())
 		ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
-			c.Logger.Error("force-closing the server: shutdown failed", "error", err)
+			c.Logger.Error("force-closing the server: shutdown failed",
+				logfields.Error, err)
 			_ = server.Close()
 			return nil
 		}
@@ -187,7 +193,8 @@ func (h *localServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *localServerHandler) handleIndex(w http.ResponseWriter, r *http.Request) {
 	authCodeURL := h.config.OAuth2Config.AuthCodeURL(h.config.State, h.config.AuthCodeOptions...)
-	h.config.Logger.Debug("sending redirect", "url", authCodeURL)
+	h.config.Logger.Debug("sending redirect",
+		logfields.URL, authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusFound)
 }
 

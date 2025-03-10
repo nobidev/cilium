@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
@@ -192,15 +193,15 @@ func TestVPNRoutePolicy(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				Peers:    tt.peers,
 			}
-			ossNodeInstance := &v2alpha1.CiliumBGPNodeInstance{
+			ossNodeInstance := &v2.CiliumBGPNodeInstance{
 				Name:     iNodeInstance.Name,
 				LocalASN: iNodeInstance.LocalASN,
 			}
 			for _, peer := range iNodeInstance.Peers {
-				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2alpha1.CiliumBGPNodePeer{
+				ossNodeInstance.Peers = append(ossNodeInstance.Peers, v2.CiliumBGPNodePeer{
 					Name:        peer.Name,
 					PeerAddress: peer.PeerAddress,
-					PeerConfigRef: &v2alpha1.PeerConfigReference{
+					PeerConfigRef: &v2.PeerConfigReference{
 						Name: peer.PeerConfigRef.Name,
 					},
 				})

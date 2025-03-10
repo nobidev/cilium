@@ -11,6 +11,8 @@
 package endpoint
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
@@ -39,6 +41,9 @@ func (e *Endpoint) GetPolicyMap() (*policymap.PolicyMap, error) {
 		return e.policyMap, nil
 	}
 
-	e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
+	if e.policyMapFactory == nil {
+		return nil, fmt.Errorf("endpoint has nil policyMapFactory")
+	}
+	e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 	return e.policyMap, err
 }

@@ -41,6 +41,11 @@ const (
 	lbServiceVIPIndexName        = ".spec.vipRef.name"
 	lbServiceBackendIndexName    = ".spec.routes.http.backend"
 	lbServiceTlsSecretsIndexName = ".spec.tls.secrets" // TLS Certificates & Validation secrets
+
+	logfieldIPv4Assigned        = "ipv4Assigned"
+	logfieldStatusConditionsMet = "statusConditionsMet"
+	logfieldNodeType            = "nodeType"
+	logfieldResult              = "result"
 )
 
 type lbServiceReconciler struct {
@@ -264,7 +269,9 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// handling the traffic towards the stable VIP, etc. - or creating
 	// depending resources might fail due to incompatibilities.
 	if model.vip.assignedIPv4 == nil || !lbsvc.AllStatusConditionsMet() {
-		r.logger.Debug("Stopping reconciliation - no IP assigned or status conditions not met (yet)", "ipv4-assigned", model.vip.assignedIPv4 != nil, "statusconditions-met", lbsvc.AllStatusConditionsMet())
+		r.logger.Debug("Stopping reconciliation - no IP assigned or status conditions not met (yet)",
+			logfieldIPv4Assigned, model.vip.assignedIPv4 != nil,
+			logfieldStatusConditionsMet, lbsvc.AllStatusConditionsMet())
 		if err = r.ensureServiceDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure service is deleted: %w", err)
 		}
@@ -441,7 +448,7 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 			if nodeIP == "" {
 				r.logger.Warn("Could not find InternalIP for CiliumNode",
 					logfields.Resource, cn.Name,
-					"nodeType", nodeType,
+					logfieldNodeType, nodeType,
 				)
 				continue
 			}
@@ -470,7 +477,7 @@ func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desired
 
 	r.logger.Debug("Service has been updated",
 		logfields.Resource, client.ObjectKeyFromObject(svc),
-		"result", result,
+		logfieldResult, result,
 	)
 
 	return nil
@@ -509,7 +516,7 @@ func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desir
 
 		r.logger.Debug("Endpoints has been updated",
 			logfields.Resource, client.ObjectKeyFromObject(ep),
-			"result", result,
+			logfieldResult, result,
 		)
 		return nil
 	}
@@ -564,7 +571,7 @@ func (r *lbServiceReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Contex
 
 	r.logger.Debug("CiliumEnvoyConfig has been updated",
 		logfields.Resource, client.ObjectKeyFromObject(cec),
-		"result", result,
+		logfieldResult, result,
 	)
 
 	return nil

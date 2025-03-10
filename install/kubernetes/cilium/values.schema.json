@@ -639,6 +639,12 @@
             "integer"
           ]
         },
+        "policyStatsMapMax": {
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "preallocateMaps": {
           "type": "boolean"
         },
@@ -1089,6 +1095,12 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "scrapeTimeout": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
                         }
                       },
                       "type": "object"
@@ -1112,6 +1124,12 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "scrapeTimeout": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
                         }
                       },
                       "type": "object"
@@ -1129,6 +1147,12 @@
                       "type": [
                         "null",
                         "array"
+                      ]
+                    },
+                    "scrapeTimeout": {
+                      "type": [
+                        "null",
+                        "string"
                       ]
                     }
                   },
@@ -1577,6 +1601,12 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "metricsSamplingInterval": {
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "verbose": {
           "type": [
@@ -2375,6 +2405,12 @@
                     ]
                   },
                   "type": "array"
+                },
+                "scrapeTimeout": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -2449,6 +2485,9 @@
             }
           },
           "type": "object"
+        },
+        "streamIdleTimeoutDurationSeconds": {
+          "type": "integer"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer"
@@ -3050,6 +3089,12 @@
                   },
                   "type": "array"
                 },
+                "scrapeTimeout": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "tlsConfig": {
                   "type": "object"
                 }
@@ -3517,6 +3562,12 @@
                       "type": [
                         "null",
                         "array"
+                      ]
+                    },
+                    "scrapeTimeout": {
+                      "type": [
+                        "null",
+                        "string"
                       ]
                     }
                   },
@@ -5512,6 +5563,12 @@
                     "null",
                     "array"
                   ]
+                },
+                "scrapeTimeout": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -5915,6 +5972,12 @@
                 ]
               },
               "type": "array"
+            },
+            "scrapeTimeout": {
+              "type": [
+                "null",
+                "string"
+              ]
             },
             "trustCRDsExist": {
               "type": "boolean"

@@ -25,10 +25,8 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	bfdTypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
-	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/hive"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -165,14 +163,6 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, fc f
 	f.fakeClientSet.SlimFakeClientset.PrependWatchReactor("*", watchReactor(f.fakeClientSet.SlimFakeClientset.Tracker()))
 
 	f.hive = hive.New(
-		cell.Provide(
-			k8s.CiliumBGPPeerConfigResource,
-			k8s.CiliumBGPAdvertisementResource,
-			k8s.CiliumBGPNodeConfigResource,
-			operatorK8s.CiliumBGPClusterConfigResource,
-			operatorK8s.CiliumBGPNodeConfigOverrideResource,
-		),
-
 		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_v2.CiliumNode] {
 			return resource.New[*cilium_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped(

@@ -51,11 +51,16 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+)
+
+const (
+	logfieldPruned = "pruned"
 )
 
 var Cell = cell.Module(
@@ -205,7 +210,8 @@ func newMigrationManager(params managerParams) *manager {
 						if strings.Contains(err.Error(), "pool not (yet) available") {
 							level = slog.LevelInfo
 						}
-						m.log.Log(ctx, level, "Failed to handle pod event, will re-try later", slog.Any("err", err))
+						m.log.Log(ctx, level, "Failed to handle pod event, will re-try later",
+							logfields.Error, err)
 					}
 					event.Done(err)
 					return nil
@@ -236,7 +242,8 @@ func (m *manager) endpointsForPod(pod *slim_corev1.Pod) []*endpoint.Endpoint {
 
 // detachRunningPod detaches a running pod by removing all endpoints
 func (m *manager) detachRunningPod(pod resource.Key, endpoints []*endpoint.Endpoint) error {
-	m.log.Info("Detaching pod endpoints", slog.String("pod", pod.String()))
+	m.log.Info("Detaching pod endpoints",
+		logfields.Pod, pod)
 
 	var err error
 	deleteConfig := endpoint.DeleteConfig{}
@@ -317,8 +324,8 @@ func (m *manager) attachRunningPod(ctx context.Context, pod *slim_corev1.Pod) er
 
 	if err == nil {
 		m.log.Info("Attached pod endpoints",
-			slog.String("pod", pod.Namespace+"/"+pod.Name),
-			slog.Int("endpoints", len(epTemplates)))
+			logfields.Pod, pod.Namespace+"/"+pod.Name,
+			logfields.Endpoints, len(epTemplates))
 	}
 
 	return err
@@ -344,7 +351,8 @@ func (m *manager) handlePodEvent(ctx context.Context, event resource.Event[agent
 	case resource.Upsert:
 		// Skip pod objects without a UID
 		if len(pod.UID) == 0 {
-			m.log.Warn("Pod event received with empty UID, ignoring", slog.String("pod", event.Key.String()))
+			m.log.Warn("Pod event received with empty UID, ignoring",
+				logfields.Pod, event.Key)
 			return nil
 		}
 
@@ -379,11 +387,12 @@ func (m *manager) handlePodEvent(ctx context.Context, event resource.Event[agent
 		}
 		pruned, err := m.endpointTemplates.pruneEndpointTemplates(alivePodsUIDs)
 		if err == nil {
-			m.log.Debug("Pruned endpoint templates", slog.Int("pruned", pruned))
+			m.log.Debug("Pruned endpoint templates",
+				logfieldPruned, pruned)
 		} else {
 			m.log.Warn("Errors while pruning endpoint templates",
-				slog.Int("pruned", pruned),
-				slog.Any("error", err))
+				logfieldPruned, pruned,
+				logfields.Error, err)
 		}
 		// Not returning an error to the caller here, since we do not expect a retry to be ever be successful
 		return nil
@@ -408,7 +417,7 @@ func (m *manager) fetchPod(ctx context.Context, podNamespace, podName, podUID st
 		// if podUID is provided, we want to ensure that we are using the correct pod
 		if podUID != "" && string(localPod.UID) != podUID {
 			m.log.Warn("Detected outdated pod store, retrying",
-				slog.String("pod", podNamespace+"/"+podName))
+				logfields.Pod, podNamespace+"/"+podName)
 			return false, nil
 		}
 
@@ -451,14 +460,14 @@ func (m *manager) detachedEPModel(ep *models.EndpointChangeRequest, pod *slim_co
 // create the endpoint regularly.
 func (m *manager) handlePutEndpointID(p endpointrestapi.PutEndpointIDParams) middleware.Responder {
 	log := m.log.With(
-		slog.String("pod", p.Endpoint.K8sNamespace+"/"+p.Endpoint.K8sPodName),
-		slog.String("uid", p.Endpoint.K8sUID))
+		logfields.Pod, p.Endpoint.K8sNamespace+"/"+p.Endpoint.K8sPodName,
+		logfields.K8sUID, p.Endpoint.K8sUID)
 
 	// Check if pod has detached annotation
 	pod, err := m.fetchPod(p.HTTPRequest.Context(), p.Endpoint.K8sNamespace, p.Endpoint.K8sPodName, p.Endpoint.K8sUID)
 	if err != nil {
 		log.Warn("Failed to obtain pod object from K8s API",
-			slog.Any("err", err))
+			logfields.Error, err)
 		return api.Error(endpointrestapi.PutEndpointIDFailedCode, err)
 	}
 
@@ -467,7 +476,7 @@ func (m *manager) handlePutEndpointID(p endpointrestapi.PutEndpointIDParams) mid
 		err := m.endpointTemplates.persistEndpointTemplate(p.Endpoint)
 		if err != nil {
 			log.Error("Failed to persist endpoint template. Any IP migration to this pod will not be able to succeed",
-				slog.Any("err", err))
+				logfields.Error, err)
 			// We're continuing regardless of this error, since it only matters to pods that need to be migrated
 		}
 
@@ -563,8 +572,8 @@ func (m *manager) handlePostIPAM(p ipamrestapi.PostIpamParams) middleware.Respon
 		pod, err := m.fetchPod(ctx, podNamespace, podName, "")
 		if err != nil {
 			log.Warn("Failed to obtain pod object from K8s API",
-				slog.String("pod", podNamespace+"/"+podName),
-				slog.Any("err", err))
+				logfields.Pod, podNamespace+"/"+podName,
+				logfields.Error, err)
 			return api.Error(ipamrestapi.PostIpamFailureCode, err)
 		}
 

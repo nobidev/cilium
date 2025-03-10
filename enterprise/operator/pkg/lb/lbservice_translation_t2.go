@@ -1208,13 +1208,17 @@ func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(model *lbService, text
 	if r.config.AccessLog.FilePath != "" {
 		jsonFormatMap := map[string]any{}
 		if err := json.Unmarshal([]byte(jsonFormatString), &jsonFormatMap); err != nil {
-			r.logger.Error("Failed to unmarshal JSON accesslog format - skipping", "filepath", r.config.AccessLog.FilePath, logfields.Error, err)
+			r.logger.Error("Failed to unmarshal JSON accesslog format - skipping",
+				logfields.Path, r.config.AccessLog.FilePath,
+				logfields.Error, err)
 			return accessLoggers
 		}
 
 		jsonFormatStruct, err := structpb.NewStruct(jsonFormatMap)
 		if err != nil {
-			r.logger.Error("Failed to create protobuf struct for JSON accesslog format - skipping", "filepath", r.config.AccessLog.FilePath, logfields.Error, err)
+			r.logger.Error("Failed to create protobuf struct for JSON accesslog format - skipping",
+				logfields.Path, r.config.AccessLog.FilePath,
+				logfields.Error, err)
 			return accessLoggers
 		}
 
@@ -1490,7 +1494,10 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(httpType string, provide
 		// The API validation (format=uri) guarantees that the
 		// given URI can be parsed with url.ParseRequestURI.
 		// So, this shouldn't happen.
-		r.logger.Error("BUG: Cannot parse JWKS URI", "uri", provider.remoteJWKS.httpURI)
+		r.logger.Error("BUG: Cannot parse JWKS URI",
+			logfields.URL, provider.remoteJWKS.httpURI,
+			logfields.Error, err,
+		)
 		return nil
 	}
 

@@ -50,7 +50,7 @@ func (s *podToPhantomService) Run(ctx context.Context, t *check.Test) {
 				fmt.Sprintf("http://%s:%d", deploy.PhantomServiceAddress(ipFam, idx), deploy.PhantomServicePort))
 
 			t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, target, ipFam).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(target, ipFam))
+				a.ExecInPod(ctx, ct.CurlCommand(target, ipFam, true, nil))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: false, AltDstIP: dst.Address(ipFam), AltDstPort: dst.Port()}))

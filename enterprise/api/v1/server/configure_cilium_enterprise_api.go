@@ -14,6 +14,7 @@ package server
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-openapi/errors"
@@ -29,7 +30,7 @@ func configureFlags(api *restapi.CiliumEnterpriseAPIAPI) {
 	// api.CommandLineOptionsGroups = []swag.CommandLineOptionsGroup{ ... }
 }
 
-func configureAPI(api *restapi.CiliumEnterpriseAPIAPI) http.Handler {
+func configureAPI(log *slog.Logger, api *restapi.CiliumEnterpriseAPIAPI) http.Handler {
 	// configure the api here
 	api.ServeError = errors.ServeError
 

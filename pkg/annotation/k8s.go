@@ -37,6 +37,9 @@ const (
 	// CNIPrefix is the common prefix for CNI related annotations.
 	CNIPrefix = "cni.cilium.io"
 
+	// CECPrefix is the common prefix for CEC related annotations.
+	CECPrefix = "cec.cilium.io"
+
 	// PodAnnotationMAC is used to store the MAC address of the Pod.
 	PodAnnotationMAC = CNIPrefix + "/mac-address"
 
@@ -130,6 +133,11 @@ const (
 	// service is ignored and not installed into their datapath.
 	ServiceNodeExposure = ServicePrefix + "/node"
 
+	// ServiceNodeSelectorExposure is the label name used to mark a service to only a
+	// subset of the nodes which match the label selector. For all other nodes, this
+	// service is ignored and not installed into their datapath.
+	ServiceNodeSelectorExposure = ServicePrefix + "/node-selector"
+
 	// ServiceTypeExposure is the annotation name used to mark what service type
 	// to provision (only single type is allowed; allowed types: "ClusterIP",
 	// "NodePort" and "LoadBalancer").
@@ -182,6 +190,10 @@ const (
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
 
+	// IPAMIgnore is the annotation used to make the Cilium operator IPAM logic
+	// ignore the given CiliumNode object
+	IPAMIgnore = IPAMPrefix + "/ignore"
+
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
@@ -189,12 +201,12 @@ const (
 	LBIPAMSharingKeyAlias             = Prefix + "/lb-ipam-sharing-key"
 	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
 	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
+
+	CECInjectCiliumFilters = CECPrefix + "/inject-cilium-filters"
 )
 
-var (
-	// CiliumPrefixRegex is a regex matching Cilium specific annotations.
-	CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
-)
+// CiliumPrefixRegex is a regex matching Cilium specific annotations.
+var CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
 
 // Get returns the annotation value associated with the given key, or any of
 // the additional aliases if not found.

@@ -473,7 +473,7 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, "-4"))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, true, nil))
 				clientIPs := extractClientIPsFromEchoServiceResponses(a.CmdOutput())
 
 				for _, clientIP := range clientIPs {
@@ -495,7 +495,7 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, true, nil))
 				clientIPs := extractClientIPsFromEchoServiceResponses(a.CmdOutput())
 
 				for _, clientIP := range clientIPs {
@@ -520,7 +520,7 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 				echo := echo.ToNodeportService(node)
 
 				t.NewAction(s, fmt.Sprintf("curl-echo-service-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4, true, nil))
 				})
 				i++
 			}
@@ -541,7 +541,7 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 
 			for _, echo := range ct.EchoPods() {
 				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4, true, nil))
 				})
 				i++
 			}
@@ -1002,7 +1002,7 @@ func (s *egressGatewayHAIPAM) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, curlRetryOptions()...))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, true, curlRetryOptions()))
 				clientIPs := extractClientIPsFromEchoServiceResponses(a.CmdOutput())
 
 				for _, clientIP := range clientIPs {

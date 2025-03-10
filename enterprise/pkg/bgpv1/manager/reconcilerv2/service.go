@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -540,7 +541,7 @@ func (r *ServiceReconciler) getAllServiceAFPaths(desiredPeerAdverts PeerAdvertis
 
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
-			agentFamily := bgptypes.ToAgentFamily(family)
+			agentFamily := toAgentFamily(family)
 
 			for _, advert := range familyAdverts {
 				// get prefixes for the service
@@ -911,7 +912,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 
 	for peer, afAdverts := range desiredPeerAdverts {
 		for fam, adverts := range afAdverts {
-			agentFamily := bgptypes.ToAgentFamily(fam)
+			agentFamily := toAgentFamily(fam)
 
 			for _, advert := range adverts {
 				labelSelector, err := slim_metav1.LabelSelectorAsSelector(advert.Selector)
@@ -1032,8 +1033,8 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 	}
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPLoadBalancerIPAddr))
-	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
-		Attributes: advert.Attributes,
+	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
+		Attributes: toV2Attributes(advert.Attributes),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LoadBalancer IP route policy: %w", err)
@@ -1097,8 +1098,8 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 	}
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPExternalIPAddr))
-	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
-		Attributes: advert.Attributes,
+	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
+		Attributes: toV2Attributes(advert.Attributes),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create external IP route policy: %w", err)
@@ -1169,8 +1170,8 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 	}
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPClusterIPAddr))
-	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2alpha1.BGPAdvertisement{
-		Attributes: advert.Attributes,
+	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
+		Attributes: toV2Attributes(advert.Attributes),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster IP route policy: %w", err)

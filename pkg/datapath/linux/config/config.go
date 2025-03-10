@@ -195,7 +195,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP"] = metricsmap.MapName
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
-	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
 	cDefinesMap["AUTH_MAP"] = authmap.MapName
 	cDefinesMap["AUTH_MAP_SIZE"] = fmt.Sprintf("%d", option.Config.AuthMapEntries)
 	cDefinesMap["CONFIG_MAP"] = configmap.MapName
@@ -581,13 +580,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				return fmt.Errorf("IPv6 direct routing device not found")
 			}
 
-			var ip net.IP
-			for _, addr := range drd.Addrs {
-				if addr.Addr.Is6() {
-					ip = addr.AsIP()
-					break
-				}
-			}
+			ip := preferredIPv6Address(drd.Addrs)
 			if ip.IsUnspecified() {
 				return fmt.Errorf("IPv6 direct routing device IP not found")
 			}
@@ -1062,4 +1055,17 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
+}
+
+func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) net.IP {
+	var ip net.IP
+	for _, addr := range deviceAddresses {
+		if addr.Addr.Is6() {
+			ip = addr.AsIP()
+			if !ip.IsLinkLocalUnicast() {
+				break
+			}
+		}
+	}
+	return ip
 }

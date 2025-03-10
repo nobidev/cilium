@@ -137,7 +137,7 @@ func testPolicyApplied(ctx context.Context, t *check.Test, s check.Scenario,
 
 	// Curl the server from the client to generate some traffic
 	t.NewAction(s, fmt.Sprintf("curl-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
-		a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam))
+		a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam, true, nil))
 		srcSniffer.Validate(ctx, a)
 		dstSniffer.Validate(ctx, a)
 	})

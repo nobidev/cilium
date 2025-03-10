@@ -52,6 +52,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -131,6 +132,8 @@ type Daemon struct {
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
 
+	policyMapFactory policymap.Factory
+
 	endpointManager endpointmanager.EndpointManager
 
 	endpointRestoreComplete       chan struct{}
@@ -186,6 +189,8 @@ type Daemon struct {
 	lrpManager   *redirectpolicy.Manager
 	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
+
+	explbConfig experimental.Config
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -315,7 +320,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
-	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 
 	lbmapInitParams := lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -390,6 +394,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bigTCPConfig:      params.BigTCPConfig,
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
+		policyMapFactory:  params.PolicyMapFactory,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
@@ -402,6 +407,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
 		dnsNameManager:    params.NameManager,
+		explbConfig:       params.ExpLBConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

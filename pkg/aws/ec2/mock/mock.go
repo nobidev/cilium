@@ -11,7 +11,6 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -243,7 +242,6 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
-	log.Debugf(" ENI after initial creation %v", eni)
 	return eniID, eni.DeepCopy(), nil
 }
 
@@ -344,7 +342,7 @@ func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.T
 	return result, nil
 }
 
-func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
+func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -352,18 +350,18 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[AssignPrivateIpAddresses]; ok {
-		return err
+		return nil, err
 	}
 
 	for _, enis := range e.enis {
 		if eni, ok := enis[eniID]; ok {
 			subnet, ok := e.subnets[eni.Subnet.ID]
 			if !ok {
-				return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+				return nil, fmt.Errorf("subnet %s not found", eni.Subnet.ID)
 			}
 
 			if int(addresses) > subnet.AvailableAddresses {
-				return fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
+				return nil, fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
 			}
 
 			for i := int32(0); i < addresses; i++ {
@@ -374,10 +372,10 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 				eni.Addresses = append(eni.Addresses, ip.String())
 			}
 			subnet.AvailableAddresses -= int(addresses)
-			return nil
+			return eni.Addresses, nil
 		}
 	}
-	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+	return nil, fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
 func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error {

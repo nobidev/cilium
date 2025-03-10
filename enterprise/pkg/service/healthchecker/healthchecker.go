@@ -71,6 +71,11 @@ const (
 	eventsChanSize    = 5
 	SO_MARK           = 36
 	MARK_MAGIC_HEALTH = 0x0D00
+
+	logfieldConfig        = "config"
+	logfieldProbeInterval = "probeInterval"
+	logfieldReactivate    = "reactivate"
+	logfieldNetwork       = "network"
 )
 
 const (
@@ -131,7 +136,10 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 		hc.logger.Debug("hc-debug skip health checks for svc", logfields.ServiceName, name)
 		return
 	}
-	hc.logger.Debug("hc-debug", logfields.ServiceName, name, "type", svcType, "config", svcHealthCheckConfig)
+	hc.logger.Debug("hc-debug",
+		logfields.ServiceName, name,
+		logfields.Type, svcType,
+		logfieldConfig, svcHealthCheckConfig)
 	hc.svcMapLock.Lock()
 	defer hc.svcMapLock.Unlock()
 
@@ -194,7 +202,9 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 
 	// Service backends updated
 	if backendUpdate {
-		hc.logger.Debug("hc-debug start health check", "svc-addr", svcAddr)
+		hc.logger.Debug("hc-debug start health check",
+			logfields.Address, svcAddr)
+
 		hc.svcEvents <- svcEvent{
 			evType:            SvcEventUpsert,
 			addr:              svcAddr,
@@ -214,7 +224,8 @@ func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName,
 				config: svcHealthCheckConfig,
 			}
 		case HealthCheckDisabled:
-			hc.logger.Debug("hc-debug service health checks disabled", "svc-addr", svcAddr)
+			hc.logger.Debug("hc-debug service health checks disabled",
+				logfields.Address, svcAddr)
 			delete(hc.configMap, svcAddr)
 			// Send updates to all the service backends health check probers.
 			hc.svcEvents <- svcEvent{
@@ -255,9 +266,8 @@ func (hc *HealthChecker) run() {
 		select {
 		case event := <-hc.svcEvents:
 			hc.logger.Debug("Handling Service Event",
-				"type", event.evType,
-				"addr", event.addr,
-			)
+				logfields.Type, event.evType,
+				logfields.Address, event.addr)
 			switch event.evType {
 			case SvcEventUpsert:
 				hc.startHealthCheck(event.addr, event.config, event.unhealthyBackends)
@@ -350,9 +360,9 @@ func (hc *HealthChecker) stopBackendHealthCheck(svcAddr lb.L3n4Addr, be lb.L3n4A
 
 func (hc *HealthChecker) removeServiceBackend(svcAddr lb.L3n4Addr, beAddr lb.L3n4Addr, reActivate bool) {
 	hc.logger.Debug("Remove Service Backend",
-		"svc", svcAddr,
-		"be", beAddr,
-		"reactivate", reActivate,
+		logfields.Frontend, svcAddr,
+		logfields.Backend, beAddr,
+		logfieldReactivate, reActivate,
 	)
 
 	hc.beMapLock.Lock()
@@ -392,7 +402,9 @@ func (hc *HealthChecker) updateHealthChecks(svcAddr lb.L3n4Addr, config HealthCh
 				healthy := beHD.probe.healthy
 				if !beHD.ticker.config.DeepEqual(&config) {
 					beHD.ticker.config = config
-					hc.logger.Debug("hc-debug health config update", "old-config", beHD.ticker.config, "new-config", config)
+					hc.logger.Debug("hc-debug health config update",
+						logfields.Old, beHD.ticker.config,
+						logfields.New, config)
 					beHD.stop()
 					<-beHD.ticker.stopped
 					// Trigger health probes with the updated configs, but preserve the
@@ -435,7 +447,10 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	if config.ProbeInterval <= 0 {
 		// A probe interval of 0 disables probing completely.
 		// This prevents the agent from panicking if the probe-ticker is created with a non-positive duration.
-		hc.logger.Debug("health probes disabled due to non-positive probe interval", "svc-addr", svcAddr, "backend-addr", beAddr, "probe-interval", config.ProbeInterval)
+		hc.logger.Debug("health probes disabled due to non-positive probe interval",
+			logfields.Frontend, svcAddr,
+			logfields.Backend, beAddr,
+			logfieldProbeInterval, config.ProbeInterval)
 		return
 	}
 
@@ -444,11 +459,15 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 	for {
 		select {
 		case <-ht.stop:
-			hc.logger.Debug("health probes stopped", "svc-addr", svcAddr, "backend-addr", beAddr)
+			hc.logger.Debug("health probes stopped",
+				logfields.Frontend, svcAddr,
+				logfields.Backend, beAddr)
 			return
 		case <-ht.ticker.C:
 			if !waitingOnProbe {
-				hc.logger.Debug("hc-debug sending health probe", "svc-addr", svcAddr, "backend-addr", beAddr)
+				hc.logger.Debug("hc-debug sending health probe",
+					logfields.Frontend, svcAddr,
+					logfields.Backend, beAddr)
 				if config.L7 {
 					waitingOnProbe = true
 					go hc.prober.sendL7Probe(config, svcAddr, beAddr, probeOut)
@@ -473,11 +492,10 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 						continue
 					}
 					hc.logger.Debug("Marking service backend as active",
-						"config", config,
-						"svc", svcAddr,
-						"be", beAddr,
-						"message", newProbe.message,
-					)
+						logfieldConfig, config,
+						logfields.Frontend, svcAddr,
+						logfields.Backend, beAddr,
+						logfields.Message, newProbe.message)
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -490,11 +508,10 @@ func (hc *HealthChecker) sendHealthProbes(config HealthCheckConfig, svcAddr, beA
 						continue
 					}
 					hc.logger.Debug("Marking service backend as quarantined",
-						"config", config,
-						"svc", svcAddr,
-						"be", beAddr,
-						"message", newProbe.message,
-					)
+						logfieldConfig, config,
+						logfields.Frontend, svcAddr,
+						logfields.Backend, beAddr,
+						logfields.Message, newProbe.message)
 					hc.cb(service.HealthCheckCBBackendEvent, service.HealthCheckCBBackendEventData{
 						SvcAddr: svcAddr,
 						BeAddr:  beAddr,
@@ -554,10 +571,9 @@ func (pr *probeImpl) dialerConnSetupDSRviaIPIP(ctx context.Context, network stri
 
 	pr.logger.
 		Debug("dialerConnSetupDSRviaIPIP",
-			"network", network,
-			"address", address,
-			"backend", backend,
-		)
+			logfieldNetwork, network,
+			logfields.Address, address,
+			logfields.Backend, backend)
 
 	switch network {
 	case "tcp4", "tcp6":
@@ -652,14 +668,18 @@ func (pr *probeImpl) sendTCPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 			probeOut <- getProbeData(fmt.Errorf("err: %w", err))
 			return
 		}
-		pr.logger.Debug("Dial TCP failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
+		pr.logger.Debug("Dial TCP failed while sending out probe",
+			logfields.Backend, beAddr,
+			logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
 	defer conn.Close()
 
 	probe := getProbeData(nil)
-	pr.logger.Debug("hc-debug health check success", "backend-addr", beAddr, "probe", probe)
+	pr.logger.Debug("hc-debug health check success",
+		logfields.Backend, beAddr,
+		logfields.Probe, probe)
 
 	probeOut <- probe
 }
@@ -684,7 +704,9 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
 	conn, err := d.DialContext(ctx, "udp", connAddr)
 	if err != nil {
-		pr.logger.Debug("DialUDP() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
+		pr.logger.Debug("DialUDP() failed while sending out probe",
+			logfields.Backend, beAddr,
+			logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
@@ -693,7 +715,9 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 	// the timeout here. But just in case...
 	conn.SetDeadline(time.Now().Add(config.ProbeTimeout))
 	if _, err = conn.Write([]byte("")); err != nil {
-		pr.logger.Info("Write() failed while sending out probe", "backend-addr", beAddr, logfields.Error, err)
+		pr.logger.Info("Write() failed while sending out probe",
+			logfields.Backend, beAddr,
+			logfields.Error, err)
 		probeOut <- getProbeData(nil)
 		return
 	}
@@ -703,7 +727,9 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 		// ECONNREFUSED wraps ICMP_PORT_UNREACHABLE
 		// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
 		if probeFailSignal(err) {
-			pr.logger.Debug("probe failed", "backend-addr", beAddr, logfields.Error, err)
+			pr.logger.Debug("probe failed",
+				logfields.Backend, beAddr,
+				logfields.Error, err)
 			probeOut <- getProbeData(fmt.Errorf("error: %w", err))
 			return
 		}
@@ -713,14 +739,18 @@ func (pr *probeImpl) sendUDPProbe(config HealthCheckConfig, svcAddr, beAddr lb.L
 		// the probe packet. Consider this a success case since we did
 		// not get an ICMP error back.
 		probe := getProbeData(nil)
-		pr.logger.Debug("hc-debug health check success (via timeout)", "backend-addr", beAddr, "probe", probe)
+		pr.logger.Debug("hc-debug health check success (via timeout)",
+			logfields.Backend, beAddr,
+			logfields.Probe, probe)
 		probeOut <- probe
 		return
 	}
 
 	// In case of an actual reply, we obviously consider this a success.
 	probe := getProbeData(nil)
-	pr.logger.Debug("hc-debug health check success (via reply)", "backend-addr", beAddr, "probe", probe)
+	pr.logger.Debug("hc-debug health check success (via reply)",
+		logfields.Backend, beAddr,
+		logfields.Probe, probe)
 	probeOut <- probe
 }
 

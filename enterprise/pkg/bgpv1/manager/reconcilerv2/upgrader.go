@@ -24,8 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -42,7 +41,7 @@ var (
 type EnterpriseReconcileParams struct {
 	BGPInstance   *EnterpriseBGPInstance
 	DesiredConfig *v1.IsovalentBGPNodeInstance
-	CiliumNode    *ciliumv2.CiliumNode
+	CiliumNode    *v2.CiliumNode
 }
 
 // EnterpriseStateReconcileParams is an enterprise specific version of
@@ -249,7 +248,7 @@ func (u *reconcileParamsUpgrader) setNodeName(name string) {
 	u.nodeNameMutex.Unlock()
 }
 
-func getOSSNodePeerByName(ni *v2alpha1.CiliumBGPNodeInstance, peerName string) (*v2alpha1.CiliumBGPNodePeer, error) {
+func getOSSNodePeerByName(ni *v2.CiliumBGPNodeInstance, peerName string) (*v2.CiliumBGPNodePeer, error) {
 	for _, peer := range ni.Peers {
 		if peer.Name == peerName {
 			return &peer, nil

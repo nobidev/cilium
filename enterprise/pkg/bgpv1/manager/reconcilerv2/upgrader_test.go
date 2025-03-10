@@ -32,8 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -72,8 +71,8 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		),
 
 		cell.Provide(func(lc cell.Lifecycle, c client.Clientset) daemon_k8s.LocalCiliumNodeResource {
-			return resource.New[*ciliumv2.CiliumNode](
-				lc, utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](
+			return resource.New[*v2.CiliumNode](
+				lc, utils.ListerWatcherFromTyped[*v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
 				),
 			)
@@ -98,7 +97,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	// insert a node
 	_, err = cs.CiliumV2().CiliumNodes().Create(
 		context.Background(),
-		&ciliumv2.CiliumNode{
+		&v2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node0",
 			},
@@ -107,17 +106,17 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ossNode, err := cs.CiliumV2alpha1().CiliumBGPNodeConfigs().Create(
+	ossNode, err := cs.CiliumV2().CiliumBGPNodeConfigs().Create(
 		context.Background(),
-		&v2alpha1.CiliumBGPNodeConfig{
+		&v2.CiliumBGPNodeConfig{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node0",
 			},
-			Spec: v2alpha1.CiliumBGPNodeSpec{
-				BGPInstances: []v2alpha1.CiliumBGPNodeInstance{
+			Spec: v2.CiliumBGPNodeSpec{
+				BGPInstances: []v2.CiliumBGPNodeInstance{
 					{
 						Name: "instance0",
-						Peers: []v2alpha1.CiliumBGPNodePeer{
+						Peers: []v2.CiliumBGPNodePeer{
 							{
 								Name:        "peer1",
 								PeerAddress: ptr.To("10.10.10.10"),
@@ -169,7 +168,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			Router: types.NewFakeRouter(),
 		},
 		DesiredConfig: &ossNode.Spec.BGPInstances[0],
-		CiliumNode: &ciliumv2.CiliumNode{
+		CiliumNode: &v2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node0",
 			},
