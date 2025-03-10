@@ -122,6 +122,8 @@ loadbalancer-cp-enabled: "true"
 loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 loadbalancer-metrics-enabled: "true"
 enable-active-lb-health-checking: "true"
+enable-ipip-termination: "true"
+bpf-lb-ipip-sock-mark: "true"
 {{- end }}
 
 {{- end }}
