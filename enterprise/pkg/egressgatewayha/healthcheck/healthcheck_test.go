@@ -53,10 +53,7 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 	ev := <-events
 	require.Equal(t, n.Name, ev.NodeName)
 	require.Equal(t, NodeHealthy, ev.Status)
-	require.Eventually(t, func() bool {
-		return hc.NodeIsHealthy(n.Name)
-	}, 10*time.Second, 5*time.Millisecond)
-
+	require.True(t, hc.NodeIsHealthy(n.Name))
 }
 
 func TestHealthCheckerUnhealthyNode(t *testing.T) {
@@ -84,9 +81,7 @@ func TestHealthCheckerUnhealthyNode(t *testing.T) {
 	ev := <-events
 	require.Equal(t, n.Name, ev.NodeName)
 	require.Equal(t, NodeUnhealthy, ev.Status)
-	require.Eventually(t, func() bool {
-		return !hc.NodeIsHealthy(n.Name)
-	}, 10*time.Second, 5*time.Millisecond)
+	require.False(t, hc.NodeIsHealthy(n.Name))
 }
 
 func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Healthchecker, net.IP) {
