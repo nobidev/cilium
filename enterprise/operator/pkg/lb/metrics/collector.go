@@ -197,7 +197,10 @@ func (c *collector) updateT1T2CiliumPods() {
 		case "t1":
 			t1NodeNames = append(t1NodeNames, node.Name)
 		case "t2":
-			t2NodeNames = append(t1NodeNames, node.Name)
+			t2NodeNames = append(t2NodeNames, node.Name)
+		case "t1-t2":
+			t1NodeNames = append(t1NodeNames, node.Name)
+			t2NodeNames = append(t2NodeNames, node.Name)
 		}
 	}
 
