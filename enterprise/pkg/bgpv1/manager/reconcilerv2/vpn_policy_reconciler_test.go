@@ -33,11 +33,13 @@ var (
 			Name: "peer-config-ipv4-unicast",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "unicast",
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
 					},
 				},
 			},
@@ -49,11 +51,13 @@ var (
 			Name: "peer-config-ipv4-mpls_vpn",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "mpls_vpn",
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "mpls_vpn",
+						},
 					},
 				},
 			},

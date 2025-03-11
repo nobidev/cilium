@@ -70,15 +70,17 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			Name: "peer-config",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv6",
-						Safi: "unicast",
-					},
-					Advertisements: &slimv1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
 						},
 					},
 				},

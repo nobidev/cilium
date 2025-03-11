@@ -89,26 +89,28 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			Name: "peer-config",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
 						},
 					},
-				},
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv6",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
 						},
 					},
 				},
@@ -1347,26 +1349,28 @@ var (
 			Name: "peer-config-red",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Families: []v2.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv4",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "red_bgp",
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Families: []v2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "red_bgp",
+							},
 						},
 					},
-				},
-				{
-					CiliumBGPFamily: v2.CiliumBGPFamily{
-						Afi:  "ipv6",
-						Safi: "unicast",
-					},
-					Advertisements: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "red_bgp_v6",
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv6",
+							Safi: "unicast",
+						},
+						Advertisements: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "red_bgp_v6",
+							},
 						},
 					},
 				},

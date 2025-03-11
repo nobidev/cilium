@@ -191,13 +191,15 @@ var (
 			ResourceVersion: "2345",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ossPeerConfigSpec.Transport.PeerPort,
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					PeerPort: ossPeerConfigSpec.Transport.PeerPort,
+				},
+				Timers:          ossPeerConfigSpec.Timers,
+				AuthSecretRef:   ossPeerConfigSpec.AuthSecretRef,
+				GracefulRestart: ossPeerConfigSpec.GracefulRestart,
+				Families:        ossPeerConfigSpec.Families,
 			},
-			Timers:          ossPeerConfigSpec.Timers,
-			AuthSecretRef:   ossPeerConfigSpec.AuthSecretRef,
-			GracefulRestart: ossPeerConfigSpec.GracefulRestart,
-			Families:        ossPeerConfigSpec.Families,
 		},
 	}
 	ossPeerConfig = &v2.CiliumBGPPeerConfig{

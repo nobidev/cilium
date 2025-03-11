@@ -51,8 +51,10 @@ var (
 			},
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
-			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+				},
 			},
 		},
 	}
@@ -67,8 +69,10 @@ var (
 			},
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
-			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+				},
 			},
 		},
 	}
@@ -107,7 +111,7 @@ var (
 			Password: peerData2.Password,
 		}
 
-		peer2Copy.Config.Transport = &v1.IsovalentBGPTransport{
+		peer2Copy.Config.Transport = &v2.CiliumBGPTransport{
 			PeerPort: ptr.To[int32](1790),
 		}
 
@@ -405,19 +409,21 @@ func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []
 		}
 
 		peerConfObj := &v1.IsovalentBGPPeerConfigSpec{
-			Transport: &v1.IsovalentBGPTransport{
-				PeerPort: ptr.To[int32](int32(peer.PeerPort)),
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					PeerPort: ptr.To[int32](int32(peer.PeerPort)),
+				},
+				Timers: &v2.CiliumBGPTimers{
+					ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
+					HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
+					KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
+				},
+				GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
+					Enabled:            peer.GracefulRestart.Enabled,
+					RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
+				},
+				EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
 			},
-			Timers: &v2.CiliumBGPTimers{
-				ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
-				HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
-				KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
-			},
-			GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
-				Enabled:            peer.GracefulRestart.Enabled,
-				RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
-			},
-			EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
 		}
 
 		password := ""

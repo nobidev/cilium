@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -54,7 +55,9 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					Name: peerConfigName,
 				},
 				Spec: v1.IsovalentBGPPeerConfigSpec{
-					AuthSecretRef: &secretName,
+					CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+						AuthSecretRef: &secretName,
+					},
 				},
 			},
 			expectedState: meta_v1.ConditionFalse,
@@ -76,7 +79,9 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					Name: peerConfigName,
 				},
 				Spec: v1.IsovalentBGPPeerConfigSpec{
-					AuthSecretRef: ptr.To(secretName + "foo"),
+					CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+						AuthSecretRef: ptr.To(secretName + "foo"),
+					},
 				},
 			},
 			expectedState: meta_v1.ConditionTrue,
@@ -274,7 +279,9 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 			Name: "config0",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			AuthSecretRef: ptr.To("secret0"),
+			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
+				AuthSecretRef: ptr.To("secret0"),
+			},
 			BFDProfileRef: ptr.To("bfd0"),
 		},
 		Status: v1.IsovalentBGPPeerConfigStatus{

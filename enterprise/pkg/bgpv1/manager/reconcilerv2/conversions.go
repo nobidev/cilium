@@ -90,7 +90,7 @@ func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *types.NeighborTimers {
 	return timers
 }
 
-func toNeighborTransport(apiLocalAddress *string, apiTransport *v1.IsovalentBGPTransport) *types.NeighborTransport {
+func toNeighborTransport(apiLocalAddress *string, apiTransport *v2.CiliumBGPTransport) *types.NeighborTransport {
 	if apiLocalAddress == nil && apiTransport == nil {
 		return nil
 	}
