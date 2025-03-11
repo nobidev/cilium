@@ -88,7 +88,9 @@ func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentr
 		case "interfaceName":
 			ifName, err := InterfaceByIndex(ifindex)
 			if err != nil {
-				r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+				r.logger.Error("InterfaceByIndex",
+					logfields.Error, err,
+					logfields.LinkIndex, ifindex)
 				ifName = "<unknown>"
 			}
 			ie = entities.NewStringInfoElement(element, ifName)
@@ -132,7 +134,7 @@ func (r *flowLogIPFixSender) openConnectionToCollector() (*exporter.ExportingPro
 
 func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.ExportingProcess) (uint16, error) {
 	templateID := exportingProcess.NewTemplateID()
-	r.logger.Debug("Negotiate template", "templateID", templateID)
+	r.logger.Debug("Negotiate template", logfields.TemplateId, templateID)
 
 	ies := make([]*entities.InfoElement, 0)
 	for _, name := range ieFields {
@@ -149,7 +151,7 @@ func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.Export
 	if err != nil {
 		return 0, err
 	}
-	r.logger.Info("Sent template bytes", "bytes", bytesWritten)
+	r.logger.Info("Sent template bytes", logfields.Bytes, bytesWritten)
 
 	return templateID, nil
 }
@@ -192,7 +194,7 @@ func (r *flowLogIPFixSender) sendData(exportingProcess *exporter.ExportingProces
 			totalBytesWritten += bytesWritten
 		}
 	}
-	r.logger.Info("Sent data", "bytes", totalBytesWritten)
+	r.logger.Info("Sent data", logfields.Bytes, totalBytesWritten)
 
 	return nil
 }

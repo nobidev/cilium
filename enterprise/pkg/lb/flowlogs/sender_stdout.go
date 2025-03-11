@@ -54,19 +54,21 @@ func (r *flowLogStdoutSender) SendFlowLogs(flowLogs FlowLogTable) error {
 
 		ifName, err := InterfaceByIndex(ifindex)
 		if err != nil {
-			r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+			r.logger.Error("InterfaceByIndex",
+				logfields.Error, err,
+				logfields.LinkIndex, ifindex)
 			ifName = "<unknown>"
 		}
 
 		r.logger.Info("Received flow log entry",
-			"interface", ifName,
-			"srcIP", srcIP,
-			"srcPort", srcPort,
-			"dstIP", dstIP,
-			"dstPort", dstPort,
-			"protocol", protocol,
-			"packetsTotal", packetsTotal,
-			"bytesTotal", bytesTotal,
+			logfields.Interface, ifName,
+			logfields.SrcIP, srcIP,
+			logfields.SrcPort, srcPort,
+			logfields.DstIP, dstIP,
+			logfields.DstPort, dstPort,
+			logfields.Protocol, protocol,
+			logfields.PacketsTotal, packetsTotal,
+			logfields.BytesTotal, bytesTotal,
 		)
 	}
 

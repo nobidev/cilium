@@ -94,12 +94,12 @@ func (r *flowLogProcessor) startProcessing(ctx context.Context, health cell.Heal
 }
 
 func (r *flowLogProcessor) mergeFlowLogs(newFlowLogs, allFlowLogs FlowLogTable) {
-	totalPackets := uint64(0)
-	totalBytes := uint64(0)
+	packetsTotal := uint64(0)
+	bytesTotal := uint64(0)
 
 	for k, v := range newFlowLogs {
-		totalPackets += v.Packets
-		totalBytes += v.Bytes
+		packetsTotal += v.Packets
+		bytesTotal += v.Bytes
 
 		firstTs := allFlowLogs[k].firstTs
 		if firstTs.IsZero() {
@@ -115,15 +115,21 @@ func (r *flowLogProcessor) mergeFlowLogs(newFlowLogs, allFlowLogs FlowLogTable) 
 		allFlowLogs[k] = e
 	}
 
-	bw := float64(totalBytes) / float64(r.reportFrequency) / 1024 / 1024
-	r.logger.Info("Successfully merged new flow logs", "totalPackets", totalPackets, "totalBytes", totalBytes, "bw", bw)
+	bandwidth := float64(bytesTotal) / float64(r.reportFrequency) / 1024 / 1024
+	r.logger.Info("Successfully merged new flow logs",
+		logfields.PacketsTotal,
+		packetsTotal,
+		logfields.BytesTotal,
+		bytesTotal,
+		logfields.Bandwidth,
+		bandwidth)
 }
 
 func (r *flowLogProcessor) cleanupFlowLogs(bigTable FlowLogTable, cleanupTime time.Time) {
-	r.logger.Debug("Cleaning up flow logs", "cleanup-time", cleanupTime)
+	r.logger.Debug("Cleaning up flow logs", logfields.CleanupTime, cleanupTime)
 	for k, v := range bigTable {
 		if v.ts.Before(cleanupTime) {
-			r.logger.Debug("Deleting flow logs", "key", r.flowLogRecordKeyToString(k))
+			r.logger.Debug("Deleting flow logs", logfields.Key, r.flowLogRecordKeyToString(k))
 			delete(bigTable, k)
 		}
 	}
@@ -138,7 +144,12 @@ func (r *flowLogProcessor) debugDumpFlowLogs(allFlowLogs FlowLogTable) {
 
 	for _, k := range keys {
 		v := allFlowLogs[k]
-		r.logger.Debug("Flow log table entry", "start", v.firstTs, "last", v.ts, "key", r.flowLogRecordKeyToString(k), "packets", v.Packets, "bytes", v.Bytes)
+		r.logger.Debug("Flow log table entry",
+			logfields.StartTime, v.firstTs,
+			logfields.EndTime, v.ts,
+			logfields.Key, r.flowLogRecordKeyToString(k),
+			logfields.Packets, v.Packets,
+			logfields.Bytes, v.Bytes)
 	}
 }
 
@@ -154,7 +165,9 @@ func (r *flowLogProcessor) flowLogRecordKeyToString(key string) string {
 
 	ifName, err := InterfaceByIndex(ifindex)
 	if err != nil {
-		r.logger.Error("InterfaceByIndex", logfields.Error, err, "ifindex", ifindex)
+		r.logger.Error("InterfaceByIndex",
+			logfields.Error, err,
+			logfields.LinkIndex, ifindex)
 		ifName = "<unknown>"
 	}
 
@@ -168,7 +181,7 @@ func (r *flowLogProcessor) flowLogRecordKeyToString(key string) string {
 		protocol = "icmp"
 	default:
 		protocol = "<unknown>"
-		r.logger.Warn("Unexpected flow log protocol", "nexthdr", nexthdr)
+		r.logger.Warn("Unexpected flow log protocol", logfields.Protocol, nexthdr)
 	}
 
 	return fmt.Sprintf("[%s] %08x:%d -> %08x:%d [%s]", ifName, srcIP, srcPort, dstIP, dstPort, protocol)

@@ -46,4 +46,17 @@ const (
 
 	// Omitted is the number of omitted objects.
 	Omitted = "omitted"
+
+	// ILB Flow logs messages
+	SrcIP        = "srcIP"
+	SrcPort      = "srcPort"
+	DstIP        = "dstIP"
+	DstPort      = "dstPort"
+	BytesTotal   = "bytesTotal"
+	PacketsTotal = "packetsTotal"
+	Bytes        = "bytes"
+	Packets      = "packets"
+	Bandwidth    = "bandwidth"
+	CleanupTime  = "cleanupTime"
+	TemplateId   = "templateId"
 )
