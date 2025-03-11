@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
+	cecIngressPolicy "github.com/cilium/cilium/enterprise/pkg/ingresspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration"
 	lbFlowLogs "github.com/cilium/cilium/enterprise/pkg/lb/flowlogs"
 	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
@@ -105,6 +106,8 @@ var (
 		lbMetrics.Cell,
 
 		hubble.Cell,
+
+		cecIngressPolicy.Cell,
 	)
 
 	Datapath = cell.Module(
