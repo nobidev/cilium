@@ -86,7 +86,9 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 				Namespace: ap.Namespace,
 				NodeName:  ap.Spec.NodeName,
 			})
-		} else if slices.Contains(t2NodeNames, ap.Spec.NodeName) {
+		}
+
+		if slices.Contains(t2NodeNames, ap.Spec.NodeName) {
 			t2AgentPods = append(t2AgentPods, &Pod{
 				Name:      ap.Name,
 				Namespace: ap.Namespace,
