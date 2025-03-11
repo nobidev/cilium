@@ -407,7 +407,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpFilterChain(model *lbSer
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.rbac",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), model.t1NodeIPs, httpTypeHTTP, model.namespace, model.name)),
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPConnectionFiltering(), httpTypeHTTP, model.namespace, model.name)),
 			},
 		})
 	}
@@ -860,7 +860,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbSe
 		networkFilters = append(networkFilters, &envoy_config_listener_v3.Filter{
 			Name: "envoy.filters.network.rbac",
 			ConfigType: &envoy_config_listener_v3.Filter_TypedConfig{
-				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPSConnectionFiltering(), model.t1NodeIPs, httpTypeHTTPS, model.namespace, model.name)),
+				TypedConfig: toAny(r.toHTTPNetworkRBACFilter(model.applications.getHTTPSConnectionFiltering(), httpTypeHTTPS, model.namespace, model.name)),
 			},
 		})
 	}
@@ -1993,7 +1993,7 @@ func (r *lbServiceT2Translator) mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_c
 	}
 }
 
-func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPConnectionFiltering, t1NodeIPs []string, httpType string, namespace string, name string) *envoy_extensions_filters_network_rbac_v3.RBAC {
+func (r *lbServiceT2Translator) toHTTPNetworkRBACFilter(config *lbServiceHTTPConnectionFiltering, httpType string, namespace string, name string) *envoy_extensions_filters_network_rbac_v3.RBAC {
 	if config == nil {
 		return nil
 	}
