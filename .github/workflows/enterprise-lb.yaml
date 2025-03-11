@@ -168,14 +168,6 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
           port-forward: "6443:6443,22375:2375,22376:22376"
 
-      - name: Configure no-schedule taint
-        if: ${{ env.skip != 'true' }}
-        shell: bash
-        run: |
-          export DOCKER_HOST="tcp://127.0.0.1:22375"
-          kubectl taint node kind-control-plane service.cilium.io/node=t1:NoSchedule
-
-
       - name: Label T1 nodes
         if: ${{ env.skip != 'true' && matrix.t1-nodes != '' }}
         shell: bash
