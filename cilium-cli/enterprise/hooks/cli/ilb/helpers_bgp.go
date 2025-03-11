@@ -24,7 +24,7 @@ import (
 func getT1NodeIPs(ctx context.Context, k8sCli *k8s.Clientset) ([]string, error) {
 	var ips []string
 
-	nodes, err := k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node=t1"})
+	nodes, err := k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve K8s nodes: %w", err)
 	}
