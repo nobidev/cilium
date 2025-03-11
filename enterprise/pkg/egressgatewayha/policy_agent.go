@@ -327,14 +327,12 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 		return gwc.activeGatewayIPs, egressIP
 	}
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.EndpointID: endpoint.id,
-		logfields.K8sNodeIP:  endpoint.nodeIP.String,
-	})
-
 	endpointNode, ok := manager.nodesByIP[endpoint.nodeIP.String()]
 	if !ok {
-		logger.Error("cannot find endpoint's node")
+		log.WithFields(logrus.Fields{
+			logfields.EndpointID: endpoint.id,
+			logfields.K8sNodeIP:  endpoint.nodeIP.String(),
+		}).Error("cannot find endpoint's node")
 
 		//fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP
@@ -342,7 +340,10 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 
 	az, ok := endpointNode.Labels[core_v1.LabelTopologyZone]
 	if !ok {
-		logger.Errorf("missing node's AZ label")
+		log.WithFields(logrus.Fields{
+			logfields.EndpointID: endpoint.id,
+			logfields.K8sNodeIP:  endpoint.nodeIP.String(),
+		}).Errorf("missing node's AZ label")
 
 		//fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP
