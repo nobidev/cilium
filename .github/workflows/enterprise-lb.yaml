@@ -89,16 +89,22 @@ jobs:
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 0
+            t1-nodes: "kind-control-plane"
+            t2-nodes: "kind-worker kind-worker2"
           - name: "1"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 0
+            t1-nodes: "kind-control-plane"
+            t2-nodes: "kind-worker kind-worker2"
           - name: "2"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
             use-remote-address: "false"
             xff-num-trusted-hops: 2
+            t1-nodes: "kind-control-plane"
+            t2-nodes: "kind-worker kind-worker2"
 
     timeout-minutes: 60
 
@@ -156,17 +162,33 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
           port-forward: "6443:6443,22375:2375,22376:22376"
 
-      - name: Preconfigure K8s nodes
+      - name: Configure no-schedule taint
         if: ${{ env.skip != 'true' }}
         shell: bash
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
-
-          kubectl label node kind-control-plane service.cilium.io/node=t1
           kubectl taint node kind-control-plane service.cilium.io/node=t1:NoSchedule
-          kubectl label node kind-worker service.cilium.io/node=t2
-          kubectl label node kind-worker2 service.cilium.io/node=t2
 
+
+      - name: Label T1 nodes
+        if: ${{ env.skip != 'true' && matrix.t1-nodes != '' }}
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+          kubectl label node ${{ matrix.t1-nodes }} service.cilium.io/node=t1
+
+      - name: Label T2 nodes
+        if: ${{ env.skip != 'true' && matrix.t2-nodes != '' }}
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+          kubectl label node ${{ matrix.t2-nodes }} service.cilium.io/node=t2
+
+      - name: Configure unprivileged port range
+        if: ${{ env.skip != 'true' }}
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
           kind get nodes --name kind  | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
 
       - name: Create testing host (single-node)
