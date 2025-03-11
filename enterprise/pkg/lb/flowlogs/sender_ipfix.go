@@ -174,7 +174,7 @@ func (r *flowLogIPFixSender) send(exportingProcess *exporter.ExportingProcess, t
 func (r *flowLogIPFixSender) sendData(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTable) error {
 	total := 0
 	totalBytesWritten := uint64(0)
-	chunkLenMax := 10
+	chunkLenMax := len(flowLogs) // this might be adjusted (to ~10 for now) if UDP is to be used, such that each message fits inside minimal possible UDP MTU
 	keys := make([]FlowLogKey, chunkLenMax)
 
 	for key := range flowLogs {
