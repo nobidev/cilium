@@ -105,6 +105,12 @@ jobs:
             xff-num-trusted-hops: 2
             t1-nodes: "kind-control-plane"
             t2-nodes: "kind-worker kind-worker2"
+          - name: "3"
+            mode: "multi-node"
+            kernel: "6.1-20240710.064909"
+            use-remote-address: "true"
+            xff-num-trusted-hops: 0
+            t1t2-nodes: "kind-control-plane kind-worker kind-worker2"
 
     timeout-minutes: 60
 
@@ -183,6 +189,13 @@ jobs:
         run: |
           export DOCKER_HOST="tcp://127.0.0.1:22375"
           kubectl label node ${{ matrix.t2-nodes }} service.cilium.io/node=t2
+
+      - name: Label T1&T2 nodes
+        if: ${{ env.skip != 'true' && matrix.t1t2-nodes != '' }}
+        shell: bash
+        run: |
+          export DOCKER_HOST="tcp://127.0.0.1:22375"
+          kubectl label node ${{ matrix.t1t2-nodes }} service.cilium.io/node=t1-t2
 
       - name: Configure unprivileged port range
         if: ${{ env.skip != 'true' }}
