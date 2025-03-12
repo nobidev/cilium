@@ -861,6 +861,9 @@ Makefile* @cilium/build
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
 /enterprise/pkg/ipmigration/ @isovalent/networking-framework
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
+/enterprise/pkg/lb/flowlogs @isovalent/isovalent-loadbalancer
+/enterprise/pkg/lb/metrics @isovalent/isovalent-loadbalancer
+/enterprise/pkg/lb/status @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ @isovalent/cilium-datapath
 /enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
