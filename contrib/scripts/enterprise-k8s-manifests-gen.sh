@@ -8,7 +8,7 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 ##@ API targets
 # Set CRD_OPTIONS if not already set
-CRD_OPTIONS="${CRD_OPTIONS:-"crd:crdVersions=v1"}"
+CRD_OPTIONS="${CRD_OPTIONS:-"crd:crdVersions=v1,allowDangerousTypes=true"}"
 
 # Set CRD_PATHS using the current working directory
 CRD_PATHS="${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/v1;${SCRIPT_ROOT}/../../pkg/k8s/apis/isovalent.com/v1alpha1;"
