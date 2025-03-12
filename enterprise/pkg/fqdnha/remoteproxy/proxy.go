@@ -329,7 +329,7 @@ func (r *RemoteFQDNProxy) Start(_ cell.HookContext) error {
 			select {
 			case <-r.done:
 				return
-			case <-time.After(30 * time.Second):
+			case <-time.After(1 * time.Second):
 				continue
 			}
 		}
