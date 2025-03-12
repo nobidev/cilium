@@ -14,9 +14,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/netip"
+	"os"
 	"strings"
 
+	"github.com/docker/docker/api/types/container"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -35,6 +38,17 @@ func (c *frrContainer) vty(ctx context.Context, cmd string) (string, string, err
 func (c *frrContainer) bgpRoutes(ctx context.Context, afi, safi string) (sets.Set[netip.Prefix], error) {
 	stdout, stderr, err := c.vty(ctx, "show bgp "+afi+" "+safi+" json")
 	if err != nil {
+		// try to fetch docker logs of frr container to check for frr error
+		frrContainerLog, err := c.dockerCli.ContainerLogs(ctx, c.id, container.LogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Timestamps: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch frr docker logs after show bgp routes failed: %w", err)
+		}
+		io.Copy(os.Stdout, frrContainerLog)
+
 		return nil, fmt.Errorf("failed to show bgp routes: stdout: %s stderr: %s err: %w", stdout, stderr, err)
 	}
 
