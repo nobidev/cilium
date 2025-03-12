@@ -329,7 +329,6 @@ func main() {
 	}
 
 	log.Info("fqdn proxy is now ready")
-	go restoreRules()
 	go runServer(proxy)
 
 	exitSignal := make(chan os.Signal, 1)
@@ -516,51 +515,6 @@ func createClient(address string) (grpc.ClientConnInterface, error) {
 			MinConnectTimeout: time.Millisecond * 500,
 		}),
 	)
-}
-
-// restoreRules runs on startup and tries to restore rules from Cilium agent
-func restoreRules() {
-	log.Info("Restoring DNS rules from Cilium Agent")
-	var err error
-	var rules *pb.RestoredRulesMap
-
-	for {
-		rules, err = client().GetAllRules(context.Background(), &pb.Empty{})
-		updateAgentReachability(err)
-		if err == nil {
-			break
-		}
-		log.WithError(err).Info("failed to get rules, will retry")
-		time.Sleep(time.Second)
-		continue
-	}
-	log.Info("got rules from agent api, restoring.")
-
-	for endpointID, rules := range rules.Rules {
-		restoredRules := make(restore.DNSRules)
-		for portProto, msgIPRules := range rules.Rules {
-			ipRules := make(restore.IPRules, 0, len(msgIPRules.List))
-
-			for _, ipRule := range msgIPRules.List {
-				translatedRule := restore.IPRule{Re: restore.RuleRegex{Pattern: &ipRule.Regex}}
-				translatedRule.IPs = make(map[restore.RuleIPOrCIDR]struct{}, len(ipRule.Ips))
-				for _, IP := range ipRule.Ips {
-					parsedIP, err := restore.ParseRuleIPOrCIDR(IP)
-					if err != nil {
-						log.WithError(err).WithField("ip", IP).Warning("failed to parse IP")
-						continue
-					}
-					translatedRule.IPs[parsedIP] = struct{}{}
-				}
-				ipRules = append(ipRules, translatedRule)
-			}
-			restoredRules[restore.PortProto(portProto)] = ipRules
-		}
-		endpoint := &endpoint.Endpoint{ID: uint16(endpointID), DNSRules: restoredRules}
-
-		proxy.RestoreRules(endpoint)
-	}
-	log.Debug("Rules restored")
 }
 
 // Tracks whether the agent was reachable the last time we tried a RPC. Serves to avoid logging
@@ -858,8 +812,7 @@ func (s *FQDNProxyServer) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules
 }
 
 func (s *FQDNProxyServer) RemoveRestoredRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.Empty, error) {
-	s.proxy.RemoveRestoredRules(uint16(endpointIDMsg.EndpointID))
-
+	// noop, but implemented so that agents don't see an error.
 	return &pb.Empty{}, nil
 }
 
