@@ -35,7 +35,6 @@ import (
 
 	enterprise_tables "github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/enterprise/pkg/datapath/sockets"
-	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -76,18 +75,6 @@ var (
 	// EgressIPNotFoundIPv4 is a special IP value used as egressIP in the BPF policy map
 	// to indicate no egressIP was found for the given policy
 	EgressIPNotFoundIPv4 = netip.IPv4Unspecified()
-)
-
-// Cell provides a [Manager] for consumption with hive.
-var Cell = cell.Module(
-	"egressgatewayha",
-	"Egress Gateway allows originating traffic from specific IPv4 addresses",
-
-	egressipconf.Cell,
-
-	cell.Config(defaultConfig),
-	cell.Provide(NewEgressGatewayManager),
-	cell.Provide(func(mgr *Manager) EgressIPsProvider { return mgr }),
 )
 
 type eventType int

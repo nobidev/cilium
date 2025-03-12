@@ -33,15 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-// OperatorCell provides an [OperatorManager] for consumption with hive.
-var OperatorCell = cell.Module(
-	"egressgatewayha-operator",
-	"The Egress Gateway Operator manages cluster wide EGW state",
-	cell.Config(defaultOperatorConfig),
-	cell.Provide(NewEgressGatewayOperatorManager),
-	cell.Provide(newNodeResource),
-)
-
 type OperatorConfig struct {
 	// Amount of time between triggers of egress gateway state
 	// reconciliations are invoked
