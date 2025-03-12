@@ -209,6 +209,7 @@ jobs:
           --helm-set clustermesh.apiserver.service.nodePort=32379
 
     - name: Copy the Cilium CA secret to cluster2, as they must match
+      shell: bash # Implicitly enables -e -o pipefail
       run: |
         kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
           kubectl --context ${{ env.contextName2 }} create -f -
@@ -368,19 +369,20 @@ jobs:
         wait_for_policy_status httpbin ${{ env.contextName2 }} ingress
 
     - name: Ensure inter-cluster communication over global service with L3/L4 policy is working correctly
+      shell: bash # Implicitly enables -e -o pipefail
       run: |
         # Source address of the request should be an IP of the node that the source Pod is running on
         EXPECT=$(docker inspect ${{ env.clusterName1 }}-worker | jq -r '.[0].NetworkSettings.Networks["kind"].IPAddress')
 
         # Make a request to service and get origin IP address returned from server
-        GOT=$(kubectl --context ${{ env.contextName1 }} exec -it netshoot -- curl -s http://httpbin-service.default.svc.cluster.local/get | jq -r .origin)
+        GOT=$(kubectl --context ${{ env.contextName1 }} exec netshoot -- curl --max-time 2 -s http://httpbin-service.default.svc.cluster.local/get | jq -r .origin)
 
         # Check if the source address is an expected one or not. If it is expected one that means...
         # 1. Basic connectivity over global service is working
         # 2. Egress network policy was correctly applied
         # 3. Inter-cluster SNAT happened
         # 4. Ingress network policy was correctly applied even if we lose the real source IP
-        if [ $GOT != $EXPECT ]; then
+        if [ "$GOT" != "$EXPECT" ]; then
           echo "Connectivity test failed. Expect: ${EXPECT}, Got: ${GOT}"
           exit 1
         fi
