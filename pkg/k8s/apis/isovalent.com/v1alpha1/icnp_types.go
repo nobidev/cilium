@@ -8,7 +8,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -31,10 +30,10 @@ type IsovalentClusterwideNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Isovalent specific rule specification.
-	Spec *api.Rule `json:"spec,omitempty"`
+	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
-	Specs api.Rules `json:"specs,omitempty"`
+	Specs IsovalentNetworkPolicyRules `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule.
 	//
@@ -95,7 +94,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, r.Spec)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule("", name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -104,7 +103,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy specs: %s", err))
 
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, rule)
+			cr := rule.parseToIsovalentNetworkPolicyRule("", name, uid)
 			retRules = append(retRules, cr)
 		}
 	}

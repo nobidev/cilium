@@ -8,6 +8,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -35,10 +36,10 @@ type IsovalentNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Isovalent specific rule specification.
-	Spec *api.Rule `json:"spec,omitempty"`
+	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
-	Specs api.Rules `json:"specs,omitempty"`
+	Specs IsovalentNetworkPolicyRules `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule
 	//
@@ -65,6 +66,55 @@ func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 		other.GetAnnotations(),
 		// Ignore v1.LastAppliedConfigAnnotation annotation
 		[]string{v1.LastAppliedConfigAnnotation})
+}
+
+// IsovalentNetworkPolicyRule is a policy rule which must be applied to all endpoints which match
+// the labels contained in the endpointSelector
+//
+// Each rule is split into an ingress section which contains all rules
+// applicable at ingress, and an egress section applicable at egress. For rule
+// types such as `L4Rule` and `CIDR` which can be applied at both ingress and
+// egress, both ingress and egress side have to either specifically allow the
+// connection or one side has to be omitted.
+//
+// Either ingress, egress, or both can be provided. If both ingress and egress
+// are omitted, the rule has no effect.
+//
+// +deepequal-gen:private-method=true
+type IsovalentNetworkPolicyRule struct {
+	api.Rule `json:",inline"`
+
+	// Order specifies the order in which the policy is applied.
+	Order *float32 `json:"order,omitempty"`
+}
+
+func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bool {
+	switch {
+	case (r == nil) != (o == nil):
+		return false
+	case (r == nil) && (o == nil):
+		return true
+	}
+	return r.deepEqual(o)
+}
+
+// IsovalentNetworkPolicyRules is a collection of [IsovalentNetworkPolicyRule].
+//
+// All rules must be evaluated in order to come to a conclusion. While
+// it is sufficient to have a single fromEndpoints rule match, none of
+// the fromRequires may be violated at the same time.
+//
+// +deepequal-gen:private-method=true
+type IsovalentNetworkPolicyRules []*IsovalentNetworkPolicyRule
+
+func (rs *IsovalentNetworkPolicyRules) DeepEqual(o *IsovalentNetworkPolicyRules) bool {
+	switch {
+	case (rs == nil) != (o == nil):
+		return false
+	case (rs == nil) && (o == nil):
+		return true
+	}
+	return rs.deepEqual(o)
 }
 
 // +deepequal-gen=true
@@ -193,7 +243,7 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, r.Spec)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule(namespace, name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -202,12 +252,19 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, rule)
+			cr := rule.parseToIsovalentNetworkPolicyRule(namespace, name, uid)
 			retRules = append(retRules, cr)
 		}
 	}
 
 	return retRules, nil
+}
+
+func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(namespace, name string, uid types.UID) *api.Rule {
+	cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, &r.Rule)
+	// TODO: uncomment in ht/main-ce/ordered-policy
+	// cr.OrderCEEOnly = r.Spec.Order
+	return cr
 }
 
 // GetIdentityLabels returns all rule labels in the IsovalentNetworkPolicy.
