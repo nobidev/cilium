@@ -398,8 +398,8 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				time.Sleep(time.Minute)
 				continue
 			}
-			err = fmt.Errorf("error connecting to stream proxy status: %w", err)
 			updateAgentReachability(err)
+			err = fmt.Errorf("error connecting to stream proxy status: %w", err)
 			return err
 		}
 
