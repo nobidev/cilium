@@ -14,12 +14,21 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	_ "github.com/cilium/cilium/enterprise/fips"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 )
 
 func main() {
 	agentHive := hive.New(
 		EnterpriseAgent,
 	)
+
+	// Force disable the new load-balancing control-plane until
+	// the enterprise code has migrated over to it.
+	hive.AddConfigOverride(
+		agentHive,
+		func(cfg *experimental.Config) { cfg.EnableExperimentalLB = false },
+	)
+
 	hiveFn := func() *hive.Hive {
 		return agentHive
 	}
