@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 
@@ -44,7 +45,8 @@ import (
 type ServiceVRFReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	Config       config.Config
 	DaemonConfig *option.DaemonConfig
 	Adverts      *IsovalentAdvertisement
@@ -63,6 +65,7 @@ type ServiceVRFReconcilerOut struct {
 
 type ServiceVRFReconciler struct {
 	logger       logrus.FieldLogger
+	sLogger      *slog.Logger
 	adverts      *IsovalentAdvertisement
 	svcDiffStore store.DiffStore[*slim_corev1.Service]
 	epDiffStore  store.DiffStore[*k8s.Endpoints]
@@ -306,10 +309,10 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	}
 
 	updatedSvcPaths, err := reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger: r.logger.WithFields(logrus.Fields{
-			types.InstanceLogField: p.DesiredConfig.Name,
-			entTypes.VRFLogField:   vrfName,
-		}),
+		Logger: r.sLogger.With(
+			types.InstanceLogField, p.DesiredConfig.Name,
+			entTypes.VRFLogField, vrfName,
+		),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredSvcPaths,

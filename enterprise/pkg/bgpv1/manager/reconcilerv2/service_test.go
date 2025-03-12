@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -705,6 +706,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
+		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(instanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:     logger,
@@ -1834,6 +1836,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
+				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:     logger,
@@ -2217,6 +2220,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
+				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:     logger,
@@ -2600,6 +2604,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    svcTestLogger,
+				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:     logger,
@@ -3011,6 +3016,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		Cfg:       defaultConfig,
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
+		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:     logger,
@@ -3345,6 +3351,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		Cfg:       defaultConfig,
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
+		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:     logger,

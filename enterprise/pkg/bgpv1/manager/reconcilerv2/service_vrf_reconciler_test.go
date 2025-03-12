@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -663,6 +664,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 
 			svcVRFReconciler := &ServiceVRFReconciler{
 				logger:       svcVRFTestLogger,
+				sLogger:      hivetest.Logger(t),
 				adverts:      isoAdverts,
 				svcDiffStore: svcStore,
 				epDiffStore:  epStore,
@@ -1046,6 +1048,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 
 			svcVRFReconciler := &ServiceVRFReconciler{
 				logger:       svcVRFTestLogger,
+				sLogger:      hivetest.Logger(t),
 				adverts:      isoAdverts,
 				svcDiffStore: svcStore,
 				epDiffStore:  epStore,

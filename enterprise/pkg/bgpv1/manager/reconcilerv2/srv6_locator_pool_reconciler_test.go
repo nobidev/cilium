@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -673,6 +674,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 
 			reconciler := LocatorPoolReconciler{
 				logger:           logger,
+				sLogger:          hivetest.Logger(t),
 				upgrader:         newUpgraderMock(testInstanceConfig),
 				locatorPoolStore: mockLocatorPoolStore,
 				sidAllocators:    allocators,

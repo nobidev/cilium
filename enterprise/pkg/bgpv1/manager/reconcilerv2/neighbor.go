@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -34,6 +35,7 @@ import (
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
 	Logger       logrus.FieldLogger
+	SLogger      *slog.Logger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
@@ -50,7 +52,8 @@ type NeighborReconcilerOut struct {
 type NeighborReconcilerIn struct {
 	cell.In
 	BGPConfig    config.Config
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
@@ -67,6 +70,7 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
 			Logger:       logger,
+			SLogger:      params.SLogger,
 			SecretStore:  params.SecretStore,
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
@@ -319,7 +323,7 @@ func (r *NeighborReconciler) reconcileRouteReflectorRoutePolicies(ctx context.Co
 	desiredRoutePolicies := getDesiredRouteReflectorPolicies(p.DesiredConfig)
 
 	updatedPolicies, err := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
-		Logger:          r.Logger,
+		Logger:          r.SLogger,
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,

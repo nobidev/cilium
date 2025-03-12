@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -525,6 +526,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 
 			reconciler := EgressGatewayIPsReconciler{
 				logger:         logger,
+				sLogger:        hivetest.Logger(t),
 				egwIPsProvider: newEGWManagerMock(tt.testEGWPolicies),
 				upgrader:       newUpgraderMock(tt.testBGPInstanceConfig),
 				peerAdvert: &IsovalentAdvertisement{

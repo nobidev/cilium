@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -37,7 +38,8 @@ type PodCIDRReconcilerIn struct {
 	cell.In
 
 	BGPConfig    config.Config
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	PeerAdvert   *IsovalentAdvertisement
 	DaemonConfig *option.DaemonConfig
 	Upgrader     paramUpgrader
@@ -45,6 +47,7 @@ type PodCIDRReconcilerIn struct {
 
 type PodCIDRReconciler struct {
 	logger     logrus.FieldLogger
+	sLogger    *slog.Logger
 	upgrader   paramUpgrader
 	peerAdvert *IsovalentAdvertisement
 	metadata   map[string]PodCIDRReconcilerMetadata
@@ -69,6 +72,7 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 	return PodCIDRReconcilerOut{
 		Reconciler: &PodCIDRReconciler{
 			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
+			sLogger:    params.SLogger.With(types.ReconcilerLogField, "PodCIDR"),
 			peerAdvert: params.PeerAdvert,
 			upgrader:   params.Upgrader,
 			metadata:   make(map[string]PodCIDRReconcilerMetadata),
@@ -147,7 +151,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p EnterpriseReco
 
 	// reconcile family advertisements
 	updatedAFPaths, err := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:       r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
 		Router:       p.BGPInstance.Router,
 		DesiredPaths: desiredFamilyAdverts,
@@ -170,7 +174,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Enterp
 
 	// reconcile route policies
 	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-		Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:          r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,

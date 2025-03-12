@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -43,7 +44,8 @@ type srv6LocatorPoolReconcilerIn struct {
 	cell.In
 
 	JobGroup     job.Group
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	Signaler     *signaler.BGPCPSignaler
 	DaemonConfig *option.DaemonConfig
 	BGPConfig    config.Config
@@ -64,6 +66,7 @@ type srv6LocatorPoolReconcilerOut struct {
 type LocatorPoolReconciler struct {
 	initialized atomic.Bool
 	logger      logrus.FieldLogger
+	sLogger     *slog.Logger
 
 	upgrader   paramUpgrader
 	peerAdvert *IsovalentAdvertisement
@@ -213,7 +216,7 @@ func (r *LocatorPoolReconciler) reconcilePaths(ctx context.Context, params Enter
 	}
 
 	metadata.AFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.logger.WithField(types.InstanceLogField, params.DesiredConfig.Name),
+		Logger:                 r.sLogger.With(types.InstanceLogField, params.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 params.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredAFPaths,
@@ -246,11 +249,10 @@ func (r *LocatorPoolReconciler) reconcileRoutePolicies(ctx context.Context, para
 		}
 
 		updatedRoutePolicies, rErr := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:       params.DesiredConfig.Name,
-					entTypes.LocatorPoolLogField: key,
-				}),
+			Logger: r.sLogger.With(
+				types.InstanceLogField, params.DesiredConfig.Name,
+				entTypes.LocatorPoolLogField, key,
+			),
 			Ctx:             ctx,
 			Router:          params.BGPInstance.Router,
 			DesiredPolicies: policies,

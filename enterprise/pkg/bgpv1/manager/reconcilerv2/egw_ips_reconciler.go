@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -40,7 +41,8 @@ type egwIPsProvider interface {
 type EGWIPsReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	BGPConfig    config.Config
 	DaemonConfig *option.DaemonConfig
 	EGWManager   *egressgatewayha.Manager
@@ -62,6 +64,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 	return EGWIPsReconcilerOut{
 		Reconciler: &EgressGatewayIPsReconciler{
 			logger:         params.Logger,
+			sLogger:        params.SLogger,
 			egwIPsProvider: params.EGWManager,
 			upgrader:       params.Upgrader,
 			peerAdvert:     params.PeerAdvert,
@@ -72,6 +75,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 
 type EgressGatewayIPsReconciler struct {
 	logger         logrus.FieldLogger
+	sLogger        *slog.Logger
 	egwIPsProvider egwIPsProvider
 	upgrader       paramUpgrader
 	peerAdvert     *IsovalentAdvertisement
@@ -144,7 +148,7 @@ func (r *EgressGatewayIPsReconciler) reconcilePaths(ctx context.Context, params 
 	}
 
 	metadata.EGWAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.logger.WithField(types.InstanceLogField, params.DesiredConfig.Name),
+		Logger:                 r.sLogger.With(types.InstanceLogField, params.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 params.BGPInstance.Router,
 		DesiredResourceAFPaths: egwAFPaths,
@@ -177,11 +181,10 @@ func (r *EgressGatewayIPsReconciler) reconcileRoutePolicies(ctx context.Context,
 		}
 
 		updatedRoutePolicies, rErr := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:         params.DesiredConfig.Name,
-					entTypes.EgressGatewayLogField: key,
-				}),
+			Logger: r.sLogger.With(
+				types.InstanceLogField, params.DesiredConfig.Name,
+				entTypes.EgressGatewayLogField, key,
+			),
 			Ctx:             ctx,
 			Router:          params.BGPInstance.Router,
 			DesiredPolicies: policies,
