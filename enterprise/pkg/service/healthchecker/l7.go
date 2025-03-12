@@ -21,7 +21,6 @@ import (
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -48,10 +47,8 @@ func (pr *probeImpl) sendL7Probe(config HealthCheckConfig, svcAddr, beAddr lb.L3
 		tr.TLSClientConfig = tls
 	}
 	url := ""
-	beIsLocal := node.IsNodeIP(beAddr.AddrCluster.Addr()) != ""
-
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && config.DSR && !beIsLocal {
+	if option.Config.EnableHealthDatapath && config.DSR {
 		url = getConnURL(config, svcAddr)
 		d.ControlContext = pr.dialerConnSetupDSRviaIPIP
 	} else {
