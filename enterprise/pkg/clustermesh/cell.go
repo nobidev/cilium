@@ -60,5 +60,9 @@ var Cell = cell.Module(
 
 		// Inject the mutator to propagate the cluster ID to the tunnel map.
 		linux.InjectCEPrefixClusterMutator,
+
+		// Inject the mutator to reset the skip tunnel flag from ipcache entries,
+		// as it otherwise breaks overlapping PodCIDR support.
+		injectIPCacheSkipTunnelResetter,
 	),
 )
