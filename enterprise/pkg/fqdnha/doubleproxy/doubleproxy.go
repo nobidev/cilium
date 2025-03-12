@@ -13,6 +13,8 @@
 package doubleproxy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/daemon/cmd"
@@ -39,6 +41,7 @@ type DoubleProxy struct {
 
 	defaultProxy  defaultdns.Proxy
 	daemonPromise promise.Promise[*cmd.Daemon]
+	log           *slog.Logger
 }
 
 type params struct {
@@ -48,6 +51,7 @@ type params struct {
 	DefaultProxy  defaultdns.Proxy
 	RemoteProxy   *remoteproxy.RemoteFQDNProxy
 	Cfg           fqdnhaconfig.Config
+	Log           *slog.Logger
 }
 
 func NewDoubleProxy(
@@ -61,6 +65,7 @@ func NewDoubleProxy(
 		RemoteProxy:   p.RemoteProxy,
 		defaultProxy:  p.DefaultProxy,
 		daemonPromise: p.DaemonPromise,
+		log:           p.Log,
 	}
 	lc.Append(dp)
 	return dp
@@ -89,9 +94,9 @@ func (dp *DoubleProxy) GetRules(v *versioned.VersionHandle, u uint16) (restore.D
 }
 
 func (dp *DoubleProxy) RemoveRestoredRules(u uint16) {
-	if dp.RemoteProxy != nil {
-		dp.RemoteProxy.RemoveRestoredRules(u)
-	}
+	// remote proxy no longer uses restored rules; safe to
+	// send only to local proxy.
+
 	dp.LocalProxy.RemoveRestoredRules(u)
 }
 
@@ -113,17 +118,18 @@ func (dp *DoubleProxy) GetBindPort() uint16 {
 	return dp.LocalProxy.GetBindPort()
 }
 
+// SetRejectReply is only called during bootstrap, before
+// we're injected
 func (dp *DoubleProxy) SetRejectReply(s string) {
+	dp.log.Error("BUG: DoubleProxy.SetRejectReply() called -- it never should be")
 	dp.LocalProxy.SetRejectReply(s)
-	if dp.RemoteProxy != nil {
-		dp.RemoteProxy.SetRejectReply(s)
-	}
 }
 
+// RestoreRules is called early in the startup process,
+// before we're able to inject the DoubleProxy.
+// So, this should never actually be hit.
 func (dp *DoubleProxy) RestoreRules(op *endpoint.Endpoint) {
-	if dp.RemoteProxy != nil {
-		dp.RemoteProxy.RestoreRules(op)
-	}
+	dp.log.Error("BUG: DoubleProxy.RestoreRules() called -- it never should be")
 	dp.LocalProxy.RestoreRules(op)
 }
 

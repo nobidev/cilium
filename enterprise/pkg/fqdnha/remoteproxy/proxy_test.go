@@ -34,14 +34,11 @@ import (
 )
 
 type mockFQDNProxyClient struct {
-	removed map[uint32]struct{}
-
 	allowed map[string]*dnsproxypb.L7Rules
 }
 
 func newMockFQDNProxyClient() *mockFQDNProxyClient {
 	return &mockFQDNProxyClient{
-		removed: map[uint32]struct{}{},
 		allowed: map[string]*dnsproxypb.L7Rules{},
 	}
 }
@@ -65,7 +62,6 @@ func (m *mockFQDNProxyClient) RemoveRestoredRules(
 	in *dnsproxypb.EndpointID,
 	opts ...grpc.CallOption,
 ) (*dnsproxypb.Empty, error) {
-	m.removed[in.EndpointID] = struct{}{}
 	return nil, nil
 }
 
@@ -146,19 +142,13 @@ func TestConnectionLifecycle(t *testing.T) {
 	// Ensure the remote proxy has all already-existing rules.
 	// Note that updates are queued and applied asynchronously, so we must wait
 	require.Eventually(t, func() bool {
-		return len(mock.allowed) == 4 && len(mock.removed) == 3
+		return len(mock.allowed) == 4
 	}, time.Second, 10*time.Millisecond)
 
 	// Add another rule
 	addRule(4, 35)
 	require.Eventually(t, func() bool {
-		return len(mock.allowed) == 5 && len(mock.removed) == 3
-	}, time.Second, 10*time.Millisecond)
-
-	// Check that RemoveRestored works
-	remoteProxy.RemoveRestoredRules(15)
-	require.Eventually(t, func() bool {
-		return len(mock.allowed) == 5 && len(mock.removed) == 4
+		return len(mock.allowed) == 5
 	}, time.Second, 10*time.Millisecond)
 
 	// Disconnect, ensure that we do not block

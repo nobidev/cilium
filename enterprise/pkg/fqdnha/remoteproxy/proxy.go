@@ -15,7 +15,6 @@ package remoteproxy
 import (
 	"context"
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/sirupsen/logrus"
@@ -27,7 +26,6 @@ import (
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -46,10 +44,9 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdnha/remotepro
 var fqdnHAControllerGroup = controller.NewGroup("fqdn-ha")
 
 const (
-	fqdnRelayController                    string = "fqdn-relay-controller"
-	fqdnUpdateTimeout                             = 10 * time.Second
-	fqdnRulesCacheKeysSize                 int    = 16
-	fqdnRestoredRulesToRemoveCacheKeysSize int    = 16
+	fqdnRelayController    string = "fqdn-relay-controller"
+	fqdnUpdateTimeout             = 10 * time.Second
+	fqdnRulesCacheKeysSize int    = 16
 )
 
 // RemoteFQDNProxy is a gRPC client used to communicate with the external
@@ -150,10 +147,6 @@ type remoteProxy struct {
 	fqdnRulesCacheKeys []fqdnRuleKey
 	fqdnRulesCacheMap  map[fqdnRuleKey]*fqdnpb.FQDNRules
 
-	// The set of endpoints that have been restored
-	// and can have the restored rules removed
-	fqdnRestoredRulesToRemoveCache map[uint16]struct{}
-
 	// Both these queues must be protected
 	queueLock lock.Mutex
 }
@@ -193,12 +186,11 @@ func (r *RemoteFQDNProxy) onConnect(connection *grpc.ClientConn, client fqdnpb.F
 	log.Info("Successfully connected to remote FQDN proxy, initializing...")
 
 	rp := &remoteProxy{
-		conn:                           connection,
-		controllers:                    controller.NewManager(),
-		client:                         client,
-		fqdnRulesCacheKeys:             make([]fqdnRuleKey, 0, fqdnRulesCacheKeysSize),
-		fqdnRulesCacheMap:              make(map[fqdnRuleKey]*fqdnpb.FQDNRules),
-		fqdnRestoredRulesToRemoveCache: make(map[uint16]struct{}, fqdnRestoredRulesToRemoveCacheKeysSize),
+		conn:               connection,
+		controllers:        controller.NewManager(),
+		client:             client,
+		fqdnRulesCacheKeys: make([]fqdnRuleKey, 0, fqdnRulesCacheKeysSize),
+		fqdnRulesCacheMap:  make(map[fqdnRuleKey]*fqdnpb.FQDNRules),
 	}
 
 	rp.ctx, rp.cancel = context.WithCancel(context.Background())
@@ -211,11 +203,10 @@ func (r *RemoteFQDNProxy) onConnect(connection *grpc.ClientConn, client fqdnpb.F
 	// Dump all rules, enqueue them in the update
 	state := r.local.DumpRules()
 	for _, rules := range state {
-		rp.enqueueFQDNRestoredRulesToRemove(uint16(rules.EndpointID))
 		rp.enqueueFQDNRulesUpdate(rules)
 	}
 
-	log.Infof("Initialized FQDN proxy state with %d endpoints and %d rules", len(rp.fqdnRestoredRulesToRemoveCache), len(state))
+	log.Infof("Initialized FQDN proxy state with %d rules", len(state))
 
 	// Start controllers
 	rp.controllers.UpdateController(
@@ -343,68 +334,12 @@ func (r *RemoteFQDNProxy) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (r *RemoteFQDNProxy) RemoveRestoredRules(endpointID uint16) {
-	rp := r.getRemote()
-	if rp == nil {
-		return // not connected
-	}
-	rp.enqueueFQDNRestoredRulesToRemove(endpointID)
-	rp.trigger()
-}
-
 func (rp *remoteProxy) forwardUpdates(ctx context.Context) error {
 	start := time.Now()
 	if err := rp.forwardFQDNRulesUpdates(ctx); err != nil {
 		return err
 	}
-	if err := rp.forwardFQDNRestoredRulesToRemoveUpdates(ctx); err != nil {
-		return err
-	}
 	log.WithField(logfields.Duration, time.Since(start)).Debugf("Successfully synchronized FQDN rules with remote proxy")
-	return nil
-}
-
-func (rp *remoteProxy) enqueueFQDNRestoredRulesToRemove(msg uint16) {
-	rp.queueLock.Lock()
-	defer rp.queueLock.Unlock()
-
-	rp.fqdnRestoredRulesToRemoveCache[msg] = struct{}{}
-}
-
-func (rp *remoteProxy) drainFQDNRestoredRulesToRemove() map[uint16]struct{} {
-	rp.queueLock.Lock()
-	defer rp.queueLock.Unlock()
-
-	queue := rp.fqdnRestoredRulesToRemoveCache
-	rp.fqdnRestoredRulesToRemoveCache = make(map[uint16]struct{}, fqdnRestoredRulesToRemoveCacheKeysSize)
-	return queue
-}
-
-func (rp *remoteProxy) forwardFQDNRestoredRulesToRemoveUpdates(ctx context.Context) error {
-	toProcess := rp.drainFQDNRestoredRulesToRemove()
-	defer func() {
-		if len(toProcess) > 0 {
-			rp.queueLock.Lock()
-			defer rp.queueLock.Unlock()
-
-			maps.Copy(rp.fqdnRestoredRulesToRemoveCache, toProcess)
-		}
-	}()
-
-	for endpointID := range toProcess {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(ctx, fqdnUpdateTimeout)
-		defer cancel()
-
-		if _, err := rp.client.RemoveRestoredRules(ctx, &fqdnpb.EndpointID{EndpointID: uint32(endpointID)}); err != nil {
-			return fmt.Errorf("failed to forward FQDN restored endpoint to remove to remote proxy for endpointID %d: %w", endpointID, err)
-		}
-		delete(toProcess, endpointID)
-		log.WithFields(logrus.Fields{logfields.EndpointID: endpointID}).Info("Removed restored rules completed")
-	}
-
 	return nil
 }
 
@@ -480,6 +415,14 @@ func (rp *remoteProxy) forwardFQDNRulesUpdates(ctx context.Context) error {
 			"newRules":           msg.Rules,
 			logfields.EndpointID: msg.EndpointID,
 		}).Debug("Forwarded UpdateAllowed() to remote FQDN proxy")
+
+		eid := &fqdnpb.EndpointID{EndpointID: uint32(msg.EndpointID)}
+		// RemoveRestoredRules for this endpoint as well.
+		// Only consumed by old (pre-1.17) proxies
+		if _, err := rp.client.RemoveRestoredRules(ctx, eid); err != nil {
+			log.WithError(err).Error("Failed to forward RemoveRestoredRules to remote proxy")
+			return err
+		}
 		keysToProcess = keysToProcess[1:]
 		delete(msgsToProcess, key)
 	}
@@ -489,17 +432,4 @@ func (rp *remoteProxy) forwardFQDNRulesUpdates(ctx context.Context) error {
 
 func (r *RemoteFQDNProxy) Cleanup() {
 	r.onDisconnect()
-}
-
-func (r *RemoteFQDNProxy) GetBindPort() uint16 {
-	//TODO: don't hardcode that
-	return 10001
-}
-
-func (r *RemoteFQDNProxy) SetRejectReply(_ string) {
-	//TODO: allow agent to do it or get it from config in proxy pod?
-}
-
-func (r *RemoteFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
-	//TODO: implement that
 }

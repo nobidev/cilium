@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
-	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -41,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdnha/relay")
@@ -341,52 +339,10 @@ func sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSele
 }
 
 func (s *FQDNProxyAgentServer) GetAllRules(ctx context.Context, empty *pb.Empty) (*pb.RestoredRulesMap, error) {
-	double, ok := s.defaultProxy.Get().(*doubleproxy.DoubleProxy)
-	if !ok {
-		return nil, nil
-	}
-	local := double.LocalProxy
-	allRules, err := local.GetAllRules()
-	if err != nil {
-		return nil, err
-	}
-
-	wholeMsg := &pb.RestoredRulesMap{Rules: make(map[uint64]*pb.RestoredRules, len(allRules))}
-	for endpointID, rules := range allRules {
-		msg := &pb.RestoredRules{Rules: make(map[uint32]*pb.IPRules, len(rules))}
-
-		for portProto, ipRules := range rules {
-			msgRules := &pb.IPRules{
-				List: make([]*pb.IPRule, 0, len(ipRules)),
-			}
-			for _, ipRule := range ipRules {
-				var pattern string
-				if ipRule.Re.Pattern != nil {
-					pattern = *ipRule.Re.Pattern
-				}
-				msgRule := &pb.IPRule{
-					Regex: pattern,
-					Ips:   make([]string, 0, len(ipRule.IPs)),
-				}
-				for ip := range ipRule.IPs {
-					msgRule.Ips = append(msgRule.Ips, ip.String())
-				}
-
-				msgRules.List = append(msgRules.List, msgRule)
-			}
-			msg.Rules[uint32(portProto)] = msgRules
-			// Add the V1 Version for older versions of FQDN Proxy.
-			// TODO: This can be removed when 1.15 is deprecated.
-			if portProto.IsPortV2() {
-				// Only add protocols that support DNS.
-				if proto := portProto.Protocol(); proto == uint8(u8proto.UDP) || proto == uint8(u8proto.TCP) {
-					msg.Rules[uint32(portProto.ToV1())] = msgRules
-				}
-			}
-		}
-		wholeMsg.Rules[endpointID] = msg
-	}
-	return wholeMsg, nil
+	// No longer implemented, but return empty map to prevent Unimplemented errors in old (<v1.16) remote proxies
+	return &pb.RestoredRulesMap{
+		Rules: map[uint64]*pb.RestoredRules{},
+	}, nil
 }
 
 func fromLabels(lbls labels.Labels) []*pb.Label {
