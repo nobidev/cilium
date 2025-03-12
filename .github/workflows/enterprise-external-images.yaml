@@ -12,18 +12,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
 
 jobs:
-  check_changes:
+  check-changes:
     name: Deduce required images from changes
     runs-on: ubuntu-24.04
     outputs:
       certgen: ${{ steps.certgen-changes.outputs.changed }}
-      certgen_version: ${{ steps.certgen-changes.outputs.version }}
+      certgen-version: ${{ steps.certgen-changes.outputs.version }}
       startup: ${{ steps.startup-changes.outputs.changed }}
-      startup_version: ${{ steps.startup-changes.outputs.version }}
+      startup-version: ${{ steps.startup-changes.outputs.version }}
       envoy: ${{ steps.envoy-changes.outputs.changed }}
-      envoy_repo: ${{ steps.envoy-changes.outputs.repo }}
-      envoy_version: ${{ steps.envoy-changes.outputs.version }}
-      envoy_digest: ${{ steps.envoy-changes.outputs.digest }}
+      envoy-repo: ${{ steps.envoy-changes.outputs.repo }}
+      envoy-version: ${{ steps.envoy-changes.outputs.version }}
+      envoy-digest: ${{ steps.envoy-changes.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -65,11 +65,11 @@ jobs:
           fi
 
   build-certgen-image:
-    needs: check_changes
+    needs: check-changes
     runs-on: ubuntu-24.04
     name: Build isovalent/certgen images
     environment: release
-    if: ${{ needs.check_changes.outputs.certgen == 'true' }}
+    if: ${{ needs.check-changes.outputs.certgen == 'true' }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca
@@ -101,7 +101,7 @@ jobs:
         id: tag
         run: |
           cd certgen
-          tag=${{ needs.check_changes.outputs.certgen_version }}
+          tag=${{ needs.check-changes.outputs.certgen-version }}
           echo "tag=$tag" >> $GITHUB_OUTPUT # get latest tag on main
           git checkout $tag
 
@@ -119,11 +119,11 @@ jobs:
             BASE_IMAGE=registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
 
   build-startup-image:
-    needs: check_changes
+    needs: check-changes
     runs-on: ubuntu-24.04
     name: Build isovalent/startup-script images
     environment: release
-    if: ${{ needs.check_changes.outputs.startup == 'true' }}
+    if: ${{ needs.check-changes.outputs.startup == 'true' }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca
@@ -145,7 +145,7 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          tag=${{ needs.check_changes.outputs.startup_version }}
+          tag=${{ needs.check-changes.outputs.startup-version }}
           echo "tag=$tag" >> $GITHUB_OUTPUT # get latest tag on main
 
       - name: Checkout code
@@ -168,11 +168,11 @@ jobs:
             STARTUP_VERSION=c54c7edeab7fde4da68e59acd319ab24af242c3f
 
   build-cilium-envoy-image:
-    needs: check_changes
+    needs: check-changes
     runs-on: ubuntu-24.04
     name: Build isovalent/cilium-envoy images
     environment: release
-    if: ${{ needs.check_changes.outputs.envoy == 'true' }}
+    if: ${{ needs.check-changes.outputs.envoy == 'true' }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca
@@ -194,13 +194,13 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          tag=${{ needs.check_changes.outputs.envoy_version }}
+          tag=${{ needs.check-changes.outputs.envoy-version }}
           echo "tag=$tag" >> $GITHUB_OUTPUT
 
       - name: Getting OSS image
         id: oss
         run: |
-          image=${{ needs.check_changes.outputs.envoy_repo }}:${{ needs.check_changes.outputs.envoy_version }}@${{ needs.check_changes.outputs.envoy_digest }}
+          image=${{ needs.check-changes.outputs.envoy-repo }}:${{ needs.check-changes.outputs.envoy-version }}@${{ needs.check-changes.outputs.envoy-digest }}
           echo "image=$image" >> $GITHUB_OUTPUT
 
       - name: Checkout code
