@@ -117,7 +117,7 @@ func TestHTTPSConnectionFiltering(t T) {
 					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 					if !tt.blocked && err != nil {
 						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-					} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 56") {
+					} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 16") {
 						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
 
