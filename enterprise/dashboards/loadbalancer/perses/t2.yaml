@@ -658,7 +658,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal SSL connections
+                    name: Downstream SSL connections
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -687,7 +687,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal HTTP1 connections
+                    name: Downstream HTTP1 connections
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -716,7 +716,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal upgraded connections
+                    name: Downstream upgraded connections
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -745,7 +745,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal HTTP2 connections
+                    name: Downstream HTTP2 connections
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -774,7 +774,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal HTTP3 connections
+                    name: Downstream HTTP3 connections
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -827,7 +827,7 @@ spec:
             kind: Panel
             spec:
                 display:
-                    name: Downstreal requests completed
+                    name: Downstream requests completed
                 plugin:
                     kind: TimeSeriesChart
                     spec:
