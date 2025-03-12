@@ -19,8 +19,8 @@ var defaultFeatureGatesConfig = FeatureGatesConfig{
 	// The default minimum maturity is the 1st maturity level, i.e. Stable.
 	MinimumMaturity: FeaturesYaml.Levels[0].Name,
 
-	// Default to false to only log warning when feature gates do not pass. Helm will set this appropriately.
-	StrictFeatureGates: false,
+	// Enable strict feature gate checking.
+	StrictFeatureGates: true,
 }
 
 // FeatureGateConfig is the configuration for the feature gates.

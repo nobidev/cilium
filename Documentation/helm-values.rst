@@ -1351,7 +1351,7 @@
    * - :spelling:ignore:`enterprise.featureGate.strict`
      - Enable strict feature gate validation. Will cause agent and/or operator to not start if non-approved features are enabled. In non-strict mode failure will be logged as a warning.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`enterprise.loadbalancer.enabled`
      - Enables Loadbalancer mode (Control Plane)
      - bool

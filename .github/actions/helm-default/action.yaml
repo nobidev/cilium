@@ -44,7 +44,7 @@ runs:
           --helm-set=hubble.relay.image.useDigest=false"
 
         # Enterprise specific defaults
-        CILIUM_INSTALL_DEFAULTS+=" --helm-set='enterprise.featureGate.minimumMaturity=Alpha' \
+        CILIUM_INSTALL_DEFAULTS+=" --helm-set=enterprise.featureGate.minimumMaturity=Alpha \
         --helm-set=enterprise.clustermesh.phantomServices.enabled=true" # this is needed because we are using OSS workflow to test phantom services
 
         if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then

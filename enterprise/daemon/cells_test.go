@@ -18,6 +18,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/enterprise/features"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -49,6 +50,10 @@ func TestEnterpriseAgentCell(t *testing.T) {
 	option.Config.IPv6ServiceRange = cmd.AutoCIDR
 
 	h := hive.New(EnterpriseAgent)
+
+	// Since some features default to true in flags (but false in helm), don't
+	// test with strict feature gates here.
+	hive.AddConfigOverride(h, func(cfg *features.FeatureGatesConfig) { cfg.StrictFeatureGates = false })
 	err := h.Populate(hivetest.Logger(t))
 	require.NoError(t, err, "hive.New(EnterpriseAgent).Populate()")
 }

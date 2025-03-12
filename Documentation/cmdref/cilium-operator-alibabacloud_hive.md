@@ -52,7 +52,7 @@ cilium-operator-alibabacloud hive [flags]
       --enforce-ingress-https                                          Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --feature-gates-approved strings                                 Features approved to be enabled regardless of maturity level
       --feature-gates-minimum-maturity string                          Minimum feature maturity level to approve a feature (default "Stable")
-      --feature-gates-strict                                           If enabled agent will refuse to start if feature gates do not pass
+      --feature-gates-strict                                           If enabled agent will refuse to start if feature gates do not pass (default true)
       --fqdn-group-min-query-interval duration                         Minimum interval between two consecutive queries when resolving a FQDN belonging to an IsovalentFQDNGroup (default 1m0s)
       --gateway-api-hostnetwork-enabled                                Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string               Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
