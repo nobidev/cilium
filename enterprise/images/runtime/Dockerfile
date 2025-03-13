@@ -3,12 +3,9 @@
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:0a7ee27812441d95926aec83929d97e93ce96aae@sha256:e96542b4f71dbc9cbe77feaf5b1fa9bd5e13122ee6418094731212f1c5667c67
 ARG UBI_MINI_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.0@sha256:2b1cbf278ce05a2a310a3d695ebb176420117a8cfcfcc4e5e68a1bef5f6354da
-# TODO: This needs to be replaced by a released enterprise UBI based version when available.
-ARG CILIUM_LLVM_IMAGE=quay.io/repository/isovalent-dev/cilium-llvm-ubi:1740487510-ee3d0a3@sha256:142ff6ac198bd4d9b81b859439d0b01c4ae2ff8fa10a034883fc62600a3feb71
-# TODO: This needs to be replaced by a released enterprise UBI based version when available.
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/frederic_giloux/cilium-bpftool-ubi:1741253498-654faf3@sha256:1acee3cf0cedcf11cf36d5c0f589a4d695c59b24a9e242da5d1a3ebd21e214e7
-# TODO: to be replaced by a released UBI based enterprise compiler image version when available.
-ARG COMPILERS_IMAGE=quay.io/isovalent-dev/image-compilers-ubi:1740487510-ee3d0a3@sha256:ad95a8acc231266a04cda3e651eeb6c8fe786574b89540f00051d8f3b8fc230f
+ARG CILIUM_LLVM_IMAGE=quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/isovalent-dev/cilium-bpftool-ubi:1741958010-f42ddd2@sha256:7ad5f9ad2ae6ebe05bf32b69dd493a0ea3fad614c0a0760cb948bd4c6ea20ace
+ARG COMPILERS_IMAGE=quay.io/isovalent-dev/image-compilers-ubi:1741861540-21b4a3b@sha256:759bb175d499da0d8fe95479484f80e58a5737473cc6b9aa7a69e2603a75f09b
 
 ARG VERSION=0.0.0-dev
 ARG REVISION=000000

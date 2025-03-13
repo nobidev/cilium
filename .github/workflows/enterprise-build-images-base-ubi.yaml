@@ -18,10 +18,6 @@ on:
         required: true
       QUAY_BASE_RELEASE_PASSWORD_202411:
         required: true
-      AUTO_COMMITTER_PEM_202411:
-        required: true
-      AUTO_COMMITTER_APP_ID_202411:
-        required: true
     inputs:
       environment:
         required: true
@@ -39,31 +35,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  has-credentials:
-    name: Check for Quay secrets
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    timeout-minutes: 2
-    outputs:
-      present: ${{ steps.secrets.outputs.present }}
-    steps:
-      - name: Check for secrets
-        id: secrets
-        env:
-          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 && secrets.QUAY_BASE_RELEASE_PASSWORD_202411 && 1 }}
-        if: ${{ env.has_credentials }}
-        run:
-          echo 'present=1' >> "$GITHUB_OUTPUT"
-
   build-and-push:
-    needs: has-credentials
-    # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
-    if: ${{ needs.has-credentials.outputs.present && ! (github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
     environment: ${{ inputs.environment || 'release-base-images' }}
     runs-on: ubuntu-24.04
     steps:
+      - name: Get git token
+        uses: getsentry/action-github-app-token@v3
+        id: get_token
+        with:
+          private_key: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_PEM }}
+          app_id: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID }}
+
+      - name: Checkout pull request branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
 
@@ -79,17 +69,6 @@ jobs:
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
-
-      - name: Checkout pull request branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Set-up git
-        run: |
-          git config user.name "Isovalent Imagebot"
-          git config user.email "noreply@isovalent.com"
 
       - name: Generating image tag for Cilium-Runtime
         id: runtime-tag
@@ -118,8 +97,8 @@ jobs:
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
-          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -127,16 +106,16 @@ jobs:
         id: docker_build_release_runtime
         with:
           provenance: false
-          context: ./enterprise/images/runtime
+          context: .
           file: ./enterprise/images/runtime/Dockerfile
-          push: false #TODO: change to true when we are live
+          push: true
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-ubi:${{ steps.runtime-tag.outputs.tag }}
-          build-args: | #TODO: change these to appropriate ones
-            CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1732033893-de666b6@sha256:ee005bd47b20f78a727c06fdf2275861848be7acd242603c82f86ca8faaeda90
-            CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:5a9c4852a21287686009bfe1cdc1fed6e7aabdea@sha256:188e398ee30456373530698d0d29de66dda0c4428068ea430027ceb7e9c15b7c
-            COMPILERS_IMAGE=quay.io/frederic_giloux/image-compilers-ubi:1740135205-66ff39e-wip
+          build-args: |
+            CILIUM_LLVM_IMAGE=quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
+            CILIUM_BPFTOOL_IMAGE=quay.io/isovalent-dev/cilium-bpftool-ubi:1741958010-f42ddd2@sha256:7ad5f9ad2ae6ebe05bf32b69dd493a0ea3fad614c0a0760cb948bd4c6ea20ace
+            COMPILERS_IMAGE=quay.io/isovalent-dev/image-compilers-ubi:1741861540-21b4a3b@sha256:759bb175d499da0d8fe95479484f80e58a5737473cc6b9aa7a69e2603a75f09b
 
       - name: Sign Container Image Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -174,9 +153,30 @@ jobs:
           path: image-digest
           retention-days: 1
 
-      - name: Change runtime image, commit and push
+      - name: Set-up git
+        run: |
+          git config user.name "Isovalent Imagebot"
+          git config user.email "noreply@isovalent.com"
+
+      - name: Update runtime image and commit
+        id: update-runtime-image
         shell: bash
-        run: echo "TODO"
+        run: |
+          enterprise/images/runtime/update-runtime-image.sh quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-ubi:${{ steps.runtime-tag.outputs.tag }}
+          if git commit -sam "images: update cilium-runtime-ubi"; then
+            echo "committed=true" >> $GITHUB_OUTPUT
+          else
+            echo "committed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push changes into PR
+        if: ${{ steps.update-runtime-image.outputs.committed == 'true' }}
+        env:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository:  ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        run: |
+          git diff HEAD^
+          git push https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/${{ env.repository }}.git HEAD:$ref
 
   image-digests:
     name: Display Digests

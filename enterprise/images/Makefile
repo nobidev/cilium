@@ -13,7 +13,7 @@ OUTPUT := "type=registry,push=true"
 endif
 
 RUNTIME_IMAGE ?= quay.io/isovalent-dev/cilium-runtime-ubi-dev
-LLVM_IMAGE ?= quay.io/isovalent-dev/cilium-llvm-ubi:1740487510-ee3d0a3@sha256:142ff6ac198bd4d9b81b859439d0b01c4ae2ff8fa10a034883fc62600a3feb71
+LLVM_IMAGE ?= quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
 UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal
 IMAGE_TAG ?= $$(../../images/scripts/make-image-tag.sh)
 

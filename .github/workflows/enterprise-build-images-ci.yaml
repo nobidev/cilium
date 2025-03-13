@@ -40,7 +40,7 @@ jobs:
         include:
           - name: cilium
             dockerfile: ./enterprise/images/cilium/Dockerfile
-            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:nonexistent
+            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:trololo
             postfix: ubi
             image_name: cilium
 
