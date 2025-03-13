@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -110,7 +111,8 @@ type hubbleEnterpriseExporterParams struct {
 	Config    config
 
 	// TODO: replace by slog
-	Logger logrus.FieldLogger
+	Logger  logrus.FieldLogger
+	SLogger *slog.Logger
 }
 
 type HubbleEnterpriseExporterOut struct {
@@ -163,8 +165,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 
 			// setup exporter options
 			exporterOpts := []exporter.Option{
-				exporter.WithAllowList(params.Logger, allowList),
-				exporter.WithDenyList(params.Logger, denyList),
+				exporter.WithAllowList(params.SLogger, allowList),
+				exporter.WithDenyList(params.SLogger, denyList),
 				exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 					var writer io.WriteCloser = writer
 					writer = metricsHandler.WrapWriter(writer)
@@ -221,7 +223,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				return false, nil
 			}))
 
-			staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
+			staticExporter, err := exporter.NewExporter(params.SLogger, exporterOpts...)
 			if err != nil {
 				// non-fatal failure, log and continue
 				params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
