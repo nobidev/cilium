@@ -29,6 +29,8 @@ import (
 //        Cleanup created resources after each test case run (default true)
 //  --client-image string
 //        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.4")
+//  --ensure-images bool
+//        Ensure images by checking and pre-pulling images (default true)
 //  --mode string
 //        Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace. (default "multi-node")
 //  --single-node-ip string
@@ -109,6 +111,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().StringVar(&ilbCli.FlagUtilsImage, "utils-image", "busybox:1.37.0-musl", "utils container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagCoreDNSImage, "coredns-image", "coredns/coredns:1.11.1", "coredns container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagNginxImage, "nginx-image", "library/nginx:1.27.2", "nginx container image name")
+	cmd.Flags().BoolVar(&ilbCli.FlagEnsureImages, "ensure-images", true, "Ensure images by checking and pre-pulling images")
 
 	cmd.Flags().BoolVar(&ilbCli.FlagCleanup, "cleanup", true, "Cleanup created resources after each test case run")
 	// maybeSysdump is only effective when this option is specified.

@@ -19,6 +19,8 @@ var (
 	FlagCoreDNSImage string
 	FlagNginxImage   string
 
+	FlagEnsureImages bool
+
 	FlagCleanup bool
 	// maybeSysdump is only effective when this option is specified.
 	FlagSysdumpOnFailure bool

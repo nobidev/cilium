@@ -108,6 +108,10 @@ func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {
 }
 
 func (c *dockerCli) EnsureImage(ctx context.Context, img string) error {
+	if !FlagEnsureImages {
+		return nil
+	}
+
 	if exists, err := c.imageExists(ctx, img); err != nil || exists {
 		return err
 	}
