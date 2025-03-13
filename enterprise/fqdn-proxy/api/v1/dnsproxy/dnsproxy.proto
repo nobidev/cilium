@@ -41,6 +41,11 @@ service FQDNProxyAgent {
 
   // Returns a stream of ProxyStatuses
   rpc SubscribeProxyStatuses(Empty) returns (stream ProxyStatus){}
+
+  // Returns a stream of FQDNRules from the agent to the proxy
+  // Proxy should write an Empty response to ack receipt of the rule.
+  // Added: v1.18-ce.
+  rpc SubscribeFQDNRules(stream Empty) returns (stream FQDNRules){}
 }
 
 service FQDNProxy {
