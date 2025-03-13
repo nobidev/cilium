@@ -802,6 +802,7 @@ Makefile* @cilium/build
 /bpf/tests/lib/enterprise_encryption_policy.h @isovalent/encryption
 /bugtool/cmd/enterprise_* @isovalent/cli
 /cilium-cli/Makefile.override @isovalent/cli
+/cilium-cli/connectivity/check/enterprise.go @isovalent/cli
 /cilium-cli/enterprise/ @isovalent/cli
 /cilium-cli/enterprise/hooks/cli/bgp* @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
