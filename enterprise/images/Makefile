@@ -12,10 +12,12 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-RUNTIME_IMAGE ?= quay.io/isovalent-dev/cilium-runtime-ubi-dev
+RUNTIME_IMAGE ?= quay.io/isovalent-dev/cilium-runtime-ubi:cd74ebc98d21b15e6fa66d02e7b73cccb75f5566
 LLVM_IMAGE ?= quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
 UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal
 IMAGE_TAG ?= $$(../../images/scripts/make-image-tag.sh)
+
+PLATFORMS ?= unspecified
 
 all-images: lint runtime-image cilium-image operator-image hubble-relay-image
 
@@ -28,7 +30,7 @@ lint:
 	docker buildx create --buildkitd-flags '--debug' > $@
 
 runtime-image: .buildx_builder
-	ROOT_CONTEXT=true TEST=true ./scripts/build-image.sh cilium-runtime-ubi$(SUFFIX) enterprise/images/runtime $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg CILIUM_LLVM_IMAGE=${LLVM_IMAGE}" $(REGISTRIES)
+	ROOT_CONTEXT=true TEST=true ./scripts/build-image.sh cilium-runtime-ubi$(SUFFIX) enterprise/images/runtime $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg CILIUM_LLVM_IMAGE=${LLVM_IMAGE}" $(REGISTRIES)
 
 update-runtime-image:
 	echo "TODO: populate the script: scripts/update-cilium-runtime-image.sh $(RUNTIME_IMAGE)"
@@ -42,32 +44,32 @@ cilium-image: .buildx_builder
 	# - labels
 	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
 	# TODO: envoy image should also be passed as an argument
-	ROOT_CONTEXT=true ./scripts/build-image.sh cilium-ubi-stage $(abspath ../../images/cilium) "type=registry,push=true" "$$(cat .buildx_builder)" "--build-arg CILIUM_RUNTIME_IMAGE=$(RUNTIME_IMAGE) --target=release" $(REGISTRIES)
-	./scripts/build-image.sh cilium-ubi$(SUFFIX) enterprise/images/cilium $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/cilium-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
+	ROOT_CONTEXT=true ./scripts/build-image.sh cilium-ubi-stage $(abspath ../../images/cilium) "type=registry,push=true" $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg CILIUM_RUNTIME_IMAGE=$(RUNTIME_IMAGE) --target=release" $(REGISTRIES)
+	./scripts/build-image.sh cilium-ubi$(SUFFIX) enterprise/images/cilium $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/cilium-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') --platform=$(PLATFORM) $(EXTRA_ARGS)" $(REGISTRIES)
 
 operator-image: .buildx_builder
 	# The build is split into two stages so that the standard Dockerfile and context can be used and the specificities for Red Hat get layered on top of it without modification of the OSS files:
 	# - license file
 	# - labels
 	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
-	ROOT_CONTEXT=true ./scripts/build-image.sh operator-ubi-stage $(abspath ../../images/operator) "type=registry,push=true" "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --build-arg OPERATOR_VARIANT=operator-generic --target=release" $(REGISTRIES)
-	./scripts/build-image.sh operator-generic-ubi$(SUFFIX) enterprise/images/operator $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/operator-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
+	ROOT_CONTEXT=true ./scripts/build-image.sh operator-ubi-stage $(abspath ../../images/operator) "type=registry,push=true" $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --build-arg OPERATOR_VARIANT=operator-generic --target=release" $(REGISTRIES)
+	./scripts/build-image.sh operator-generic-ubi$(SUFFIX) enterprise/images/operator $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/operator-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
 
 hubble-relay-image: .buildx_builder
 	# The build is split into two stages so that the standard Dockerfile and context can be used and the specificities for Red Hat get layered on top of it without modification of the OSS files:
 	# - license file
 	# - labels
 	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
-	ROOT_CONTEXT=true ./scripts/build-image.sh hubble-relay-ubi-stage $(abspath ../../images/hubble-relay) "type=registry,push=true" "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
-	./scripts/build-image.sh hubble-relay-ubi$(SUFFIX) enterprise/images/hubble-relay $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/hubble-relay-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
+	ROOT_CONTEXT=true ./scripts/build-image.sh hubble-relay-ubi-stage $(abspath ../../images/hubble-relay) "type=registry,push=true" $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
+	./scripts/build-image.sh hubble-relay-ubi$(SUFFIX) enterprise/images/hubble-relay $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/hubble-relay-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
 
 clustermesh-apiserver-image: .buildx_builder
 	# The build is split into two stages so that the standard Dockerfile and context can be used and the specificities for Red Hat get layered on top of it without modification of the OSS files:
 	# - license file
 	# - labels
 	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
-	ROOT_CONTEXT=true ./scripts/build-image.sh clustermesh-apiserver-ubi-stage $(abspath ../../images/clustermesh-apiserver) "type=registry,push=true" "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
-	./scripts/build-image.sh clustermesh-apiserver-ubi$(SUFFIX) enterprise/images/clustermesh-apiserver $(OUTPUT) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/clustermesh-apiserver-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
+	ROOT_CONTEXT=true ./scripts/build-image.sh clustermesh-apiserver-ubi-stage $(abspath ../../images/clustermesh-apiserver) "type=registry,push=true" $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(UBI_IMAGE) --target=release" $(REGISTRIES)
+	./scripts/build-image.sh clustermesh-apiserver-ubi$(SUFFIX) enterprise/images/clustermesh-apiserver $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/clustermesh-apiserver-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
 
 update-envoy-image:
 	echo "TODO: update the reference to the actual envoy proxy UBI image, cf: scripts/update-cilium-envoy-image.sh, to pass to the Dockerfile of the Cilium agent"

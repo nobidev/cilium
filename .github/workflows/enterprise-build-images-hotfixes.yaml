@@ -12,8 +12,7 @@ permissions:
   id-token: write
 
 env:
-  # TODO: to be updated when an image is available in isovalent-dev
-  RUNTIME_IMAGE: quay.io/frederic_giloux/cilium-runtime-ubi-dev:b8a85c972dcd56d2c3309c8f1634ccab1bd1b0c1-wip@sha256:19561a57550a3e1d331c9e46f5ef3508e446181bd2ec3d7df29af3c35de36ae2
+  RUNTIME_IMAGE: quay.io/isovalent-dev/cilium-runtime-ubi:cd74ebc98d21b15e6fa66d02e7b73cccb75f5566
   UBI_IMAGE: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
 
 jobs:
@@ -97,7 +96,7 @@ jobs:
         shell: bash
         working-directory: ./enterprise/images
         run: |
-          IMAGE_TAG=${{ steps.tag.outputs.tag }} REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} PUSH=true EXTRA_ARGS="--metadata-file .metadata.json --tag quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci:${{ github.sha }}" make ${{ matrix.name }}-image
+          IMAGE_TAG=${{ steps.tag.outputs.tag }} PLATFORMS=linux/amd64,linux/arm64 REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} PUSH=true EXTRA_ARGS="--metadata-file .metadata.json --tag quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci:${{ github.sha }}" make ${{ matrix.name }}-image
           echo digest=$(cat ../../.metadata.json | jq '."containerimage.digest"') >> $GITHUB_OUTPUT
 
       - name: Install Cosign

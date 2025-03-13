@@ -12,8 +12,8 @@ MAKER_IMAGE="${MAKER_IMAGE:-quay.io/cilium/image-maker:7de7f1c855ce063bdbe57fdfb
 
 with_root_context="${ROOT_CONTEXT:-false}"
 
-if [ "$#" -lt 6 ] ; then
-  echo "$0 requires at least 6 arguments"
+if [ "$#" -lt 7 ] ; then
+  echo "$0 requires at least 7 arguments"
   exit 1
 fi
 
@@ -27,9 +27,10 @@ image_name="${1}"
 image_dir="${2}"
 
 output="${3}"
-builder="${4}"
-extra_args="${5}"
-shift 5
+platforms="${4}"
+builder="${5}"
+extra_args="${6}"
+shift 6
 
 registries=("${@}")
 
@@ -98,6 +99,9 @@ run_buildx() {
     "--builder=${builder}"
     "--file=${image_dir}/Dockerfile"
   )
+  if [ "${platforms}" != "unspecified" ] ; then 
+	  build_args+=("--platform=${platforms}")
+  fi
   build_args+=(${extra_args})    
   if [ "${with_root_context}" = "false" ] ; then
     build_args+=("${image_dir}")
