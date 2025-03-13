@@ -11,10 +11,10 @@
 # based on https://github.com/cilium/image-tools/blob/master/images/startup-script/Dockerfile
 
 ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal
-ARG STARTUP_VERSION=master
+ARG UPSTREAM_VERSION=master
 
 FROM curlimages/curl:8.12.1 AS manage-script-getter
-RUN curl --output /tmp/manage-startup-script.sh https://raw.githubusercontent.com/cilium/image-tools/${STARTUP_VERSION}/images/startup-script/manage-startup-script.sh
+RUN curl --output /tmp/manage-startup-script.sh https://raw.githubusercontent.com/cilium/image-tools/${UPSTREAM_VERSION}/images/startup-script/manage-startup-script.sh
 
 FROM ${BASE_IMAGE}
 
