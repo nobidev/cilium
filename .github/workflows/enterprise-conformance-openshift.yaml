@@ -194,7 +194,7 @@ jobs:
         timeout-minutes: 30
         shell: bash
         run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci; do
+          for image in cilium-ubi-ci operator-generic-ubi-ci hubble-relay-ubi-ci clustermesh-apiserver-ubi-ci; do
             until docker manifest inspect quay.io/isovalent-dev/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
           echo "images available"
@@ -211,7 +211,7 @@ jobs:
           fi
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1ea75a067eb7c4ba11a9f082a365f97a14c331db # v0.18.0
+        uses: cilium/cilium-cli@45a3879a8cb769c9e41b912635e03a38849c9242 # v0.18.1
         with:
           skip-build: true
           image-repo: quay.io/isovalent-dev/cilium-cli-ci
@@ -273,12 +273,23 @@ jobs:
           fi
           cat terraform.tfvars
 
-          # Generation of the   CiliumConfig.
+          # Generation of the CiliumConfig.
           cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml clife-ciliumconfig.yaml
           yq -i ".spec.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
           yq -i ".spec.operator.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
           yq -i ".spec.hubble.relay.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
           yq -i ".spec.clustermesh.apiserver.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
+
+          yq -i ".spec.image.repository = \"quay.io/isovalent-dev/cilium-ubi-ci\"" clife-ciliumconfig.yaml
+          yq -i ".spec.hubble.relay.image.repository = \"quay.io/isovalent-dev/hubble-relay-ubi-ci\"" clife-ciliumconfig.yaml
+          yq -i ".spec.clustermesh.apiserver.image.repository = \"quay.io/isovalent-dev/clustermesh-apiserver-ubi-ci\"" clife-ciliumconfig.yaml
+          yq -i ".spec.nodeinit.image.repository = \"quay.io/isovalent/startup-script-ubi\"" clife-ciliumconfig.yaml
+          yq -i ".spec.envoy.image.repository = \"quay.io/isovalent/cilium-envoy-ubi\"" clife-ciliumconfig.yaml
+          yq -i ".spec.envoy.image.useDigest = false" clife-ciliumconfig.yaml
+          # Setting the suffix for the operator
+          yq -i ".spec.operator.image.suffix = \"-ubi-ci\"" clife-ciliumconfig.yaml
+          echo "Cilium configuration:"
+          cat clife-ciliumconfig.yaml
 
       # replace git SSH by HTTPS and use a private access token so that `terraform get`
       # can download modules from private repositories.
