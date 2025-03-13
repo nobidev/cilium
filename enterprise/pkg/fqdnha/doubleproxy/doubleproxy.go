@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
-	"github.com/cilium/cilium/enterprise/pkg/fqdnha/remoteproxy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -42,14 +41,16 @@ var _ fqdnproxy.DNSProxier = &DoubleProxy{}
 // The time we will wait for the remote proxy to ack any new rules
 const RemoteProxyWaitTime = 10 * time.Second
 
-// DoubleProxy is a shim for relaying proxy function calls to a local and remote proxies.
-// LocalProxy is always set, RemoteProxy may be nil
+// DoubleProxy is a shim for intercepting DNS proxy configuration; it wraps
+// the existing DNS proxy while intercepting UpdateAllowed() calls
+// and caching them in a StateDB table.
+//
+// When it is initialized, it "takes over" the existing DNS proxy singleton.
 type DoubleProxy struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	RemoteProxy *remoteproxy.RemoteFQDNProxy
-	LocalProxy  *dnsproxy.DNSProxy
+	LocalProxy *dnsproxy.DNSProxy
 
 	defaultProxy  defaultdns.Proxy
 	daemonPromise promise.Promise[*cmd.Daemon]
@@ -70,7 +71,6 @@ type Params struct {
 	Lc            cell.Lifecycle
 	DaemonPromise promise.Promise[*cmd.Daemon]
 	DefaultProxy  defaultdns.Proxy
-	RemoteProxy   *remoteproxy.RemoteFQDNProxy
 	Cfg           fqdnhaconfig.Config
 	Log           *slog.Logger
 
@@ -84,7 +84,6 @@ func NewDoubleProxy(
 		return nil, nil, nil
 	}
 	dp := &DoubleProxy{
-		RemoteProxy:   p.RemoteProxy,
 		defaultProxy:  p.DefaultProxy,
 		daemonPromise: p.DaemonPromise,
 		log:           p.Log,
@@ -117,7 +116,6 @@ func (dp *DoubleProxy) Start(ctx cell.HookContext) error {
 
 	dp.LocalProxy = dp.defaultProxy.Get().(*dnsproxy.DNSProxy)
 	dp.defaultProxy.Set(dp)
-	dp.RemoteProxy.ProvideLocalProxy(dp.LocalProxy)
 
 	dp.loadTable()
 	return nil
@@ -169,15 +167,6 @@ func (dp *DoubleProxy) UpdateAllowed(endpointID uint64, destPortProto restore.Po
 	if err != nil {
 		return nil, err
 	}
-	if dp.RemoteProxy != nil {
-		err = dp.RemoteProxy.UpdateAllowed(endpointID, destPortProto, newRules)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// need to wait for the table to be first initialized so we don't accidentally overwrite
-	// old entries from Dump during an UpdateAllowed call.
 	dp.initialized.Wait()
 
 	wtx := dp.db.WriteTxn(dp.configTable)
@@ -235,5 +224,4 @@ func (dp *DoubleProxy) RestoreRules(op *endpoint.Endpoint) {
 
 func (dp *DoubleProxy) Cleanup() {
 	dp.LocalProxy.Cleanup()
-	dp.RemoteProxy.Cleanup()
 }

@@ -13,24 +13,26 @@ package remoteproxy
 import (
 	"context"
 	"fmt"
-	"net/netip"
+	"log/slog"
 	"testing"
 
-	"github.com/cilium/dns"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 
 	dnsproxypb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
-
+	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type mockFQDNProxyClient struct {
@@ -73,33 +75,40 @@ func (m *mockFQDNProxyClient) GetRules(
 	return nil, nil
 }
 
+type mockDoubleProxy struct{}
+
+func (m *mockDoubleProxy) RegisterRemote() *doubleproxy.AckTracker {
+	return doubleproxy.NewAckTracker()
+}
+
+func (m *mockDoubleProxy) UnregisterRemote(at *doubleproxy.AckTracker) {}
+
 // Test that a client that connects never misses a single update, even if it disconnects and reconnects.
 //
 // This also ensures that we dump and load our state correctly, as we only intercept proxy updates
 // after agent restarts.
 func TestConnectionLifecycle(t *testing.T) {
-	var remoteProxy *RemoteFQDNProxy
+	cfg := fqdnhaconfig.Config{EnableExternalDNSProxy: true}
+	db := statedb.New()
+	require.NoError(t, db.Start())
+	// Make sure no goroutines leak
+	t.Cleanup(func() {
+		db.Stop()
+		goleak.VerifyNone(t)
+	})
 
-	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
-		Address: "127.0.0.2",
-		IPv4:    false,
-		IPv6:    false,
-	},
-		func(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) { return nil, false, nil },
-		nil,
-		nil,
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-			return nil
-		},
-	)
-	err := localProxy.Listen()
+	tbl, err := tables.NewProxyConfigTable(cfg, db)
 	require.NoError(t, err)
-	t.Cleanup(localProxy.Cleanup)
 
-	cs := mockCachedSelector("selector-string")
+	remoteProxy := RemoteFQDNProxy{
+		log:         slog.Default(),
+		db:          db,
+		configTable: tbl,
+		dp:          &mockDoubleProxy{},
+	}
 
 	allowExampleCom := policy.L7DataMap{
-		cs: &policy.PerSelectorPolicy{
+		mockCachedSelector("selector"): &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{
 					MatchName: "example.com",
@@ -110,13 +119,11 @@ func TestConnectionLifecycle(t *testing.T) {
 
 	addRule := func(epID uint64, port uint16) {
 		t.Helper()
-		_, err := localProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
+		wtx := db.WriteTxn(tbl)
+		defer wtx.Abort()
+		_, _, err := tbl.Insert(wtx, tables.NewProxyConfig(epID, restore.MakeV2PortProto(port, u8proto.UDP), allowExampleCom))
 		require.NoError(t, err)
-		if remoteProxy == nil {
-			return
-		}
-		err = remoteProxy.UpdateAllowed(epID, restore.MakeV2PortProto(port, 17), allowExampleCom)
-		require.NoError(t, err)
+		wtx.Commit()
 	}
 
 	addRule(1, 35)
@@ -124,91 +131,41 @@ func TestConnectionLifecycle(t *testing.T) {
 	addRule(1, 35) // overwrites
 	addRule(2, 36)
 
-	require.Len(t, localProxy.DumpRules(), 3)
+	require.Equal(t, 3, tbl.NumObjects(db.ReadTxn()))
 
-	// Initialize the remote prxy
-	remoteProxy = newRemoteFQDNProxy()
-	remoteProxy.local = localProxy
+	remoteContext, remoteCancel := context.WithCancel(t.Context())
 
-	// Add another endpoint, with installed but disconnected
-	// remote proxy. Ensure we don't block.
-	addRule(3, 35)
-	require.Len(t, localProxy.DumpRules(), 4)
-
-	// Now, we have connected to a remote proxy.
+	// Initialize the remote proxy
 	mock := newMockFQDNProxyClient()
-	remoteProxy.onConnect(nil, mock)
+	// and consume updates as they come
+	go remoteProxy.forwardUpdates(remoteContext, mock)
 
 	// Ensure the remote proxy has all already-existing rules.
 	// Note that updates are queued and applied asynchronously, so we must wait
 	require.Eventually(t, func() bool {
-		return len(mock.allowed) == 4
+		return len(mock.allowed) == 3
 	}, time.Second, 10*time.Millisecond)
 
 	// Add another rule
 	addRule(4, 35)
 	require.Eventually(t, func() bool {
+		return len(mock.allowed) == 4
+	}, time.Second, 10*time.Millisecond)
+
+	addRule(5, 35)
+	require.Eventually(t, func() bool {
 		return len(mock.allowed) == 5
 	}, time.Second, 10*time.Millisecond)
 
 	// Disconnect, ensure that we do not block
-	remoteProxy.onDisconnect()
+	remoteCancel()
 
-	addRule(5, 35)
-	require.Len(t, localProxy.DumpRules(), 6)
-}
+	addRule(6, 35)
+	require.Equal(t, 6, tbl.NumObjects(db.ReadTxn()))
 
-// TestDumpRules ensures that Dumprules in enterprise_getallrules.go matches
-// ruleToMsg
-func TestDumpRules(t *testing.T) {
-	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
-		Address: "127.0.0.2",
-		IPv4:    false,
-		IPv6:    false,
-	},
-		func(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) { return nil, false, nil },
-		nil,
-		nil,
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-			return nil
-		},
-	)
-	err := localProxy.Listen()
-	require.NoError(t, err)
-	t.Cleanup(localProxy.Cleanup)
+	addRule(7, 35)
+	require.Equal(t, 7, tbl.NumObjects(db.ReadTxn()))
 
-	epID := uint64(5)
-	portProto := restore.MakeV2PortProto(53, 17)
-
-	cs := mockCachedSelector("selector-string")
-	allowExampleCom := policy.L7DataMap{
-		cs: &policy.PerSelectorPolicy{
-			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{
-					MatchName: "example.com",
-				}},
-			},
-		},
-	}
-	_, err = localProxy.UpdateAllowed(epID, portProto, allowExampleCom)
-	require.NoError(t, err)
-
-	dump := localProxy.DumpRules()
-	require.Len(t, dump, 1)
-	require.Equal(t, ruleToMsg(epID, portProto, allowExampleCom), dump[0])
-
-}
-
-func CheckUpdate(t *testing.T, expected fqdnRuleKey, got fqdnRuleKey) error {
-	t.Helper()
-
-	if got.endpointID != expected.endpointID {
-		return fmt.Errorf("expected endpoint id %d, got %d", expected.endpointID, got.endpointID)
-	}
-	if got.destPortProto != expected.destPortProto {
-		return fmt.Errorf("expected destination port %d, got %d", expected.destPortProto, got.destPortProto)
-	}
-	return nil
 }
 
 type mockCachedSelector string

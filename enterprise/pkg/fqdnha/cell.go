@@ -51,9 +51,10 @@ var Cell = cell.Module(
 	cell.Invoke(func(
 		proxyAgentServer *relay.FQDNProxyAgentServer,
 		doubleProxy *doubleproxy.DoubleProxy,
+		rp *remoteproxy.RemoteFQDNProxy,
 		cfg config.Config,
 	) {
-		if !cfg.EnableExternalDNSProxy || proxyAgentServer == nil || doubleProxy == nil {
+		if !cfg.EnableExternalDNSProxy || proxyAgentServer == nil || doubleProxy == nil || rp == nil {
 			return
 		}
 	}),
