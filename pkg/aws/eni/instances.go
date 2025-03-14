@@ -12,7 +12,6 @@ import (
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -30,6 +29,7 @@ type EC2API interface {
 	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
+	GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
 	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
@@ -56,17 +56,27 @@ type InstancesManager struct {
 	instances      *ipamTypes.InstanceMap
 	subnets        ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
+	routeTables    ipamTypes.RouteTableMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
+	limitsGetter   *limits.LimitsGetter
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, api EC2API) *InstancesManager {
-	return &InstancesManager{
+func NewInstancesManager(logger *slog.Logger, api EC2API) (*InstancesManager, error) {
+
+	m := &InstancesManager{
 		logger:    logger.With(subsysLogAttr...),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 	}
+
+	limitsGetter, err := limits.NewLimitsGetter(logger, api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
+	if err != nil {
+		return nil, err
+	}
+	m.limitsGetter = limitsGetter
+	return m, nil
 }
 
 // CreateNode is called on discovery of a new node and returns the ENI node
@@ -210,6 +220,11 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
 		return time.Time{}
 	}
+	routeTables, err := m.api.GetRouteTables(ctx)
+	if err != nil {
+		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
+		return time.Time{}
+	}
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
 	// will be refetched from EC2 API and updated to the local cache. Otherwise only
@@ -226,6 +241,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			logfields.NumInstances, instances.NumInstances(),
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
+			logfields.NumRouteTables, len(routeTables),
 			logfields.NumSecurityGroups, len(securityGroups),
 		)
 
@@ -244,6 +260,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			logfields.InstanceID, instanceID,
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
+			logfields.NumRouteTables, len(routeTables),
 			logfields.NumSecurityGroups, len(securityGroups),
 		)
 
@@ -255,13 +272,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
-
-	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
-			m.logger.Warn("Unable to update instance type to adapter limits from EC2 API", logfields.Error, err)
-			return time.Time{}
-		}
-	}
+	m.routeTables = routeTables
 
 	return resyncStart
 }

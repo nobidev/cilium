@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
@@ -52,6 +53,7 @@ type API struct {
 	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
+	routeTables    map[string]*ipamTypes.RouteTable
 	securityGroups map[string]*types.SecurityGroup
 	instanceTypes  []ec2_types.InstanceTypeInfo
 	errors         map[Operation]error
@@ -63,7 +65,7 @@ type API struct {
 }
 
 // NewAPI returns a new mocked EC2 API
-func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
+func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup, routeTables []*ipamTypes.RouteTable) *API {
 
 	// Start with base CIDR 10.0.0.0/16
 	_, baseCidr, _ := net.ParseCIDR("10.10.0.0/16")
@@ -80,11 +82,78 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		panic(err)
 	}
 
+	instanceTypes := []ec2_types.InstanceTypeInfo{
+		{
+			InstanceType: "m5.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m5.4xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(8),
+				Ipv4AddressesPerInterface: aws.Int32(30),
+				Ipv6AddressesPerInterface: aws.Int32(30),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m3.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "t2.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "c3.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(2),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+	}
+
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
+		routeTables:    map[string]*ipamTypes.RouteTable{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		instanceTypes:  []ec2_types.InstanceTypeInfo{},
 		allocator:      podCidrRange,
@@ -96,7 +165,8 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 
 	api.UpdateSubnets(subnets)
 	api.UpdateSecurityGroups(securityGroups)
-
+	api.UpdateRouteTables(routeTables)
+	api.UpdateInstanceTypes(instanceTypes)
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
@@ -110,6 +180,16 @@ func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	e.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
 		e.subnets[s.ID] = s.DeepCopy()
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateRouteTables replaces the route tables which the mock API will return
+func (e *API) UpdateRouteTables(routeTables []*ipamTypes.RouteTable) {
+	e.mutex.Lock()
+	e.routeTables = map[string]*ipamTypes.RouteTable{}
+	for _, rt := range routeTables {
+		e.routeTables[rt.ID] = rt.DeepCopy()
 	}
 	e.mutex.Unlock()
 }
@@ -649,6 +729,18 @@ func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 		subnets[s.ID] = s.DeepCopy()
 	}
 	return subnets, nil
+}
+
+func (e *API) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+	routeTables := ipamTypes.RouteTableMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, rt := range e.routeTables {
+		routeTables[rt.ID] = rt.DeepCopy()
+	}
+	return routeTables, nil
 }
 
 func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {

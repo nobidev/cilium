@@ -17,12 +17,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	assets "github.com/cilium/cilium"
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
+	owners_util "github.com/cilium/cilium/cilium-cli/utils/codeowners"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -95,12 +95,17 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		logger := check.NewConcurrentLogger(params.Writer, params.TestConcurrency)
-		owners, err := codeowners.ParseFile(strings.NewReader(assets.CodeOwnersRaw))
-		if err != nil {
-			return fmt.Errorf("🐛 Failed to parse CODEOWNERS. Developer BUG? %w", err)
+		var owners codeowners.Ruleset
+		if params.LogCodeOwners {
+			var err error
+
+			owners, err = owners_util.Load(params.CodeOwners)
+			if err != nil {
+				return fmt.Errorf("❗ Failed to load code owners: %w", err)
+			}
 		}
 
+		logger := check.NewConcurrentLogger(params.Writer, params.TestConcurrency)
 		connTests, err := newConnectivityTests(params, hooks, logger, owners)
 		if err != nil {
 			return err
@@ -207,6 +212,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.ExpectedXFRMErrors, "expected-xfrm-errors", defaults.ExpectedXFRMErrors, "List of expected XFRM errors")
 	cmd.Flags().MarkHidden("expected-xfrm-errors")
 
+	cmd.Flags().StringSliceVar(&params.CodeOwners, "code-owners", []string{}, "Use the code owners defined in these files for --log-code-owners")
+	cmd.Flags().MarkHidden("code-owners")
 	cmd.Flags().BoolVar(&params.LogCodeOwners, "log-code-owners", defaults.LogCodeOwners, "Log code owners for tests that fail")
 	cmd.Flags().MarkHidden("log-code-owners")
 	cmd.Flags().StringSliceVar(&params.ExcludeCodeOwners, "exclude-code-owners", []string{}, "Exclude specific code owners from --log-code-owners")
@@ -254,7 +261,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.RR, "rr", true, "Run RR test")
 	cmd.Flags().BoolVar(&params.PerfParameters.UDP, "udp", false, "Run UDP tests")
 	cmd.Flags().BoolVar(&params.PerfParameters.Throughput, "throughput", true, "Run throughput test")
+	cmd.Flags().BoolVar(&params.PerfParameters.ThroughputMulti, "throughput-multi", true, "Run throughput test with multiple streams")
 	cmd.Flags().IntVar(&params.PerfParameters.Samples, "samples", 1, "Number of Performance samples to capture (how many times to run each test)")
+	cmd.Flags().UintVar(&params.PerfParameters.Streams, "streams", 4, "The parallelism of tests with multiple streams")
 	cmd.Flags().BoolVar(&params.PerfParameters.HostNet, "host-net", true, "Test host network")
 	cmd.Flags().BoolVar(&params.PerfParameters.PodNet, "pod-net", true, "Test pod network")
 	cmd.Flags().BoolVar(&params.PerfParameters.PodToHost, "pod-to-host", false, "Test pod-to-host traffic")

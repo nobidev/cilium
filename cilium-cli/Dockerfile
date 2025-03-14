@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.14@sha256:0232be24407cc42c983b9b269b1534a3b98eea312aad9464dd0f1a9e547e15a7
+# syntax=docker/dockerfile:1.14@sha256:4c68376a702446fc3c79af22de146a148bc3367e73c25a5803d453b6b3f722fb
 
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
@@ -30,22 +30,5 @@ ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /root/app
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/local/bin/cilium /usr/local/bin/cilium
-
-# Install cloud CLIs. Based on these instructions:
-# - https://cloud.google.com/sdk/docs/install#deb
-# - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-# - https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt#install-azure-cli
-RUN apt-get update -y \
- && apt-get install -y curl gnupg unzip \
- && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
- && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
- && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
- && apt-get update -y \
- && apt-get install -y google-cloud-cli google-cloud-sdk-gke-gcloud-auth-plugin kubectl \
- && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
- && unzip awscliv2.zip \
- && ./aws/install \
- && rm -r ./aws awscliv2.zip \
- && curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 ENTRYPOINT []

@@ -12,7 +12,7 @@ cilium-agent [flags]
 
 ```
       --agent-health-port int                                          TCP port for agent health status API (default 9879)
-      --agent-labels strings                                           Additional labels to identify this agent
+      --agent-labels strings                                           Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                        Interval at which the agent updates liveness time for the datapath (default 1s)
       --agent-not-ready-taint-key string                               Key of the taint indicating that Cilium is not ready on the node (default "node.cilium.io/agent-not-ready")
       --allocator-list-timeout duration                                Timeout for listing allocator state before exiting (default 3m0s)
@@ -35,6 +35,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-service-any duration                            Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration                            Timeout for established service entries in TCP CT table (default 2h13m20s)
       --bpf-ct-timeout-service-tcp-grace duration                      Timeout for graceful shutdown of service entries in TCP CT table (default 1m0s)
+      --bpf-distributed-lru                                            Enable per-CPU BPF LRU backend memory
       --bpf-events-drop-enabled                                        Expose 'drop' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-policy-verdict-enabled                              Expose 'policy verdict' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-trace-enabled                                       Expose 'trace' events for Cilium monitor and/or Hubble (default true)
@@ -321,7 +322,7 @@ cilium-agent [flags]
       --ipv6-pod-subnets strings                                       List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                              Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                                      Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
-      --k8s-api-server string                                          Kubernetes API server URL
+      --k8s-api-server-urls strings                                    Kubernetes API server URLs
       --k8s-client-burst int                                           Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration                      Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                         Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

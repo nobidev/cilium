@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -70,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -87,15 +89,16 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx              context.Context
-	clientset        k8sClient.Clientset
-	db               *statedb.DB
-	buildEndpointSem *semaphore.Weighted
-	l7Proxy          *proxy.Proxy
-	envoyXdsServer   envoy.XDSServer
-	svc              service.ServiceManager
-	policy           policy.PolicyRepository
-	idmgr            identitymanager.IDManager
+	ctx               context.Context
+	clientset         k8sClient.Clientset
+	db                *statedb.DB
+	buildEndpointSem  *semaphore.Weighted
+	l7Proxy           *proxy.Proxy
+	proxyAccessLogger logger.ProxyAccessLogger
+	envoyXdsServer    envoy.XDSServer
+	svc               service.ServiceManager
+	policy            policy.PolicyRepository
+	idmgr             identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -105,6 +108,7 @@ type Daemon struct {
 	ciliumHealth *health.CiliumHealth
 
 	directRoutingDev datapathTables.DirectRoutingDevice
+	routes           statedb.Table[*datapathTables.Route]
 	devices          statedb.Table[*datapathTables.Device]
 	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
 
@@ -164,6 +168,7 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+	jobGroup    job.Group
 
 	// BIG-TCP config values
 	bigTCPConfig *bigtcp.Configuration
@@ -368,6 +373,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		directRoutingDev:  params.DirectRoutingDevice,
 		loader:            params.Loader,
 		nodeAddressing:    params.NodeAddressing,
+		routes:            params.Routes,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -375,6 +381,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
+		jobGroup:          params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
@@ -388,6 +395,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:      params.MonitorAgent,
 		svc:               params.ServiceManager,
 		l7Proxy:           params.L7Proxy,
+		proxyAccessLogger: params.ProxyAccessLogger,
 		envoyXdsServer:    params.EnvoyXdsServer,
 		authManager:       params.AuthManager,
 		settings:          params.Settings,
