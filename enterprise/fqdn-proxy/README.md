@@ -1,8 +1,12 @@
 FQDN-Proxy ("cilium-dnsproxy")
 ============================
 
+Overview
+--------
+
 This codebase is the FQDN-Proxy code from the cilium codebase
 modularized as its own program, meant to run as its own deployment (daemonset).
+It deployed via a separate Helm chart, so the upgade lifecycle is distinct from Cilium.
 
 Normally, Cilium runs a DNS proxy server that intercepts DNS packets so that it can
 look up IP addresses to enforce L7 policies that are based on FQDN rules.
@@ -14,6 +18,36 @@ to service DNS requests even if Cilium is down. The FQDN-Proxy deployment
 is a Daemonset (that is run on each node). This ensures that DNS
 requests are served by an HA service.
 
+While the agent is down, it caches all DNS requests so that policy may be updated
+once the agent returns.
+
+Agent - Proxy API
+-----------------
+
+The proxy needs to know all endpoints and their L7 DNS rules. This is so it can enforce
+any L7 DNS policies, e.g. "only allow queries to *.example.com".
+
+The proxy must also forward all DNS responses to the agent for policy and observability purposes.
+
+The agent exposes a gRPC server on a socket file. The proxy connects to this and forwards requests.
+
+Additionally, the proxy must get the L7 rules. The mechanism has evolved over time:
+
+Current
+-------
+
+The proxy calls gRPC method SubscribeFQDNRules(). The agent streams all known and newly-learned endpoint
+configurations. If the agent does not support this method, the proxy falls back to old behavior.
+
+Pre-1.18
+--------
+
+The proxy first calls gRPC method GetRules(), which gives it a list of "restored fqdn rules". The distinction
+is somewhat arcane, but restored rules are intended only for temporary use.
+
+The proxy also exposes its own gRPC server. When the agent learns of a new endpoint configuration,
+it calls the proxy's `UpdateAllowed()` method. When the agent first detects that a proxy has newly
+started, it calls `UpdateAllowed()` for all known existing endpoints.
 
 How to Publish a New Version
 ----------------------------
