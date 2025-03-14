@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -578,6 +579,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			out := NewPodCIDRReconciler(PodCIDRReconcilerIn{
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    logger,
+				SLogger:   hivetest.Logger(t),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:     logger,
 					peerConfig: InitMockStore(tt.peerConfig),

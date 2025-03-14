@@ -14,6 +14,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -209,6 +210,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 
 			reconciler := &VPNRoutePolicyReconciler{
 				logger:          logger,
+				sLogger:         hivetest.Logger(t),
 				peerConfigStore: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
 				metadata:        make(map[string]VPNRoutePolicyMetadata),
 				upgrader:        newUpgraderMock(iNodeInstance),

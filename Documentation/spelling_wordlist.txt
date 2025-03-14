@@ -394,6 +394,7 @@ hostns
 hostonlyifs
 hostscope
 hq
+html
 http
 httpbin
 httpd
@@ -472,6 +473,7 @@ kops
 kprobe
 kprobes
 kretprobes
+ktime
 kube
 kubeadm
 kubeconfig
@@ -706,6 +708,7 @@ runnable
 runtimes
 sandboxing
 scalable
+scripttest
 sctl
 seccomp
 secretName
@@ -724,6 +727,7 @@ sid
 sig
 skb
 snat
+spinlock
 srv
 ssl
 stacktrace
@@ -772,6 +776,7 @@ templating
 terminatingTLS
 terminationGracePeriodSeconds
 testability
+testdata
 testsuite
 testutils
 tetragon
@@ -796,6 +801,7 @@ transpiling
 tsne
 tunings
 tunnelProtocol
+txtar
 ubuntu
 udp
 ui

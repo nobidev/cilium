@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
@@ -37,7 +38,8 @@ type VPNRoutePolicyReconcilerOut struct {
 type VPNRoutePolicyReconcilerIn struct {
 	cell.In
 
-	Logger          logrus.FieldLogger
+	Logger          logrus.FieldLogger // TODO: migrate to slog
+	SLogger         *slog.Logger
 	Config          config.Config
 	Upgrader        paramUpgrader
 	PeerConfigStore resource.Resource[*v1.IsovalentBGPPeerConfig]
@@ -50,6 +52,7 @@ type VPNRoutePolicyReconcilerIn struct {
 type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
 	logger          logrus.FieldLogger
+	sLogger         *slog.Logger
 	upgrader        paramUpgrader
 	peerConfigStore resource.Store[*v1.IsovalentBGPPeerConfig]
 	metadata        map[string]VPNRoutePolicyMetadata
@@ -67,6 +70,7 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 	rp := &VPNRoutePolicyReconciler{
 		metadata: make(map[string]VPNRoutePolicyMetadata),
 		logger:   in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
+		sLogger:  in.SLogger.With(types.ReconcilerLogField, "vpn-route-policy"),
 		upgrader: in.Upgrader,
 	}
 
@@ -133,11 +137,7 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 	}
 
 	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-		Logger: r.logger.WithFields(
-			logrus.Fields{
-				types.InstanceLogField: p.DesiredConfig.Name,
-			},
-		),
+		Logger:          r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredPolicies,

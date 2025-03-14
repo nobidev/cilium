@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strconv"
 
@@ -56,8 +57,9 @@ const (
 // (thanks to the same reconciler name and higher priority).
 // The Enterprise reconciler calls the OSS reconciler's methods on various places to avoid code duplication.
 type ServiceReconciler struct {
-	mutex  lock.Mutex
-	logger logrus.FieldLogger
+	mutex   lock.Mutex
+	logger  logrus.FieldLogger
+	sLogger *slog.Logger
 
 	cfg          Config
 	signaler     *signaler.BGPCPSignaler
@@ -88,7 +90,8 @@ type ServiceReconcilerIn struct {
 
 	Cfg                Config
 	BGPConfig          config.Config
-	Logger             logrus.FieldLogger
+	Logger             logrus.FieldLogger // TODO: migrate to slog
+	SLogger            *slog.Logger
 	Signaler           *signaler.BGPCPSignaler
 	Upgrader           paramUpgrader
 	PeerAdvert         *IsovalentAdvertisement
@@ -120,6 +123,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 
 	r := &ServiceReconciler{
 		logger:           in.Logger,
+		sLogger:          in.SLogger,
 		cfg:              in.Cfg,
 		signaler:         in.Signaler,
 		healthChecker:    in.HealthCheckManager,
@@ -432,7 +436,7 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p EnterpriseReco
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.ServicePaths, err = ossreconcilerv2.ReconcileResourceAFPaths(ossreconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.logger.WithField(bgptypes.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.sLogger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredSvcPaths,
@@ -863,7 +867,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Ent
 		}
 
 		updatedSvcRoutePolicies, rErr := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
-			Logger:          r.logger.WithField(bgptypes.InstanceLogField, p.DesiredConfig.Name),
+			Logger:          r.sLogger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
 			Ctx:             ctx,
 			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredSvcRoutePolicies,

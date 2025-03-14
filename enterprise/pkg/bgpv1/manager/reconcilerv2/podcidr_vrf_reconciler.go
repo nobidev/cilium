@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -36,7 +37,8 @@ import (
 type PodCIDRVRFReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
 	Group        job.Group
 	DaemonConfig *option.DaemonConfig
 	Config       config.Config
@@ -54,6 +56,7 @@ type PodCIDRVRFReconcilerOut struct {
 
 type PodCIDRVRFReconciler struct {
 	Logger      logrus.FieldLogger
+	SLogger     *slog.Logger
 	Adverts     *IsovalentAdvertisement
 	Upgrader    paramUpgrader
 	SRv6Paths   *srv6Paths
@@ -79,6 +82,7 @@ func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut 
 
 	pr := &PodCIDRVRFReconciler{
 		Logger:      in.Logger.WithField(types.ReconcilerLogField, "pod-cidr-vrf"),
+		SLogger:     in.SLogger.With(types.ReconcilerLogField, "pod-cidr-vrf"),
 		Adverts:     in.Adverts,
 		Upgrader:    in.Upgrader,
 		SRv6Paths:   in.SRv6Paths,
@@ -164,7 +168,7 @@ func (r *PodCIDRVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.VRFAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.Logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.SLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: allVRFsPodCIDRAFPaths,

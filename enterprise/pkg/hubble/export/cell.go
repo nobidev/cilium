@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -109,148 +111,156 @@ type hubbleEnterpriseExporterParams struct {
 	Config    config
 
 	// TODO: replace by slog
-	Logger logrus.FieldLogger
+	Logger  logrus.FieldLogger
+	SLogger *slog.Logger
 }
 
 type HubbleEnterpriseExporterOut struct {
 	cell.Out
 
-	Exporters []exporter.FlowLogExporter `group:"hubble-flow-log-exporters,flatten"`
+	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders,flatten"`
 }
 
 func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleEnterpriseExporterOut, error) {
 	if params.Config.FilePath == "" {
-		// exporter is disabled
+		params.Logger.Info("The Hubble EE static exporter is disabled")
 		return HubbleEnterpriseExporterOut{}, nil
 	}
 
-	// keep support for deprecated flags
-	allowlistFlag := params.Config.FlowAllowlist
-	if allowlistFlag == "" {
-		allowlistFlag = params.Config.FlowWhitelist
-	}
-	denylistFlag := params.Config.FlowDenylist
-	if denylistFlag == "" {
-		denylistFlag = params.Config.FlowBlacklist
-	}
+	builder := &exportercell.FlowLogExporterBuilder{
+		Name: "static-ee-exporter",
+		Build: func() (exporter.FlowLogExporter, error) {
+			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble EE static exporter")
 
-	allowList, err := hubble.ParseFlowFilters(allowlistFlag)
-	if err != nil {
-		return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to parse allowlist: %w", err)
-	}
-	denyList, err := hubble.ParseFlowFilters(denylistFlag)
-	if err != nil {
-		return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to parse denylist: %w", err)
-	}
+			// keep support for deprecated flags
+			allowlistFlag := params.Config.FlowAllowlist
+			if allowlistFlag == "" {
+				allowlistFlag = params.Config.FlowWhitelist
+			}
+			denylistFlag := params.Config.FlowDenylist
+			if denylistFlag == "" {
+				denylistFlag = params.Config.FlowBlacklist
+			}
 
-	// create file writer
-	writer := &lumberjack.Logger{
-		Filename:   params.Config.FilePath,
-		MaxSize:    params.Config.FileMaxSize,
-		MaxBackups: params.Config.FileMaxBackups,
-		Compress:   params.Config.FileCompress,
-	}
+			allowList, err := hubble.ParseFlowFilters(allowlistFlag)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse allowlist: %w", err)
+			}
+			denyList, err := hubble.ParseFlowFilters(denylistFlag)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse denylist: %w", err)
+			}
 
-	// register flow metrics
-	metricsHandler := &metricsHandler{}
-	registerMetricsHandler(metricsHandler)
+			// create file writer
+			writer := &lumberjack.Logger{
+				Filename:   params.Config.FilePath,
+				MaxSize:    params.Config.FileMaxSize,
+				MaxBackups: params.Config.FileMaxBackups,
+				Compress:   params.Config.FileCompress,
+			}
 
-	// setup exporter options
-	exporterOpts := []exporter.Option{
-		exporter.WithAllowList(params.Logger, allowList),
-		exporter.WithDenyList(params.Logger, denyList),
-		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
-			var writer io.WriteCloser = writer
-			writer = metricsHandler.WrapWriter(writer)
-			return writer, nil
-		}),
-		exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
-			return newEnterpriseJsonEncoder(params.Config, writer), nil
-		}),
-		exporter.WithOnExportEventFunc(func(_ context.Context, ev *v1.Event, _ exporter.Encoder) (bool, error) {
-			// stop export pipeline for non-flow events
-			stop := ev.GetFlow() == nil
-			return stop, nil
-		}),
-	}
+			// register flow metrics
+			metricsHandler := &metricsHandler{}
+			registerMetricsHandler(metricsHandler)
 
-	// create aggregator
-	if len(params.Config.Aggregations) > 0 {
-		aggregator, err := newHubbleEnterpriseAggregator(params.Config, params.Logger)
-		if err != nil {
-			return HubbleEnterpriseExporterOut{}, fmt.Errorf("failed to create enterprise aggregator: %w", err)
-		}
-		exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(aggregator))
-		params.JobGroup.Add(job.OneShot("hubble-flow-aggregator", func(ctx context.Context, _ cell.Health) error {
-			aggregator.Start(ctx)
-			return nil
-		}))
-	}
+			// setup exporter options
+			exporterOpts := []exporter.Option{
+				exporter.WithAllowList(params.SLogger, allowList),
+				exporter.WithDenyList(params.SLogger, denyList),
+				exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
+					var writer io.WriteCloser = writer
+					writer = metricsHandler.WrapWriter(writer)
+					return writer, nil
+				}),
+				exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
+					return newEnterpriseJsonEncoder(params.Config, writer), nil
+				}),
+				exporter.WithOnExportEventFunc(func(_ context.Context, ev *v1.Event, _ exporter.Encoder) (bool, error) {
+					// stop export pipeline for non-flow events
+					stop := ev.GetFlow() == nil
+					return stop, nil
+				}),
+			}
 
-	// setup rate-limiting
-	if params.Config.RateLimit >= 0 {
-		ratelimiter, err := newEnterpriseRateLimiter(params.Config, params.Logger)
-		if err != nil {
-			// non-fatal failure, log and continue
-			// TODO(ab): should this be fatal?
-			params.Logger.WithError(err).Warn("Failed to create flow export rate limiter")
-		} else {
-			exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
-		}
-	}
-
-	// setup flow metrics reporting
-	//
-	// NOTE: make sure this is always the last exporter option so it remains accurate
-	// when aggregation/rate-limiting is performed
-	exporterOpts = append(exporterOpts, exporter.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporter.Encoder) (bool, error) {
-		flow := ev.GetFlow()
-		if flow == nil {
-			// we only care about flow events
-			return false, nil
-		}
-		err := metricsHandler.UpdateMetrics(ctx, flow)
-		if err != nil {
-			return false, fmt.Errorf("failed to update flow metrics: %w", err)
-		}
-		return false, nil
-	}))
-
-	staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
-	if err != nil {
-		// non-fatal failure, log and continue
-		// TODO(ab): should this be fatal?
-		params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
-		return HubbleEnterpriseExporterOut{}, nil
-	}
-
-	if params.Config.FileRotationInterval != 0 {
-		params.Logger.WithField("interval", params.Config.FileRotationInterval).Info("Periodically rotating JSON export file")
-		params.JobGroup.Add(job.OneShot("hubble-exporter-file-rotate", func(ctx context.Context, health cell.Health) error {
-			ticker := time.NewTicker(params.Config.FileRotationInterval)
-			for {
-				select {
-				case <-ctx.Done():
+			// create aggregator
+			if len(params.Config.Aggregations) > 0 {
+				aggregator, err := newHubbleEnterpriseAggregator(params.Config, params.Logger)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create enterprise aggregator: %w", err)
+				}
+				exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(aggregator))
+				params.JobGroup.Add(job.OneShot("hubble-flow-aggregator", func(ctx context.Context, _ cell.Health) error {
+					aggregator.Start(ctx)
 					return nil
-				case <-ticker.C:
-					if err := writer.Rotate(); err != nil {
-						params.Logger.WithError(err).
-							WithField("filename", params.Config.FilePath).
-							Warn("Failed to rotate JSON export file")
-					}
+				}))
+			}
+
+			// setup rate-limiting
+			if params.Config.RateLimit >= 0 {
+				ratelimiter, err := newEnterpriseRateLimiter(params.Config, params.Logger)
+				if err != nil {
+					// non-fatal failure, log and continue
+					params.Logger.WithError(err).Warn("Failed to create flow export rate limiter")
+				} else {
+					exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
 				}
 			}
-		}))
+
+			// setup flow metrics reporting
+			//
+			// NOTE: make sure this is always the last exporter option so it remains accurate
+			// when aggregation/rate-limiting is performed
+			exporterOpts = append(exporterOpts, exporter.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporter.Encoder) (bool, error) {
+				flow := ev.GetFlow()
+				if flow == nil {
+					// we only care about flow events
+					return false, nil
+				}
+				err := metricsHandler.UpdateMetrics(ctx, flow)
+				if err != nil {
+					return false, fmt.Errorf("failed to update flow metrics: %w", err)
+				}
+				return false, nil
+			}))
+
+			staticExporter, err := exporter.NewExporter(params.SLogger, exporterOpts...)
+			if err != nil {
+				// non-fatal failure, log and continue
+				params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
+				return nil, nil
+			}
+
+			if params.Config.FileRotationInterval != 0 {
+				params.Logger.WithField("interval", params.Config.FileRotationInterval).Info("Periodically rotating JSON export file")
+				params.JobGroup.Add(job.OneShot("hubble-exporter-file-rotate", func(ctx context.Context, health cell.Health) error {
+					ticker := time.NewTicker(params.Config.FileRotationInterval)
+					for {
+						select {
+						case <-ctx.Done():
+							return nil
+						case <-ticker.C:
+							if err := writer.Rotate(); err != nil {
+								params.Logger.WithError(err).
+									WithField("filename", params.Config.FilePath).
+									Warn("Failed to rotate JSON export file")
+							}
+						}
+					}
+				}))
+			}
+
+			params.Lifecycle.Append(cell.Hook{
+				OnStop: func(hc cell.HookContext) error {
+					return staticExporter.Stop()
+				},
+			})
+
+			return staticExporter, nil
+		},
 	}
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hc cell.HookContext) error {
-			return staticExporter.Stop()
-		},
-	})
-
 	return HubbleEnterpriseExporterOut{
-		Exporters: []exporter.FlowLogExporter{staticExporter},
+		ExporterBuilders: []*exportercell.FlowLogExporterBuilder{builder},
 	}, nil
 }
 
