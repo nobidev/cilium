@@ -63,6 +63,8 @@ func (r *lbBackendPoolReconciler) Reconcile(ctx context.Context, req reconcile.R
 			return controllerruntime.Fail(fmt.Errorf("failed to get LBBackendPool: %w", err))
 		}
 
+		scopedLog.Debug("LBBackendPool not found - assuming it has been deleted")
+
 		// LBBackendPool has been deleted in the meantime
 		return controllerruntime.Success()
 	}

@@ -79,6 +79,9 @@ func (r *lbVIPReconciler) Reconcile(ctx context.Context, req reconcile.Request) 
 		if !k8serrors.IsNotFound(err) {
 			return controllerruntime.Fail(fmt.Errorf("failed to get LBVIP: %w", err))
 		}
+
+		scopedLog.Debug("LBVIP not found - assuming it has been deleted")
+
 		// We don't need to delete placeholder service explicitly because
 		// we set owner reference and it will be garbage collected by k8s.
 		return controllerruntime.Success()

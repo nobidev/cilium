@@ -174,6 +174,8 @@ func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 			return controllerruntime.Fail(fmt.Errorf("failed to get LBService: %w", err))
 		}
 
+		scopedLog.Debug("LBService not found - assuming it has been deleted")
+
 		// LBService has been deleted in the meantime
 		return controllerruntime.Success()
 	}
