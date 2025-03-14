@@ -1,0 +1,179 @@
+name: Enterprise Image Release Build
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-*
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
+
+jobs:
+  build-and-push:
+    timeout-minutes: 45
+    name: Build and Push Images
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./enterprise/images/cilium/Dockerfile
+            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:cd74ebc98d21b15e6fa66d02e7b73cccb75f5566
+            postfix: ubi
+            image_name: cilium
+
+          - name: operator
+            dockerfile: ./enterprise/images/operator/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: operator-generic
+
+          - name: hubble-relay
+            dockerfile: ./enterprise/images/hubble-relay/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: hubble-relay
+
+          - name: clustermesh-apiserver
+            dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
+            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            postfix: ubi
+            image_name: clustermesh-apiserver
+
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        # Disable GC entirely to avoid buildkit from GC caches.
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+             gc=false
+
+      - name: Login to quay.io
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Login to registry.redhat.io for pulls
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          tag=${GITHUB_REF##*/}
+          echo tag=$tag >> $GITHUB_OUTPUT
+          echo image_tag=quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image_name }}-${{ matrix.postfix }}:$tag >> $GITHUB_OUTPUT
+
+      - name: Release Build ${{ matrix.name }}
+        id: docker_build_ci
+        shell: bash
+        working-directory: ./enterprise/images
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.tag }} \
+          REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION }} \
+          PUSH=true \
+          RUNTIME_IMAGE=${{ matrix.base_image }} \
+          UBI_IMAGE=${{ matrix.base_image }} \
+          OPERATOR_VARIANT=${{ matrix.image_name }} \
+          PLATFORMS=linux/amd64,linux/arm64 \
+          EXTRA_ARGS="--tag ${{ steps.tag.outputs.image_tag }}" \
+          make ${{ matrix.name }}-image
+
+      - name: Release Build ${{ matrix.name }} digest
+        id: docker_digest
+        shell: bash
+        run: |
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag }}")
+          echo digest=${digest} >> $GITHUB_OUTPUT
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
+      - name: Sign Container Images
+        run: |
+          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.docker_digest.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: ${{ steps.tag.outputs.image_tag }}
+
+      - name: Attach SBOM attestation to container image
+        run: |
+          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag }}
+
+      - name: Image Release Digest
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          job_name=${{ matrix.name }}
+          job_name_capital=${job_name^^}
+          job_name_underscored=${job_name_capital//-/_}
+          echo "${job_name_underscored}_DIGEST := \"${{ steps.docker_digest.outputs.digest }}\"" > image-digest/makefile-digest.txt
+
+          echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "\`${{ steps.tag.outputs.image_tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+      - name: Check for disk usage
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          df -h
+
+  image-digests:
+    if: ${{ always() }}
+    name: Display Digests
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: image-digest/
+          pattern: "*image-digest *"
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
