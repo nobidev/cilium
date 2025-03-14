@@ -14,12 +14,15 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -61,15 +64,11 @@ type fixture struct {
 	bpfMap           maps_multicast.GroupV4Map
 }
 
-func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, initBPF map[netip.Addr][]*maps_multicast.SubscriberV4) *fixture {
+func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, initBPF map[netip.Addr][]*maps_multicast.SubscriberV4) (*fixture, func()) {
 	f := &fixture{}
 
 	f.testCtx = ctx
 	f.req = req
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
-	f.mcastGroupClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastGroups()
-	f.mcastNodeClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastNodes()
-	f.endpointClient = f.fakeClientSet.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)
 
 	// initialize BPF map
 	f.bpfMap = newFakeMaps()
@@ -83,6 +82,48 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, init
 		for _, sub := range subscribers {
 			err := subMap.Insert(sub)
 			req.NoError(err)
+		}
+	}
+
+	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
+	f.mcastGroupClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastGroups()
+	f.mcastNodeClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastNodes()
+	f.endpointClient = f.fakeClientSet.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)
+
+	rws := map[string]*struct {
+		once    sync.Once
+		watchCh chan any
+	}{
+		"isovalentmulticastgroups": {watchCh: make(chan any)},
+		"isovalentmulticastnodes":  {watchCh: make(chan any)},
+		"ciliumendpoints":          {watchCh: make(chan any)},
+	}
+
+	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		w := action.(k8sTesting.WatchAction)
+		gvr := w.GetResource()
+		ns := w.GetNamespace()
+		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+		if err != nil {
+			return false, nil, err
+		}
+		rw, ok := rws[w.GetResource().Resource]
+		if !ok {
+			return false, watch, nil
+		}
+		rw.once.Do(func() { close(rw.watchCh) })
+		return true, watch, nil
+	}
+	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
+
+	// make sure watchers are initialized before the test starts
+	watchersReadyFn := func() {
+		for name, rw := range rws {
+			select {
+			case <-ctx.Done():
+				t.Fatalf("Context expired while waiting for %s", name)
+			case <-rw.watchCh:
+			}
 		}
 	}
 
@@ -168,7 +209,7 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, init
 		Cell,
 	)
 
-	return f
+	return f, watchersReadyFn
 }
 
 // fakeMaps implements maps_multicast.GroupV4Map for testing purposes

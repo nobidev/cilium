@@ -256,7 +256,7 @@ func Test_MulticastGroups(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(t, ctx, req, test.bpfInit)
+			f, watcherReady := newFixture(t, ctx, req, test.bpfInit)
 
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
 			req.NoError(err)
@@ -264,6 +264,8 @@ func Test_MulticastGroups(t *testing.T) {
 			log := hivetest.Logger(t)
 			f.hive.Start(log, ctx)
 			defer f.hive.Stop(log, ctx)
+
+			watcherReady()
 
 			req.Eventually(func() bool {
 				// compare BPF map
@@ -398,7 +400,7 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(t, ctx, req, test.bpfInit)
+			f, watcherReady := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup group crd
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
@@ -407,6 +409,8 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 			log := hivetest.Logger(t)
 			f.hive.Start(log, ctx)
 			defer f.hive.Stop(log, ctx)
+
+			watcherReady()
 
 			// setup remote nodes
 			for _, node := range test.remoteNodeObjs {
@@ -559,7 +563,7 @@ func Test_MulticastNodeStatus(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(t, ctx, req, test.bpfInit)
+			f, watcherReady := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup group crd
 			_, err := f.mcastGroupClient.Create(ctx, test.group, meta_v1.CreateOptions{})
@@ -574,6 +578,8 @@ func Test_MulticastNodeStatus(t *testing.T) {
 			log := hivetest.Logger(t)
 			f.hive.Start(log, ctx)
 			defer f.hive.Stop(log, ctx)
+
+			watcherReady()
 
 			// setup remote nodes
 			for _, node := range test.remoteNodeObjs {
@@ -677,7 +683,7 @@ func Test_LocalEndpoint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			f := newFixture(t, ctx, req, test.bpfInit)
+			f, watcherReady := newFixture(t, ctx, req, test.bpfInit)
 
 			// setup local endpoints
 			for _, ep := range test.endpoints {
@@ -692,6 +698,8 @@ func Test_LocalEndpoint(t *testing.T) {
 			log := hivetest.Logger(t)
 			f.hive.Start(log, ctx)
 			defer f.hive.Stop(log, ctx)
+
+			watcherReady()
 
 			// validate BPF and node state
 			req.Eventually(func() bool {
