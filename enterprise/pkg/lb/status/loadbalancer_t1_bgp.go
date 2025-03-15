@@ -13,8 +13,10 @@ import (
 	"sync"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // getBGPRoutes gets BGP routes from all T1 cilium agent pods.
@@ -32,28 +34,43 @@ func (s *LoadbalancerClient) getBGPRoutes(ctx context.Context) (map[string][]*mo
 	return res, nil
 }
 
-// getBGPPeersFromCRD gets BGP peers per LB svc from IsovalentBGPClusterConfigs.
-func (s *LoadbalancerClient) getBGPPeersFromCRD(ctx context.Context) (map[string]map[string]struct{}, error) {
-	bgpPeers := map[string]map[string]struct{}{} // svc => map[peerAddr-peerASN]
+// getBGPPeersFromBGPClusterConfig gets BGP peers from T1 IsovalentBGPClusterConfigs.
+func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context) (map[string]string, map[string]string, error) {
+	bgpPeersByName := map[string]string{} // peerName => peerAddr-peerASN
+	bgpPeersByAddr := map[string]string{} // peerAddr-peerASN => map
 
 	cfgs, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list IsovalentBGPClusterConfigs: %w", err)
+		return nil, nil, fmt.Errorf("failed to list IsovalentBGPClusterConfigs: %w", err)
 	}
 
+	// Find IsovalentBGPClusterConfig which applies to T1 nodes, and extract BGP Peers from it
+
 	for _, cfg := range cfgs.Items {
+		if cfg.Spec.NodeSelector == nil {
+			continue
+		}
+		selector, err := slim_meta_v1.LabelSelectorAsSelector(cfg.Spec.NodeSelector)
+		if err != nil {
+			continue
+		}
+		if !selector.Matches(labels.Set{"service.cilium.io/node": "t1"}) &&
+			!selector.Matches(labels.Set{"service.cilium.io/node": "t1-t2"}) {
+
+			continue
+		}
+
 		for _, instances := range cfg.Spec.BGPInstances {
 			for _, peer := range instances.Peers {
-				svcName := peer.PeerConfigRef.Name
-				if _, ok := bgpPeers[svcName]; !ok {
-					bgpPeers[svcName] = map[string]struct{}{}
-				}
-				bgpPeers[svcName][fmt.Sprintf("%s-%d", *peer.PeerAddress, *peer.PeerASN)] = struct{}{}
+				name := peer.PeerConfigRef.Name
+				addr := fmt.Sprintf("%s-%d", *peer.PeerAddress, *peer.PeerASN)
+				bgpPeersByName[name] = addr
+				bgpPeersByAddr[addr] = name
 			}
 		}
 	}
 
-	return bgpPeers, nil
+	return bgpPeersByName, bgpPeersByAddr, nil
 }
 
 func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (map[string][]*models.BgpRoute, error) {

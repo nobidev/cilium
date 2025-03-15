@@ -10,13 +10,16 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*LoadbalancerStatusModel, error) {
-	bgpPeersFromCRD, err := s.getBGPPeersFromCRD(ctx)
+	bgpPeersFromCRDByName, bgpPeersFromCRDByAddr, err := s.getBGPPeersFromBGPClusterConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch BGP peers from CRD: %w", err)
 	}
@@ -61,6 +64,11 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 	}
 
 	for _, f := range services.Items {
+		bgpPeersForSvc, err := s.getBGPPeersForSvc(ctx, f, bgpPeersFromCRDByName)
+		if err != nil {
+			return nil, err
+		}
+
 		serviceModel := LoadbalancerStatusModelService{
 			Namespace:         f.Namespace,
 			Name:              f.Name,
@@ -68,7 +76,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
-			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers, bgpPeersFromCRD),
+			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc),
 			BGPRouteStatus:    s.getBGPRoutesStatus(f, bgpRoutes),
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
@@ -163,9 +171,77 @@ func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRD map[string]map[string]struct{}) BGPPeerStatus {
-	crdPeers, ok := bgpPeersFromCRD[lbsvc.Name]
-	if lbsvc.Status.Addresses.IPv4 == nil || !ok {
+func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isovalentv1alpha1.LBService,
+	bgpPeersByNameFromT1ClusterCfg map[string]string) ([]string, error) {
+
+	// Find IsovalentBGPAdvertisements which apply to a given LBService
+	var advs []*isovalentv1alpha1.IsovalentBGPAdvertisement
+
+	advList, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i, adv := range advList.Items {
+		for _, a := range adv.Spec.Advertisements {
+			if a.AdvertisementType != isovalentv1alpha1.BGPServiceAdvert {
+				continue
+			}
+			if a.Service == nil || !slices.Contains(a.Service.Addresses, v2alpha1.BGPLoadBalancerIPAddr) {
+				continue
+			}
+			selector, err := slim_meta_v1.LabelSelectorAsSelector(a.Selector)
+			if err != nil {
+				return nil, err
+			}
+			if selector.Matches(labels.Set(lbsvc.ObjectMeta.Labels)) ||
+				selector.Matches(labels.Set{"loadbalancer.isovalent.com/vip-name": lbsvc.ObjectMeta.Name}) {
+
+				advs = append(advs, &advList.Items[i])
+				break
+			}
+		}
+	}
+
+	// Find BGPPeers which match the IsovalentBGPAdvertisements from above
+	peerCfgList, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	peers := []string{}
+
+	for _, peerCfg := range peerCfgList.Items {
+		// Ignore peers which are not listed in the T1's IsovalentBGPClusterConfig
+		if _, found := bgpPeersByNameFromT1ClusterCfg[peerCfg.GetName()]; !found {
+			continue
+		}
+
+		for _, peerAdv := range peerCfg.Spec.Families {
+			selector, err := slim_meta_v1.LabelSelectorAsSelector(peerAdv.Advertisements)
+			if err != nil {
+				return nil, err
+			}
+			match := false
+			// Find which LBService's IsovalentBGPAdvertisement a peer matches
+			for _, adv := range advs {
+				if selector.Matches(labels.Set(adv.GetLabels())) {
+					match = true
+					break
+				}
+			}
+			if match {
+				peers = append(peers, peerCfg.GetName())
+				break
+			}
+		}
+	}
+
+	return peers, nil
+}
+
+func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRDByAddr map[string]string, svcPeers []string) BGPPeerStatus {
+	if lbsvc.Status.Addresses.IPv4 == nil {
 		return BGPPeerStatus{
 			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
 				Status: "N/A",
@@ -175,38 +251,31 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 		}
 	}
 
-	nrPeers := 0
-	activePeers := map[string]string{}
+	// | BGP peer sessions for lbsvc | = | lbsvc peers | * | T1 nodes |
+	nrPeers := len(svcPeers) * len(nodeBGPRoutes)
+	nrOk := 0
+	activePeers := []BGPPeer{}
 
+	// Find out a number of svcPeers which has the session state == "established"
 	for _, p := range nodeBGPPeers {
 		for _, pp := range p {
-			name := fmt.Sprintf("%s-%d", pp.PeerAddress, pp.PeerAsn)
-			if _, ok := crdPeers[name]; !ok {
+			addr := fmt.Sprintf("%s-%d", pp.PeerAddress, pp.PeerAsn)
+			name, found := bgpPeersFromCRDByAddr[addr]
+			if !found {
 				continue
 			}
-			nrPeers++
 
-			// peer is healthy if the session state is "established"
-			activePeers[name] = pp.SessionState
-		}
-	}
-
-	nrOk := 0
-
-	for _, r := range nodeBGPRoutes {
-		for _, br := range r {
-			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
-				name := fmt.Sprintf("%s-%d", br.Neighbor, br.RouterAsn)
-				if v, ok := activePeers[name]; ok && v == "established" {
-					nrOk++
-				}
+			if !slices.Contains(svcPeers, name) {
+				continue
 			}
-		}
-	}
 
-	peers := make([]BGPPeer, 0, len(activePeers))
-	for name, healthy := range activePeers {
-		peers = append(peers, BGPPeer{name, healthy == "established"})
+			isHealthy := pp.SessionState == "established"
+			if isHealthy {
+				nrOk++
+			}
+
+			activePeers = append(activePeers, BGPPeer{addr, isHealthy})
+		}
 	}
 
 	return BGPPeerStatus{
@@ -215,7 +284,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 			OK:     nrOk,
 			Total:  nrPeers,
 		},
-		Peers: peers,
+		Peers: activePeers,
 	}
 }
 
