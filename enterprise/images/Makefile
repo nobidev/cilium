@@ -45,7 +45,7 @@ cilium-image: .buildx_builder
 	# Forcing push on the intermediary image as buildx always pulls from registry and standard docker does not support manifest lists
 	# TODO: envoy image should also be passed as an argument
 	ROOT_CONTEXT=true ./scripts/build-image.sh cilium-ubi-stage $(abspath ../../images/cilium) "type=registry,push=true" $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg CILIUM_RUNTIME_IMAGE=$(RUNTIME_IMAGE) --target=release" $(REGISTRIES)
-	./scripts/build-image.sh cilium-ubi$(SUFFIX) enterprise/images/cilium $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/cilium-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') --platform=$(PLATFORM) $(EXTRA_ARGS)" $(REGISTRIES)
+	./scripts/build-image.sh cilium-ubi$(SUFFIX) enterprise/images/cilium $(OUTPUT) $(PLATFORMS) "$$(cat .buildx_builder)" "--build-arg BASE_IMAGE=$(REGISTRIES)/cilium-ubi-stage:$(IMAGE_TAG) --build-arg BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ') $(EXTRA_ARGS)" $(REGISTRIES)
 
 operator-image: .buildx_builder
 	# The build is split into two stages so that the standard Dockerfile and context can be used and the specificities for Red Hat get layered on top of it without modification of the OSS files:

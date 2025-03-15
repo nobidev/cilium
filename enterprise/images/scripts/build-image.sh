@@ -99,8 +99,8 @@ run_buildx() {
     "--builder=${builder}"
     "--file=${image_dir}/Dockerfile"
   )
-  if [ "${platforms}" != "unspecified" ] ; then 
-	  build_args+=("--platform=${platforms}")
+  if [ "${platforms}" != "unspecified" ] ; then
+    build_args+=("--platform=${platforms}")
   fi
   build_args+=(${extra_args})    
   if [ "${with_root_context}" = "false" ] ; then
