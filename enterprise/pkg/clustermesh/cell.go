@@ -47,7 +47,7 @@ var Cell = cell.Module(
 
 	cell.Invoke(
 		// Override the OSS ServiceMerger, to introduce the support for enterprise features.
-		clustermesh.InjectCEServiceMerger,
+		injectCEServiceMerger,
 
 		// Validate the enterprise clustermesh configuration.
 		func(cfg cecmcfg.Config, dcfg *option.DaemonConfig) error {
