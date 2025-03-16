@@ -231,6 +231,9 @@ jobs:
           IMG: "quay.io/isovalent-dev/clife-ci:${{ steps.vars.outputs.sha }}"
         working-directory: ./enterprise/olm
         run: |
+          # Sync manifests first
+          rm -rf manifests
+          cp -a ../../install/kubernetes/cilium/. manifests
           make docker-build docker-push
 
       - name: Checkout the OpenShift CuTE repository

@@ -31,6 +31,7 @@ jobs:
           sparse-checkout: |
             .github/actions
             enterprise/olm
+            install/kubernetes
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -65,6 +66,9 @@ jobs:
         env:
           IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"
         run: |
+          # Sync manifests first
+          rm -rf enterprise/olm/manifests
+          cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
           cd enterprise/olm
           make docker-build docker-push
 
