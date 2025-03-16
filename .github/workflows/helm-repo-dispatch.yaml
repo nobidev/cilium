@@ -5,15 +5,45 @@ on:
       - "*-ce"
     tags:
       - "v*"
+
+permissions:
+  id-token: write
+
 jobs:
   helm-repo-dispatch:
     name: Dispatch to https://github.com/isovalent/helm-repo
     runs-on: ubuntu-24.04
+
     steps:
+      - name: Get Github App Credentials
+        uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3.3.0
+        env:
+          SECRETS_PATH: secret/data/org/${{ github.repository_owner }}
+        with:
+          url: ${{ vars.VAULT_URL }}
+          method: jwt
+          namespace: ${{ github.repository_owner }}/github-actions
+          secrets: |
+            ${{ env.SECRETS_PATH }} helm_github_app_id | HELM_REPO_APP_ID;
+            ${{ env.SECRETS_PATH }} helm_github_app_pem | HELM_REPO_APP_PEM;
+
+      - name: Generate Github App Token
+        id: generate-token
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        with:
+          app-id: ${{ env.HELM_REPO_APP_ID }}
+          private-key: ${{ env.HELM_REPO_APP_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            helm-repo
+
       - name: Dispatch to https://github.com/isovalent/helm-repo
-        run: |
-          curl -u ${{ secrets.API_USER }}:${{ secrets.API_TOKEN }} \
-            -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/isovalent/helm-repo/dispatches \
-            -d '{"event_type":"isovalent-cilium-push"}'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            github.rest.repos.createDispatchEvent({
+              owner: 'isovalent',
+              repo: 'helm-repo',
+              event_type: 'isovalent-cilium-push'
+            })
