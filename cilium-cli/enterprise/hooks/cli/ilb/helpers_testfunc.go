@@ -61,7 +61,6 @@ func (r *LbTestFunc) Name() string {
 }
 
 func (r *LbTestFunc) Run() {
-	r.RegisterCleanup(r.sysdump)
 	r.testFunc(r)
 	r.runCleanups()
 }
@@ -79,7 +78,7 @@ func (r *LbTestFunc) Log(msg string, a ...any) {
 	fmt.Printf(msg+"\n", a...)
 }
 
-func (r *LbTestFunc) sysdump(ctx context.Context) error {
+func (r *LbTestFunc) sysdump() error {
 	if !FlagSysdumpOnFailure || !r.failed {
 		return nil
 	}
@@ -123,6 +122,9 @@ func (r *LbTestFunc) RunTestCase(f func(t T)) {
 }
 
 func (r *LbTestFunc) runCleanups() {
+	// Get sysdump independent of whether cleanups are enabled or not.
+	r.sysdump()
+
 	if !FlagCleanup {
 		return
 	}
