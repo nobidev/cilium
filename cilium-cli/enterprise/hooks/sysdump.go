@@ -654,6 +654,26 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 			},
 		},
 		{
+			Description: "Collecting LBDeployments",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				fqdnGroups := schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: "lbdeployments",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, fqdnGroups, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect LBDeployments: %w", err)
+				}
+				if err := collector.WriteYAML("cilium-enterprise-lbdeployments-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to collect LBDeployments: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting LBServices",
 			Quick:       true,
 			Task: func(ctx context.Context) error {

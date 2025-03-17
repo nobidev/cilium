@@ -53,6 +53,7 @@ crds=(
   "lbservices.isovalent.com"
   "lbbackendpools.isovalent.com"
   "lbvips.isovalent.com"
+  "lbdeployments.isovalent.com"
 )
 for crd in "${crds[@]}"; do
   while ! kubectl get crd "${crd}" &>/dev/null; do

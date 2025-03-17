@@ -1987,6 +1987,92 @@ func (r *LBVIP) UpdateResourceStatus() {
 	r.Status.Status = resourceStatus
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbdeployment",path="lbdeployments",scope="Namespaced",shortName={lbdeployment}
+// +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+
+type LBDeployment struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Spec LBDeploymentSpec `json:"spec"`
+
+	// +kubebuilder:validation:Optional
+	Status LBDeploymentStatus `json:"status,omitempty"`
+}
+
+type LBDeploymentSpec struct{}
+
+type LBDeploymentStatus struct {
+	// The current conditions of the LBDeployment.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Status of the resource.
+	//
+	// +kubebuilder:validation:Required
+	Status LBResourceStatus `json:"status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +deepequal-gen=false
+
+type LBDeploymentList struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []LBDeployment `json:"items"`
+}
+
+func (r *LBDeployment) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
+	conditionExists := false
+	for i, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			if c.Status != condition.Status ||
+				c.Reason != condition.Reason ||
+				c.Message != condition.Message ||
+				c.ObservedGeneration != condition.ObservedGeneration {
+				// transition -> update condition
+				r.Status.Conditions[i] = condition
+			}
+			conditionExists = true
+			break
+		}
+	}
+
+	if !conditionExists {
+		r.Status.Conditions = append(r.Status.Conditions, condition)
+	}
+}
+
+func (r *LBDeployment) UpdateResourceStatus() {
+	resourceStatus := LBResourceStatusOK
+
+	for _, c := range r.Status.Conditions {
+		if c.Status == metav1.ConditionFalse {
+			resourceStatus = LBResourceStatusConditionNotMet
+			break
+		}
+	}
+
+	r.Status.Status = resourceStatus
+}
+
 // +kubebuilder:validation:Enum=OK;ConditionNotMet
 type LBResourceStatus string
 

@@ -105,6 +105,14 @@ type LBBackendPoolListerExpansion interface{}
 // LBBackendPoolNamespaceLister.
 type LBBackendPoolNamespaceListerExpansion interface{}
 
+// LBDeploymentListerExpansion allows custom methods to be added to
+// LBDeploymentLister.
+type LBDeploymentListerExpansion interface{}
+
+// LBDeploymentNamespaceListerExpansion allows custom methods to be added to
+// LBDeploymentNamespaceLister.
+type LBDeploymentNamespaceListerExpansion interface{}
+
 // LBServiceListerExpansion allows custom methods to be added to
 // LBServiceLister.
 type LBServiceListerExpansion interface{}

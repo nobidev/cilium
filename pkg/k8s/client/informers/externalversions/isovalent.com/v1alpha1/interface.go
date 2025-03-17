@@ -55,6 +55,8 @@ type Interface interface {
 	IsovalentVRFs() IsovalentVRFInformer
 	// LBBackendPools returns a LBBackendPoolInformer.
 	LBBackendPools() LBBackendPoolInformer
+	// LBDeployments returns a LBDeploymentInformer.
+	LBDeployments() LBDeploymentInformer
 	// LBServices returns a LBServiceInformer.
 	LBServices() LBServiceInformer
 	// LBVIPs returns a LBVIPInformer.
@@ -180,6 +182,11 @@ func (v *version) IsovalentVRFs() IsovalentVRFInformer {
 // LBBackendPools returns a LBBackendPoolInformer.
 func (v *version) LBBackendPools() LBBackendPoolInformer {
 	return &lBBackendPoolInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LBDeployments returns a LBDeploymentInformer.
+func (v *version) LBDeployments() LBDeploymentInformer {
+	return &lBDeploymentInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // LBServices returns a LBServiceInformer.

@@ -99,6 +99,9 @@ const (
 	// LBVIPCRDName is the full name of the LBVIP CRD.
 	LBVIPCRDName = k8sconstv1alpha1.LBVIPKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
+	// LBDeploymentCRDName is the full name of the LBDeployment CRD.
+	LBDeploymentCRDName = k8sconstv1alpha1.LBDeploymentKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
 	// IsovalentNetworkPolicyName is the full name of the IsovalentNetworkPolicy CRD.
 	IsovalentNetworkPolicyCRDName = k8sconstv1alpha1.IsovalentNetworkPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
@@ -209,6 +212,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     LBVIPCRDName,
 			FullName: k8sconstv1alpha1.LBVIPName,
 		},
+		synced.CRDResourceName(k8sconstv1alpha1.LBDeploymentName): {
+			Name:     LBDeploymentCRDName,
+			FullName: k8sconstv1alpha1.LBDeploymentName,
+		},
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentNetworkPolicyName): {
 			Name:     IsovalentNetworkPolicyCRDName,
 			FullName: k8sconstv1alpha1.IsovalentNetworkPolicyName,
@@ -226,7 +233,6 @@ func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextension
 	g, _ := errgroup.WithContext(context.Background())
 
 	crds := CustomResourceDefinitionList()
-
 	for _, r := range synced.AllIsovalentCRDResourceNames() {
 		if crd, ok := crds[r]; ok {
 			g.Go(func() error {
@@ -310,6 +316,9 @@ var (
 	//go:embed crds/v1alpha1/lbvips.yaml
 	crdsv1Alpha1LBVIPs []byte
 
+	//go:embed crds/v1alpha1/lbdeployments.yaml
+	crdsv1Alpha1LBDeployments []byte
+
 	//go:embed crds/v1alpha1/isovalentnetworkpolicies.yaml
 	crdsv1Alpha1IsovalentNetworkPolicies []byte
 
@@ -376,6 +385,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv1Alpha1LBBackendPools
 	case LBVIPCRDName:
 		crdBytes = crdsv1Alpha1LBVIPs
+	case LBDeploymentCRDName:
+		crdBytes = crdsv1Alpha1LBDeployments
 	case IsovalentNetworkPolicyCRDName:
 		crdBytes = crdsv1Alpha1IsovalentNetworkPolicies
 	case IsovalentClusterwideNetworkPolicyCRDName:

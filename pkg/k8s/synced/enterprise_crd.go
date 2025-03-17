@@ -62,6 +62,7 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.LBVIPName))
 		result = append(result, CRDResourceName(v1alpha1.LBServiceName))
 		result = append(result, CRDResourceName(v1alpha1.LBBackendPoolName))
+		result = append(result, CRDResourceName(v1alpha1.LBDeploymentName))
 	}
 
 	if option.Config.EnableCiliumMesh {

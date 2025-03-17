@@ -47,6 +47,7 @@ rules:
   - lbservices.isovalent.com
   - lbbackendpools.isovalent.com
   - lbvips.isovalent.com
+  - lbdeployments.isovalent.com
 {{- end }}
 - apiGroups:
   - isovalent.com
@@ -64,6 +65,7 @@ rules:
   - lbservices/status
   - lbbackendpools/status
   - lbvips/status
+  - lbdeployments/status
   verbs:
   - get
   - list
@@ -78,6 +80,7 @@ rules:
   - lbservices
   - lbbackendpools
   - lbvips
+  - lbdeployments
 {{- end }}
   verbs:
   - get

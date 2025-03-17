@@ -42,6 +42,7 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          lbservices \
                          lbbackendpools \
                          lbvips \
+                         lbdeployments \
                          isovalentclusterwidenetworkpolicies \
                          isovalentnetworkpolicies"
 

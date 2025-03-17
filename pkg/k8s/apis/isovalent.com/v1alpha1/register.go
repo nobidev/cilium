@@ -104,6 +104,11 @@ const (
 	LBVIPKindDefinition = "LBVIP"
 	LBVIPName           = LBVIPPluralName + "." + CustomResourceDefinitionGroup
 
+	// LBDeployment
+	LBDeploymentPluralName     = "lbdeployments"
+	LBDeploymentKindDefinition = "LBDeployment"
+	LBDeploymentName           = LBDeploymentPluralName + "." + CustomResourceDefinitionGroup
+
 	// IsovalentNetworkPolicy (INP/INCP)
 	IsovalentNetworkPolicyPluralName                = "isovalentnetworkpolicies"
 	IsovalentClusterwideNetworkPolicyPluralName     = "isovalentclusterwidenetworkpolicies"
@@ -197,6 +202,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LBBackendPoolList{},
 		&LBVIP{},
 		&LBVIPList{},
+		&LBDeployment{},
+		&LBDeploymentList{},
 		&IsovalentNetworkPolicy{},
 		&IsovalentClusterwideNetworkPolicy{},
 	)

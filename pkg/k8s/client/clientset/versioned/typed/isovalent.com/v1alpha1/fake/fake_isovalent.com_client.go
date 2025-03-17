@@ -103,6 +103,10 @@ func (c *FakeIsovalentV1alpha1) LBBackendPools(namespace string) v1alpha1.LBBack
 	return newFakeLBBackendPools(c, namespace)
 }
 
+func (c *FakeIsovalentV1alpha1) LBDeployments(namespace string) v1alpha1.LBDeploymentInterface {
+	return newFakeLBDeployments(c, namespace)
+}
+
 func (c *FakeIsovalentV1alpha1) LBServices(namespace string) v1alpha1.LBServiceInterface {
 	return newFakeLBServices(c, namespace)
 }
