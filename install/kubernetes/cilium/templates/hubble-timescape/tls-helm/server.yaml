@@ -5,7 +5,9 @@
 {{- $dns := list
   $cn
   (printf "hubble-timescape.%s.svc.cluster.local" .Release.Namespace)
+  (printf "hubble-timescape.%s.svc.cluster.local." .Release.Namespace)
   (printf "hubble-timescape.%s.svc" .Release.Namespace)
+  (printf "hubble-timescape.%s.svc." .Release.Namespace)
   "localhost"
 -}}
 {{- if .Values.hubble.timescape.tls.server.extraDnsNames }}
