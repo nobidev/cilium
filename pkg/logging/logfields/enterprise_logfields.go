@@ -65,4 +65,10 @@ const (
 	Bandwidth    = "bandwidth"
 	CleanupTime  = "cleanupTime"
 	TemplateId   = "templateId"
+
+	// Incremental is a field if the operation is incremental
+	Incremental = "incremental"
+
+	// Egress is the egress policy
+	Egress = "egress"
 )

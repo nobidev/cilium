@@ -5,24 +5,30 @@ package ingresspolicy
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
 const (
-	subsystem = "ingress-policy"
+	subsystem              = "ingress-policy"
+	regenEndpointPolicyJob = "enterprise-endpoint-policy-periodic-regeneration"
 )
 
 const (
@@ -87,23 +93,189 @@ func newIngressPolicyManager(params ingressPolicyParam) Updater {
 	// Register the policy update callback with the endpoint manager
 	params.EndpointPolicyManager.RegisterPolicyUpdateCallback(subsystem, p.policyUpdateCallback)
 
+	// Register the periodic regeneration job for the endpoint policy
+	params.JobGroup.Add(job.Timer(regenEndpointPolicyJob, func(ctx context.Context) error {
+		return p.policyUpdateCallback(nil, false)
+	}, params.Config.RegenInterval))
+
 	return p
 }
 
 // EnsureIngressPolicy will create or use existing selector policy for a respective Identity, and then send the
 // distilled policy to the xDS server.
 func (m *ingressPolicyManager) EnsureIngressPolicy(ctx context.Context, key resource.Key, resourceLabels map[string]string) error {
-	return nil
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// Lookup for existing identity in the cache or allocate a new identity.
+	ingressIdentity, err := m.ensureIdentityLocked(ctx, key, resourceLabels)
+	if err != nil || ingressIdentity == nil {
+		return fmt.Errorf("failed to ensure identity %s %w", key, err)
+	}
+
+	if existingPolicy, ok := m.ingressPolicies[key]; ok {
+		m.logger.Debug("Existing policy",
+			logfields.ID, existingPolicy.GetID(),
+			logfields.Identity, ingressIdentity.ID.Uint32())
+		if existingPolicy.GetID() == uint64(ingressIdentity.ID.Uint32()) {
+			m.logger.Debug("Using the existing policy", logfields.Identity, ingressIdentity.ID.Uint32())
+			return m.policyUpdateCallbackLocked(key, existingPolicy, false)
+		}
+	}
+
+	// Create a new selector policy for the identity.
+	m.logger.Debug("Creating new selector policy", logfields.Identity, ingressIdentity.ID.Uint32())
+	selectorPolicy, rev, err := m.policyRepository.GetSelectorPolicy(ingressIdentity, 0, NewIngressPolicyStats(), uint64(ingressIdentity.ID))
+	if err != nil {
+		return fmt.Errorf("failed to get selector policy %s %w", key, err)
+	}
+
+	// Create a new Ingress Policy.
+	p := NewIngressPolicy(m.logger, ingressIdentity.ID, key.String(), selectorPolicy, rev)
+	m.ingressPolicies[key] = p
+
+	return m.syncIngressPolicy(ctx, p)
 }
 
 // DeleteIngressPolicy will remove the network policy from the xDS server.
 // Additionally, the identity and policy will be removed from the cache.
 func (m *ingressPolicyManager) DeleteIngressPolicy(ctx context.Context, key resource.Key, resourceLabels map[string]string) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if curr, exists := m.ingressIdentities[key]; exists {
+		_, err := m.cacheIdentityAllocator.Release(ctx, curr, true)
+		if err != nil {
+			return fmt.Errorf("failed to release identity %s %w", key, err)
+		}
+		delete(m.ingressIdentities, key)
+	}
+
+	if p, exists := m.ingressPolicies[key]; exists {
+		m.xdsServer.RemoveNetworkPolicy(p)
+		delete(m.ingressPolicies, key)
+	}
+
 	return nil
+}
+
+// ensureIdentityLocked will ensure that the identity is allocated for the given resource labels.
+//
+// Caller MUST hold the write lock.
+func (m *ingressPolicyManager) ensureIdentityLocked(ctx context.Context, key resource.Key, resourceLabels map[string]string) (*identity.Identity, error) {
+	desiredLabels := m.getIngressLabels(key, resourceLabels)
+	currIdentity, exists := m.ingressIdentities[key]
+	if exists && len(currIdentity.LabelArray) == len(desiredLabels) && currIdentity.LabelArray.Contains(desiredLabels) {
+		return currIdentity, nil
+	}
+
+	m.logger.Debug("Previous allocated identity",
+		logfields.Resource, key,
+		logfields.Identity, currIdentity)
+	id := identity.InvalidIdentity
+	if exists {
+		id = currIdentity.ID
+	}
+
+	res, allocated, err := m.cacheIdentityAllocator.AllocateIdentity(ctx, desiredLabels.Labels(), true, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to allocate identity %s %w", key, err)
+	}
+	defer func() {
+		// Release the old identity if new identity is allocated and the current identity is not nil.
+		if allocated && currIdentity != nil {
+			_, err = m.cacheIdentityAllocator.Release(ctx, currIdentity, true)
+			if err != nil {
+				m.logger.Error("Failed to release old identity",
+					logfields.Resource, key,
+					logfields.Identity, currIdentity,
+					logfields.Error, err)
+			}
+		}
+	}()
+	m.ingressIdentities[key] = res
+	m.logger.Debug("Allocated identity",
+		logfields.Resource, key,
+		logfields.Identity, res.ID,
+		logfields.Labels, res.LabelArray)
+	return res, nil
+}
+
+func (m *ingressPolicyManager) syncIngressPolicy(ctx context.Context, p *IngressPolicy) error {
+	m.logger.Debug("Sync network policy",
+		logfields.Name, p.GetPolicyNames(),
+		logfields.Ingress, p.GetDesiredPolicy().IngressPolicyEnabled,
+		logfields.Egress, p.GetDesiredPolicy().EgressPolicyEnabled)
+
+	if err, rf := m.xdsServer.UpdateNetworkPolicy(p, &p.GetDesiredPolicy().L4Policy,
+		p.GetDesiredPolicy().IngressPolicyEnabled, p.GetDesiredPolicy().EgressPolicyEnabled,
+		completion.NewWaitGroup(ctx)); err != nil {
+		m.logger.Error("Failed to update network policy",
+			logfields.Name, p.GetPolicyNames(),
+			logfields.Error, err)
+		if revertErr := rf(); revertErr != nil {
+			m.logger.Error("Failed to revert network policy",
+				logfields.Name, p.GetPolicyNames(),
+				logfields.Error, revertErr)
+		}
+		return err
+	}
+	if err := p.GetDesiredPolicy().Ready(); err != nil {
+		return err
+	}
+	m.logger.Debug("Successfully updated network policy", logfields.Name, p.GetPolicyNames())
+	return nil
+}
+
+// getIngressLabels will return the key labels and expected labels for the ingress policy.
+func (m *ingressPolicyManager) getIngressLabels(key resource.Key, resourceLabels map[string]string) labels.LabelArray {
+	desiredLabels := labels.LabelArray{
+		labels.NewLabel(LabelNameIngress, key.Name, LabelSourceIngress),
+		labels.NewLabel(ciliumio.PodNamespaceLabel, key.Namespace, labels.LabelSourceK8s),
+		labels.NewLabel(labels.IDNameIngress, "", labels.LabelSourceReserved),
+	}
+
+	for k, v := range resourceLabels {
+		desiredLabels = append(desiredLabels, labels.NewLabel(k, v, labels.LabelSourceK8s))
+	}
+
+	return desiredLabels
 }
 
 // policyUpdateCallback is called from endpoint manager to perform incremental
 // and full regeneration for all managed ingress policies.
 func (m *ingressPolicyManager) policyUpdateCallback(idsRegen *set.Set[identity.NumericIdentity], incremental bool) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for k, p := range m.ingressPolicies {
+		if idsRegen != nil && !idsRegen.Has(identity.NumericIdentity(p.GetID())) {
+			continue
+		}
+
+		if err := m.policyUpdateCallbackLocked(k, p, incremental); err != nil {
+			m.logger.Error("Failed to update ingress policy",
+				logfields.Resource, k,
+				logfields.Error, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// policyUpdateCallbackLocked performs the incremental and full regeneration for a given ingress policy.
+func (m *ingressPolicyManager) policyUpdateCallbackLocked(key resource.Key, p *IngressPolicy, incremental bool) error {
+	id := m.ingressIdentities[key]
+	sp, rev, err := m.policyRepository.GetSelectorPolicy(id, p.GetRev(), NewIngressPolicyStats(), uint64(id.ID))
+	if err != nil {
+		return fmt.Errorf("failed to get selector policy %s %w", key, err)
+	}
+	if p.UpdateSelectorPolicy(sp, rev) {
+		m.logger.Debug("Policy update for ingress policy",
+			logfields.Name, p.GetPolicyNames(),
+			logfields.Incremental, incremental)
+		return m.syncIngressPolicy(context.Background(), p)
+	}
+
 	return nil
 }

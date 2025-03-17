@@ -83,8 +83,13 @@ func NewIngressPolicy(logger *slog.Logger, id identity.NumericIdentity, name str
 // UpdateSelectorPolicy updates the selector policy for this Ingress Policy.
 // It returns true if the selector policy was changed, otherwise false.
 func (i *IngressPolicy) UpdateSelectorPolicy(sp policy.SelectorPolicy, rev uint64) bool {
-	if sp == nil || i.selectorPolicy == sp {
+	if sp == nil {
 		return false
+	}
+	if i.selectorPolicy == sp {
+		closer, changes := i.desiredPolicy.ConsumeMapChanges()
+		defer closer()
+		return !changes.Empty()
 	}
 	i.selectorPolicy = sp
 	i.rev = rev
