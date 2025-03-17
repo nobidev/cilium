@@ -15,6 +15,7 @@ import (
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpclusterconfig",path="isovalentbgpclusterconfigs",scope="Cluster",shortName={ibgpcluster}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:deprecatedversion
 
 // IsovalentBGPClusterConfig is the Schema for the IsovalentBGPClusterConfig API
 type IsovalentBGPClusterConfig struct {

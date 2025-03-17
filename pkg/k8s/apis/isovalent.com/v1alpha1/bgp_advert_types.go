@@ -40,6 +40,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalentbgp},singular="isovalentbgpadvertisement",path="isovalentbgpadvertisements",scope="Cluster",shortName={ibgpadvert}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:deprecatedversion
 
 // IsovalentBGPAdvertisement is the Schema for the isovalentbgpadvertisements API
 type IsovalentBGPAdvertisement struct {
