@@ -89,6 +89,7 @@ jobs:
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 0
+            nr-of-worker-nodes: 2
             t1-nodes: "kind-control-plane"
             t2-nodes: "kind-worker kind-worker2"
           - name: "1"
@@ -96,6 +97,7 @@ jobs:
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 0
+            nr-of-worker-nodes: 2
             t1-nodes: "kind-control-plane"
             t2-nodes: "kind-worker kind-worker2"
           - name: "2"
@@ -103,6 +105,7 @@ jobs:
             kernel: "6.1-20240710.064909"
             use-remote-address: "false"
             xff-num-trusted-hops: 2
+            nr-of-worker-nodes: 2
             t1-nodes: "kind-control-plane"
             t2-nodes: "kind-worker kind-worker2"
           - name: "3"
@@ -110,6 +113,7 @@ jobs:
             kernel: "6.1-20240710.064909"
             use-remote-address: "true"
             xff-num-trusted-hops: 0
+            nr-of-worker-nodes: 2
             t1t2-nodes: "kind-control-plane kind-worker kind-worker2"
 
     timeout-minutes: 60
@@ -148,7 +152,7 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
-          echo kind-params="--xdp \"\" 2 \"\" \"\" \"none\" \"ipv4\"" >> $GITHUB_OUTPUT
+          echo kind-params="--xdp \"\" ${{ matrix.nr-of-worker-nodes }} \"\" \"\" \"none\" \"ipv4\"" >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
         if: ${{ env.skip != 'true' }}
