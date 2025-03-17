@@ -16,14 +16,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	dpipc "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ipcmap "github.com/cilium/cilium/pkg/maps/ipcache"
-	nettypes "github.com/cilium/cilium/pkg/types"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
@@ -103,23 +99,4 @@ func extraIPCacheWatcherOptsProvider(cmcfg cecmcfg.Config) clustermesh.IPCacheWa
 
 		return opts
 	}
-}
-
-func injectIPCacheSkipTunnelResetter(cmcfg cecmcfg.Config, lst *dpipc.BPFListener) {
-	if cmcfg.EnableClusterAwareAddressing {
-		dpipc.InjectCEMap(lst, ipcmapwr{ipcmap.IPCacheMap()})
-	}
-}
-
-type ipcmapwr struct{ dpipc.Map }
-
-// Update wraps the corresponding ipcachemap.Map method to reset the skip tunnel flag.
-func (imw ipcmapwr) Update(key bpf.MapKey, value bpf.MapValue) error {
-	rei := value.(*ipcmap.RemoteEndpointInfo)
-	if rei.Flags&ipcmap.FlagSkipTunnel != 0 {
-		rei.TunnelEndpoint = nettypes.IPv4{}
-		rei.Flags &= ^ipcmap.FlagSkipTunnel
-	}
-
-	return imw.Map.Update(key, value)
 }
