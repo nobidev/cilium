@@ -277,6 +277,9 @@ func NewRemoteFQDNProxy(
 
 // Once the doubeproxy has initialized, it will provide us the local proxy
 func (r *RemoteFQDNProxy) ProvideLocalProxy(lp *dnsproxy.DNSProxy) {
+	if r == nil { // temporary, will go away in same PR
+		return
+	}
 	r.localProxyChan <- lp
 }
 
