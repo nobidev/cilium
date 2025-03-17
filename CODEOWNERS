@@ -915,6 +915,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentnetworkpolicies.yaml @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentpodnetworks.yaml @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/lb*.yaml @isovalent/isovalent-loadbalancer
+/pkg/k8s/apis/isovalent.com/client/crds/v1/isovalentbgp*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1/isovalentegressgatewaypolicies.yaml @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/v1alpha1/bfd_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1alpha1/bgp_*_types.go @isovalent/traffic-engineering
@@ -923,6 +924,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/v1alpha1/podnetwork_types.go @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/v1alpha1/icnp_types.go @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/v1alpha1/inp_types.go @isovalent/policy-identity-networking
+/pkg/k8s/apis/isovalent.com/v1/bgp_*_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
