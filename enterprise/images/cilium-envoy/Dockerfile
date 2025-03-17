@@ -28,7 +28,5 @@ COPY LICENSE /usr/share/licenses/isovalent/
 
 COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib64/libcilium.so
 COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib/libcilium.so
-COPY --from=cilium-envoy /usr/lib/libcilium.so /lib/libcilium.so
-COPY --from=cilium-envoy /usr/lib/libcilium.so /lib64/libcilium.so
 
 COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /usr/bin/
