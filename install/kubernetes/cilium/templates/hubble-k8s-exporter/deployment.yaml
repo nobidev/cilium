@@ -58,6 +58,7 @@ spec:
               readOnly: true
             - mountPath: /var/run/cilium
               name: cilium-run
+      priorityClassName: {{ .Values.hubble.k8sExporter.priorityClassName }}
       {{- with .Values.hubble.k8sExporter.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -2057,7 +2057,16 @@ hubble:
         capabilities:
           drop:
             - ALL
-    priorityClassName: null
+    # -- Affinity for hubble-timescape
+    affinity: {}
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    nodeSelector:
+      kubernetes.io/os: linux
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    tolerations: []
+    priorityClassName: ""
     resources: {}
     podSecurityContext:
       fsGroup: 65532
@@ -2104,6 +2113,15 @@ hubble:
         useDigest: false
         pullPolicy: "Always"
       resources: {}
+      affinity: {}
+      # -- Node labels for pod assignment
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+      nodeSelector:
+        kubernetes.io/os: linux
+      # -- Node tolerations for pod assignment on nodes with taints
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+      tolerations: []
+      priorityClassName: ""
       podSecurityContext:
         fsGroup: 0
       securityContext:
@@ -2125,7 +2143,6 @@ hubble:
         repository: quay.io/isovalent/hubble-timescape-ui
         tag: "v1.6.0"
         pullPolicy: IfNotPresent
-        pullSecrets: []
       securityContext:
         # readOnlyRootFilesystem: true
         privileged: false
@@ -2223,6 +2240,7 @@ hubble:
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
     tolerations: []
+    priorityClassName: ""
     # -- Annotations to be added to hubble-k8s-exporter pods
     podAnnotations: {}
     podSecurityContext:

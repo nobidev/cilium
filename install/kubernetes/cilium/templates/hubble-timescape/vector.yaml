@@ -149,6 +149,23 @@ spec:
       securityContext:
         {{- toYaml .Values.hubble.timescape.vector.podSecurityContext | nindent 10 }}
       dnsPolicy: ClusterFirst
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      priorityClassName: {{ .Values.hubble.timescape.vector.priorityClassName }}
+      {{- with .Values.hubble.timescape.vector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.vector.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.vector.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: vector
           image: {{ include "cilium.image" .Values.hubble.timescape.vector.image | quote }}

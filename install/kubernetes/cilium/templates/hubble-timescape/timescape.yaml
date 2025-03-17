@@ -92,7 +92,23 @@ spec:
       serviceAccountName: "hubble-timescape"
       securityContext:
         {{- toYaml .Values.hubble.timescape.podSecurityContext | nindent 10 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       priorityClassName: {{ .Values.hubble.timescape.priorityClassName }}
+      {{- with .Values.hubble.timescape.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: clickhouse
           image: {{ include "cilium.image" .Values.hubble.timescape.clickhouse.image | quote }}

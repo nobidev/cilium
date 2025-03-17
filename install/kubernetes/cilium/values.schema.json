@@ -2974,6 +2974,9 @@
               },
               "type": "object"
             },
+            "priorityClassName": {
+              "type": "string"
+            },
             "resources": {
               "type": "object"
             },
@@ -3796,6 +3799,9 @@
         },
         "timescape": {
           "properties": {
+            "affinity": {
+              "type": "object"
+            },
             "clickhouse": {
               "properties": {
                 "image": {
@@ -3894,6 +3900,14 @@
               },
               "type": "object"
             },
+            "nodeSelector": {
+              "properties": {
+                "kubernetes.io/os": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "persistence": {
               "properties": {
                 "enabled": {
@@ -3920,7 +3934,7 @@
               "type": "object"
             },
             "priorityClassName": {
-              "type": "null"
+              "type": "string"
             },
             "resources": {
               "type": "object"
@@ -3994,6 +4008,10 @@
                 }
               },
               "type": "object"
+            },
+            "tolerations": {
+              "items": {},
+              "type": "array"
             },
             "ttl": {
               "type": [
@@ -4092,10 +4110,6 @@
                     "pullPolicy": {
                       "type": "string"
                     },
-                    "pullSecrets": {
-                      "items": {},
-                      "type": "array"
-                    },
                     "repository": {
                       "type": "string"
                     },
@@ -4179,6 +4193,9 @@
             },
             "vector": {
               "properties": {
+                "affinity": {
+                  "type": "object"
+                },
                 "image": {
                   "properties": {
                     "digest": {
@@ -4205,6 +4222,14 @@
                   },
                   "type": "object"
                 },
+                "nodeSelector": {
+                  "properties": {
+                    "kubernetes.io/os": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "podSecurityContext": {
                   "properties": {
                     "fsGroup": {
@@ -4212,6 +4237,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "priorityClassName": {
+                  "type": "string"
                 },
                 "resources": {
                   "type": "object"
@@ -4250,6 +4278,10 @@
                     }
                   },
                   "type": "object"
+                },
+                "tolerations": {
+                  "items": {},
+                  "type": "array"
                 }
               },
               "type": "object"

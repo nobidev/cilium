@@ -1887,7 +1887,7 @@
    * - :spelling:ignore:`hubble.k8sExporter`
      - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
      - object
-     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.6.0","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
+     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.6.0","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
    * - :spelling:ignore:`hubble.k8sExporter.affinity`
      - Affinity for hubble-k8s-exporter
      - object
@@ -2319,7 +2319,15 @@
    * - :spelling:ignore:`hubble.timescape`
      - Enables experimental support for using integrated Hubble Timescape.
      - object
-     - ``{"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":null,"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","pullSecrets":[],"repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"podSecurityContext":{"fsGroup":0},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0}}}``
+     - ``{"affinity":{},"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"affinity":{},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
+   * - :spelling:ignore:`hubble.timescape.affinity`
+     - Affinity for hubble-timescape
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.timescape.nodeSelector`
+     - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
    * - :spelling:ignore:`hubble.timescape.tls.client.existingSecret`
      - Name of the Secret containing the certificate and key for the Timescape PushAPI client. If specified, the certificate and key need to be managed separately and no certificate or key will be generated by the chart.
      - string
@@ -2334,6 +2342,10 @@
      - ``[]``
    * - :spelling:ignore:`hubble.timescape.tls.server.extraIpAddresses`
      - Extra IP addresses added to certificate when it's auto generated
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.timescape.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[]``
    * - :spelling:ignore:`hubble.timescape.ui.auth.oidc.ClientID`
@@ -2360,6 +2372,14 @@
      - UI session key is used to encrypt the UI session state. Should be a randomly generated password with at least 16 characters.
      - object
      - ``{"secretKey":"session-key","secretName":"hubble-timescape-ui"}``
+   * - :spelling:ignore:`hubble.timescape.vector.nodeSelector`
+     - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`hubble.timescape.vector.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
