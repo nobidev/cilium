@@ -7,15 +7,6 @@
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_ha_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_GW_HA_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_GW_HA_POLICY_MAP __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
 	__type(value, struct egress_gw_ha_policy_entry_v2);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_GW_HA_POLICY_MAP_V2_SIZE);

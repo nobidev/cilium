@@ -162,7 +162,6 @@ type Manager struct {
 	identityAllocator identityCache.IdentityAllocator
 
 	// policyMap communicates the active policies to the datapath.
-	policyMap   egressmapha.PolicyMap
 	policyMapV2 egressmapha.PolicyMapV2
 
 	// ctMap stores EGW specific conntrack entries.
@@ -223,7 +222,6 @@ type Params struct {
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
 	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap         egressmapha.PolicyMap
 	PolicyMapV2       egressmapha.PolicyMapV2
 	Policies          resource.Resource[*Policy]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
@@ -313,7 +311,6 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayHAReconciliationTriggerInterval,
-		policyMap:                     p.PolicyMap,
 		policyMapV2:                   p.PolicyMapV2,
 		policies:                      p.Policies,
 		endpoints:                     p.Endpoints,
@@ -750,74 +747,6 @@ func (manager *Manager) relaxRPFilter() error {
 	return manager.sysctl.ApplySettings(sysSettings)
 }
 
-func (manager *Manager) updateEgressRules() {
-	egressPolicies := map[egressmapha.EgressPolicyKey4]egressmapha.EgressPolicyVal4{}
-	manager.policyMap.IterateWithCallback(
-		func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
-			egressPolicies[*key] = *val
-		})
-
-	// Start with the assumption that all the entries currently present in the
-	// BPF map are stale. Then as we walk the entries below and discover which
-	// entries are actually still needed, shrink this set down.
-	stale := sets.KeySet(egressPolicies)
-
-	addEgressRule := func(endpoint *endpointMetadata, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) {
-		activeGatewayIPs, egressIP, _ := gwc.gatewayConfigForEndpoint(manager, endpoint)
-		if excludedCIDR {
-			activeGatewayIPs = []netip.Addr{ExcludedCIDRIPv4}
-		}
-
-		for _, endpointIP := range endpoint.ips {
-			policyKey := egressmapha.NewEgressPolicyKey4(endpointIP, dstCIDR)
-
-			// This key needs to be present in the BPF map, hence remove it from
-			// the list of stale ones.
-			stale.Delete(policyKey)
-
-			policyVal, policyPresent := egressPolicies[policyKey]
-			if policyPresent && policyVal.Match(egressIP, activeGatewayIPs) {
-				return
-			}
-
-			if err := egressmapha.ApplyEgressPolicy(manager.policyMap, endpointIP, dstCIDR, egressIP, activeGatewayIPs); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.SourceIP:        endpointIP,
-					logfields.DestinationCIDR: dstCIDR.String(),
-					logfields.EgressIP:        egressIP,
-					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-				}).Error("Error applying egress gateway policy")
-			} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					logfields.SourceIP:        endpointIP,
-					logfields.DestinationCIDR: dstCIDR.String(),
-					logfields.EgressIP:        egressIP,
-					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-				}).Debug("Egress gateway policy applied")
-			}
-		}
-	}
-
-	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndCIDR(addEgressRule)
-	}
-
-	// Remove all the entries still marked as stale.
-	for policyKey := range stale {
-		if err := egressmapha.RemoveEgressPolicy(manager.policyMap, policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SourceIP:        policyKey.GetSourceIP(),
-				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			}).Error("Error removing egress gateway policy")
-		} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				logfields.SourceIP:        policyKey.GetSourceIP(),
-				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			}).Debug("Egress gateway policy removed")
-		}
-	}
-}
-
 func (manager *Manager) updateEgressRulesV2() {
 	egressPolicies := map[egressmapha.EgressPolicyV2Key4]egressmapha.EgressPolicyV2Val4{}
 	manager.policyMapV2.IterateWithCallback(
@@ -1098,7 +1027,6 @@ func (manager *Manager) reconcileLocked() {
 
 	// Update the content of the BPF map.
 	manager.updateEgressRulesV2()
-	manager.updateEgressRules()
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0

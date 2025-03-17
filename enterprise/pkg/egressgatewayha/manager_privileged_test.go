@@ -72,7 +72,6 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
-	policyMap := egressmapha.CreatePrivatePolicyMap(lc, egressmapha.DefaultPolicyConfig)
 	policyMapV2 := egressmapha.CreatePrivatePolicyMapV2(lc, egressmapha.DefaultPolicyConfig)
 	ctMap := egressmapha.CreatePrivateCtMap(lc)
 
@@ -124,7 +123,6 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		},
 		DaemonConfig:       &option.DaemonConfig{},
 		IdentityAllocator:  identityAllocator,
-		PolicyMap:          policyMap,
 		PolicyMapV2:        policyMapV2,
 		CtMap:              ctMap,
 		Policies:           k.policies,
@@ -395,71 +393,8 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string, egressIfind
 func (k *EgressGatewayTestSuite) assertEgressRules(t *testing.T, rules []egressRule) {
 	t.Helper()
 
-	err := tryAssertEgressRules(k.manager.policyMap, rules)
+	err := tryAssertEgressRulesV2(k.manager.policyMapV2, rules)
 	require.NoError(t, err)
-
-	err = tryAssertEgressRulesV2(k.manager.policyMapV2, rules)
-	require.NoError(t, err)
-}
-
-func tryAssertEgressRules(policyMap egressmapha.PolicyMap, rules []egressRule) error {
-	parsedRules := []parsedEgressRule{}
-	for _, r := range rules {
-		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP, r.egressIfindex))
-	}
-
-	for _, r := range parsedRules {
-		policyVal, err := policyMap.Lookup(r.sourceIP, r.destCIDR)
-		if err != nil {
-			return fmt.Errorf("cannot lookup policy entry: %w", err)
-		}
-
-		if policyVal.GetEgressIP() != r.egressIP {
-			return fmt.Errorf("policy egress IP %s doesn't match rule egress IP %s", policyVal.GetEgressIP(), r.egressIP)
-		}
-
-		if r.gatewayIP == netip.IPv4Unspecified() {
-			if policyVal.Size != 0 {
-				return fmt.Errorf("policy size is %d even though no gateway is set", policyVal.Size)
-			}
-		} else {
-			gwFound := false
-			for policyGatewayIP := range policyVal.GetGatewayIPs() {
-				if policyGatewayIP == r.gatewayIP {
-					gwFound = true
-					break
-				}
-			}
-			if !gwFound {
-				return fmt.Errorf("missing gateway %s in policy", r.gatewayIP)
-			}
-		}
-	}
-
-	untrackedRule := false
-	policyMap.IterateWithCallback(
-		func(key *egressmapha.EgressPolicyKey4, val *egressmapha.EgressPolicyVal4) {
-		nextPolicyGateway:
-			for gatewayIP := range val.GetGatewayIPs() {
-				for _, r := range parsedRules {
-					if key.Match(r.sourceIP, r.destCIDR) {
-						if val.GetEgressIP() == r.egressIP && gatewayIP == r.gatewayIP {
-							continue nextPolicyGateway
-						}
-					}
-				}
-
-				untrackedRule = true
-				return
-			}
-		},
-	)
-
-	if untrackedRule {
-		return fmt.Errorf("Untracked egress policy")
-	}
-
-	return nil
 }
 
 func tryAssertEgressRulesV2(policyMap egressmapha.PolicyMapV2, rules []egressRule) error {
