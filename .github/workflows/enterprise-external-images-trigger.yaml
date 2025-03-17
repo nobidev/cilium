@@ -1,0 +1,68 @@
+name: Trigger build images external to isovalent/cilium
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  push:
+    branches:
+      - main-ce
+    paths:
+      - install/kubernetes/Makefile.values
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+
+jobs:
+  check-and-build:
+    name: Trigger build images external workflow
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: CERTGEN
+            docker-context: certgen
+            dockerfile: certgen/Dockerfile
+            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            build-from-source: true
+            source-repo: cilium/certgen
+            source-path: certgen
+
+          - component: CILIUM_NODEINIT
+            docker-context: enterprise/images/startup-script
+            dockerfile: enterprise/images/startup-script/Dockerfile
+            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            build-from-source: false
+
+          - component: CILIUM_ENVOY
+            docker-context: enterprise/images/cilium-envoy
+            dockerfile: enterprise/images/cilium-envoy/Dockerfile
+            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            build-from-source: false
+
+          - component: HUBBLE_UI_BACKEND
+            docker-context: backend
+            dockerfile: backend/Dockerfile
+            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            build-from-source: true
+            source-repo: isovalent/hubble-ui-enterprise
+            source-path: backend
+
+          - component: CILIUM_ETCD_OPERATOR
+            docker-context: cilium-etcd-operator
+            dockerfile: enterprise/images/cilium-etcd-operator/Dockerfile
+            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            build-from-source: true
+            source-repo: cilium/cilium-etcd-operator
+            source-path: cilium-etcd-operator
+
+    uses: ./.github/workflows/enterprise-external-images.yaml
+    secrets: inherit
+    with:
+      component: ${{ matrix.component }}
+      docker-context: ${{ matrix.docker-context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      base-image: ${{ matrix.base-image }}
+      build-from-source: ${{ matrix.build-from-source }}
+      source-repo: ${{ matrix.source-repo }}
+      source-path: ${{ matrix.source-path }}

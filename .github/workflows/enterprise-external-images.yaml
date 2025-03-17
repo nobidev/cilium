@@ -2,61 +2,43 @@ name: Build images external to isovalent/cilium
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  push:
-    branches:
-      - main-ce
-    paths:
-      - install/kubernetes/Makefile.values
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      docker-context:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      base-image:
+        required: true
+        type: string
+      build-from-source:
+        required: false
+        type: boolean
+        default: false
+      source-repo:
+        required: false
+        type: string
+      source-path:
+        required: false
+        type: string
 
 permissions: read-all
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
-
 jobs:
-  check-and-build:
-    name: Deduce changes and build image
-    environment: release
+  check-changes:
+    name: Deduce changes
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - component: CERTGEN
-            docker-context: certgen
-            dockerfile: certgen/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
-            build-from-source: 'true'
-            source-repo: cilium/certgen
-            source-path: certgen
-
-          - component: CILIUM_NODEINIT
-            docker-context: enterprise/images/startup-script
-            dockerfile: enterprise/images/startup-script/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
-            build-from-source: 'false'
-
-          - component: CILIUM_ENVOY
-            docker-context: enterprise/images/cilium-envoy
-            dockerfile: enterprise/images/cilium-envoy/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
-            build-from-source: 'false'
-
-          - component: HUBBLE_UI_BACKEND
-            docker-context: backend
-            dockerfile: backend/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
-            build-from-source: 'true'
-            source-repo: isovalent/hubble-ui-enterprise
-            source-path: backend
-
-          - component: CILIUM_ETCD_OPERATOR
-            docker-context: cilium-etcd-operator
-            dockerfile: enterprise/images/cilium-etcd-operator/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
-            build-from-source: 'true'
-            source-repo: cilium/cilium-etcd-operator
-            source-path: cilium-etcd-operator
+    outputs:
+      changed: ${{ steps.check-changes.outputs.changed }}
+      repo: ${{ steps.check-changes.outputs.repo }}
+      version: ${{ steps.check-changes.outputs.version }}
+      digest: ${{ steps.check-changes.outputs.digest }}
+      cee-image: ${{ steps.check-changes.outputs.cee-image }}
 
     steps:
       - name: Checkout code
@@ -66,25 +48,38 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Check ${{ matrix.component }} code changes
+      - name: Check ${{ inputs.component }} code changes
         id: check-changes
         run: |
-          if git diff --unified=0 ${{ github.event.push.before }} -- install/kubernetes/Makefile.values | grep ${{ matrix.component }} ; then
+          if git diff --unified=0 ${{ github.event.push.before }} -- install/kubernetes/Makefile.values | grep ${{ inputs.component }} ; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ matrix.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            echo "version=$(cat install/kubernetes/Makefile.values| grep ${{ matrix.component }}_VERSION | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ matrix.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            echo "cee-image=$(basename ${{ matrix.docker-context }})" >> $GITHUB_OUTPUT
+            echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+            echo "version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+            echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+            echo "cee-image=$(basename ${{ inputs.docker-context }})" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+  build-push-image:
+    needs: [ check-changes ]
+    if: ${{ needs.check-changes.outputs.changed == 'true' }}
+    name: Build and push image
+    environment: release
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.push.after }}
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Set up Docker Buildx
-        if: ${{ steps.check-changes.outputs.changed == 'true' }}
         uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
       - name: Login to quay.io
-        if: ${{ steps.check-changes.outputs.changed == 'true' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
@@ -92,7 +87,6 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
 
       - name: Login to registry.redhat.io for pulling images
-        if: ${{ steps.check-changes.outputs.changed == 'true' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: registry.redhat.io
@@ -100,7 +94,7 @@ jobs:
           password: ${{ secrets.REDHAT_PASSWORD_CI }}
 
       - name: Get GitHub Token [read-only]
-        if: ${{ steps.check-changes.outputs.changed == 'true' && matrix.build-from-source == 'true' }}
+        if: ${{ inputs.build-from-source == true }}
         id: gh-ro-token
         uses: getsentry/action-github-app-token@d4b5da6c5e37703f8c3b3e43abb5705b46e159cc # v3.0.0
         with:
@@ -108,34 +102,33 @@ jobs:
           private_key: ${{ secrets.ISOVALENT_READONLY_GH_APP_PEM }}
 
       - name: Checkout source repo
-        if: ${{ steps.check-changes.outputs.changed == 'true' && matrix.build-from-source == 'true' }}
+        if: ${{ inputs.build-from-source == true }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ matrix.source-repo }}
+          repository: ${{ inputs.source-repo }}
           token: ${{ steps.gh-ro-token.outputs.token }}
           persist-credentials: false
-          path: ${{ matrix.source-path }}
+          path: ${{ inputs.source-path }}
           fetch-tags: true
           fetch-depth: 0
 
       - name: Checkout source version
-        if: ${{ steps.check-changes.outputs.changed == 'true' && matrix.build-from-source == 'true' }}
-        working-directory: ${{ matrix.source-path }}
+        if: ${{ inputs.build-from-source == true }}
+        working-directory: ${{ inputs.source-path }}
         run: |
-          git checkout ${{ steps.check-changes.outputs.version }}
+          git checkout ${{ needs.check-changes.outputs.version }}
 
-      - name: Build and push ${{ matrix.component }} image
-        if: ${{ steps.check-changes.outputs.changed == 'true' }}
+      - name: Build and push ${{ inputs.component }} image
         uses: docker/build-push-action@0adf9959216b96bec444f325f1e493d4aa344497 # v6.14.0
         id: docker_build_release
         with:
-          context: ${{ matrix.docker-context }}
-          file: ${{ matrix.dockerfile }}
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/isovalent/${{ steps.check-changes.outputs.cee-image }}-ubi:${{ steps.check-changes.outputs.version }}
+            quay.io/isovalent/${{ needs.check-changes.outputs.cee-image }}-ubi:${{ needs.check-changes.outputs.version }}
           build-args: |
-            BASE_IMAGE=${{ matrix.base-image }}
-            UPSTREAM_VERSION=${{ steps.check-changes.outputs.version }}
-            UPSTREAM_IMAGE=${{ steps.check-changes.outputs.repo }}:${{ steps.check-changes.outputs.version }}@${{ steps.check-changes.outputs.digest }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            UPSTREAM_VERSION=${{ needs.check-changes.outputs.version }}
+            UPSTREAM_IMAGE=${{ needs.check-changes.outputs.repo }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}
