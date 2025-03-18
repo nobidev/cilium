@@ -19,7 +19,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -34,7 +34,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -49,7 +49,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy & TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -57,7 +57,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-3"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -71,7 +71,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -88,7 +88,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "TLS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -101,7 +101,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -114,7 +114,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy TLS Cert & CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -125,7 +125,7 @@ func TestLBService_AllReferencedTLSCertificateSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -156,7 +156,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -171,7 +171,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -186,7 +186,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy & TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -194,7 +194,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-3"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -208,7 +208,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -225,7 +225,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "TLS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -238,7 +238,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -251,7 +251,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy TLS Cert & CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -262,7 +262,7 @@ func TestLBService_AllReferencedTLSCACertValidationSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -293,7 +293,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -308,7 +308,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -323,7 +323,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy & TLS Proxy TLS certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -331,7 +331,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-3"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -345,7 +345,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -362,7 +362,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "TLS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -375,7 +375,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Validation: &LBTLSValidationConfig{
 							SecretRef: LBServiceSecretRef{Name: "ca-cert-1"},
 						},
@@ -388,7 +388,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 			desc: "TLS Proxy & HTTPS Proxy TLS Cert & CA Cert validation certificates ordered and unique",
 			service: &LBService{Spec: LBServiceSpec{Applications: LBServiceApplications{
 				HTTPSProxy: &LBServiceApplicationHTTPSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},
@@ -399,7 +399,7 @@ func TestLBService_AllReferencedSecretNames(t *testing.T) {
 					},
 				},
 				TLSProxy: &LBServiceApplicationTLSProxy{
-					TLSConfig: &LBServiceTLSConfig{
+					TLSConfig: LBServiceTLSConfig{
 						Certificates: []LBServiceTLSCertificate{
 							{SecretRef: LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: LBServiceSecretRef{Name: "tls-1"}},

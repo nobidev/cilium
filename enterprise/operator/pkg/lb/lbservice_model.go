@@ -253,7 +253,7 @@ type lbApplicationHTTPProxy struct {
 
 type lbApplicationHTTPSProxy struct {
 	httpConfig          *lbServiceHTTPConfig
-	tlsConfig           *lbServiceTLSConfig
+	tlsConfig           lbServiceTLSConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering
 	rateLimits          *lbServiceConnectionRateLimit
 	auth                *lbServiceHTTPAuth
@@ -265,7 +265,7 @@ type lbApplicationTLSPassthrough struct {
 }
 
 type lbApplicationTLSProxy struct {
-	tlsConfig *lbServiceTLSConfig
+	tlsConfig lbServiceTLSConfig
 	routes    []lbRouteTLSProxy
 }
 

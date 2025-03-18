@@ -124,6 +124,9 @@ spec:
                 alpnProtocols:
                   - h2
                   - http/1.1
+                tlsCertificateSdsSecretConfigs:
+                - name: /default-test
+                tlsParams: {}
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

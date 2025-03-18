@@ -62,7 +62,7 @@ func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig)
 	}
 }
 
-func (*ingestor) toTLSConfig(tlsConfig *isovalentv1alpha1.LBServiceTLSConfig) *lbServiceTLSConfig {
+func (*ingestor) toTLSConfig(tlsConfig isovalentv1alpha1.LBServiceTLSConfig) lbServiceTLSConfig {
 	certificateSecretNames := []string{}
 	for _, c := range tlsConfig.Certificates {
 		certificateSecretNames = append(certificateSecretNames, c.SecretRef.Name)
@@ -104,7 +104,7 @@ func (*ingestor) toTLSConfig(tlsConfig *isovalentv1alpha1.LBServiceTLSConfig) *l
 		allowedSignatureAlgorithms = append(allowedSignatureAlgorithms, string(sa))
 	}
 
-	return &lbServiceTLSConfig{
+	return lbServiceTLSConfig{
 		certificateSecrets: certificateSecretNames,
 		validationContext: lbServiceTLSConfigValidationContext{
 			trustedCASecretName:     validationContextSecret,
@@ -245,14 +245,9 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 		}
 	}
 
-	var tlsConfig *lbServiceTLSConfig
-	if lbsvc.Spec.Applications.HTTPSProxy.TLSConfig != nil {
-		tlsConfig = r.toTLSConfig(lbsvc.Spec.Applications.HTTPSProxy.TLSConfig)
-	}
-
 	return &lbApplicationHTTPSProxy{
 		httpConfig:          r.toHTTPConfig(lbsvc.Spec.Applications.HTTPSProxy.HTTPConfig),
-		tlsConfig:           tlsConfig,
+		tlsConfig:           r.toTLSConfig(lbsvc.Spec.Applications.HTTPSProxy.TLSConfig),
 		connectionFiltering: r.toHTTPConnectionFilteringConfig(lbsvc.Spec.Applications.HTTPSProxy.ConnectionFiltering),
 		rateLimits:          r.toHTTPRateLimits(lbsvc.Spec.Applications.HTTPSProxy.RateLimits),
 		auth:                r.toHTTPAuth(lbsvc.Spec.Applications.HTTPSProxy.Auth, referencedSecrets),
@@ -329,14 +324,8 @@ func (r *ingestor) toApplicationTLSProxy(lbsvc *isovalentv1alpha1.LBService, ref
 			rateLimits:          r.toTLSRateLimits(lr.RateLimits),
 		})
 	}
-
-	var tlsConfig *lbServiceTLSConfig
-	if app.TLSConfig != nil {
-		tlsConfig = r.toTLSConfig(app.TLSConfig)
-	}
-
 	return &lbApplicationTLSProxy{
-		tlsConfig: tlsConfig,
+		tlsConfig: r.toTLSConfig(app.TLSConfig),
 		routes:    routes,
 	}
 }

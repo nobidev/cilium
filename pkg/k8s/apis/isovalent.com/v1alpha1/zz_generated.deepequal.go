@@ -2577,12 +2577,8 @@ func (in *LBServiceApplicationHTTPSProxy) DeepEqual(other *LBServiceApplicationH
 		}
 	}
 
-	if (in.TLSConfig == nil) != (other.TLSConfig == nil) {
+	if !in.TLSConfig.DeepEqual(&other.TLSConfig) {
 		return false
-	} else if in.TLSConfig != nil {
-		if !in.TLSConfig.DeepEqual(other.TLSConfig) {
-			return false
-		}
 	}
 
 	if (in.ConnectionFiltering == nil) != (other.ConnectionFiltering == nil) {
@@ -2716,12 +2712,8 @@ func (in *LBServiceApplicationTLSProxy) DeepEqual(other *LBServiceApplicationTLS
 		return false
 	}
 
-	if (in.TLSConfig == nil) != (other.TLSConfig == nil) {
+	if !in.TLSConfig.DeepEqual(&other.TLSConfig) {
 		return false
-	} else if in.TLSConfig != nil {
-		if !in.TLSConfig.DeepEqual(other.TLSConfig) {
-			return false
-		}
 	}
 
 	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {

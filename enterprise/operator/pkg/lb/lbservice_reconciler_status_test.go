@@ -500,7 +500,8 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 					HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 						Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
 					},
-				}}},
+				},
+			}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
 				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
 					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
@@ -521,7 +522,8 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 					HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
 						Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
 					},
-				}}},
+				},
+			}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
 				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
 					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
@@ -566,7 +568,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 			desc: "skip services that aren't found",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -577,7 +579,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -595,7 +597,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 			desc: "list incompatible secrets",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -606,7 +608,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -653,7 +655,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 			desc: "don't list any secrets if everything is compatible",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -664,7 +666,7 @@ func Test_LBServiceReconciler_getIncompatibleSecretTypes(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -731,7 +733,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 			desc: "skip services that aren't found",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -742,7 +744,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -760,7 +762,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 			desc: "list incompatible secrets",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -771,7 +773,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -813,7 +815,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 			desc: "don't list any secrets if everything is compatible",
 			svc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{Applications: isovalentv1alpha1.LBServiceApplications{
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},
@@ -824,7 +826,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 					},
 				},
 				TLSProxy: &isovalentv1alpha1.LBServiceApplicationTLSProxy{
-					TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+					TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 						Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-2"}},
 							{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: "tls-1"}},

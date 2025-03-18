@@ -9,6 +9,10 @@ spec:
   port: 80
   applications:
     httpsProxy:
+      tlsConfig:
+        certificates:
+          - secretRef:
+              name: "test"
       connectionFiltering:
         ruleType: Allow
         rules:

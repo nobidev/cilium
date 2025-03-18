@@ -749,11 +749,7 @@ func (r *lbServiceT2Translator) toAlpnProtocols(model *lbService) []string {
 	return alpnProtocols
 }
 
-func (r *lbServiceT2Translator) toListenerTLSParams(model *lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.TlsParameters {
-	if model == nil {
-		return nil
-	}
-
+func (r *lbServiceT2Translator) toListenerTLSParams(model lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.TlsParameters {
 	return &envoy_extensions_transportsockets_tls_v3.TlsParameters{
 		TlsMinimumProtocolVersion: r.toTLSVersion(model.minTLSVersion),
 		TlsMaximumProtocolVersion: r.toTLSVersion(model.maxTLSVersion),
@@ -792,11 +788,7 @@ func (r *lbServiceT2Translator) toTLSServerNames(tlsHostNames []string) []string
 	return slices.Compact(serverNames)
 }
 
-func (r *lbServiceT2Translator) toTLSCertificateSdsConfigs(namespace string, tlsConfig *lbServiceTLSConfig) []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig {
-	if tlsConfig == nil {
-		return nil
-	}
-
+func (r *lbServiceT2Translator) toTLSCertificateSdsConfigs(namespace string, tlsConfig lbServiceTLSConfig) []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig {
 	secrets := []*envoy_extensions_transportsockets_tls_v3.SdsSecretConfig{}
 
 	for _, cs := range tlsConfig.certificateSecrets {
@@ -808,7 +800,7 @@ func (r *lbServiceT2Translator) toTLSCertificateSdsConfigs(namespace string, tls
 	return secrets
 }
 
-func (r *lbServiceT2Translator) toTLSValidationContext(namespace string, model *lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext {
+func (r *lbServiceT2Translator) toTLSValidationContext(namespace string, model lbServiceTLSConfig) *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext {
 	if len(model.validationContext.trustedCASecretName) == 0 {
 		return nil
 	}
@@ -849,10 +841,7 @@ func (r *lbServiceT2Translator) requiresClientCertificate(validationContext *env
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsFilterChain(model *lbService) *envoy_config_listener_v3.FilterChain {
-	var validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
-	if model.applications.httpsProxy.tlsConfig != nil {
-		validationContext = r.toTLSValidationContext(model.namespace, model.applications.httpsProxy.tlsConfig)
-	}
+	validationContext := r.toTLSValidationContext(model.namespace, model.applications.httpsProxy.tlsConfig)
 
 	networkFilters := []*envoy_config_listener_v3.Filter{}
 
@@ -1059,10 +1048,7 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerTLSPassthroughFilterChains(m
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyListenerTLSProxyFilterChains(model *lbService) []*envoy_config_listener_v3.FilterChain {
-	var validationContext *envoy_extensions_transportsockets_tls_v3.CommonTlsContext_CombinedValidationContext
-	if model.applications.tlsProxy.tlsConfig != nil {
-		validationContext = r.toTLSValidationContext(model.namespace, model.applications.tlsProxy.tlsConfig)
-	}
+	validationContext := r.toTLSValidationContext(model.namespace, model.applications.tlsProxy.tlsConfig)
 
 	tlsProxyFilterChains := []*envoy_config_listener_v3.FilterChain{}
 	for i, tr := range model.applications.tlsProxy.routes {

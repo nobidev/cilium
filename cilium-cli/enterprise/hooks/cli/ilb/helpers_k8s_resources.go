@@ -569,7 +569,7 @@ func withHTTPSProxyApplication(opts ...httpsApplicationOption) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		obj := isovalentv1alpha1.LBServiceApplications{
 			HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-				TLSConfig: &isovalentv1alpha1.LBServiceTLSConfig{
+				TLSConfig: isovalentv1alpha1.LBServiceTLSConfig{
 					Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{},
 				},
 				HTTPConfig: &isovalentv1alpha1.LBServiceHTTPConfig{
@@ -685,7 +685,7 @@ func withTLSPassthroughConnectionRateLimiting(limit uint, timePeriodSeconds uint
 
 func withTLSCertificate(secretName string) tlsProxyApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationTLSProxy) {
-		o.TLSConfig = &isovalentv1alpha1.LBServiceTLSConfig{
+		o.TLSConfig = isovalentv1alpha1.LBServiceTLSConfig{
 			Certificates: []isovalentv1alpha1.LBServiceTLSCertificate{
 				{SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretName}},
 			},

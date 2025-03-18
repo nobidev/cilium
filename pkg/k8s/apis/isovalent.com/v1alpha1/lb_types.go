@@ -160,8 +160,8 @@ type LBServiceApplicationHTTPSProxy struct {
 
 	// The application-wide TLS configuration.
 	//
-	// +kubebuilder:validation:Optional
-	TLSConfig *LBServiceTLSConfig `json:"tlsConfig,omitempty"`
+	// +kubebuilder:validation:Required
+	TLSConfig LBServiceTLSConfig `json:"tlsConfig"`
 
 	// The optional connection filtering configuration for all HTTPS connections.
 	// It defines the connection attributes that should be obtained to decide
@@ -335,8 +335,8 @@ type LBServiceApplicationTLSPassthrough struct {
 type LBServiceApplicationTLSProxy struct {
 	// The application-wide TLS configuration.
 	//
-	// +kubebuilder:validation:Optional
-	TLSConfig *LBServiceTLSConfig `json:"tlsConfig,omitempty"`
+	// +kubebuilder:validation:Required
+	TLSConfig LBServiceTLSConfig `json:"tlsConfig"`
 
 	// The TLS proxy routing configuration.
 	//
@@ -1239,13 +1239,13 @@ func (r *LBService) AllReferencedSecretNames() []string {
 func (r *LBService) AllReferencedTLSCertificateSecretNames() []string {
 	secretNames := []string{}
 
-	if r.Spec.Applications.HTTPSProxy != nil && r.Spec.Applications.HTTPSProxy.TLSConfig != nil {
+	if r.Spec.Applications.HTTPSProxy != nil {
 		for _, c := range r.Spec.Applications.HTTPSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
 		}
 	}
 
-	if r.Spec.Applications.TLSProxy != nil && r.Spec.Applications.TLSProxy.TLSConfig != nil {
+	if r.Spec.Applications.TLSProxy != nil {
 		for _, c := range r.Spec.Applications.TLSProxy.TLSConfig.Certificates {
 			secretNames = append(secretNames, c.SecretRef.Name)
 		}
@@ -1258,13 +1258,13 @@ func (r *LBService) AllReferencedTLSCertificateSecretNames() []string {
 func (r *LBService) AllReferencedTLSCACertValidationSecretNames() []string {
 	secretNames := []string{}
 
-	if r.Spec.Applications.HTTPSProxy != nil && r.Spec.Applications.HTTPSProxy.TLSConfig != nil {
+	if r.Spec.Applications.HTTPSProxy != nil {
 		if r.Spec.Applications.HTTPSProxy.TLSConfig.Validation != nil {
 			secretNames = append(secretNames, r.Spec.Applications.HTTPSProxy.TLSConfig.Validation.SecretRef.Name)
 		}
 	}
 
-	if r.Spec.Applications.TLSProxy != nil && r.Spec.Applications.TLSProxy.TLSConfig != nil {
+	if r.Spec.Applications.TLSProxy != nil {
 		if r.Spec.Applications.TLSProxy.TLSConfig.Validation != nil {
 			secretNames = append(secretNames, r.Spec.Applications.TLSProxy.TLSConfig.Validation.SecretRef.Name)
 		}

@@ -1088,6 +1088,7 @@ spec:
                         type: object
                     required:
                     - routes
+                    - tlsConfig
                     type: object
                     x-kubernetes-validations:
                     - message: Application-wide and per-route auth type must be matched
@@ -1678,6 +1679,7 @@ spec:
                         type: object
                     required:
                     - routes
+                    - tlsConfig
                     type: object
                   udpProxy:
                     description: |-
