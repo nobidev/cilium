@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
@@ -60,6 +61,9 @@ type OperatorParams struct {
 	CiliumNodes   resource.Resource[*cilium_api_v2.CiliumNode]
 	Healthchecker healthcheck.Healthchecker
 
+	PolicyConfigsTable statedb.RWTable[*PolicyConfig]
+	DB                 *statedb.DB
+
 	Lifecycle cell.Lifecycle
 }
 
@@ -105,7 +109,8 @@ type OperatorManager struct {
 	policyCache map[policyID]*Policy
 
 	// policyConfigs stores policy configs indexed by policyID
-	policyConfigs map[policyID]*PolicyConfig
+	policyConfigsTable statedb.RWTable[*PolicyConfig]
+	db                 *statedb.DB
 
 	// cidrConflicts stores all egressCIDRs conflicts, that is,
 	// all conflicts that originate from any couple of overlapping CIDRs
@@ -156,9 +161,10 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 		nodeDataStore:        make(map[string]nodeTypes.Node),
 		nodesByIP:            make(map[string]nodeTypes.Node),
 		gatewayNodeDataStore: make(map[string]nodeTypes.Node),
-		policyConfigs:        make(map[policyID]*PolicyConfig),
+		policyConfigsTable:   p.PolicyConfigsTable,
 		policyCache:          make(map[policyID]*Policy),
 		healthchecker:        p.Healthchecker,
+		db:                   p.DB,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -173,8 +179,9 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 
 					operatorManager.Lock()
 					defer operatorManager.Unlock()
-
-					operatorManager.reconcileLocked()
+					tx := operatorManager.db.WriteTxn(operatorManager.policyConfigsTable)
+					operatorManager.reconcileLocked(tx)
+					tx.Commit()
 				},
 			})
 			if err != nil {
@@ -304,17 +311,30 @@ func (operatorManager *OperatorManager) onAddEgressPolicy(policy *Policy) error 
 
 	operatorManager.Lock()
 	defer operatorManager.Unlock()
+	tx := operatorManager.db.WriteTxn(operatorManager.policyConfigsTable)
+	defer tx.Abort()
 
-	if _, ok := operatorManager.policyCache[config.id]; !ok {
+	operatorManager.policyCache[config.id] = policy
+	hadPrev, err := operatorManager.upsertPolicyConfig(tx, config)
+	if err != nil {
+		return err
+	}
+
+	if !hadPrev {
 		logger.Debug("Added IsovalentEgressGatewayPolicy")
 	} else {
 		logger.Debug("Updated IsovalentEgressGatewayPolicy")
 	}
 
-	operatorManager.policyCache[config.id] = policy
-	operatorManager.policyConfigs[config.id] = config
+	tx.Commit()
+
 	operatorManager.reconciliationTrigger.TriggerWithReason("IsovalentEgressGatewayPolicy added")
 	return nil
+}
+
+func (operatorManager *OperatorManager) upsertPolicyConfig(tx statedb.WriteTxn, pc *PolicyConfig) (bool, error) {
+	_, hadPrev, err := operatorManager.policyConfigsTable.Insert(tx, pc.clone())
+	return hadPrev, err
 }
 
 // onDeleteEgressPolicy deletes the internal state associated with the given
@@ -324,17 +344,21 @@ func (operatorManager *OperatorManager) onDeleteEgressPolicy(policy *Policy) {
 
 	operatorManager.Lock()
 	defer operatorManager.Unlock()
+	tx := operatorManager.db.WriteTxn(operatorManager.policyConfigsTable)
+	defer tx.Abort()
 
 	logger := log.WithField(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
 
-	if operatorManager.policyConfigs[configID] == nil {
+	delete(operatorManager.policyCache, configID)
+	if prev, _, err := operatorManager.policyConfigsTable.Delete(tx, &PolicyConfig{id: configID}); err != nil {
+		log.WithError(err).WithField("id", configID.String()).Error("failed to upsert policyConfig")
+		tx.Abort()
+	} else if prev == nil {
 		logger.Warn("Can't delete IsovalentEgressGatewayPolicy: policy not found")
 		return
 	}
-
 	logger.Debug("Deleted IsovalentEgressGatewayPolicy")
-	delete(operatorManager.policyCache, configID)
-	delete(operatorManager.policyConfigs, configID)
+	tx.Commit()
 
 	operatorManager.reconciliationTrigger.TriggerWithReason("IsovalentEgressGatewayPolicy deleted")
 }
@@ -425,9 +449,9 @@ func (operatorManager *OperatorManager) nodeIsUnschedulable(node nodeTypes.Node)
 	return false
 }
 
-func (operatorManager *OperatorManager) previousHealthyGateways() []netip.Addr {
+func (operatorManager *OperatorManager) previousHealthyGateways(tx statedb.ReadTxn) []netip.Addr {
 	var addrs []netip.Addr
-	for _, policyConfig := range operatorManager.policyConfigs {
+	for policyConfig := range operatorManager.policyConfigsTable.All(tx) {
 		for _, gs := range policyConfig.groupStatuses {
 			addrs = append(addrs, gs.healthyGatewayIPs...)
 		}
@@ -435,10 +459,10 @@ func (operatorManager *OperatorManager) previousHealthyGateways() []netip.Addr {
 	return ciliumslices.Unique(addrs)
 }
 
-func (operatorManager *OperatorManager) regenerateGatewayNodesList() {
+func (operatorManager *OperatorManager) regenerateGatewayNodesList(tx statedb.ReadTxn) {
 	nodes := map[string]nodeTypes.Node{}
 
-	for _, policyConfig := range operatorManager.policyConfigs {
+	for policyConfig := range operatorManager.policyConfigsTable.All(tx) {
 		for _, gc := range policyConfig.groupConfigs {
 			for _, n := range operatorManager.nodes {
 				if gc.selectsNodeAsGateway(n) {
@@ -451,9 +475,9 @@ func (operatorManager *OperatorManager) regenerateGatewayNodesList() {
 	operatorManager.gatewayNodeDataStore = nodes
 }
 
-func (operatorManager *OperatorManager) updatePolicesGroupStatuses() {
-	for _, config := range operatorManager.policyConfigs {
-		err := config.updateGroupStatuses(operatorManager)
+func (operatorManager *OperatorManager) updatePolicesGroupStatuses(tx statedb.WriteTxn) {
+	for config := range operatorManager.policyConfigsTable.All(tx) {
+		err := config.updateGroupStatuses(operatorManager, tx)
 		if err != nil {
 			operatorManager.reconciliationTrigger.TriggerWithReason("retry after error")
 		}
@@ -470,16 +494,16 @@ func (pec policyEgressCIDR) String() string {
 	return pec.origin.String() + "-" + pec.cidr.String()
 }
 
-func (operatorManager *OperatorManager) updateEgressCIDRConflicts() {
+func (operatorManager *OperatorManager) updateEgressCIDRConflicts(tx statedb.ReadTxn) {
 	operatorManager.cidrConflicts = make(map[policyEgressCIDR]policyEgressCIDR)
 
 	var egressCIDRs []policyEgressCIDR
 
 	// internal conflicts
-	for policyID, policyCfg := range operatorManager.policyConfigs {
+	for policyCfg := range operatorManager.policyConfigsTable.All(tx) {
 		for _, egressCIDR := range policyCfg.egressCIDRs {
 			egressCIDRs = append(egressCIDRs, policyEgressCIDR{
-				origin: policyID,
+				origin: policyCfg.id,
 				cidr:   egressCIDR,
 			})
 		}
@@ -491,7 +515,7 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts() {
 		for i := 0; i < len(policyCfg.egressCIDRs)-1; i++ {
 			for j := i + 1; j < len(policyCfg.egressCIDRs); j++ {
 				if policyCfg.egressCIDRs[i].Overlaps(policyCfg.egressCIDRs[j]) {
-					first, second := policyEgressCIDR{policyID, policyCfg.egressCIDRs[i]}, policyEgressCIDR{policyID, policyCfg.egressCIDRs[j]}
+					first, second := policyEgressCIDR{policyCfg.id, policyCfg.egressCIDRs[i]}, policyEgressCIDR{policyCfg.id, policyCfg.egressCIDRs[j]}
 					operatorManager.cidrConflicts[first] = second
 					operatorManager.cidrConflicts[second] = first
 				}
@@ -525,8 +549,8 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts() {
 			if egressCIDRs[i].cidr.Overlaps(egressCIDRs[j].cidr) {
 				first, second := policyEgressCIDR{egressCIDRs[i].origin, egressCIDRs[i].cidr}, policyEgressCIDR{egressCIDRs[j].origin, egressCIDRs[j].cidr}
 
-				policy1 := operatorManager.policyConfigs[egressCIDRs[i].origin]
-				policy2 := operatorManager.policyConfigs[egressCIDRs[j].origin]
+				policy1, _, _ := operatorManager.policyConfigsTable.Get(tx, OperatorIndex.Query(egressCIDRs[i].origin))
+				policy2, _, _ := operatorManager.policyConfigsTable.Get(tx, OperatorIndex.Query(egressCIDRs[j].origin))
 
 				// mark the most recent policy as conflicting
 				if policy1.creationTimestamp.Before(policy2.creationTimestamp) {
@@ -541,14 +565,14 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts() {
 
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
-func (operatorManager *OperatorManager) reconcileLocked() {
+func (operatorManager *OperatorManager) reconcileLocked(tx statedb.WriteTxn) {
 	var healthyNodes sets.Set[string]
 
 	if !operatorManager.allCachesSynced {
 		return
 	}
 
-	operatorManager.regenerateGatewayNodesList()
+	operatorManager.regenerateGatewayNodesList(tx)
 
 	// during the first reconciliation after a restart, we manually mark all
 	// previous gateways as healthy.
@@ -558,7 +582,7 @@ func (operatorManager *OperatorManager) reconcileLocked() {
 	// health status information until the first health probe verdict is available.
 	operatorManager.restartOnce.Do(func() {
 		healthyNodes = sets.New[string]()
-		for _, gw := range operatorManager.previousHealthyGateways() {
+		for _, gw := range operatorManager.previousHealthyGateways(tx) {
 			node, ok := operatorManager.nodesByIP[gw.String()]
 			if !ok {
 				// node has been cancelled during the operator restart
@@ -570,6 +594,6 @@ func (operatorManager *OperatorManager) reconcileLocked() {
 
 	operatorManager.healthchecker.UpdateNodeList(operatorManager.gatewayNodeDataStore, healthyNodes)
 
-	operatorManager.updateEgressCIDRConflicts()
-	operatorManager.updatePolicesGroupStatuses()
+	operatorManager.updateEgressCIDRConflicts(tx)
+	operatorManager.updatePolicesGroupStatuses(tx)
 }

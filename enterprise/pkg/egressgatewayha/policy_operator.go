@@ -29,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/statedb"
+
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -785,7 +787,7 @@ func mergeEgressIPs(allocatedEgressIPs, egressIPsOfInactiveGateways map[netip.Ad
 
 // updateGroupStatuses updates the list of active and healthy gateway IPs in the
 // IEGP k8s resource for the receiver PolicyConfig
-func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager) error {
+func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager, tx statedb.WriteTxn) error {
 	haveSeenLatestIEGP := config.groupStatusesGeneration == config.generation
 
 	groupStatuses := make([]groupStatus, 0, len(config.groupConfigs))
@@ -860,7 +862,11 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		return err
 	}
 	operatorManager.policyCache[config.id] = updatedIEGP
-	operatorManager.policyConfigs[config.id] = updatedPolicyConfig
+	_, err = operatorManager.upsertPolicyConfig(tx, updatedPolicyConfig)
+	if err != nil {
+		log.WithError(err).Error("failed to upsert policy config")
+		return err
+	}
 
 	return nil
 }

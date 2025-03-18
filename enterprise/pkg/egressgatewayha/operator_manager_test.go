@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/hive"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -48,16 +50,40 @@ func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTes
 	k.ciliumNodes = make(fakeResource[*cilium_api_v2.CiliumNode])
 	k.healthcheckerMock = newHealthcheckerMock()
 
-	h, _ := cell.NewSimpleHealth()
+	var (
+		db      *statedb.DB
+		pcTable statedb.RWTable[*PolicyConfig]
+	)
+
+	// create a hive to provide statedb, egress-ips table and a mock reconcile
+	h := hive.New(
+		cell.Provide(newOperatorTables),
+		cell.Invoke(func(db_ *statedb.DB, pt statedb.RWTable[*PolicyConfig]) {
+			db = db_
+			pcTable = pt
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, context.TODO()))
+
+	t.Cleanup(func() {
+		require.NoError(t, h.Stop(tlog, context.TODO()))
+	})
+
+	hr, _ := cell.NewSimpleHealth()
 	k.manager = newEgressGatewayOperatorManager(OperatorParams{
 		Config:        OperatorConfig{1 * time.Millisecond},
-		Health:        h,
+		Health:        hr,
 		Clientset:     k.fakeSet,
 		Policies:      k.policies,
 		Nodes:         k.nodeResources,
 		CiliumNodes:   k.ciliumNodes,
 		Healthchecker: k.healthcheckerMock,
 		Lifecycle:     hivetest.Lifecycle(t),
+
+		DB:                 db,
+		PolicyConfigsTable: pcTable,
 	})
 
 	k.healthcheckerMock.nodes = map[string]struct{}{
@@ -1886,32 +1912,44 @@ func TestEgressCIDRConflictsDetection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			manager := OperatorManager{
-				policyConfigs: make(map[policyID]*PolicyConfig),
-			}
+			h := hive.New(
+				cell.Provide(newOperatorTables),
+				cell.Invoke(func(db *statedb.DB, pt statedb.RWTable[*PolicyConfig]) {
+					manager := OperatorManager{
+						db:                 db,
+						policyConfigsTable: pt,
+					}
 
-			for i, policy := range tc.policies {
-				// EgressGroups cannot be empty when parsing IEGP
-				policy.Spec.EgressGroups = []v1.EgressGroup{
-					{
-						NodeSelector: &slimv1.LabelSelector{
-							MatchLabels: noNodeGroup,
-						},
-					},
-				}
+					for i, policy := range tc.policies {
+						// EgressGroups cannot be empty when parsing IEGP
+						policy.Spec.EgressGroups = []v1.EgressGroup{
+							{
+								NodeSelector: &slimv1.LabelSelector{
+									MatchLabels: noNodeGroup,
+								},
+							},
+						}
 
-				policyCfg, err := ParseIEGP(&policy)
-				if err != nil {
-					t.Fatalf("failed to parse policy %d: %s", i, err)
-				}
-				manager.policyConfigs[policyCfg.id] = policyCfg
-			}
+						policyCfg, err := ParseIEGP(&policy)
+						if err != nil {
+							t.Fatalf("failed to parse policy %d: %s", i, err)
+						}
+						tx := manager.db.WriteTxn(manager.policyConfigsTable)
+						manager.policyConfigsTable.Insert(tx, policyCfg)
+						tx.Commit()
+					}
 
-			manager.updateEgressCIDRConflicts()
+					tx := manager.db.WriteTxn(manager.policyConfigsTable)
+					manager.updateEgressCIDRConflicts(tx)
+					tx.Commit()
 
-			if !maps.Equal(manager.cidrConflicts, tc.expected) {
-				t.Fatalf("expected conflicts:\n%v\nfound:\n%v", tc.expected, manager.cidrConflicts)
-			}
+					if !maps.Equal(manager.cidrConflicts, tc.expected) {
+						t.Fatalf("expected conflicts:\n%v\nfound:\n%v", tc.expected, manager.cidrConflicts)
+					}
+				}),
+			)
+			tlog := hivetest.Logger(t)
+			require.NoError(t, h.Start(tlog, context.TODO()))
 		})
 	}
 }

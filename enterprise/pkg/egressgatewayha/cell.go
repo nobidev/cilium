@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 )
 
 // Cell provides a [Manager] for consumption with hive.
@@ -35,4 +36,7 @@ var OperatorCell = cell.Module(
 	cell.Config(defaultOperatorConfig),
 	cell.Provide(NewEgressGatewayOperatorManager),
 	cell.Provide(newNodeResource),
+
+	cell.ProvidePrivate(newOperatorTables),
+	cell.Provide(statedb.RWTable[*PolicyConfig].ToTable),
 )
