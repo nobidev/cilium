@@ -105,7 +105,9 @@ func NewGroupV4Map(in ParamsIn) ParamsOut {
 		return out
 	}
 
-	out.NodeDefines["ENABLE_MULTICAST"] = "1"
+	out.NodeDefines = defines.Map{
+		"ENABLE_MULTICAST": "1",
+	}
 
 	groupMap := NewGroupV4OuterMap(GroupOuter4MapName)
 
