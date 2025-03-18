@@ -197,6 +197,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LBBackendPoolList{},
 		&LBVIP{},
 		&LBVIPList{},
+		&IsovalentNetworkPolicy{},
+		&IsovalentClusterwideNetworkPolicy{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
