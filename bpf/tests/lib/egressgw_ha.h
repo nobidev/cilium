@@ -14,6 +14,9 @@ enum egressgw_ha_test {
 	TEST_HA_DROP_NO_EGRESS_IP,
 };
 
+#define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
+#define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
+
 // From https://github.com/isovalent/cilium/commit/74df7db70f538453ff9677ad64d29d726a438d61
 #define add_egressgw_ha_policy_entry(_saddr, _daddr, _cidr, _size, _gateway_ips, _egress_ip,	\
 				     _egress_ifindex)						\
