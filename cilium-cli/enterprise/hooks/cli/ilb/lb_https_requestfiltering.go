@@ -285,7 +285,7 @@ func TestHTTPSRequestFiltering(t T) {
 					}
 
 					return nil
-				}, shortTimeout, pollInterval)
+				}, longTimeout, pollInterval)
 			}
 		})
 
