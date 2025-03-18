@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/multicast"
 	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/pkg/nat/stats"
+	policyK8s "github.com/cilium/cilium/enterprise/pkg/policy/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/service/healthchecker"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
@@ -68,6 +69,8 @@ var (
 		api.Cell,
 		server.SpecCell,
 		server.APICell,
+
+		policyK8s.Cell,
 
 		cecm.Cell,
 		sidmanager.SIDManagerCell,
