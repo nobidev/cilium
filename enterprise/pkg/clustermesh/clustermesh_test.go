@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -42,15 +41,16 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 
 	maps := cectnat.NewFakePerCluster(true, true)
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
+	logger := hivetest.Logger(t)
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: newClusterIDManager(logging.DefaultLogger, cinfo, maps),
 
 		RemoteIdentityWatcher: mgr,
-		StoreFactory:          store.NewFactory(store.MetricsProvider()),
+		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 
-		Logger:         logrus.New(),
+		Logger:         logger,
 		Metrics:        clustermesh.NewMetrics(),
 		CommonMetrics:  cmcommon.MetricsProvider("foo")(),
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
@@ -121,15 +121,16 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
 	idsMgr := newClusterIDManager(logging.DefaultLogger, cinfo, maps)
+	logger := hivetest.Logger(t)
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: idsMgr,
 
 		RemoteIdentityWatcher: mgr,
-		StoreFactory:          store.NewFactory(store.MetricsProvider()),
+		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 
-		Logger:         logrus.New(),
+		Logger:         logger,
 		Metrics:        clustermesh.NewMetrics(),
 		CommonMetrics:  cmcommon.MetricsProvider("foo")(),
 		FeatureMetrics: NewClusterMeshMetricsNoop(),

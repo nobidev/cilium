@@ -13,16 +13,16 @@ package k8s
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-
-	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 )
 
 func TestMergeExternalServiceUpdateClusterAware(t *testing.T) {
@@ -48,7 +48,9 @@ func TestMergeExternalServiceUpdateClusterAware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svcMerger := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), tt.cmcfg)
+			logger := hivetest.Logger(t)
+
+			svcMerger := NewCEServiceMerger(logger, NewServiceCache(logger, nil, nil, NewSVCMetricsNoop()), tt.cmcfg)
 
 			k8sSvc := slim_corev1.Service{
 				ObjectMeta: slim_metav1.ObjectMeta{

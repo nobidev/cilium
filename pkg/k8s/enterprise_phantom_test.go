@@ -14,16 +14,16 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/service/store"
-
-	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 )
 
 func TestPhantomServiceMutator(t *testing.T) {
@@ -77,7 +77,9 @@ func TestPhantomServiceMutator(t *testing.T) {
 }
 
 func TestPhantomServiceUpdate(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
+	logger := hivetest.Logger(t)
+
+	svcCache := NewCEServiceMerger(logger, NewServiceCache(logger, nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
@@ -132,7 +134,9 @@ func TestPhantomServiceUpdate(t *testing.T) {
 }
 
 func TestPhantomServiceDelete(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
+	logger := hivetest.Logger(t)
+
+	svcCache := NewCEServiceMerger(logger, NewServiceCache(logger, nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
@@ -179,7 +183,9 @@ func TestPhantomServiceDelete(t *testing.T) {
 }
 
 func TestPhantomServiceDisabled(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
+	logger := hivetest.Logger(t)
+
+	svcCache := NewCEServiceMerger(logger, NewServiceCache(logger, nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        false,
@@ -222,7 +228,9 @@ func TestPhantomServiceDisabled(t *testing.T) {
 }
 
 func TestGlobalToPhantomToGlobalService(t *testing.T) {
-	svcCache := NewCEServiceMerger(NewServiceCache(nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
+	logger := hivetest.Logger(t)
+
+	svcCache := NewCEServiceMerger(logger, NewServiceCache(logger, nil, nil, NewSVCMetricsNoop()), cmcfg.Config{
 		EnableClusterAwareAddressing: false,
 		EnableInterClusterSNAT:       false,
 		EnablePhantomServices:        true,
