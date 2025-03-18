@@ -7,21 +7,35 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define T1 and T2 nodes
-t1Nodes=(
-  kind-control-plane
-  kind-worker
-)
-t2Nodes=(
-  kind-worker2
-  kind-worker3
-  kind-worker4
-)
+t1Nodes=()
+t2Nodes=()
+t1t2Nodes=()
+
+lbMode="${1-standalone}"
+echo "Using '${lbMode}' mode"
+
+if [ "${lbMode}" = "in-cluster" ]; then
+  t1t2Nodes+=('kind-control-plane')
+  t1t2Nodes+=('kind-worker')
+  t1t2Nodes+=('kind-worker2')
+  t1t2Nodes+=('kind-worker3')
+  t1t2Nodes+=('kind-worker4')
+else
+  t1Nodes+=('kind-control-plane')
+  t1Nodes+=('kind-worker')
+  t2Nodes+=('kind-worker2')
+  t2Nodes+=('kind-worker3')
+  t2Nodes+=('kind-worker4')
+fi
 
 for i in "${t1Nodes[@]}"; do
-  kubectl label node ${i} service.cilium.io/node=t1
+  kubectl label node ${i} service.cilium.io/node=t1 --overwrite
 done
 for i in "${t2Nodes[@]}"; do
-  kubectl label node ${i} service.cilium.io/node=t2
+  kubectl label node ${i} service.cilium.io/node=t2 --overwrite
+done
+for i in "${t1t2Nodes[@]}"; do
+  kubectl label node ${i} service.cilium.io/node=t1-t2 --overwrite
 done
 
 # Allow privileged ports (Envoy)

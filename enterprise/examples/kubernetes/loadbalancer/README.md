@@ -13,6 +13,13 @@ make kind-image-enterprise-fast && \
 ./enterprise/examples/kubernetes/loadbalancer/deploy_perses.sh
 ```
 
+To setup the kind cluster for in-cluster mode where all nodes have T1 & T2 functionality configured,
+just pass `in-cluster` as first argument to `lb_configure.sh`.
+
+```sh
+./enterprise/examples/kubernetes/loadbalancer/lb_configure.sh in-cluster
+```
+
 Alternatively, to deploy the Grafana dashboards visualisation, replace the last line above with:
 
 ```sh
