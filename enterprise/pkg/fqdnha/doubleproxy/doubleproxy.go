@@ -13,8 +13,6 @@
 package doubleproxy
 
 import (
-	"fmt"
-
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/daemon/cmd"
@@ -22,12 +20,12 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/remoteproxy"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -39,6 +37,7 @@ type DoubleProxy struct {
 	RemoteProxy *remoteproxy.RemoteFQDNProxy
 	LocalProxy  *dnsproxy.DNSProxy
 
+	defaultProxy  defaultdns.Proxy
 	daemonPromise promise.Promise[*cmd.Daemon]
 }
 
@@ -46,6 +45,7 @@ type params struct {
 	cell.In
 
 	DaemonPromise promise.Promise[*cmd.Daemon]
+	DefaultProxy  defaultdns.Proxy
 	RemoteProxy   *remoteproxy.RemoteFQDNProxy
 	Cfg           fqdnhaconfig.Config
 }
@@ -59,6 +59,7 @@ func NewDoubleProxy(
 	}
 	dp := &DoubleProxy{
 		RemoteProxy:   p.RemoteProxy,
+		defaultProxy:  p.DefaultProxy,
 		daemonPromise: p.DaemonPromise,
 	}
 	lc.Append(dp)
@@ -66,20 +67,15 @@ func NewDoubleProxy(
 }
 
 func (dp *DoubleProxy) Start(ctx cell.HookContext) error {
-	// Wait for the daemon to be populated, at which point we can assume proxy.DefaultDNSProxy to be resolved.
+	// Wait for the daemon to be populated, at which point we can assume defaultProxy to be set.
 	_, err := dp.daemonPromise.Await(ctx)
 	if err != nil {
 		return err
 	}
 
-	// TODO: get rid of the DefaultDNSProxy singleton in upstream altogether to avoid this ugly hack.
-	lp, ok := proxy.DefaultDNSProxy.(*dnsproxy.DNSProxy)
-	if !ok {
-		return fmt.Errorf("doubleproxy: type assertion failed! proxy.DefaultDNSProxy is not a dnsproxy.DNSProxy")
-	}
-	dp.LocalProxy = lp
-	proxy.DefaultDNSProxy = dp
-	dp.RemoteProxy.ProvideLocalProxy(lp)
+	dp.LocalProxy = dp.defaultProxy.Get().(*dnsproxy.DNSProxy)
+	dp.defaultProxy.Set(dp)
+	dp.RemoteProxy.ProvideLocalProxy(dp.LocalProxy)
 
 	return nil
 }

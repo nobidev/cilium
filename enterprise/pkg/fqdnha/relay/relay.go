@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -38,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -57,6 +57,7 @@ type FQDNProxyAgentServer struct {
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
 	localIDs        stream.Observable[cache.IdentityChange]
+	defaultProxy    defaultdns.Proxy
 
 	db        *statedb.DB
 	selectors statedb.RWTable[FQDNSelector]
@@ -71,6 +72,7 @@ type params struct {
 	EndpointManager   endpointmanager.EndpointManager
 	Cfg               fqdnhaconfig.Config
 	IdentityAllocator identityCell.CachingIdentityAllocator
+	DefaultProxy      defaultdns.Proxy
 
 	DB    *statedb.DB
 	Table statedb.RWTable[FQDNSelector]
@@ -332,7 +334,7 @@ func sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSele
 }
 
 func (s *FQDNProxyAgentServer) GetAllRules(ctx context.Context, empty *pb.Empty) (*pb.RestoredRulesMap, error) {
-	double, ok := proxy.DefaultDNSProxy.(*doubleproxy.DoubleProxy)
+	double, ok := s.defaultProxy.Get().(*doubleproxy.DoubleProxy)
 	if !ok {
 		return nil, nil
 	}
@@ -405,6 +407,7 @@ func NewFQDNProxyAgentServer(
 		ipCacheGetter:   p.IPCacheGetter,
 		endpointManager: p.EndpointManager,
 		localIDs:        p.IdentityAllocator.LocalIdentityChanges(),
+		defaultProxy:    p.DefaultProxy,
 		db:              p.DB,
 		selectors:       p.Table,
 	}
