@@ -869,6 +869,7 @@ Makefile* @cilium/build
 /enterprise/pkg/hubble/ @isovalent/hubble
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
 /enterprise/pkg/ipmigration/ @isovalent/networking-framework
+/enterprise/pkg/k8s/ @isovalent/sig-k8s
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/flowlogs @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/metrics @isovalent/isovalent-loadbalancer
