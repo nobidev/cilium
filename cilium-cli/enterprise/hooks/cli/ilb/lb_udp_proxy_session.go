@@ -17,13 +17,16 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-// UDP Proxy sessions only work with deployment mode T1&T2 where UDP traffic from the same source ip and port
-// is always loadbalanced to the same T2 instance due to T1' maglev. T2 will use Envoy session stickiness (enabled
-// by default) to forward the traffic to the same backend.
-// In T1-Only deployment mode, the UDP CT state is only per node. If client traffic is sent to a different T1 node,
-// a different backend can be selected.
+func TestUDPProxyT1OnlySession(t T) {
+	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1)
+}
+
 func TestUDPProxyT1T2Session(t T) {
 	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2)
+}
+
+func TestUDPProxyAutoSession(t T) {
+	testUDPProxySession(t, isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto)
 }
 
 func testUDPProxySession(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDeploymentModeType) {

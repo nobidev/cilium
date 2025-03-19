@@ -60,5 +60,7 @@ var Tests = []func(t T){
 	TestUDPProxyT1OnlyConnectionFiltering,
 	TestUDPProxyT1T2ConnectionFiltering,
 	TestUDPProxyAutoConnectionFiltering,
+	TestUDPProxyT1OnlySession,
 	TestUDPProxyT1T2Session,
+	TestUDPProxyAutoSession,
 }
