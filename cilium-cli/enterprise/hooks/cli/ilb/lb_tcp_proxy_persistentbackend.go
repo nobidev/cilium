@@ -48,15 +48,11 @@ func TestTCPProxyPersistentBackend(t T) {
 	t.Log("Creating LB BackendPool resources...")
 
 	backends := []backendPoolOption{}
+	backends = append(backends, withConsistentHashing())
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(ns, testName, backends...)
-	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
-		Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
-			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
-		},
-	}
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")

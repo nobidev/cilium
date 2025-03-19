@@ -792,6 +792,14 @@ func withUDPForceDeploymentMode(forceDeploymentMode isovalentv1alpha1.LBUDPProxy
 	}
 }
 
+func withUDPProxyBackendPersistenceBySourceIP() udpRouteOption {
+	return func(o *isovalentv1alpha1.LBServiceUDPRoute) {
+		o.PersistentBackend = &isovalentv1alpha1.LBServiceUDPRoutePersistentBackend{
+			SourceIP: ptr.To(true),
+		}
+	}
+}
+
 func withUDPProxyRoute(backendRef string, opts ...udpRouteOption) udpProxyApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationUDPProxy) {
 		route := &isovalentv1alpha1.LBServiceUDPRoute{
@@ -879,6 +887,16 @@ func withHostnameBackend(hostname string, port int32) backendPoolOption {
 			Port:   port,
 			Weight: ptr.To[uint32](1),
 		})
+	}
+}
+
+func withConsistentHashing() backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
+			Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
+				ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
+			},
+		}
 	}
 }
 

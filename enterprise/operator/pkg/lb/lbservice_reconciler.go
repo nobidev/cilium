@@ -810,10 +810,13 @@ func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *
 				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
 			}
 		}
+	case lbsvc.Spec.Applications.UDPProxy != nil:
+		for _, r := range lbsvc.Spec.Applications.UDPProxy.Routes {
+			if r.PersistentBackend != nil {
+				backendsUsedForPersistentBackend[r.BackendRef.Name] = struct{}{}
+			}
+		}
 	}
-
-	// if the 'persistentBackend' property is added to udpProxy,
-	// then fix the implementation here
 
 	for b := range backendsUsedForPersistentBackend {
 		for _, configuredBackend := range backends {

@@ -371,8 +371,9 @@ func (r *ingestor) toApplicationUDPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 		}
 
 		routes = append(routes, lbRouteUDPProxy{
-			connectionFiltering: r.toUDPRequestFilteringConfig(lr.ConnectionFiltering),
 			backendRef:          backendRef{name: lr.BackendRef.Name},
+			persistentBackend:   r.toUDPPersistentBackendConfig(lr.PersistentBackend),
+			connectionFiltering: r.toUDPRequestFilteringConfig(lr.ConnectionFiltering),
 		})
 	}
 
@@ -748,6 +749,21 @@ func (r *ingestor) toTCPRequestFilteringConfig(config *isovalentv1alpha1.LBServi
 	return &lbRouteTCPConnectionFiltering{
 		ruleType: r.mapRuleType(config.RuleType),
 		rules:    rules,
+	}
+}
+
+func (*ingestor) toUDPPersistentBackendConfig(persistentBackendConfig *isovalentv1alpha1.LBServiceUDPRoutePersistentBackend) *lbRouteUDPPersistentBackend {
+	if persistentBackendConfig == nil {
+		return nil
+	}
+
+	sourceIP := false
+	if persistentBackendConfig.SourceIP != nil {
+		sourceIP = *persistentBackendConfig.SourceIP
+	}
+
+	return &lbRouteUDPPersistentBackend{
+		sourceIP: sourceIP,
 	}
 }
 

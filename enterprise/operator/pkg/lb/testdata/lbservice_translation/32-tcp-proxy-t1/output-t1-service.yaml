@@ -29,4 +29,5 @@ spec:
     - name: tcp
       port: 80
       protocol: TCP
+  sessionAffinity: None
   type: LoadBalancer

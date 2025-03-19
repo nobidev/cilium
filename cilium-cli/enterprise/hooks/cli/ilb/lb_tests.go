@@ -63,4 +63,7 @@ var Tests = []func(t T){
 	TestUDPProxyT1OnlySession,
 	TestUDPProxyT1T2Session,
 	TestUDPProxyAutoSession,
+	TestUDPProxyT1OnlyPersistentBackend,
+	TestUDPProxyT1T2PersistentBackend,
+	TestUDPProxyAutoPersistentBackend,
 }

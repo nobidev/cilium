@@ -462,7 +462,12 @@ type lbRouteTCPConnectionFilteringRule struct {
 
 type lbRouteUDPProxy struct {
 	backendRef          backendRef
+	persistentBackend   *lbRouteUDPPersistentBackend
 	connectionFiltering *lbRouteUDPConnectionFiltering
+}
+
+type lbRouteUDPPersistentBackend struct {
+	sourceIP bool
 }
 
 type lbRouteUDPConnectionFiltering struct {

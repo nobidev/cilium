@@ -28,4 +28,5 @@ spec:
     - name: udp
       port: 80
       protocol: UDP
+  sessionAffinity: None
   type: LoadBalancer

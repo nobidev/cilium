@@ -301,6 +301,7 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService)
 						},
 					},
 				},
+				HashPolicies:     r.toUDPProxyHashpolicy(model),
 				AccessLog:        accessLoggers,
 				AccessLogOptions: &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_UdpAccessLogOptions{},
 			}),
@@ -308,6 +309,21 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService)
 	})
 
 	return listenerFilters
+}
+
+func (r *lbServiceT2Translator) toUDPProxyHashpolicy(model *lbService) []*envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy {
+	hashPolicies := []*envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy{}
+	for _, route := range model.applications.udpProxy.routes {
+		if route.persistentBackend != nil && route.persistentBackend.sourceIP {
+			hashPolicies = append(hashPolicies, &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy{
+				PolicySpecifier: &envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy_SourceIp{
+					SourceIp: true,
+				},
+			})
+		}
+	}
+
+	return hashPolicies
 }
 
 func (r *lbServiceT2Translator) toProxyProtocolConfig(proxyProtocolConfig *lbServiceProxyProtocolConfig) *envoy_extensions_filters_listener_proxy_protocol_v3.ProxyProtocol {

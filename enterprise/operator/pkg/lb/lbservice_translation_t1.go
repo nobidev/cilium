@@ -111,6 +111,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			AllocateLoadBalancerNodePorts: ptr.To(false),
 			Ports:                         []corev1.ServicePort{*r.toServicePort(model)},
 			LoadBalancerSourceRanges:      lbSourceRanges,
+			SessionAffinity:               r.getServiceSessionAffinity(model),
 		},
 	}
 }
@@ -362,4 +363,18 @@ func (r *lbServiceT1Translator) getServiceLoadBalancingT1SourceRangesPolicy(mode
 	}
 
 	return ""
+}
+
+func (r *lbServiceT1Translator) getServiceSessionAffinity(model *lbService) corev1.ServiceAffinity {
+	if !model.isUDPProxyT1OnlyMode() {
+		return corev1.ServiceAffinityNone
+	}
+
+	for _, route := range model.applications.udpProxy.routes {
+		if route.persistentBackend != nil && route.persistentBackend.sourceIP {
+			return corev1.ServiceAffinityClientIP
+		}
+	}
+
+	return corev1.ServiceAffinityNone
 }

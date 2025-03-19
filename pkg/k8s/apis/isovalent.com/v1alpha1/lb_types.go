@@ -573,6 +573,17 @@ type LBServiceUDPRoute struct {
 	// +kubebuilder:validation:Required
 	BackendRef LBServiceBackendRef `json:"backendRef"`
 
+	// The optional persistent backend configuration for this UDP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceUDPRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
 	// The optional connection filtering configuration for this UDP route.
 	// It defines the connection attributes that should be obtained to decide
 	// whether connections should be denied or allowed.
@@ -589,6 +600,15 @@ const (
 	LBUDPProxyForceDeploymentModeT1   LBUDPProxyForceDeploymentModeType = "t1-only"
 	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "t1-t2"
 )
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
+type LBServiceUDPRoutePersistentBackend struct {
+	// Whether requests from the same source IP should be sent to
+	// the same backend.
+	//
+	// +kubebuilder:validation:Optional
+	SourceIP *bool `json:"sourceIP,omitempty"`
+}
 
 type LBServiceUDPRouteConnectionFiltering struct {
 	// The type of the rules.

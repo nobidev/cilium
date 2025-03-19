@@ -1773,6 +1773,25 @@ spec:
                               required:
                               - ruleType
                               type: object
+                            persistentBackend:
+                              description: |-
+                                The optional persistent backend configuration for this UDP route.
+                                It defines the request attributes that should be obtained to decide
+                                whether requests should be sent to persistently the same backend.
+                                The attributes are logically ANDed.
+
+                                Note: Persistent backend configuration is only supported by LBBackendPools
+                                with loadbalancing algorithm `consistentHashing`.
+                              properties:
+                                sourceIP:
+                                  description: |-
+                                    Whether requests from the same source IP should be sent to
+                                    the same backend.
+                                  type: boolean
+                              type: object
+                              x-kubernetes-validations:
+                              - message: At least one attribute must be configured
+                                rule: (has(self.sourceIP))
                           required:
                           - backendRef
                           type: object

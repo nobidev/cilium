@@ -13,8 +13,6 @@ package ilb
 import (
 	"fmt"
 	"time"
-
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func TestHTTPPersistentBackendWithCookie(t T) {
@@ -39,15 +37,11 @@ func TestHTTPPersistentBackendWithCookie(t T) {
 
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
+	backends = append(backends, withConsistentHashing())
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
-		Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
-			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
-		},
-	}
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
@@ -97,15 +91,11 @@ func TestHTTPPersistentBackendWithSourceIP(t T) {
 
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
+	backends = append(backends, withConsistentHashing())
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
 	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
-	backendPool.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
-		Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{
-			ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{},
-		},
-	}
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
