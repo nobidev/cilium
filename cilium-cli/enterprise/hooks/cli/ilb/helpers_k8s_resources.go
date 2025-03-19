@@ -17,6 +17,7 @@ import (
 
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -968,12 +969,12 @@ func lbVIP(namespace string, name string, opts ...vipOption) *isovalentv1alpha1.
 	return obj
 }
 
-func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig {
-	obj := &isovalentv1alpha1.IsovalentBGPClusterConfig{
+func bgpClusterConfig(name string) *isovalentv1.IsovalentBGPClusterConfig {
+	obj := &isovalentv1.IsovalentBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPClusterConfigSpec{
+		Spec: isovalentv1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
 				MatchExpressions: []slimv1.LabelSelectorRequirement{
 					{
@@ -986,7 +987,7 @@ func bgpClusterConfig(name string) *isovalentv1alpha1.IsovalentBGPClusterConfig 
 					},
 				},
 			},
-			BGPInstances: []isovalentv1alpha1.IsovalentBGPInstance{
+			BGPInstances: []isovalentv1.IsovalentBGPInstance{
 				{
 					Name:     "t1",
 					LocalASN: ptr.To[int64](64512),

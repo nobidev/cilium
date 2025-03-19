@@ -135,7 +135,7 @@ func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (s
 
 func (c *ciliumCli) EnsureBGPClusterConfig(ctx context.Context) error {
 	cc := bgpClusterConfig(globalBGPClusterConfigName)
-	if _, err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Create(ctx, cc, metav1.CreateOptions{}); err != nil {
+	if _, err := c.IsovalentV1().IsovalentBGPClusterConfigs().Create(ctx, cc, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
@@ -144,7 +144,7 @@ func (c *ciliumCli) EnsureBGPClusterConfig(ctx context.Context) error {
 }
 
 func (c *ciliumCli) DeleteBGPClusterConfig(ctx context.Context) error {
-	if err := c.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Delete(ctx, globalBGPClusterConfigName, metav1.DeleteOptions{}); err != nil {
+	if err := c.IsovalentV1().IsovalentBGPClusterConfigs().Delete(ctx, globalBGPClusterConfigName, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 	}
 	return nil

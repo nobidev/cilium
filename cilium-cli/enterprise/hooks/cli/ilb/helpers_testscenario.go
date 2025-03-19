@@ -26,7 +26,8 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
@@ -297,15 +298,15 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 }
 
 func (r *lbTestScenario) createBGPPeerConfig() {
-	obj := &isovalentv1alpha1.IsovalentBGPPeerConfig{
+	obj := &isovalentv1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: r.testName,
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
+		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
+				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
 					{
-						CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
+						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
 							Afi:  "ipv4",
 							Safi: "unicast",
 						},
@@ -317,20 +318,20 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 						},
 					},
 				},
-				Timers: &ciliumv2alpha1.CiliumBGPTimers{
+				Timers: &ciliumv2.CiliumBGPTimers{
 					ConnectRetryTimeSeconds: ptr.To(int32(1)),
 				},
 			},
 			BFDProfileRef: ptr.To(r.testName),
 		},
 	}
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Create(r.t.Context(), obj, metav1.CreateOptions{}); err != nil {
+	if _, err := r.ciliumCli.IsovalentV1().IsovalentBGPPeerConfigs().Create(r.t.Context(), obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Failedf("failed to create Peer config (%s): %s", obj.Name, err)
 		}
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPPeerConfigs().Delete(ctx, obj.Name, metav1.DeleteOptions{})
+		return r.ciliumCli.IsovalentV1().IsovalentBGPPeerConfigs().Delete(ctx, obj.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -357,7 +358,7 @@ func (r *lbTestScenario) createBFDProfile() {
 
 func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName string) {
 	// BGP Advertisement has a one-to-one mapping with the VIP
-	obj := &isovalentv1alpha1.IsovalentBGPAdvertisement{
+	obj := &isovalentv1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vipName,
 			// This label is referenced in the BGPPeerConfig
@@ -365,13 +366,13 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 				"scenario": r.testName,
 			},
 		},
-		Spec: isovalentv1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []isovalentv1alpha1.BGPAdvertisement{
+		Spec: isovalentv1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []isovalentv1.BGPAdvertisement{
 				{
-					AdvertisementType: isovalentv1alpha1.BGPServiceAdvert,
-					Service: &isovalentv1alpha1.BGPServiceOptions{
-						Addresses: []ciliumv2alpha1.BGPServiceAddressType{
-							ciliumv2alpha1.BGPLoadBalancerIPAddr,
+					AdvertisementType: isovalentv1.BGPServiceAdvert,
+					Service: &isovalentv1.BGPServiceOptions{
+						Addresses: []ciliumv2.BGPServiceAddressType{
+							ciliumv2.BGPLoadBalancerIPAddr,
 						},
 					},
 					Selector: &metaslimv1.LabelSelector{
@@ -387,13 +388,13 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 			},
 		},
 	}
-	if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+	if _, err := r.ciliumCli.IsovalentV1().IsovalentBGPAdvertisements().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Failedf("failed to create BGP advertisement (%s): %s", obj.Name, err)
 		}
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		return r.ciliumCli.IsovalentV1alpha1().IsovalentBGPAdvertisements().Delete(ctx, obj.Name, metav1.DeleteOptions{})
+		return r.ciliumCli.IsovalentV1().IsovalentBGPAdvertisements().Delete(ctx, obj.Name, metav1.DeleteOptions{})
 	})
 }
 
@@ -409,22 +410,22 @@ var bgpUpdateBackoff = wait.Backoff{
 
 func (r *lbTestScenario) doBGPPeeringForClient(ctx context.Context, name string, clientIP string) error {
 	return retry.RetryOnConflict(bgpUpdateBackoff, func() error {
-		cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+		cc, err := r.ciliumCli.IsovalentV1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
 
 		cc.Spec.BGPInstances[0].Peers = append(cc.Spec.BGPInstances[0].Peers,
-			isovalentv1alpha1.IsovalentBGPPeer{
+			isovalentv1.IsovalentBGPPeer{
 				Name:        "peer-" + clientIP,
 				PeerAddress: &clientIP,
 				PeerASN:     ptr.To[int64](64512),
-				PeerConfigRef: &isovalentv1alpha1.PeerConfigReference{
+				PeerConfigRef: &isovalentv1.PeerConfigReference{
 					Name: r.testName,
 				},
 			})
 
-		if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+		if _, err := r.ciliumCli.IsovalentV1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 			// According to the document of retry.RetryOnConflict
 			// > You have to return err itself here (not wrapped inside another error)
 			// > so that RetryOnConflict can identify it correctly.
@@ -437,14 +438,14 @@ func (r *lbTestScenario) doBGPPeeringForClient(ctx context.Context, name string,
 
 func (r *lbTestScenario) undoBGPPeeringForClient(ctx context.Context, clientIP string) error {
 	return retry.RetryOnConflict(bgpUpdateBackoff, func() error {
-		cc, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
+		cc, err := r.ciliumCli.IsovalentV1().IsovalentBGPClusterConfigs().Get(ctx, globalBGPClusterConfigName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get BGP cluster config (%s): %w", globalBGPClusterConfigName, err)
 		}
 
 		peers := cc.Spec.BGPInstances[0].Peers
 
-		updatedPeers := []isovalentv1alpha1.IsovalentBGPPeer{}
+		updatedPeers := []isovalentv1.IsovalentBGPPeer{}
 		for _, peer := range peers {
 			if *peer.PeerAddress != clientIP {
 				updatedPeers = append(updatedPeers, peer)
@@ -452,7 +453,7 @@ func (r *lbTestScenario) undoBGPPeeringForClient(ctx context.Context, clientIP s
 		}
 
 		cc.Spec.BGPInstances[0].Peers = updatedPeers
-		if _, err := r.ciliumCli.IsovalentV1alpha1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
+		if _, err := r.ciliumCli.IsovalentV1().IsovalentBGPClusterConfigs().Update(ctx, cc, metav1.UpdateOptions{}); err != nil {
 			// According to the document of retry.RetryOnConflict
 			// > You have to return err itself here (not wrapped inside another error)
 			// > so that RetryOnConflict can identify it correctly.
