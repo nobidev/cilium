@@ -1,0 +1,99 @@
+hive start
+
+db/initialized
+
+# Add initial k8s resources.
+k8s/add node1.yaml ciliumnode1.yaml
+k8s/add policy1.yaml
+k8s/add ciliumendpoint1.yaml
+
+# Wait and check for in memory state
+db/show policy-config --columns ID,Endpoints,Generation,IsGateway,EgressIP,Groups policy-config
+* db/cmp policy-config policyconfig.expected.1 
+
+# Check that manager realizes expected bpf map state.
+egressha/policy-maps-dump policymap.actual
+* cmp policymap.actual policymap.expected.1
+
+-- policyconfig.expected.1 --
+ID        Endpoints       Generation   IsGateway   EgressIP    Groups
+policy1   [10.244.3.91]   1            true        100.1.2.3   [active=[172.18.0.3],healthy=[172.18.0.3],byGateway=map[172.18.0.3:100.1.2.3]]
+-- policymap.expected.1 --
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=100.1.2.3 gateway_ips=[172.18.0.3]
+-- node1.yaml --
+apiVersion: v1
+kind: Node
+metadata:
+  name: localnode1
+  uid: c57b0909-b567-48a3-865a-c1d1a17b545d
+status:
+  addresses:
+  - address: 172.18.0.3
+    type: InternalIP
+-- ciliumnode1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  generation: 1
+  labels:
+    kubernetes.io/hostname: workernode0
+    foo: bar
+  name: worker0
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  addresses:
+  - ip: 172.18.0.3
+    type: InternalIP
+-- policy1.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentEgressGatewayPolicy
+metadata:
+  generation: 1
+  name: policy1 
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  azAffinity: disabled
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressGroups:
+  - maxGatewayNodes: 0
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: kind-worker
+  excludedCIDRs: []
+  selectors:
+  - podSelector:
+      matchLabels:
+        foo: bar 
+status:
+  groupStatuses:
+  - activeGatewayIPs:
+    - 172.18.0.3
+    healthyGatewayIPs:
+    - 172.18.0.3
+    egressIPByGatewayIP: {"172.18.0.3": "100.1.2.3"}
+  observedGeneration: 1
+-- ciliumendpoint1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  generation: 1
+  labels:
+    name: client1
+    foo: bar
+  name: client1-795488bf5-2tplm
+  namespace: test1
+  uid: 7c22952d-25a0-409d-952c-60895b5c2a90
+status:
+  id: 2000
+  identity:
+    id: 1000
+    labels:
+    - k8s:foo=bar
+  networking:
+    addressing:
+    - ipv4: 10.244.3.91
+      ipv6: fd00:10:244:3::9c94
+    node: 172.18.0.5
+  state: ready
+
