@@ -28,19 +28,19 @@ jobs:
 
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: operator-generic
 
           - name: hubble-relay
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: hubble-relay
 
           - name: clustermesh-apiserver
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: clustermesh-apiserver
 
@@ -93,13 +93,13 @@ jobs:
         working-directory: ./enterprise/images
         run: |
           IMAGE_TAG=${{ steps.tag.outputs.tag }} \
+          SUFFIX="" \
           REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION }} \
           PUSH=true \
           RUNTIME_IMAGE=${{ matrix.base_image }} \
           UBI_IMAGE=${{ matrix.base_image }} \
           OPERATOR_VARIANT=${{ matrix.image_name }} \
           PLATFORMS=linux/amd64,linux/arm64 \
-          EXTRA_ARGS="--tag ${{ steps.tag.outputs.image_tag }}" \
           make ${{ matrix.name }}-image
 
       - name: Release Build ${{ matrix.name }} digest
