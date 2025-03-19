@@ -289,9 +289,11 @@ func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) strin
 }
 
 func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbService) string {
-	if model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
+	if model.isTCPProxyT1OnlyMode() {
 		return "random"
 	}
+
+	// Note: UDPProxy with T1-only uses maglev to provide UDP "session" support.
 
 	return "maglev"
 }
