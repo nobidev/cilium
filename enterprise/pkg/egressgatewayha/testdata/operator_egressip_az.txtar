@@ -1,0 +1,75 @@
+# This test script checks the egressIP allocation functionality of EGWHA.
+# A single policy (w/ egressIP IPAM and AZ affinity enabled) and 2 nodes are created.
+# These have k8s topology label set so we expect mappings for az -> GW and GW -> egressIP allocation.
+hive start
+k8s/add ciliumnode1.yaml ciliumnode2.yaml
+
+db/initialized
+
+k8s/add policy1.yaml
+
+# Should assign to azs
+db/show policy-config
+* cmp stdout policyconfig.state.expected.1
+
+db/list health --index=level --format=json --out=degraded.actual Degraded
+# Check health for degraded reporters.
+* cmp empty degraded.actual
+
+# TODO: Make health checker interface with statedb so that we can simulate
+# 	degradations without mocking.
+# 	Then we can test other az affinity modes.
+
+-- policyconfig.state.expected.1 --
+ID             Generation   Statuses
+iegp-policy1   0            [active=[172.18.0.120 172.18.0.121],activeByAZ=map[us-west-1a:[172.18.0.120] us-west-1b:[172.18.0.121]],healthy=[172.18.0.120 172.18.0.121],byGateway=map[172.18.0.120:10.100.255.48 172.18.0.121:10.100.255.49]]
+-- empty --
+-- ciliumnode1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    node.kubernetes.io/name: a-specific-node
+    topology.kubernetes.io/zone: us-west-1a
+  name: worker1a
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  addresses:
+  - ip: 172.18.0.120
+    type: InternalIP
+-- ciliumnode2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    node.kubernetes.io/name: a-specific-node
+    topology.kubernetes.io/zone: us-west-1b
+  name: worker1b
+  uid: 00000000-0000-0000-0000-000000000010
+spec:
+  addresses:
+  - ip: 172.18.0.121
+    type: InternalIP
+-- policy1.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentEgressGatewayPolicy
+metadata:
+  name: iegp-policy1
+  uid: 00000000-0000-0000-0000-000000000002
+spec:
+  azAffinity: "localOnly"
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressCIDRs:
+  - 10.100.255.48/28
+  - 10.100.255.96/28
+  egressGroups:
+  - nodeSelector:
+      matchLabels:
+        node.kubernetes.io/name: a-specific-node
+  selectors:
+  - podSelector:
+      matchLabels:
+        app.kubernetes.io/name: netshoot
+        io.kubernetes.pod.namespace: namespace-1
+

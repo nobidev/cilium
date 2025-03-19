@@ -1,0 +1,108 @@
+hive start
+k8s/add ciliumnode1.yaml policy1.yaml
+db/initialized
+
+db/list health --index=level --format=json --out=degraded.actual Degraded
+* cmp empty degraded.actual
+
+db/cmp policy-config policyconfig.state.expected.1 
+
+k8s/add ciliumnode2.yaml
+
+# After adding a new node, we should expect to see it in the groupStatus.
+* db/cmp policy-config policyconfig.state.expected.2
+
+sed 'worker-node' 'another-node' ciliumnode2.yaml
+k8s/update ciliumnode2.yaml 
+# Worker2 no longer selected so we should not see it in output anymore.
+* db/cmp policy-config policyconfig.state.expected.1
+
+sed 'another-node' 'worker-node' ciliumnode2.yaml
+k8s/update ciliumnode2.yaml 
+# Check policy and K8s resource status fields following
+# revert worker2 labels.
+* db/cmp policy-config policyconfig.state.expected.2
+
+# Check k8s yaml output
+k8s/get isovalent.com.v1.isovalentegressgatewaypolicies 'namespace-1-netshoot'
+* cmp stdout iegp-status.expected.yaml
+
+-- policyconfig.state.expected.1 --
+ID                     Generation   Statuses
+namespace-1-netshoot   0            [active=[172.18.0.120],healthy=[172.18.0.120]]
+-- policyconfig.state.expected.2 --
+ID                     Generation   Statuses
+namespace-1-netshoot   0            [active=[172.18.0.120 172.18.0.121],healthy=[172.18.0.120 172.18.0.121]]
+-- empty --
+-- ciliumnode1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    node.kubernetes.io/name: worker-node
+  name: worker1
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  addresses:
+  - ip: 172.18.0.120
+    type: InternalIP
+-- ciliumnode2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    node.kubernetes.io/name: worker-node
+  name: worker2
+  uid: 00000000-0000-0000-0000-000000000010
+spec:
+  addresses:
+  - ip: 172.18.0.121
+    type: InternalIP
+-- policy1.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentEgressGatewayPolicy
+metadata:
+  name: namespace-1-netshoot
+  uid: 00000000-0000-0000-0000-000000000002
+spec:
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressGroups:
+  - nodeSelector:
+      matchLabels:
+        node.kubernetes.io/name: worker-node
+  selectors:
+  - podSelector:
+      matchLabels:
+        app.kubernetes.io/name: netshoot
+        io.kubernetes.pod.namespace: namespace-1
+-- iegp-status.expected.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentEgressGatewayPolicy
+metadata:
+  creationTimestamp: null
+  name: namespace-1-netshoot
+  uid: 00000000-0000-0000-0000-000000000002
+spec:
+  azAffinity: ""
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressGroups:
+  - maxGatewayNodes: 0
+    nodeSelector:
+      matchLabels:
+        node.kubernetes.io/name: worker-node
+  excludedCIDRs: null
+  selectors:
+  - podSelector:
+      matchLabels:
+        app.kubernetes.io/name: netshoot
+        io.kubernetes.pod.namespace: namespace-1
+status:
+  groupStatuses:
+  - activeGatewayIPs:
+    - 172.18.0.120
+    - 172.18.0.121
+    healthyGatewayIPs:
+    - 172.18.0.120
+    - 172.18.0.121
