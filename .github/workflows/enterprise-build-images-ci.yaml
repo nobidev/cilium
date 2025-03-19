@@ -133,14 +133,16 @@ jobs:
           fi
 
           normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${tag}"
+          extra_tags="--tag ${normal_tag}"
 
           if [ -n "${floating_tag}" ]; then
             floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${floating_tag}"
-
             normal_tag="${normal_tag},${floating_normal_tag}"
+            extra_tags="${extra_tags} --tag ${floating_normal_tag}"
           fi
 
           echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
+          echo extra_tags=${extra_tags} >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
         shell: bash
@@ -200,7 +202,7 @@ jobs:
           RUNTIME_IMAGE=${{ matrix.base_image }} \
           UBI_IMAGE=${{ matrix.base_image }} \
           OPERATOR_VARIANT=${{ matrix.image_name }} \
-          EXTRA_ARGS="--tag ${{ steps.tag.outputs.normal_tag }}" \
+          EXTRA_ARGS="${{ steps.tag.outputs.extra_tags }}" \
           make ${{ matrix.name }}-image
 
       - name: CI Build ${{ matrix.name }} digest
