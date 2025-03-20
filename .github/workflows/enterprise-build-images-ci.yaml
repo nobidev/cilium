@@ -133,15 +133,14 @@ jobs:
           fi
 
           normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${tag}"
+          echo primary_tag=${normal_tag} >> $GITHUB_OUTPUT
           extra_tags="--tag ${normal_tag}"
 
           if [ -n "${floating_tag}" ]; then
             floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${floating_tag}"
-            normal_tag="${normal_tag},${floating_normal_tag}"
             extra_tags="${extra_tags} --tag ${floating_normal_tag}"
           fi
 
-          echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
           echo extra_tags=${extra_tags} >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
@@ -209,7 +208,7 @@ jobs:
         id: docker_digest
         shell: bash
         run: |
-          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.normal_tag }}")
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.primary_tag }}")
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Sign Container Images
@@ -221,11 +220,11 @@ jobs:
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: ${{ steps.tag.outputs.normal_tag }}
+          image: ${{ steps.tag.outputs.primary_tag }}
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.normal_tag }}
+          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
 
       - name: CI Image Releases digests
         shell: bash
@@ -234,7 +233,7 @@ jobs:
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi
-          echo "${{ steps.tag.outputs.normal_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "${{ steps.tag.outputs.primary_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
