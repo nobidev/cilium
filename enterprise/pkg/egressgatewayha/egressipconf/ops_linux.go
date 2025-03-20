@@ -65,7 +65,12 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 		return fmt.Errorf("failed to add egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
-	err = garp.SendOnInterfaceIdx(iface.Attrs().Index, entry.Addr)
+	garpIface, err := ops.garpSender.InterfaceByIndex(iface.Attrs().Index)
+	if err != nil {
+		return fmt.Errorf("failed to get device %s by index: %w", entry.Interface, err)
+	}
+
+	err = ops.garpSender.Send(garpIface, entry.Addr)
 	if err != nil {
 		ops.logger.Warn("failed to send gratuitous arp reply",
 			logfields.Address, entry.Addr,
@@ -275,12 +280,16 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 	return nil
 }
 
-func newOps(logger *slog.Logger) *ops {
-	return &ops{logger}
+func newOps(logger *slog.Logger, garpSender garp.Sender) *ops {
+	return &ops{
+		logger:     logger,
+		garpSender: garpSender,
+	}
 }
 
 type ops struct {
-	logger *slog.Logger
+	logger     *slog.Logger
+	garpSender garp.Sender
 }
 
 var _ reconciler.Operations[*tables.EgressIPEntry] = &ops{}
