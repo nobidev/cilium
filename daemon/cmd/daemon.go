@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"runtime"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -71,7 +73,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -90,11 +92,12 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ctx               context.Context
+	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
 	buildEndpointSem  *semaphore.Weighted
 	l7Proxy           *proxy.Proxy
-	proxyAccessLogger logger.ProxyAccessLogger
+	proxyAccessLogger accesslog.ProxyAccessLogger
 	envoyXdsServer    envoy.XDSServer
 	svc               service.ServiceManager
 	policy            policy.PolicyRepository
@@ -196,6 +199,8 @@ type Daemon struct {
 	maglevConfig maglev.Config
 
 	explbConfig experimental.Config
+
+	dnsProxy defaultdns.Proxy
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -365,6 +370,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d := Daemon{
 		ctx:               ctx,
+		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -416,6 +422,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		maglevConfig:      params.MaglevConfig,
 		dnsNameManager:    params.NameManager,
 		explbConfig:       params.ExpLBConfig,
+		dnsProxy:          params.DNSProxy,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -572,10 +579,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
-	if proxy.DefaultDNSProxy != nil {
+
+	if dnsProxy := d.dnsProxy.Get(); dnsProxy != nil {
 		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
 		cleaner.preCleanupFuncs.Add(func() {
-			proxy.DefaultDNSProxy.Cleanup()
+			dnsProxy.Cleanup()
 		})
 	}
 
@@ -770,6 +778,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		latestLocalNode, err := d.nodeLocalStore.Get(ctx)
 		if err == nil {
 			_, err = k8s.AnnotateNode(
+				d.logger,
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,

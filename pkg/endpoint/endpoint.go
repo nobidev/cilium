@@ -594,7 +594,7 @@ func createEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory
 		state:            "",
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}),
-		desiredPolicy:    policy.NewEndpointPolicy(policyGetter.GetPolicyRepository()),
+		desiredPolicy:    policy.NewEndpointPolicy(logging.DefaultSlogLogger, policyGetter.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
 		allocator:        allocator,
@@ -695,6 +695,10 @@ func (e *Endpoint) GetID() uint64 {
 
 // GetLabels returns the labels.
 func (e *Endpoint) GetLabels() labels.Labels {
+	if err := e.rlockAlive(); err != nil {
+		return nil
+	}
+	defer e.runlock()
 	if e.SecurityIdentity == nil {
 		return labels.Labels{}
 	}
@@ -702,8 +706,7 @@ func (e *Endpoint) GetLabels() labels.Labels {
 	return e.SecurityIdentity.Labels
 }
 
-// GetSecurityIdentity returns the security identity of the endpoint. It assumes
-// the endpoint's mutex is held.
+// GetSecurityIdentity returns the security identity of the endpoint.
 func (e *Endpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	if err := e.rlockAlive(); err != nil {
 		return nil, err
@@ -943,7 +946,7 @@ func parseEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory,
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
-	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
+	ep.desiredPolicy = policy.NewEndpointPolicy(logging.DefaultSlogLogger, policyGetter.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.forcePolicyCompute = true
 	ep.controllers = controller.NewManager()
@@ -1226,12 +1229,12 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	// Endpoint with desiredPolicy computed can get deleted while queueing for regeneration,
 	// must mark the policy as 'Ready' so that Detach does not complain about it.
 	e.desiredPolicy.Ready()
-	e.desiredPolicy.Detach()
+	e.desiredPolicy.Detach(logging.DefaultSlogLogger)
 	// Passing a new map of nil will purge all redirects
 	e.removeOldRedirects(nil, e.desiredPolicy.Redirects)
 
 	if e.realizedPolicy != e.desiredPolicy {
-		e.realizedPolicy.Detach()
+		e.realizedPolicy.Detach(logging.DefaultSlogLogger)
 		// Passing a new map of nil will purge all redirects
 		e.removeOldRedirects(nil, e.realizedPolicy.Redirects)
 	}

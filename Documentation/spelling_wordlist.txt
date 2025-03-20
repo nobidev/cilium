@@ -681,6 +681,7 @@ reconcilation
 reconciler
 reconcilers
 reconfigurations
+reconnection
 reconnections
 recv
 regenerations

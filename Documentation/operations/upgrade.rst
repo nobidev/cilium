@@ -293,6 +293,10 @@ communicating via the proxy must reconnect to re-establish connections.
 1.18 Upgrade Notes
 ------------------
 * ``cilium-dbg bpf policy`` now prints ``ANY`` and not ``reserved:unknown`` for a bpf policy entry that allows any peer identity.
+* The ``v2alpha1`` version of ``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfig`` and
+  ``CiliumBGPNodeConfigOverride`` CRDs was deprecated in favor of the ``v2`` version. Change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` for these CRDs in all your BGP configs. The previously deprecated field
+  ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
 
 
 Removed Options
@@ -300,7 +304,7 @@ Removed Options
 
 * The previously deprecated high-scale mode for ipcache has been removed.
 * The previously deprecated hubble-relay flag ``--dial-timeout`` has been removed.
-* The previously deprecated External Workflows feature has been removed.
+* The previously deprecated External Workloads feature has been removed. To remove stale resources, run ``kubectl delete crd ciliumexternalworkloads.cilium.io``. In addition, you might want to delete a K8s secret used by External Workloads. Run ``kubectl -n kube-system get secrets`` to find one.
 * The previously deprecated ``--datapath-mode=lb-only`` for plain Docker mode has been removed.
 * The ``update-ec2-adapter-limit-via-api`` CLI flag for the operator has been removed since the operator will only and always use the 
   EC2API to update the EC2 instance limit.
@@ -316,6 +320,8 @@ Deprecated Options
   ``--bpf-lb-only`` and will be removed in Cilium 1.19.
 * ``k8s-api-server``: This option has been deprecated in favor of ``k8s-api-server-urls``
   and will be removed in Cilium 1.19.
+* ``--l2-pod-announcements-interface`` has been deprecated in favor of 
+  ``--l2-pod-announcements-interface-pattern`` and will be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -335,6 +341,8 @@ Helm Options
 * ``k8s.apiServerURLs`` has been introduced to specify multiple Kubernetes API servers so that the agent can fail over
   to an active instance.
 * ``eni.updateEC2AdapterLimitViaAPI`` is removed since the operator will only and always use the EC2API to update the EC2 instance limit.
+* The Helm option ``l2PodAnnouncements.interface`` has been deprecated in favor of ``l2PodAnnouncements.interfacePattern``
+  and will be removed in Cilium 1.19.
 
 Agent Options
 ~~~~~~~~~~~~~

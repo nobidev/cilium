@@ -84,14 +84,14 @@ func (h NoOpHandlerWithListDone) OnListDone() {
 func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 	g.logger.Info("Starting the Double Write Metric Reporter")
 
-	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.Client()})
+	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.Client()})
 	if err != nil {
 		g.logger.Error("Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err
 	}
 	g.kvStoreBackend = kvStoreBackend
 
-	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{Store: nil, StoreSet: &atomic.Bool{}, Client: g.clientset, KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap})
+	crdBackend, err := identitybackend.NewCRDBackend(g.logger, identitybackend.CRDBackendConfiguration{Store: nil, StoreSet: &atomic.Bool{}, Client: g.clientset, KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap})
 	if err != nil {
 		g.logger.Error("Unable to initialize CRD backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err

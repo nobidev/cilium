@@ -51,6 +51,7 @@ jobs:
           - name: cilium-cli
             dockerfile: ./cilium-cli/Dockerfile
             platforms: linux/amd64
+            require-dir: cilium-cli
 
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
@@ -122,7 +123,7 @@ jobs:
              gc=false
 
       - name: Login to quay.io for CI
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -231,12 +232,21 @@ jobs:
           df -h
           docker buildx du
 
+      - name: Check build constraints
+        id: check
+        run: |
+          if [[ -z "${{ matrix.require-dir }}" ]] ||
+             [[ -d "${{ matrix.require-dir }}" ]]; then
+            echo build="true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           provenance: false
           context: .
@@ -252,6 +262,7 @@ jobs:
       - name: CI race detection Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_detect_race_condition
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           provenance: false
           context: .
@@ -269,6 +280,7 @@ jobs:
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_unstripped
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           provenance: false
           context: .
@@ -283,6 +295,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
@@ -321,6 +334,7 @@ jobs:
 
       - name: CI Image Releases digests
         shell: bash
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           mkdir -p image-digest/
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
@@ -335,6 +349,7 @@ jobs:
       # Upload artifact digests
       - name: Upload artifact digests
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest

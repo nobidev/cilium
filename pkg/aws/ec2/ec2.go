@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -20,6 +21,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -154,9 +156,7 @@ func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 func MergeTags(tagMaps ...map[string]string) map[string]string {
 	merged := make(map[string]string)
 	for _, tagMap := range tagMaps {
-		for k, v := range tagMap {
-			merged[k] = v
-		}
+		maps.Copy(merged, tagMap)
 	}
 	return merged
 }
@@ -244,6 +244,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
@@ -280,6 +281,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 				Values: []string{instanceID},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
@@ -338,6 +340,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances

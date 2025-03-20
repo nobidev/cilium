@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"path"
@@ -57,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
@@ -99,7 +101,7 @@ import (
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -504,10 +506,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
 	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
-
-	flags.Bool(option.KVstorePodNetworkSupport, defaults.KVstorePodNetworkSupport, "Enable the support for running the Cilium KVstore in pod network")
-	flags.MarkHidden(option.KVstorePodNetworkSupport)
-	option.BindEnv(vp, option.KVstorePodNetworkSupport)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
@@ -1458,7 +1456,7 @@ func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
 		controller.ControllerParams{
 			Group: cg,
 			DoFunc: func(ctx context.Context) error {
-				kvstore.RunLockGC()
+				kvstore.RunLockGC(logging.DefaultSlogLogger)
 				return nil
 			},
 			RunInterval: defaults.KVStoreStaleLockTimeout,
@@ -1470,13 +1468,13 @@ func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
 	if d.clientset.IsEnabled() {
-		log := log.WithField(logfields.LogSubsys, "etcd")
+		log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
 			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
 		}
 	}
 
-	if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+	if err := kvstore.Setup(context.TODO(), logging.DefaultSlogLogger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
 		addr := option.Config.KVStoreOpt[addrkey]
 
@@ -1513,6 +1511,7 @@ type daemonParams struct {
 
 	CfgResolver promise.Resolver[*option.DaemonConfig]
 
+	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
 	Health              cell.Health
 	Clientset           k8sClient.Clientset
@@ -1548,7 +1547,7 @@ type daemonParams struct {
 	L2Announcer         *l2announcer.L2Announcer
 	ServiceManager      service.ServiceManager
 	L7Proxy             *proxy.Proxy
-	ProxyAccessLogger   logger.ProxyAccessLogger
+	ProxyAccessLogger   accesslog.ProxyAccessLogger
 	EnvoyXdsServer      envoy.XDSServer
 	DB                  *statedb.DB
 	APILimiterSet       *rate.APILimiterSet
@@ -1585,6 +1584,7 @@ type daemonParams struct {
 	MaglevConfig        maglev.Config
 	NameManager         namemanager.NameManager
 	ExpLBConfig         experimental.Config
+	DNSProxy            defaultdns.Proxy
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

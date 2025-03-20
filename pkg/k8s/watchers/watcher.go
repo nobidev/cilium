@@ -5,11 +5,12 @@ package watchers
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -53,8 +54,6 @@ func init() {
 		k8s.K8sErrorHandler,
 	}
 }
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-watcher")
 
 type endpointManager interface {
 	LookupCEPName(string) *endpoint.Endpoint
@@ -115,7 +114,8 @@ type ipcacheManager interface {
 }
 
 type K8sWatcher struct {
-	resourceGroupsFn func(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
+	logger           *slog.Logger
+	resourceGroupsFn func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
 
 	clientset client.Clientset
 
@@ -141,7 +141,8 @@ type K8sWatcher struct {
 }
 
 func newWatcher(
-	resourceGroupsFn func(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string),
+	logger *slog.Logger,
+	resourceGroupsFn func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string),
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
@@ -156,6 +157,7 @@ func newWatcher(
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
+		logger:                    logger,
 		resourceGroupsFn:          resourceGroupsFn,
 		clientset:                 clientset,
 		k8sEventReporter:          k8sEventReporter,
@@ -229,14 +231,14 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
 
-func GetGroupsForCiliumResources(ciliumResources []string) ([]string, []string) {
+func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) ([]string, []string) {
 	ciliumGroups := make([]string, 0, len(ciliumResources))
 	waitOnlyList := make([]string, 0)
 
 	for _, r := range ciliumResources {
 		groupInfo, ok := ciliumResourceToGroupMapping[r]
 		if !ok {
-			log.Fatalf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r)
+			logging.Fatal(logger, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r))
 		}
 		switch groupInfo.kind {
 		case skip:
@@ -259,17 +261,17 @@ func GetGroupsForCiliumResources(ciliumResources []string) ([]string, []string) 
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
-	resources, cachesOnly := k.resourceGroupsFn(k.cfg)
+	resources, cachesOnly := k.resourceGroupsFn(k.logger, k.cfg)
 
-	log.Info("Enabling k8s event listener")
+	k.logger.Info("Enabling k8s event listener")
 	k.enableK8sWatchers(ctx, resources)
 	close(k.k8sPodWatcher.controllersStarted)
 
 	go func() {
-		log.Info("Waiting until all pre-existing resources have been received")
+		k.logger.Info("Waiting until all pre-existing resources have been received")
 		allResources := append(resources, cachesOnly...)
 		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
-			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
+			logging.Fatal(k.logger, "Timed out waiting for pre-existing resources to be received; exiting", logfields.Error, err)
 		}
 		close(cachesSynced)
 	}()
@@ -280,54 +282,49 @@ type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
 
-	// KVstoreEnabledWithoutPodNetworkSupport returns whether Cilium is configured to connect
-	// to an external KVStore, and the support for running it in pod network is disabled.
+	// KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
 	// In this case, we don't need to start the CiliumNode and CiliumEndpoint watchers at
-	// all, given that the CRD to kvstore handover logic is not required.
-	KVstoreEnabledWithoutPodNetworkSupport() bool
+	// all, given that equivalent information is propagated via the KVStore.
+	KVstoreEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
 func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []string) {
 	if !k.clientset.IsEnabled() {
-		log.Debug("Not enabling k8s event listener because k8s is not enabled")
+		k.logger.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return
 	}
-	asyncControllers := &sync.WaitGroup{}
 
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
 		case resources.K8sAPIGroupPodV1Core:
-			asyncControllers.Add(1)
-			go k.k8sPodWatcher.podsInit(asyncControllers)
+			k.k8sPodWatcher.podsInit(ctx)
 		case resources.K8sAPIGroupNamespaceV1Core:
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
-			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
-				asyncControllers.Add(1)
-				go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabled() {
+				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
 		case resources.K8sAPIGroupServiceV1Core:
 			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
-			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
-				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabled() {
+				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
 			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.k8sCiliumLRPWatcher.ciliumLocalRedirectPolicyInit()
 		default:
-			log.WithFields(logrus.Fields{
-				logfields.Resource: r,
-			}).Fatal("Not listening for Kubernetes resource updates for unhandled type")
+			logging.Fatal(k.logger,
+				"Not listening for Kubernetes resource updates for unhandled type",
+				logfields.Resource, r,
+			)
 		}
 	}
-
-	asyncControllers.Wait()
 }
 
 func (k *K8sWatcher) StopWatcher() {
