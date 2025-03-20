@@ -1241,10 +1241,10 @@ spec:
                     type: object
                     x-kubernetes-validations:
                     - message: Force deployment mode t1-only isn't compatible with
-                        persistent backends and rate limits
+                        rate limits
                       rule: (!has(self.forceDeploymentMode) || self.forceDeploymentMode
                         == 'auto' || self.forceDeploymentMode == 't1-t2' || self.routes.all(x,
-                        !has(x.persistentBackend) && !has(x.rateLimits)) )
+                        !has(x.rateLimits)) )
                   tlsPassthrough:
                     description: |-
                       Defining this stanza enables TLSPassthrough application that proxies

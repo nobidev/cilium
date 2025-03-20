@@ -243,6 +243,34 @@ func (r lbApplications) getHTTPSConnectionRateLimits() *lbServiceConnectionRateL
 	return r.httpsProxy.rateLimits
 }
 
+func (r *lbService) usesTCPProxyPersistentBackendsWithSourceIP() bool {
+	if r.applications.tcpProxy == nil {
+		return false
+	}
+
+	for _, route := range r.applications.tcpProxy.routes {
+		if route.persistentBackend != nil && route.persistentBackend.sourceIP {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *lbService) usesUDPProxyPersistentBackendsWithSourceIP() bool {
+	if r.applications.udpProxy == nil {
+		return false
+	}
+
+	for _, route := range r.applications.udpProxy.routes {
+		if route.persistentBackend != nil && route.persistentBackend.sourceIP {
+			return true
+		}
+	}
+
+	return false
+}
+
 type lbApplicationHTTPProxy struct {
 	httpConfig          *lbServiceHTTPConfig
 	connectionFiltering *lbServiceHTTPConnectionFiltering

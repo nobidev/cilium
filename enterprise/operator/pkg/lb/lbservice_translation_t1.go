@@ -290,11 +290,11 @@ func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) strin
 }
 
 func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbService) string {
-	if model.isTCPProxyT1OnlyMode() {
+	if model.isTCPProxyT1OnlyMode() && !model.usesTCPProxyPersistentBackendsWithSourceIP() {
 		return "random"
 	}
 
-	// Note: UDPProxy with T1-only uses maglev to provide UDP "session" support.
+	// Note: UDPProxy with deployment mode T1-only uses maglev to provide UDP "session" support.
 
 	return "maglev"
 }
@@ -366,14 +366,12 @@ func (r *lbServiceT1Translator) getServiceLoadBalancingT1SourceRangesPolicy(mode
 }
 
 func (r *lbServiceT1Translator) getServiceSessionAffinity(model *lbService) corev1.ServiceAffinity {
-	if !model.isUDPProxyT1OnlyMode() {
+	if !model.isTCPProxyT1OnlyMode() && !model.isUDPProxyT1OnlyMode() {
 		return corev1.ServiceAffinityNone
 	}
 
-	for _, route := range model.applications.udpProxy.routes {
-		if route.persistentBackend != nil && route.persistentBackend.sourceIP {
-			return corev1.ServiceAffinityClientIP
-		}
+	if model.usesTCPProxyPersistentBackendsWithSourceIP() || model.usesUDPProxyPersistentBackendsWithSourceIP() {
+		return corev1.ServiceAffinityClientIP
 	}
 
 	return corev1.ServiceAffinityNone

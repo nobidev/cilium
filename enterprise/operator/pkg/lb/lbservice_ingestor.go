@@ -1002,7 +1002,7 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 
 func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
 	for _, ar := range app.Routes {
-		if ar.RateLimits != nil || ar.PersistentBackend != nil || referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
+		if ar.RateLimits != nil || referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2
 		}
 

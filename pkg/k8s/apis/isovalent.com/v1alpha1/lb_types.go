@@ -426,7 +426,7 @@ type LBServiceSecretRef struct {
 	Name string `json:"name"`
 }
 
-// +kubebuilder:validation:XValidation:message="Force deployment mode t1-only isn't compatible with persistent backends and rate limits", rule="(!has(self.forceDeploymentMode) || self.forceDeploymentMode == 'auto' || self.forceDeploymentMode == 't1-t2' || self.routes.all(x, !has(x.persistentBackend) && !has(x.rateLimits)) )"
+// +kubebuilder:validation:XValidation:message="Force deployment mode t1-only isn't compatible with rate limits", rule="(!has(self.forceDeploymentMode) || self.forceDeploymentMode == 'auto' || self.forceDeploymentMode == 't1-t2' || self.routes.all(x, !has(x.rateLimits)) )"
 type LBServiceApplicationTCPProxy struct {
 	// Enforces specific implementation to be used to realize
 	// TCPProxy application. This configuration should be used
