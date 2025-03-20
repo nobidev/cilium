@@ -7,6 +7,8 @@ import (
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
@@ -2009,7 +2011,55 @@ type LBDeployment struct {
 	Status LBDeploymentStatus `json:"status,omitempty"`
 }
 
-type LBDeploymentSpec struct{}
+type LBDeploymentSpec struct {
+	// Services selects the LBServices that should be
+	// handled by this deployment.
+	//
+	// +kubebuilder:validation:Required
+	Services LBDeploymentServices `json:"services"`
+
+	// Nodes defines the T1 & T2 nodes that should be used to execute
+	// T1 respective T2 functionality for thee selected LBServices.
+	//
+	// +kubebuilder:validation:Required
+	Nodes LBDeploymentNodes `json:"nodes"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.labelSelector))"
+type LBDeploymentServices struct {
+	// LabelSelector is a label selector that selects the LBServices within the same namespace.
+	//
+	// Note: An empty label selector (neither MatchLabels nor MatchExpressions defined) matches all LBServices in the same namespace.
+	//
+	// +kubebuilder:validation:Optional
+	LabelSelector *slim_metav1.LabelSelector `json:"labelSelector,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.labelSelectors))"
+type LBDeploymentNodes struct {
+	// LabelSelectors selects the T1 & T2 nodes with k8s label selectors.
+	//
+	// +kubebuilder:validation:Optional
+	LabelSelectors *LBDeploymentNodesLabelSelectors `json:"labelSelectors,omitempty"`
+}
+
+type LBDeploymentNodesLabelSelectors struct {
+	// T1 is a label selector that determines on which nodes
+	// T1 functionality should be executed for the selected LBServices.
+	//
+	// Note: An empty label selector (neither MatchLabels nor MatchExpressions defined) matches all nodes.
+	//
+	// +kubebuilder:validation:Required
+	T1 slim_metav1.LabelSelector `json:"t1"`
+
+	// T2 is a label selector that determines on which nodes
+	// T2 functionality should be executed for the selected LBServices.
+	//
+	// Note: An empty label selector (neither MatchLabels nor MatchExpressions defined) matches all nodes.
+	//
+	// +kubebuilder:validation:Required
+	T2 slim_metav1.LabelSelector `json:"t2"`
+}
 
 type LBDeploymentStatus struct {
 	// The current conditions of the LBDeployment.
@@ -2037,6 +2087,15 @@ type LBDeploymentList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []LBDeployment `json:"items"`
+}
+
+func (r *LBDeployment) GetStatusCondition(conditionType string) *metav1.Condition {
+	for _, c := range r.Status.Conditions {
+		if c.Type == conditionType {
+			return &c
+		}
+	}
+	return nil
 }
 
 func (r *LBDeployment) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
