@@ -13,7 +13,7 @@ metadata:
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: random
-    service.cilium.io/node-selector: service.cilium.io/node in ( t1 , t1-t2 )
+    service.cilium.io/node-selector: service.cilium.io/node in (t1,t1-t2)
     service.cilium.io/src-ranges-policy: deny
     service.cilium.io/type: "LoadBalancer"
   labels:

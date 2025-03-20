@@ -26,12 +26,15 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
 type testcase struct {
-	name      string
-	t1NodeIPs []string
-	t2NodeIPs []string
+	name            string
+	t1NodeIPs       []string
+	t2NodeIPs       []string
+	t1LabelSelector labels.Selector
+	t2LabelSelector labels.Selector
 }
 
 const (
@@ -49,10 +52,17 @@ func TestTranslation(t *testing.T) {
 			continue
 		}
 
+		t1LabelSelector, err := labels.Parse("service.cilium.io/node in ( t1, t1-t2 )")
+		assert.NoError(t, err)
+		t2LabelSelector, err := labels.Parse("service.cilium.io/node in ( t2, t1-t2 )")
+		assert.NoError(t, err)
+
 		testCases = append(testCases, testcase{
-			name:      d.Name(),
-			t1NodeIPs: []string{"172.18.0.0", "172.18.0.1"}, // TODO: define nodes as YAML?
-			t2NodeIPs: []string{"172.18.0.3", "172.18.0.2"}, // TODO: define nodes as YAML?
+			name:            d.Name(),
+			t1NodeIPs:       []string{"172.18.0.0", "172.18.0.1"}, // TODO: define nodes as YAML?
+			t2NodeIPs:       []string{"172.18.0.3", "172.18.0.2"}, // TODO: define nodes as YAML?
+			t1LabelSelector: t1LabelSelector,                      // TODO: define nodes as YAML?
+			t2LabelSelector: t2LabelSelector,                      // TODO: define nodes as YAML?
 		})
 
 	}
@@ -110,7 +120,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := &ingestor{}
 
-		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs, inputSecrets)
+		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs, tc.t1LabelSelector, tc.t2LabelSelector, inputSecrets)
 
 		// Input Config
 		config := reconcilerConfig{}

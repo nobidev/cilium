@@ -10,8 +10,8 @@ spec:
     - key: service.cilium.io/node
       operator: In
       values:
-      - t2
       - t1-t2
+      - t2
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       address:

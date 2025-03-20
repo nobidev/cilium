@@ -31,9 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
-	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
@@ -45,7 +46,6 @@ const (
 
 	logfieldIPv4Assigned        = "ipv4Assigned"
 	logfieldStatusConditionsMet = "statusConditionsMet"
-	logfieldNodeType            = "nodeType"
 	logfieldResult              = "result"
 )
 
@@ -147,6 +147,8 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBServicesByIndex(lbServiceVIPIndexName)).
 		// Watch for changed LBBackend resources and trigger LBServices that reference the changed backend
 		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBServicesByIndex(lbServiceBackendIndexName)).
+		// Watch for changed LBDeployment resources and trigger all LBServices
+		Watches(&isovalentv1alpha1.LBDeployment{}, r.enqueueAllLBServices(true)).
 		// Watch for changed Secrets resources and trigger LBServices that reference the changed Secret.
 		// This is mainly to update the status. The actual content of the Secrets are getting transferred via sDS.
 		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName)).
@@ -157,7 +159,7 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBService
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// CiliumNode changes should trigger a reconciliation of all LBServices
-		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices())).
+		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices(false))).
 		Complete(r)
 }
 
@@ -216,14 +218,21 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Load dependent resources that have relevant input for the model
 	//
 
-	t1NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT1, lbNodeTypeT1AndT2)
+	// Try loading relevant LBDeployments that match this LBService
+	// -> can be an empty list
+	deployments, err := r.loadDeployments(ctx, lbsvc)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+		return fmt.Errorf("failed to load LBDeployments: %w", err)
 	}
 
-	t2NodeIPs, err := r.loadNodeAddressesByType(ctx, lbNodeTypeT2, lbNodeTypeT1AndT2)
+	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+		return fmt.Errorf("failed to retrieve node label selectors: %w", err)
+	}
+
+	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, *t1LabelSelector, *t2LabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
 	}
 
 	// Try loading referenced LBVIP
@@ -264,7 +273,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs, referencedSecrets)
+	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs, *t1LabelSelector, *t2LabelSelector, referencedSecrets)
 
 	r.updateAssignedIpInStatus(model, lbsvc)
 	r.updateDeploymentModeInStatus(model, lbsvc)
@@ -353,6 +362,37 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	return nil
 }
 
+func (r *lbServiceReconciler) loadDeployments(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]isovalentv1alpha1.LBDeployment, error) {
+	matchingDeployments := []isovalentv1alpha1.LBDeployment{}
+
+	deploymentList := &isovalentv1alpha1.LBDeploymentList{}
+	if err := r.client.List(ctx, deploymentList, client.InNamespace(lbsvc.Namespace)); err != nil {
+		return nil, err
+	}
+
+	for _, depl := range deploymentList.Items {
+		if depl.Spec.Services.LabelSelector != nil {
+			selector, err := slim_metav1.LabelSelectorAsSelector(depl.Spec.Services.LabelSelector)
+			if err != nil {
+				// In case of an error, skip the LBDeployment. This should never be the case as this is already validated
+				// by the LBDeployment reconciler.
+				r.logger.Debug("invalid service labelselector in LBDeployment",
+					logfields.K8sNamespace, lbsvc.Namespace,
+					logfields.Name, depl.Name,
+					logfields.Service, lbsvc.Name,
+				)
+				continue
+			}
+
+			if selector.Matches(labels.Set(lbsvc.Labels)) {
+				matchingDeployments = append(matchingDeployments, depl)
+			}
+		}
+	}
+
+	return matchingDeployments, nil
+}
+
 func (r *lbServiceReconciler) loadVIP(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*isovalentv1alpha1.LBVIP, error) {
 	vip := &isovalentv1alpha1.LBVIP{}
 	if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: lbsvc.Spec.VIPRef.Name}, vip); err != nil {
@@ -434,7 +474,68 @@ func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalen
 	return svc, nil
 }
 
-func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeTypes ...string) ([]string, error) {
+func (r *lbServiceReconciler) getTierLabelSelectors(deployments []isovalentv1alpha1.LBDeployment) (*labels.Selector, *labels.Selector, error) {
+	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, func() *slim_metav1.LabelSelector {
+		if len(deployments) == 1 && deployments[0].Spec.Nodes.LabelSelectors != nil {
+			return &deployments[0].Spec.Nodes.LabelSelectors.T1
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create T1 label selector: %w", err)
+	}
+
+	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, func() *slim_metav1.LabelSelector {
+		if len(deployments) == 1 && deployments[0].Spec.Nodes.LabelSelectors != nil {
+			return &deployments[0].Spec.Nodes.LabelSelectors.T2
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create T2 label selector: %w", err)
+	}
+
+	return t1LS, t2LS, nil
+}
+
+func (r *lbServiceReconciler) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, deploymentLSProvider func() *slim_metav1.LabelSelector) (*labels.Selector, error) {
+	t1LabelSelector, err := slim_metav1.LabelSelectorAsSelector(&defaultLS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve labelselector: %w", err)
+	}
+
+	if deploymentLS := deploymentLSProvider(); deploymentLS != nil {
+
+		t1LabelSelectorDeployment, err := slim_metav1.LabelSelectorAsSelector(deploymentLS)
+		if err != nil {
+			// In case of an error, fallback to the default labelselector. This should never be the case as this is already validated
+			// by the LBDeployment reconciler.
+			r.logger.Warn("Failed to parse node labelselector of LBDeployment - falling back to default labelselector")
+
+			return &t1LabelSelector, nil
+		}
+
+		return &t1LabelSelectorDeployment, nil
+	}
+
+	return &t1LabelSelector, nil
+}
+
+func (r *lbServiceReconciler) loadT1AndT2NodeIPs(ctx context.Context, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
+	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, t1LabelSelector)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+	}
+
+	t2NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, t2LabelSelector)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+	}
+
+	return t1NodeIPs, t2NodeIPs, nil
+}
+
+func (r *lbServiceReconciler) loadNodeAddressesByLabelSelector(ctx context.Context, selector labels.Selector) ([]string, error) {
 	nodeStore, err := r.nodeSource.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node store: %w", err)
@@ -444,7 +545,7 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 
 	allNodes := nodeStore.List()
 	for _, cn := range allNodes {
-		if v := cn.Labels[ossannotation.ServiceNodeExposure]; slices.Contains(nodeTypes, v) {
+		if selector.Matches(labels.Set(cn.Labels)) {
 			var nodeIP string
 			for _, addr := range cn.Spec.Addresses {
 				if addr.Type == addressing.NodeInternalIP {
@@ -455,7 +556,6 @@ func (r *lbServiceReconciler) loadNodeAddressesByType(ctx context.Context, nodeT
 			if nodeIP == "" {
 				r.logger.Warn("Could not find InternalIP for CiliumNode",
 					logfields.Resource, cn.Name,
-					logfieldNodeType, v,
 				)
 				continue
 			}
@@ -613,10 +713,15 @@ func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName stri
 	})
 }
 
-func (r *lbServiceReconciler) enqueueAllLBServices() handler.EventHandler {
+func (r *lbServiceReconciler) enqueueAllLBServices(onlySameNamespace bool) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
-		if err := r.client.List(ctx, &lbList); err != nil {
+		listOpts := []client.ListOption{}
+		if onlySameNamespace {
+			listOpts = append(listOpts, client.InNamespace(obj.GetNamespace()))
+		}
+
+		if err := r.client.List(ctx, &lbList, listOpts...); err != nil {
 			r.logger.Warn("Failed to list LBServices", logfields.Error, err)
 			return nil
 		}

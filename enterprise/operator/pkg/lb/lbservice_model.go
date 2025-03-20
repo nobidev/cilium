@@ -11,6 +11,7 @@
 package lb
 
 import (
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
@@ -28,6 +29,8 @@ type lbService struct {
 	referencedBackends  map[string]backend
 	t1NodeIPs           []string
 	t2NodeIPs           []string
+	t1LabelSelector     labels.Selector
+	t2LabelSelector     labels.Selector
 }
 
 type lbVIP struct {

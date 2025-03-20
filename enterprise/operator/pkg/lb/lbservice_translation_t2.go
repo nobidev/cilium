@@ -62,7 +62,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -134,25 +133,19 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		envoyResources = append(envoyResources, endpointXdsResource)
 	}
 
+	t2NodeLabelselector, err := slim_metav1.ParseToLabelSelector(model.t2LabelSelector.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse T2 node label selector: %w", err)
+	}
+
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
 			Name:      model.getOwningResourceName(),
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
-			NodeSelector: &slim_metav1.LabelSelector{
-				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
-					{
-						Key:      ossannotation.ServiceNodeExposure,
-						Operator: slim_metav1.LabelSelectorOpIn,
-						Values: []string{
-							lbNodeTypeT2,
-							lbNodeTypeT1AndT2,
-						},
-					},
-				},
-			},
-			Resources: envoyResources,
+			NodeSelector: t2NodeLabelselector,
+			Resources:    envoyResources,
 		},
 	}, nil
 }

@@ -20,11 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
 type ingestor struct{}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string, referencedSecrets map[string]*corev1.Secret) *lbService {
+func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector, referencedSecrets map[string]*corev1.Secret) *lbService {
 	referencedBackends := r.toReferencedBackends(backends)
 
 	return &lbService{
@@ -41,6 +42,8 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 		referencedBackends:  referencedBackends,
 		t1NodeIPs:           t1NodeIPs,
 		t2NodeIPs:           t2NodeIPs,
+		t1LabelSelector:     t1LabelSelector,
+		t2LabelSelector:     t2LabelSelector,
 	}
 }
 
