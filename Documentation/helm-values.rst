@@ -2319,11 +2319,63 @@
    * - :spelling:ignore:`hubble.timescape`
      - Enables experimental support for using integrated Hubble Timescape.
      - object
-     - ``{"affinity":{},"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"affinity":{},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
+     - ``{"affinity":{},"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"metrics":{"clickhouse":{"enabled":true},"enabled":true,"serviceMonitor":{"annotations":{},"clickhouse":{"interval":"10s","metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"affinity":{},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"metrics":{"enabled":true,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
    * - :spelling:ignore:`hubble.timescape.affinity`
      - Affinity for hubble-timescape
      - object
      - ``{}``
+   * - :spelling:ignore:`hubble.timescape.metrics.clickhouse.enabled`
+     - Enables exporting timescape clickhouse metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`hubble.timescape.metrics.enabled`
+     - Enables exporting timescape metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.annotations`
+     - Annotations to add to ServiceMonitor
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.clickhouse.interval`
+     - Interval for scrape metrics (Clickhouse metrics)
+     - string
+     - ``"10s"``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.clickhouse.metricRelabelings`
+     - Metrics relabeling configs for the ServiceMonitor (Clickhouse metrics)
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.clickhouse.relabelings`
+     - Relabeling configs for the ServiceMonitor (Clickhouse metrics)
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.clickhouse.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed (Clickhouse metrics)
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.enabled`
+     - Enable service monitor. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.interval`
+     - Interval for scrape metrics
+     - string
+     - ``"10s"``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.labels`
+     - Labels to add to ServiceMonitor
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.metricRelabelings`
+     - Metrics relabeling configs for the ServiceMonitor
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.relabelings`
+     - Relabeling configs for the ServiceMonitor
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.metrics.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.timescape.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2372,6 +2424,38 @@
      - UI session key is used to encrypt the UI session state. Should be a randomly generated password with at least 16 characters.
      - object
      - ``{"secretKey":"session-key","secretName":"hubble-timescape-ui"}``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.enabled`
+     - Enables exporting vector metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.annotations`
+     - Annotations to add to ServiceMonitor
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.enabled`
+     - Enable service monitor. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.interval`
+     - Interval for scrape metrics
+     - string
+     - ``"10s"``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.labels`
+     - Labels to add to ServiceMonitor
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.metricRelabelings`
+     - Metrics relabeling configs for the ServiceMonitor
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.relabelings`
+     - Relabeling configs for the ServiceMonitor
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.scrapeTimeout`
+     - Timeout after which scrape is considered to be failed.
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.timescape.vector.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object

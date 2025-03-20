@@ -73,11 +73,13 @@ data:
         {{- else }}
         uri: http://hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local.:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
         {{- end }}
+      {{- if .Values.hubble.timescape.vector.metrics.enabled }}
       prom_exporter:
         address: 0.0.0.0:9090
         inputs:
         - internal_metrics
         type: prometheus_exporter
+      {{- end }}
     sources:
       flow_logs:
         include:
@@ -91,8 +93,10 @@ data:
         include:
         - {{ .Values.hubble.k8sExporter.export.filePath }}
         type: file
+      {{- if .Values.hubble.timescape.vector.metrics.enabled }}
       internal_metrics:
         type: internal_metrics
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -107,10 +111,12 @@ spec:
       port: 8686
       protocol: TCP
       targetPort: 8686
+    {{- if .Values.hubble.timescape.vector.metrics.enabled }}
     - name: prom-exporter
       port: 9090
       protocol: TCP
       targetPort: 9090
+    {{- end }}
   selector: {{ include "cilium.vector.labels" . | nindent 4 }}
   type: ClusterIP
 ---
@@ -126,10 +132,12 @@ spec:
       port: 8686
       protocol: TCP
       targetPort: 8686
+    {{- if .Values.hubble.timescape.vector.metrics.enabled }}
     - name: prom-exporter
       port: 9090
       protocol: TCP
       targetPort: 9090
+    {{- end }}
   selector: {{ include "cilium.vector.labels" . | nindent 4 }}
   type: ClusterIP
 ---
@@ -194,9 +202,11 @@ spec:
             - name: api
               containerPort: 8686
               protocol: TCP
+            {{- if .Values.hubble.timescape.vector.metrics.enabled }}
             - name: prom-exporter
               containerPort: 9090
               protocol: TCP
+            {{- end }}
           resources: {{ .Values.hubble.timescape.vector.resources | toYaml | nindent 12 }}
           securityContext:
             {{- toYaml .Values.hubble.timescape.vector.securityContext | nindent 12 }}

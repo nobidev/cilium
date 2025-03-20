@@ -19,6 +19,7 @@ Checkpatch
 Cheng
 Chewbacca
 Chun
+Clickhouse
 Clientset
 Cloudflare
 ConnectX
@@ -187,8 +188,8 @@ battlestation
 bcc
 behaviour
 benchmarking
-bfd
 besteffort
+bfd
 bgp
 blackholing
 blockedConfigOverrides
@@ -229,6 +230,7 @@ classful
 classid
 cleanBpfState
 cli
+clickhouse
 clientsets
 cls
 clusterIP
