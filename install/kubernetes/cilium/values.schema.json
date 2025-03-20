@@ -4090,6 +4090,23 @@
               "items": {},
               "type": "array"
             },
+            "trimmer": {
+              "properties": {
+                "flowCount": {
+                  "type": "integer"
+                },
+                "intervalMinutes": {
+                  "type": "integer"
+                },
+                "timout": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "ttl": {
               "type": [
                 "null",

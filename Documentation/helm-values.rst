@@ -2317,9 +2317,9 @@
      - string
      - ``"/var/run/cilium/hubble.sock"``
    * - :spelling:ignore:`hubble.timescape`
-     - Enables experimental support for using integrated Hubble Timescape.
+     - Enables support for integrated Hubble Timescape.
      - object
-     - ``{"affinity":{},"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"metrics":{"clickhouse":{"enabled":true},"enabled":true,"serviceMonitor":{"annotations":{},"clickhouse":{"interval":"10s","metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"affinity":{},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"metrics":{"enabled":true,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
+     - ``{"affinity":{},"clickhouse":{"image":{"digest":"sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f","override":null,"pullPolicy":"Always","repository":"docker.io/clickhouse/clickhouse-server","tag":"24.8.12.28-alpine","useDigest":true},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape","tag":"v1.6.0","useDigest":false},"metrics":{"clickhouse":{"enabled":true},"enabled":true,"serviceMonitor":{"annotations":{},"clickhouse":{"interval":"10s","metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"trimmer":{"flowCount":0,"intervalMinutes":20,"timout":null},"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"ClientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/isovalent/hubble-timescape-ui","tag":"v1.6.0"},"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}},"vector":{"affinity":{},"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.44.0-distroless-libc","useDigest":false},"metrics":{"enabled":true,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
    * - :spelling:ignore:`hubble.timescape.affinity`
      - Affinity for hubble-timescape
      - object
@@ -2380,6 +2380,10 @@
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
      - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`hubble.timescape.persistence.enabled`
+     - Enables persistent storage for Hubble Timescape using a PVC. If disabled, timescape will run on an ephemeral disk and all flows will be lost on restart.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.timescape.tls.client.existingSecret`
      - Name of the Secret containing the certificate and key for the Timescape PushAPI client. If specified, the certificate and key need to be managed separately and no certificate or key will be generated by the chart.
      - string
@@ -2400,6 +2404,26 @@
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.timescape.trimmer`
+     - When enabled, timescape will periodically trim the number of stored flows to the configured max number. NOTE: This is designed to act as a fallback to prevent storage overflow in exceptional cases and not as the main method to limit storage usage under normal operation. See ``.hubble.timescape.ttl``.
+     - object
+     - ``{"flowCount":0,"intervalMinutes":20,"timout":null}``
+   * - :spelling:ignore:`hubble.timescape.trimmer.flowCount`
+     - Desired max number of flows stored. If 0 or null, trimming flows is disabled.
+     - int
+     - ``0``
+   * - :spelling:ignore:`hubble.timescape.trimmer.intervalMinutes`
+     - Trimmer interval, in minutes. The trimmer function will run once per interval. Must be a positive integer.
+     - int
+     - ``20``
+   * - :spelling:ignore:`hubble.timescape.trimmer.timout`
+     - Trimmer timeout specified as a Go duration. Defaults to the configured Trimmer interval. Examples: 30s, 1m, 5m, 1h @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.timescape.ttl`
+     - Configures the time-to-live for flows. Flows older than the TTL are automatically pruned. This is the main method to limit storage usage under normal operation. Defaults to 6 hours or 1 hour if Timescape runs without persistent storage. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.timescape.ui.auth.oidc.ClientID`
      - OIDC application client ID @schema type: [null, string] @schema
      - string

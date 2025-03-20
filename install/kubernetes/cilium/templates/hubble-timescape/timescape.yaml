@@ -531,8 +531,9 @@ data:
     migrate:
       clickhouse-nodes-count: "0"
     trimmer:
-      flows-count:
-      timeout: 60m
+      flows-count: {{ .Values.hubble.timescape.trimmer.flowsCount }}
+      trim-interval: {{ printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes }}
+      timeout: {{ .Values.hubble.timescape.trimmer.timeout | default (printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes) }}
 {{- if .Values.hubble.timescape.ui.enabled }}
 ---
 apiVersion: v1

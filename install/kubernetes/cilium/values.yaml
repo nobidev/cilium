@@ -2012,20 +2012,45 @@ hubble:
     reasons:
       - auth_required
       - policy_denied
-  # -- Enables experimental support for using integrated Hubble Timescape.
+  # -- Enables support for integrated Hubble Timescape.
   timescape:
     enabled: false
     persistence:
+      # -- Enables persistent storage for Hubble Timescape using a PVC. If
+      # disabled, timescape will run on an ephemeral disk and all flows will be
+      # lost on restart.
       enabled: false
       volumeSize: 10Gi
       # @schema
       # type: [null, string]
       # @schema
       storageClassName: ~
+    # -- Configures the time-to-live for flows. Flows older than the TTL are
+    # automatically pruned. This is the main method to limit storage usage
+    # under normal operation. Defaults to 6 hours or 1 hour if Timescape runs
+    # without persistent storage.
     # @schema
     # type: [null, string]
     # @schema
     ttl: ~
+    # -- When enabled, timescape will periodically trim the number of stored
+    # flows to the configured max number. NOTE: This is designed to act as a
+    # fallback to prevent storage overflow in exceptional cases and not as the
+    # main method to limit storage usage under normal operation. See
+    # `.hubble.timescape.ttl`.
+    trimmer:
+      # -- Desired max number of flows stored. If 0 or null, trimming flows is
+      # disabled.
+      flowCount: 0
+      # -- Trimmer interval, in minutes. The trimmer function will run once per
+      # interval. Must be a positive integer.
+      intervalMinutes: 20
+      # -- Trimmer timeout specified as a Go duration. Defaults to the configured Trimmer interval.
+      # Examples: 30s, 1m, 5m, 1h
+      # @schema
+      # type: [null, string]
+      # @schema
+      timout: ~
     image:
       # @schema
       # type: [null, string]
