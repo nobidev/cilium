@@ -12,14 +12,23 @@ package ilb
 
 import (
 	"fmt"
-	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
-func TestTCPProxyPersistentBackend(t T) {
+func TestTCPProxyT1OnlyPersistentBackend(t T) {
+	testTCPProxyPersistentBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1)
+}
+
+func TestTCPProxyT1T2PersistentBackend(t T) {
+	testTCPProxyPersistentBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2)
+}
+
+func TestTCPProxyAutoPersistentBackend(t T) {
+	testTCPProxyPersistentBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto)
+}
+
+func testTCPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
 	if skipIfOnSingleNode(">1 FRR clients are not supported") {
 		return
 	}
@@ -57,7 +66,7 @@ func TestTCPProxyPersistentBackend(t T) {
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
+	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -74,23 +83,5 @@ func TestTCPProxyPersistentBackend(t T) {
 		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
 		t.Log("Testing backend selection persistence of 100 requests: %q...", testCmd)
 		testPersistenceWith100Requests(t, clients[1], testCmd)
-	}
-}
-
-func TestTCPProxyPersistentBackend_Fail_T1Only(t T) {
-	ns := "default"
-	testName := "tcp-proxy-persistent-backend-fail-t1-only"
-
-	ciliumCli, _ := NewCiliumAndK8sCli(t)
-
-	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyBackendPersistenceBySourceIP())))
-
-	err := ciliumCli.CreateLBService(t.Context(), ns, service, metav1.CreateOptions{})
-	if err == nil {
-		t.Failedf("CreabeLBService should return an error")
-	}
-
-	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
-		t.Failedf("CreateLBService returned the wrong error")
 	}
 }

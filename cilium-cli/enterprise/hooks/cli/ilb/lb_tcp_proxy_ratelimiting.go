@@ -98,7 +98,7 @@ func TestTCPProxyRatelimiting_Fail_T1Only(t T) {
 		t.Failedf("CreabeLBService should return an error")
 	}
 
-	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with persistent backends and rate limits") {
+	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with rate limits") {
 		t.Failedf("CreateLBService returned the wrong error")
 	}
 }
