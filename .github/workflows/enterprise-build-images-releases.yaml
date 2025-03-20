@@ -11,6 +11,8 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+  # To find workflow artifacts when attaching release assets
+  actions: read
 
 jobs:
   build-and-push:
