@@ -890,6 +890,8 @@ Makefile* @cilium/build
 /enterprise/tools/map-testowners/main.go @isovalent/ci-structure
 /hubble/Makefile.override @isovalent/hubble
 /hubble/enterprise/ @isovalent/hubble
+/install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
+/install/kubernetes/Makefile.override @isovalent/infrastructure
 /install/kubernetes/cilium/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/_extensions.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/core-structure

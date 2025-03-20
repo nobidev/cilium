@@ -10,14 +10,37 @@
 
 include ../../Makefile.defs
 
+ifeq ($(RELEASE),yes)
+    export CERTGEN_REPO:=quay.io/isovalent/certgen
+    export CILIUM_ENVOY_REPO:=quay.io/isovalent/cilium-envoy
+    export CILIUM_NODEINIT_REPO:=quay.io/isovalent/startup-script
+    export HUBBLE_UI_BACKEND_REPO:=quay.io/isovalent/hubble-ui-backend
+    export HUBBLE_UI_FRONTEND_REPO:=quay.io/isovalent/hubble-ui
+    export SPIRE_AGENT_REPO:=quay.io/isovalent/spire-agent
+    export SPIRE_INIT_REPO:=quay.io/isovalent/busybox
+    export SPIRE_SERVER_REPO:=quay.io/isovalent/spire-server
+endif
+
+ifeq ($(OVERRIDE_EXTERNAL_IMAGE_TAGS),yes)
+    OVERRIDE_IMAGE_TAG:=v$(shell cat ../../VERSION)
+    export CERTGEN_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export CILIUM_ENVOY_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export CILIUM_NODEINIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export HUBBLE_UI_BACKEND_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export HUBBLE_UI_FRONTEND_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export SPIRE_AGENT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export SPIRE_INIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+    export SPIRE_SERVER_VERSION:=$(OVERRIDE_IMAGE_TAG)
+endif
+
 ENTERPRISE_FEATURES_FILE_NAME := cilium/templates/enterprise_features_validate.yaml
 
 $(ENTERPRISE_FEATURES_FILE_NAME): ../../enterprise/features/features.yaml ../../enterprise/features/helm-gen/main.go
-	$(GO) run ../../enterprise/features/helm-gen generate > $@ 
+	$(GO) run ../../enterprise/features/helm-gen generate > $@
 	$(GO) run ../../enterprise/features/helm-gen validate
 
 .PHONY: check-enterprise-features
-check-enterprise-features: 
+check-enterprise-features:
 	$(ECHO_CHECK)$@
 	$(QUIET)$(GO) run ../../enterprise/features/helm-gen generate \
 		| diff -u - "$(ENTERPRISE_FEATURES_FILE_NAME)" \
