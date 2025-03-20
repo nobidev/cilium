@@ -1229,25 +1229,28 @@ func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip
 		return prefixLen
 	}
 
-	if advert.Service.AggregationLength != nil {
+	if advert.Service.AggregationLengthIPv4 != nil && addr.Is4() {
 		// guard against invalid prefix length
-		if addr.Is4() && (*advert.Service.AggregationLength > 32 || *advert.Service.AggregationLength == 0) {
+		if *advert.Service.AggregationLengthIPv4 > 31 || *advert.Service.AggregationLengthIPv4 < 1 {
 			r.logger.WithFields(logrus.Fields{
 				types.ServiceIDLogField: svc.Name,
-				"prefix_length":         *advert.Service.AggregationLength,
+				"prefix_length":         *advert.Service.AggregationLengthIPv4,
 			}).Warn("Invalid aggregation length for IPv4 address, using /32 prefix length")
-
 			return prefixLen
 		}
-		if addr.Is6() && (*advert.Service.AggregationLength > 128 || *advert.Service.AggregationLength == 0) {
+		prefixLen = int(*advert.Service.AggregationLengthIPv4)
+	}
+
+	if advert.Service.AggregationLengthIPv6 != nil && addr.Is6() {
+		// guard against invalid prefix length
+		if *advert.Service.AggregationLengthIPv6 > 127 || *advert.Service.AggregationLengthIPv6 < 1 {
 			r.logger.WithFields(logrus.Fields{
 				types.ServiceIDLogField: svc.Name,
-				"prefix_length":         *advert.Service.AggregationLength,
+				"prefix_length":         *advert.Service.AggregationLengthIPv6,
 			}).Warn("Invalid aggregation length for IPv6 address, using /128 prefix length")
-
 			return prefixLen
 		}
-		prefixLen = int(*advert.Service.AggregationLength)
+		prefixLen = int(*advert.Service.AggregationLengthIPv6)
 	}
 
 	return prefixLen

@@ -270,8 +270,13 @@ func (in *BGPServiceOptions) DeepCopyInto(out *BGPServiceOptions) {
 		*out = make([]v2alpha1.BGPServiceAddressType, len(*in))
 		copy(*out, *in)
 	}
-	if in.AggregationLength != nil {
-		in, out := &in.AggregationLength, &out.AggregationLength
+	if in.AggregationLengthIPv4 != nil {
+		in, out := &in.AggregationLengthIPv4, &out.AggregationLengthIPv4
+		*out = new(int32)
+		**out = **in
+	}
+	if in.AggregationLengthIPv6 != nil {
+		in, out := &in.AggregationLengthIPv6, &out.AggregationLengthIPv6
 		*out = new(int32)
 		**out = **in
 	}

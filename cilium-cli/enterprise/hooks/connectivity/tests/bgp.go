@@ -40,7 +40,8 @@ const (
 	bgpCommunityService    = "65001:200"
 	bgpCommunityAggService = "65001:300"
 
-	bgpPrefixAggregateLength = 24
+	bgpPrefixAggregateLengthIPv4 = 24
+	bgpPrefixAggregateLengthIPv6 = 120
 )
 
 func BGPSvcAdvertisements() check.Scenario {
@@ -85,7 +86,10 @@ func (s *bgpSvcAdvertisements) Run(ctx context.Context, t *check.Test) {
 		// create aggregated service prefixes
 		aggregatedSvcPrefixes := make([]netip.Prefix, 0, len(svcPrefixes))
 		for _, prefix := range svcPrefixes {
-			aggPrefix, err := prefix.Addr().Prefix(bgpPrefixAggregateLength)
+			aggPrefix, err := prefix.Addr().Prefix(bgpPrefixAggregateLengthIPv4)
+			if ipFamily == features.IPFamilyV6 {
+				aggPrefix, err = prefix.Addr().Prefix(bgpPrefixAggregateLengthIPv6)
+			}
 			if err != nil {
 				t.Fatalf("failed to aggregate prefix %s: %v", prefix, err)
 			}
@@ -101,8 +105,8 @@ func (s *bgpSvcAdvertisements) Run(ctx context.Context, t *check.Test) {
 			frrPrefixes = check.WaitForFRRBGPPrefixes(ctx, t, &frr, svcPrefixes, ipFamily)
 			check.AssertFRRBGPCommunity(t, frrPrefixes, svcPrefixes, bgpCommunityService)
 
-			// Aggregated service prefixes is only supported from 1.17
-			if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+			// Aggregated service prefixes is only supported from 1.17.3
+			if versioncheck.MustCompile(">=1.17.3")(ct.CiliumVersion) {
 				frrPrefixes = check.WaitForFRRBGPPrefixes(ctx, t, &frr, aggregatedSvcPrefixes, ipFamily)
 				check.AssertFRRBGPCommunity(t, frrPrefixes, aggregatedSvcPrefixes, bgpCommunityAggService)
 			}
@@ -197,13 +201,14 @@ func configureBGPPeeringV1(ctx context.Context, t *check.Test, ipFamily features
 		},
 	}
 
-	// add aggregated service prefixes advertisement if version is >= 1.17.0
-	if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+	// add aggregated service prefixes advertisement if version is >= 1.17.3
+	if versioncheck.MustCompile(">=1.17.3")(ct.CiliumVersion) {
 		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, v1.BGPAdvertisement{
 			AdvertisementType: v1.BGPServiceAdvert,
 			Service: &v1.BGPServiceOptions{
-				AggregationLength: ptr.To[int32](bgpPrefixAggregateLength),
-				Addresses:         []ciliumv2.BGPServiceAddressType{ciliumv2.BGPClusterIPAddr},
+				AggregationLengthIPv4: ptr.To[int32](bgpPrefixAggregateLengthIPv4),
+				AggregationLengthIPv6: ptr.To[int32](bgpPrefixAggregateLengthIPv6),
+				Addresses:             []ciliumv2.BGPServiceAddressType{ciliumv2.BGPClusterIPAddr},
 			},
 			Selector: &slimv1.LabelSelector{
 				MatchLabels: map[string]string{"kind": "echo"},
@@ -324,13 +329,14 @@ func configureBGPPeeringV1Alpha1(ctx context.Context, t *check.Test, ipFamily fe
 		},
 	}
 
-	// add aggregated service prefixes advertisement if version is >= 1.17.0
-	if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+	// add aggregated service prefixes advertisement if version is >= 1.17.3
+	if versioncheck.MustCompile(">=1.17.3")(ct.CiliumVersion) {
 		advertisement.Spec.Advertisements = append(advertisement.Spec.Advertisements, v1alpha1.BGPAdvertisement{
 			AdvertisementType: v1alpha1.BGPServiceAdvert,
 			Service: &v1alpha1.BGPServiceOptions{
-				AggregationLength: ptr.To[int32](bgpPrefixAggregateLength),
-				Addresses:         []ciliumv2alpha1.BGPServiceAddressType{ciliumv2alpha1.BGPClusterIPAddr},
+				AggregationLengthIPv4: ptr.To[int32](bgpPrefixAggregateLengthIPv4),
+				AggregationLengthIPv6: ptr.To[int32](bgpPrefixAggregateLengthIPv6),
+				Addresses:             []ciliumv2alpha1.BGPServiceAddressType{ciliumv2alpha1.BGPClusterIPAddr},
 			},
 			Selector: &slimv1.LabelSelector{
 				MatchLabels: map[string]string{"kind": "echo"},

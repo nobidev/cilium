@@ -304,10 +304,18 @@ func (in *BGPServiceOptions) DeepEqual(other *BGPServiceOptions) bool {
 		}
 	}
 
-	if (in.AggregationLength == nil) != (other.AggregationLength == nil) {
+	if (in.AggregationLengthIPv4 == nil) != (other.AggregationLengthIPv4 == nil) {
 		return false
-	} else if in.AggregationLength != nil {
-		if *in.AggregationLength != *other.AggregationLength {
+	} else if in.AggregationLengthIPv4 != nil {
+		if *in.AggregationLengthIPv4 != *other.AggregationLengthIPv4 {
+			return false
+		}
+	}
+
+	if (in.AggregationLengthIPv6 == nil) != (other.AggregationLengthIPv6 == nil) {
+		return false
+	} else if in.AggregationLengthIPv6 != nil {
+		if *in.AggregationLengthIPv6 != *other.AggregationLengthIPv6 {
 			return false
 		}
 	}

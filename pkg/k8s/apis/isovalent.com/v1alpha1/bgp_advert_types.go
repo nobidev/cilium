@@ -105,13 +105,25 @@ type BGPServiceOptions struct {
 	// +kubebuilder:validation:MinItems=1
 	Addresses []v2alpha1.BGPServiceAddressType `json:"addresses,omitempty"`
 
-	// AggregationLength is the length of the prefix to be advertised.
-	// If not specified, exact route is advertised with prefix length of 32 for IPv4
-	// and 128 for IPv6.
+	// AggregationLengthIPv4 is the length of the IPv4 prefix to be advertised.
+	// If not specified, exact route is advertised with prefix length of 32.
 	//
 	// This option does not change prefix lengths of VIPs for services which have
 	// externalTrafficPolicy set to Local.
 	//
 	// +kubebuilder:validation:Optional
-	AggregationLength *int32 `json:"aggregationLength,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=32
+	AggregationLengthIPv4 *int32 `json:"aggregationLengthIPv4,omitempty"`
+
+	// AggregationLengthIPv6 is the length of the IPv6 prefix to be advertised.
+	// If not specified, exact route is advertised with prefix length 128.
+	//
+	// This option does not change prefix lengths of VIPs for services which have
+	// externalTrafficPolicy set to Local.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=128
+	AggregationLengthIPv6 *int32 `json:"aggregationLengthIPv6,omitempty"`
 }
