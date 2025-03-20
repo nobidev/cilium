@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -76,7 +77,7 @@ type IsovalentClusterwideNetworkPolicyList struct {
 
 // Parse parses an IsovalentClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
-func (r *IsovalentClusterwideNetworkPolicy) Parse() (api.Rules, error) {
+func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentClusterwideNetworkPolicy must have name")
 	}
@@ -94,7 +95,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
 		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule("", name, uid)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, "", name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -103,7 +104,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy specs: %s", err))
 
 			}
-			cr := rule.parseToIsovalentNetworkPolicyRule("", name, uid)
+			cr := rule.parseToIsovalentNetworkPolicyRule(logger, "", name, uid)
 			retRules = append(retRules, cr)
 		}
 	}

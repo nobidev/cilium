@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"log/slog"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -208,7 +209,7 @@ func (r *IsovalentNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName str
 
 // Parse parses an IsovalentNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
+func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentNetworkPolicy must have name")
 	}
@@ -225,7 +226,7 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 			Specs:      r.Specs,
 			Status:     r.Status,
 		}
-		return icnp.Parse()
+		return icnp.Parse(logger)
 	}
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
@@ -243,7 +244,7 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
 		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(namespace, name, uid)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -252,7 +253,7 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 
 			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(namespace, name, uid)
+			cr := rule.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
 			retRules = append(retRules, cr)
 		}
 	}
@@ -260,8 +261,8 @@ func (r *IsovalentNetworkPolicy) Parse() (api.Rules, error) {
 	return retRules, nil
 }
 
-func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(namespace, name string, uid types.UID) *api.Rule {
-	cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, &r.Rule)
+func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, namespace, name string, uid types.UID) *api.Rule {
+	cr := k8sCiliumUtils.ParseToCiliumRule(logger, namespace, name, uid, &r.Rule)
 	// TODO: uncomment in ht/main-ce/ordered-policy
 	// cr.OrderCEEOnly = r.Spec.Order
 	return cr
