@@ -373,16 +373,21 @@ func (r *lbServiceReconciler) loadDeployments(ctx context.Context, lbsvc *isoval
 	}
 
 	for _, depl := range deploymentList.Items {
+		if cond := depl.GetStatusCondition(isovalentv1alpha1.ConditionTypeDeploymentAccepted); cond == nil || cond.Status == metav1.ConditionFalse {
+			r.logger.Debug("Not yet accepted or invalid LBDeployment - skipping",
+				logfields.K8sNamespace, lbsvc.Namespace,
+				logfields.Name, depl.Name,
+				logfields.Service, lbsvc.Name,
+			)
+
+			continue
+		}
+
 		if depl.Spec.Services.LabelSelector != nil {
 			selector, err := slim_metav1.LabelSelectorAsSelector(depl.Spec.Services.LabelSelector)
 			if err != nil {
 				// In case of an error, skip the LBDeployment. This should never be the case as this is already validated
-				// by the LBDeployment reconciler.
-				r.logger.Debug("invalid service labelselector in LBDeployment",
-					logfields.K8sNamespace, lbsvc.Namespace,
-					logfields.Name, depl.Name,
-					logfields.Service, lbsvc.Name,
-				)
+				// by the LBDeployment reconciler - therefore skipping without logging.
 				continue
 			}
 

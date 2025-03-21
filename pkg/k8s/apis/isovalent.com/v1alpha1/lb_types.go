@@ -2083,6 +2083,15 @@ type LBDeploymentStatus struct {
 	Status LBResourceStatus `json:"status"`
 }
 
+const (
+	ConditionTypeDeploymentAccepted = "lb.cilium.io/Accepted"
+)
+
+const (
+	DeploymentAcceptedConditionReasonValid   = "Valid"
+	DeploymentAcceptedConditionReasonInvalid = "Invalid"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +deepequal-gen=false
