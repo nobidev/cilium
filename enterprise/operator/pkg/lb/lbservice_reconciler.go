@@ -229,7 +229,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve node label selectors: %w", err)
+		return fmt.Errorf("failed to retrieve T1 & T2 node label selectors: %w", err)
 	}
 
 	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, *t1LabelSelector, *t2LabelSelector)
@@ -482,50 +482,61 @@ func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalen
 }
 
 func (r *lbServiceReconciler) getTierLabelSelectors(deployments []isovalentv1alpha1.LBDeployment) (*labels.Selector, *labels.Selector, error) {
-	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, func() *slim_metav1.LabelSelector {
-		if len(deployments) == 1 && deployments[0].Spec.Nodes.LabelSelectors != nil {
-			return &deployments[0].Spec.Nodes.LabelSelectors.T1
+	t1NodeLabelSelectors := []slim_metav1.LabelSelector{}
+	t2NodeLabelSelectors := []slim_metav1.LabelSelector{}
+
+	if len(deployments) > 0 {
+		for _, a := range deployments {
+			if a.Spec.Nodes.LabelSelectors != nil {
+				t1NodeLabelSelectors = append(t1NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T1)
+				t2NodeLabelSelectors = append(t2NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T2)
+			}
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create T1 label selector: %w", err)
 	}
 
-	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, func() *slim_metav1.LabelSelector {
-		if len(deployments) == 1 && deployments[0].Spec.Nodes.LabelSelectors != nil {
-			return &deployments[0].Spec.Nodes.LabelSelectors.T2
-		}
-		return nil
-	})
+	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, t1NodeLabelSelectors)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create T2 label selector: %w", err)
+		return nil, nil, fmt.Errorf("failed to get T1 label selector: %w", err)
+	}
+
+	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, t2NodeLabelSelectors)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get T2 label selector: %w", err)
 	}
 
 	return t1LS, t2LS, nil
 }
 
-func (r *lbServiceReconciler) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, deploymentLSProvider func() *slim_metav1.LabelSelector) (*labels.Selector, error) {
-	t1LabelSelector, err := slim_metav1.LabelSelectorAsSelector(&defaultLS)
+// getTierLabelSelector returns the relevant labelselector. This is either the combined labelselector of all labelselectors from an LBDeployment
+// (all requirements merged) or the passed default labelselector.
+func (r *lbServiceReconciler) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, deploymentLSList []slim_metav1.LabelSelector) (*labels.Selector, error) {
+	defaultLabelSelector, err := slim_metav1.LabelSelectorAsSelector(&defaultLS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve labelselector: %w", err)
+		// this should never happen
+		return nil, fmt.Errorf("failed to resolve default labelselector: %w", err)
 	}
 
-	if deploymentLS := deploymentLSProvider(); deploymentLS != nil {
+	if len(deploymentLSList) == 0 {
+		return &defaultLabelSelector, nil
+	}
 
-		t1LabelSelectorDeployment, err := slim_metav1.LabelSelectorAsSelector(deploymentLS)
+	// combine the requirements of all labelselectors of LBDeployments
+	combinedLabelSelector := labels.SelectorFromSet(nil) // empty label selector
+
+	for _, ls := range deploymentLSList {
+		assLS, err := slim_metav1.LabelSelectorAsSelector(&ls)
 		if err != nil {
 			// In case of an error, fallback to the default labelselector. This should never be the case as this is already validated
 			// by the LBDeployment reconciler.
-			r.logger.Warn("Failed to parse node labelselector of LBDeployment - falling back to default labelselector")
-
-			return &t1LabelSelector, nil
+			r.logger.Warn("Failed to parse node labelselector of LBDeployment - skipping")
+			continue
 		}
 
-		return &t1LabelSelectorDeployment, nil
+		reqs, _ := assLS.Requirements()
+		combinedLabelSelector = combinedLabelSelector.Add(reqs...)
 	}
 
-	return &t1LabelSelector, nil
+	return &combinedLabelSelector, nil
 }
 
 func (r *lbServiceReconciler) loadT1AndT2NodeIPs(ctx context.Context, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
@@ -808,30 +819,25 @@ func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc
 
 func (*lbServiceReconciler) updateDeploymentsInStatus(lbsvc *isovalentv1alpha1.LBService, deployments []isovalentv1alpha1.LBDeployment) {
 	condition := metav1.Condition{
-		Type:               isovalentv1alpha1.ConditionTypeLBDeploymentUsed,
+		Type:               isovalentv1alpha1.ConditionTypeLBDeploymentsUsed,
 		Status:             metav1.ConditionTrue,
-		Reason:             isovalentv1alpha1.LBDeploymentUsedConditionReasonNoLBDeploymentUsed,
-		Message:            "No LBDeployment is used",
+		Reason:             isovalentv1alpha1.LBDeploymentUsedConditionReasonNoLBDeploymentsUsed,
+		Message:            "No LBDeployments are used",
 		ObservedGeneration: lbsvc.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
-	if len(deployments) > 1 {
+	if len(deployments) > 0 {
 		names := []string{}
 		for _, a := range deployments {
 			names = append(names, a.Name)
 		}
 		slices.Sort(names)
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = isovalentv1alpha1.LBDeploymentUsedConditionReasonMultipleLBDeployments
-		condition.Message = fmt.Sprintf("Multiple (%d) LBDeployments are matching this LBService - only one is supported: %v", len(deployments), names)
-	} else if len(deployments) == 1 {
-		condition.Status = metav1.ConditionTrue
-		condition.Message = fmt.Sprintf("LBDeployment %q is used", deployments[0].Name)
-		condition.Reason = isovalentv1alpha1.LBDeploymentUsedConditionReasonLBDeploymentUsed
+		condition.Reason = isovalentv1alpha1.LBDeploymentUsedConditionReasonLBDeploymentsUsed
+		condition.Message = fmt.Sprintf("%d LBDeployments are used: %v", len(deployments), names)
 	}
 
-	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeLBDeploymentUsed, condition)
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeLBDeploymentsUsed, condition)
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {

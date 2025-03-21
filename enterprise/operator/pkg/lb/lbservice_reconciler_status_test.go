@@ -888,7 +888,7 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 func TestLBServiceLBDeployments(t *testing.T) {
 	r := lbServiceReconciler{}
 
-	conditionType := "lb.cilium.io/LBDeploymentUsed"
+	conditionType := "lb.cilium.io/LBDeploymentsUsed"
 
 	testCases := []struct {
 		desc                   string
@@ -905,8 +905,8 @@ func TestLBServiceLBDeployments(t *testing.T) {
 			deployments:            []isovalentv1alpha1.LBDeployment{},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
-			expectedReason:         "NoLBDeploymentUsed",
-			expectedMessage:        "No LBDeployment is used",
+			expectedReason:         "NoLBDeploymentsUsed",
+			expectedMessage:        "No LBDeployments are used",
 		},
 		{
 			desc:                   "One matching LBDeployment",
@@ -914,17 +914,17 @@ func TestLBServiceLBDeployments(t *testing.T) {
 			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
-			expectedReason:         "LBDeploymentUsed",
-			expectedMessage:        "LBDeployment \"test\" is used",
+			expectedReason:         "LBDeploymentsUsed",
+			expectedMessage:        "1 LBDeployments are used: [test]",
 		},
 		{
 			desc:                   "Multiple matching LBDeployment",
 			lbsvc:                  &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{VIPRef: isovalentv1alpha1.LBServiceVIPRef{Name: "my-svc"}}},
 			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
 			expectedNrOfConditions: 1,
-			expectedStatus:         metav1.ConditionFalse,
-			expectedReason:         "MultipleLBDeployments",
-			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "LBDeploymentsUsed",
+			expectedMessage:        "2 LBDeployments are used: [test test2]",
 		},
 		{
 			desc: "Update existing condition",
@@ -934,9 +934,9 @@ func TestLBServiceLBDeployments(t *testing.T) {
 			},
 			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
 			expectedNrOfConditions: 1,
-			expectedStatus:         metav1.ConditionFalse,
-			expectedReason:         "MultipleLBDeployments",
-			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "LBDeploymentsUsed",
+			expectedMessage:        "2 LBDeployments are used: [test test2]",
 		},
 		{
 			desc: "Doesn't delete other conditions",
@@ -946,9 +946,9 @@ func TestLBServiceLBDeployments(t *testing.T) {
 			}}},
 			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
 			expectedNrOfConditions: 2,
-			expectedStatus:         metav1.ConditionFalse,
-			expectedReason:         "MultipleLBDeployments",
-			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "LBDeploymentsUsed",
+			expectedMessage:        "2 LBDeployments are used: [test test2]",
 		},
 	}
 	for _, tc := range testCases {
