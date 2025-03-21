@@ -884,3 +884,84 @@ func Test_LBServiceReconciler_updateSecretCompatibilityInStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestLBServiceLBDeployments(t *testing.T) {
+	r := lbServiceReconciler{}
+
+	conditionType := "lb.cilium.io/LBDeploymentUsed"
+
+	testCases := []struct {
+		desc                   string
+		lbsvc                  *isovalentv1alpha1.LBService
+		deployments            []isovalentv1alpha1.LBDeployment
+		expectedNrOfConditions int
+		expectedStatus         metav1.ConditionStatus
+		expectedReason         string
+		expectedMessage        string
+	}{
+		{
+			desc:                   "No matching LBDeployments",
+			lbsvc:                  &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{VIPRef: isovalentv1alpha1.LBServiceVIPRef{Name: "my-svc"}}},
+			deployments:            []isovalentv1alpha1.LBDeployment{},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "NoLBDeploymentUsed",
+			expectedMessage:        "No LBDeployment is used",
+		},
+		{
+			desc:                   "One matching LBDeployment",
+			lbsvc:                  &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{VIPRef: isovalentv1alpha1.LBServiceVIPRef{Name: "my-svc"}}},
+			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "LBDeploymentUsed",
+			expectedMessage:        "LBDeployment \"test\" is used",
+		},
+		{
+			desc:                   "Multiple matching LBDeployment",
+			lbsvc:                  &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{VIPRef: isovalentv1alpha1.LBServiceVIPRef{Name: "my-svc"}}},
+			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "MultipleLBDeployments",
+			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+		},
+		{
+			desc: "Update existing condition",
+			lbsvc: &isovalentv1alpha1.LBService{
+				Spec:   isovalentv1alpha1.LBServiceSpec{VIPRef: isovalentv1alpha1.LBServiceVIPRef{Name: "my-svc"}},
+				Status: isovalentv1alpha1.LBServiceStatus{Conditions: []metav1.Condition{{Type: conditionType, Status: metav1.ConditionTrue, Reason: "reason", Message: "message"}}},
+			},
+			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "MultipleLBDeployments",
+			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+		},
+		{
+			desc: "Doesn't delete other conditions",
+			lbsvc: &isovalentv1alpha1.LBService{Status: isovalentv1alpha1.LBServiceStatus{Conditions: []metav1.Condition{
+				{Type: "other-type", Status: metav1.ConditionTrue, Reason: "other-reason", Message: "other-message"},
+				{Type: conditionType, Status: metav1.ConditionTrue, Reason: "reason", Message: "message"},
+			}}},
+			deployments:            []isovalentv1alpha1.LBDeployment{{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}}, {ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test2"}}},
+			expectedNrOfConditions: 2,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "MultipleLBDeployments",
+			expectedMessage:        "Multiple (2) LBDeployments are matching this LBService - only one is supported: [test test2]",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			r.updateDeploymentsInStatus(tc.lbsvc, tc.deployments)
+
+			assert.Len(t, tc.lbsvc.Status.Conditions, tc.expectedNrOfConditions)
+
+			c := tc.lbsvc.GetStatusCondition(conditionType)
+			require.NotNil(t, c)
+			assert.Equal(t, tc.expectedStatus, c.Status)
+			assert.Equal(t, tc.expectedReason, c.Reason)
+			assert.Equal(t, tc.expectedMessage, c.Message)
+		})
+	}
+}

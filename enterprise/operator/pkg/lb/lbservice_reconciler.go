@@ -225,6 +225,8 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 		return fmt.Errorf("failed to load LBDeployments: %w", err)
 	}
 
+	r.updateDeploymentsInStatus(lbsvc, deployments)
+
 	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve node label selectors: %w", err)
@@ -797,6 +799,34 @@ func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc
 	}
 
 	lbsvc.Status.Applications = appStatus
+}
+
+func (*lbServiceReconciler) updateDeploymentsInStatus(lbsvc *isovalentv1alpha1.LBService, deployments []isovalentv1alpha1.LBDeployment) {
+	condition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeLBDeploymentUsed,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.LBDeploymentUsedConditionReasonNoLBDeploymentUsed,
+		Message:            "No LBDeployment is used",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(deployments) > 1 {
+		names := []string{}
+		for _, a := range deployments {
+			names = append(names, a.Name)
+		}
+		slices.Sort(names)
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.LBDeploymentUsedConditionReasonMultipleLBDeployments
+		condition.Message = fmt.Sprintf("Multiple (%d) LBDeployments are matching this LBService - only one is supported: %v", len(deployments), names)
+	} else if len(deployments) == 1 {
+		condition.Status = metav1.ConditionTrue
+		condition.Message = fmt.Sprintf("LBDeployment %q is used", deployments[0].Name)
+		condition.Reason = isovalentv1alpha1.LBDeploymentUsedConditionReasonLBDeploymentUsed
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeLBDeploymentUsed, condition)
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {

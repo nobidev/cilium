@@ -1197,6 +1197,7 @@ const (
 
 const (
 	ConditionTypeIPAssigned         = "lb.cilium.io/IPAssigned"
+	ConditionTypeLBDeploymentUsed   = "lb.cilium.io/LBDeploymentUsed"
 	ConditionTypeVIPExist           = "lb.cilium.io/VIPExist"
 	ConditionTypeBackendsExist      = "lb.cilium.io/BackendsExist"
 	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
@@ -1208,6 +1209,12 @@ const (
 	IPAssignedConditionReasonIPFailure  = "IPFailure"
 	IPAssignedConditionReasonIPPending  = "IPPending"
 	IPAssignedConditionReasonIPAssigned = "IPAssigned"
+)
+
+const (
+	LBDeploymentUsedConditionReasonNoLBDeploymentUsed    = "NoLBDeploymentUsed"
+	LBDeploymentUsedConditionReasonLBDeploymentUsed      = "LBDeploymentUsed"
+	LBDeploymentUsedConditionReasonMultipleLBDeployments = "MultipleLBDeployments"
 )
 
 const (
