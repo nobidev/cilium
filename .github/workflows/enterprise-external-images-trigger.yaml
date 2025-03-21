@@ -41,12 +41,20 @@ jobs:
             build-from-source: false
 
           - component: HUBBLE_UI_BACKEND
-            docker-context: backend
-            dockerfile: backend/Dockerfile
+            docker-context: hubble-ui-backend
+            dockerfile: hubble-ui-backend/Dockerfile
             base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
-            source-path: backend
+            source-path: hubble-ui-backend
+
+          - component: HUBBLE_UI_FRONTEND
+            docker-context: hubble-ui-frontend
+            dockerfile: hubble-ui-frontend/Dockerfile
+            base-image: quay.io/isovalent-dev/nginx-unprivileged-ubi:1742895604-0227bb1@sha256:e17eebe7edd734e14bbc20ef60ca13dcc1fa5e4c36d1f2ebb4073b7a4156f319
+            build-from-source: true
+            source-repo: isovalent/hubble-ui-enterprise
+            source-path: hubble-ui-frontend
 
           - component: CILIUM_ETCD_OPERATOR
             docker-context: cilium-etcd-operator
