@@ -8,19 +8,20 @@
 #  or reproduction of this material is strictly forbidden unless prior written 
 #  permission is obtained from Isovalent Inc.
 
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:9f1bfe736009afb1fbb562718bbc42ea07d37d8e@sha256:a666a7a01a2dc610c3ab6e32f25ca5e294201f3cbbc01f233320c527955deee3
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:0db3a73729ceb42e947d826bb96a655be79e5317@sha256:de23c9546c4eafab33f75d6f5d129947bbbafc132dbd113c0cecc9a61929e6b0
-ARG CILIUM_RUNTIME_BASE_IMAGE=quay.io/isovalent/cilium-runtime-base-wfi:1c6989d9693f4ee838dfe4f6f8af93e23be1ec38@sha256:eb3c636f83dbc85dc70db0265265e4ff253a78e855b8a731b67615e7e4abe85c
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1732033893-de666b6@sha256:ee005bd47b20f78a727c06fdf2275861848be7acd242603c82f86ca8faaeda90
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:5a9c4852a21287686009bfe1cdc1fed6e7aabdea@sha256:188e398ee30456373530698d0d29de66dda0c4428068ea430027ceb7e9c15b7c
+ARG CILIUM_RUNTIME_BASE_IMAGE=quay.io/isovalent/cilium-runtime-base-wfi:55f76577578974f68afb82e184eb21fea5cced34@sha256:db1e29d94db80446a67649fb86821ee2fb493dcfd5e55c2104c7a05d1b1da484
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
-
 FROM ${CILIUM_RUNTIME_BASE_IMAGE}
 
 WORKDIR /go/src/github.com/cilium/cilium/enterprise/images/wolfi/runtime
-RUN --mount=type=bind,readwrite,source=./images/runtime,target=. \
- ./iptables-wrapper-installer.sh --no-sanity-check
+
+RUN --mount=type=bind,readwrite,source=./images/runtime,target=. ./iptables-wrapper-installer.sh --no-sanity-check
 RUN ln -s /run /var/run #TODO: move to apk package
+RUN mkdir /cni
+RUN ln -s /bin/loopback /cni/loopback
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
