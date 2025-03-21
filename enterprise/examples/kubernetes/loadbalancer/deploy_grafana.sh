@@ -8,6 +8,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 . "${script_dir}/deploy_prometheus.sh"
 
+kubectl create namespace monitoring || true
+
 kubectl -n monitoring create configmap grafana-dashboards \
 	--from-file=lb.json=enterprise/dashboards/loadbalancer/grafana/lb.json \
 	--from-file=t2.json=enterprise/dashboards/loadbalancer/grafana/t2.json \
