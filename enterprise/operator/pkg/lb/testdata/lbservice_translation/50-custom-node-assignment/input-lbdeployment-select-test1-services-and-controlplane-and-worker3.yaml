@@ -1,0 +1,27 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBDeployment
+metadata:
+  namespace: default
+  name: select-test1-controlplane-and-worker3
+spec:
+  services:
+    labelSelector:
+      matchExpressions:
+        - key: test
+          operator: In
+          values:
+            - test1
+  nodes:
+    labelSelectors:
+      t1:
+        matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+              - kind-control-plane
+      t2:
+        matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+              - kind-worker3

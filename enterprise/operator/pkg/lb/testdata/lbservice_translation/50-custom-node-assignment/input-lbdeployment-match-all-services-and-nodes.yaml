@@ -1,0 +1,12 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBDeployment
+metadata:
+  namespace: default
+  name: match-all-services-and-nodes
+spec:
+  services:
+    labelSelector: {}
+  nodes:
+    labelSelectors:
+      t1: {}
+      t2: {}

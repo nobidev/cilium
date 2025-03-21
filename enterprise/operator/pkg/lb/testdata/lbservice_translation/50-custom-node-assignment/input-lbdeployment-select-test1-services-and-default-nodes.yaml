@@ -1,0 +1,29 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBDeployment
+metadata:
+  namespace: default
+  name: select-test1-default-nodes
+spec:
+  services:
+    labelSelector:
+      matchExpressions:
+        - key: test
+          operator: In
+          values:
+            - test1
+  nodes:
+    labelSelectors:
+      t1:
+        matchExpressions:
+          - key: service.cilium.io/node
+            operator: In
+            values:
+              - t1-t2
+              - t1
+      t2:
+        matchExpressions:
+          - key: service.cilium.io/node
+            operator: In
+            values:
+              - t1-t2
+              - t2
