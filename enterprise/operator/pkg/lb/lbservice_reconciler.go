@@ -237,6 +237,8 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 		return fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
 	}
 
+	r.updateNodesAssignedInStatus(lbsvc, t1NodeIPs, t2NodeIPs)
+
 	// Try loading referenced LBVIP
 	// -> vip can be nil
 	vip, err := r.loadVIP(ctx, lbsvc)
@@ -838,6 +840,37 @@ func (*lbServiceReconciler) updateDeploymentsInStatus(lbsvc *isovalentv1alpha1.L
 	}
 
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeLBDeploymentsUsed, condition)
+}
+
+func (*lbServiceReconciler) updateNodesAssignedInStatus(lbsvc *isovalentv1alpha1.LBService, t1NodeIPs []string, t2NodeIPs []string) {
+	condition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeNodesAssigned,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.NodesAssignedConditionReasonNodesAssigned,
+		Message:            "T1 & T2 nodes assigned",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(t1NodeIPs) == 0 {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
+		condition.Message = "No T1 nodes are assigned"
+	}
+
+	if len(t2NodeIPs) == 0 {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
+		condition.Message = "No T2 nodes are assigned"
+	}
+
+	if len(t1NodeIPs) == 0 && len(t2NodeIPs) == 0 {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
+		condition.Message = "No T1 & T2 nodes are assigned"
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeNodesAssigned, condition)
 }
 
 func (*lbServiceReconciler) updateVIPInStatus(lbsvc *isovalentv1alpha1.LBService, vip *isovalentv1alpha1.LBVIP) {

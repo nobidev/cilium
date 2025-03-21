@@ -1198,6 +1198,7 @@ const (
 const (
 	ConditionTypeIPAssigned         = "lb.cilium.io/IPAssigned"
 	ConditionTypeLBDeploymentsUsed  = "lb.cilium.io/LBDeploymentsUsed"
+	ConditionTypeNodesAssigned      = "lb.cilium.io/NodesAssigned"
 	ConditionTypeVIPExist           = "lb.cilium.io/VIPExist"
 	ConditionTypeBackendsExist      = "lb.cilium.io/BackendsExist"
 	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
@@ -1214,6 +1215,11 @@ const (
 const (
 	LBDeploymentUsedConditionReasonNoLBDeploymentsUsed = "NoLBDeploymentsUsed"
 	LBDeploymentUsedConditionReasonLBDeploymentsUsed   = "LBDeploymentsUsed"
+)
+
+const (
+	NodesAssignedConditionReasonNodesAssigned   = "NodesAssigned"
+	NodesAssignedConditionReasonNoNodesAssigned = "NoNodesAssigned"
 )
 
 const (
