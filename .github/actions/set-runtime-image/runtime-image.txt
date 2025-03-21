@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc72251fc6cdcef61ed90@sha256:655e78d3af4412d193e882e253a8e48a6467e7203e740eda8387d59d0a761594
+=======
+quay.io/isovalent/cilium-runtime-wfi:58bb31f0806cd98b1007547e04d2db0e3d900079@sha256:88fe0860fdc4982e339824d6559ff45c74c978a14c7224fe878a9dbeb55051be
+>>>>>>> 15be116608 (build: switch default back to wolfi based image)
