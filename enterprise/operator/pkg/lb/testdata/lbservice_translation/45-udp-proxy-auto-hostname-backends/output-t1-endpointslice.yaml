@@ -2,8 +2,8 @@ addressType: IPv4
 apiVersion: discovery/v1
 endpoints:
   - addresses:
-      - 172.18.0.3
       - 172.18.0.2
+      - 172.18.0.3
     conditions: {}
 kind: EndpointSlice
 metadata:

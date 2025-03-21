@@ -88,19 +88,19 @@ func (r *lbDeploymentReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	return controllerruntime.Success()
 }
 
-func (r *lbDeploymentReconciler) updateAcceptedStatusCondition(lba *isovalentv1alpha1.LBDeployment) {
+func (r *lbDeploymentReconciler) updateAcceptedStatusCondition(lbd *isovalentv1alpha1.LBDeployment) {
 	condition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeDeploymentAccepted,
 		Status:             metav1.ConditionTrue,
 		Reason:             isovalentv1alpha1.DeploymentAcceptedConditionReasonValid,
 		Message:            "Deployment is valid and accepted",
-		ObservedGeneration: lba.GetGeneration(),
+		ObservedGeneration: lbd.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	}
 
 	invalidMessages := []string{}
 
-	if valid, labelIssueMessages := r.validateLabelSelectors(lba); !valid {
+	if valid, labelIssueMessages := r.validateLabelSelectors(lbd); !valid {
 		invalidMessages = append(invalidMessages, labelIssueMessages...)
 	}
 
@@ -110,24 +110,24 @@ func (r *lbDeploymentReconciler) updateAcceptedStatusCondition(lba *isovalentv1a
 		condition.Message = fmt.Sprintf("Deployment is invalid: %v", strings.Join(invalidMessages, "\n"))
 	}
 
-	lba.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeDeploymentAccepted, condition)
+	lbd.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeDeploymentAccepted, condition)
 }
 
-func (r *lbDeploymentReconciler) validateLabelSelectors(lba *isovalentv1alpha1.LBDeployment) (bool, []string) {
+func (r *lbDeploymentReconciler) validateLabelSelectors(lbd *isovalentv1alpha1.LBDeployment) (bool, []string) {
 	labelIssues := []string{}
 
-	if lba.Spec.Services.LabelSelector != nil {
-		if _, err := slim_metav1.LabelSelectorAsSelector(lba.Spec.Services.LabelSelector); err != nil {
+	if lbd.Spec.Services.LabelSelector != nil {
+		if _, err := slim_metav1.LabelSelectorAsSelector(lbd.Spec.Services.LabelSelector); err != nil {
 			labelIssues = append(labelIssues, fmt.Sprintf("Invalid service labelselector: %s", err))
 		}
 	}
 
-	if lba.Spec.Nodes.LabelSelectors != nil {
-		if _, err := slim_metav1.LabelSelectorAsSelector(&lba.Spec.Nodes.LabelSelectors.T1); err != nil {
+	if lbd.Spec.Nodes.LabelSelectors != nil {
+		if _, err := slim_metav1.LabelSelectorAsSelector(&lbd.Spec.Nodes.LabelSelectors.T1); err != nil {
 			labelIssues = append(labelIssues, fmt.Sprintf("Invalid T1 node labelselector: %s", err))
 		}
 
-		if _, err := slim_metav1.LabelSelectorAsSelector(&lba.Spec.Nodes.LabelSelectors.T2); err != nil {
+		if _, err := slim_metav1.LabelSelectorAsSelector(&lbd.Spec.Nodes.LabelSelectors.T2); err != nil {
 			labelIssues = append(labelIssues, fmt.Sprintf("Invalid T2 node labelselector: %s", err))
 		}
 	}

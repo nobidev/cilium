@@ -134,7 +134,7 @@ func registerReconcilers(params reconcilerParams) error {
 		params.CtrlRuntimeManager.GetClient(),
 		params.Scheme,
 		params.NodeSource,
-		&ingestor{},
+		newIngestor(params.Logger),
 		&lbServiceT1Translator{logger: params.Logger, config: reconcilerConfig},
 		&lbServiceT2Translator{logger: params.Logger, config: reconcilerConfig},
 	)

@@ -26,15 +26,10 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
 type testcase struct {
-	name            string
-	t1NodeIPs       []string
-	t2NodeIPs       []string
-	t1LabelSelector labels.Selector
-	t2LabelSelector labels.Selector
+	name string
 }
 
 const (
@@ -52,19 +47,9 @@ func TestTranslation(t *testing.T) {
 			continue
 		}
 
-		t1LabelSelector, err := labels.Parse("service.cilium.io/node in ( t1, t1-t2 )")
-		assert.NoError(t, err)
-		t2LabelSelector, err := labels.Parse("service.cilium.io/node in ( t2, t1-t2 )")
-		assert.NoError(t, err)
-
 		testCases = append(testCases, testcase{
-			name:            d.Name(),
-			t1NodeIPs:       []string{"172.18.0.0", "172.18.0.1"}, // TODO: define nodes as YAML?
-			t2NodeIPs:       []string{"172.18.0.3", "172.18.0.2"}, // TODO: define nodes as YAML?
-			t1LabelSelector: t1LabelSelector,                      // TODO: define nodes as YAML?
-			t2LabelSelector: t2LabelSelector,                      // TODO: define nodes as YAML?
+			name: d.Name(),
 		})
-
 	}
 
 	for _, tc := range testCases {
@@ -87,7 +72,9 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
 		require.NoError(t, err)
 
+		inputNodes := []*ciliumv2.CiliumNode{}
 		inputLBBackends := []*isovalentv1alpha1.LBBackendPool{}
+		inputLBDeployments := []isovalentv1alpha1.LBDeployment{}
 		inputSecrets := map[string]*corev1.Secret{}
 
 		for _, d := range entries {
@@ -95,11 +82,20 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 				continue
 			}
 			fname := fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name())
-			if strings.HasPrefix(d.Name(), "input-lbbackend-") {
+			switch {
+			case strings.HasPrefix(d.Name(), "input-ciliumnode-"):
+				inputNode := &ciliumv2.CiliumNode{}
+				readInput(t, fname, inputNode)
+				inputNodes = append(inputNodes, inputNode)
+			case strings.HasPrefix(d.Name(), "input-lbbackend-"):
 				inputLBBackend := &isovalentv1alpha1.LBBackendPool{}
 				readInput(t, fname, inputLBBackend)
 				inputLBBackends = append(inputLBBackends, inputLBBackend)
-			} else if strings.HasPrefix(d.Name(), "input-secret-") {
+			case strings.HasPrefix(d.Name(), "input-lbdeployment-"):
+				inputLBDeployment := &isovalentv1alpha1.LBDeployment{}
+				readInput(t, fname, inputLBDeployment)
+				inputLBDeployments = append(inputLBDeployments, *inputLBDeployment)
+			case strings.HasPrefix(d.Name(), "input-secret-"):
 				inputSecret := &corev1.Secret{}
 				readInput(t, fname, inputSecret)
 				inputSecrets[inputSecret.Name] = inputSecret
@@ -118,9 +114,10 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
-		ing := &ingestor{}
+		ing := newIngestor(hivetest.Logger(t))
 
-		model := ing.ingest(inputLBVIP, inputLBService, inputLBBackends, inputService, tc.t1NodeIPs, tc.t2NodeIPs, tc.t1LabelSelector, tc.t2LabelSelector, inputSecrets)
+		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets)
+		assert.NoError(t, err)
 
 		// Input Config
 		config := reconcilerConfig{}

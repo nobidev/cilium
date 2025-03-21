@@ -28,7 +28,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 
 	testCases := []struct {
 		desc                   string
-		lba                    *isovalentv1alpha1.LBDeployment
+		lbd                    *isovalentv1alpha1.LBDeployment
 		expectedNrOfConditions int
 		expectedStatus         metav1.ConditionStatus
 		expectedReason         string
@@ -36,7 +36,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 	}{
 		{
 			desc: "Valid service & node labelselectors",
-			lba: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
+			lbd: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
 				Services: isovalentv1alpha1.LBDeploymentServices{
 					LabelSelector: &slim_metav1.LabelSelector{},
 				},
@@ -54,7 +54,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 		},
 		{
 			desc: "Invalid service labelselectors",
-			lba: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
+			lbd: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
 				Services: isovalentv1alpha1.LBDeploymentServices{
 					LabelSelector: &slim_metav1.LabelSelector{
 						MatchExpressions: []slim_metav1.LabelSelectorRequirement{
@@ -81,7 +81,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 		},
 		{
 			desc: "Invalid T1 node labelselectors",
-			lba: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
+			lbd: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
 				Services: isovalentv1alpha1.LBDeploymentServices{
 					LabelSelector: &slim_metav1.LabelSelector{},
 				},
@@ -108,7 +108,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 		},
 		{
 			desc: "Invalid T2 node labelselectors",
-			lba: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
+			lbd: &isovalentv1alpha1.LBDeployment{Spec: isovalentv1alpha1.LBDeploymentSpec{
 				Services: isovalentv1alpha1.LBDeploymentServices{
 					LabelSelector: &slim_metav1.LabelSelector{},
 				},
@@ -135,7 +135,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 		},
 		{
 			desc: "Update existing condition",
-			lba: &isovalentv1alpha1.LBDeployment{
+			lbd: &isovalentv1alpha1.LBDeployment{
 				Spec: isovalentv1alpha1.LBDeploymentSpec{
 					Services: isovalentv1alpha1.LBDeploymentServices{
 						LabelSelector: &slim_metav1.LabelSelector{},
@@ -156,7 +156,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 		},
 		{
 			desc: "Doesn't delete other conditions",
-			lba: &isovalentv1alpha1.LBDeployment{
+			lbd: &isovalentv1alpha1.LBDeployment{
 				Spec: isovalentv1alpha1.LBDeploymentSpec{
 					Services: isovalentv1alpha1.LBDeploymentServices{
 						LabelSelector: &slim_metav1.LabelSelector{},
@@ -181,11 +181,11 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			r.updateAcceptedStatusCondition(tc.lba)
+			r.updateAcceptedStatusCondition(tc.lbd)
 
-			assert.Len(t, tc.lba.Status.Conditions, tc.expectedNrOfConditions)
+			assert.Len(t, tc.lbd.Status.Conditions, tc.expectedNrOfConditions)
 
-			c := tc.lba.GetStatusCondition(conditionType)
+			c := tc.lbd.GetStatusCondition(conditionType)
 			require.NotNil(t, c)
 			assert.Equal(t, tc.expectedStatus, c.Status)
 			assert.Equal(t, tc.expectedReason, c.Reason)

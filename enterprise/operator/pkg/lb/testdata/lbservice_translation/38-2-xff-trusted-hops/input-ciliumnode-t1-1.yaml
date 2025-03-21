@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: kind-control-plane
+    kubernetes.io/os: linux
+    node-role.kubernetes.io/control-plane: ""
+    service.cilium.io/node: t1
+  name: kind-control-plane
+spec:
+  addresses:
+    - ip: 172.18.0.0
+      type: InternalIP
+    - ip: 10.244.0.158
+      type: CiliumInternalIP

@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 const (
@@ -218,6 +217,13 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Load dependent resources that have relevant input for the model
 	//
 
+	// Load all nodes
+	nodeStore, err := r.nodeSource.Store(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get node store: %w", err)
+	}
+	allNodes := nodeStore.List()
+
 	// Try loading relevant LBDeployments that match this LBService
 	// -> can be an empty list
 	deployments, err := r.loadDeployments(ctx, lbsvc)
@@ -226,18 +232,6 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	}
 
 	r.updateDeploymentsInStatus(lbsvc, deployments)
-
-	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve T1 & T2 node label selectors: %w", err)
-	}
-
-	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, *t1LabelSelector, *t2LabelSelector)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
-	}
-
-	r.updateNodesAssignedInStatus(lbsvc, t1NodeIPs, t2NodeIPs)
 
 	// Try loading referenced LBVIP
 	// -> vip can be nil
@@ -277,8 +271,12 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model := r.ingestor.ingest(vip, lbsvc, backends, existingT1K8sService, t1NodeIPs, t2NodeIPs, *t1LabelSelector, *t2LabelSelector, referencedSecrets)
+	model, err := r.ingestor.ingest(ctx, vip, lbsvc, backends, deployments, allNodes, existingT1K8sService, referencedSecrets)
+	if err != nil {
+		return fmt.Errorf("failed to ingest resources: %w", err)
+	}
 
+	r.updateNodesAssignedInStatus(model, lbsvc)
 	r.updateAssignedIpInStatus(model, lbsvc)
 	r.updateDeploymentModeInStatus(model, lbsvc)
 
@@ -481,110 +479,6 @@ func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalen
 	}
 
 	return svc, nil
-}
-
-func (r *lbServiceReconciler) getTierLabelSelectors(deployments []isovalentv1alpha1.LBDeployment) (*labels.Selector, *labels.Selector, error) {
-	t1NodeLabelSelectors := []slim_metav1.LabelSelector{}
-	t2NodeLabelSelectors := []slim_metav1.LabelSelector{}
-
-	if len(deployments) > 0 {
-		for _, a := range deployments {
-			if a.Spec.Nodes.LabelSelectors != nil {
-				t1NodeLabelSelectors = append(t1NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T1)
-				t2NodeLabelSelectors = append(t2NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T2)
-			}
-		}
-	}
-
-	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, t1NodeLabelSelectors)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get T1 label selector: %w", err)
-	}
-
-	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, t2NodeLabelSelectors)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get T2 label selector: %w", err)
-	}
-
-	return t1LS, t2LS, nil
-}
-
-// getTierLabelSelector returns the relevant labelselector. This is either the combined labelselector of all labelselectors from an LBDeployment
-// (all requirements merged) or the passed default labelselector.
-func (r *lbServiceReconciler) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, deploymentLSList []slim_metav1.LabelSelector) (*labels.Selector, error) {
-	defaultLabelSelector, err := slim_metav1.LabelSelectorAsSelector(&defaultLS)
-	if err != nil {
-		// this should never happen
-		return nil, fmt.Errorf("failed to resolve default labelselector: %w", err)
-	}
-
-	if len(deploymentLSList) == 0 {
-		return &defaultLabelSelector, nil
-	}
-
-	// combine the requirements of all labelselectors of LBDeployments
-	combinedLabelSelector := labels.SelectorFromSet(nil) // empty label selector
-
-	for _, ls := range deploymentLSList {
-		assLS, err := slim_metav1.LabelSelectorAsSelector(&ls)
-		if err != nil {
-			// In case of an error, fallback to the default labelselector. This should never be the case as this is already validated
-			// by the LBDeployment reconciler.
-			r.logger.Warn("Failed to parse node labelselector of LBDeployment - skipping")
-			continue
-		}
-
-		reqs, _ := assLS.Requirements()
-		combinedLabelSelector = combinedLabelSelector.Add(reqs...)
-	}
-
-	return &combinedLabelSelector, nil
-}
-
-func (r *lbServiceReconciler) loadT1AndT2NodeIPs(ctx context.Context, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
-	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, t1LabelSelector)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
-	}
-
-	t2NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, t2LabelSelector)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
-	}
-
-	return t1NodeIPs, t2NodeIPs, nil
-}
-
-func (r *lbServiceReconciler) loadNodeAddressesByLabelSelector(ctx context.Context, selector labels.Selector) ([]string, error) {
-	nodeStore, err := r.nodeSource.Store(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get node store: %w", err)
-	}
-
-	nodeIPs := []string{}
-
-	allNodes := nodeStore.List()
-	for _, cn := range allNodes {
-		if selector.Matches(labels.Set(cn.Labels)) {
-			var nodeIP string
-			for _, addr := range cn.Spec.Addresses {
-				if addr.Type == addressing.NodeInternalIP {
-					nodeIP = addr.IP
-					break
-				}
-			}
-			if nodeIP == "" {
-				r.logger.Warn("Could not find InternalIP for CiliumNode",
-					logfields.Resource, cn.Name,
-				)
-				continue
-			}
-			nodeIPs = append(nodeIPs, nodeIP)
-		}
-	}
-
-	slices.Sort(nodeIPs)
-	return nodeIPs, nil
 }
 
 func (r *lbServiceReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
@@ -842,7 +736,7 @@ func (*lbServiceReconciler) updateDeploymentsInStatus(lbsvc *isovalentv1alpha1.L
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeLBDeploymentsUsed, condition)
 }
 
-func (*lbServiceReconciler) updateNodesAssignedInStatus(lbsvc *isovalentv1alpha1.LBService, t1NodeIPs []string, t2NodeIPs []string) {
+func (*lbServiceReconciler) updateNodesAssignedInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
 	condition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeNodesAssigned,
 		Status:             metav1.ConditionTrue,
@@ -852,19 +746,19 @@ func (*lbServiceReconciler) updateNodesAssignedInStatus(lbsvc *isovalentv1alpha1
 		LastTransitionTime: metav1.Now(),
 	}
 
-	if len(t1NodeIPs) == 0 {
+	if len(model.t1NodeIPs) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T1 nodes are assigned"
 	}
 
-	if len(t2NodeIPs) == 0 {
+	if len(model.t2NodeIPs) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T2 nodes are assigned"
 	}
 
-	if len(t1NodeIPs) == 0 && len(t2NodeIPs) == 0 {
+	if len(model.t1NodeIPs) == 0 && len(model.t2NodeIPs) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T1 & T2 nodes are assigned"

@@ -11,6 +11,9 @@
 package lb
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"math/big"
 	"net"
 	"slices"
@@ -19,14 +22,36 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
-type ingestor struct{}
+type ingestor struct {
+	logger *slog.Logger
+}
 
-func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, t1Service *corev1.Service, t1NodeIPs []string, t2NodeIPs []string, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector, referencedSecrets map[string]*corev1.Secret) *lbService {
+func newIngestor(logger *slog.Logger) *ingestor {
+	return &ingestor{
+		logger: logger,
+	}
+}
+
+func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret) (*lbService, error) {
 	referencedBackends := r.toReferencedBackends(backends)
+
+	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve T1 & T2 node label selectors: %w", err)
+	}
+
+	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, nodes, *t1LabelSelector, *t2LabelSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
+	}
 
 	return &lbService{
 		namespace: lbsvc.Namespace,
@@ -42,9 +67,107 @@ func (r *ingestor) ingest(vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1
 		referencedBackends:  referencedBackends,
 		t1NodeIPs:           t1NodeIPs,
 		t2NodeIPs:           t2NodeIPs,
-		t1LabelSelector:     t1LabelSelector,
-		t2LabelSelector:     t2LabelSelector,
+		t1LabelSelector:     *t1LabelSelector,
+		t2LabelSelector:     *t2LabelSelector,
+	}, nil
+}
+
+func (r *ingestor) getTierLabelSelectors(deployments []isovalentv1alpha1.LBDeployment) (*labels.Selector, *labels.Selector, error) {
+	t1NodeLabelSelectors := []slim_metav1.LabelSelector{}
+	t2NodeLabelSelectors := []slim_metav1.LabelSelector{}
+
+	if len(deployments) > 0 {
+		for _, a := range deployments {
+			if a.Spec.Nodes.LabelSelectors != nil {
+				t1NodeLabelSelectors = append(t1NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T1)
+				t2NodeLabelSelectors = append(t2NodeLabelSelectors, a.Spec.Nodes.LabelSelectors.T2)
+			}
+		}
 	}
+
+	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, t1NodeLabelSelectors)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get T1 label selector: %w", err)
+	}
+
+	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, t2NodeLabelSelectors)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get T2 label selector: %w", err)
+	}
+
+	return t1LS, t2LS, nil
+}
+
+// getTierLabelSelector returns the relevant labelselector. This is either the combined labelselector of all labelselectors from an LBDeployment
+// (all requirements merged) or the passed default labelselector.
+func (r *ingestor) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, deploymentLSList []slim_metav1.LabelSelector) (*labels.Selector, error) {
+	defaultLabelSelector, err := slim_metav1.LabelSelectorAsSelector(&defaultLS)
+	if err != nil {
+		// this should never happen
+		return nil, fmt.Errorf("failed to resolve default labelselector: %w", err)
+	}
+
+	if len(deploymentLSList) == 0 {
+		return &defaultLabelSelector, nil
+	}
+
+	// combine the requirements of all labelselectors of LBDeployments
+	combinedLabelSelector := labels.SelectorFromSet(nil) // empty label selector
+
+	for _, ls := range deploymentLSList {
+		deplLS, err := slim_metav1.LabelSelectorAsSelector(&ls)
+		if err != nil {
+			// In case of an error, fallback to the default labelselector. This should never be the case as this is already validated
+			// by the LBDeployment reconciler.
+			r.logger.Warn("Failed to parse node labelselector of LBDeployment - skipping")
+			continue
+		}
+
+		reqs, _ := deplLS.Requirements()
+		combinedLabelSelector = combinedLabelSelector.Add(reqs...)
+	}
+
+	return &combinedLabelSelector, nil
+}
+
+func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*ciliumv2.CiliumNode, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
+	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t1LabelSelector)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+	}
+
+	t2NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t2LabelSelector)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+	}
+
+	return t1NodeIPs, t2NodeIPs, nil
+}
+
+func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes []*ciliumv2.CiliumNode, selector labels.Selector) ([]string, error) {
+	nodeIPs := []string{}
+
+	for _, cn := range nodes {
+		if selector.Matches(labels.Set(cn.Labels)) {
+			var nodeIP string
+			for _, addr := range cn.Spec.Addresses {
+				if addr.Type == addressing.NodeInternalIP {
+					nodeIP = addr.IP
+					break
+				}
+			}
+			if nodeIP == "" {
+				r.logger.Warn("Could not find InternalIP for CiliumNode",
+					logfields.Resource, cn.Name,
+				)
+				continue
+			}
+			nodeIPs = append(nodeIPs, nodeIP)
+		}
+	}
+
+	slices.Sort(nodeIPs)
+	return nodeIPs, nil
 }
 
 func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbServiceHTTPConfig {
