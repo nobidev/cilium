@@ -11,6 +11,8 @@
 package clustermesh
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 
@@ -22,9 +24,9 @@ import (
 // through hive, to support additional enterprise features in addition to global
 // services (e.g., phantom services). This method is intended to be executed
 // through an Invoke function before starting the clustermesh subsystem.
-func InjectCEServiceMerger(cm *ClusterMesh, cmcfg cmcfg.Config, sc k8s.ServiceCache) {
+func InjectCEServiceMerger(logger *slog.Logger, cm *ClusterMesh, cmcfg cmcfg.Config, sc k8s.ServiceCache) {
 	if cm != nil {
-		cm.conf.ServiceMerger = k8s.NewCEServiceMerger(sc, cmcfg)
+		cm.conf.ServiceMerger = k8s.NewCEServiceMerger(logger, sc, cmcfg)
 	}
 }
 

@@ -54,10 +54,6 @@ func (m mockStore[T]) CacheStore() cache.Store {
 	panic("not implemented")
 }
 
-func (m mockStore[T]) Release() {
-	panic("not implemented")
-}
-
 func networkKey(name string) resource.Key {
 	return resource.Key{
 		Name: name,

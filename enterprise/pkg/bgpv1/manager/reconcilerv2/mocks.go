@@ -150,8 +150,6 @@ func (mds *mockResourceStore[T]) CacheStore() cache.Store {
 	return nil
 }
 
-func (mds *mockResourceStore[T]) Release() {}
-
 func (mds *mockResourceStore[T]) Upsert(obj T) {
 	mds.objMu.Lock()
 	defer mds.objMu.Unlock()

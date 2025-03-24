@@ -11,6 +11,7 @@
 package policy
 
 import (
+	"log/slog"
 	"slices"
 
 	"github.com/cilium/statedb"
@@ -106,7 +107,7 @@ func enqueueIdentityChange(slice, elems []identity.NumericIdentity) []identity.N
 // IdentitySelectionUpdated is invoked if the identities of the rule selector
 // have changed. We enqueue such changes, so they can later
 // (when IdentitySelectionCommit is called) be used to update affected tuples in StateDB.
-func (n *identityNotifier) IdentitySelectionUpdated(selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (n *identityNotifier) IdentitySelectionUpdated(_ *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
 	if selector.IsWildcard() {
 		return // skip updates for selection changes to wildcard selector
 	}
@@ -118,7 +119,7 @@ func (n *identityNotifier) IdentitySelectionUpdated(selector types.CachedSelecto
 // IdentitySelectionCommit is called all identities of an identity change batch
 // have been added to the SelectorCache.
 // We want to incrementally update the affected tuples in the policy StateDB table.
-func (n *identityNotifier) IdentitySelectionCommit(tx *versioned.Tx) {
+func (n *identityNotifier) IdentitySelectionCommit(_ *slog.Logger, tx *versioned.Tx) {
 	if len(n.queuedAdds)+len(n.queuedDels) == 0 {
 		return // skip update if no-op
 	}

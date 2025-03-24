@@ -11,6 +11,8 @@
 package k8s
 
 import (
+	"log/slog"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,14 +25,16 @@ import (
 // CEServiceMerger wraps a ServiceCache, overriding the cluster service merging
 // logic to support additional enterprise features (e.g., phantom services).
 type CEServiceMerger struct {
-	sc    *ServiceCacheImpl
-	cmcfg cmcfg.Config
+	logger *slog.Logger
+	sc     *ServiceCacheImpl
+	cmcfg  cmcfg.Config
 }
 
-func NewCEServiceMerger(sc ServiceCache, cmcfg cmcfg.Config) CEServiceMerger {
+func NewCEServiceMerger(logger *slog.Logger, sc ServiceCache, cmcfg cmcfg.Config) CEServiceMerger {
 	return CEServiceMerger{
-		sc:    sc.(*ServiceCacheImpl),
-		cmcfg: cmcfg,
+		logger: logger,
+		sc:     sc.(*ServiceCacheImpl),
+		cmcfg:  cmcfg,
 	}
 }
 
@@ -71,6 +75,8 @@ func (s CEServiceMerger) MergeExternalServiceDelete(service *serviceStore.Cluste
 //
 // Must be called while holding s.mutex for writing.
 func (s *CEServiceMerger) mergeServiceUpdateLocked(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+	logger := s.logger.With(logfields.ServiceName, service.String())
+
 	// With phantom services, we'll import the phantom service into ServiceCache.
 	// Phantom services must be identified with Cluster + Name + Namespace.
 	// Otherwise, naming collision is possible if they exist in multiple clusters.
@@ -93,7 +99,7 @@ func (s *CEServiceMerger) mergeServiceUpdateLocked(service *serviceStore.Cluster
 
 		var oldService *Service
 		if !globalOk || !svc.EqualsClusterService(service) {
-			log.WithField(logfields.ServiceName, service.String()).Debug("Added new phantom service")
+			logger.Debug("Added new phantom service")
 
 			// Import/update the phantom service into the Service cache, so that
 			// it can then be pushed into datapath.

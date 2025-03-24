@@ -633,7 +633,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		int flags = 0;
 
 		key = get_socket_cookie(ctx);
-		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
+		val = map_lookup_elem(&cilium_lb4_health, &key);
 		if (!val)
 			return CTX_ACT_OK;
 
@@ -659,7 +659,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		int flags = 0;
 
 		key = get_socket_cookie(ctx);
-		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+		val = map_lookup_elem(&cilium_lb6_health, &key);
 		if (!val)
 			return CTX_ACT_OK;
 

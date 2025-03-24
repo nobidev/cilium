@@ -206,6 +206,11 @@ recommended to set the ``HoldTimer`` and ``KeepaliveTimer`` to a lower value
 for faster possible failure detection. For example, you can set the minimum
 possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
 
+To ensure a fast reconnection after losing connectivity with the peer,
+reduce the ``connectRetryTimeSeconds`` (for example to ``5`` or less).
+As random jitter is applied to the configured value internally, the actual value used for the
+``ConnectRetryTimer`` is within the interval ``[ConnectRetryTimeSeconds, 2 * ConnectRetryTimeSeconds)``.
+
 .. code-block:: yaml
 
     apiVersion: cilium.io/v2
@@ -214,7 +219,7 @@ possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
       name: cilium-peer
     spec:
       timers:
-        connectRetryTimeSeconds: 12
+        connectRetryTimeSeconds: 5
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
 
@@ -821,6 +826,38 @@ All possible combinations of communities (``Standard``, ``Large``, ``WellKnown``
 supported. Had Local Preference been set, it would have been the largest value observed 
 across all matches. This is in line with `RFC4271 <https://datatracker.ietf.org/doc/rfc4271/>`_ 
 which states *The higher degree of preference MUST be preferred.*
+
+
+Routing Aggregation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cilium BGP Control Plane supports Routing Aggregation `RFC4632 <https://datatracker.ietf.org/doc/html/rfc4632>`__.
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumBGPAdvertisement
+    metadata:
+      name: bgp-advertisements
+      labels:
+        advertise: bgp
+    spec:
+      advertisements:
+        - advertisementType: "Service"
+          service:
+            aggregationLengthIPv4: 24          # <-- specify the IPv4 prefix length to aggregate
+            aggregationLengthIPv6: 120         # <-- specify the IPv6 prefix length to aggregate
+            addresses:
+              - ClusterIP
+              - ExternalIP
+              - LoadBalancerIP
+          selector:
+            matchExpressions:
+              - { key: bgp, operator: In, values: [ blue ] }
+
+.. note::
+
+    If the Service has ``externalTrafficPolicy: Local`` then BGP Control Plane will ignore routing aggregation parameter
 
 
 .. _bgp-override:

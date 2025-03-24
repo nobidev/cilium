@@ -171,7 +171,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 	engine := &Engine{
 		log:           params.Log,
-		selectorCache: networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
+		selectorCache: networkPolicy.NewSelectorCache(params.Log, identity.ListReservedIdentities()),
 
 		db:                params.StateDB,
 		policyTable:       params.PolicyTable,

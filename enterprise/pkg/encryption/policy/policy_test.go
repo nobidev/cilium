@@ -63,9 +63,11 @@ func newTestEngine(t testing.TB) (
 		),
 	).Populate(hivetest.Logger(t))
 
+	logger := hivetest.Logger(t)
+
 	m = &Engine{
-		log:                 hivetest.Logger(t),
-		selectorCache:       networkPolicy.NewSelectorCache(identity.ListReservedIdentities()),
+		log:                 logger,
+		selectorCache:       networkPolicy.NewSelectorCache(logger, identity.ListReservedIdentities()),
 		db:                  db,
 		policyTable:         tbl,
 		reconciler:          &mockReconciler{},

@@ -27,6 +27,7 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -67,7 +68,7 @@ func TestOps(t *testing.T) {
 	egressIP := netip.MustParseAddr("192.168.1.50")
 	destinations := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
 
-	ops := &ops{slog.New(slog.DiscardHandler)}
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
 
 	// Initial Update()
 	entry := &tables.EgressIPEntry{
@@ -325,7 +326,7 @@ func TestUpdateWithNextHop(t *testing.T) {
 	destinations := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
 	nextHop := netip.MustParseAddr("192.168.1.1")
 
-	ops := &ops{slog.New(slog.DiscardHandler)}
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
 
 	// Initial Update()
 	entry := &tables.EgressIPEntry{
@@ -516,7 +517,7 @@ func TestPrune(t *testing.T) {
 	ifName := link.Attrs().Name
 	ifIndex := link.Attrs().Index
 
-	ops := &ops{slog.New(slog.DiscardHandler)}
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
 
 	egressIP_1 := netip.MustParseAddr("192.168.1.50")
 	destinations_1_1 := netip.MustParsePrefix("192.168.1.0/24")
@@ -721,4 +722,18 @@ func newFakeIterator(objs ...*tables.EgressIPEntry) iter.Seq2[*tables.EgressIPEn
 			}
 		}
 	}
+}
+
+func newMockGARPSender() garp.Sender {
+	return &mockGARPSender{}
+}
+
+type mockGARPSender struct{}
+
+func (gs *mockGARPSender) Send(iface garp.Interface, ip netip.Addr) error {
+	return nil
+}
+
+func (gs *mockGARPSender) InterfaceByIndex(idx int) (garp.Interface, error) {
+	return garp.Interface{}, nil
 }

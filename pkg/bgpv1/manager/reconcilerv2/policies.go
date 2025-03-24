@@ -256,6 +256,19 @@ func MergeRoutePolicies(policyA *types.RoutePolicy, policyB *types.RoutePolicy) 
 		}
 	}
 
+	// Sorting the prefixes for traffic engineering in core network based on BGP attributes
+	for n := range mergedPolicy.Statements {
+		sort.SliceStable(mergedPolicy.Statements[n].Conditions.MatchPrefixes, func(i, j int) bool {
+			return mergedPolicy.Statements[n].Conditions.MatchPrefixes[i].PrefixLenMax > mergedPolicy.Statements[n].Conditions.MatchPrefixes[j].PrefixLenMax
+		})
+	}
+	sort.SliceStable(mergedPolicy.Statements, func(i, j int) bool {
+		if mergedPolicy.Statements[i].Conditions.MatchPrefixes != nil && mergedPolicy.Statements[j].Conditions.MatchPrefixes != nil {
+			return mergedPolicy.Statements[i].Conditions.MatchPrefixes[0].PrefixLenMax > mergedPolicy.Statements[j].Conditions.MatchPrefixes[0].PrefixLenMax
+		}
+		return true
+	})
+
 	return mergedPolicy, nil
 }
 
@@ -267,9 +280,7 @@ func mergePolicy(
 	// This function aims to be purely functional.  Here, we are creating a copy of the input to hold the result
 	// of the merge operation.
 	outputPolicyStatements = map[string]*types.RoutePolicyStatement{}
-	for key, value := range inputPolicyStatements {
-		outputPolicyStatements[key] = value
-	}
+	maps.Copy(outputPolicyStatements, inputPolicyStatements)
 
 	for _, statement := range policy.Statements {
 		key := statement.Conditions.String()
