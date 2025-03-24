@@ -163,7 +163,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 		// (set there by the LinkLocalReconciler)
 		desiredConfig := nc.Spec.BGPInstances[i].DeepCopy()
 		for peerIdx, peer := range desiredConfig.Peers {
-			if peer.Interface != nil {
+			if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADUnnumbered {
 				ossPeer, err := getOSSNodePeerByName(params.DesiredConfig, peer.Name)
 				if err != nil {
 					return EnterpriseReconcileParams{}, err

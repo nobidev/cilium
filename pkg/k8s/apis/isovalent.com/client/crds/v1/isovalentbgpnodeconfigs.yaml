@@ -86,10 +86,40 @@ spec:
                         virtual router
                       items:
                         properties:
-                          interface:
-                            description: Interface is the name of an interface on
-                              the Cilium node to use for BGP unnumbered peering.
-                            type: string
+                          autoDiscovery:
+                            description: |-
+                              AutoDiscovery allows auto-discovery of peer's IP address.
+                              When a peer auto-discovery mechanism is enabled, the peerAddress field
+                              can be empty (and will be ignored if set).
+                            properties:
+                              mode:
+                                description: Mode defines the type of BGP peer auto-discovery
+                                  mechanism.
+                                enum:
+                                - Unnumbered
+                                type: string
+                              unnumbered:
+                                description: Unnumbered contains configuration for
+                                  the BGP Unnumbered peer auto-discovery mode.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+
+                                      The IPv6 link-local address of a neighbor discovered on the specified interface will be used for peering.
+                                      Additionally, Router Advertisement messages will be sent out of the configured interface,
+                                      so that the neighboring router can learn about Cilium node's link-local IPv6 address as well.
+                                    type: string
+                                required:
+                                - interface
+                                type: object
+                            required:
+                            - mode
+                            type: object
+                            x-kubernetes-validations:
+                            - message: unnumbered field is required for the 'Unnumbered'
+                                mode
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
@@ -498,10 +528,40 @@ spec:
                         virtual router
                       items:
                         properties:
-                          interface:
-                            description: Interface is the name of an interface on
-                              the Cilium node to use for BGP unnumbered peering.
-                            type: string
+                          autoDiscovery:
+                            description: |-
+                              AutoDiscovery allows auto-discovery of peer's IP address.
+                              When a peer auto-discovery mechanism is enabled, the peerAddress field
+                              can be empty (and will be ignored if set).
+                            properties:
+                              mode:
+                                description: Mode defines the type of BGP peer auto-discovery
+                                  mechanism.
+                                enum:
+                                - Unnumbered
+                                type: string
+                              unnumbered:
+                                description: Unnumbered contains configuration for
+                                  the BGP Unnumbered peer auto-discovery mode.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+
+                                      The IPv6 link-local address of a neighbor discovered on the specified interface will be used for peering.
+                                      Additionally, Router Advertisement messages will be sent out of the configured interface,
+                                      so that the neighboring router can learn about Cilium node's link-local IPv6 address as well.
+                                    type: string
+                                required:
+                                - interface
+                                type: object
+                            required:
+                            - mode
+                            type: object
+                            x-kubernetes-validations:
+                            - message: unnumbered field is required for the 'Unnumbered'
+                                mode
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.

@@ -811,8 +811,13 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 								LocalASN: ptr.To[int64](65000),
 								Peers: []v1.IsovalentBGPPeer{
 									{
-										Name:          unnumberedPeerName,
-										Interface:     &node1Interface,
+										Name: unnumberedPeerName,
+										AutoDiscovery: &v1.BGPAutoDiscovery{
+											Mode: v1.BGPADUnnumbered,
+											Unnumbered: &v1.BGPUnnumbered{
+												Interface: node1Interface,
+											},
+										},
 										PeerConfigRef: bgpPeerConfigBFDProfile1Ref,
 									},
 								},

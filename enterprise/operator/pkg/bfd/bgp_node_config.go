@@ -99,7 +99,11 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *v1.IsovalentBGPClusterConfig) 
 
 	for _, instance := range bgpCC.Spec.BGPInstances {
 		for _, p := range instance.Peers {
-			if (p.PeerAddress == nil && p.Interface == nil) || p.PeerConfigRef == nil {
+			peerInterface := ""
+			if p.AutoDiscovery != nil && p.AutoDiscovery.Mode == v1.BGPADUnnumbered && p.AutoDiscovery.Unnumbered != nil {
+				peerInterface = p.AutoDiscovery.Unnumbered.Interface
+			}
+			if (p.PeerAddress == nil && peerInterface == "") || p.PeerConfigRef == nil {
 				continue
 			}
 			peerConfig, exists, err := r.bgpPeerConfigStore.GetByKey(resource.Key{Name: p.PeerConfigRef.Name})
@@ -117,17 +121,20 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *v1.IsovalentBGPClusterConfig) 
 						r.Logger.WithFields(logrus.Fields{
 							BGPClusterConfigField: bgpCC.Name,
 							PeerAddressField:      ptr.Deref(p.PeerAddress, ""),
-							PeerInterfaceField:    ptr.Deref(p.Interface, ""),
+							PeerInterfaceField:    peerInterface,
 						}).Warnf("Same BFD peer configured with different BFD profiles, '%s' will be used", existing.bfdProfile)
 					}
 					continue
 				}
-				peersMap[key] = &bfdPeerConfig{
-					name:          getBFDPeerName(instance.Name, p.Name),
-					peerAddress:   p.PeerAddress,
-					interfaceName: p.Interface,
-					bfdProfile:    *peerConfig.Spec.BFDProfileRef,
+				bfdPeer := &bfdPeerConfig{
+					name:        getBFDPeerName(instance.Name, p.Name),
+					peerAddress: p.PeerAddress,
+					bfdProfile:  *peerConfig.Spec.BFDProfileRef,
 				}
+				if peerInterface != "" {
+					bfdPeer.interfaceName = &peerInterface
+				}
+				peersMap[key] = bfdPeer
 			}
 		}
 	}

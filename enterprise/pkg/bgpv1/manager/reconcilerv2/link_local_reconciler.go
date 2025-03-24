@@ -220,8 +220,8 @@ func (r *LinkLocalReconciler) setMetadata(i *instance.BGPInstance, m LinkLocalRe
 func (r *LinkLocalReconciler) getUnnumberedInterfaces(nodeInstance *v1.IsovalentBGPNodeInstance) sets.Set[string] {
 	res := sets.Set[string]{}
 	for _, peer := range nodeInstance.Peers {
-		if peer.Interface != nil {
-			res.Insert(*peer.Interface)
+		if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADUnnumbered && peer.AutoDiscovery.Unnumbered != nil {
+			res.Insert(peer.AutoDiscovery.Unnumbered.Interface)
 		}
 	}
 	return res
@@ -234,10 +234,11 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 	txn := r.db.ReadTxn()
 
 	for i, peer := range iParams.DesiredConfig.Peers {
-		if peer.Interface != nil {
-			peerLog := l.WithFields(logrus.Fields{osstypes.PeerLogField: peer.Name, types.InterfaceLogField: *peer.Interface})
+		if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADUnnumbered && peer.AutoDiscovery.Unnumbered != nil {
+			peerInterface := peer.AutoDiscovery.Unnumbered.Interface
+			peerLog := l.WithFields(logrus.Fields{osstypes.PeerLogField: peer.Name, types.InterfaceLogField: peerInterface})
 
-			peerAddress, found, err := utils.GetIPv6LinkLocalNeighborAddress(r.deviceTable, r.neighborTable, txn, *peer.Interface)
+			peerAddress, found, err := utils.GetIPv6LinkLocalNeighborAddress(r.deviceTable, r.neighborTable, txn, peerInterface)
 			if err != nil {
 				// The error is most likely due to non-existing interface or multiple link-local peers on the link.
 				// As these are related to the host's state rather than the BGP CP, just emit a warning and skip
@@ -253,7 +254,7 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 				// we keep the previously set peer address, so that the BGP peer remains configured.
 				// We will leave it upto BGP keepalive mechanism to manage the peering state.
 				// If the LL address changes, the peering will be reconfigured as soon as we get a new neighbor entry for it.
-				peerAddress, found = metadata.linkLocalNeighbors[*peer.Interface]
+				peerAddress, found = metadata.linkLocalNeighbors[peerInterface]
 				if !found {
 					// The LL address is not in the neighbor table nor in the cache - we skip this peer
 					// (it will not be configured on the underlying router instance by the neighbor reconciler).
@@ -264,7 +265,7 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 			peerLog.Debugf("Setting peer address to %s", peerAddress)
 
 			// update address in the cache
-			metadata.linkLocalNeighbors[*peer.Interface] = peerAddress
+			metadata.linkLocalNeighbors[peerInterface] = peerAddress
 
 			// update the peer address in CEE desired config
 			iParams.DesiredConfig.Peers[i].PeerAddress = &peerAddress

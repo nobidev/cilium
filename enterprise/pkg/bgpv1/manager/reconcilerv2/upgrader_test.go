@@ -150,8 +150,13 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 								PeerAddress: ossNode.Spec.BGPInstances[0].Peers[0].PeerAddress,
 							},
 							{
-								Name:      ossNode.Spec.BGPInstances[0].Peers[1].Name,
-								Interface: ptr.To("eth0"), // should cause copying PeerAddress from oss NodeConfig
+								Name: ossNode.Spec.BGPInstances[0].Peers[1].Name,
+								AutoDiscovery: &v1.BGPAutoDiscovery{
+									Mode: v1.BGPADUnnumbered,
+									Unnumbered: &v1.BGPUnnumbered{
+										Interface: "eth0", // should cause copying PeerAddress from oss NodeConfig
+									},
+								},
 							},
 						},
 					},

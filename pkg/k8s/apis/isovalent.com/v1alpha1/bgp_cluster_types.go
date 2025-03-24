@@ -97,6 +97,9 @@ type IsovalentBGPInstance struct {
 	VRFs []BGPVRF `json:"vrfs,omitempty"`
 }
 
+// IsovalentBGPPeer contains configuration of a neighboring BGP peer.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.autoDiscovery)", message="Either peerAddress or autoDiscovery must be specified"
 type IsovalentBGPPeer struct {
 	// Name is the name of the BGP peer. It is a unique identifier for the peer within the BGP instance.
 	//
@@ -124,23 +127,54 @@ type IsovalentBGPPeer struct {
 	// +kubebuilder:default=0
 	PeerASN *int64 `json:"peerASN,omitempty"`
 
-	// Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
-	// This configuration is required when we do not want to specify the peerAddress
-	// and rely on IPv6 link-local address of the specified interface for peering.
-	//
-	// By default, BGP unnumbered peering is disabled and BGP packets are sent out of the interface
-	// based on routing resolution of peerAddress.
-	//
-	// If the interface is set, the peerAddress field is ignored.
+	// AutoDiscovery allows auto-discovery of peer's IP address.
+	// When a peer auto-discovery mechanism is enabled, the peerAddress field
+	// can be empty (and will be ignored if set).
 	//
 	// +kubebuilder:validation:Optional
-	Interface *string `json:"interface,omitempty"`
+	AutoDiscovery *BGPAutoDiscovery `json:"autoDiscovery,omitempty"`
 
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.
 	//
 	// +kubebuilder:validation:Optional
 	PeerConfigRef *PeerConfigReference `json:"peerConfigRef,omitempty"`
+}
+
+// BGPAutoDiscovery contains configuration the BGP peer auto-discovery mechanism.
+// +kubebuilder:validation:XValidation:rule="self.mode != 'Unnumbered' || has(self.unnumbered)", message="unnumbered field is required for the 'Unnumbered' mode"
+type BGPAutoDiscovery struct {
+	// Mode defines the type of BGP peer auto-discovery mechanism.
+	//
+	// +kubebuilder:validation:Required
+	Mode BGPAutoDiscoveryMode `json:"mode"`
+
+	// Unnumbered contains configuration for the BGP Unnumbered peer auto-discovery mode.
+	//
+	// +kubebuilder:validation:Optional
+	Unnumbered *BGPUnnumbered `json:"unnumbered,omitempty"`
+}
+
+// BGPAutoDiscoveryMode defines the mode of BGP peer auto-discovery.
+//
+// +kubebuilder:validation:Enum=Unnumbered
+type BGPAutoDiscoveryMode string
+
+const (
+	// BGPADUnnumbered is "BGP Unnumbered" peer auto-discovery mode.
+	BGPADUnnumbered BGPAutoDiscoveryMode = "Unnumbered"
+)
+
+// BGPUnnumbered contains configuration for the BGP Unnumbered peer auto-discovery mechanism.
+type BGPUnnumbered struct {
+	// Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
+	//
+	// The IPv6 link-local address of a neighbor discovered on the specified interface will be used for peering.
+	// Additionally, Router Advertisement messages will be sent out of the configured interface,
+	// so that the neighboring router can learn about Cilium node's link-local IPv6 address as well.
+	//
+	// +kubebuilder:validation:Required
+	Interface string `json:"interface,omitempty"`
 }
 
 // PeerConfigReference is a reference to a peer configuration resource.
@@ -232,8 +266,9 @@ var AllBGPClusterConfigConditions = []string{
 // Two peers with different logical name but the same peering address / interface
 // would produce the same key. If Interface is specified (unnumbered peer), the PeerAddress is ignored.
 func (peer *IsovalentBGPPeer) PeeringKey() string {
-	if peer.Interface != nil && *peer.Interface != "" {
-		return "unnumbered-" + *peer.Interface
+	if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == BGPADUnnumbered &&
+		peer.AutoDiscovery.Unnumbered.Interface != "" {
+		return "unnumbered-" + peer.AutoDiscovery.Unnumbered.Interface
 	}
 	if peer.PeerAddress != nil && *peer.PeerAddress != "" {
 		return *peer.PeerAddress

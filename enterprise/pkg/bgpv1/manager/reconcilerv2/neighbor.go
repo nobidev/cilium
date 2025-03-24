@@ -187,13 +187,15 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			return fmt.Errorf("peer %s does not have a PeerASN", n.Name)
 		}
 
-		if n.Interface == nil && n.PeerAddress == nil {
-			// If the peer is not an unnumbered peer, it must have a PeerAddress.
-			return fmt.Errorf("peer %s does not have a PeerAddress", n.Name)
-		} else if n.Interface != nil && n.PeerAddress == nil {
-			// If the peer is an unnumbered peer, it is possible that the PeerAddress is not yet discovered.
-			l.WithField(types.PeerLogField, n.Name).Debug("Peer does not have PeerAddress configured yet, skipping")
-			continue
+		if n.PeerAddress == nil || *n.PeerAddress == "" {
+			if n.AutoDiscovery != nil && n.AutoDiscovery.Mode == v1.BGPADUnnumbered {
+				// If the peer is an unnumbered peer, it is possible that the PeerAddress is not yet discovered.
+				l.WithField(types.PeerLogField, n.Name).Debug("Peer does not have PeerAddress configured yet, skipping")
+				continue
+			} else {
+				// If the peer is not an unnumbered peer, it must have a PeerAddress.
+				return fmt.Errorf("peer %s does not have a PeerAddress", n.Name)
+			}
 		}
 
 		var (

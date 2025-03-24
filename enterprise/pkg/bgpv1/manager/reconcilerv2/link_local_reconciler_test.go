@@ -163,16 +163,16 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer1 with no neighbor entry - no change",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer1",
-					Interface: ptr.To("eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
 				},
 			},
 			neighborChanges: nil,
 			expectSignal:    false, // no neighbor change
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer1",
-					Interface: ptr.To("eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth0"},
@@ -181,8 +181,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer1 with new neighbor entry - set peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer1",
-					Interface: ptr.To("eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
 				},
 			},
 			neighborChanges: []*tables.Neighbor{
@@ -194,9 +194,9 @@ func TestLinkLocalReconciler(t *testing.T) {
 			expectSignal: true,
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:        "peer1",
-					Interface:   ptr.To("eth0"),
-					PeerAddress: ptr.To("fe80::aabb:1111:2222:3333%eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
+					PeerAddress:   ptr.To("fe80::aabb:1111:2222:3333%eth0"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth0"},
@@ -205,8 +205,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer1 with deleted neighbor entry - keep old peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer1",
-					Interface: ptr.To("eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
 				},
 			},
 			neighborChanges: []*tables.Neighbor{
@@ -219,9 +219,9 @@ func TestLinkLocalReconciler(t *testing.T) {
 			expectSignal:    true,
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:        "peer1",
-					Interface:   ptr.To("eth0"),
-					PeerAddress: ptr.To("fe80::aabb:1111:2222:3333%eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
+					PeerAddress:   ptr.To("fe80::aabb:1111:2222:3333%eth0"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth0"},
@@ -230,8 +230,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer1 with re-inserted neighbor entry - change peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer1",
-					Interface: ptr.To("eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
 				},
 			},
 			neighborChanges: []*tables.Neighbor{
@@ -243,9 +243,9 @@ func TestLinkLocalReconciler(t *testing.T) {
 			expectSignal: true,
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:        "peer1",
-					Interface:   ptr.To("eth0"),
-					PeerAddress: ptr.To("fe80::ffff:aaaa:bbbb:cccc%eth0"),
+					Name:          "peer1",
+					AutoDiscovery: unnumberedConfig("eth0"),
+					PeerAddress:   ptr.To("fe80::ffff:aaaa:bbbb:cccc%eth0"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth0"},
@@ -254,16 +254,16 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer2 with non-existing interface - do not set peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer2",
-					Interface: ptr.To("eth99"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth99"),
 				},
 			},
 			neighborChanges: nil,
 			expectSignal:    false,
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer2",
-					Interface: ptr.To("eth99"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth99"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth99"},
@@ -272,8 +272,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer2 with non-link-local neighbor entry - do not set peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer2",
-					Interface: ptr.To("eth1"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth1"),
 				},
 			},
 			neighborChanges: []*tables.Neighbor{
@@ -285,8 +285,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			expectSignal: false, // not a link-local neighbor update
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer2",
-					Interface: ptr.To("eth1"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth1"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth1"},
@@ -295,8 +295,8 @@ func TestLinkLocalReconciler(t *testing.T) {
 			name: "peer2 with a link-local neighbor entry - set peer address",
 			initPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:      "peer2",
-					Interface: ptr.To("eth1"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth1"),
 				},
 			},
 			neighborChanges: []*tables.Neighbor{
@@ -312,9 +312,9 @@ func TestLinkLocalReconciler(t *testing.T) {
 			expectSignal: true,
 			expectedPeers: []v1.IsovalentBGPNodePeer{
 				{
-					Name:        "peer2",
-					Interface:   ptr.To("eth1"),
-					PeerAddress: ptr.To("fe80::9999:8888:7777:6666%eth1"),
+					Name:          "peer2",
+					AutoDiscovery: unnumberedConfig("eth1"),
+					PeerAddress:   ptr.To("fe80::9999:8888:7777:6666%eth1"),
 				},
 			},
 			expectedRAInterfaces: []string{"eth1"},
@@ -445,8 +445,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 				LocalASN: ptr.To[int64](65002),
 				Peers: []v1.IsovalentBGPNodePeer{
 					{
-						Name:      "peer2",
-						Interface: ptr.To("eth2"),
+						Name:          "peer2",
+						AutoDiscovery: unnumberedConfig("eth2"),
 					},
 				},
 			},
@@ -466,8 +466,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v1.IsovalentBGPNodePeer{
 					{
-						Name:      "peer1",
-						Interface: ptr.To("eth1"),
+						Name:          "peer1",
+						AutoDiscovery: unnumberedConfig("eth1"),
 					},
 				},
 			},
@@ -494,8 +494,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v1.IsovalentBGPNodePeer{
 					{
-						Name:      "peer2",
-						Interface: ptr.To("eth1"),
+						Name:          "peer2",
+						AutoDiscovery: unnumberedConfig("eth1"),
 					},
 				},
 			},
@@ -543,8 +543,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				Peers: []v1.IsovalentBGPNodePeer{
 					{
-						Name:      "peer4",
-						Interface: ptr.To("eth4"),
+						Name:          "peer4",
+						AutoDiscovery: unnumberedConfig("eth4"),
 					},
 				},
 			},
@@ -647,4 +647,13 @@ func verifyRAInterfaces(t *testing.T, f *linkLocalTestFixture, expectedRAInterfa
 		}
 	}
 	require.ElementsMatch(t, expectedRAInterfaces, configuredRAInterfaces)
+}
+
+func unnumberedConfig(ifName string) *v1.BGPAutoDiscovery {
+	return &v1.BGPAutoDiscovery{
+		Mode: v1.BGPADUnnumbered,
+		Unnumbered: &v1.BGPUnnumbered{
+			Interface: ifName,
+		},
+	}
 }

@@ -529,7 +529,7 @@ func toNodeBGPInstance(
 				Name:          bgpInstancePeer.Name,
 				PeerAddress:   bgpInstancePeer.PeerAddress,
 				PeerASN:       bgpInstancePeer.PeerASN,
-				Interface:     bgpInstancePeer.Interface,
+				AutoDiscovery: bgpInstancePeer.AutoDiscovery,
 				PeerConfigRef: bgpInstancePeer.PeerConfigRef,
 			}
 
@@ -563,7 +563,7 @@ func toNodeBGPInstance(
 					Name:           peer.Name,
 					PeerAddress:    ptr.To(peer.Address),
 					PeerASN:        ptr.To(*nodeBGPInstance.LocalASN), // Route Reflector is iBGP-only
-					Interface:      nil,                               // Unnumbered peering is not supported for Route Reflectors
+					AutoDiscovery:  nil,                               // auto-discovery is not supported for Route Reflectors
 					PeerConfigRef:  peer.PeerConfigRef,
 					RouteReflector: peer.RouteReflector,
 				}
@@ -573,8 +573,8 @@ func toNodeBGPInstance(
 					if overrideBGPPeer.Name == nodePeer.Name {
 						overrideNodePeer(&nodePeer, &overrideBGPPeer)
 
-						// Unnumbered peering is not supported for Route Reflector peers
-						nodePeer.Interface = nil
+						// auto-discovery is not supported for Route Reflector peers
+						nodePeer.AutoDiscovery = nil
 
 						break
 					}
@@ -597,7 +597,7 @@ func overrideNodePeer(nodePeer *v1.IsovalentBGPNodePeer, override *v1.IsovalentB
 	if override.LocalAddress != nil {
 		nodePeer.LocalAddress = override.LocalAddress
 	}
-	if override.Interface != nil {
-		nodePeer.Interface = override.Interface
+	if override.AutoDiscovery != nil {
+		nodePeer.AutoDiscovery = override.AutoDiscovery
 	}
 }

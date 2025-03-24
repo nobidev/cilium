@@ -84,18 +84,43 @@ spec:
                       description: Peers is a list of neighboring BGP peers for this
                         virtual router
                       items:
+                        description: IsovalentBGPPeer contains configuration for a
+                          BGP peer.
                         properties:
-                          interface:
+                          autoDiscovery:
                             description: |-
-                              Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
-                              This configuration is required when we do not want to specify the peerAddress
-                              and rely on IPv6 link-local address of the specified interface for peering.
+                              AutoDiscovery allows auto-discovery of peer's IP address.
+                              When a peer auto-discovery mechanism is enabled, the peerAddress field
+                              can be empty (and will be ignored if set).
+                            properties:
+                              mode:
+                                description: Mode defines the type of BGP peer auto-discovery
+                                  mechanism.
+                                enum:
+                                - Unnumbered
+                                type: string
+                              unnumbered:
+                                description: Unnumbered contains configuration for
+                                  the BGP Unnumbered peer auto-discovery mode.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
 
-                              By default, BGP unnumbered peering is disabled and BGP packets are sent out of the interface
-                              based on routing resolution of peerAddress.
-
-                              If the interface is set, the peerAddress field is ignored.
-                            type: string
+                                      The IPv6 link-local address of a neighbor discovered on the specified interface will be used for peering.
+                                      Additionally, Router Advertisement messages will be sent out of the configured interface,
+                                      so that the neighboring router can learn about Cilium node's link-local IPv6 address as well.
+                                    type: string
+                                required:
+                                - interface
+                                type: object
+                            required:
+                            - mode
+                            type: object
+                            x-kubernetes-validations:
+                            - message: unnumbered field is required for the 'Unnumbered'
+                                mode
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.
@@ -136,6 +161,9 @@ spec:
                         required:
                         - name
                         type: object
+                        x-kubernetes-validations:
+                        - message: Either peerAddress or autoDiscovery must be specified
+                          rule: has(self.peerAddress) || has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name
@@ -412,18 +440,43 @@ spec:
                       description: Peers is a list of neighboring BGP peers for this
                         virtual router
                       items:
+                        description: IsovalentBGPPeer contains configuration of a
+                          neighboring BGP peer.
                         properties:
-                          interface:
+                          autoDiscovery:
                             description: |-
-                              Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
-                              This configuration is required when we do not want to specify the peerAddress
-                              and rely on IPv6 link-local address of the specified interface for peering.
+                              AutoDiscovery allows auto-discovery of peer's IP address.
+                              When a peer auto-discovery mechanism is enabled, the peerAddress field
+                              can be empty (and will be ignored if set).
+                            properties:
+                              mode:
+                                description: Mode defines the type of BGP peer auto-discovery
+                                  mechanism.
+                                enum:
+                                - Unnumbered
+                                type: string
+                              unnumbered:
+                                description: Unnumbered contains configuration for
+                                  the BGP Unnumbered peer auto-discovery mode.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      Interface is the name of an interface on the Cilium node to use for BGP unnumbered peering.
 
-                              By default, BGP unnumbered peering is disabled and BGP packets are sent out of the interface
-                              based on routing resolution of peerAddress.
-
-                              If the interface is set, the peerAddress field is ignored.
-                            type: string
+                                      The IPv6 link-local address of a neighbor discovered on the specified interface will be used for peering.
+                                      Additionally, Router Advertisement messages will be sent out of the configured interface,
+                                      so that the neighboring router can learn about Cilium node's link-local IPv6 address as well.
+                                    type: string
+                                required:
+                                - interface
+                                type: object
+                            required:
+                            - mode
+                            type: object
+                            x-kubernetes-validations:
+                            - message: unnumbered field is required for the 'Unnumbered'
+                                mode
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.
@@ -476,6 +529,9 @@ spec:
                         required:
                         - name
                         type: object
+                        x-kubernetes-validations:
+                        - message: Either peerAddress or autoDiscovery must be specified
+                          rule: has(self.peerAddress) || has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name
