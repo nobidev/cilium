@@ -44,6 +44,7 @@ LABEL name="Isovalent UBI runtime image" \
 WORKDIR /go/src/github.com/isovalent/cilium/enterprise/images/runtime
 RUN --mount=type=bind,readwrite,source=./enterprise/images/runtime,target=. ./install-runtime-deps.sh
 COPY ./enterprise/images/runtime/LICENSE /usr/share/licenses/isovalent/
+RUN ln -s /usr/share/licenses /licenses
 
 WORKDIR /go/src/github.com/isovalent/cilium/images/runtime
 RUN --mount=type=bind,readwrite,source=./images/runtime,target=. ./iptables-wrapper-installer.sh --no-sanity-check
