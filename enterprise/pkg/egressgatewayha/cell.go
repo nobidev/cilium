@@ -27,6 +27,9 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
 	cell.Provide(func(mgr *Manager) EgressIPsProvider { return mgr }),
+
+	cell.ProvidePrivate(newAgentTables),
+	cell.Provide(statedb.RWTable[*AgentPolicyConfig].ToTable),
 )
 
 // OperatorCell provides an [OperatorManager] for consumption with hive.
