@@ -21,4 +21,4 @@ ARG BUILD_DATE
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
 COPY LICENSE /usr/share/licenses/isovalent/
-RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies
+RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
