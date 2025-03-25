@@ -21,12 +21,10 @@ jobs:
       matrix:
         include:
           - component: CERTGEN
-            docker-context: certgen
-            dockerfile: certgen/Dockerfile
+            docker-context: enterprise/images/certgen
+            dockerfile: enterprise/images/certgen/Dockerfile
             base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
-            build-from-source: true
-            source-repo: cilium/certgen
-            source-path: certgen
+            build-from-source: false
 
           - component: CILIUM_NODEINIT
             docker-context: enterprise/images/startup-script
