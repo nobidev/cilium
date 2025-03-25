@@ -200,7 +200,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		"CEE CiliumNode doesn't point to the same router instance as OSS",
 	)
 
-	require.Equal(t, len(ceeParams.DesiredConfig.Peers), len(ossParams.DesiredConfig.Peers))
+	require.Len(t, ossParams.DesiredConfig.Peers, len(ceeParams.DesiredConfig.Peers))
 	for _, ceePeer := range ceeParams.DesiredConfig.Peers {
 		ossPeer, err := getOSSNodePeerByName(ossParams.DesiredConfig, ceePeer.Name)
 		require.NoError(t, err)

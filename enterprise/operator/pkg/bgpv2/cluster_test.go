@@ -234,7 +234,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					assert.NoError(c, err)
 					return
 				}
-				assert.Equal(c, len(step.expectedNodeConfigs), len(runningIsoNodeConfigs.Items))
+				assert.Len(c, runningIsoNodeConfigs.Items, len(step.expectedNodeConfigs))
 
 				for _, expectedNodeConfig := range step.expectedNodeConfigs {
 					isoNodeConfig, err := f.isoBGPNodeConfClient.Get(ctx, expectedNodeConfig.Name, meta_v1.GetOptions{})

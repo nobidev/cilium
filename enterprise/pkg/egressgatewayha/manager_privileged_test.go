@@ -611,7 +611,7 @@ func (k *EgressGatewayTestSuite) assertAdvertisedEgressIPs(tb testing.TB, egress
 	require.NoError(tb, err)
 
 	// comparing maps, as the order of the IPs in the slice is not guaranteed
-	require.Equal(tb, len(expectedPolicyIPs), len(egwPolicyIPs))
+	require.Len(tb, egwPolicyIPs, len(expectedPolicyIPs))
 	for policyNSName, ips := range expectedPolicyIPs {
 		egwIPs := egwPolicyIPs[policyNSName]
 		var egwIPsStr []string

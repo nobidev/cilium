@@ -50,22 +50,22 @@ type resourceAFSimplePathsMap map[resource.Key]afSimplePathsMap
 type vrfSimplePathsMap map[string]resourceAFSimplePathsMap // vrf -> resource -> af -> simplePath
 
 func compareSimplePath(req *require.Assertions, vrfSimplePath vrfSimplePathsMap, vrfPaths VRFPaths) {
-	req.Equal(len(vrfSimplePath), len(vrfPaths))
+	req.Len(vrfPaths, len(vrfSimplePath))
 
 	for vrf, svcAFSimplePaths := range vrfSimplePath {
 		svcAFPaths, exists := vrfPaths[vrf]
 		req.True(exists)
-		req.Equal(len(svcAFSimplePaths), len(svcAFPaths))
+		req.Len(svcAFPaths, len(svcAFSimplePaths))
 
 		for svc, simpleSvcPaths := range svcAFSimplePaths {
 			afPaths, exists := svcAFPaths[svc]
 			req.True(exists)
-			req.Equal(len(simpleSvcPaths), len(afPaths))
+			req.Len(afPaths, len(simpleSvcPaths))
 
 			for af, simplePaths := range simpleSvcPaths {
 				paths, exists := afPaths[af]
 				req.True(exists)
-				req.Equal(len(simplePaths), len(paths))
+				req.Len(paths, len(simplePaths))
 
 				for _, path := range paths {
 					found := false

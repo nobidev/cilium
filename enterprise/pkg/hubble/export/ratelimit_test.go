@@ -84,7 +84,7 @@ func TestEnforce(t *testing.T) {
 	}
 	gotJSON := strings.Split(strings.TrimSpace(buf.String()), "\n")
 
-	assert.Equal(t, len(wantJSON), len(gotJSON))
+	assert.Len(t, gotJSON, len(wantJSON))
 	for i := range len(wantJSON) {
 		assert.JSONEq(t, wantJSON[i], gotJSON[i])
 	}

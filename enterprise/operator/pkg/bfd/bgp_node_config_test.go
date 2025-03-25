@@ -894,7 +894,7 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 					assert.NoError(c, err)
 					return
 				}
-				assert.Equal(c, len(step.expectedBFDNodeConfigs), len(nodeConfigs.Items))
+				assert.Len(c, nodeConfigs.Items, len(step.expectedBFDNodeConfigs))
 
 				for _, expectedNodeConfig := range step.expectedBFDNodeConfigs {
 					nodeConfig, err := f.bfdNodeConfigClient.Get(ctx, expectedNodeConfig.Name, metav1.GetOptions{})
