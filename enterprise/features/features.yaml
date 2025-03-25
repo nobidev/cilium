@@ -99,7 +99,7 @@ features:
       enterprise.egressGatewayHA.socketTermination.enabled: true
 
   EnterpriseBGPControlPlane:
-    maturity: Beta
+    maturity: Stable
     description: |
       Enables the enterprise BGP control-plane for Cilium Enterprise
     flags:
@@ -109,7 +109,7 @@ features:
       enterprise.bgpControlPlane.enabled: true
 
   BFD:
-    maturity: Beta
+    maturity: Limited
     description: |
       Enables Bidirectional Forwarding Detection (BFD) feature
     flags:
@@ -496,7 +496,7 @@ features:
   ### BGP
 
   BGPControlPlane:
-    maturity: Limited
+    maturity: Stable
     description: |
       Enables the BGP control-plane for Cilium Enterprise
     flags:
