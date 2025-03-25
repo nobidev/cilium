@@ -146,11 +146,16 @@ spec:
                         joins. When specified, this instance automatically peers with the
                         route reflectors or route reflector clients in the cluster.
                       properties:
-                        clientPeerConfigRef:
+                        clusterID:
                           description: |-
-                            ClientPeerConfigRef is a reference to the IsovalentBGPPeerConfig
-                            when this instance peers with the route reflector client. This is
-                            only valid when the Role is "route-reflector".
+                            ClusterID is the ID of the route reflector cluster that this
+                            instance joins.
+                          format: ipv4
+                          type: string
+                        peerConfigRef:
+                          description: |-
+                            PeerConfigRef is a reference to the IsovalentBGPPeerConfig when this
+                            instance peers with other peers in the same route reflector cluster.
                           properties:
                             name:
                               description: |-
@@ -160,12 +165,6 @@ spec:
                           required:
                           - name
                           type: object
-                        clusterID:
-                          description: |-
-                            ClusterID is the ID of the route reflector cluster that this
-                            instance joins.
-                          format: ipv4
-                          type: string
                         role:
                           description: Role is a role (rr or client) within the RR
                             cluster
@@ -173,20 +172,6 @@ spec:
                           - route-reflector
                           - client
                           type: string
-                        routeReflectorPeerConfigRef:
-                          description: |-
-                            RouteReflectorPeerConfigRef is a reference to the
-                            IsovalentBGPPeerConfig when this instance peers with other route
-                            reflectors.
-                          properties:
-                            name:
-                              description: |-
-                                Name is the name of the peer config resource.
-                                Name refers to the name of a Kubernetes object (typically a IsovalentBGPPeerConfig).
-                              type: string
-                          required:
-                          - name
-                          type: object
                       required:
                       - clusterID
                       - role

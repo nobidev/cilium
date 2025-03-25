@@ -127,19 +127,11 @@ type RouteReflector struct {
 	// +kubebuilder:validation:Format=ipv4
 	ClusterID string `json:"clusterID"`
 
-	// RouteReflectorPeerConfigRef is a reference to the
-	// IsovalentBGPPeerConfig when this instance peers with other route
-	// reflectors.
+	// PeerConfigRef is a reference to the IsovalentBGPPeerConfig when this
+	// instance peers with other peers in the same route reflector cluster.
 	//
 	// +kubebuilder:validation:Optional
-	RouteReflectorPeerConfigRef *PeerConfigReference `json:"routeReflectorPeerConfigRef,omitempty"`
-
-	// ClientPeerConfigRef is a reference to the IsovalentBGPPeerConfig
-	// when this instance peers with the route reflector client. This is
-	// only valid when the Role is "route-reflector".
-	//
-	// +kubebuilder:validation:Optional
-	ClientPeerConfigRef *PeerConfigReference `json:"clientPeerConfigRef,omitempty"`
+	PeerConfigRef *PeerConfigReference `json:"peerConfigRef,omitempty"`
 }
 
 type RouteReflectorRole string

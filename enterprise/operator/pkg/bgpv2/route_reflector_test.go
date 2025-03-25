@@ -52,10 +52,11 @@ func TestRRCluster(t *testing.T) {
 			Name:     name,
 			LocalASN: &asn,
 			RouteReflector: &v1.RouteReflector{
-				Role:                        role,
-				ClusterID:                   "255.0.0.1",
-				RouteReflectorPeerConfigRef: &v1.PeerConfigReference{Name: name + "-rrPeerConfig"},
-				ClientPeerConfigRef:         &v1.PeerConfigReference{Name: name + "-clientPeerConfig"},
+				Role:      role,
+				ClusterID: "255.0.0.1",
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: "peer-config",
+				},
 			},
 		}
 	}
@@ -79,7 +80,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-client-node2-client0",
 					Address:       "10.0.0.2",
-					PeerConfigRef: rr0.RouteReflector.ClientPeerConfigRef,
+					PeerConfigRef: rr0.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
 						ClusterID: "255.0.0.1",
@@ -88,7 +89,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-client-node3-client1",
 					Address:       "10.0.0.3",
-					PeerConfigRef: rr0.RouteReflector.ClientPeerConfigRef,
+					PeerConfigRef: rr0.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
 						ClusterID: "255.0.0.1",
@@ -97,7 +98,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node1-rr1",
 					Address:       "10.0.0.1",
-					PeerConfigRef: rr0.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: rr0.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",
@@ -114,7 +115,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-client-node2-client0",
 					Address:       "10.0.0.2",
-					PeerConfigRef: rr1.RouteReflector.ClientPeerConfigRef,
+					PeerConfigRef: rr1.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
 						ClusterID: "255.0.0.1",
@@ -123,7 +124,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-client-node3-client1",
 					Address:       "10.0.0.3",
-					PeerConfigRef: rr1.RouteReflector.ClientPeerConfigRef,
+					PeerConfigRef: rr1.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
 						ClusterID: "255.0.0.1",
@@ -132,7 +133,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node0-rr0",
 					Address:       "10.0.0.0",
-					PeerConfigRef: rr1.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: rr1.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",
@@ -149,7 +150,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node0-rr0",
 					Address:       "10.0.0.0",
-					PeerConfigRef: client0.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: client0.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",
@@ -158,7 +159,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node1-rr1",
 					Address:       "10.0.0.1",
-					PeerConfigRef: client0.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: client0.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",
@@ -175,7 +176,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node0-rr0",
 					Address:       "10.0.0.0",
-					PeerConfigRef: client1.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: client1.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",
@@ -184,7 +185,7 @@ func TestRRCluster(t *testing.T) {
 				{
 					Name:          "rr-route-reflector-node1-rr1",
 					Address:       "10.0.0.1",
-					PeerConfigRef: client1.RouteReflector.RouteReflectorPeerConfigRef,
+					PeerConfigRef: client1.RouteReflector.PeerConfigRef,
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: "255.0.0.1",

@@ -127,7 +127,7 @@ func (c *rrCluster) ListPeers(instanceID instanceID) []*rrClusterPeer {
 			peers = append(peers, &rrClusterPeer{
 				Name:          client.Name,
 				Address:       client.Address,
-				PeerConfigRef: self.Config.ClientPeerConfigRef,
+				PeerConfigRef: self.Config.PeerConfigRef,
 				RouteReflector: &v1.NodeRouteReflector{
 					Role:      client.Config.Role,
 					ClusterID: client.Config.ClusterID,
@@ -146,7 +146,7 @@ func (c *rrCluster) ListPeers(instanceID instanceID) []*rrClusterPeer {
 			peers = append(peers, &rrClusterPeer{
 				Name:          rr.Name,
 				Address:       rr.Address,
-				PeerConfigRef: self.Config.RouteReflectorPeerConfigRef,
+				PeerConfigRef: self.Config.PeerConfigRef,
 				RouteReflector: &v1.NodeRouteReflector{
 					Role:      rr.Config.Role,
 					ClusterID: rr.Config.ClusterID,
