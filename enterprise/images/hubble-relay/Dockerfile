@@ -23,7 +23,7 @@ USER 0:0
 RUN mkdir /home/gops && chown 65532:65532 /home/gops
 ENV GOPS_CONFIG_DIR=/home/gops
 COPY LICENSE /usr/share/licenses/isovalent/
-RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies
+RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]
