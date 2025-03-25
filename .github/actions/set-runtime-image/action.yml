@@ -18,3 +18,9 @@ runs:
         fi
         # Set the runtime image into github env once everything is verified
         echo "CILIUM_RUNTIME_IMAGE=$CILIUM_RUNTIME_IMAGE" >> "$GITHUB_ENV"
+
+    - shell: bash
+      name: Override enterprise runtime variable from file
+      run: |
+        ENTEPRISE_RUNTIME_IMAGE=$(cat ${{ github.action_path }}/enterprise-runtime-image.txt | tr '\n' ' ' | sed 's/"/\\"/g')
+        echo "CILIUM_RUNTIME_IMAGE=$ENTEPRISE_RUNTIME_IMAGE" >> "$GITHUB_ENV"
