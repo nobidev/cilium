@@ -132,3 +132,4 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             UPSTREAM_VERSION=${{ needs.check-changes.outputs.version }}
             UPSTREAM_IMAGE=${{ needs.check-changes.outputs.repo }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}
+            VERSION=${{ needs.check-changes.outputs.version }}

@@ -19,5 +19,7 @@ LABEL name="Cilium agent of Isovalent Networking for Kubernetes" \
 
 ARG BUILD_DATE
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
 RUN mkdir -p /usr/share/licences/isovalent; mv /LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies
 CMD ["/usr/bin/cilium-dbg"]

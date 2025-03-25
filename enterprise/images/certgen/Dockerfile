@@ -27,6 +27,9 @@ LABEL name="Isovalent UBI certgen image" \
     org.opencontainers.image.vendor="Isovalent, part of Cisco" \
     org.opencontainers.image.title="Isovalent UBI cergen image" \
     org.opencontainers.image.description="This image extends Red Hat UBI image with tooling for generating certificates"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
+
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN ln -s /usr/share/licenses /licenses
 COPY --from=upstream /usr/bin/cilium-certgen /usr/bin/cilium-certgen

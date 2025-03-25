@@ -23,6 +23,8 @@ LABEL name="Cilium Envoy proxy for Isovalent Networking for Kubernetes with mini
       io.k8s.display-name="Cilium Envoy proxy component of Isovalent Networking for Kubernetes"
 
 LABEL org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
 
 COPY LICENSE /usr/share/licenses/isovalent/
 

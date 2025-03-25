@@ -30,6 +30,9 @@ LABEL name="Isovalent UBI startup image" \
     org.opencontainers.image.vendor="Isovalent, part of Cisco" \
     org.opencontainers.image.title="Isovalent UBI startup image" \
     org.opencontainers.image.description="This image extends Red Hat UBI image with generic tooling used by Isovalent images"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
+
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN ln -s /usr/share/licenses /licenses
 

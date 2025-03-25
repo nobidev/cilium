@@ -19,6 +19,9 @@ LABEL name="Hubble relay component of Isovalent Networking for Kubernetes" \
 
 ARG BUILD_DATE
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
+
 USER 0:0
 RUN mkdir /home/gops && chown 65532:65532 /home/gops
 ENV GOPS_CONFIG_DIR=/home/gops

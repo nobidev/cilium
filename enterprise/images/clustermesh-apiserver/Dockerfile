@@ -19,6 +19,8 @@ LABEL name="Cluster Mesh API server component of Isovalent Networking for Kubern
 
 ARG BUILD_DATE
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
 
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
