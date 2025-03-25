@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,6 +33,18 @@ type groupConfig struct {
 	iface           string
 	egressIP        netip.Addr
 	maxGatewayNodes int
+}
+
+func (g *groupConfig) String() string {
+	out := ""
+	if g.iface != "" {
+		out += g.iface
+	}
+	if g.egressIP.String() != "" {
+		out += g.egressIP.String()
+	}
+	out += strconv.Itoa(g.maxGatewayNodes)
+	return out
 }
 
 type groupStatus struct {
@@ -85,6 +98,11 @@ func (m azAffinityMode) enabled() bool {
 }
 
 // PolicyConfig is the internal representation of IsovalentEgressGatewayPolicy.
+// These are only shallow copied when upserting into the database to avoid excess
+// memory copying.
+// Most fields are either considered immutable (i.e. "spec" type fields - derived
+// directly from IEGP resources), or are always regenerated and never mutated
+// such as with the groupConfigs and groupStatuses.
 type PolicyConfig struct {
 	// id is the parsed config name and namespace
 	id                types.NamespacedName
@@ -102,12 +120,16 @@ type PolicyConfig struct {
 
 	azAffinity azAffinityMode
 
-	groupConfigs            []groupConfig
 	groupStatusesGeneration int64
 	groupStatuses           []groupStatus
 
-	matchedEndpoints map[endpointID]*endpointMetadata
-	gatewayConfig    gatewayConfig
+	// These fields should always be re-created when regenerating
+	groupConfigs []groupConfig
+}
+
+func (pc *PolicyConfig) clone() *PolicyConfig {
+	out := *pc
+	return &out
 }
 
 // PolicyID includes policy name and namespace
@@ -319,7 +341,6 @@ func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 		dstCIDRs:                dstCidrList,
 		excludedCIDRs:           excludedCIDRs,
 		egressCIDRs:             egressCIDRs,
-		matchedEndpoints:        make(map[endpointID]*endpointMetadata),
 		azAffinity:              azAffinity,
 		groupConfigs:            gcs,
 		groupStatusesGeneration: iegp.Status.ObservedGeneration,

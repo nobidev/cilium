@@ -30,9 +30,32 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+// AgentPolicyConfig is composed of a PolicyConfig but also contains
+// fields specific to the agent control-plane manager.
+type AgentPolicyConfig struct {
+	PolicyConfig
+
+	gatewayConfig    gatewayConfig
+	matchedEndpoints map[endpointID]*endpointMetadata
+}
+
+// parseAgentIEGP parses IEGP from k8s resource and initializes agent specific
+// policy config fields for us in agent manager.
+func parseAgentIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*AgentPolicyConfig, error) {
+	config, err := ParseIEGP(iegp)
+	if err != nil {
+		return nil, err
+	}
+	return &AgentPolicyConfig{
+		matchedEndpoints: make(map[endpointID]*endpointMetadata),
+		PolicyConfig:     *config,
+	}, nil
+}
 
 // azActiveGatewayIPs is a list of active gateway IPs for a particular AZ.
 // In addition to the list of IPs
@@ -94,9 +117,8 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 }
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
-
+func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
+	config.matchedEndpoints = map[endpointID]*endpointMetadata{}
 	for _, endpoint := range epDataStore {
 		if config.matchesEndpointLabels(endpoint) {
 			config.matchedEndpoints[endpoint.id] = endpoint
@@ -104,7 +126,7 @@ func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]
 	}
 }
 
-func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	config.gatewayConfig = gatewayConfig{
 		egressIP:             netip.IPv4Unspecified(),
 		activeGatewayIPs:     []netip.Addr{},
@@ -365,7 +387,7 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 // calls the f callback function passing the given endpoint and CIDR, together
 // with a boolean value indicating if the CIDR belongs to the excluded ones and
 // the gatewayConfig of the receiver policy
-func (config *PolicyConfig) forEachEndpointAndCIDR(f func(*endpointMetadata, netip.Prefix, bool, *gatewayConfig)) {
+func (config *AgentPolicyConfig) forEachEndpointAndCIDR(f func(*endpointMetadata, netip.Prefix, bool, *gatewayConfig)) {
 	for _, endpoint := range config.matchedEndpoints {
 		isExcludedCIDR := false
 		for _, dstCIDR := range config.dstCIDRs {

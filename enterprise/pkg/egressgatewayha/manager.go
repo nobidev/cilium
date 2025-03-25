@@ -142,11 +142,11 @@ type Manager struct {
 	nodesByIP map[string]nodeTypes.Node
 
 	// policyConfigs stores policy configs indexed by policyID
-	policyConfigs map[policyID]*PolicyConfig
+	policyConfigs map[policyID]*AgentPolicyConfig
 
 	// policyConfigsBySourceIP stores slices of policy configs indexed by
 	// the policies' source/endpoint IPs
-	policyConfigsBySourceIP map[netip.Addr][]*PolicyConfig
+	policyConfigsBySourceIP map[netip.Addr][]*AgentPolicyConfig
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
@@ -310,8 +310,8 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
-		policyConfigs:                 make(map[policyID]*PolicyConfig),
-		policyConfigsBySourceIP:       make(map[netip.Addr][]*PolicyConfig),
+		policyConfigs:                 make(map[policyID]*AgentPolicyConfig),
+		policyConfigsBySourceIP:       make(map[netip.Addr][]*AgentPolicyConfig),
 		egressConfigsByPolicy:         make(map[policyID]sets.Set[gwEgressIPConfig]),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -512,7 +512,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		return nil
 	}
 
-	config, err := ParseIEGP(policy)
+	config, err := parseAgentIEGP(policy)
 	if err != nil {
 		logger.WithError(err).Warn("Failed to parse IsovalentEgressGatewayPolicy")
 		return err
@@ -660,7 +660,7 @@ func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 }
 
 func (manager *Manager) updatePoliciesBySourceIP() {
-	manager.policyConfigsBySourceIP = make(map[netip.Addr][]*PolicyConfig)
+	manager.policyConfigsBySourceIP = make(map[netip.Addr][]*AgentPolicyConfig)
 
 	for _, policy := range manager.policyConfigs {
 		for _, ep := range policy.matchedEndpoints {
@@ -843,7 +843,7 @@ func (manager *Manager) removeExpiredCtEntries() error {
 			ctEntries[*key] = *val
 		})
 
-	policyMatchesCtEntry := func(policy *PolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
+	policyMatchesCtEntry := func(policy *AgentPolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
 		gatewayIP, ok := netipx.FromStdIP(ctVal.Gateway.IP())
 		if !ok {
 			log.Error("Cannot parse CT entry's gateway IP while removing expired entries")
