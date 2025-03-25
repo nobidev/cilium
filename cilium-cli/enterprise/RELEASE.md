@@ -37,9 +37,14 @@ Then tag and push the release:
 
     git tag -a $CEE_VERSION_TAG -m "$CEE_VERSION release" $COMMIT_SHA && git push isovalent $CEE_VERSION_TAG
 
-Then, go to
-https://github.com/isovalent/cilium/actions/workflows/enterprise-release-cilium-cli.yaml?query=event%3Apush
-and you can stare at the Github Actions output while it creates a release.
+This triggers two workflows:
+
+- https://github.com/isovalent/cilium/actions/workflows/enterprise-build-cilium-cli-release-image.yaml
+  to push Cilium CLI release Docker image to https://quay.io/repository/isovalent/cilium-cli?tab=tags&tag=latest
+- https://github.com/isovalent/cilium/actions/workflows/enterprise-release-cilium-cli.yaml?query=event%3Apush
+  to build Cilium CLI release binaries.
+
+Make sure they both succeed before proceeding.
 
 ## Review release draft and publish
 
