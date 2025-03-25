@@ -1575,7 +1575,7 @@ func Test_Resync(t *testing.T) {
 					runningPoolLoc, exists := runningLocators[poolName]
 					req.True(exists)
 					if !tt.nondeterministic {
-						req.EqualValues(expectedPoolLoc, runningPoolLoc, "node %s nodeName pool %s locator mismatch", nodeName, poolName)
+						req.Equal(expectedPoolLoc, runningPoolLoc, "node %s nodeName pool %s locator mismatch", nodeName, poolName)
 					}
 				}
 			}

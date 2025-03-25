@@ -740,8 +740,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 				}
 			}
 
-			req.EqualValues(test.expectedAFPaths, runningAFPaths)
-			req.EqualValues(test.expectedRPs, reconciler.getMetadata(testBGPInstance).RoutePolicies)
+			req.Equal(test.expectedAFPaths, runningAFPaths)
+			req.Equal(test.expectedRPs, reconciler.getMetadata(testBGPInstance).RoutePolicies)
 		})
 	}
 }

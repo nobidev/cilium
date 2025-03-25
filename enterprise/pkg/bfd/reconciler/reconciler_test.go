@@ -701,14 +701,14 @@ func Test_BFDReconciler(t *testing.T) {
 }
 
 func validateEvents(t *testing.T, expected, actual statedb.Change[*types.BFDPeerStatus]) {
-	require.EqualValues(t, expected.Deleted, actual.Deleted)
-	require.EqualValues(t, expected.Object.PeerAddress, actual.Object.PeerAddress)
-	require.EqualValues(t, expected.Object.Interface, actual.Object.Interface)
-	require.EqualValues(t, expected.Object.Local.State, actual.Object.Local.State)
-	require.EqualValues(t, expected.Object.Local.ReceiveInterval, actual.Object.Local.ReceiveInterval)
-	require.EqualValues(t, expected.Object.Local.TransmitInterval, actual.Object.Local.TransmitInterval)
-	require.EqualValues(t, expected.Object.Local.EchoReceiveInterval, actual.Object.Local.EchoReceiveInterval)
-	require.EqualValues(t, expected.Object.Local.DetectMultiplier, actual.Object.Local.DetectMultiplier)
+	require.Equal(t, expected.Deleted, actual.Deleted)
+	require.Equal(t, expected.Object.PeerAddress, actual.Object.PeerAddress)
+	require.Equal(t, expected.Object.Interface, actual.Object.Interface)
+	require.Equal(t, expected.Object.Local.State, actual.Object.Local.State)
+	require.Equal(t, expected.Object.Local.ReceiveInterval, actual.Object.Local.ReceiveInterval)
+	require.Equal(t, expected.Object.Local.TransmitInterval, actual.Object.Local.TransmitInterval)
+	require.Equal(t, expected.Object.Local.EchoReceiveInterval, actual.Object.Local.EchoReceiveInterval)
+	require.Equal(t, expected.Object.Local.DetectMultiplier, actual.Object.Local.DetectMultiplier)
 }
 
 func Test_detectEgressInterface(t *testing.T) {

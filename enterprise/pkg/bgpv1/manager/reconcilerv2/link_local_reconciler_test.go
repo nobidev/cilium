@@ -395,9 +395,9 @@ func TestLinkLocalReconciler(t *testing.T) {
 			require.NoError(t, err)
 
 			// verify expected peers in CEE and OSS instances
-			require.EqualValues(t, tt.expectedPeers, iNodeInstance.Peers)
+			require.Equal(t, tt.expectedPeers, iNodeInstance.Peers)
 			for i := range tt.expectedPeers {
-				require.EqualValues(t, tt.expectedPeers[i].PeerAddress, ossNodeInstance.Peers[i].PeerAddress)
+				require.Equal(t, tt.expectedPeers[i].PeerAddress, ossNodeInstance.Peers[i].PeerAddress)
 			}
 
 			verifyRAInterfaces(t, f, tt.expectedRAInterfaces)

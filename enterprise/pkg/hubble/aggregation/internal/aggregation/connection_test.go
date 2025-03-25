@@ -276,7 +276,7 @@ func TestCompareDNS(t *testing.T) {
 	}
 
 	for _, test := range matrix {
-		assert.EqualValues(t, looseCompareDNS(test.a, test.b), test.result)
+		assert.Equal(t, looseCompareDNS(test.a, test.b), test.result)
 	}
 }
 
@@ -307,7 +307,7 @@ func TestCompareHTTP(t *testing.T) {
 	}
 
 	for _, test := range matrix {
-		assert.EqualValues(t, looseCompareHTTP(test.a, test.b), test.result)
+		assert.Equal(t, looseCompareHTTP(test.a, test.b), test.result)
 	}
 }
 
@@ -333,7 +333,7 @@ func TestCompareKafka(t *testing.T) {
 	}
 
 	for _, test := range matrix {
-		assert.EqualValues(t, compareKafka(test.a, test.b), test.result)
+		assert.Equal(t, compareKafka(test.a, test.b), test.result)
 	}
 }
 

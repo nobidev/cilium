@@ -166,7 +166,7 @@ func TestRoutingModeParsing(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			valid, invalid := parseRoutingModes(tt.in.String())
 			require.EqualValues(t, slices.Diff(tt.in, tt.invalid), valid)
-			require.EqualValues(t, tt.invalid, invalid)
+			require.Equal(t, tt.invalid, invalid)
 		})
 	}
 }
