@@ -4,8 +4,7 @@
     "config:base",
     ":gitSignOff",
     ":dependencyDashboard",
-    "helpers:pinGitHubActionDigests",
-    "github>isovalent/cilium//.github/renovate.json5",
+    "helpers:pinGitHubActionDigests"
   ],
   "username": "isovalent-renovate[bot]",
   "repositories": ["isovalent/cilium"],
@@ -23,6 +22,12 @@
     "images/cilium/download-hubble-enterprise.sh",
     "install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl",
   ],
+  "pinDigests": true,
+  "ignorePresets": [":prHourlyLimit2"],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": true,
+  "pruneStaleBranches": true,
   "baseBranches": [
     "main-ce",
     "v1.17-ce",
@@ -30,6 +35,9 @@
     "v1.15-ce",
     "v1.14-ce",
   ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
   "labels": [
     "renovate/stop-updating",
     "kind/enhancement",
@@ -42,56 +50,11 @@
   "helm-values": {
     "fileMatch": [".*values\\.yaml\\.tmpl$"]
   },
+  "stopUpdatingLabel": "renovate/stop-updating",
   "allowedPostUpgradeCommands": [
     "^make .*$",
   ],
   "packageRules": [
-    {
-      "matchPackageNames": [
-        "go", // golang version directive upgrade in go.mod
-        "google/cloud-sdk", // google cloud-sdk official package name
-        "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
-        "kindest/node", // official kindest images
-        "kubernetes-sigs/kind", // official kind dependencies
-        "renovatebot/github-action", // Renovate's GH action
-        "renovatebot/renovate", // Renovate's bot name
-      ],
-      "matchPackagePrefixes": [
-        "actions/", // GitHub official's GH actions
-        "cilium/", // Cilium's GH actions,
-        "docker.io/library/", // official Docker images,
-        "docker/", // official Docker actions,
-        "gcr.io/distroless", // official distroless images
-        "gcr.io/etcd-development/etcd", // etcd
-        "ghcr.io/spiffe/", // Spiffe's official images
-        "github.com/actions/", // GitHub official's GH actions
-        "github.com/aws/", // Amazon's dependencies
-        "github.com/Azure/", // Azure's dependencies
-        "github.com/cilium/", // Any Cilium dependency
-        "github.com/docker/", // Docker official org
-        "github.com/golang/", // Golang official org
-        "github.com/google/", // Google official org
-        "github.com/go-openapi/", // Open API official org
-        "github.com/hashicorp/", // Hashicorp's official org
-        "github.com/prometheus/", // Prometheu's official org
-        "go.etcd.io/etcd/", // etcd's official org
-        "golang.org/x/", // Golang official experimental org
-        "golangci/golangci-lint", // Golang CI linter
-        "protocolbuffers/protobuf", // protobuf buffers
-        "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
-        "k8s.io/", // Kubernetes official repo
-        "quay.io/cilium/", // LVH images
-        "quay.io/lvh-images/", // LVH images
-        "sigs.k8s.io/", // Kubernetes official SIG repo
-      ],
-      "automerge": true,
-      "automergeType": "pr",
-      "groupName": "auto-merge-trusted-deps",
-      // Replace the list of reviewers with just isovalent-bot
-      "reviewers":[
-        "isovalent-bot",
-      ]
-    },
     {
       "groupName": "Cilium CLI Enterprise",
       "groupSlug": "cilium-cli-ee",
@@ -129,6 +92,27 @@
       ],
     },
     {
+      "groupName": "all github action dependencies in enterprise workflows",
+      "groupSlug": "all-github-action",
+      "matchFileNames": [
+        ".github/workflows/enterprise-*"
+      ],
+      excludeDepNames: [
+        "quay.io/cilium/kindest-node"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on monday"
+      ]
+    },
+    {
       "matchPackageNames": [
         "docker.io/library/golang",
         "go"
@@ -140,6 +124,68 @@
         "v1.16-ce",
         "v1.17-ce",
       ]
+    },
+    {
+      "groupName": "all kind-images",
+      "groupSlug": "all-kind-images",
+      "matchPackageNames": [
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on monday"
+      ],
+    },
+    {
+      "matchDepNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "versioning": "regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
+    },
+    {
+      // Do not allow any updates for major.minor, they will be done by maintainers
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind",
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/kindest-node"
+      ],
+      "ignoreUnstable": false,
+    },
+    {
+      "matchFileNames": [
+        "install/kubernetes/**"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C install/kubernetes update-versions check-values-yaml docs lint",
+          "make -C Documentation update-helm-values"
+        ],
+        "fileFilters": [
+          "install/kubernetes/Makefile.values",
+          "install/kubernetes/cilium/README.md",
+          "install/kubernetes/cilium/values.yaml",
+          "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
     },
     {
       // Disable dep updates for clickhouse until we sort out how to manage it
