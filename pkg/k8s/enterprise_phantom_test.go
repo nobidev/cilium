@@ -222,7 +222,7 @@ func TestPhantomServiceDisabled(t *testing.T) {
 
 	select {
 	case event := <-svcCache.sc.Events():
-		require.Fail(t, "Received unexpected service event", event)
+		require.Fail(t, "Received unexpected service event", "event: %v", event)
 	default:
 	}
 }
