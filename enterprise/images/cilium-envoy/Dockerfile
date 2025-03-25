@@ -27,6 +27,7 @@ ARG VERSION=0.0.0
 LABEL version=${VERSION}
 
 COPY LICENSE /usr/share/licenses/isovalent/
+RUN ln -s /usr/share/licenses /licenses
 
 COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib64/libcilium.so
 COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib/libcilium.so
