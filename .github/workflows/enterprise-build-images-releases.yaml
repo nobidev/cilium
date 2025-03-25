@@ -11,14 +11,79 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
-  # To find workflow artifacts when attaching release assets
-  actions: read
 
 jobs:
+  # Envoy needs a special treatment as it is used for building the Cilium agent
+  # and although it is a 1-1 copy of OSS, its version is changed at release time.
+  build-and-push-envoy:
+    timeout-minutes: 45
+    name: Build and push cilium-envoy image
+    environment: release
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.push.after }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Get and check version
+        id: version
+        run: |
+          version=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_VERSION | awk -F '=' '{print $2}')
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "upstream_repo=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          echo "upstream_digest=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          if docker manifest inspect quay.io/isovalent/cilium-envoy-ubi:${version} >/dev/null; then
+            echo "exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "exist=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.version.outputs.exist == 'false' }}
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Login to quay.io
+        if: ${{ steps.version.outputs.exist == 'false' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Login to registry.redhat.io for pulling UBI images
+        if: ${{ steps.version.outputs.exist == 'false' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Build and push cilium-envoy image
+        if: ${{ steps.version.outputs.exist == 'false' }}
+        uses: docker/build-push-action@0adf9959216b96bec444f325f1e493d4aa344497 # v6.14.0
+        with:
+          context: enterprise/images/cilium-envoy
+          file: enterprise/images/cilium-envoy/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+          build-args: |
+            BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            UPSTREAM_VERSION=${{ steps.version.outputs.version }}
+            UPSTREAM_IMAGE=${{ steps.version.outputs.upstream_repo }}:${{ steps.version.outputs.version }}@${{ steps.version.outputs.upstream_digest }}
+            VERSION=${{ steps.version.outputs.version }}
+
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    environment: release
+    runs-on: ubuntu-24.04
+    needs: build-and-push-envoy
     strategy:
       matrix:
         include:
@@ -46,7 +111,6 @@ jobs:
             postfix: ubi
             image_name: clustermesh-apiserver
 
-
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -62,11 +126,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-        # Disable GC entirely to avoid buildkit from GC caches.
-        with:
-          buildkitd-config-inline: |
-            [worker.oci]
-             gc=false
 
       - name: Login to quay.io
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -75,7 +134,7 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
 
-      - name: Login to registry.redhat.io for pulls
+      - name: Login to registry.redhat.io for pull of UBI images
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: registry.redhat.io
@@ -89,8 +148,13 @@ jobs:
           echo tag=$tag >> $GITHUB_OUTPUT
           echo image_tag=quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image_name }}-${{ matrix.postfix }}:$tag >> $GITHUB_OUTPUT
 
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
       - name: Release Build ${{ matrix.name }}
-        id: docker_build_ci
+        id: docker_build_release
         shell: bash
         working-directory: ./enterprise/images
         run: |
@@ -102,9 +166,10 @@ jobs:
           UBI_IMAGE=${{ matrix.base_image }} \
           OPERATOR_VARIANT=${{ matrix.image_name }} \
           PLATFORMS=linux/amd64,linux/arm64 \
+          EXTRA_ARGS="--provenance=false" \
           make ${{ matrix.name }}-image
 
-      - name: Release Build ${{ matrix.name }} digest
+      - name: Release ${{ matrix.name }} digest
         id: docker_digest
         shell: bash
         run: |
@@ -124,6 +189,7 @@ jobs:
           artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           image: ${{ steps.tag.outputs.image_tag }}
+          upload-release-assets: false
 
       - name: Attach SBOM attestation to container image
         run: |
@@ -140,36 +206,30 @@ jobs:
 
           echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`${{ steps.tag.outputs.image_tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`${{ steps.tag.outputs.image_tag }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
-          retention-days: 1
-
-      - name: Check for disk usage
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          df -h
+          retention-days: 10
 
   image-digests:
-    if: ${{ always() }}
     name: Display Digests
     runs-on: ubuntu-24.04
     needs: build-and-push
+
     steps:
-      - name: Downloading Image Digests
+      - name: Prepare image digests download
         shell: bash
         run: |
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           path: image-digest/
           pattern: "*image-digest *"
