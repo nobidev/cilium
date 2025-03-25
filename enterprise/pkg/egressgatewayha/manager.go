@@ -137,11 +137,7 @@ type Manager struct {
 	nodesByIP map[string]nodeTypes.Node
 
 	// policyConfigs stores policy configs indexed by policyID
-	policyConfigs map[policyID]*AgentPolicyConfig
-
-	// policyConfigsBySourceIP stores slices of policy configs indexed by
-	// the policies' source/endpoint IPs
-	policyConfigsBySourceIP map[netip.Addr][]*AgentPolicyConfig
+	policyConfigsTable statedb.RWTable[*AgentPolicyConfig]
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
@@ -224,6 +220,7 @@ type Params struct {
 	DB                 *statedb.DB
 	EgressIPTable      statedb.RWTable[*enterprise_tables.EgressIPEntry]
 	EgressIPReconciler reconciler.Reconciler[*enterprise_tables.EgressIPEntry]
+	PolicyConfigsTable statedb.RWTable[*AgentPolicyConfig]
 
 	CTNATMapGC ctmap.GCRunner
 
@@ -301,8 +298,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
-		policyConfigs:                 make(map[policyID]*AgentPolicyConfig),
-		policyConfigsBySourceIP:       make(map[netip.Addr][]*AgentPolicyConfig),
+		policyConfigsTable:            p.PolicyConfigsTable,
 		egressConfigsByPolicy:         make(map[policyID]sets.Set[gwEgressIPConfig]),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -511,19 +507,45 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	if _, ok := manager.policyConfigs[config.id]; !ok {
+	tx := manager.db.WriteTxn(manager.policyConfigsTable)
+	defer tx.Abort()
+
+	config.updateMatchedEndpointIDs(manager.epDataStore)
+	hadPrev, err := manager.upsertPolicy(tx, config)
+	if err != nil {
+		return fmt.Errorf("update policy table: %w", err)
+	}
+	tx.Commit()
+	if !hadPrev {
 		logger.Debug("Added IsovalentEgressGatewayPolicy")
 	} else {
 		logger.Debug("Updated IsovalentEgressGatewayPolicy")
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore)
-
-	manager.policyConfigs[config.id] = config
-
 	manager.setEventBitmap(eventAddPolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy added")
 	return nil
+}
+
+func (manager *Manager) deletePolicyByID(tx statedb.WriteTxn, id types.NamespacedName) bool {
+	_, deleted, err := manager.policyConfigsTable.Delete(tx, &AgentPolicyConfig{
+		PolicyConfig: PolicyConfig{id: id},
+	})
+	if err != nil {
+		manager.logger.Error("BUG: could not delete policy",
+			logfields.Error, err,
+			logfields.ID, id.String())
+		return deleted
+	}
+	return deleted
+}
+
+func (manager *Manager) upsertPolicy(tx statedb.WriteTxn, p *AgentPolicyConfig) (bool, error) {
+	_, hadPrev, err := manager.policyConfigsTable.Insert(tx, p.clone())
+	if err != nil {
+		return hadPrev, err
+	}
+	return hadPrev, err
 }
 
 // onDeleteEgressPolicy deletes the internal state associated with the given
@@ -536,13 +558,14 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 
 	logger := manager.logger.With(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
 
-	if manager.policyConfigs[configID] == nil {
-		logger.Warn("Can't delete IsovalentEgressGatewayPolicy: policy not found")
-	}
-
 	logger.Debug("Deleted IsovalentEgressGatewayPolicy")
 
-	delete(manager.policyConfigs, configID)
+	tx := manager.db.WriteTxn(manager.policyConfigsTable)
+	defer tx.Abort()
+	if deleted := manager.deletePolicyByID(tx, configID); !deleted {
+		logger.Warn("Can't delete IsovalentEgressGatewayPolicy: policy not found")
+	}
+	tx.Commit()
 
 	manager.setEventBitmap(eventDeletePolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
@@ -645,22 +668,14 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 	}
 }
 
-func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
-	for _, policy := range manager.policyConfigs {
+func (manager *Manager) updatePoliciesMatchedEndpointIDs(tx statedb.WriteTxn) error {
+	for policy := range manager.policyConfigsTable.All(tx) {
 		policy.updateMatchedEndpointIDs(manager.epDataStore)
-	}
-}
-
-func (manager *Manager) updatePoliciesBySourceIP() {
-	manager.policyConfigsBySourceIP = make(map[netip.Addr][]*AgentPolicyConfig)
-
-	for _, policy := range manager.policyConfigs {
-		for _, ep := range policy.matchedEndpoints {
-			for _, epIP := range ep.ips {
-				manager.policyConfigsBySourceIP[epIP] = append(manager.policyConfigsBySourceIP[epIP], policy)
-			}
+		if _, _, err := manager.policyConfigsTable.Insert(tx, policy.clone()); err != nil {
+			return fmt.Errorf("failed to update matched endpoint ID: %w", err)
 		}
 	}
+	return nil
 }
 
 func (manager *Manager) updateNodesByIP() {
@@ -675,9 +690,10 @@ func (manager *Manager) updateNodesByIP() {
 	}
 }
 
-func (manager *Manager) removeStaleEgressIPConfigs() {
+func (manager *Manager) removeStaleEgressIPConfigs(tx statedb.ReadTxn) {
 	for policyID := range manager.egressConfigsByPolicy {
-		if _, found := manager.policyConfigs[policyID]; found {
+		_, _, found := manager.policyConfigsTable.Get(tx, AgentIndex.Query(policyID))
+		if found {
 			continue
 		}
 
@@ -713,17 +729,17 @@ func (manager *Manager) removePolicyEgressIPs(egressIPs sets.Set[gwEgressIPConfi
 	txn.Commit()
 }
 
-func (manager *Manager) regenerateGatewayConfigs() {
-	for _, policyConfig := range manager.policyConfigs {
+func (manager *Manager) regenerateGatewayConfigs(tx statedb.ReadTxn) {
+	for policyConfig := range manager.policyConfigsTable.All(tx) {
 		policyConfig.regenerateGatewayConfig(manager)
 	}
 }
 
-func (manager *Manager) relaxRPFilter() error {
+func (manager *Manager) relaxRPFilter(tx statedb.ReadTxn) error {
 	var sysSettings []tables.Sysctl
 	ifSet := make(map[string]struct{})
 
-	for _, pc := range manager.policyConfigs {
+	for pc := range manager.policyConfigsTable.All(tx) {
 		if !pc.gatewayConfig.localNodeConfiguredAsGateway {
 			continue
 		}
@@ -746,7 +762,7 @@ func (manager *Manager) relaxRPFilter() error {
 	return manager.sysctl.ApplySettings(sysSettings)
 }
 
-func (manager *Manager) updateEgressRulesV2() {
+func (manager *Manager) updateEgressRulesV2(tx statedb.ReadTxn) {
 	egressPolicies := map[egressmapha.EgressPolicyV2Key4]egressmapha.EgressPolicyV2Val4{}
 	manager.policyMapV2.IterateWithCallback(
 		func(key *egressmapha.EgressPolicyV2Key4, val *egressmapha.EgressPolicyV2Val4) {
@@ -799,7 +815,7 @@ func (manager *Manager) updateEgressRulesV2() {
 		}
 	}
 
-	for _, policyConfig := range manager.policyConfigs {
+	for policyConfig := range manager.policyConfigsTable.All(tx) {
 		policyConfig.forEachEndpointAndCIDR(addEgressRule)
 	}
 
@@ -837,7 +853,7 @@ func anonymizeCtKey(ctKey egressmapha.EgressCtKey4) tuple.TupleKey4 {
 	}
 }
 
-func (manager *Manager) removeExpiredCtEntries() error {
+func (manager *Manager) removeExpiredCtEntries(tx statedb.ReadTxn) error {
 	ctEntries := map[egressmapha.EgressCtKey4]egressmapha.EgressCtVal4{}
 	manager.ctMap.IterateWithCallback(
 		func(key *egressmapha.EgressCtKey4, val *egressmapha.EgressCtVal4) {
@@ -888,7 +904,7 @@ func (manager *Manager) removeExpiredCtEntries() error {
 		// If egressgateway-ha enable-egressgatewayha-socket-destroy is enabled we will try to force
 		// this to happen by closing the local client socket via netlink.
 	policyMatches:
-		for _, policyConfig := range manager.policyConfigsBySourceIP[ctKey.SourceAddr.Addr()] {
+		for policyConfig := range manager.policyConfigsTable.List(tx, ByEndpointSourceIP.Query(ctKey.SourceAddr.Addr().String())) {
 			if hasMatch = policyMatchesCtEntry(policyConfig, &ctKey, &ctVal); hasMatch {
 				break policyMatches
 			}
@@ -986,19 +1002,19 @@ func (manager *Manager) reconcileLocked() {
 		return
 	}
 
+	tx := manager.db.WriteTxn(manager.policyConfigsTable)
+
 	// on eventK8sSyncDone we need to update all caches unconditionally as
 	// we don't know which k8s events/resources were received during the
 	// initial k8s sync
 	if manager.eventBitmapIsSet(eventK8sSyncDone) {
-		manager.updatePoliciesMatchedEndpointIDs()
-		manager.updatePoliciesBySourceIP()
+		manager.updatePoliciesMatchedEndpointIDs(tx)
 		manager.updateNodesByIP()
 	} else {
 		if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventAddPolicy, eventDeletePolicy) {
 			if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint) {
-				manager.updatePoliciesMatchedEndpointIDs()
+				manager.updatePoliciesMatchedEndpointIDs(tx)
 			}
-			manager.updatePoliciesBySourceIP()
 		}
 
 		if manager.eventBitmapIsSet(eventUpdateNode, eventDeleteNode) {
@@ -1006,10 +1022,10 @@ func (manager *Manager) reconcileLocked() {
 		}
 	}
 
-	manager.removeStaleEgressIPConfigs()
+	manager.removeStaleEgressIPConfigs(tx)
 
 	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode) {
-		manager.regenerateGatewayConfigs()
+		manager.regenerateGatewayConfigs(tx)
 
 		if manager.eventBitmapIsSet(eventK8sSyncDone) {
 			// All caches have been synced and the first gateway configs regeneration took place.
@@ -1026,7 +1042,7 @@ func (manager *Manager) reconcileLocked() {
 		// egw traffic being forwarded from a local Pod endpoint to the gateway on the same node).
 		// Therefore, for the sake of resiliency, it is acceptable for EGW to continue reconciling gatewayConfigs
 		// even if the rp_filter setting are failing.
-		if err := manager.relaxRPFilter(); err != nil {
+		if err := manager.relaxRPFilter(tx); err != nil {
 			manager.logger.Error("Error relaxing rp_filter for gateway interfaces. "+
 				"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. "+
 				"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ",
@@ -1036,19 +1052,21 @@ func (manager *Manager) reconcileLocked() {
 	}
 
 	// Update the content of the BPF map.
-	manager.updateEgressRulesV2()
+	manager.updateEgressRulesV2(tx)
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0
 
 	// Remove stale CT entries. We keep entries that point at an inactive Gateway node,
 	// as long as the node is healthy.
-	manager.removeExpiredCtEntries()
+	manager.removeExpiredCtEntries(tx)
 
 	// Signal the BGP Control Plane
 	manager.bgpSignaler.Event(struct{}{})
 
 	manager.reconciliationEventsCount.Add(1)
+
+	tx.Commit()
 }
 
 // AdvertisedEgressIPs returns a map of policy to egress IPs, used by EGW polices selected by the provided policy selector,
@@ -1063,7 +1081,7 @@ func (manager *Manager) AdvertisedEgressIPs(policySelector *slimv1.LabelSelector
 	}
 
 	egressIPs := make(map[types.NamespacedName][]netip.Addr)
-	for _, policyConfig := range manager.policyConfigs {
+	for policyConfig := range manager.policyConfigsTable.All(manager.db.ReadTxn()) {
 		gwc := policyConfig.gatewayConfig
 		if gwc.localNodeConfiguredAsGateway && selector.Matches(k8sLabels.Set(policyConfig.labels)) {
 			egressIPs[policyConfig.id] = append(egressIPs[policyConfig.id], gwc.egressIP)

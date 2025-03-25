@@ -91,10 +91,12 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		db            *statedb.DB
 		egressIPTable statedb.RWTable[*tables.EgressIPEntry]
 		r             reconciler.Reconciler[*tables.EgressIPEntry]
+		policyTable   statedb.RWTable[*AgentPolicyConfig]
 	)
 
 	// create a hive to provide statedb, egress-ips table and a mock reconcile
 	h := hive.New(
+		cell.Provide(newAgentTables),
 		cell.Provide(
 			tables.NewEgressIPTable,
 			func() reconciler.Reconciler[*tables.EgressIPEntry] {
@@ -102,10 +104,14 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 			},
 		),
 
-		cell.Invoke(func(db_ *statedb.DB, table statedb.RWTable[*tables.EgressIPEntry], reconciler reconciler.Reconciler[*tables.EgressIPEntry]) {
+		cell.Invoke(func(db_ *statedb.DB,
+			pt statedb.RWTable[*AgentPolicyConfig],
+			table statedb.RWTable[*tables.EgressIPEntry],
+			reconciler reconciler.Reconciler[*tables.EgressIPEntry]) {
 			db = db_
 			egressIPTable = table
 			r = reconciler
+			policyTable = pt
 		}),
 	)
 
@@ -140,6 +146,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		EgressIPReconciler: r,
 		CTNATMapGC:         ctmap.NewFakeGCRunner(),
 		Health:             health,
+		PolicyConfigsTable: policyTable,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, manager)
