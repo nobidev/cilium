@@ -31,6 +31,8 @@ LABEL name="Isovalent UBI startup image" \
     org.opencontainers.image.title="Isovalent UBI startup image" \
     org.opencontainers.image.description="This image extends Red Hat UBI image with generic tooling used by Isovalent images"
 COPY LICENSE /usr/share/licenses/isovalent/
+RUN ln -s /usr/share/licenses /licenses
+
 WORKDIR /go/src/github.com/isovalent/cilium/enterprise/images/runtime
 RUN --mount=type=bind,readwrite,target=. ./install-deps.sh
 COPY --from=manage-script-getter /tmp/manage-startup-script.sh /usr/bin/
