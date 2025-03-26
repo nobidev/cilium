@@ -86,39 +86,39 @@ Allow packagers to add extra configuration to certgen.
 */}}
 {{- define "certgen.config.extra" -}}
 {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-{{- $certValidityStr := printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) -}}
-- name: hubble-timescape-server-certs
-  namespace: {{ include "cilium.namespace" . }}
-  commonName: "hubble-timescape"
-  hosts:
-  - "hubble-timescape"
-  - "hubble-timescape."
-  - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
-  - "hubble-timescape.{{ .Release.Namespace }}.svc"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc."
-  {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
-  - {{ $dns | quote }}
-  {{- end }}
-  {{- range $ip := .Values.hubble.timescape.tls.server.extraIpAddresses }}
-  - {{ $ip | quote }}
-  {{- end }}
-  usage:
-  - signing
-  - key encipherment
-  - server auth
-  - client auth # needed for grpc health probe
-  validity: {{ $certValidityStr }}
-- name: hubble-timescape-client-certs
-  namespace: {{ include "cilium.namespace" . }}
-  commonName: "hubble-timescape-client"
-  hosts:
-  - "hubble-timescape"
-  usage:
-  - signing
-  - key encipherment
-  - client auth # needed for grpc health probe
-  validity: {{ $certValidityStr }}
+{{- $certValidityStr := printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
+    - name: hubble-timescape-server-certs
+      namespace: {{ include "cilium.namespace" . }}
+      commonName: "hubble-timescape"
+      hosts:
+      - "hubble-timescape"
+      - "hubble-timescape."
+      - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
+      - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
+      - "hubble-timescape.{{ .Release.Namespace }}.svc"
+      - "hubble-timescape.{{ .Release.Namespace }}.svc."
+      {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
+      - {{ $dns | quote }}
+      {{- end }}
+      {{- range $ip := .Values.hubble.timescape.tls.server.extraIpAddresses }}
+      - {{ $ip | quote }}
+      {{- end }}
+      usage:
+      - signing
+      - key encipherment
+      - server auth
+      - client auth # needed for grpc health probe
+      validity: {{ $certValidityStr }}
+    - name: hubble-timescape-client-certs
+      namespace: {{ include "cilium.namespace" . }}
+      commonName: "hubble-timescape-client"
+      hosts:
+      - "hubble-timescape"
+      usage:
+      - signing
+      - key encipherment
+      - client auth # needed for grpc health probe
+      validity: {{ $certValidityStr }}
 {{- end }}
 {{- end }}
 
