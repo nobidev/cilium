@@ -37,7 +37,7 @@ jobs:
           path: vex
       - name: Download Grype
         id: grype
-        uses: anchore/scan-action/download-grype@abae793926ec39a78ab18002bc7fc45bbbd94342 # v6.0.0
+        uses: anchore/scan-action/download-grype@7c05671ae9be166aeb155bad2d7df9121823df32 # v6.1.0
       - name: Scan image
         id: scan
         run: |
@@ -103,7 +103,7 @@ jobs:
     needs: container-scan
     steps:
       - name: Download all scan results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4
         with:
           path: scan-results
       - name: Combine JSON results
@@ -128,7 +128,7 @@ jobs:
         run: |
           cat summary.json
       - name: Upload summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: summary.json
           path: summary.json

@@ -22,7 +22,7 @@ env:
   kind_config: ".github/kind-config-enterprise-hubble-rbac.yaml"
 
   # renovate: datasource=helm depName=dex registryUrl=https://charts.dexidp.io
-  DEX_VERSION: 0.20.0
+  DEX_VERSION: 0.23.0
   # renovate: datasource=helm depName=ingress-nginx registryUrl=https://kubernetes.github.io/ingress-nginx
   INGRESS_NGINX_VERSION: 4.12.0
 
@@ -82,10 +82,10 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.5
+          go-version: 1.24.1
 
       - name: Wait for Helm dev chart to be available
         timeout-minutes: 30
