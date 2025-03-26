@@ -84,6 +84,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
+	cell.Provide(func(mgr *Manager) EgressIPsProvider { return mgr }),
 )
 
 type eventType int
@@ -239,6 +240,11 @@ type Params struct {
 
 	Lifecycle cell.Lifecycle
 	Health    cell.Health
+}
+
+// EgressIPsProvider provides policy to egress IPs mappings.
+type EgressIPsProvider interface {
+	AdvertisedEgressIPs(policySelector *slimv1.LabelSelector) (map[types.NamespacedName][]netip.Addr, error)
 }
 
 func NewEgressGatewayManager(p Params) (out struct {

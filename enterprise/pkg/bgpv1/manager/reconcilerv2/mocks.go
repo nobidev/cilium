@@ -21,6 +21,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -36,13 +37,13 @@ type mockEGWPolicy struct {
 	egressIPs []netip.Addr
 }
 
-func newEGWManagerMock(d []mockEGWPolicy) egwIPsProvider {
+func newEGWManagerMock(d []mockEGWPolicy) egressgatewayha.EgressIPsProvider {
 	return &egwManagerMock{
 		data: d,
 	}
 }
 
-// egwManagerMock is a mock implementation of egwIPsProvider ( EGWManager ). This is
+// egwManagerMock is a mock implementation of EGWIPsProvider ( EGWManager ). This is
 // used to provide the egress IPs for the tests.
 type egwManagerMock struct {
 	data []mockEGWPolicy

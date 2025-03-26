@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
@@ -30,24 +29,19 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-type egwIPsProvider interface {
-	AdvertisedEgressIPs(policySelector *slimv1.LabelSelector) (map[k8stypes.NamespacedName][]netip.Addr, error)
-}
 
 type EGWIPsReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
-	BGPConfig    config.Config
-	DaemonConfig *option.DaemonConfig
-	EGWManager   *egressgatewayha.Manager
-	Upgrader     paramUpgrader
-	PeerAdvert   *IsovalentAdvertisement
+	Logger         logrus.FieldLogger // TODO: migrate to slog
+	SLogger        *slog.Logger
+	BGPConfig      config.Config
+	DaemonConfig   *option.DaemonConfig
+	EGWIPsProvider egressgatewayha.EgressIPsProvider
+	Upgrader       paramUpgrader
+	PeerAdvert     *IsovalentAdvertisement
 }
 
 type EGWIPsReconcilerOut struct {
@@ -65,7 +59,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 		Reconciler: &EgressGatewayIPsReconciler{
 			logger:         params.Logger,
 			sLogger:        params.SLogger,
-			egwIPsProvider: params.EGWManager,
+			egwIPsProvider: params.EGWIPsProvider,
 			upgrader:       params.Upgrader,
 			peerAdvert:     params.PeerAdvert,
 			metadata:       make(map[string]EgressGatewayIPsMetadata),
@@ -76,7 +70,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 type EgressGatewayIPsReconciler struct {
 	logger         logrus.FieldLogger
 	sLogger        *slog.Logger
-	egwIPsProvider egwIPsProvider
+	egwIPsProvider egressgatewayha.EgressIPsProvider
 	upgrader       paramUpgrader
 	peerAdvert     *IsovalentAdvertisement
 	metadata       map[string]EgressGatewayIPsMetadata
