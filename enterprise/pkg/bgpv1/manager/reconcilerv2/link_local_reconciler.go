@@ -312,6 +312,8 @@ func (r *LinkLocalReconciler) reconcileRAInterfaces(ctx context.Context, i *inst
 		raInterfaces = append(raInterfaces, &ra.InterfaceConfig{
 			Name:                   interfaceName,
 			RAIntervalMilliseconds: int(r.config.RouterAdvertisementInterval.Milliseconds()),
+			CurrentHopLimit:        64,
+			RouterLifetimeSeconds:  30,
 		})
 	}
 
