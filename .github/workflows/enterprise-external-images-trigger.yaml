@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main-ce
+      - v1.[0-9]+-ce
     paths:
       - install/kubernetes/Makefile.values
 

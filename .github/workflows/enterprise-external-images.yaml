@@ -34,11 +34,11 @@ jobs:
     name: Deduce changes
     runs-on: ubuntu-24.04
     outputs:
-      changed: ${{ steps.check-changes.outputs.changed }}
+      rebuild: ${{ steps.check-changes.outputs.rebuild }}
       repo: ${{ steps.check-changes.outputs.repo }}
       version: ${{ steps.check-changes.outputs.version }}
       digest: ${{ steps.check-changes.outputs.digest }}
-      cee-image: ${{ steps.check-changes.outputs.cee-image }}
+      cee_image: ${{ steps.check-changes.outputs.cee_image }}
 
     steps:
       - name: Checkout code
@@ -52,18 +52,26 @@ jobs:
         id: check-changes
         run: |
           if git diff --unified=0 ${{ github.event.push.before }} -- install/kubernetes/Makefile.values | grep ${{ inputs.component }} ; then
-            echo "changed=true" >> $GITHUB_OUTPUT
             echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            echo "version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+            version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
+            echo "version=${version}" >> $GITHUB_OUTPUT
             echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            echo "cee-image=$(basename ${{ inputs.docker-context }})" >> $GITHUB_OUTPUT
+            cee_image=$(basename ${{ inputs.docker-context }})
+            echo "cee_image=${cee_image}" >> $GITHUB_OUTPUT
+            # Don't rebuild if the image already exists
+            if docker manifest inspect quay.io/isovalent/${cee_image}:${version}; then
+              echo "Image already exist!"
+              echo "rebuild=false" >> $GITHUB_OUTPUT
+            else
+              echo "rebuild=true" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "rebuild=false" >> $GITHUB_OUTPUT
           fi
 
   build-push-image:
     needs: [ check-changes ]
-    if: ${{ needs.check-changes.outputs.changed == 'true' }}
+    if: ${{ needs.check-changes.outputs.rebuild == 'true' }}
     name: Build and push image
     environment: release
     runs-on: ubuntu-24.04
@@ -127,7 +135,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/isovalent/${{ needs.check-changes.outputs.cee-image }}-ubi:${{ needs.check-changes.outputs.version }}
+            quay.io/isovalent/${{ needs.check-changes.outputs.cee_image }}-ubi:${{ needs.check-changes.outputs.version }}
           build-args: |
             BASE_IMAGE=${{ inputs.base-image }}
             UPSTREAM_VERSION=${{ needs.check-changes.outputs.version }}
