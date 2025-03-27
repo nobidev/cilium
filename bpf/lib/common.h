@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#include "enterprise_common.h"
 
 #pragma once
 
@@ -1089,5 +1088,7 @@ struct skip_lb6_key {
  * need it since we only want to retrieve the tunnel ID anyway.
  */
 #define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
+
+#include "enterprise_common.h"
 
 #include "overloadable.h"
