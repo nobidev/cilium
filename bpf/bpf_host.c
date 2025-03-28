@@ -57,7 +57,8 @@
 #include "lib/vtep.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
- #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
+ #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
+	 wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity)
 
 #include "enterprise_bpf_host.h"
 #include "lib/enterprise_encrypt.h"
@@ -1596,7 +1597,7 @@ skip_egress_gateway:
 	 * is set before the redirect.
 	 */
 	if (!ctx_mark_is_wireguard(ctx)) {
-		ret = host_wg_encrypt_hook(ctx, proto);
+		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))

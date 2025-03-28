@@ -153,7 +153,8 @@ encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
 
 #undef host_wg_encrypt_hook
 static __always_inline int
-host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto)
+host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto,
+		     __u32 src_sec_identity __maybe_unused)
 {
 	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
