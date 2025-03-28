@@ -95,6 +95,56 @@ func MustNewSIDFromLFA(l Locator, f []byte, a []byte) SID {
 	return sid
 }
 
+// NewSIDFromTransposed constructs SID from the SID and MPLS label encoded with
+// RFC9252 transposition encoding.
+func NewSIDFromTransposed(sid []byte, label uint32, offsetBits, lengthBits uint8) (SID, error) {
+	if len(sid) != 16 {
+		return SID{}, fmt.Errorf("invalid SID length (%d)", len(sid))
+	}
+	if offsetBits > 128 {
+		return SID{}, fmt.Errorf("offset (%d) is larger than 128", offsetBits)
+	}
+	if lengthBits > 20 {
+		return SID{}, fmt.Errorf("length (%d) is exceeding MPLS label length", lengthBits)
+	}
+
+	// Assuming the encoding used by GoBGP. The label is encoded in the last 20bits.
+	label = label << 12
+
+	for lengthBits > 0 {
+		var (
+			byteI = offsetBits / 8
+			bitI  = offsetBits % 8
+			n     = (8 - bitI)
+		)
+
+		if lengthBits < 8 {
+			mask := ^byte(0) >> lengthBits
+			sid[byteI] = (sid[byteI] & mask) | (byte(label>>(32-lengthBits)) << (8 - lengthBits))
+			break
+		}
+
+		mask := ^byte(0) << n
+		sid[byteI] = ((sid[byteI] & mask) | byte(label>>(32-n)))
+		label <<= n
+		offsetBits = offsetBits + n
+		lengthBits = lengthBits - n
+
+		continue
+	}
+
+	return SID{Addr: netip.AddrFrom16([16]byte(sid))}, nil
+}
+
+// MustNewSIDFromTransposed is NewSIDFromTransposed, but panics on error. Should be used only in tests.
+func MustNewSIDFromTransposed(sid []byte, label uint32, offsetBits, lengthBits uint8) SID {
+	ret, err := NewSIDFromTransposed(sid, label, offsetBits, lengthBits)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
 // LocatorBytes extracts locator part from SID and return it as a slice
 func (s *SID) LocatorBytes(structure SIDStructure) []byte {
 	arr := s.As16()
