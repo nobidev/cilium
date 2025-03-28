@@ -114,6 +114,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'clustermesh'
 
           - name: '2'
@@ -123,6 +124,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'clustermesh'
 
           - name: '3'
@@ -132,6 +134,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'clustermesh'
 
           - name: '4'
@@ -141,6 +144,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'kvstoremesh'
 
           - name: '5'
@@ -150,6 +154,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'kvstoremesh'
 
           - name: '6'
@@ -159,6 +164,7 @@ jobs:
             encryption: 'disabled'
             encryption-policies: false
             endpoint-routes: false # C1=F, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'kvstoremesh'
 
           - name: '7'
@@ -168,6 +174,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'external'
 
           - name: '8'
@@ -177,6 +184,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'external'
 
           - name: '9'
@@ -186,6 +194,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: false
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: false
             mode: 'external'
 
           - name: '10'
@@ -195,6 +204,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: true
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'external'
 
           - name: '11'
@@ -204,6 +214,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: true
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'external'
 
           - name: '12'
@@ -213,6 +224,7 @@ jobs:
             encryption: 'wireguard'
             encryption-policies: true
             endpoint-routes: true # C1=T, C2=F (C2 is fixed).
+            host-firewall: true
             mode: 'external'
 
 
@@ -270,7 +282,7 @@ jobs:
             --set ipv6NativeRoutingCIDR=fd00:10:240::/44 \
             --set encryption.enabled=${{ matrix.encryption != 'disabled' }} \
             --set encryption.type=${{ matrix.encryption }} \
-            --set hostFirewall.enabled=${{ matrix.encryption != 'ipsec' }} \
+            --set hostFirewall.enabled=${{ matrix.host-firewall }} \
             --set updateStrategy.rollingUpdate.maxUnavailable=1 \
             --set clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --set clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
