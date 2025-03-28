@@ -870,6 +870,32 @@
       "status": "not_affected",
       "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-mh63-6h87-95cp"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/clustermesh-apiserver-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The dependency in which this issue flags is not vulnerable to the issue",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-30258"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected package in this image is not used",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
