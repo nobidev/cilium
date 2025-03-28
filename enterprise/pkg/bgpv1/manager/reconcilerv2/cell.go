@@ -26,6 +26,8 @@ var ConfigReconcilers = cell.Group(
 		newIsovalentAdvertisement,
 		newSRv6Paths,
 		newRADaemon,
+		newImportVPNRouteReconciler,
+		newLegacyImportVPNRouteReconciler,
 	),
 
 	// provide stores
@@ -55,7 +57,7 @@ var ConfigReconcilers = cell.Group(
 
 	// state reconcilers
 	cell.Provide(
-		NewImportedVPNRouteReconciler,
+		newImportVPNRouteStateReconciler,
 		NewStatusReconciler,
 	),
 
