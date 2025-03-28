@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -228,7 +229,7 @@ func (r *LocatorPoolReconciler) reconcilePaths(ctx context.Context, params Enter
 }
 
 func (r *LocatorPoolReconciler) reconcileRoutePolicies(ctx context.Context, params EnterpriseReconcileParams, desiredFamilyAdverts PeerAdvertisements) error {
-	desiredRoutePolicies, err := r.getDesiredRoutePolicies(params, desiredFamilyAdverts)
+	desiredRoutePolicies, err := r.getDesiredRoutePolicies(desiredFamilyAdverts)
 	if err != nil {
 		return err
 	}
@@ -330,16 +331,16 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 // getDesiredRoutePolicies returns the desired BGP route policies per locator pool.
 // The desired route policies are calculated based on the BGP advertisements of type BGPSRv6LocatorPoolAdvert,
 // its selector for the locator pool, and the peer address.
-func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconcileParams, desiredFamilyAdverts PeerAdvertisements) (reconcilerv2.ResourceRoutePolicyMap, error) {
+func (r *LocatorPoolReconciler) getDesiredRoutePolicies(desiredFamilyAdverts PeerAdvertisements) (reconcilerv2.ResourceRoutePolicyMap, error) {
 	desiredRoutePolicies := make(reconcilerv2.ResourceRoutePolicyMap)
 
 	for peer, peerFamilyAdverts := range desiredFamilyAdverts {
-		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get peer address: %w", err)
+		if peer.Address == "" {
+			continue // peer address not known yet
 		}
-		if !peerAddrExists {
-			return nil, nil // peer address not known yet
+		peerAddr, err := netip.ParseAddr(peer.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse peer address: %w", err)
 		}
 
 		for family, familyAdverts := range peerFamilyAdverts {
@@ -384,7 +385,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(params EnterpriseReconci
 						PrefixLenMax: allocator.Locator().Prefix.Bits(),
 					}
 
-					policyName := PolicyName(peer, agentFamily.Afi.String(), advert.AdvertisementType, lp.Name)
+					policyName := PolicyName(peer.Name, agentFamily.Afi.String(), advert.AdvertisementType, lp.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, nil,
 						types.PolicyPrefixMatchList{prefixMatch}, v2.BGPAdvertisement{
 							Attributes: advert.Attributes,

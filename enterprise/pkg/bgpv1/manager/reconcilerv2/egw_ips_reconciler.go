@@ -154,7 +154,7 @@ func (r *EgressGatewayIPsReconciler) reconcilePaths(ctx context.Context, params 
 }
 
 func (r *EgressGatewayIPsReconciler) reconcileRoutePolicies(ctx context.Context, params EnterpriseReconcileParams, desiredFamilyAdverts PeerAdvertisements) error {
-	desiredRoutePolicies, err := r.getDesiredEGWRoutePolicies(params, desiredFamilyAdverts)
+	desiredRoutePolicies, err := r.getDesiredEGWRoutePolicies(desiredFamilyAdverts)
 	if err != nil {
 		return err
 	}
@@ -257,16 +257,16 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 // getDesiredEGWAFPaths, the desired route policies are calculated based on the BGP advertisements of type BGPEGWAdvert
 // and selector field. Route policy is created based on BGP attributes present in BGP advertisement and peer/prefix calculated
 // from advertisement and egress gateway IPs.
-func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params EnterpriseReconcileParams, desiredFamilyAdverts PeerAdvertisements) (reconcilerv2.ResourceRoutePolicyMap, error) {
+func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdverts PeerAdvertisements) (reconcilerv2.ResourceRoutePolicyMap, error) {
 	desiredRoutePolicies := make(reconcilerv2.ResourceRoutePolicyMap)
 
 	for peer, egwFamilyAdverts := range desiredFamilyAdverts {
-		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(params.DesiredConfig, peer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get peer address: %w", err)
-		}
-		if !peerAddrExists {
+		if peer.Address == "" {
 			continue // peer address not known yet
+		}
+		peerAddr, err := netip.ParseAddr(peer.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse peer address: %w", err)
 		}
 
 		for family, familyAdverts := range egwFamilyAdverts {
@@ -313,7 +313,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(params Enterpris
 						continue
 					}
 
-					policyName := PolicyName(peer, agentFamily.Afi.String(), v1.BGPEGWAdvert, egwID.Name)
+					policyName := PolicyName(peer.Name, agentFamily.Afi.String(), v1.BGPEGWAdvert, egwID.Name)
 					policy, err := reconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 						Attributes: advert.Attributes,
 					})

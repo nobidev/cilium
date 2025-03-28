@@ -150,7 +150,7 @@ func TestPeerAdvertisements(t *testing.T) {
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
+				PeerID{Name: "red-peer-65001"}: map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: nil,
 				},
 			},
@@ -173,7 +173,7 @@ func TestPeerAdvertisements(t *testing.T) {
 				},
 			},
 			expectedPeerAdverts: PeerAdvertisements{
-				"red-peer-65001": map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
+				PeerID{Name: "red-peer-65001"}: map[v2.CiliumBGPFamily][]v1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {v1.BGPAdvertisement{
 						AdvertisementType: v1.BGPPodCIDRAdvert,
 					}},

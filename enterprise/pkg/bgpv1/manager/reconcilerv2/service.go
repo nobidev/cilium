@@ -386,7 +386,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p EnterpriseR
 	}).Debug("Reconciling services")
 
 	// get desired service route policies
-	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, desiredPeerAdverts, toReconcile, toWithdraw, ls)
+	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(desiredPeerAdverts, toReconcile, toWithdraw, ls)
 	if err != nil {
 		return err
 	}
@@ -884,7 +884,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Ent
 	return err
 }
 
-func (r *ServiceReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ossreconcilerv2.ResourceRoutePolicyMap, error) {
+func (r *ServiceReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ossreconcilerv2.ResourceRoutePolicyMap, error) {
 	desiredSvcRoutePolicies := make(ossreconcilerv2.ResourceRoutePolicyMap)
 
 	for _, svc := range toUpdate {
@@ -894,7 +894,7 @@ func (r *ServiceReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams,
 		}
 
 		// get desired route policies for the service
-		svcRoutePolicies, err := r.getDesiredSvcRoutePolicies(p, desiredPeerAdverts, svc, ls)
+		svcRoutePolicies, err := r.getDesiredSvcRoutePolicies(desiredPeerAdverts, svc, ls)
 		if err != nil {
 			return nil, err
 		}
@@ -910,7 +910,7 @@ func (r *ServiceReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams,
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (ossreconcilerv2.RoutePolicyMap, error) {
+func (r *ServiceReconciler) getDesiredSvcRoutePolicies(desiredPeerAdverts PeerAdvertisements, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (ossreconcilerv2.RoutePolicyMap, error) {
 	desiredSvcRoutePolicies := make(ossreconcilerv2.RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
@@ -926,7 +926,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					continue
 				}
 				// LoadBalancerIP
-				lbPolicy, err := r.getLoadBalancerIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
+				lbPolicy, err := r.getLoadBalancerIPRoutePolicy(peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired LoadBalancerIP route policy: %w", err)
 				}
@@ -941,7 +941,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					desiredSvcRoutePolicies[lbPolicy.Name] = lbPolicy
 				}
 				// ExternalIP
-				extPolicy, err := r.getExternalIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
+				extPolicy, err := r.getExternalIPRoutePolicy(peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ExternalIP route policy: %w", err)
 				}
@@ -956,7 +956,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					desiredSvcRoutePolicies[extPolicy.Name] = extPolicy
 				}
 				// ClusterIP
-				clusterPolicy, err := r.getClusterIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
+				clusterPolicy, err := r.getClusterIPRoutePolicy(peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ClusterIP route policy: %w", err)
 				}
@@ -977,7 +977,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(peer PeerID, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return nil, nil
 	}
@@ -992,13 +992,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 		return nil, nil
 	}
 
-	// get the peer address
-	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer address: %w", err)
-	}
-	if !peerAddrExists {
+	if peer.Address == "" {
 		return nil, nil // peer address not known yet
+	}
+	peerAddr, err := netip.ParseAddr(peer.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse peer address: %w", err)
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2.BGPLoadBalancerIPAddr)
@@ -1035,7 +1034,7 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPLoadBalancerIPAddr))
+	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPLoadBalancerIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 		Attributes: advert.Attributes,
 	})
@@ -1046,14 +1045,13 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p EnterpriseReconcilePa
 	return policy, nil
 }
 
-func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
-	// get the peer address
-	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer address: %w", err)
-	}
-	if !peerAddrExists {
+func (r *ServiceReconciler) getExternalIPRoutePolicy(peer PeerID, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+	if peer.Address == "" {
 		return nil, nil // peer address not known yet
+	}
+	peerAddr, err := netip.ParseAddr(peer.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse peer address: %w", err)
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2.BGPExternalIPAddr)
@@ -1100,7 +1098,7 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPExternalIPAddr))
+	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPExternalIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 		Attributes: advert.Attributes,
 	})
@@ -1111,14 +1109,13 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p EnterpriseReconcileParams
 	return policy, nil
 }
 
-func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams, peer string, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
-	// get the peer address
-	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer address: %w", err)
-	}
-	if !peerAddrExists {
+func (r *ServiceReconciler) getClusterIPRoutePolicy(peer PeerID, family bgptypes.Family, svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) (*bgptypes.RoutePolicy, error) {
+	if peer.Address == "" {
 		return nil, nil // peer address not known yet
+	}
+	peerAddr, err := netip.ParseAddr(peer.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse peer address: %w", err)
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2.BGPClusterIPAddr)
@@ -1172,7 +1169,7 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p EnterpriseReconcileParams,
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPClusterIPAddr))
+	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2.BGPClusterIPAddr))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 		Attributes: advert.Attributes,
 	})

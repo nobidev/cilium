@@ -155,13 +155,12 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
 
 	for _, peer := range desiredConfig.Peers {
-		// get peer address
-		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(desiredConfig, peer.Name)
-		if err != nil {
-			return nil, err
+		if peer.PeerAddress == nil || *peer.PeerAddress == "" {
+			continue // peer address not known yet
 		}
-		if !peerAddrExists {
-			return nil, nil
+		peerAddr, err := netip.ParseAddr(*peer.PeerAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse peer address: %w", err)
 		}
 
 		// get the peer config

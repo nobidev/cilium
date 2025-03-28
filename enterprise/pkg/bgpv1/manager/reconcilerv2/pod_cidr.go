@@ -167,7 +167,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Enterp
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// get desired policies
-	desiredRoutePolicies, err := r.getDesiredRoutePolicies(p, desiredPeerAdverts, podPrefixes)
+	desiredRoutePolicies, err := r.getDesiredRoutePolicies(desiredPeerAdverts, podPrefixes)
 	if err != nil {
 		return err
 	}
@@ -222,16 +222,16 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 	return desiredFamilyAdverts
 }
 
-func (r *PodCIDRReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (reconcilerv2.RoutePolicyMap, error) {
+func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (reconcilerv2.RoutePolicyMap, error) {
 	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
-		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-		if err != nil {
-			return nil, err
+		if peer.Address == "" {
+			continue // peer address not known yet
 		}
-		if !peerAddrExists {
-			return nil, nil
+		peerAddr, err := netip.ParseAddr(peer.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse peer address: %w", err)
 		}
 
 		for family, adverts := range afAdverts {
@@ -252,7 +252,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p EnterpriseReconcileParams,
 				}
 
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
-					name := PolicyName(peer, fam.Afi.String(), advert.AdvertisementType, "")
+					name := PolicyName(peer.Name, fam.Afi.String(), advert.AdvertisementType, "")
 					policy, err := reconcilerv2.CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 						Attributes: advert.Attributes,
 					})
