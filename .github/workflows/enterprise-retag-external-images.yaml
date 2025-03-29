@@ -5,6 +5,15 @@ on:
   push:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+-*
+  pull_request:
+    # all external images are listed in install/kubernetes/Makefile.values
+    # and are used in the install/kubernetes/cilium/values.yaml
+    # file, so we only need to check for changes in the Makefile.values
+    # file to trigger the workflow for PRs targeting v*-ce
+    branches:
+      - v[0-9]+.[0-9]+-ce
+    paths:
+      - install/kubernetes/Makefile.values
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -13,18 +22,30 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-push:
+  generate-variants:
+    name: Generate Variants for retagging
+    runs-on: ubuntu-24.04
+    outputs:
+      variants: ${{ steps.set-tag.outputs.variants }}
+    steps:
+      - name: Set Tag
+        id: set-tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "variants=[\"preserve-tag\",\"retag-version\"]" >> $GITHUB_OUTPUT
+          else
+            echo "variants=[\"preserve-tag\"]" >> $GITHUB_OUTPUT
+          fi
 
+  retag-and-push:
+    needs: generate-variants
     timeout-minutes: 45
     name: Retag and Push Images
     runs-on: ubuntu-24.04
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && matrix.tag == 'preserve-tag')
     strategy:
       max-parallel: 4
       matrix:
-        tag:
-          - preserve-tag
-          - retag-version
+        variant: ${{ fromJson(needs.generate-variants.outputs.variants) }}
         image:
           - startup-script
           - cilium-envoy
@@ -104,7 +125,7 @@ jobs:
       - name: Determine destination tags
         id: destination-tag
         run: |
-          if [[ "${{ matrix.tag }}" == "preserve-tag" ]]; then
+          if [[ "${{ matrix.variant }}" == "preserve-tag" ]]; then
             DESTINATION_TAG=${{ steps.image-tag.outputs.result }}
           else
             DESTINATION_TAG=$(cat VERSION)
@@ -169,7 +190,8 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: build-and-push
+    if: ${{ github.event_name == 'push' }}
+    needs: retag-and-push
     steps:
       - name: Getting image tag
         id: tag
