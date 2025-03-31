@@ -6,6 +6,8 @@ enterprise:
     enableServiceHealthChecking: true
   bfd:
     enabled: true
+  featureGate:
+    minimumMaturity: Alpha
 debug:
   enabled: true
   verbose: "envoy datapath"
