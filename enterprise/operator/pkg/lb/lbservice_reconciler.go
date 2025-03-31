@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -151,8 +152,8 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName)).
 		// T1 Service resource with OwnerReference to the LBService
 		Owns(&corev1.Service{}).
-		// T1 Endpoints resource with OwnerReference to the LBService
-		Owns(&corev1.Endpoints{}).
+		// T1 EndpointSlice resource with OwnerReference to the LBService
+		Owns(&discoveryv1.EndpointSlice{}).
 		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBService
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// CiliumNode changes should trigger a reconciliation of all LBServices
@@ -270,7 +271,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	// Stop reconciliation if assigned IP is not available or some status
 	// conditions on the LBService aren't met yet. Also, we
-	// should delete the T1 Service, Endpoints, and T2 CEC if they exist.
+	// should delete the T1 Service, EndpointSlice, and T2 CEC if they exist.
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
 	// handling the traffic towards the stable VIP, etc. - or creating
 	// depending resources might fail due to incompatibilities.
@@ -281,8 +282,8 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 		if err = r.ensureServiceDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure service is deleted: %w", err)
 		}
-		if err = r.ensureEndpointsDeleted(ctx, model); err != nil {
-			return fmt.Errorf("failed to ensure endpoints is deleted: %w", err)
+		if err = r.ensureEndpointSliceDeleted(ctx, model); err != nil {
+			return fmt.Errorf("failed to ensure endpointslice is deleted: %w", err)
 		}
 		if err = r.ensureCECDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
@@ -296,15 +297,15 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	// Build desired resources
 	desiredT1Service := r.t1Translator.DesiredService(model)
-	desiredT1Endpoints := r.t1Translator.DesiredEndpoints(model)
+	desiredT1EndpointSlice := r.t1Translator.DesiredEndpointSlice(model)
 
 	// Set controlling ownerreferences
 	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Service, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Service: %w", err)
 	}
 
-	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Endpoints, r.scheme); err != nil {
-		return fmt.Errorf("failed to set ownerreference on T1 Endpoints: %w", err)
+	if err := controllerutil.SetControllerReference(lbsvc, desiredT1EndpointSlice, r.scheme); err != nil {
+		return fmt.Errorf("failed to set ownerreference on T1 EndpointSlice: %w", err)
 	}
 
 	// Create or update resources
@@ -312,7 +313,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 		return err
 	}
 
-	if err := r.createOrUpdateEndpoints(ctx, desiredT1Endpoints); err != nil {
+	if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSlice); err != nil {
 		return err
 	}
 
@@ -322,7 +323,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	// Stop reconciliation if T1-only, T1 service is not available yet or is not able to bind
 	// to the VIP (e.g. due to port clash with another service on the same VIP).
-	// In this case any existing CEC gets deleted too. We don't delete Services & Endpoints
+	// In this case any existing CEC gets deleted too. We don't delete Services & EndpointSlice
 	// as this would result in a loop when the same services is created in the next
 	// reconciliation.
 	// Creating/Updating the T1 Service will trigger an additional reconciliation.
@@ -505,47 +506,31 @@ func (r *lbServiceReconciler) ensureServiceDeleted(ctx context.Context, model *l
 	return nil
 }
 
-func (r *lbServiceReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
-	if len(desiredEndpoints.Subsets[0].Addresses) != 0 {
-		ep := desiredEndpoints.DeepCopy()
-		result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
-			ep.Subsets = desiredEndpoints.Subsets
-			ep.OwnerReferences = desiredEndpoints.OwnerReferences
-			ep.Annotations = desiredEndpoints.Annotations
-			ep.Labels = desiredEndpoints.Labels
-
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create or update Endpoints: %w", err)
-		}
-
-		r.logger.Debug("Endpoints has been updated",
-			logfields.Resource, client.ObjectKeyFromObject(ep),
-			logfieldResult, result,
-		)
-		return nil
-	}
-
-	// Delete invalid Endpoints resource due to zero addresses
-	// Prevents following error: subsets[0]: Required value: must specify `addresses` or `notReadyAddresses
-	if err := r.client.Delete(ctx, desiredEndpoints); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete endpoint: %w", err)
-		}
+func (r *lbServiceReconciler) createOrUpdateEndpointSlice(ctx context.Context, desiredEndpointSlice *discoveryv1.EndpointSlice) error {
+	ep := desiredEndpointSlice.DeepCopy()
+	result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
+		ep.AddressType = desiredEndpointSlice.AddressType
+		ep.Endpoints = desiredEndpointSlice.Endpoints
+		ep.Ports = desiredEndpointSlice.Ports
+		ep.OwnerReferences = desiredEndpointSlice.OwnerReferences
+		ep.Annotations = desiredEndpointSlice.Annotations
+		ep.Labels = desiredEndpointSlice.Labels
 
 		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update EndpointSlice: %w", err)
 	}
 
-	r.logger.Debug("Endpoints has been deleted due to not having a single address",
-		logfields.Resource, client.ObjectKeyFromObject(desiredEndpoints),
+	r.logger.Debug("EndpointSlice has been updated",
+		logfields.Resource, client.ObjectKeyFromObject(ep),
+		logfieldResult, result,
 	)
-
 	return nil
 }
 
-func (r *lbServiceReconciler) ensureEndpointsDeleted(ctx context.Context, model *lbService) error {
-	ep := &corev1.Endpoints{
+func (r *lbServiceReconciler) ensureEndpointSliceDeleted(ctx context.Context, model *lbService) error {
+	ep := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
 			Name:      model.getOwningResourceName(),
@@ -555,7 +540,7 @@ func (r *lbServiceReconciler) ensureEndpointsDeleted(ctx context.Context, model 
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		// Endpoints does not exist, which is fine
+		// EndpointSlice does not exist, which is fine
 	}
 	return nil
 }

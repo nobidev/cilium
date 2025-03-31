@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -158,33 +159,28 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	return hcInterval
 }
 
-func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) []corev1.EndpointSubset {
-	epAddresses := []corev1.EndpointAddress{}
-	for _, addr := range model.t2NodeIPs {
-		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: addr})
-	}
-
+func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
 	prot := corev1.ProtocolTCP
 	if model.isUDPProxy() {
 		prot = corev1.ProtocolUDP
 	}
 
-	return []corev1.EndpointSubset{
-		{
-			Addresses: epAddresses,
-			Ports: []corev1.EndpointPort{
-				{
-					Name:     strings.ToLower(string(prot)),
-					Protocol: prot,
-					Port:     model.port,
-				},
+	return []discoveryv1.Endpoint{
+			{
+				Addresses: model.t2NodeIPs,
 			},
 		},
-	}
+		[]discoveryv1.EndpointPort{
+			{
+				Name:     ptr.To(strings.ToLower(string(prot))),
+				Protocol: ptr.To(prot),
+				Port:     ptr.To(int32(model.port)),
+			},
+		}
 }
 
-func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
-	epAddresses := []corev1.EndpointAddress{}
+func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+	epAddresses := []string{}
 	port := uint32(0)
 
 	for _, tr := range model.applications.tcpProxy.routes {
@@ -202,27 +198,27 @@ func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService)
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
+				epAddresses = append(epAddresses, b.address)
 			}
 		}
 	}
 
-	return []corev1.EndpointSubset{
-		{
-			Addresses: epAddresses,
-			Ports: []corev1.EndpointPort{
-				{
-					Name:     strings.ToLower(string(corev1.ProtocolTCP)),
-					Protocol: corev1.ProtocolTCP,
-					Port:     int32(port),
-				},
+	return []discoveryv1.Endpoint{
+			{
+				Addresses: epAddresses,
 			},
 		},
-	}
+		[]discoveryv1.EndpointPort{
+			{
+				Name:     ptr.To(strings.ToLower(string(corev1.ProtocolTCP))),
+				Protocol: ptr.To(corev1.ProtocolTCP),
+				Port:     ptr.To(int32(port)),
+			},
+		}
 }
 
-func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService) []corev1.EndpointSubset {
-	epAddresses := []corev1.EndpointAddress{}
+func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+	epAddresses := []string{}
 	port := uint32(0)
 
 	for _, tr := range model.applications.udpProxy.routes {
@@ -240,46 +236,54 @@ func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService)
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, corev1.EndpointAddress{IP: b.address})
+				epAddresses = append(epAddresses, b.address)
 			}
 		}
 	}
 
-	return []corev1.EndpointSubset{
-		{
-			Addresses: epAddresses,
-			Ports: []corev1.EndpointPort{
-				{
-					Name:     strings.ToLower(string(corev1.ProtocolUDP)),
-					Protocol: corev1.ProtocolUDP,
-					Port:     int32(port),
-				},
+	return []discoveryv1.Endpoint{
+			{
+				Addresses: epAddresses,
 			},
 		},
-	}
+		[]discoveryv1.EndpointPort{
+			{
+				Name:     ptr.To(strings.ToLower(string(corev1.ProtocolUDP))),
+				Protocol: ptr.To(corev1.ProtocolUDP),
+				Port:     ptr.To(int32(port)),
+			},
+		}
 }
 
-func (r *lbServiceT1Translator) DesiredEndpoints(model *lbService) *corev1.Endpoints {
+func (r *lbServiceT1Translator) DesiredEndpointSlice(model *lbService) *discoveryv1.EndpointSlice {
 	if model.vip.assignedIPv4 == nil {
 		return nil
 	}
 
-	var epSubsets []corev1.EndpointSubset
+	endpoints, ports := r.getEndpointSliceInfo(model)
 
-	if model.isTCPProxyT1OnlyMode() {
-		epSubsets = r.tcpEndpointSubsetsFromBackends(model)
-	} else if model.isUDPProxyT1OnlyMode() {
-		epSubsets = r.udpEndpointSubsetsFromBackends(model)
-	} else {
-		epSubsets = r.endpointSubsetsFromT2Nodes(model)
-	}
-
-	return &corev1.Endpoints{
+	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
 			Name:      model.getOwningResourceName(),
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: model.getOwningResourceName(),
+				discoveryv1.LabelManagedBy:   "ilb",
+			},
 		},
-		Subsets: epSubsets,
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints:   endpoints,
+		Ports:       ports,
+	}
+}
+
+func (r *lbServiceT1Translator) getEndpointSliceInfo(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+	if model.isTCPProxyT1OnlyMode() {
+		return r.tcpEndpointSubsetsFromBackends(model)
+	} else if model.isUDPProxyT1OnlyMode() {
+		return r.udpEndpointSubsetsFromBackends(model)
+	} else {
+		return r.endpointSubsetsFromT2Nodes(model)
 	}
 }
 

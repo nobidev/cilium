@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
@@ -103,7 +104,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 
 		// read output files
 		expectedServiceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-service.yaml", translationDir, tc.name), &corev1.Service{})
-		expectedEndpointsYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpoints.yaml", translationDir, tc.name), &corev1.Endpoints{})
+		expectedEndpointSliceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpointslice.yaml", translationDir, tc.name), &discoveryv1.EndpointSlice{})
 		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
@@ -136,15 +137,15 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		}
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml) //nolint:all (assert.YAMLEq output is not super readable)
 
-		// T1 Endpoints
-		endpoints := t1Translator.DesiredEndpoints(model)
+		// T1 EndpointSlice
+		endpointSlice := t1Translator.DesiredEndpointSlice(model)
 
-		actualEndpointsYaml := ""
-		if endpoints != nil {
-			endpoints.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Endpoints"} // fix missing typemeta
-			actualEndpointsYaml = toYaml(t, endpoints)
+		actualEndpointSliceYaml := ""
+		if endpointSlice != nil {
+			endpointSlice.TypeMeta = metav1.TypeMeta{APIVersion: "discovery/v1", Kind: "EndpointSlice"} // fix missing typemeta
+			actualEndpointSliceYaml = toYaml(t, endpointSlice)
 		}
-		assert.Equal(t, expectedEndpointsYaml, actualEndpointsYaml) //nolint:all (assert.YAMLEq output is not super readable)
+		assert.Equal(t, expectedEndpointSliceYaml, actualEndpointSliceYaml) //nolint:all (assert.YAMLEq output is not super readable)
 
 		// T2 CiliumEnvoyConfig
 		cec, err := t2Translator.DesiredCiliumEnvoyConfig(model)
