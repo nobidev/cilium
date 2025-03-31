@@ -20,6 +20,10 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 
+ifeq ($(ADDITIONAL_KIND_VALUES_FILE),)
+ADDITIONAL_KIND_VALUES_FILE := contrib/testing/enterprise-kind.yaml
+endif
+
 ifneq ($(FIPS),)
 export GOEXPERIMENT = boringcrypto
 GO_TAGS_FLAGS += fips
