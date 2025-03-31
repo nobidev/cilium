@@ -44,14 +44,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.push.after }}
+          ref: ${{ github.event.after }}
           persist-credentials: false
           fetch-depth: 0
 
       - name: Check ${{ inputs.component }} code changes
         id: check-changes
         run: |
-          if git diff --unified=0 ${{ github.event.push.before }} -- install/kubernetes/Makefile.values | grep ${{ inputs.component }} ; then
+          if git diff --unified=0 ${{ github.event.before }} -- install/kubernetes/Makefile.values | grep ${{ inputs.component }} ; then
             echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
             version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
             echo "version=${version}" >> $GITHUB_OUTPUT
