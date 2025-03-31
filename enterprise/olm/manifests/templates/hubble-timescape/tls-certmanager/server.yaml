@@ -17,7 +17,9 @@ spec:
   dnsNames:
   - "hubble-timescape"
   - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
+  - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
   - "hubble-timescape.{{ .Release.Namespace }}.svc"
+  - "hubble-timescape.{{ .Release.Namespace }}.svc."
   - "localhost"
   {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
   - {{ $dns | quote }}

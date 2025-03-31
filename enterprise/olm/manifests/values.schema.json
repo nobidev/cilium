@@ -2814,6 +2814,36 @@
             },
             "static": {
               "properties": {
+                "aggregation": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationIgnoreSourcePort": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationRenewTTL": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationStateFilter": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationTTL": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "allowList": {
                   "items": {},
                   "type": "array"
@@ -2840,6 +2870,27 @@
                 },
                 "filePath": {
                   "type": "string"
+                },
+                "fileRotationInterval": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "formatVersion": {
+                  "type": "string"
+                },
+                "overrideNodeName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "rateLimit": {
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 }
               },
               "type": "object"
@@ -2922,6 +2973,9 @@
                 }
               },
               "type": "object"
+            },
+            "priorityClassName": {
+              "type": "string"
             },
             "resources": {
               "type": "object"
@@ -3745,6 +3799,9 @@
         },
         "timescape": {
           "properties": {
+            "affinity": {
+              "type": "object"
+            },
             "clickhouse": {
               "properties": {
                 "image": {
@@ -3843,6 +3900,91 @@
               },
               "type": "object"
             },
+            "metrics": {
+              "properties": {
+                "clickhouse": {
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "serviceMonitor": {
+                  "properties": {
+                    "annotations": {
+                      "type": "object"
+                    },
+                    "clickhouse": {
+                      "properties": {
+                        "interval": {
+                          "type": "string"
+                        },
+                        "metricRelabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "relabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "scrapeTimeout": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "interval": {
+                      "type": "string"
+                    },
+                    "labels": {
+                      "type": "object"
+                    },
+                    "metricRelabelings": {
+                      "type": [
+                        "null",
+                        "array"
+                      ]
+                    },
+                    "relabelings": {
+                      "type": [
+                        "null",
+                        "array"
+                      ]
+                    },
+                    "scrapeTimeout": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "nodeSelector": {
+              "properties": {
+                "kubernetes.io/os": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "persistence": {
               "properties": {
                 "enabled": {
@@ -3869,7 +4011,7 @@
               "type": "object"
             },
             "priorityClassName": {
-              "type": "null"
+              "type": "string"
             },
             "resources": {
               "type": "object"
@@ -3940,6 +4082,27 @@
                     }
                   },
                   "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "tolerations": {
+              "items": {},
+              "type": "array"
+            },
+            "trimmer": {
+              "properties": {
+                "flowCount": {
+                  "type": "integer"
+                },
+                "intervalMinutes": {
+                  "type": "integer"
+                },
+                "timout": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -4041,10 +4204,6 @@
                     "pullPolicy": {
                       "type": "string"
                     },
-                    "pullSecrets": {
-                      "items": {},
-                      "type": "array"
-                    },
                     "repository": {
                       "type": "string"
                     },
@@ -4128,6 +4287,9 @@
             },
             "vector": {
               "properties": {
+                "affinity": {
+                  "type": "object"
+                },
                 "image": {
                   "properties": {
                     "digest": {
@@ -4154,6 +4316,57 @@
                   },
                   "type": "object"
                 },
+                "metrics": {
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "serviceMonitor": {
+                      "properties": {
+                        "annotations": {
+                          "type": "object"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "interval": {
+                          "type": "string"
+                        },
+                        "labels": {
+                          "type": "object"
+                        },
+                        "metricRelabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "relabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "scrapeTimeout": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
+                "nodeSelector": {
+                  "properties": {
+                    "kubernetes.io/os": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "podSecurityContext": {
                   "properties": {
                     "fsGroup": {
@@ -4161,6 +4374,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "priorityClassName": {
+                  "type": "string"
                 },
                 "resources": {
                   "type": "object"
@@ -4199,6 +4415,10 @@
                     }
                   },
                   "type": "object"
+                },
+                "tolerations": {
+                  "items": {},
+                  "type": "array"
                 }
               },
               "type": "object"

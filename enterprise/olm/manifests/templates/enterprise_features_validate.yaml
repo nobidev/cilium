@@ -13,22 +13,12 @@
 {{- $strictFeatureGates := .enterprise.featureGate.strict -}}
 {{- $fails := false -}}
 {{- if (eq "true" (print .enterprise.bfd.enabled))  -}}
-  {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "BFD" .enterprise.featureGate.approved))) -}}
+  {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "BFD" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
-      {{- fail "\nBeta feature: BFD was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
+      {{- fail "\nLimited feature: BFD was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
     {{- else -}}
       {{ $fails = true }}
-WARNING: A Beta feature BFD was enabled, but it is not an approved feature.
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- if (eq "true" (print .bgpControlPlane.enabled))  -}}
-  {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "BGPControlPlane" .enterprise.featureGate.approved))) -}}
-    {{- if $strictFeatureGates -}}
-      {{- fail "\nLimited feature: BGPControlPlane was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
-    {{- else -}}
-      {{ $fails = true }}
-WARNING: A Limited feature BGPControlPlane was enabled, but it is not an approved feature.
+WARNING: A Limited feature BFD was enabled, but it is not an approved feature.
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -232,16 +222,6 @@ WARNING: A Beta feature EncryptionWireguardNodeToNode was enabled, but it is not
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (eq "true" (print .enterprise.bgpControlPlane.enabled))  -}}
-  {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "EnterpriseBGPControlPlane" .enterprise.featureGate.approved))) -}}
-    {{- if $strictFeatureGates -}}
-      {{- fail "\nBeta feature: EnterpriseBGPControlPlane was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
-    {{- else -}}
-      {{ $fails = true }}
-WARNING: A Beta feature EnterpriseBGPControlPlane was enabled, but it is not an approved feature.
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
 {{- if (eq "true" (print .gatewayAPI.enabled))  -}}
   {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "GatewayAPI" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
@@ -272,7 +252,7 @@ WARNING: A Limited feature IPAMAzure was enabled, but it is not an approved feat
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (eq "multi-pool" (print .ipam.mode))  -}}
+{{- if (and (eq "true" (print .endpointRoutes.enabled)) (eq "multi-pool" (print .ipam.mode)) ) -}}
   {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "IPAMMultiPool" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
       {{- fail "\nBeta feature: IPAMMultiPool was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}

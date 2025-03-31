@@ -111,6 +111,36 @@ export-aggregation: {{ $defaultExportAggregation | quote }}
 export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
 {{- end }}
 
+{{- if .Values.hubble.export }}
+{{- if .Values.hubble.export.static.enabled }}
+hubble-export-format-version: {{ .Values.hubble.export.static.formatVersion | quote }}
+{{- with .Values.hubble.export.static.fileRotationInterval }}
+hubble-export-file-rotation-interval: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.rateLimit }}
+hubble-export-rate-limit: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.overrideNodeName }}
+hubble-export-node-name: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.aggregation }}
+hubble-export-aggregation: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.aggregationIgnoreSourcePort }}
+hubble-export-aggregation-ignore-source-port: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.aggregationRenewTTL }}
+hubble-export-aggregation-renew-ttl: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.aggregationStateFilter }}
+hubble-export-aggregation-state-filter: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.static.aggregationTTL }}
+hubble-export-aggregation-ttl: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabled | quote}}
 
 {{- if .Values.enterprise.encryption.policy.enabled }}

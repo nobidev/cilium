@@ -25,3 +25,21 @@ exec:
   - -tls-server-name=hubble-timescape
   {{- end }}
 {{- end }}
+
+{{- define "hubble.timescape.servicemonitor.endpoint" -}}
+- port:  {{ .port }}
+  interval: {{ .values.interval | quote }}
+  {{- with .values.scrapeTimeout }}
+  scrapeTimeout: {{ . | quote }}
+  {{- end }}
+  honorLabels: true
+  path: /metrics
+  {{- with .values.relabelings }}
+  relabelings:
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  {{- with .values.metricRelabelings }}
+  metricRelabelings:
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

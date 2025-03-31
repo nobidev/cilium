@@ -50,10 +50,18 @@ spec:
       port: 8080
       targetPort: ui
     {{- end }}
+    {{- if .Values.hubble.timescape.metrics.enabled }}
     - name: metrics
       port: 9090
       targetPort: metrics
       protocol: TCP
+    {{- end }}
+    {{- if .Values.hubble.timescape.metrics.clickhouse.enabled }}
+    - name: ch-metrics
+      port: 8001
+      targetPort: ch-metrics
+      protocol: TCP
+    {{- end }}
   selector:
     k8s-app: hubble-timescape
     app.kubernetes.io/name: hubble-timescape
@@ -92,7 +100,23 @@ spec:
       serviceAccountName: "hubble-timescape"
       securityContext:
         {{- toYaml .Values.hubble.timescape.podSecurityContext | nindent 10 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       priorityClassName: {{ .Values.hubble.timescape.priorityClassName }}
+      {{- with .Values.hubble.timescape.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: clickhouse
           image: {{ include "cilium.image" .Values.hubble.timescape.clickhouse.image | quote }}
@@ -129,9 +153,11 @@ spec:
           - containerPort: 8123
             name: ch-http
             protocol: TCP
+          {{- if .Values.hubble.timescape.metrics.clickhouse.enabled }}
           - containerPort: 8001
             name: ch-metrics
             protocol: TCP
+          {{- end }}
         - name: timescape
           image: {{ include "cilium.image" .Values.hubble.timescape.image | quote }}
           imagePullPolicy: {{ .Values.hubble.timescape.image.pullPolicy }}
@@ -152,9 +178,11 @@ spec:
             - name: push
               containerPort: 4260
               protocol: TCP
+            {{- if .Values.hubble.timescape.metrics.enabled }}
             - name: metrics
               containerPort: 9090
               protocol: TCP
+            {{- end }}
             - name: pprof
               containerPort: 6060
               protocol: TCP
@@ -427,6 +455,7 @@ data:
           <console>true</console>
           <level>information</level>
       </logger>
+      {{- if .Values.hubble.timescape.metrics.clickhouse.enabled }}
       <prometheus>
         <asynchronous_metrics>true</asynchronous_metrics>
         <endpoint>/metrics</endpoint>
@@ -434,6 +463,9 @@ data:
         <metrics>true</metrics>
         <port>8001</port>
       </prometheus>
+      {{- else }}
+      <prometheus remove="1"></prometheus>
+      {{- end }}
       <postgresql_port remove="1"></postgresql_port>
       <mysql_port remove="1"></mysql_port>
       <!-- we're always running with a single replica, no point in opening it -->
@@ -449,7 +481,9 @@ metadata:
 data:
   config.yaml: |
     debug: false
+    {{- if .Values.hubble.timescape.metrics.enabled }}
     prometheus-serve-addr: ":9090"
+    {{- end }}
     pprof: true
     pprof-address: "localhost"
     pprof-port: "6060"
@@ -497,8 +531,9 @@ data:
     migrate:
       clickhouse-nodes-count: "0"
     trimmer:
-      flows-count:
-      timeout: 60m
+      flows-count: {{ .Values.hubble.timescape.trimmer.flowsCount }}
+      trim-interval: {{ printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes }}
+      timeout: {{ .Values.hubble.timescape.trimmer.timeout | default (printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes) }}
 {{- if .Values.hubble.timescape.ui.enabled }}
 ---
 apiVersion: v1
