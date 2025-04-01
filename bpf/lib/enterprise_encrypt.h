@@ -125,7 +125,7 @@ encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
 
 static __always_inline bool
 encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
-		       struct remote_endpoint_info *src, struct remote_endpoint_info *dst)
+		       __u32 src_sec_identity, __u32 dst_sec_identity)
 {
 	struct ipv4_frag_l4ports __maybe_unused ports;
 
@@ -137,14 +137,13 @@ encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
 		if (l4_load_ports(ctx, l4_off, &ports.sport) < 0)
 			return false;
 
-		if (src && dst) {
-			if (!encrypt_flow_lookup(src->sec_identity,
-					ports.sport,
-					dst->sec_identity,
-					ports.dport,
-					l4_proto))
-				return false;
-		}
+		if (!encrypt_flow_lookup(src_sec_identity,
+					 ports.sport,
+					 dst_sec_identity,
+					 ports.dport,
+					 l4_proto))
+			return false;
+
 		return true;
 	default:
 		return false;
@@ -283,7 +282,8 @@ maybe_encrypt: __maybe_unused
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
-	if (!encrypt_policy_matches(ctx, l4_proto, l4_off, src, dst))
+	if (src && dst &&
+	    !encrypt_policy_matches(ctx, l4_proto, l4_off, src->sec_identity, dst->sec_identity))
 		goto out;
 
 	if (dst && dst->key) {
