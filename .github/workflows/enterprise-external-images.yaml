@@ -59,7 +59,7 @@ jobs:
             cee_image=$(basename ${{ inputs.docker-context }})
             echo "cee_image=${cee_image}" >> $GITHUB_OUTPUT
             # Don't rebuild if the image already exists
-            if docker manifest inspect quay.io/isovalent/${cee_image}:${version}; then
+            if docker manifest inspect quay.io/isovalent/${cee_image}-ubi:${version}; then
               echo "Image already exist!"
               echo "rebuild=false" >> $GITHUB_OUTPUT
             else
