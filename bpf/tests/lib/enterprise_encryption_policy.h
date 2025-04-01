@@ -86,6 +86,12 @@ encryption_policy_pktgen(struct __ctx_buff *ctx, bool v4, bool tcp, bool reply)
 		return TEST_ERROR;
 
 	pktgen__finish(&builder);
+
+	if (reply)
+		set_identity_mark(ctx, POD2_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+	else
+		set_identity_mark(ctx, POD1_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+
 	return 0;
 }
 
@@ -179,7 +185,7 @@ encryption_policy_encap_pktgen(struct __ctx_buff *ctx, bool inner_ip4) {
 
 	pktgen__finish(&builder);
 
-	set_identity_mark(ctx, 0x0, MARK_MAGIC_OVERLAY);
+	set_identity_mark(ctx, POD1_SEC_IDENTITY, MARK_MAGIC_OVERLAY);
 
 	return 0;
 }
