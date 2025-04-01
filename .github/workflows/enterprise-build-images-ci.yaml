@@ -45,6 +45,12 @@ jobs:
             postfix: ubi
             image_name: cilium
 
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            base_image: quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc72251fc6cdcef61ed90
+            postfix: ubuntu
+            image_name: cilium
+
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
             # renovate: datasource=docker
@@ -65,7 +71,6 @@ jobs:
             base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             postfix: ubi
             image_name: clustermesh-apiserver
-
 
     steps:
       - name: Checkout pull request branch
@@ -195,7 +200,8 @@ jobs:
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: CI Build ${{ matrix.name }}
-        id: docker_build_ci
+        id: docker_build_ci_ubi
+        if: ${{ matrix.postfix == 'ubi' }}
         shell: bash
         working-directory: ./enterprise/images
         run: |
@@ -207,6 +213,21 @@ jobs:
           OPERATOR_VARIANT=${{ matrix.image_name }} \
           EXTRA_ARGS="${{ steps.tag.outputs.extra_tags }}" \
           make ${{ matrix.name }}-image
+
+      - name: CI Build ${{ matrix.name }}
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        id: docker_build_ci_${{ matrix.postfix }}
+        if: ${{ matrix.postfix != 'ubi' }}
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: ${{ matrix.platforms }}
+          tags: ${{ steps.tag.outputs.primary_tag }}
+          target: release
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.image_name }}
 
       - name: CI Build ${{ matrix.name }} digest
         id: docker_digest
@@ -222,13 +243,13 @@ jobs:
       - name: Generate SBOM
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
-          artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          artifact-name: sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
           image: ${{ steps.tag.outputs.primary_tag }}
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
+          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
 
       - name: CI Image Releases digests
         shell: bash
@@ -237,13 +258,13 @@ jobs:
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi
-          echo "${{ steps.tag.outputs.primary_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "${{ steps.tag.outputs.primary_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}-${{ matrix.postfix }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: image-digest ${{ matrix.name }}
+          name: image-digest ${{ matrix.name }}-${{ matrix.postfix }}
           path: image-digest
           retention-days: 1
 
