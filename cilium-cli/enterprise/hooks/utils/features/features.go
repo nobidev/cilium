@@ -41,6 +41,8 @@ const (
 
 	// RemoteClusterTunnel: the routing mode configured in the remote cluster.
 	RemoteClusterTunnel features.Feature = "remote-cluster-tunnel"
+	// RemoteClusterTunnelPort: the tunnel port configured in the remote cluster.
+	RemoteClusterTunnelPort features.Feature = "remote-cluster-tunnel-port"
 	// FallbackRoutingMode: whether a (and which) fallback routing mode is configured.
 	FallbackRoutingMode features.Feature = "fallback-routing-mode"
 	// MixedRoutingMode: whether local and remote clusters have different routing modes.
@@ -158,7 +160,7 @@ func extractFromRemoteConfigMap(ctx context.Context, ct *check.ConnectivityTest)
 		return fmt.Errorf("remote ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 
-	ct.Features[RemoteClusterTunnel] = features.ExtractTunnelFeatureFromVersionedConfigMap(ct.CiliumVersion, cm)
+	ct.Features[RemoteClusterTunnel], ct.Features[RemoteClusterTunnelPort] = features.ExtractTunnelFeatureFromVersionedConfigMap(ct.CiliumVersion, cm)
 	ct.Features[MixedRoutingMode] = features.Status{Enabled: ct.Features[features.Tunnel].Enabled != ct.Features[RemoteClusterTunnel].Enabled}
 
 	// PhantomServices must be enabled in both clusters to be considered enabled.
