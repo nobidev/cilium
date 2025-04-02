@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
+	enterpriseSniff "github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/sniff"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
@@ -168,6 +169,11 @@ func getFilter(ctx context.Context, t *check.Test, client *check.Pod, server *ch
 			t.Fatalf("Failed to get server IP in hex notation: %s", err)
 		}
 
+		tunnelFilter, err := enterpriseSniff.GetTunnelFilter(t.Context())
+		if err != nil {
+			t.Fatalf("Failed to build tunnel filter: %w", err)
+		}
+
 		// This filter captures VXLAN encapsulated traffic, where the inner source
 		// IP matches the client pod IP and the inner destination IP matches the
 		// server pod IP, for ipv4 and ipv6 respectively.
@@ -186,7 +192,7 @@ func getFilter(ctx context.Context, t *check.Test, client *check.Pod, server *ch
 			// inner dst IPv4 = udp(8) + vxlan(8) + eth(14) + ipv4 dst IP(16) = 46
 			// of these offsets we read 4 bytes for the respective ipv4 address
 			filter = fmt.Sprintf("%s and (udp[42:4]=0x%s and udp[46:4]=0x%s)",
-				sniff.TunnelFilter, clientHexIP, serverHexIP)
+				tunnelFilter, clientHexIP, serverHexIP)
 		}
 
 		if ipFam == features.IPFamilyV6 {
@@ -205,7 +211,7 @@ func getFilter(ctx context.Context, t *check.Test, client *check.Pod, server *ch
 			dstIPFilter := fmt.Sprintf("(udp[54:4]=0x%s and udp[58:4]=0x%s and udp[62:4]=0x%s and udp[66:4]=0x%s)",
 				serverHexIP[0:8], serverHexIP[8:16], serverHexIP[16:24], serverHexIP[24:])
 			filter = fmt.Sprintf("%s and %s and %s",
-				sniff.TunnelFilter, srcIPFilter, dstIPFilter)
+				tunnelFilter, srcIPFilter, dstIPFilter)
 		}
 
 		return filter

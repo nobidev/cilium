@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/deploy"
+	enterpriseSniff "github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/sniff"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -164,7 +165,12 @@ func (mr *mixedRouting) buildTunnelFilter(ct *check.ConnectivityTest, self check
 		return ""
 	}
 
-	return fmt.Sprintf("%s and (%s)", sniff.TunnelFilter, strings.Join(hostIPs, " or "))
+	tunnelFilter, err := enterpriseSniff.GetTunnelFilter(ct)
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%s and (%s)", tunnelFilter, strings.Join(hostIPs, " or "))
 }
 
 func (mr *mixedRouting) buildNativeFilter(ct *check.ConnectivityTest, self check.NodeIdentity, mode sniff.Mode) string {
