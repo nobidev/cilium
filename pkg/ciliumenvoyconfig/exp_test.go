@@ -24,6 +24,7 @@ import (
 	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
@@ -55,6 +56,7 @@ func TestScript(t *testing.T) {
 			daemonk8s.TablesCell,
 			cell.Config(cecConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
+			cell.Config(types.DefaultConfig),
 			experimental.Cell,
 			maglev.Cell,
 			cell.Provide(

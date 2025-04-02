@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -58,6 +59,8 @@ type cecResourceParser struct {
 
 	defaultMaxConcurrentRetries uint32
 	httpLingerConfig            int
+
+	ingressIdentityEnabled bool
 }
 
 type parserParams struct {
@@ -71,6 +74,8 @@ type parserParams struct {
 
 	CecConfig   cecConfig
 	EnvoyConfig envoy.ProxyConfig
+
+	PolicyConfig types.CECPolicyConfig
 }
 
 func newCECResourceParser(params parserParams) *cecResourceParser {
@@ -79,6 +84,8 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 		portAllocator:               params.PortAllocator,
 		defaultMaxConcurrentRetries: params.EnvoyConfig.ProxyMaxConcurrentRetries,
 		httpLingerConfig:            params.EnvoyConfig.EnvoyHTTPUpstreamLingerTimeout,
+
+		ingressIdentityEnabled: params.PolicyConfig.Mode == types.CECPolicyModeDedicated,
 	}
 
 	// Retrieve Ingress IPs from local Node.
@@ -482,7 +489,8 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 					return false
 				}()
 
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, isHTTPListener))
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, isHTTPListener,
+					fmt.Sprintf("%s/%s", cecNamespace, cecName)))
 			}
 		}
 
@@ -555,7 +563,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16, isHTTPListener bool) *envoy_config_listener.ListenerFilter {
+func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16, isHTTPListener bool, l7lbPolicyName string) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -572,7 +580,7 @@ func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
 	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
 	// (in such a case use of the original source address would lead to broken routing for the
-	// return traffic, as it would not be sent to the this node where upstream connection
+	// return traffic, as it would not be sent to this node where upstream connection
 	// originates from).
 	//
 	// Note: This means that all non-local traffic will be identified by the destination to be
@@ -583,6 +591,10 @@ func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 	// One solution to this dilemma would be to never configure these addresses if
 	// useOriginalSourceAddr is true and let such traffic fail.
 	if l7lb {
+		if r.ingressIdentityEnabled {
+			conf.L7LbPolicyName = l7lbPolicyName
+		}
+
 		if r.ingressIPv4 != nil {
 			conf.Ipv4SourceAddress = r.ingressIPv4.String()
 			// Enforce ingress policy for Ingress
