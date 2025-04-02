@@ -35,7 +35,7 @@ const (
 	EgressGroupLabelKey   = "egress-group"
 	EgressGroupLabelValue = "test"
 
-	K8sZoneLabel = "topology.kubernetes.io/zone"
+	K8sZoneLabel = v1.LabelTopologyZone
 
 	EgressGatewayIPAMRoutingTable = 2050
 )
