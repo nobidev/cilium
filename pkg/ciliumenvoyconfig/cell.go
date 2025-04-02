@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -42,6 +43,8 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newPortAllocator),
 
 	experimentalCell,
+
+	cell.Config(types.DefaultConfig),
 )
 
 type cecConfig struct {

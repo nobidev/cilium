@@ -84,6 +84,8 @@ cilium-agent hive [flags]
       --endpoint-regen-interval duration                               Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --envoy-access-log-buffer-size uint                              Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                             Envoy base ID
+      --envoy-config-policy-mode string                                Enable a dedicated identity for each CiliumEnvoyConfig instead of using the global reserved:ingress identity (default "global")
+      --envoy-config-policy-regen-interval duration                    Ingress Policy Regeneration Interval (default 30s)
       --envoy-config-retry-interval duration                           Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                                  Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)
       --envoy-default-log-level string                                 Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.
