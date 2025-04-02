@@ -20,6 +20,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -258,6 +260,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	if !dcfg.EnableIPv4EgressGatewayHA {
 		return out, nil
+	}
+
+	if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
+		return out, errors.New("egwha requires support for bpf_redirect_neigh (Linux 5.10 or newer)")
 	}
 
 	if p.Config.EnableEgressGatewayHASocketTermination {
