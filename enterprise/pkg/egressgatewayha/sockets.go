@@ -13,6 +13,7 @@ package egressgatewayha
 import (
 	"errors"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -21,11 +22,10 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/enterprise/pkg/datapath/sockets"
+	"github.com/cilium/cilium/pkg/datapath/sockets"
 	ciliumnetns "github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/tuple"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -113,7 +113,6 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 
 		stats.cniNetns++
 
-		ns := netns.NsHandle(nsFile.FD())
 		iterateProto := func(proto uint8) {
 			u8p, err := u8proto.FromNumber(proto)
 			if err != nil {
@@ -123,52 +122,55 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 			logger = logger.WithField("proto", u8p.String())
 			logger.Debug("searching for protocol sockets to close")
 
-			sockets.IterateAs(ns, netlink.Proto(proto), unix.AF_INET, stateFilter, func(sock *netlink.Socket, err error) error {
-				if err != nil {
-					logger.WithError(err).Error("failed to receive valid socket data, live socket may " +
-						"be missed for egwha socket termination resulting in hanging tcp connections.")
-					return nil // still continue iteration to attempt next.
-				}
+			nsFile.Do(func() error {
+				sockets.Iterate(proto, unix.AF_INET, stateFilter, func(sock *netlink.Socket, err error) error {
+					if err != nil {
+						logger.WithError(err).Error("failed to receive valid socket data, live socket may " +
+							"be missed for egwha socket termination resulting in hanging tcp connections.")
+						return nil // still continue iteration to attempt next.
+					}
 
-				logger := logger.WithFields(logrus.Fields{
-					"sourceIP":   sock.ID.Source,
-					"sourcePort": sock.ID.SourcePort,
-					"dstIP":      sock.ID.Destination,
-					"dstPort":    sock.ID.DestinationPort,
-				})
-				sourceAddr := toAddr4(sock.ID.Source)
-				destAddr := toAddr4(sock.ID.Destination)
-				if sourceAddr == nil || destAddr == nil {
-					logger.Warn("unexpected nil address in socket data (will skip)")
-					return nil
-				}
-
-				if _, ok := toClose[tuple.TupleKey4{
-					SourceAddr: ciliumTypes.IPv4(sock.ID.Source.To4()[:]),
-					SourcePort: sock.ID.SourcePort,
-					DestAddr:   ciliumTypes.IPv4(sock.ID.Destination.To4()[:]),
-					DestPort:   sock.ID.DestinationPort,
-					NextHeader: u8p,
-				}]; !ok {
-					return nil
-				}
-
-				logger.Info("closing socket due to unavailable gatewayIP")
-				if err := sockets.DestroySocketAs(ns, *sock, netlink.Proto(proto), stateFilter); err != nil {
-					// Sockets that are already in the TCP_CLOSE state are expected to return ENOENT
-					// This does not count towards stats.
-					if errors.Is(err, unix.ENOENT) {
-						stats.skipped++
-						logger.WithError(err).Debug("failed to close socket as it was presumably already in TCP_CLOSE state")
-					} else {
-						logger.WithError(err).Error("failed to destroy socket")
-						stats.failed++
+					logger := logger.WithFields(logrus.Fields{
+						"sourceIP":   sock.ID.Source,
+						"sourcePort": sock.ID.SourcePort,
+						"dstIP":      sock.ID.Destination,
+						"dstPort":    sock.ID.DestinationPort,
+					})
+					sourceAddr := toAddr4(sock.ID.Source)
+					destAddr := toAddr4(sock.ID.Destination)
+					if sourceAddr == nil || destAddr == nil {
+						logger.Warn("unexpected nil address in socket data (will skip)")
 						return nil
 					}
-				} else {
-					stats.deleted++
-				}
 
+					if _, ok := toClose[tuple.TupleKey4{
+						SourceAddr: ciliumTypes.IPv4(sock.ID.Source.To4()[:]),
+						SourcePort: sock.ID.SourcePort,
+						DestAddr:   ciliumTypes.IPv4(sock.ID.Destination.To4()[:]),
+						DestPort:   sock.ID.DestinationPort,
+						NextHeader: u8p,
+					}]; !ok {
+						return nil
+					}
+
+					logger.Info("closing socket due to unavailable gatewayIP")
+					if err := sockets.DestroySocket(slog.Default(), *sock, netlink.Proto(proto), stateFilter); err != nil {
+						// Sockets that are already in the TCP_CLOSE state are expected to return ENOENT
+						// This does not count towards stats.
+						if errors.Is(err, unix.ENOENT) {
+							stats.skipped++
+							logger.WithError(err).Debug("failed to close socket as it was presumably already in TCP_CLOSE state")
+						} else {
+							logger.WithError(err).Error("failed to destroy socket")
+							stats.failed++
+							return nil
+						}
+					} else {
+						stats.deleted++
+					}
+
+					return nil
+				})
 				return nil
 			})
 		}
@@ -181,6 +183,14 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 		nsFile.Close()
 		return nil
 	})
+}
+
+func stateMask(ms ...int) uint32 {
+	var out uint32
+	for _, m := range ms {
+		out |= 1 << m
+	}
+	return out
 }
 
 // stateFilter is a mask of all states we consider for both socket iteration
@@ -201,7 +211,7 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 //     immediately following socket close (i.e. in time_wait), but before
 //     the egress-ct entry is purged, may have traffic incorrectly
 //     matched via the egress-ct and wrongly sent to a egress-gateway.
-var stateFilter = sockets.StateMask(
+var stateFilter = stateMask(
 	// Note: The following states emit rst
 	// Ref: https://elixir.bootlin.com/linux/v6.12.6/source/net/ipv4/tcp.c#L3228-L3235
 	netlink.TCP_ESTABLISHED,
