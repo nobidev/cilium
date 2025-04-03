@@ -85,6 +85,7 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- $defaultExportFilePath := "" }}
 {{- $defaultExportAggregation := "" }}
 {{- $defaultExportAggregationStateFilter := "" }}
+{{- $defaulthubbleExportAggregationRenewTTL := "true" }}
 
 # For cilium version <1.16 we enable export to /var/run/cilium/hubble by
 # default.
@@ -99,6 +100,7 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
 {{- $defaultExportAggregation = "connection" }}
 {{- $defaultExportAggregationStateFilter = "new error" }}
+{{- $defaulthubbleExportAggregationRenewTTL = "false" }}
 {{- end }}
 
 {{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
@@ -109,6 +111,9 @@ export-aggregation: {{ $defaultExportAggregation | quote }}
 {{- end }}
 {{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation-state-filter"))}}
 export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
+{{- end }}
+{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "hubble-export-aggregation-renew-ttl"))}}
+hubble-export-aggregation-renew-ttl: {{ $defaulthubbleExportAggregationRenewTTL | quote }}
 {{- end }}
 
 {{- if .Values.hubble.export }}
