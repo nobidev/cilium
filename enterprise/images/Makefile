@@ -12,9 +12,12 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
+# renovate: datasource=docker
 RUNTIME_IMAGE ?= quay.io/isovalent-dev/cilium-runtime-ubi:cd74ebc98d21b15e6fa66d02e7b73cccb75f5566
+# renovate: datasource=docker
 LLVM_IMAGE ?= quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
-UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal
+# renovate: datasource=docker
+UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal:9.5-1742914212@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
 IMAGE_TAG ?= $$(../../images/scripts/make-image-tag.sh)
 
 PLATFORMS ?= unspecified

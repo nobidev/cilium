@@ -12,7 +12,9 @@ permissions:
   id-token: write
 
 env:
+  # renovate: datasource=docker
   RUNTIME_IMAGE: quay.io/isovalent-dev/cilium-runtime-ubi:2cb77fcd0ab601fcf31597a6127d3b554db796da
+  # renovate: datasource=docker
   UBI_IMAGE: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
 
 jobs:

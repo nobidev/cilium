@@ -24,25 +24,29 @@ jobs:
           - component: CERTGEN
             docker-context: enterprise/images/certgen
             dockerfile: enterprise/images/certgen/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             build-from-source: false
 
           - component: CILIUM_NODEINIT
             docker-context: enterprise/images/startup-script
             dockerfile: enterprise/images/startup-script/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.5-1742914212@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
             build-from-source: false
 
           - component: CILIUM_ENVOY
             docker-context: enterprise/images/cilium-envoy
             dockerfile: enterprise/images/cilium-envoy/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.5-1742914212@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
             build-from-source: false
 
           - component: HUBBLE_UI_BACKEND
             docker-context: hubble-ui-backend
             dockerfile: hubble-ui-backend/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-backend
@@ -50,6 +54,7 @@ jobs:
           - component: HUBBLE_UI_FRONTEND
             docker-context: hubble-ui-frontend
             dockerfile: hubble-ui-frontend/Dockerfile
+            # renovate: datasource=docker
             base-image: quay.io/isovalent-dev/nginx-unprivileged-ubi:1742895604-0227bb1@sha256:e17eebe7edd734e14bbc20ef60ca13dcc1fa5e4c36d1f2ebb4073b7a4156f319
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
@@ -58,7 +63,8 @@ jobs:
           - component: CILIUM_ETCD_OPERATOR
             docker-context: cilium-etcd-operator
             dockerfile: enterprise/images/cilium-etcd-operator/Dockerfile
-            base-image: registry.redhat.io/ubi9/ubi-micro@sha256:d115f8aad9c4ae7ee21ae75bbcb3dc2c5dbf9b57bf6dad6dcb5aac5c02003bde
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             build-from-source: true
             source-repo: cilium/cilium-etcd-operator
             source-path: cilium-etcd-operator

@@ -114,8 +114,11 @@ jobs:
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-ubi:${{ steps.runtime-tag.outputs.tag }}
           build-args: |
+            # renovate: datasource=docker
             CILIUM_LLVM_IMAGE=quay.io/isovalent-dev/cilium-llvm-ubi:1741958010-f42ddd2@sha256:1467aec609f6964167b861d4ccb7e3480b8ed9d39351cb2e3b375fca81127c5d
+            # renovate: datasource=docker
             CILIUM_BPFTOOL_IMAGE=quay.io/isovalent-dev/cilium-bpftool-ubi:1741958010-f42ddd2@sha256:7ad5f9ad2ae6ebe05bf32b69dd493a0ea3fad614c0a0760cb948bd4c6ea20ace
+            # renovate: datasource=docker
             COMPILERS_IMAGE=quay.io/isovalent-dev/image-compilers-ubi:1741861540-21b4a3b@sha256:759bb175d499da0d8fe95479484f80e58a5737473cc6b9aa7a69e2603a75f09b
 
       - name: Sign Container Image Runtime

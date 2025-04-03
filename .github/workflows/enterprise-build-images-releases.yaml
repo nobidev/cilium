@@ -73,7 +73,8 @@ jobs:
           tags: |
             quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
           build-args: |
-            BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:14f14e03d68f7fd5f2b18a13478b6b127c341b346c86b6e0b886ed2b7573b8e0
+            # renovate: datasource=docker
+            BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal:9.5-1742914212@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
             UPSTREAM_VERSION=${{ steps.version.outputs.version }}
             UPSTREAM_IMAGE=${{ steps.version.outputs.upstream_repo }}:${{ steps.version.outputs.version }}@${{ steps.version.outputs.upstream_digest }}
             VERSION=${{ steps.version.outputs.version }}
@@ -89,24 +90,28 @@ jobs:
         include:
           - name: cilium
             dockerfile: ./enterprise/images/cilium/Dockerfile
+            # renovate: datasource=docker
             base_image: quay.io/isovalent-dev/cilium-runtime-ubi:2cb77fcd0ab601fcf31597a6127d3b554db796da
             postfix: ubi
             image_name: cilium
 
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
+            # renovate: datasource=docker
             base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: operator-generic
 
           - name: hubble-relay
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
+            # renovate: datasource=docker
             base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: hubble-relay
 
           - name: clustermesh-apiserver
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
+            # renovate: datasource=docker
             base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1741861735@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
             postfix: ubi
             image_name: clustermesh-apiserver

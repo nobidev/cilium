@@ -19,6 +19,8 @@
   "includePaths": [
     ".github/actions/set-env-variables/enterprise-overrides.sh",
     ".github/workflows/enterprise-*",
+    "enterprise/images/**",
+    "enterprise/olm/Dockerfile",
     "images/cilium/download-hubble-enterprise.sh",
     "install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl",
   ],
@@ -162,6 +164,18 @@
         "major",
         "minor"
       ],
+    },
+    {
+      // References to base images in Dockerfiles
+      groupName: "base-images",
+      matchFileNames: [
+        "enterprise/**/Dockerfile",
+      ],
+      matchPackageNames: [
+        "registry.redhat.io/ubi9",
+        "quay.io/isovalent-dev",
+      ],
+      versioning: "semver",
     },
     {
       "matchPackageNames": [

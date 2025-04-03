@@ -40,25 +40,29 @@ jobs:
         include:
           - name: cilium
             dockerfile: ./enterprise/images/cilium/Dockerfile
+            # renovate: datasource=docker
             base_image: quay.io/isovalent-dev/cilium-runtime-ubi:2cb77fcd0ab601fcf31597a6127d3b554db796da
             postfix: ubi
             image_name: cilium
 
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            # renovate: datasource=docker
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             postfix: ubi
             image_name: operator-generic
 
           - name: hubble-relay
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            # renovate: datasource=docker
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             postfix: ubi
             image_name: hubble-relay
 
           - name: clustermesh-apiserver
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
-            base_image: registry.access.redhat.com/ubi9/ubi-micro@sha256:d6054f0c320d9eb9a17a51f18e20076251e2cbdcb25f13455da1b295503cc8a3
+            # renovate: datasource=docker
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
             postfix: ubi
             image_name: clustermesh-apiserver
 
