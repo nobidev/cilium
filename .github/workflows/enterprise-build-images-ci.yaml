@@ -47,6 +47,7 @@ jobs:
 
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
+            # renovate: datasource=docker
             base_image: quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc72251fc6cdcef61ed90
             postfix: ubuntu
             image_name: cilium
@@ -199,7 +200,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
-      - name: CI Build ${{ matrix.name }}
+      - name: CI Build ${{ matrix.name }} UBI based
         id: docker_build_ci_ubi
         if: ${{ matrix.postfix == 'ubi' }}
         shell: bash
@@ -214,9 +215,9 @@ jobs:
           EXTRA_ARGS="${{ steps.tag.outputs.extra_tags }}" \
           make ${{ matrix.name }}-image
 
-      - name: CI Build ${{ matrix.name }}
+      - name: CI Build ${{ matrix.name }} non-UBI based
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
-        id: docker_build_ci_${{ matrix.postfix }}
+        id: docker_build_ci
         if: ${{ matrix.postfix != 'ubi' }}
         with:
           provenance: false
