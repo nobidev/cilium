@@ -564,13 +564,14 @@ func (r *ServiceVRFReconciler) vrfConfigsEqual(firstVRFs, secondVRFs []v1.Isoval
 	}
 
 	for _, firstVRF := range firstVRFs {
-		found := true
+		found := false
 		for _, secondVRF := range secondVRFs {
 			if firstVRF.VRFRef == secondVRF.VRFRef {
 				found = true
 				if !firstVRF.DeepEqual(&secondVRF) {
 					return false
 				}
+				break
 			}
 		}
 		if !found {
