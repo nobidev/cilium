@@ -34,7 +34,7 @@ type IsovalentClusterwideNetworkPolicy struct {
 	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
-	Specs IsovalentNetworkPolicyRules `json:"specs,omitempty"`
+	Specs []*IsovalentNetworkPolicyRule `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule.
 	//

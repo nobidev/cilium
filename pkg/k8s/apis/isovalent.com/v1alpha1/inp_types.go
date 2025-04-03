@@ -40,7 +40,7 @@ type IsovalentNetworkPolicy struct {
 	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
-	Specs IsovalentNetworkPolicyRules `json:"specs,omitempty"`
+	Specs []*IsovalentNetworkPolicyRule `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule
 	//
@@ -97,25 +97,6 @@ func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bo
 		return true
 	}
 	return r.deepEqual(o)
-}
-
-// IsovalentNetworkPolicyRules is a collection of [IsovalentNetworkPolicyRule].
-//
-// All rules must be evaluated in order to come to a conclusion. While
-// it is sufficient to have a single fromEndpoints rule match, none of
-// the fromRequires may be violated at the same time.
-//
-// +deepequal-gen:private-method=true
-type IsovalentNetworkPolicyRules []*IsovalentNetworkPolicyRule
-
-func (rs *IsovalentNetworkPolicyRules) DeepEqual(o *IsovalentNetworkPolicyRules) bool {
-	switch {
-	case (rs == nil) != (o == nil):
-		return false
-	case (rs == nil) && (o == nil):
-		return true
-	}
-	return rs.deepEqual(o)
 }
 
 // +deepequal-gen=true
