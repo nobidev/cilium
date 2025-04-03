@@ -11,12 +11,6 @@ permissions:
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
 
-env:
-  # renovate: datasource=docker
-  RUNTIME_IMAGE: quay.io/isovalent-dev/cilium-runtime-ubi:2d8fa3f5a0ca9161b2012f8acb9088d3e1e7912b
-  # renovate: datasource=docker
-  UBI_IMAGE: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
-
 jobs:
   build-and-push:
     timeout-minutes: 45
@@ -30,13 +24,28 @@ jobs:
       matrix:
         include:
           - name: cilium
+            dockerfile: ./enterprise/images/cilium/Dockerfile
             image_name: cilium
+            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:2d8fa3f5a0ca9161b2012f8acb9088d3e1e7912b
+            postfix: ubi
+
           - name: operator
+            dockerfile: ./enterprise/images/operator/Dockerfile
             image_name: operator-generic
+            base_image: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
+            postfix: ubi
+
           - name: hubble-relay
+            dockerfile: ./enterprise/images/hubble-relay/Dockerfile
             image_name: hubble-relay
+            base_image: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
+            postfix: ubi
+
           - name: clustermesh-apiserver
+            dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
             image_name: clustermesh-apiserver
+            base_image: registry.redhat.io/ubi9/ubi-minimal:9.5-1741599792@sha256:30bbd445046a3a63f5f5557a3c67dee74e3c8e7855eb0347630b020f3689823f
+            postfix: ubi
 
     steps:
       - name: Checkout main branch to access local actions
@@ -80,7 +89,7 @@ jobs:
         id: tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-dev:${{ steps.tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }} &>/dev/null; then
             echo "Tag already exists!"
             echo exist='true' >> $GITHUB_OUTPUT
             exit 0
@@ -98,7 +107,14 @@ jobs:
         shell: bash
         working-directory: ./enterprise/images
         run: |
-          IMAGE_TAG=${{ steps.tag.outputs.tag }} PLATFORMS=linux/amd64,linux/arm64 REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} PUSH=true EXTRA_ARGS="--metadata-file .metadata.json --tag quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci:${{ github.sha }}" make ${{ matrix.name }}-image
+          IMAGE_TAG=${{ steps.tag.outputs.tag }} \
+          PLATFORMS=linux/amd64,linux/arm64 \
+          REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} \
+          PUSH=true \
+          RUNTIME_IMAGE=${{ matrix.base_image }} \
+          UBI_IMAGE=${{ matrix.base_image }} \
+          EXTRA_ARGS="--metadata-file .metadata.json --tag quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ github.sha }}" \
+          make ${{ matrix.name }}-image
           echo digest=$(cat ../../.metadata.json | jq '."containerimage.digest"') >> $GITHUB_OUTPUT
 
       - name: Install Cosign
@@ -108,40 +124,40 @@ jobs:
       - name: Sign Container Image
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
-          artifact-name: sbom_${{ matrix.image_name }}-ubi_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_${{ matrix.image_name }}-ubi_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-dev:${{ steps.tag.outputs.tag }}
+          artifact-name: sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }}
 
       - name: Attach SBOM attestation to container image
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-ubi_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-ubi_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "## ${{ matrix.image_name }}-ubi" > image-digest/${{ matrix.image_name }}-ubi.txt
-          echo "" >> image-digest/${{ matrix.name }}-ubi.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-dev:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.image_name }}-ubi.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ubi-ci:${{ github.sha }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.image_name }}-ubi.txt
-          echo "" >> image-digest/${{ matrix.image_name }}-ubi.txt
+          echo "## ${{ matrix.image_name }}-${{ matrix.postfix }}" > image-digest/${{ matrix.image_name }}-${{ matrix.postfix }}.txt
+          echo "" >> image-digest/${{ matrix.name }}-${{ matrix.postfix }}.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.image_name }}-${{ matrix.postfix }}.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ github.sha }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.image_name }}-${{ matrix.postfix }}.txt
+          echo "" >> image-digest/${{ matrix.image_name }}-${{ matrix.postfix }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: image-digest ${{ matrix.image_name }}-ubi
+          name: image-digest ${{ matrix.image_name }}-${{ matrix.postfix }}
           path: image-digest
           retention-days: 1
 
