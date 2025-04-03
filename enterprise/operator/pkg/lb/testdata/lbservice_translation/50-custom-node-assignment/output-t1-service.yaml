@@ -4,6 +4,7 @@ metadata:
   annotations:
     lbipam.cilium.io/ips: 100.64.0.100
     lbipam.cilium.io/sharing-key: lb-1
+    loadbalancer.isovalent.com/t1-nodes-hash: 4e846cafc488456fff8a267cd5df935b8de99470305419827f5ba7d68e403589
     loadbalancer.isovalent.com/type: t1
     service.cilium.io/forwarding-mode: dsr
     service.cilium.io/health-check-bgp-advertise-threshold: "1"

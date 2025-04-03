@@ -11,6 +11,7 @@
 package lb
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -99,6 +100,11 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	}
 
 	annotations["loadbalancer.isovalent.com/type"] = "t1"
+
+	// write T1 node ips as hash to annotation. This way a reconciliation of the K8s Service gets enforced if any of the Node labels change
+	h := sha256.New()
+	_, _ = h.Write([]byte(strings.Join(model.t1NodeIPs, "")))
+	annotations["loadbalancer.isovalent.com/t1-nodes-hash"] = fmt.Sprintf("%x", h.Sum(nil))
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
