@@ -37,9 +37,11 @@ type IsovalentNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Isovalent specific rule specification.
+	//+kubebuilder:validation:XValidation:message="Order must be >= 0",rule="!has(self.order) || self.order >= 0"
 	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
+	//+kubebuilder:validation:items:XValidation:message="Order must be >= 0",rule="!has(self.order) || self.order >= 0"
 	Specs []*IsovalentNetworkPolicyRule `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule
@@ -244,7 +246,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 
 func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, namespace, name string, uid types.UID) *api.Rule {
 	cr := k8sCiliumUtils.ParseToCiliumRule(logger, namespace, name, uid, &r.Rule)
-	// TODO: uncomment in ht/main-ce/ordered-policy
+	// TODO: uncomment in ft/main-ce/ordered-policy, check for order ≥ 0 for INP (but not ICNP)
 	// cr.OrderCEEOnly = r.Spec.Order
 	return cr
 }
