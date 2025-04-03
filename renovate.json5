@@ -196,6 +196,21 @@
         "clickhouse/clickhouse-server"
       ],
     },
+    {
+      // Group hubble dependencies together and request review from hubble
+      "groupName": "Hubble helm dependencies",
+      "groupSlug": "hubble-helm-dependencies",
+      "matchDepNames": [
+        "quay.io/isovalent/vector",
+        "quay.io/isovalent/hubble-rbac",
+        "quay.io/isovalent/hubble-timescape",
+        "quay.io/isovalent/hubble-timescape-ui",
+        "quay.io/isovalent/hubble-k8s-exporter",
+      ],
+      "reviewers": [
+        "isovalent/hubble",
+      ],
+    },
   ],
   "regexManagers": [
     {
