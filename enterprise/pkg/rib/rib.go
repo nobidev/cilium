@@ -12,6 +12,7 @@ package rib
 
 import (
 	"net/netip"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/lock"
@@ -73,6 +74,11 @@ func (r *RIB) UpsertRoute(vrfID uint32, newRoute Route) {
 	if !updated {
 		dest.routes = append(dest.routes, &newRoute)
 	}
+
+	newBest, changed := r.selectBestPath(dest)
+	if changed {
+		dest.best = newBest
+	}
 }
 
 // DeleteRoute deletes a route from the RIB. If the route doesn't exist,
@@ -109,6 +115,11 @@ func (r *RIB) DeleteRoute(vrfID uint32, route Route) {
 			delete(r.vrfTries, vrfID)
 		}
 	}
+
+	newBest, changed := r.selectBestPath(dest)
+	if changed {
+		dest.best = newBest
+	}
 }
 
 // ListRoutes returns all the routes for a given owner. The returned routes are
@@ -136,6 +147,24 @@ func (r *RIB) ListRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 	return vrfRoutes
 }
 
+// Best path selection algorithm. First, it compares the Admin Distance of the
+// Protocol. If the Admin Distance is the same, it compares the alphebetical
+// order of the Owner (this should break ties because we cannot have two routes
+// with the same prefix and the same owner).
+func (r *RIB) selectBestPath(dest *Destination) (*Route, bool) {
+	var best *Route
+	for _, rt := range dest.routes {
+		if best == nil {
+			best = rt
+		} else if rt.Protocol.AdminDistance() < best.Protocol.AdminDistance() {
+			best = rt
+		} else if strings.Compare(rt.Owner, best.Owner) < 0 {
+			best = rt
+		}
+	}
+	return best, best != dest.best
+}
+
 // isSameRoute reports whether given two routes are the "same" from the RIB's
 // perspective.
 func (r *RIB) isSameRoute(a, b *Route) bool {
@@ -147,6 +176,7 @@ func (r *RIB) isSameRoute(a, b *Route) bool {
 
 // Destination is a container of routes that share the same VRF + prefix
 type Destination struct {
+	best   *Route
 	routes []*Route
 }
 

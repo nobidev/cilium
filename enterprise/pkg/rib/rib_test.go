@@ -200,3 +200,92 @@ func TestRIB_ListRoutes(t *testing.T) {
 		require.True(t, found, "Route1 not found in VRF 1")
 	})
 }
+
+func TestRIB_selectBestPath(t *testing.T) {
+	prefix := netip.MustParsePrefix("192.168.1.0/24")
+
+	route0 := &Route{
+		Prefix:   prefix,
+		Protocol: ProtocolEBGP,
+		Owner:    "owner0",
+		NextHop:  testNextHop{},
+	}
+	route1 := &Route{
+		Prefix:   prefix,
+		Protocol: ProtocolIBGP,
+		Owner:    "owner1",
+		NextHop:  testNextHop{},
+	}
+	route2 := &Route{
+		Prefix:   prefix,
+		Protocol: ProtocolIBGP,
+		Owner:    "owner2",
+		NextHop:  testNextHop{},
+	}
+
+	tests := []struct {
+		name         string
+		dest         *Destination
+		expectedBest *Route
+	}{
+		{
+			name: "First route is the best",
+			dest: &Destination{
+				best:   nil,
+				routes: []*Route{route0},
+			},
+			expectedBest: route0,
+		},
+		{
+			name: "Smaller Admin Distance wins",
+			dest: &Destination{
+				best: route1,
+				routes: []*Route{
+					route1,
+					route0,
+				},
+			},
+			expectedBest: route0,
+		},
+		{
+			name: "Smaller Admin Distance wins, no change",
+			dest: &Destination{
+				best: route0,
+				routes: []*Route{
+					route0,
+					route1,
+				},
+			},
+			expectedBest: route0,
+		},
+		{
+			name: "Same Admin Distance, smaller instance name wins",
+			dest: &Destination{
+				best: route2,
+				routes: []*Route{
+					route2,
+					route1,
+				},
+			},
+			expectedBest: route1,
+		},
+		{
+			name: "Same Admin Distance, smaller instance name wins, no change",
+			dest: &Destination{
+				best: route1,
+				routes: []*Route{
+					route1,
+					route2,
+				},
+			},
+			expectedBest: route1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			best, changed := New().selectBestPath(tt.dest)
+			require.Equal(t, tt.expectedBest, best, "Unexpected best route")
+			require.Equal(t, changed, best != tt.dest.best, "Unexpected change in best route")
+		})
+	}
+}
