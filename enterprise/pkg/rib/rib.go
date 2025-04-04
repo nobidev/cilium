@@ -14,6 +14,8 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -27,13 +29,38 @@ import (
 // selecting the "best" route out of the multiple routes. Therefore, only the
 // best route will be installed in the data plane.
 type RIB struct {
-	mutex    lock.RWMutex
-	vrfTries map[uint32]*bitlpm.CIDRTrie[*Destination]
+	mutex     lock.RWMutex
+	vrfTries  map[uint32]*bitlpm.CIDRTrie[*Destination]
+	dataPlane DataPlane
 }
 
-func New() *RIB {
+// DataPlane is the interface for the data plane. The data plane is responsible
+// for installing the best route in the kernel. The RIB will call the DataPlane
+// when there is a change in the best route.
+type DataPlane interface {
+	// ProcessUpdate processes the RIB update. The given update is the
+	// result of a best path selection and contains the old and new best
+	// paths.
+	ProcessUpdate(u *RIBUpdate)
+}
+
+// RIBUpdate is the update for the RIB
+type RIBUpdate struct {
+	VRFID   uint32
+	OldBest *Route
+	NewBest *Route
+}
+
+type in struct {
+	cell.In
+
+	DataPlane DataPlane
+}
+
+func New(in in) *RIB {
 	return &RIB{
-		vrfTries: make(map[uint32]*bitlpm.CIDRTrie[*Destination]),
+		vrfTries:  make(map[uint32]*bitlpm.CIDRTrie[*Destination]),
+		dataPlane: in.DataPlane,
 	}
 }
 
@@ -77,7 +104,13 @@ func (r *RIB) UpsertRoute(vrfID uint32, newRoute Route) {
 
 	newBest, changed := r.selectBestPath(dest)
 	if changed {
+		update := &RIBUpdate{
+			VRFID:   vrfID,
+			OldBest: dest.best,
+			NewBest: newBest,
+		}
 		dest.best = newBest
+		r.dataPlane.ProcessUpdate(update)
 	}
 }
 
@@ -118,7 +151,13 @@ func (r *RIB) DeleteRoute(vrfID uint32, route Route) {
 
 	newBest, changed := r.selectBestPath(dest)
 	if changed {
+		update := &RIBUpdate{
+			VRFID:   vrfID,
+			OldBest: dest.best,
+			NewBest: newBest,
+		}
 		dest.best = newBest
+		r.dataPlane.ProcessUpdate(update)
 	}
 }
 

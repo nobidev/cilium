@@ -21,9 +21,21 @@ type testNextHop struct{}
 
 func (m testNextHop) isNextHop() {}
 
+type testDataPlane struct {
+	receivedUpdates []*RIBUpdate
+}
+
+func (m *testDataPlane) ProcessUpdate(u *RIBUpdate) {
+	m.receivedUpdates = append(m.receivedUpdates, u)
+}
+
+func (m *testDataPlane) Clear() {
+	m.receivedUpdates = nil
+}
+
 func TestRIB_UpsertRoute(t *testing.T) {
 	t.Run("Same prefix with different VRF", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -46,7 +58,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 		require.True(t, found, "Route not found in VRF 2")
 	})
 	t.Run("Same VRF and prefix with same owner", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -63,7 +75,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 		require.Equal(t, uint(1), routes.Len())
 	})
 	t.Run("Same VRF and prefix with different owner", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route0 := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -93,7 +105,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 
 func TestRIB_DeleteRoute(t *testing.T) {
 	t.Run("Delete existing route", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -108,7 +120,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		require.Nil(t, rib.ListRoutes("owner0")[1])
 	})
 	t.Run("Delete existing route in different VRF", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -123,7 +135,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		require.Equal(t, uint(1), rib.ListRoutes("owner0")[1].Len())
 	})
 	t.Run("Delete existing route in with different owner", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route0 := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -148,7 +160,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 
 func TestRIB_ListRoutes(t *testing.T) {
 	t.Run("List routes with same owners", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -173,7 +185,7 @@ func TestRIB_ListRoutes(t *testing.T) {
 		require.True(t, found1, "Route1 not found in VRF 1")
 	})
 	t.Run("List routes with different owners", func(t *testing.T) {
-		rib := New()
+		rib := New(in{DataPlane: &testDataPlane{}})
 
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -283,9 +295,59 @@ func TestRIB_selectBestPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			best, changed := New().selectBestPath(tt.dest)
+			best, changed := New(in{DataPlane: &testDataPlane{}}).selectBestPath(tt.dest)
 			require.Equal(t, tt.expectedBest, best, "Unexpected best route")
 			require.Equal(t, changed, best != tt.dest.best, "Unexpected change in best route")
 		})
 	}
+}
+
+func TestRIB_DataPlaneIntegration(t *testing.T) {
+	dataPlane := &testDataPlane{}
+	rib := New(in{DataPlane: dataPlane})
+
+	route0 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
+		Protocol: ProtocolIBGP,
+		Owner:    "owner0",
+		NextHop:  testNextHop{},
+	}
+	route1 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
+		Protocol: ProtocolEBGP,
+		Owner:    "owner1",
+		NextHop:  testNextHop{},
+	}
+
+	t.Run("Initial route", func(t *testing.T) {
+		rib.UpsertRoute(1, *route0)
+		require.Len(t, dataPlane.receivedUpdates, 1)
+		require.Nil(t, dataPlane.receivedUpdates[0].OldBest)
+		require.Equal(t, route0, dataPlane.receivedUpdates[0].NewBest)
+		dataPlane.Clear()
+	})
+
+	t.Run("New best route", func(t *testing.T) {
+		rib.UpsertRoute(1, *route1)
+		require.Len(t, dataPlane.receivedUpdates, 1)
+		require.Equal(t, route0, dataPlane.receivedUpdates[0].OldBest)
+		require.Equal(t, route1, dataPlane.receivedUpdates[0].NewBest)
+		dataPlane.Clear()
+	})
+
+	t.Run("Delete best route", func(t *testing.T) {
+		rib.DeleteRoute(1, *route1)
+		require.Len(t, dataPlane.receivedUpdates, 1)
+		require.Equal(t, route1, dataPlane.receivedUpdates[0].OldBest)
+		require.Equal(t, route0, dataPlane.receivedUpdates[0].NewBest)
+		dataPlane.Clear()
+	})
+
+	t.Run("Delete final route", func(t *testing.T) {
+		rib.DeleteRoute(1, *route0)
+		require.Len(t, dataPlane.receivedUpdates, 1)
+		require.Equal(t, route0, dataPlane.receivedUpdates[0].OldBest)
+		require.Nil(t, dataPlane.receivedUpdates[0].NewBest)
+		dataPlane.Clear()
+	})
 }
