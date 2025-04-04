@@ -61,7 +61,7 @@ type EnterpriseConnectivity struct {
 }
 
 func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.ConnectivityTest) error {
-	templates, err := renderTemplates(cts[0].ClusterName)
+	templates, err := renderTemplates(cts[0])
 	if err != nil {
 		return fmt.Errorf("cannot render templates: %w", err)
 	}
@@ -101,6 +101,10 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 	}
 
 	if err := ec.addEncryptionPolicyTests(cts...); err != nil {
+		return err
+	}
+
+	if err := ec.addOrderedPolicyTests(cts[0], templates); err != nil {
 		return err
 	}
 
@@ -615,17 +619,22 @@ func mustGetTest(testName string, cts ...*check.ConnectivityTest) *check.Test {
 	panic(fmt.Errorf("failed to get test %s: %w", testName, err))
 }
 
-func renderTemplates(clusterName string) (map[string]string, error) {
+func renderTemplates(ct *check.ConnectivityTest) (map[string]string, error) {
 	templates := map[string]string{
-		"clientEgressOnlyDNSPolicyYAML": clientEgressOnlyDNSPolicyYAML,
+		"clientEgressOnlyDNSPolicyYAML":       clientEgressOnlyDNSPolicyYAML,
+		"clientIngressToEchoOrderedNS":        clientIngressToEchoOrderedNS,
+		"clientIngressToEchoOrderedWildcard":  clientIngressToEchoOrderedWildcard,
+		"clientIngressToEchoOrderedPortrange": clientIngressToEchoOrderedPortrange,
 	}
 
 	renderedTemplates := map[string]string{}
 	for key, temp := range templates {
 		val, err := template.Render(temp, struct {
+			check.Parameters
 			ClusterName string
 		}{
-			ClusterName: clusterName,
+			Parameters:  ct.Params(),
+			ClusterName: ct.ClusterName,
 		})
 		if err != nil {
 			return nil, err

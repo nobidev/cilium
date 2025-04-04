@@ -1,0 +1,43 @@
+# Two policies with separate orders:
+# 1: allow client to echo, :8080-8081
+# 2: deny all to 8080
+#
+# Tests that a shorter-prefix match (port range) still overrides
+# a longer-prefix match with lower precedence.
+#
+# Note: test disabled until https://github.com/cilium/cilium/issues/38840 is resolved.
+
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: order-deny-portrange
+  namespace: "{{.TestNamespace}}"
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Always allow readiness probes
+- endpointSelector: {}
+  ingress:
+    - fromEntities: ["host"]
+  order: 0
+
+- endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+      - matchLabels:
+          name: client
+      toPorts:
+        - ports:
+          - port: "8080"
+            endPort: 8081
+            protocol: "TCP"
+  order: 1
+
+- endpointSelector: {}
+  ingressDeny:
+    - fromEntities: ["all"]
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  order: 2

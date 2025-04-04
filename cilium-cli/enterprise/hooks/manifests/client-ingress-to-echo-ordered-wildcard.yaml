@@ -1,0 +1,40 @@
+# Two policies with separate orders:
+# 1: allow client to echo
+# 2: deny all
+#
+# Tests that datapath policy resolution is correct,
+# as there will only be a wildcard entry for the first rule.
+
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: ingress-to-echo-ordered-wildcard
+  namespace: "{{.TestNamespace}}"
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Always allow readiness probes
+- endpointSelector: {}
+  ingress:
+    - fromEntities: ["host"]
+  order: 0
+
+- endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+      - matchLabels:
+          name: client
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  order: 1
+
+- endpointSelector: {}
+  ingressDeny:
+    - fromEntities: ["all"]
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  order: 2
