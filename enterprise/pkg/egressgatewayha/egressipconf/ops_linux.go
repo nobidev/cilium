@@ -45,6 +45,8 @@ const (
 	// RulePriorityEgressGatewayIPAM is the priority of the rule installed by Egress Gateway IPAM to route
 	// SNATed traffic to the proper egress interface.
 	RulePriorityEgressGatewayIPAM = 30
+
+	egressIPLabel = "cilium-iegp"
 )
 
 func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, entry *tables.EgressIPEntry) error {
@@ -61,7 +63,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 		logfields.Address, entry.Addr,
 		logfields.Interface, entry.Interface)
 
-	if err := netlink.AddrAdd(iface, addrForEgressIP(entry.Addr)); err != nil && !errors.Is(err, os.ErrExist) {
+	if err := netlink.AddrAdd(iface, addrForEgressIP(entry.Addr, egressIPLabel)); err != nil && !errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("failed to add egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
@@ -180,7 +182,8 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 		logfields.Address, entry.Addr,
 		logfields.Interface, entry.Interface)
 
-	if err := netlink.AddrDel(iface, addrForEgressIP(entry.Addr)); err != nil && !errors.Is(err, unix.EADDRNOTAVAIL) {
+	// For compatibility reasons don't require that the IP has our label.
+	if err := netlink.AddrDel(iface, addrForEgressIP(entry.Addr, "")); err != nil && !errors.Is(err, unix.EADDRNOTAVAIL) {
 		return fmt.Errorf("failed to delete egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
@@ -302,8 +305,8 @@ type ops struct {
 
 var _ reconciler.Operations[*tables.EgressIPEntry] = &ops{}
 
-func addrForEgressIP(addr netip.Addr) *netlink.Addr {
-	return &netlink.Addr{IPNet: netipx.AddrIPNet(addr)}
+func addrForEgressIP(addr netip.Addr, label string) *netlink.Addr {
+	return &netlink.Addr{IPNet: netipx.AddrIPNet(addr), Label: label}
 }
 
 func ruleForEgressIP(addr netip.Addr) route.Rule {

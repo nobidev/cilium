@@ -34,7 +34,11 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestPrivilegedOps(t *testing.T) {
+const (
+	egressIP1 = "192.168.1.50"
+)
+
+func runTest(t *testing.T, prepareLink func(*netlink.Handle, netlink.Link, string)) {
 	testutils.PrivilegedTest(t)
 
 	var (
@@ -69,8 +73,10 @@ func TestPrivilegedOps(t *testing.T) {
 	ifIndex := link.Attrs().Index
 	ifName := link.Attrs().Name
 
-	egressIP := netip.MustParseAddr("192.168.1.50")
+	egressIP := netip.MustParseAddr(egressIP1)
 	destinations := []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("192.168.1.0/24")}
+
+	prepareLink(nlh, link, egressIP1)
 
 	ops := newOps(slog.New(slog.DiscardHandler), newMockGNeighSender())
 
@@ -318,6 +324,38 @@ func TestPrivilegedOps(t *testing.T) {
 		})
 	})
 	require.Error(t, err, "expected error from delete of non-existing device")
+}
+
+func TestPrivilegedClean(t *testing.T) {
+	prepare := func(nlh *netlink.Handle, link netlink.Link, egressIP string) {}
+
+	runTest(t, prepare)
+}
+
+// Tolerate that the egressIP is already set on the interface. Reconcile the
+// other pieces.
+func TestPrivilegedRestart(t *testing.T) {
+	prepare := func(nlh *netlink.Handle, link netlink.Link, egressIP string) {
+		addr := addrForEgressIP(netip.MustParseAddr(egressIP), egressIPLabel)
+		if err := nlh.AddrAdd(link, addr); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runTest(t, prepare)
+}
+
+// Tolerate that an unlabeled egressIP is already set on the interface. Reconcile the
+// other pieces.
+func TestPrivilegedRestartWithoutLabel(t *testing.T) {
+	prepare := func(nlh *netlink.Handle, link netlink.Link, egressIP string) {
+		addr := addrForEgressIP(netip.MustParseAddr(egressIP), "")
+		if err := nlh.AddrAdd(link, addr); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runTest(t, prepare)
 }
 
 func TestPrivilegedUpdateWithNextHop(t *testing.T) {
