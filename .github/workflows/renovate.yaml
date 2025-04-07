@@ -38,11 +38,14 @@ jobs:
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
+          RH_REGISTRY_USERNAME: ${{ secrets.REDHAT_USERNAME_CI }}
+          RH_REGISTRY_PASSWORD: ${{ secrets.REDHAT_PASSWORD_CI }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
           renovate-version: 39.214.0
           docker-user: root
-          docker-cmd-file: .github/actions/renovate/entrypoint.sh
-          configurationFile: renovate.json5
+          docker-cmd-file: .github/actions/renovate/enterprise-entrypoint.sh
+          configurationFile: .github/workflows/enterprise-renovate-config.js
           token: '${{ steps.get_token.outputs.app_token }}'
+          env-regex: '^(?:RENOVATE_\w+|RH_REGISTRY_USERNAME|RH_REGISTRY_PASSWORD|LOG_LEVEL)$'
           mount-docker-socket: true
