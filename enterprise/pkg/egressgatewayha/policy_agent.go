@@ -347,10 +347,11 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 
 	az, ok := endpointNode.Labels[core_v1.LabelTopologyZone]
 	if !ok {
+		// temporarily demoted to an info message, see https://github.com/isovalent/cilium/pull/6783
 		log.WithFields(logrus.Fields{
 			logfields.EndpointID: endpoint.id,
 			logfields.K8sNodeIP:  endpoint.nodeIP.String(),
-		}).Errorf("missing node's AZ label")
+		}).Infof("missing node's AZ label")
 
 		//fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP, egressIfindex
