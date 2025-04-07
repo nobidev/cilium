@@ -222,7 +222,7 @@ spec:
           imagePullPolicy: {{ .Values.hubble.timescape.ui.image.pullPolicy }}
           terminationMessagePolicy: FallbackToLogsOnError
           command:
-            - /app/hubble-timescape-ui
+            - /usr/bin/hubble-timescape-ui
           args:
             - serve
           {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
@@ -545,6 +545,11 @@ metadata:
 data:
   config.yaml: |
     http-address: ":8000"
+    prometheus-serve-addr: ""
+    pprof-address: "localhost"
+    pprof-port: "6061"
+    gops: true
+    gops-port: "9899"
     {{- if .Values.hubble.rbac.enabled }}
     timescape-address: "localhost:4245"
     {{- else }}

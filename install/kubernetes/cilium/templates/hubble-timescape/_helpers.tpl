@@ -15,15 +15,8 @@
 {{- end }}
 
 {{- define "hubble.timescape.probe" -}}
-exec:
-  command:
-  - /usr/bin/grpc_health_probe
-  - -addr=localhost:4244
-  {{- if and (not .Values.hubble.rbac.enabled) (eq (include "hubble.timescape.tls.enabled" .) "true") }}
-  - -tls
-  - -tls-ca-cert=/var/lib/hubble-timescape/tls/server.crt
-  - -tls-server-name=hubble-timescape
-  {{- end }}
+grpc:
+  port: 8083
 {{- end }}
 
 {{- define "hubble.timescape.servicemonitor.endpoint" -}}

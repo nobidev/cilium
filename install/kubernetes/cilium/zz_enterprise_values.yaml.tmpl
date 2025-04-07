@@ -171,7 +171,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.6.2
+      tag: v1.7.0
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -182,8 +182,8 @@ hubble:
         # @schema
         override: ~
         repository: docker.io/clickhouse/clickhouse-server
-        tag: 24.8.12.28-alpine
-        digest: "sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f"
+        tag: 25.3.2.39-alpine
+        digest: "sha256:fa5532568591e844a24fdeddc705ae7b6203f00afe286ce6c1fa9f3119d45ba7"
         useDigest: true
         pullPolicy: "Always"
       resources: {}
@@ -367,7 +367,7 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/hubble-timescape-ui
-        tag: "v1.6.2"
+        tag: "v1.7.0"
         pullPolicy: IfNotPresent
       securityContext:
         # readOnlyRootFilesystem: true
@@ -451,7 +451,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.6.2"
+      tag: "v1.7.0"
       digest: ""
       useDigest: false
       pullPolicy: "Always"
