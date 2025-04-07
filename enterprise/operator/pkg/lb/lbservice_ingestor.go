@@ -31,12 +31,16 @@ import (
 )
 
 type ingestor struct {
-	logger *slog.Logger
+	logger                 *slog.Logger
+	defaultT1LabelSelector slim_metav1.LabelSelector
+	defaultT2LabelSelector slim_metav1.LabelSelector
 }
 
-func newIngestor(logger *slog.Logger) *ingestor {
+func newIngestor(logger *slog.Logger, defaultT1LabelSelector slim_metav1.LabelSelector, defaultT2LabelSelector slim_metav1.LabelSelector) *ingestor {
 	return &ingestor{
-		logger: logger,
+		logger:                 logger,
+		defaultT1LabelSelector: defaultT1LabelSelector,
+		defaultT2LabelSelector: defaultT2LabelSelector,
 	}
 }
 
@@ -85,12 +89,12 @@ func (r *ingestor) getTierLabelSelectors(deployments []isovalentv1alpha1.LBDeplo
 		}
 	}
 
-	t1LS, err := r.getTierLabelSelector(defaultT1LabelSelector, t1NodeLabelSelectors)
+	t1LS, err := r.getTierLabelSelector(r.defaultT1LabelSelector, t1NodeLabelSelectors)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get T1 label selector: %w", err)
 	}
 
-	t2LS, err := r.getTierLabelSelector(defaultT2LabelSelector, t2NodeLabelSelectors)
+	t2LS, err := r.getTierLabelSelector(r.defaultT2LabelSelector, t2NodeLabelSelectors)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get T2 label selector: %w", err)
 	}

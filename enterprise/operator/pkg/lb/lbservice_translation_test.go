@@ -24,8 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 type testcase struct {
@@ -114,7 +116,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
-		ing := newIngestor(hivetest.Logger(t))
+		ing := newIngestor(hivetest.Logger(t), defaultT1LabelSelector, defaultT2LabelSelector)
 
 		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets)
 		assert.NoError(t, err)
@@ -198,3 +200,31 @@ func toYaml(t *testing.T, obj any) string {
 
 	return strings.TrimSpace(string(yamlText))
 }
+
+var (
+	defaultT1LabelSelector = slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			{
+				Key:      ossannotation.ServiceNodeExposure,
+				Operator: slim_metav1.LabelSelectorOpIn,
+				Values: []string{
+					lbNodeTypeT1,
+					lbNodeTypeT1AndT2,
+				},
+			},
+		},
+	}
+
+	defaultT2LabelSelector = slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			{
+				Key:      ossannotation.ServiceNodeExposure,
+				Operator: slim_metav1.LabelSelectorOpIn,
+				Values: []string{
+					lbNodeTypeT2,
+					lbNodeTypeT1AndT2,
+				},
+			},
+		},
+	}
+)

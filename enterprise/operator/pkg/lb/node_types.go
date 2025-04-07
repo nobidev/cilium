@@ -10,39 +10,8 @@
 
 package lb
 
-import (
-	ossannotation "github.com/cilium/cilium/pkg/annotation"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
 const (
 	lbNodeTypeT1      = "t1"
 	lbNodeTypeT2      = "t2"
 	lbNodeTypeT1AndT2 = "t1-t2"
 )
-
-var defaultT1LabelSelector = slim_metav1.LabelSelector{
-	MatchExpressions: []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      ossannotation.ServiceNodeExposure,
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values: []string{
-				lbNodeTypeT1,
-				lbNodeTypeT1AndT2,
-			},
-		},
-	},
-}
-
-var defaultT2LabelSelector = slim_metav1.LabelSelector{
-	MatchExpressions: []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      ossannotation.ServiceNodeExposure,
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values: []string{
-				lbNodeTypeT2,
-				lbNodeTypeT1AndT2,
-			},
-		},
-	},
-}

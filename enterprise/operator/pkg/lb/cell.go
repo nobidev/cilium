@@ -23,7 +23,9 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/accesslog"
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 var Cell = cell.Module(
@@ -67,6 +69,8 @@ type Config struct {
 	LoadBalancerCPT2HCProbeMinHealthyBackends       uint
 	LoadBalancerCPT2UseRemoteAddress                bool
 	LoadBalancerCPT2XffNumTrustedHops               uint
+	LoadBalancerCPDefaultT1LabelSelector            string
+	LoadBalancerCPDefaultT2LabelSelector            string
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -101,6 +105,8 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 		"More information can be found at https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-forwarded-for")
 	flags.Uint("loadbalancer-cp-t2-xff-num-trusted-hops", 0, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.\n"+
 		"More information can be found at https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-forwarded-for")
+	flags.String("loadbalancer-cp-default-t1-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT1, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T1 nodes")
+	flags.String("loadbalancer-cp-default-t2-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT2, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T2 nodes")
 }
 
 type reconcilerParams struct {
@@ -129,12 +135,17 @@ func registerReconcilers(params reconcilerParams) error {
 
 	reconcilerConfig := mapReconcilerConfig(params)
 
+	t1ls, t2ls, err := parseDefaultTierLabelSelectors(params.Config.LoadBalancerCPDefaultT1LabelSelector, params.Config.LoadBalancerCPDefaultT2LabelSelector)
+	if err != nil {
+		return err
+	}
+
 	lbServiceReconciler := newLbServiceReconciler(
 		params.Logger,
 		params.CtrlRuntimeManager.GetClient(),
 		params.Scheme,
 		params.NodeSource,
-		newIngestor(params.Logger),
+		newIngestor(params.Logger, *t1ls, *t2ls),
 		&lbServiceT1Translator{logger: params.Logger, config: reconcilerConfig},
 		&lbServiceT2Translator{logger: params.Logger, config: reconcilerConfig},
 	)
@@ -241,4 +252,18 @@ func registerSecretSync(params reconcilerParams) secretsync.SecretSyncRegistrati
 			SecretsNamespace:     params.Config.LoadBalancerCPSecretsNamespace,
 		},
 	}
+}
+
+func parseDefaultTierLabelSelectors(t1 string, t2 string) (*slim_metav1.LabelSelector, *slim_metav1.LabelSelector, error) {
+	t1LS, err := slim_metav1.ParseToLabelSelector(t1)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse T1 label selector: %w", err)
+	}
+
+	t2LS, err := slim_metav1.ParseToLabelSelector(t2)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse T2 label selector: %w", err)
+	}
+
+	return t1LS, t2LS, nil
 }
