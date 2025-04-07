@@ -506,6 +506,17 @@ func (r *lbTestScenario) createLBService(svc *isovalentv1alpha1.LBService) {
 	})
 }
 
+func (r *lbTestScenario) createLBDeployment(depl *isovalentv1alpha1.LBDeployment) {
+	if err := r.ciliumCli.CreateLBDeployment(r.t.Context(), r.k8sNamespace, depl, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			r.t.Failedf("cannot create LB Deployment (%s): %s", r.testName, err)
+		}
+	}
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.ciliumCli.DeleteLBDeployment(ctx, depl.Namespace, depl.Name, metav1.DeleteOptions{})
+	})
+}
+
 // createLBServerCertificate creates a server certificate that can be used to terminate TLS traffic on the Loadbalancer.
 // In addition to creating the creating the cert & key, the corresponding K8s TLS Secret gets created.
 //

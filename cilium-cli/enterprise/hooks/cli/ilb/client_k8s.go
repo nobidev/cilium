@@ -75,6 +75,24 @@ func (c *ciliumCli) GetLBVIP(ctx context.Context, namespace, name string, opts m
 	return c.IsovalentV1alpha1().LBVIPs(namespace).Get(ctx, name, opts)
 }
 
+func (c *ciliumCli) CreateLBDeployment(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBDeployment, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBDeployments(namespace).Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) UpdateLBDeployment(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBDeployment, opts metav1.UpdateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBDeployments(namespace).Update(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBDeployments(namespace).Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) GetLBDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBDeployment, error) {
+	return c.IsovalentV1alpha1().LBDeployments(namespace).Get(ctx, name, opts)
+}
+
 func (c *ciliumCli) CreateLBService(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBService, opts metav1.CreateOptions) error {
 	_, err := c.IsovalentV1alpha1().LBServices(namespace).Create(ctx, obj, opts)
 	return err

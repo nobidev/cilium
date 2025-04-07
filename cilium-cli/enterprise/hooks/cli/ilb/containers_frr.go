@@ -27,15 +27,50 @@ type frrContainer struct {
 	dockerContainer
 }
 
-type frrShowBGPOut struct {
-	Routes map[string][]struct{} `json:"routes"`
+type frrShowBGPRoutesOut struct {
+	Routes map[string][]frrShowBGPRoutePeerOut `json:"routes"`
+}
+
+func (r *frrShowBGPRoutesOut) HasRoute(ip netip.Prefix) bool {
+	for rip := range r.Routes {
+		if netip.MustParsePrefix(rip).Overlaps(ip) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *frrShowBGPRoutesOut) HasRouteVia(ip netip.Prefix, peerIPAddr netip.Addr) bool {
+	for rip, peers := range r.Routes {
+		if netip.MustParsePrefix(rip).Overlaps(ip) {
+			for _, checkPeer := range peers {
+				for _, nh := range checkPeer.NextHops {
+					if netip.MustParseAddr(nh.IP).Compare(peerIPAddr) == 0 {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+type frrShowBGPRoutePeerOut struct {
+	PeerID   string                          `json:"peerId"`
+	NextHops []frrShowBGPRoutePeerNextHopOut `json:"nexthops"`
+}
+
+type frrShowBGPRoutePeerNextHopOut struct {
+	IP string `json:"ip"`
 }
 
 func (c *frrContainer) vty(ctx context.Context, cmd string) (string, string, error) {
 	return c.Exec(ctx, fmt.Sprintf(`vtysh -c "%s"`, cmd))
 }
 
-func (c *frrContainer) bgpRoutes(ctx context.Context, afi, safi string) (sets.Set[netip.Prefix], error) {
+func (c *frrContainer) bgpRoutes(ctx context.Context, afi, safi string) (*frrShowBGPRoutesOut, error) {
 	stdout, stderr, err := c.vty(ctx, "show bgp "+afi+" "+safi+" json")
 	if err != nil {
 		// try to fetch docker logs of frr container to check for frr error
@@ -52,17 +87,12 @@ func (c *frrContainer) bgpRoutes(ctx context.Context, afi, safi string) (sets.Se
 		return nil, fmt.Errorf("failed to show bgp routes: stdout: %s stderr: %s err: %w", stdout, stderr, err)
 	}
 
-	out := frrShowBGPOut{}
+	out := frrShowBGPRoutesOut{}
 	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal show bgp output: %w", err)
 	}
 
-	prefixes := sets.New[netip.Prefix]()
-	for prefix := range out.Routes {
-		prefixes.Insert(netip.MustParsePrefix(prefix))
-	}
-
-	return prefixes, nil
+	return &out, nil
 }
 
 type ipRouteShowOut []struct {
@@ -110,8 +140,42 @@ func (c *frrContainer) EnsureRoute(ctx context.Context, prefix string) error {
 		return err
 	}
 
-	if !ribPrefixes.Has(p) {
+	if !ribPrefixes.HasRoute(p) {
 		return fmt.Errorf("prefix %s not found in BGP routes", p)
+	}
+
+	fibPrefixes, err := c.ipRoutes(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !fibPrefixes.Has(p) {
+		return fmt.Errorf("prefix %s not found in FIB routes", p)
+	}
+
+	return nil
+}
+
+// EnsureRoute ensures that the given BGP prefix is present in the BGP
+// routes and installed in the FRR container.
+func (c *frrContainer) EnsureRouteVia(ctx context.Context, prefix string, peerIP string) error {
+	p := netip.MustParsePrefix(prefix)
+	if !p.Addr().Is4() {
+		return fmt.Errorf("only IPv4 prefix is supported")
+	}
+
+	peerIPAddr := netip.MustParseAddr(peerIP)
+	if !p.Addr().Is4() {
+		return fmt.Errorf("only IPv4 peer IP is supported")
+	}
+
+	ribPrefixes, err := c.bgpRoutes(ctx, "ipv4", "unicast")
+	if err != nil {
+		return err
+	}
+
+	if !ribPrefixes.HasRouteVia(p, peerIPAddr) {
+		return fmt.Errorf("prefix %s via %s not found in BGP routes", p, peerIPAddr)
 	}
 
 	fibPrefixes, err := c.ipRoutes(ctx)

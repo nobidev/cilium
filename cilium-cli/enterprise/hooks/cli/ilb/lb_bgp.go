@@ -12,6 +12,9 @@ package ilb
 
 import (
 	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestBGPHealthCheck(t T) {
@@ -72,4 +75,95 @@ func TestBGPHealthCheck(t T) {
 	}, shortTimeout, pollInterval)
 
 	t.Log("VIP successfully re-advertised")
+}
+
+func TestBGPHealthCheckSubset(t T) {
+	testName := "bgp-health-check-subset"
+	testK8sNamespace := "default"
+
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	_, err := ciliumCli.IsovalentV1alpha1().LBDeployments("").List(t.Context(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("skipping due to LBDeployment not available: %s\n", err)
+		return
+	}
+
+	nodeList, err := k8sCli.CoreV1().Nodes().List(t.Context(), metav1.ListOptions{
+		LabelSelector: "service.cilium.io/node in (t1,t1-t2)",
+	})
+	if err != nil {
+		t.Failedf("failed to list nodes: %v", err)
+	}
+
+	// select first T1 node only
+	selectedNode := corev1.Node{}
+	excludedNodes := []corev1.Node{}
+	for i, n := range nodeList.Items {
+		if i == 0 {
+			selectedNode = n
+			continue
+		}
+
+		excludedNodes = append(excludedNodes, n)
+	}
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating backend app...")
+	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
+
+	t.Log("Creating client and add BGP peering ...")
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
+
+	t.Log("Creating LB VIP resources...")
+	vip := lbVIP(testK8sNamespace, testName)
+	scenario.createLBVIP(vip)
+
+	t.Log("Creating LB BackendPool resources...")
+	backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port))
+	scenario.createLBBackendPool(backendPool)
+
+	t.Log("Creating LB Service resources...")
+	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
+	scenario.createLBService(service)
+
+	t.Log("Waiting for full VIP connectivity...")
+	vipIP := scenario.waitForFullVIPConnectivity(testName)
+
+	t.Log("Apply LBDeployment that selects only one T1 node...")
+	lbDeployment := lbDeployment(testK8sNamespace, testName, withT1Nodes(fmt.Sprintf("kubernetes.io/hostname in ( %s )", selectedNode.GetLabels()["kubernetes.io/hostname"])))
+	scenario.createLBDeployment(lbDeployment)
+
+	t.Log("Waiting until routes for VIP via unselected nodes are withdrawn...")
+	eventually(t, func() error {
+		for _, n := range excludedNodes {
+			peerIP := getNodeIP(n)
+			if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err == nil {
+				return fmt.Errorf("the route %s/32 via %s (%s) still exists", vipIP, peerIP, n.Name)
+			}
+		}
+		return nil
+	}, shortTimeout, pollInterval)
+
+	t.Log("Checking that route for VIP via selected node does still exist...")
+	eventually(t, func() error {
+		peerIP := getNodeIP(selectedNode)
+		if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err != nil {
+			return fmt.Errorf("the route %s/32 via %s (%s) doesn't exist", vipIP, peerIP, selectedNode.Name)
+		}
+		return nil
+	}, shortTimeout, pollInterval)
+}
+
+func getNodeIP(n corev1.Node) string {
+	for _, na := range n.Status.Addresses {
+		if na.Type == corev1.NodeInternalIP {
+			return na.Address
+		}
+	}
+
+	return "unknown"
 }

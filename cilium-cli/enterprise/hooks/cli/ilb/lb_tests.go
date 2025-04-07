@@ -14,6 +14,7 @@ var Tests = []func(t T){
 	TestRequestedVIP,
 	TestSharedVIP,
 	TestBGPHealthCheck,
+	TestBGPHealthCheckSubset,
 	TestHTTPAndT2HealthChecks,
 	TestHTTP2,
 	TestHTTPPath,

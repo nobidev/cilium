@@ -19,7 +19,7 @@ import (
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func LbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
@@ -993,11 +993,11 @@ func bgpClusterConfig(name string) *isovalentv1.IsovalentBGPClusterConfig {
 			Name: name,
 		},
 		Spec: isovalentv1.IsovalentBGPClusterConfigSpec{
-			NodeSelector: &slimv1.LabelSelector{
-				MatchExpressions: []slimv1.LabelSelectorRequirement{
+			NodeSelector: &slim_metav1.LabelSelector{
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
 					{
 						Key:      ossannotation.ServiceNodeExposure,
-						Operator: slimv1.LabelSelectorOpIn,
+						Operator: slim_metav1.LabelSelectorOpIn,
 						Values: []string{
 							"t1",
 							"t1-t2",
@@ -1041,5 +1041,44 @@ func caSecret(namespace, name string, cert []byte) *corev1.Secret {
 		Data: map[string][]byte{
 			"ca.crt": cert,
 		},
+	}
+}
+
+func lbDeployment(namespace string, name string, opts ...deploymentOption) *isovalentv1alpha1.LBDeployment {
+	svc := &isovalentv1alpha1.LBDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: isovalentv1alpha1.LBDeploymentSpec{
+			Services: isovalentv1alpha1.LBDeploymentServices{
+				LabelSelector: &slim_metav1.LabelSelector{},
+			},
+			Nodes: isovalentv1alpha1.LBDeploymentNodes{
+				LabelSelectors: &isovalentv1alpha1.LBDeploymentNodesLabelSelectors{
+					T1: slim_metav1.LabelSelector{},
+					T2: slim_metav1.LabelSelector{},
+				},
+			},
+		},
+	}
+
+	for _, o := range opts {
+		o(svc)
+	}
+
+	return svc
+}
+
+type deploymentOption func(o *isovalentv1alpha1.LBDeployment)
+
+func withT1Nodes(t1NodeLabelSelector string) deploymentOption {
+	return func(o *isovalentv1alpha1.LBDeployment) {
+		ls, err := slim_metav1.ParseToLabelSelector(t1NodeLabelSelector)
+		if err != nil {
+			panic(err)
+		}
+
+		o.Spec.Nodes.LabelSelectors.T1 = *ls
 	}
 }
