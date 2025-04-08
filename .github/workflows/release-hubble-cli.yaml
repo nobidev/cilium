@@ -10,6 +10,10 @@ on:
 
 name: Create a Hubble CLI Release
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.3
@@ -35,20 +39,35 @@ jobs:
         run: |
           make -C hubble release
 
-      - name: Get token
-        id: get_token
-        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+      - name: Get Github App Credentials from Vault
+        uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3.3.0
         with:
-          APP_ID: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_ID }}
-          APP_PEM: ${{ secrets.HUBBLE_READ_WRITE_BOT_APP_PEM_KEY }}
+          url: ${{ vars.VAULT_URL }}
+          method: jwt
+          namespace: ${{ vars.VAULT_NAMESPACE }}
+          secrets: |
+            secret/data/observability/${{ github.repository_owner }} github_app_pem | HUBBLE_READ_WRITE_BOT_APP_PEM;
+            secret/data/observability/${{ github.repository_owner }} github_app_id | HUBBLE_READ_WRITE_BOT_APP_ID;
+
+      - name: Generate Token for Hubble Releases Repo
+        id: generate-token
+        uses: actions/create-github-app-token@3ff1caaa28b64c9cc276ce0a02e2ff584f3900c5 # v2.0.2
+        with:
+          app-id: ${{ env.HUBBLE_READ_WRITE_BOT_APP_ID }}
+          private-key: ${{ env.HUBBLE_READ_WRITE_BOT_APP_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ vars.HUBBLE_RELEASES_REPO_NAME }}
+          permissions-contents: write
+          permissions-workflows: write
 
       - name: Publish a Draft Release
         uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
         with:
-          repository: ${{ vars.HUBBLE_RELEASES_REPO }}
+          repository: ${{ github.repository_owner }}/${{ vars.HUBBLE_RELEASES_REPO_NAME }}
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          token: ${{ steps.get_token.outputs.app_token }}
+          token: ${{ steps.generate-token.outputs.token }}
           draft: true
           files: |
             hubble/release/*
