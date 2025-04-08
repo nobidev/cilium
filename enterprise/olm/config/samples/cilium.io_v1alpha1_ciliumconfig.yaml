@@ -3,7 +3,34 @@ kind: CiliumConfig
 metadata:
   labels:
     app.kubernetes.io/name: clife
-    app.kubernetes.io/managed-by: kustomize
-  name: ciliumconfig-sample
+  name: ciliumconfig
 spec:
-  # TODO(user): Add fields here
+  cluster:
+    name: default
+  securityContext:
+    privileged: true
+  ipam:
+    mode: "cluster-pool"
+  cni:
+    binPath: "/var/lib/cni/bin"
+    confPath: "/var/run/multus/cni/net.d"
+    # portmap is needed for supporting HostPort without KPR
+    chainingMode: portmap
+    exclusive: false
+  prometheus:
+    serviceMonitor:
+     enabled: false
+  hubble:
+    enabled: true
+    relay:
+      enabled: true
+  sessionAffinity: true
+  kubeProxyReplacement: false
+  # avoid conflicts
+  clusterHealthPort: 9940
+  # OVN Kubernetes default port, firewalls may already be configured for it
+  tunnelPort: 4789
+  enterprise:
+    featureGate:
+      approved:
+      - CNIChainingMode
