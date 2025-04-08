@@ -2253,7 +2253,7 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/hubble-timescape-ui
-        tag: "v1.6.0"
+        tag: "v1.6.2"
         pullPolicy: IfNotPresent
       securityContext:
         # readOnlyRootFilesystem: true
