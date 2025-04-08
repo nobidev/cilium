@@ -30,9 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// isovalentNetworkPolicyName is the name of an IsovalentNetworkPolicy
-const isovalentNetworkPolicyName = "isovalentNetworkPolicyName"
-
 func (p *policyWatcher) onUpsert(
 	inp *types.SlimINP,
 	key resource.Key,
@@ -59,7 +56,7 @@ func (p *policyWatcher) onUpsert(
 		p.log.Debug(
 			"Modified IsovalentNetworkPolicy",
 			logfields.K8sAPIVersion, inp.TypeMeta.APIVersion,
-			isovalentNetworkPolicyName, inp.ObjectMeta.Name,
+			logfields.IsovalentNetworkPolicyName, inp.ObjectMeta.Name,
 			logfields.K8sNamespace, inp.ObjectMeta.Namespace,
 			logfields.Annotations, inp.ObjectMeta.Annotations,
 		)
@@ -138,7 +135,7 @@ func (p *policyWatcher) resolveIsovalentNetworkPolicyRefs(
 
 func (p *policyWatcher) upsertIsovalentNetworkPolicy(inp *types.SlimINP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID, dc chan uint64) error {
 	scopedLog := p.log.With(
-		isovalentNetworkPolicyName, inp.ObjectMeta.Name,
+		logfields.IsovalentNetworkPolicyName, inp.ObjectMeta.Name,
 		logfields.K8sAPIVersion, inp.TypeMeta.APIVersion,
 		logfields.K8sNamespace, inp.ObjectMeta.Namespace,
 	)
@@ -177,7 +174,7 @@ func (p *policyWatcher) upsertIsovalentNetworkPolicy(inp *types.SlimINP, initial
 
 func (p *policyWatcher) deleteIsovalentNetworkPolicy(inp *types.SlimINP, resourceID ipcacheTypes.ResourceID, dc chan uint64) {
 	p.log.Debug("Deleting IsovalentNetworkPolicy",
-		isovalentNetworkPolicyName, inp.ObjectMeta.Name,
+		logfields.IsovalentNetworkPolicyName, inp.ObjectMeta.Name,
 		logfields.K8sAPIVersion, inp.TypeMeta.APIVersion,
 		logfields.K8sNamespace, inp.ObjectMeta.Namespace,
 	)
@@ -195,7 +192,7 @@ func (p *policyWatcher) deleteIsovalentNetworkPolicy(inp *types.SlimINP, resourc
 		DoneChan: dc,
 	})
 	p.log.Info("Deleted IsovalentNetworkPolicy",
-		isovalentNetworkPolicyName, inp.ObjectMeta.Name,
+		logfields.IsovalentNetworkPolicyName, inp.ObjectMeta.Name,
 		logfields.K8sAPIVersion, inp.TypeMeta.APIVersion,
 		logfields.K8sNamespace, inp.ObjectMeta.Namespace,
 	)

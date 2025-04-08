@@ -82,7 +82,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 		if p.config.Debug {
 			p.log.Debug(
 				"Service updated or deleted, recalculating IsovalentNetworkPolicy rules",
-				isovalentNetworkPolicyName, inp.Name,
+				logfields.IsovalentNetworkPolicyName, inp.Name,
 				logfields.K8sAPIVersion, inp.APIVersion,
 				logfields.K8sNamespace, inp.Namespace,
 				logfields.ServiceID, svcID,

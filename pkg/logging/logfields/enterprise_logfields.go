@@ -29,6 +29,12 @@ const (
 	// IsovalentVRFName is the name of a IsovalentVRF
 	IsovalentVRFName = "isovalentVRFName"
 
+	// IsovalentNetworPolicyName is the name of a IsovalentNetworkPolicy
+	IsovalentNetworkPolicyName = "isovalentNetworkPolicyName"
+
+	// IsovalentClusterwideNetworPolicyName is the name of a IsovalentClusterwideNetworkPolicy
+	IsovalentClusterwideNetworkPolicyName = "isovalentClusterwideNetworkPolicyName"
+
 	// VRF is the VRF used for the SRv6 lookups.
 	VRF = "vrf"
 
