@@ -37,11 +37,11 @@ type IsovalentNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Isovalent specific rule specification.
-	//+kubebuilder:validation:XValidation:message="Order must be >= 0",rule="!has(self.order) || self.order >= 0"
+	//+kubebuilder:validation:XValidation:message="Order must be >= 0.0",rule="!has(self.order) || self.order >= 0.0"
 	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
-	//+kubebuilder:validation:items:XValidation:message="Order must be >= 0",rule="!has(self.order) || self.order >= 0"
+	//+kubebuilder:validation:items:XValidation:message="Order must be >= 0.0",rule="!has(self.order) || self.order >= 0.0"
 	Specs []*IsovalentNetworkPolicyRule `json:"specs,omitempty"`
 
 	// Status is the status of the Isovalent policy rule

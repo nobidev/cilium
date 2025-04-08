@@ -3501,8 +3501,8 @@ spec:
                 type: number
             type: object
             x-kubernetes-validations:
-            - message: Order must be >= 0
-              rule: '!has(self.order) || self.order >= 0'
+            - message: Order must be >= 0.0
+              rule: '!has(self.order) || self.order >= 0.0'
           specs:
             description: Specs is a list of desired Isovalent specific rule specification.
             items:
@@ -6970,8 +6970,8 @@ spec:
                   type: number
               type: object
               x-kubernetes-validations:
-              - message: Order must be >= 0
-                rule: '!has(self.order) || self.order >= 0'
+              - message: Order must be >= 0.0
+                rule: '!has(self.order) || self.order >= 0.0'
             type: array
           status:
             description: Status is the status of the Isovalent policy rule
