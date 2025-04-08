@@ -7,23 +7,6 @@
   "statements": [
     {
       "vulnerability": {
-        "name": "CVE-2020-22916"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:deb/ubuntu/liblzma5"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2024-2236"
       },
       "products": [
@@ -32,116 +15,6 @@
           "subcomponents": [
             {
               "@id": "pkg:deb/ubuntu/libgcrypt20"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-26462"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:deb/ubuntu/libgssapi-krb5-2"
-            },
-            {
-              "@id": "pkg:deb/ubuntu/libk5crypto3"
-            },
-            {
-              "@id": "pkg:deb/ubuntu/libkrb5-3"
-            },
-            {
-              "@id": "pkg:deb/ubuntu/libkrb5support0"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-4v7x-pqxf-cx7m"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/golang.org/x/net"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-xw73-rw38-6vjc"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/docker-plugin-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/github.com/docker/docker"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-jq35-85cj-fj4p"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/docker-plugin-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/github.com/docker/docker"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-24789"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/hubble-relay-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
-            }
-          ]
-        },
-        {
-          "@id": "pkg:oci/clustermesh-apiserver-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
-            }
-          ]
-        },
-        {
-          "@id": "pkg:oci/cilium-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
             }
           ]
         }
@@ -174,143 +47,7 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2024-24790"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/hubble-relay-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-wh78-7948-358j"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/github.com/cilium/cilium"
-            }
-          ]
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "/usr/bin/hubble is the flagged binary, which is not affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-4v7x-pqxf-cx7m"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/clustermesh-apiserver-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/golang.org/x/net"
-            }
-          ]
-        }
-      ],
-      "status": "under_investigation",
-      "status_notes": "a fixed version of the affected binary /usr/bin/etcd isn't available"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-24789"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/clustermesh-apiserver-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
-            }
-          ]
-        }
-      ],
-      "status": "under_investigation",
-      "status_notes": "a fixed version of the affected binary /usr/bin/etcd isn't available"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-24790"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/clustermesh-apiserver-ci",
-          "subcomponents": [
-            {
-              "@id": "pkg:golang/stdlib"
-            }
-          ]
-        }
-      ],
-      "status": "under_investigation",
-      "status_notes": "a fixed version of the affected binary /usr/bin/etcd isn't available"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-37371"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-37370"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-24790"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "Only the loopback binary is flagged, and it is not affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "GHSA-x989-52fc-4vr4"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/operator-generic-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "The affected functionality is not in use in this image",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-7496-fgv9-xw82"
       },
       "products": [
         {
@@ -336,19 +73,6 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2024-24791"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "This flags on /usr/bin/hubble and /cni/loopback, neither of which are affected.",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "GHSA-v23v-6jw2-98fq"
       },
       "products": [
@@ -365,9 +89,6 @@
         "name": "GHSA-q7w8-72mr-vpgw"
       },
       "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        },
         {
           "@id": "pkg:oci/clustermesh-apiserver-ci"
         },
@@ -400,32 +121,6 @@
     },
     {
       "vulnerability": {
-        "name": "GHSA-vwf8-q6fw-4wcm"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "Reported for /usr/bin/hubble, which doesn't use the affected functionality",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "GHSA-qcm3-7879-xcww"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "Reported for /usr/bin/hubble, which doesn't use the affected functionality",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2024-41996"
       },
       "products": [
@@ -442,9 +137,6 @@
         "name": "CVE-2024-34156"
       },
       "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        },
         {
           "@id": "pkg:oci/clustermesh-apiserver-ci"
         },
@@ -468,9 +160,6 @@
       },
       "products": [
         {
-          "@id": "pkg:oci/cilium-ci"
-        },
-        {
           "@id": "pkg:oci/clustermesh-apiserver-ci"
         },
         {
@@ -485,19 +174,6 @@
       ],
       "status": "not_affected",
       "status_notes": "Reported for libcilium.so, loopback binary, gops, grpc_health_probe, none of which are affected",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-6119"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "Flags on OpenSSL binaries on the 1.13-ce container that are shipped but not used",
       "justification": "vulnerable_code_not_in_execute_path"
     },
     {
@@ -541,38 +217,9 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2024-34155"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "None of the binaries on which this issue flags are vulnerable to it.",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2024-10963"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "The affected functionality is not in use in this image",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "GHSA-w32m-9786-jp63"
       },
       "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        },
         {
           "@id": "pkg:oci/hubble-relay-ci"
         },
@@ -664,33 +311,7 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2025-1371"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "The affected functionality is not used in this image",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2025-1372"
-      },
-      "products": [
-        {
-          "@id": "pkg:oci/cilium-ci"
-        }
-      ],
-      "status": "not_affected",
-      "status_notes": "The affected functionality is not used in this image",
-      "justification": "vulnerable_code_not_in_execute_path"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2025-1365"
       },
       "products": [
         {
