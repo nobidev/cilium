@@ -14,6 +14,7 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
 
@@ -66,6 +67,10 @@ func (c *EnterpriseClient) CreateIsovalentEgressGatewayPolicy(ctx context.Contex
 
 func (c *EnterpriseClient) UpdateIsovalentEgressGatewayPolicy(ctx context.Context, cegp *isovalentv1.IsovalentEgressGatewayPolicy, opts metav1.UpdateOptions) (*isovalentv1.IsovalentEgressGatewayPolicy, error) {
 	return c.EnterpriseCiliumClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Update(ctx, cegp, opts)
+}
+
+func (c *EnterpriseClient) PatchIsovalentEgressGatewayPolicy(ctx context.Context, name string, pt types.PatchType, data []byte) (*isovalentv1.IsovalentEgressGatewayPolicy, error) {
+	return c.EnterpriseCiliumClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Patch(ctx, name, pt, data, metav1.PatchOptions{})
 }
 
 func (c *EnterpriseClient) DeleteIsovalentEgressGatewayPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {

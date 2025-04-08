@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 
@@ -84,14 +85,14 @@ type ipRouteEntry struct {
 // returned by the targetEntriesCallback
 func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
-) {
-	waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, targetEntriesCallback, nil)
+) error {
+	return waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, targetEntriesCallback, nil)
 }
 
 func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
 	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
 	entryMatcher func(targetEntry, entry bpfEgressGatewayPolicyEntry) bool,
-) {
+) error {
 	ct := t.Context()
 
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
@@ -104,7 +105,7 @@ func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
 			cmd := strings.Split("cilium bpf egress-ha list -o json", " ")
 			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				t.Fatal("failed to run cilium bpf egress-ha list command: %w", err)
+				return fmt.Errorf("failed to run cilium bpf egress-ha list command: %w", err)
 			}
 
 			entries := []bpfEgressGatewayPolicyEntry{}
@@ -147,13 +148,13 @@ func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
 	for {
 		if err := ensureBpfPolicyEntries(); err != nil {
 			if err := w.Retry(err); err != nil {
-				t.Fatal("Failed to ensure egress gateway policy map is properly populated:", err)
+				return fmt.Errorf("failed to ensure egress gateway policy map is properly populated: %w", err)
 			}
 
 			continue
 		}
 
-		return
+		return nil
 	}
 }
 
@@ -416,7 +417,7 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		egressIP := "0.0.0.0"
@@ -445,7 +446,9 @@ func (s *egressGatewayHA) Run(ctx context.Context, t *check.Test) {
 		}
 
 		return targetEntries
-	})
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	// Ping hosts (pod to host connectivity). Should not get masqueraded with egress IP
 	i := 0
@@ -598,7 +601,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		egressIP := "0.0.0.0"
@@ -636,7 +639,9 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		}
 
 		return targetEntries
-	})
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	// Traffic matching an egress gateway policy and an excluded CIDR should leave the cluster masqueraded with the
 	// node IP where the pod is running rather than with the egress IP(pod to external service)
@@ -708,55 +713,15 @@ func (s *egressGatewayMultipleGateways) Run(ctx context.Context, t *check.Test) 
 
 	// remove the labels after the test is done
 	t.WithFinalizer(func(_ context.Context) error {
-		for _, node := range ct.Nodes() {
-			removeNodeLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, EgressGroupLabelKey)
-			if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
-				continue
-			}
-
-			if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
-				return fmt.Errorf("cannot remove %s label from node %s: %w", EgressGroupLabelKey, node.Name, err)
-			}
-		}
-
-		return nil
+		return finalizeForMultipleGatewaysScenario(ctx, t, false)
 	})
 
 	// wait for the policy map to be populated
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
-		egressIP := "0.0.0.0"
-		egressGatewayNodeInternalIPs := []string{}
-
-		for gatewayIP, nodeName := range gatewayIPsToNames {
-			if ciliumPod.Pod.Spec.NodeName == nodeName {
-				egressIP = gatewayIP
-			}
-			egressGatewayNodeInternalIPs = append(egressGatewayNodeInternalIPs, gatewayIP)
-		}
-
-		targetEntries := []bpfEgressGatewayPolicyEntry{}
-
-		for _, client := range ct.ClientPods() {
-			for _, nodeWithoutCiliumName := range t.NodesWithoutCilium() {
-				if _, err := ciliumPod.K8sClient.GetNode(context.Background(), nodeWithoutCiliumName, metav1.GetOptions{}); err != nil {
-					if k8sErrors.IsNotFound(err) {
-						continue
-					}
-
-					t.Fatalf("Cannot retrieve external node: %w", err)
-				}
-
-				targetEntries = append(targetEntries, bpfEgressGatewayPolicyEntry{
-					SourceIP:   client.Pod.Status.PodIP,
-					DestCIDR:   "0.0.0.0/0",
-					EgressIP:   egressIP,
-					GatewayIPs: egressGatewayNodeInternalIPs,
-				})
-			}
-		}
-
-		return targetEntries
-	})
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+		return getTargetEntriesForMultipleGateways(t, ciliumPod, gatewayIPsToNames, nil)
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	// run the test
 	i := 0
@@ -837,14 +802,16 @@ func (s *egressGatewayMultipleGateways) Run(ctx context.Context, t *check.Test) 
 // - nodes with the egress-group=test label as gateways (usually kind-control-plane, kind-worker and kind-worker3)
 //
 // tests that requests from the kind=client pods are redirected only to the "local" (i.e. same AZ) gateway as the source pod
-func EgressGatewayAZAffinity() check.Scenario {
+func EgressGatewayAZAffinity(clients []*enterpriseK8s.EnterpriseClient) check.Scenario {
 	return &egressGatewayAZAffinity{
 		ScenarioBase: check.NewScenarioBase(),
+		entClients:   clients,
 	}
 }
 
 type egressGatewayAZAffinity struct {
 	check.ScenarioBase
+	entClients []*enterpriseK8s.EnterpriseClient
 }
 
 func (s *egressGatewayAZAffinity) Name() string {
@@ -853,6 +820,7 @@ func (s *egressGatewayAZAffinity) Name() string {
 
 func (s *egressGatewayAZAffinity) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
+	gatewayIPsToNames := map[string]string{}
 
 	// apply the AZ label to all nodes
 	for nodeName, node := range ct.Nodes() {
@@ -870,31 +838,46 @@ func (s *egressGatewayAZAffinity) Run(ctx context.Context, t *check.Test) {
 		if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(addNodeLabelPatch)); err != nil {
 			t.Fatalf("cannot add %s=%s label to node %s: %w", EgressGroupLabelKey, EgressGroupLabelValue, node.Name, err)
 		}
+
+		gatewayIP := getGatewayNodeInternalIP(ct, node.Name)
+		if gatewayIP == nil {
+			t.Fatal("Cannot get egress gateway node internal IP")
+		}
+
+		gatewayIPsToNames[gatewayIP.String()] = node.Name
 	}
+
+	iegpName := "iegp-sample-client-az-affinity"
 
 	// remove the labels after the test is done
 	t.WithFinalizer(func(_ context.Context) error {
-		for _, node := range ct.Nodes() {
-			if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
-				continue
-			}
-
-			removeNodeLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, escapePatchString(K8sZoneLabel))
-			if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
-				return fmt.Errorf("cannot remove %s label from node %s: %w", EgressGroupLabelKey, node.Name, err)
-			}
-
-			removeNodeLabelPatch = fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, EgressGroupLabelKey)
-			if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
-				return fmt.Errorf("cannot remove %s label from node %s: %w", EgressGroupLabelKey, node.Name, err)
+		if err := s.updateAZAffinity(ctx, iegpName, "disabled"); err == nil {
+			if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+				return getTargetEntriesForMultipleGateways(t, ciliumPod, gatewayIPsToNames, nil)
+			}); err != nil {
+				return err
 			}
 		}
 
-		return nil
+		return finalizeForMultipleGatewaysScenario(ctx, t, true)
 	})
 
+	// Before configuring AZAffinity, we wait for the operator to select Gateway nodes labeled with topology.kubernetes.io/zone,
+	// and for the agent to reference them and populate the Policy map. This helps prevent error logs missing node AZs from appearing.
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+		return getTargetEntriesForMultipleGateways(t, ciliumPod, gatewayIPsToNames, nil)
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	// we are only e2e testing the localOnly mode for now.
+	// Other configurations are already thoroughly tested in unit tests and would require additional nodes
+	if err := s.updateAZAffinity(ctx, iegpName, "localOnly"); err != nil {
+		t.Fatalf("cannot enable azAffinity %s: %s", iegpName, err)
+	}
+
 	// wait for the policy map to be populated
-	waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	if err := waitForBpfPolicyEntriesWithEntryMatcher(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		for _, client := range ct.ClientPods() {
@@ -925,7 +908,9 @@ func (s *egressGatewayAZAffinity) Run(ctx context.Context, t *check.Test) {
 			// The egressIP allows both the node IP and 0.0.0.0 to support both the new and old versions.
 			(targetEntry.EgressIP == entry.EgressIP || entry.EgressIP == "0.0.0.0") &&
 			cmp.Equal(targetEntry.GatewayIPs, entry.GatewayIPs, cmpopts.EquateEmpty())
-	})
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	// run the test
 	i := 0
@@ -960,6 +945,16 @@ func escapePatchString(str string) string {
 	return str
 }
 
+func (s *egressGatewayAZAffinity) updateAZAffinity(ctx context.Context, iegpName, azAffinity string) error {
+	for _, entClient := range s.entClients {
+		if _, err := entClient.PatchIsovalentEgressGatewayPolicy(ctx, iegpName, types.JSONPatchType,
+			[]byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/azAffinity", "value": "%s"}]`, azAffinity))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func EgressGatewayHAIPAM() check.Scenario {
 	return &egressGatewayHAIPAM{
 		ScenarioBase: check.NewScenarioBase(),
@@ -991,7 +986,7 @@ func (s *egressGatewayHAIPAM) Run(ctx context.Context, t *check.Test) {
 
 	masqueradeIP := waitForAllocatedEgressIP(ctx, t, policyName, 0, egressGatewayNodeInternalIP.String())
 
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		egressIP := "0.0.0.0"
@@ -1010,7 +1005,9 @@ func (s *egressGatewayHAIPAM) Run(ctx context.Context, t *check.Test) {
 		}
 
 		return targetEntries
-	})
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	waitforGwNetworkConfig(ctx, t, func(ciliumPod check.Pod) *net.IP {
 		if ciliumPod.NodeName() != egressGatewayNode {
@@ -1079,18 +1076,7 @@ func (s *egressGatewayHAIPAMMultipleGateways) Run(ctx context.Context, t *check.
 
 	// remove the labels after the test is done
 	t.WithFinalizer(func(_ context.Context) error {
-		for _, node := range ct.Nodes() {
-			removeNodeLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, EgressGroupLabelKey)
-			if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
-				continue
-			}
-
-			if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
-				return fmt.Errorf("cannot remove %s label from node %s: %w", EgressGroupLabelKey, node.Name, err)
-			}
-		}
-
-		return nil
+		return finalizeForMultipleGatewaysScenario(ctx, t, false)
 	})
 
 	policyName := "iegp-sample-client"
@@ -1104,40 +1090,11 @@ func (s *egressGatewayHAIPAMMultipleGateways) Run(ctx context.Context, t *check.
 	}
 
 	// wait for the policy map to be populated
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
-		egressIP := "0.0.0.0"
-		egressGatewayNodeInternalIPs := []string{}
-
-		for gatewayIP, nodeName := range gatewayIPsToNames {
-			if ciliumPod.Pod.Spec.NodeName == nodeName {
-				egressIP = gatewayIPsToMasqueradeIPs[gatewayIP].String()
-			}
-			egressGatewayNodeInternalIPs = append(egressGatewayNodeInternalIPs, gatewayIP)
-		}
-
-		targetEntries := []bpfEgressGatewayPolicyEntry{}
-
-		for _, client := range ct.ClientPods() {
-			for _, nodeWithoutCiliumName := range t.NodesWithoutCilium() {
-				if _, err := ciliumPod.K8sClient.GetNode(context.Background(), nodeWithoutCiliumName, metav1.GetOptions{}); err != nil {
-					if k8sErrors.IsNotFound(err) {
-						continue
-					}
-
-					t.Fatalf("Cannot retrieve external node: %w", err)
-				}
-
-				targetEntries = append(targetEntries, bpfEgressGatewayPolicyEntry{
-					SourceIP:   client.Pod.Status.PodIP,
-					DestCIDR:   "0.0.0.0/0",
-					EgressIP:   egressIP,
-					GatewayIPs: egressGatewayNodeInternalIPs,
-				})
-			}
-		}
-
-		return targetEntries
-	})
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+		return getTargetEntriesForMultipleGateways(t, ciliumPod, gatewayIPsToNames, gatewayIPsToMasqueradeIPs)
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	waitforGwNetworkConfig(ctx, t, func(ciliumPod check.Pod) *net.IP {
 		for gatewayIP, nodeName := range gatewayIPsToNames {
@@ -1327,4 +1284,102 @@ func egressCIDRFromNative(nativeCIDR netip.Prefix) (netip.Prefix, error) {
 	}
 
 	return netip.PrefixFrom(first, 30), nil
+}
+
+func getTargetEntriesForMultipleGateways(t *check.Test, ciliumPod check.Pod, gatewayIPsToNames map[string]string, gatewayIPsToMasqueradeIPs map[string]net.IP) []bpfEgressGatewayPolicyEntry {
+	ct := t.Context()
+
+	egressIP := "0.0.0.0"
+	var egressGatewayNodeInternalIPs []string
+
+	for gatewayIP, nodeName := range gatewayIPsToNames {
+		if ciliumPod.Pod.Spec.NodeName == nodeName {
+			egressIP = gatewayIP
+			if gatewayIPsToMasqueradeIPs != nil {
+				egressIP = gatewayIPsToMasqueradeIPs[gatewayIP].String()
+			}
+		}
+		egressGatewayNodeInternalIPs = append(egressGatewayNodeInternalIPs, gatewayIP)
+	}
+
+	var targetEntries []bpfEgressGatewayPolicyEntry
+
+	for _, client := range ct.ClientPods() {
+		for _, nodeWithoutCiliumName := range t.NodesWithoutCilium() {
+			if _, err := ciliumPod.K8sClient.GetNode(context.Background(), nodeWithoutCiliumName, metav1.GetOptions{}); err != nil {
+				if k8sErrors.IsNotFound(err) {
+					continue
+				}
+
+				t.Fatalf("Cannot retrieve external node: %w", err)
+			}
+
+			targetEntries = append(targetEntries, bpfEgressGatewayPolicyEntry{
+				SourceIP:   client.Pod.Status.PodIP,
+				DestCIDR:   "0.0.0.0/0",
+				EgressIP:   egressIP,
+				GatewayIPs: egressGatewayNodeInternalIPs,
+			})
+		}
+	}
+
+	return targetEntries
+}
+
+func finalizeForMultipleGatewaysScenario(ctx context.Context, t *check.Test, needRemoveZoneLabel bool) error {
+	ct := t.Context()
+
+	for _, node := range ct.Nodes() {
+		if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
+			continue
+		}
+
+		if needRemoveZoneLabel {
+			removeNodeLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, escapePatchString(K8sZoneLabel))
+			if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
+				return fmt.Errorf("cannot remove %s label from node %s: %w", K8sZoneLabel, node.Name, err)
+			}
+		}
+
+		removeNodeLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, EgressGroupLabelKey)
+		if _, err := ct.K8sClient().PatchNode(ctx, node.Name, types.JSONPatchType, []byte(removeNodeLabelPatch)); err != nil {
+			return fmt.Errorf("cannot remove %s label from node %s: %w", EgressGroupLabelKey, node.Name, err)
+		}
+	}
+
+	// Make sure all gateway nodes are removed before deleting the IEGP. This is to prevent the operator from logging the error
+	// "Cannot update IsovalentEgressGatewayPolicy status"
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+		return getTargetEntriesForEmptyMultipleGateways(t, ciliumPod)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getTargetEntriesForEmptyMultipleGateways(t *check.Test, ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	ct := t.Context()
+
+	var targetEntries []bpfEgressGatewayPolicyEntry
+	for _, client := range ct.ClientPods() {
+		for _, nodeWithoutCiliumName := range t.NodesWithoutCilium() {
+			if _, err := ciliumPod.K8sClient.GetNode(context.Background(), nodeWithoutCiliumName, metav1.GetOptions{}); err != nil {
+				if k8sErrors.IsNotFound(err) {
+					continue
+				}
+
+				t.Fatalf("Cannot retrieve external node: %v", err)
+			}
+
+			targetEntries = append(targetEntries, bpfEgressGatewayPolicyEntry{
+				SourceIP:   client.Pod.Status.PodIP,
+				DestCIDR:   "0.0.0.0/0",
+				EgressIP:   "0.0.0.0",
+				GatewayIPs: nil,
+			})
+		}
+	}
+
+	return targetEntries
 }

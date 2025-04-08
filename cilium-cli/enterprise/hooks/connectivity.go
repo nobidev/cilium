@@ -244,16 +244,15 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 
 	if versioncheck.MustCompile(">=1.14.8")(ct.CiliumVersion) {
 		// prefix the test name with `seq-` to run it sequentially
-		newTest(ct, "seq-egress-gateway-ha-az-affinity").
+		egwHAAZAffinityTest := newTest(ct, "seq-egress-gateway-ha-az-affinity").
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
-				Name:            "iegp-sample-client",
+				Name:            "iegp-sample-client-az-affinity",
 				PodSelectorKind: "client",
-				EgressGroup:     enterpriseCheck.AllCiliumNodes,
-				// we are only e2e testing the localOnly mode for now.
-				// Other configurations are already thoroughly tested in unit tests and would require additional nodes
-				AZAffinity: "localOnly",
-			}).
-			WithScenarios(enterpriseTests.EgressGatewayAZAffinity())
+				EgressGroup:     enterpriseCheck.AllCiliumNodesWithAZAffinity,
+				// We update the AZAffinity: "localOnly" setting after topology.kubernetes.io/zone has been set on the
+				// Gateway nodes. This prevents error logs about missing node AZs from being emitted.
+			})
+		egwHAAZAffinityTest.WithScenarios(enterpriseTests.EgressGatewayAZAffinity(egwHAAZAffinityTest.Context().EntClients()))
 	}
 
 	newIPAMTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {

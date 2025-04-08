@@ -70,6 +70,10 @@ const (
 
 	// AllCiliumNodes configures the egressGroup of the policy with all nodes running Cilium as gateway nodes
 	AllCiliumNodes
+
+	// AllCiliumNodesWithAZAffinity configures the egressGroup of the policy with all nodes with topology.kubernetes.io/zone label
+	// running Cilium as gateway nodes
+	AllCiliumNodesWithAZAffinity
 )
 
 type ExcludedCIDRsKind int
@@ -133,12 +137,7 @@ func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgress
 		// Set the pod selector
 		pl[i].Spec.Selectors[0].PodSelector.MatchLabels["kind"] = params.PodSelectorKind
 
-		// Set the egress group
-		var (
-			egressGroupKey   = ""
-			egressGroupValue = ""
-		)
-
+		var eg []isovalentv1.EgressGroup
 		switch params.EgressGroup {
 		case SingleGateway:
 			egressGatewayNodeName := t.EgressGatewayNode()
@@ -146,22 +145,43 @@ func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgress
 				t.Fatalf("Cannot find egress gateway node")
 			}
 
-			egressGroupKey = "kubernetes.io/hostname"
-			egressGroupValue = egressGatewayNodeName
-		case AllCiliumNodes:
-			egressGroupKey = enterpriseTests.EgressGroupLabelKey
-			egressGroupValue = enterpriseTests.EgressGroupLabelValue
-		}
-
-		eg := []isovalentv1.EgressGroup{
-			{
-				NodeSelector: &slimv1.LabelSelector{
-					MatchLabels: map[string]slimv1.MatchLabelsValue{
-						egressGroupKey: egressGroupValue,
+			eg = []isovalentv1.EgressGroup{
+				{
+					NodeSelector: &slimv1.LabelSelector{
+						MatchLabels: map[string]slimv1.MatchLabelsValue{
+							"kubernetes.io/hostname": egressGatewayNodeName,
+						},
 					},
 				},
-			},
+			}
+		case AllCiliumNodes:
+			eg = []isovalentv1.EgressGroup{
+				{
+					NodeSelector: &slimv1.LabelSelector{
+						MatchLabels: map[string]slimv1.MatchLabelsValue{
+							enterpriseTests.EgressGroupLabelKey: enterpriseTests.EgressGroupLabelValue,
+						},
+					},
+				},
+			}
+		case AllCiliumNodesWithAZAffinity:
+			eg = []isovalentv1.EgressGroup{
+				{
+					NodeSelector: &slimv1.LabelSelector{
+						MatchLabels: map[string]slimv1.MatchLabelsValue{
+							enterpriseTests.EgressGroupLabelKey: enterpriseTests.EgressGroupLabelValue,
+						},
+						MatchExpressions: []slimv1.LabelSelectorRequirement{
+							{
+								Key:      corev1.LabelTopologyZone,
+								Operator: "Exists",
+							},
+						},
+					},
+				},
+			}
 		}
+
 		pl[i].Spec.EgressGroups = eg
 
 		// Set the excluded CIDRs
