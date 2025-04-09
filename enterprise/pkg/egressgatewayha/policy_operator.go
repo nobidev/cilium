@@ -47,8 +47,9 @@ const (
 	egwIPAMPoolConflicting     = "isovalent.com/PoolConflict"
 
 	egressGatewayPrefix                 = "egw.isovalent.com"
-	nodeEgressGatewayPrefix             = egressGatewayPrefix + "/node"
+	nodeEgressGatewayKey                = egressGatewayPrefix + "/node"
 	nodeEgressGatewayUnschedulableValue = "unschedulable"
+	nodeHealthProbeEgressGatewayKey     = egressGatewayPrefix + "/node-health-probe"
 )
 
 // affinityZoneNoZone is the name of an "internal-only" affinity zone used to group together all

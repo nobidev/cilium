@@ -229,7 +229,7 @@ type healthcheckerMock struct {
 	events chan healthcheck.Event
 }
 
-func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string]) {
+func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]healthcheck.ProbeMode) {
 }
 
 func (h *healthcheckerMock) NodeIsHealthy(nodeName string) bool {
@@ -242,6 +242,10 @@ func (h *healthcheckerMock) NodeIsHealthy(nodeName string) bool {
 
 func (h *healthcheckerMock) Events() chan healthcheck.Event {
 	return h.events
+}
+
+func (h *healthcheckerMock) SetProber(node nodeTypes.Node, mode healthcheck.ProbeMode) bool {
+	return false
 }
 
 func (h *healthcheckerMock) addNodes(nodes ...string) {

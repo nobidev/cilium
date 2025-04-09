@@ -92,7 +92,7 @@ func TestOperatorScripts(t *testing.T) {
 
 type mockHealthChecker struct{}
 
-func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string]) {
+func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]healthcheck.ProbeMode) {
 }
 func (m *mockHealthChecker) NodeIsHealthy(nodeName string) bool {
 	return true
@@ -100,4 +100,7 @@ func (m *mockHealthChecker) NodeIsHealthy(nodeName string) bool {
 func (m *mockHealthChecker) Events() chan healthcheck.Event {
 	ch := make(chan healthcheck.Event)
 	return ch
+}
+func (m *mockHealthChecker) SetProber(node nodeTypes.Node, mode healthcheck.ProbeMode) bool {
+	return false
 }

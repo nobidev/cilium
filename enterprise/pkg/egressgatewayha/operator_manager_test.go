@@ -183,7 +183,7 @@ func (k *EgressGatewayOperatorTestSuite) makeNodeUnschedulableByTaint(t *testing
 
 func (k *EgressGatewayOperatorTestSuite) makeNodeUnschedulableByAnnotation(t *testing.T, node nodeTypes.Node) {
 	k.updateNodeAnnotations(t, node, map[string]string{
-		nodeEgressGatewayPrefix: nodeEgressGatewayUnschedulableValue,
+		nodeEgressGatewayKey: nodeEgressGatewayUnschedulableValue,
 	})
 }
 

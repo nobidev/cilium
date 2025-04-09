@@ -442,7 +442,7 @@ func (operatorManager *OperatorManager) nodeIsUnschedulable(node nodeTypes.Node)
 		}
 	}
 
-	if val, found := node.Annotations[nodeEgressGatewayPrefix]; found {
+	if val, found := node.Annotations[nodeEgressGatewayKey]; found {
 		return val == nodeEgressGatewayUnschedulableValue
 	}
 
@@ -563,6 +563,28 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts(tx statedb.Rea
 	}
 }
 
+func (operatorManager *OperatorManager) updateHealthProbe(probeModeByNode map[string]healthcheck.ProbeMode) {
+	for nodeName, probeMode := range probeModeByNode {
+		if operatorManager.healthchecker.SetProber(operatorManager.gatewayNodeDataStore[nodeName], probeMode) {
+			log.WithField(logfields.NodeName, nodeName).Debugf("health probe mode changed to %s", probeMode)
+		}
+	}
+}
+
+func (operatorManager *OperatorManager) getProbeModeByNode() map[string]healthcheck.ProbeMode {
+	probeModeByNode := make(map[string]healthcheck.ProbeMode, len(operatorManager.gatewayNodeDataStore))
+	for _, node := range operatorManager.gatewayNodeDataStore {
+		mode := healthcheck.HTTP
+		if val, found := node.Annotations[nodeHealthProbeEgressGatewayKey]; found {
+			if parsedMode, err := healthcheck.ParseProbeMode(val); err == nil {
+				mode = parsedMode
+			}
+		}
+		probeModeByNode[node.Name] = mode
+	}
+	return probeModeByNode
+}
+
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
 func (operatorManager *OperatorManager) reconcileLocked(tx statedb.WriteTxn) {
@@ -592,7 +614,9 @@ func (operatorManager *OperatorManager) reconcileLocked(tx statedb.WriteTxn) {
 		}
 	})
 
-	operatorManager.healthchecker.UpdateNodeList(operatorManager.gatewayNodeDataStore, healthyNodes)
+	probeModeByNode := operatorManager.getProbeModeByNode()
+	operatorManager.healthchecker.UpdateNodeList(operatorManager.gatewayNodeDataStore, healthyNodes, probeModeByNode)
+	operatorManager.updateHealthProbe(probeModeByNode)
 
 	operatorManager.updateEgressCIDRConflicts(tx)
 	operatorManager.updatePolicesGroupStatuses(tx)

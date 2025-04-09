@@ -4,10 +4,12 @@
 package healthcheck
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -66,9 +68,58 @@ type Event struct {
 
 // Healthchecker is the public interface exposed by the egress gateway healthchecker
 type Healthchecker interface {
-	UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string])
+	UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]ProbeMode)
 	NodeIsHealthy(nodeName string) bool
 	Events() chan Event
+	SetProber(node nodeTypes.Node, mode ProbeMode) bool
+}
+
+type ProbeMode int
+
+const (
+	HTTP ProbeMode = iota
+)
+
+func (p ProbeMode) String() string {
+	switch p {
+	case HTTP:
+		return "http"
+	default:
+		return "unknown"
+	}
+}
+
+func ParseProbeMode(s string) (ProbeMode, error) {
+	switch strings.ToLower(s) {
+	case "http":
+		return HTTP, nil
+	default:
+		return 0, errors.New("invalid probe mode: " + s)
+	}
+}
+
+type healthProber interface {
+	runHealthcheckProbe() bool
+	mode() ProbeMode
+}
+
+type httpProber struct {
+	netClient *http.Client
+	url       string
+}
+
+func (h *httpProber) runHealthcheckProbe() bool {
+	r, err := h.netClient.Get(h.url)
+	if err != nil {
+		return false
+	}
+	defer r.Body.Close()
+
+	return r.StatusCode == 200
+}
+
+func (h *httpProber) mode() ProbeMode {
+	return HTTP
 }
 
 type nodeStatus struct {
@@ -77,6 +128,9 @@ type nodeStatus struct {
 
 	// healthcheckerTickerCh is the channel used to stop the healthcheck goroutine for the node
 	healthcheckerTickerCh *time.Ticker
+
+	// healthProber performs health checks on the node using the configured probe mode
+	healthProber healthProber
 }
 
 type healthchecker struct {
@@ -103,7 +157,7 @@ func NewHealthchecker(config Config) Healthchecker {
 // should periodically check. The healthy parameter is a subset of node names
 // that should be initialized as healthy even before the first health probe
 // verdict is available.
-func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string]) {
+func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]ProbeMode) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -115,7 +169,11 @@ func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy 
 
 	for _, newNode := range nodes {
 		if _, ok := h.nodes[newNode.Name]; !ok {
-			h.startNodeHealthcheck(newNode, healthy.Has(newNode.Name))
+			probeMode := HTTP
+			if p, ok := probeModeByNode[newNode.Name]; ok {
+				probeMode = p
+			}
+			h.startNodeHealthcheck(newNode, healthy.Has(newNode.Name), probeMode)
 		}
 	}
 
@@ -138,33 +196,59 @@ func (h *healthchecker) Events() chan Event {
 	return h.events
 }
 
+// SetProber sets the health prober
+func (h *healthchecker) SetProber(node nodeTypes.Node, mode ProbeMode) bool {
+	h.Lock()
+	defer h.Unlock()
+
+	status, ok := h.statuses[node.Name]
+	if !ok {
+		return false
+	}
+
+	if mode == status.healthProber.mode() {
+		return false
+	}
+
+	status.healthProber = h.createProber(node, mode)
+
+	return true
+}
+
+func (h *healthchecker) createProber(node nodeTypes.Node, mode ProbeMode) healthProber {
+	switch mode {
+	case HTTP:
+		return h.createHttpProber(node)
+	default:
+		return h.createHttpProber(node)
+	}
+}
+
+func (h *healthchecker) createHttpProber(node nodeTypes.Node) healthProber {
+	return &httpProber{
+		netClient: &http.Client{Timeout: h.EgressGatewayHAHealthcheckTimeout},
+		url: fmt.Sprintf("http://%s/hello",
+			net.JoinHostPort(node.GetNodeIP(false).String(), strconv.Itoa(h.ClusterHealthPort))),
+	}
+}
+
 func (h *healthchecker) probeTimestampIsFresh(probeTimestamp time.Time) bool {
 	return time.Since(probeTimestamp) < h.EgressGatewayHAHealthcheckTimeout
 }
 
-func runHealthcheckProbe(netClient *http.Client, url string) bool {
-	r, err := netClient.Get(url)
-	if err != nil {
-		return false
-	}
-	defer r.Body.Close()
-
-	return r.StatusCode == 200
-}
-
 // Caller must hold h.RwMutex
-func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool) {
+func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool, probeMode ProbeMode) {
 	var (
-		tickerCh  = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
-		netClient = &http.Client{Timeout: h.EgressGatewayHAHealthcheckTimeout}
-		url       = fmt.Sprintf("http://%s/hello",
-			net.JoinHostPort(node.GetNodeIP(false).String(), strconv.Itoa(h.ClusterHealthPort)))
-		logger = log.WithField(logfields.NodeName, node.Name)
+		tickerCh = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
+		logger   = log.WithField(logfields.NodeName, node.Name)
 	)
 
 	logger.Info("Starting health check for node")
 
-	status := &nodeStatus{healthcheckerTickerCh: tickerCh}
+	status := &nodeStatus{
+		healthcheckerTickerCh: tickerCh,
+		healthProber:          h.createProber(node, probeMode),
+	}
 	if isHealthy {
 		logger.Debug("Node health status is initialized as healthy")
 		status.lastSuccessfulProbeTimestamp = time.Now()
@@ -175,7 +259,11 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 		for range tickerCh.C {
 			var event *Event
 
-			probeSuccessful := runHealthcheckProbe(netClient, url)
+			prober := h.getProber(node)
+			if prober == nil {
+				continue
+			}
+			probeSuccessful := prober.runHealthcheckProbe()
 
 			h.Lock()
 			nodeStatus, ok := h.statuses[node.Name]
@@ -211,6 +299,18 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 			}
 		}
 	}()
+}
+
+func (h *healthchecker) getProber(node nodeTypes.Node) healthProber {
+	h.Lock()
+	defer h.Unlock()
+
+	nodeStatus, ok := h.statuses[node.Name]
+	if !ok {
+		return nil
+	}
+
+	return nodeStatus.healthProber
 }
 
 // Caller must hold h.RwMutex

@@ -47,7 +47,7 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 	}
 
 	// node is initially marked as unhealthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New[string]())
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New[string](), map[string]ProbeMode{n.Name: HTTP})
 
 	// node should be marked as healthy
 	ev := <-events
@@ -75,7 +75,7 @@ func TestHealthCheckerUnhealthyNode(t *testing.T) {
 	}
 
 	// node is initially marked as healthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name))
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: HTTP})
 
 	// node should be marked as unhealthy
 	ev := <-events
