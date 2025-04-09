@@ -24,12 +24,12 @@ require (
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250311080423-b13b66490d76
 	github.com/cilium/lumberjack/v2 v2.4.1
-	github.com/cilium/proxy v0.0.0-20250318065604-173988fc0adb
+	github.com/cilium/proxy v0.0.0-20250401111500-0821ef0acdf9
 	github.com/cilium/statedb v0.3.7
 	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42
+	github.com/cncf/xds/go v0.0.0-20250326154945-ae57f3c0d45f
 	github.com/containernetworking/cni v1.2.3
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/coreos/go-systemd/v22 v22.5.0
@@ -122,9 +122,9 @@ require (
 	golang.org/x/time v0.11.0
 	golang.org/x/tools v0.31.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463
 	google.golang.org/grpc v1.71.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.2
@@ -327,7 +327,7 @@ require (
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250324211829-b45e905df463 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
