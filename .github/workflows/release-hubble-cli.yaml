@@ -58,8 +58,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: |
             ${{ vars.HUBBLE_RELEASES_REPO_NAME }}
-          permissions-contents: write
-          permissions-workflows: write
+          permission-contents: write
 
       - name: Publish a Draft Release
         uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
