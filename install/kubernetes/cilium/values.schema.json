@@ -4128,7 +4128,7 @@
                     },
                     "oidc": {
                       "properties": {
-                        "ClientID": {
+                        "clientID": {
                           "type": [
                             "null",
                             "string"
