@@ -2057,7 +2057,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.6.1
+      tag: v1.6.2
       digest: ""
       useDigest: false
       pullPolicy: "Always"
