@@ -62,6 +62,12 @@ spec:
       targetPort: ch-metrics
       protocol: TCP
     {{- end }}
+    {{- if and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled }}
+    - name: ui-metrics
+      port: 9091
+      targetPort: ui-metrics
+      protocol: TCP
+    {{- end }}
   selector:
     k8s-app: hubble-timescape
     app.kubernetes.io/name: hubble-timescape
@@ -241,6 +247,10 @@ spec:
           ports:
             - name: ui
               containerPort: 8000
+            {{- if .Values.hubble.timescape.metrics.ui.enabled }}
+            - name: ui-metrics
+              containerPort: 9091
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -545,7 +555,11 @@ metadata:
 data:
   config.yaml: |
     http-address: ":8000"
+    {{- if .Values.hubble.timescape.metrics.ui.enabled }}
+    prometheus-serve-addr: ":9091"
+    {{- else }}
     prometheus-serve-addr: ""
+    {{- end }}
     pprof-address: "localhost"
     pprof-port: "6061"
     gops: true

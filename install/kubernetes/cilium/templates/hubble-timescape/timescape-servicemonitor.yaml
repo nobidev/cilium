@@ -4,6 +4,7 @@
   (or
     .Values.hubble.timescape.metrics.enabled
     .Values.hubble.timescape.metrics.clickhouse.enabled
+    (and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled)
   )
 }}
 apiVersion: monitoring.coreos.com/v1
@@ -41,6 +42,12 @@ spec:
     {{- include "hubble.timescape.servicemonitor.endpoint" (dict
         "values" .Values.hubble.timescape.metrics.serviceMonitor.clickhouse
         "port" "ch-metrics"
+      ) | nindent 2 }}
+  {{- end }}
+  {{- if and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled }}
+    {{- include "hubble.timescape.servicemonitor.endpoint" (dict
+        "values" .Values.hubble.timescape.metrics.serviceMonitor.ui
+        "port" "ui-metrics"
       ) | nindent 2 }}
   {{- end }}
 {{- end }}

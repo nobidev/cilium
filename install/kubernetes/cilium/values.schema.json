@@ -3992,6 +3992,40 @@
                         "null",
                         "string"
                       ]
+                    },
+                    "ui": {
+                      "properties": {
+                        "interval": {
+                          "type": "string"
+                        },
+                        "metricRelabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "relabelings": {
+                          "type": [
+                            "null",
+                            "array"
+                          ]
+                        },
+                        "scrapeTimeout": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
+                "ui": {
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
                     }
                   },
                   "type": "object"

@@ -2153,6 +2153,9 @@ hubble:
       clickhouse:
         # -- Enables exporting timescape clickhouse metrics in OpenMetrics format.
         enabled: true
+      ui:
+        # -- Enables exporting timescape ui metrics in OpenMetrics format.
+        enabled: true
       serviceMonitor:
         # -- Enable service monitor.
         # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -2199,6 +2202,24 @@ hubble:
           # type: [null, array]
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor (Clickhouse metrics)
+          metricRelabelings: ~
+        ui:
+          # -- Interval for scrape metrics (Timescape UI metrics)
+          interval: "10s"
+          # @schema
+          # type: [null, string]
+          # @schema
+          # -- Timeout after which scrape is considered to be failed (Timescape UI metrics)
+          scrapeTimeout: ~
+          # @schema
+          # type: [null, array]
+          # @schema
+          # -- Relabeling configs for the ServiceMonitor (Timescape UI metrics)
+          relabelings: ~
+          # @schema
+          # type: [null, array]
+          # @schema
+          # -- Metrics relabeling configs for the ServiceMonitor (Timescape UI metrics)
           metricRelabelings: ~
     vector:
       image:
