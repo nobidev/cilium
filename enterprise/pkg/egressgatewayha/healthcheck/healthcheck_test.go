@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -51,6 +52,43 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 
 	// node should be marked as healthy
 	ev := <-events
+	require.Equal(t, n.Name, ev.NodeName)
+	require.Equal(t, NodeHealthy, ev.Status)
+	require.True(t, hc.NodeIsHealthy(n.Name))
+}
+
+func TestHealthCheckerHealthyNodeWithICMPProber(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	hc, nodeAddr := setup(t, 50*time.Millisecond,
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+	events := hc.Events()
+
+	n := nodeTypes.Node{
+		Name: "test",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   nodeAddr,
+			},
+		},
+	}
+
+	// node is initially marked as healthy
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: HTTP})
+
+	// node should be marked as unhealthy because the http endpoint returns 500
+	ev := <-events
+	require.Equal(t, n.Name, ev.NodeName)
+	require.Equal(t, NodeUnhealthy, ev.Status)
+	require.False(t, hc.NodeIsHealthy(n.Name))
+
+	// node should be marked as healthy because the ICMP request to 127.0.0.1 succeeds
+	require.True(t, hc.SetProber(n, ICMP))
+	ev = <-events
 	require.Equal(t, n.Name, ev.NodeName)
 	require.Equal(t, NodeHealthy, ev.Status)
 	require.True(t, hc.NodeIsHealthy(n.Name))
@@ -84,6 +122,34 @@ func TestHealthCheckerUnhealthyNode(t *testing.T) {
 	require.False(t, hc.NodeIsHealthy(n.Name))
 }
 
+func TestHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	hc, _ := setup(t, 50*time.Millisecond, nil)
+
+	events := hc.Events()
+
+	n := nodeTypes.Node{
+		Name: "test",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				// Send ICMP requests to a non-existent address
+				IP: net.ParseIP("192.168.111.111"),
+			},
+		},
+	}
+
+	// node is initially marked as healthy
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: ICMP})
+
+	// node should be marked as unhealthy
+	ev := <-events
+	require.Equal(t, n.Name, ev.NodeName)
+	require.Equal(t, NodeUnhealthy, ev.Status)
+	require.False(t, hc.NodeIsHealthy(n.Name))
+}
+
 func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Healthchecker, net.IP) {
 	t.Helper()
 
@@ -95,18 +161,22 @@ func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Hea
 		log = prev
 	})
 
-	// create a fake node health server
-	ts := httptest.NewServer(handler)
-	t.Cleanup(ts.Close)
+	port := 0
+	addr := net.IPv4zero
+	if handler != nil {
+		// create a fake node health server
+		ts := httptest.NewServer(handler)
+		t.Cleanup(ts.Close)
 
-	tsURL, err := url.Parse(ts.URL)
-	require.NoError(t, err, "url.Parse")
+		tsURL, err := url.Parse(ts.URL)
+		require.NoError(t, err, "url.Parse")
 
-	addr := net.ParseIP(tsURL.Hostname())
-	require.NotNil(t, addr, "net.ParseIP")
+		addr = net.ParseIP(tsURL.Hostname())
+		require.NotNil(t, addr, "net.ParseIP")
 
-	port, err := strconv.Atoi(tsURL.Port())
-	require.NoError(t, err, "strconv.Atoi")
+		port, err = strconv.Atoi(tsURL.Port())
+		require.NoError(t, err, "strconv.Atoi")
+	}
 
 	// create a new healthchecker
 	hc := NewHealthchecker(Config{

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -78,12 +79,15 @@ type ProbeMode int
 
 const (
 	HTTP ProbeMode = iota
+	ICMP
 )
 
 func (p ProbeMode) String() string {
 	switch p {
 	case HTTP:
 		return "http"
+	case ICMP:
+		return "icmp"
 	default:
 		return "unknown"
 	}
@@ -93,6 +97,8 @@ func ParseProbeMode(s string) (ProbeMode, error) {
 	switch strings.ToLower(s) {
 	case "http":
 		return HTTP, nil
+	case "icmp":
+		return ICMP, nil
 	default:
 		return 0, errors.New("invalid probe mode: " + s)
 	}
@@ -120,6 +126,51 @@ func (h *httpProber) runHealthcheckProbe() bool {
 
 func (h *httpProber) mode() ProbeMode {
 	return HTTP
+}
+
+const (
+	probeInterval    = 100 * time.Millisecond
+	failureThreshold = 3
+)
+
+type icmpProber struct {
+	ip      string
+	timeout time.Duration
+}
+
+func (i *icmpProber) runHealthcheckProbe() bool {
+	result := false
+	pinger, err := probing.NewPinger(i.ip)
+	if err != nil {
+		log.WithError(err).Error("Failed to create pinger")
+		return false
+	}
+
+	pinger.Timeout = i.timeout
+	pinger.Count = failureThreshold
+	pinger.Interval = probeInterval
+	pinger.OnRecv = func(pkt *probing.Packet) {
+		pinger.Stop()
+	}
+	pinger.OnFinish = func(stats *probing.Statistics) {
+		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
+			result = true
+		} else {
+			result = false
+		}
+	}
+	pinger.SetPrivileged(true)
+	err = pinger.Run()
+	if err != nil {
+		log.WithError(err).Errorf("Failed to run pinger for IP %s", i.ip)
+		return false
+	}
+
+	return result
+}
+
+func (i *icmpProber) mode() ProbeMode {
+	return ICMP
 }
 
 type nodeStatus struct {
@@ -219,6 +270,11 @@ func (h *healthchecker) createProber(node nodeTypes.Node, mode ProbeMode) health
 	switch mode {
 	case HTTP:
 		return h.createHttpProber(node)
+	case ICMP:
+		return &icmpProber{
+			ip:      node.GetNodeIP(false).String(),
+			timeout: h.EgressGatewayHAHealthcheckTimeout,
+		}
 	default:
 		return h.createHttpProber(node)
 	}
