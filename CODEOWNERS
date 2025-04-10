@@ -851,13 +851,15 @@ Makefile* @cilium/build
 /enterprise/images/ @isovalent/infrastructure
 /enterprise/olm/ @isovalent/openshift
 /enterprise/operator/ @isovalent/cilium-agent
+/enterprise/operator/k8s/ @isovalent/sig-k8s
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/ciliummesh @isovalent/cilium-mesh
 /enterprise/operator/pkg/kubevirt/ @isovalent/networking-framework
 /enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
-/enterprise/operator/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
+/enterprise/operator/pkg/networkpolicy/ @isovalent/policy-identity-networking
+/enterprise/operator/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/annotation/ @isovalent/sig-k8s
 /enterprise/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/pkg/bgpv1/ @isovalent/traffic-engineering

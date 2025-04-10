@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/enterprise/features"
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
 	"github.com/cilium/cilium/enterprise/operator/dnsresolver"
+	enterpriseOperatorK8s "github.com/cilium/cilium/enterprise/operator/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/enterprise/operator/pkg/ciliummesh"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
+	"github.com/cilium/cilium/enterprise/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/enterprise/operator/pkg/srv6/locatorpool"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
@@ -44,6 +46,7 @@ var (
 			},
 
 			// enterprise-only cells to be started after leader election here
+			enterpriseOperatorK8s.ResourcesCell,
 
 			features.OperatorCell,
 
@@ -66,6 +69,9 @@ var (
 			lbmetrics.Cell,
 
 			kubevirt.Cell,
+
+			networkpolicy.Cell,
+			networkpolicy.SecretSyncCell,
 		),
 	)
 )

@@ -12,6 +12,7 @@ package k8s
 
 import (
 	"github.com/cilium/hive/cell"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -148,4 +149,26 @@ func IsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, bgpConfig 
 		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentVRFList](
 			c.IsovalentV1alpha1().IsovalentVRFs(),
 		), resource.WithMetric("IsovalentVRFResource"))
+}
+
+func IsovalentNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1alpha1.IsovalentNetworkPolicy], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentNetworkPolicyList](params.ClientSet.IsovalentV1alpha1().IsovalentNetworkPolicies("")),
+		opts...,
+	)
+	return resource.New[*isovalent_api_v1alpha1.IsovalentNetworkPolicy](params.Lifecycle, lw, resource.WithMetric("IsovalentNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+}
+
+func IsovalentClusterwideNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicyList](params.ClientSet.IsovalentV1alpha1().IsovalentClusterwideNetworkPolicies()),
+		opts...,
+	)
+	return resource.New[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy](params.Lifecycle, lw, resource.WithMetric("IsovalentClusterwideNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }

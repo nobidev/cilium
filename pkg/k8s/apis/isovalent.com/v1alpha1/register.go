@@ -205,7 +205,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LBDeployment{},
 		&LBDeploymentList{},
 		&IsovalentNetworkPolicy{},
+		&IsovalentNetworkPolicyList{},
 		&IsovalentClusterwideNetworkPolicy{},
+		&IsovalentClusterwideNetworkPolicyList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
