@@ -31,35 +31,11 @@ spec:
   prometheus:
     serviceMonitor:
      enabled: false
-  image:
-    repository: "quay.io/isovalent-dev/cilium-ci"
-    useDigest: false
-    # get replaced by the id of the commit being tested in the CI workflow run
-    tag: "latest"
-  operator:
-    image:
-      repository: "quay.io/isovalent-dev/operator"
-      suffix: "-ci"
-      useDigest: false
-      # get replaced by the id of the commit being tested in the CI workflow run
-      tag: "latest"
   hubble:
     enabled: true
     relay: 
       enabled: true
       retryTimeout: "5s"
-      image:
-        repository: "quay.io/isovalent-dev/hubble-relay-ci"
-        useDigest: false
-        # get replaced by the id of the commit being tested in the CI workflow run
-        tag: "latest"
-  clustermesh:
-    apiserver:
-      image:
-        repository: "quay.io/isovalent-dev/clustermesh-apiserver-ci"
-        # get replaced by the id of the commit being tested in the CI workflow run
-        tag: "latest"
-        useDigest: false
   sessionAffinity: true
   kubeProxyReplacement: false
   # TODO: not sure this is needed, was historically used in the CuTE configuration
@@ -71,6 +47,8 @@ spec:
   enterprise:
     featureGate:
       minimumMaturity: "Alpha"
+      approved:
+      - CNIChainingMode
     clustermesh:
       phantomServices:
         enabled: true

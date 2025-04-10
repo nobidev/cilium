@@ -13,7 +13,7 @@ name: Conformance OpenShift (ci-openshift)
 # TODO: Run scheduled workflows for the head of each supported release branch
 # TODO: make the AWS region configurable through extra-args
 # TODO: Possibility to test with dual stack
-# TODO: Support multi-arch, multi-arch builds when the CLife image does not already exit and provision non amd64 nodes
+# TODO: Make multi-arch builds and provision arm64 nodes
 # TODO: Send notifications for scheduled runs (cf enterprise-cute.yaml)
 
 on:
@@ -85,7 +85,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.run_id }}-${{ github.run_attempt }}
-  # renovate: datasource=docker depName=quay.io/repository/openshift-release-dev/ocp-release
+  # renovate: datasource=docker depName=quay.io/openshift-release-dev/ocp-release
   ocp_version_multi: 4.17.17-multi
 
 jobs:
@@ -225,6 +225,14 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME_CI }}
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
+      - name: Login to registry.redhat.io for pulling images
+        if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
       - name: Build and Push CLife image
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
         env:
@@ -234,6 +242,8 @@ jobs:
           # Sync manifests first
           rm -rf manifests
           cp -a ../../install/kubernetes/cilium/. manifests
+          export CL_TAG=${{ steps.vars.outputs.sha }}
+          make set-images
           make docker-build docker-push
 
       - name: Checkout the OpenShift CuTE repository
@@ -275,24 +285,8 @@ jobs:
           EOF
           fi
           cat terraform.tfvars
-
-          # Generation of the CiliumConfig.
+          # Use the CI CiliumConfig
           cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml clife-ciliumconfig.yaml
-          yq -i ".spec.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
-          yq -i ".spec.operator.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
-          yq -i ".spec.hubble.relay.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
-          yq -i ".spec.clustermesh.apiserver.image.tag = \"${{ steps.vars.outputs.sha }}\"" clife-ciliumconfig.yaml
-
-          yq -i ".spec.image.repository = \"quay.io/isovalent-dev/cilium-ubi-ci\"" clife-ciliumconfig.yaml
-          yq -i ".spec.hubble.relay.image.repository = \"quay.io/isovalent-dev/hubble-relay-ubi-ci\"" clife-ciliumconfig.yaml
-          yq -i ".spec.clustermesh.apiserver.image.repository = \"quay.io/isovalent-dev/clustermesh-apiserver-ubi-ci\"" clife-ciliumconfig.yaml
-          yq -i ".spec.nodeinit.image.repository = \"quay.io/isovalent/startup-script-ubi\"" clife-ciliumconfig.yaml
-          yq -i ".spec.envoy.image.repository = \"quay.io/isovalent/cilium-envoy-ubi\"" clife-ciliumconfig.yaml
-          yq -i ".spec.envoy.image.useDigest = false" clife-ciliumconfig.yaml
-          # Setting the suffix for the operator
-          yq -i ".spec.operator.image.suffix = \"-ubi-ci\"" clife-ciliumconfig.yaml
-          echo "Cilium configuration:"
-          cat clife-ciliumconfig.yaml
 
       # replace git SSH by HTTPS and use a private access token so that `terraform get`
       # can download modules from private repositories.
@@ -325,8 +319,13 @@ jobs:
           kubectl get pods -A -o wide
           kubectl get nodes
           kubectl get co
+          kubectl get ciliumconfig -o yaml
           kubectl get events -n cilium
           kubectl get pods -n cilium -o yaml
+          kubectl get events -n cilium
+          kubectl get pods -n cilium -o yaml
+          kubectl logs -n cilium deployment/clife-controller-manager
+          kubectl logs -n cilium daemonset/cilium --all-containers=true
 
       - name: Wait for Cluster operators to be ready
         if: ${{ !cancelled() && steps.cluster.outcome == 'success' }}
@@ -352,6 +351,10 @@ jobs:
         if: ${{ !cancelled() && steps.cluster.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
         run: |
           kubectl get co -o yaml
+          kubectl get events -n cilium
+          kubectl get pods -n cilium -o yaml
+          kubectl logs -n cilium deployment/clife-controller-manager
+          kubectl logs -n cilium daemonset/cilium --all-containers=true
 
       - name: Run Cilium CLI tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
