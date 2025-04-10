@@ -405,6 +405,99 @@ jobs:
             make test-kubevirt-conformance
           fi
 
+      - name: Retrieve cluster info
+        id: cluster-info
+        run: |
+          api_server="$(kubectl config view --minify | yq -r '.clusters[0].cluster.server')"
+          echo "k8s_service_host=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $1}')" >> $GITHUB_OUTPUT
+          echo "k8s_service_port=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Enable Kube Proxy Replacement
+        run: |
+          kubectl -n cilium patch ciliumconfig config \
+                  --type merge \
+                  --patch '{"spec":{"k8sServiceHost": "'${{ steps.cluster-info.outputs.k8s_service_host }}'", "k8sServicePort": "'${{ steps.cluster-info.outputs.k8s_service_port }}'", "kubeProxyReplacement": true}}'
+
+      - name: Restart cilium to pick up new config
+        run: |
+          kubectl -n cilium delete ds cilium
+          cilium status -n cilium --wait
+
+      - name: Verifying if KPR has been enabled
+        run: |
+          kpr_status="$(kubectl -n cilium exec ds/cilium -- cilium-dbg config get KubeProxyReplacement)"
+          if [[ ${kpr_status,,} != "true" ]]
+          then
+            echo "KPR is not enabled [status: $kpr_status]"
+            exit 1
+          fi
+
+      - name: Remove kube-proxy
+        run: |
+          kubectl patch network.operator cluster \
+                  --type=merge \
+                  --patch='{"spec":{"deployKubeProxy":false}}'
+
+          removed="false"
+          for i in {1..30} # wait 5 mins and give up
+          do
+            sleep 10
+            count="$(kubectl get pods -A -l app=kube-proxy | wc -l || true)"
+            if [[ $count -eq 0 ]]
+            then
+              echo "openshift kube-proxy removed"
+              removed="true"
+              break
+            fi
+            echo "waiting for kube-proxy to be removed [remaining pods: $count]"
+          done
+          if [[ $removed != "true" ]]
+          then
+            echo "can not remove kube-proxy"
+            exit 1
+          fi
+
+      - name: Run Cilium CLI tests [KPR]
+        timeout-minutes: 120
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          mkdir -p ./test-results/kpr
+          echo "Cilium CLI tests starting at: $(date)"
+          set +e
+          # SecurityContextConstraints would need to be amended (additional namespaces) to allow TEST_CONCURRENCY=3
+          # Disabling both flow validation and hubble is aligned with the EKS conformance tests
+          # Without it there was 1 unexpected packet drop: "CT: Map insertion failed" that would need investigation
+          # Disabling log check as it also considers logs before the tests started and
+          # disruptions are expected during the installation process.
+          cilium connectivity test -n cilium --flow-validation=disabled --hubble=false --test='!check-log-errors' 2>&1 > ./test-results/kpr/cilium-cli-results.txt
+          result=$?
+          set -e
+          cat ./test-results/kpr/cilium-cli-results.txt
+          if [ $result -eq 0 ]; then
+            echo "Result: Success"
+            exit 0
+          else
+            echo "Result: Failure"
+            exit 1
+          fi
+
+      - name: Run CNI conformance tests [KPR]
+        timeout-minutes: 120
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          make test-cni-conformance
+
+      - name: Run KubeVirt conformance tests [KPR]
+        timeout-minutes: 120
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          if [ "${{ steps.vars.outputs.kubevirt }}" != "true" ]; then
+            echo "Provisioning of bare-metal nodes and KubeVirt conformance tests skipped."
+            echo "Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them"
+          else
+            make test-kubevirt-conformance
+          fi
+
       - name: Collect sysdumps
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
         shell: bash
