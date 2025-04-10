@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package linux
+package manager
 
 import (
 	"testing"
@@ -63,12 +63,12 @@ func TestInjectCEPrefixClusterMutator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nh := linuxNodeHandler{}
-			nh.SetPrefixClusterMutatorFn(func(n *types.Node) []cmtypes.PrefixClusterOpts { return nil })
+			m := &manager{}
+			m.SetPrefixClusterMutatorFn(func(n *types.Node) []cmtypes.PrefixClusterOpts { return nil })
 
-			InjectCEPrefixClusterMutator(&nh, tt.cmcfg, &option.DaemonConfig{ClusterID: tt.localID})
+			InjectCEPrefixClusterMutator(m, tt.cmcfg, &option.DaemonConfig{ClusterID: tt.localID})
 
-			mutators := nh.prefixClusterMutatorFn(&types.Node{ClusterID: tt.nodeID})
+			mutators := m.prefixClusterMutatorFn(&types.Node{ClusterID: tt.nodeID})
 			pc := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("1.2.3.4/32"), mutators...)
 			assert.Equal(t, tt.expected, pc.ClusterID())
 		})

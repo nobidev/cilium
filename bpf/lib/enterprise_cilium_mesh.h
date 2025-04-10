@@ -170,11 +170,14 @@ cilium_mesh_policy_egress(struct __ctx_buff *ctx __maybe_unused,
 	struct ipv4_ct_tuple tuple;
 	int ct_status;
 	__u32 monitor;
+	fraginfo_t fraginfo;
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	memcpy(&tuple, orig_tuple, sizeof(tuple));
 	ipv4_ct_tuple_reverse(&tuple);
-	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, ipv4_is_fragment(ip4), l4_off,
-				    true, CT_INGRESS, SCOPE_FORWARD, CT_ENTRY_ANY, NULL, &monitor);
+	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo, l4_off,
+				    CT_INGRESS, SCOPE_FORWARD, CT_ENTRY_ANY, NULL, &monitor);
 	if (ct_status < 0)
 		return ct_status;
 
@@ -217,18 +220,19 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 
 	struct ct_state ct_state_new = {};
 	struct ipv4_ct_tuple tuple = {};
-	bool has_l4_header = true;
 	int ct_status;
 	__u32 monitor;
 	int l4_off;
 	int ret;
+	fraginfo_t fraginfo;
 
+	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	tuple.nexthdr = ip4->protocol;
 	tuple.saddr = ip4->daddr;
 	tuple.daddr = ip4->saddr;
-	ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple, &has_l4_header);
+	ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off, CT_EGRESS, &tuple);
 	if (ret < 0)
 		return ret;
 	ipv4_ct_tuple_swap_ports(&tuple);
@@ -237,7 +241,7 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 	 * perform a service CT lookup to detect if the packet is a reply, as on the
 	 * reply path cilium_mesh_policy_ingress is called after rev-DNAT
 	 */
-	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, false, l4_off, true,
+	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo, l4_off,
 				    CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_ANY, NULL, &monitor);
 	if (ct_status < 0)
 		return ct_status;
@@ -253,7 +257,7 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 		/* XXX: implement me */
 	}
 
-	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, false, l4_off, true,
+	ct_status = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo, l4_off,
 				    CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY, NULL, &monitor);
 	if (ct_status < 0)
 		return ct_status;

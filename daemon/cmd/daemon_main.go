@@ -60,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
+	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -622,8 +623,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(vp, option.NodePortBindProtection)
 
-	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
+	flags.Bool(option.EnableSessionAffinity, true, "Enable support for service session affinity")
 	option.BindEnv(vp, option.EnableSessionAffinity)
+	flags.MarkDeprecated(option.EnableSessionAffinity, "The flag to control Session Affinity has been deprecated, and it will be removed in v1.19. The feature will be unconditionally enabled.")
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
@@ -940,6 +942,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(vp, option.EnableCustomCallsName)
+	flags.MarkDeprecated(option.EnableCustomCallsName, "The feature has been deprecated and it will be removed in v1.19")
 
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(vp, option.ExternalClusterIPName)
@@ -1398,9 +1401,6 @@ func initEnv(vp *viper.Viper) {
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMMultiPool {
-		if option.Config.TunnelingEnabled() {
-			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
-		}
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify IPAM mode %s with %s.", option.Config.IPAM, option.EnableIPSecName)
 		}
@@ -1563,6 +1563,7 @@ type daemonParams struct {
 	CTNATMapGC          ctmap.GCRunner
 	StoreFactory        store.Factory
 	EndpointRegenerator *endpoint.Regenerator
+	EndpointBuildQueue  endpoint.EndpointBuildQueue
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        *bigtcp.Configuration
 	TunnelConfig        tunnel.Config
@@ -1585,6 +1586,7 @@ type daemonParams struct {
 	NameManager         namemanager.NameManager
 	ExpLBConfig         experimental.Config
 	DNSProxy            defaultdns.Proxy
+	DNSRulesAPI         fqdnRules.DNSRulesService
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1733,9 +1735,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		d.endpointManager.InitHostEndpointLabels(d.ctx)
 	} else {
 		log.Info("Creating host endpoint")
-		err := d.endpointManager.AddHostEndpoint(
-			d.ctx, d, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
-		if err != nil {
+		if err := d.endpointManager.AddHostEndpoint(d.ctx, d.dnsRulesAPI, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC); err != nil {
 			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
@@ -1750,7 +1750,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			} else {
 				log.Info("Creating ingress endpoint")
 				err := d.endpointManager.AddIngressEndpoint(
-					d.ctx, d, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
+					d.ctx, d.dnsRulesAPI, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
 				if err != nil {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
@@ -1833,9 +1833,10 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 
-	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))
-	if err != nil {
-		log.WithError(err).Warn("Failed to send agent start monitor message")
+	if !option.Config.DryMode {
+		if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+			log.WithError(err).Warn("Failed to send agent start monitor message")
+		}
 	}
 
 	// Watches for node neighbors link updates.

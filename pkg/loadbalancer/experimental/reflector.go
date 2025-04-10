@@ -364,7 +364,19 @@ func (rh *reflectorHealth) report() {
 var (
 	zeroV4 = cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
+
+	ingressDummyAddress = cmtypes.MustParseAddrCluster("192.192.192.192")
+	ingressDummyPort    = uint16(9999)
 )
+
+func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
+	// The ingress and gateway-api controllers (operator/pkg/model/translation/{gateway-api,ingress}) create
+	// a dummy endpoint to force Cilium to reconcile the service. This is no longer required with this new
+	// control-plane, but due to rolling upgrades we cannot remove it immediately. Hence we have the
+	// special handlind here to just ignore this endpoint to avoid populating the tables with unnecessary
+	// data.
+	return l3n4Addr.AddrCluster.Equal(ingressDummyAddress) && l3n4Addr.Port == ingressDummyPort
+}
 
 func isHeadless(svc *slim_corev1.Service) bool {
 	_, headless := svc.Labels[corev1.IsHeadlessService]
@@ -437,6 +449,10 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil && *cfg.ClientIP.TimeoutSeconds != 0 {
 			s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(*cfg.ClientIP.TimeoutSeconds))
 		}
+	}
+
+	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal && isTopologyAware(svc) {
+		s.TrafficDistribution = TrafficDistributionPreferClose
 	}
 
 	// A service that is annotated as headless has no frontends, even if the service spec contains
@@ -658,6 +674,9 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 				AddrCluster: addrCluster,
 				L4Addr:      *l4Addr,
 			}
+			if isIngressDummyEndpoint(l3n4Addr) {
+				continue
+			}
 			portNames := entries[l3n4Addr].portNames
 			if portName != "" {
 				portNames = append(portNames, portName)
@@ -669,6 +688,7 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 		}
 	}
 	for l3n4Addr, entry := range entries {
+
 		state := loadbalancer.BackendStateActive
 		if entry.backend.Terminating {
 			state = loadbalancer.BackendStateTerminating
@@ -678,6 +698,8 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 			NodeName:  entry.backend.NodeName,
 			PortNames: entry.portNames,
 			Weight:    loadbalancer.DefaultBackendWeight,
+			Zone:      entry.backend.Zone,
+			ForZones:  entry.backend.HintsForZones,
 			State:     state,
 		}
 		out = append(out, be)
@@ -917,4 +939,19 @@ func joinObservables[T any](src stream.Observable[T], srcs ...stream.Observable[
 				src.Observe(ctx, emit, comp)
 			}
 		})
+}
+
+func isTopologyAware(svc *slim_corev1.Service) bool {
+	return getAnnotationTopologyAwareHints(svc) ||
+		(svc.Spec.TrafficDistribution != nil &&
+			*svc.Spec.TrafficDistribution == corev1.ServiceTrafficDistributionPreferClose)
+}
+
+func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
+	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
+	value, ok := svc.ObjectMeta.Annotations[corev1.DeprecatedAnnotationTopologyAwareHints]
+	if !ok {
+		value = svc.ObjectMeta.Annotations[corev1.AnnotationTopologyMode]
+	}
+	return !(value == "" || value == "disabled" || value == "Disabled")
 }

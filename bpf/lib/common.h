@@ -261,15 +261,6 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 #define revalidate_data(ctx, data, data_end, ip)			\
 	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
-/* Macros for working with L3 cilium defined IPV6 addresses */
-#define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
-#define BPF_V6_1(dst, ...)	BPF_V6_2(dst, __VA_ARGS__)
-#define BPF_V6_2(dst, a1, a2)		\
-	({					\
-		dst.d1 = a1;			\
-		dst.d2 = a2;			\
-	})
-
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -475,6 +466,18 @@ struct egress_gw_policy_key {
 struct egress_gw_policy_entry {
 	__u32 egress_ip;
 	__u32 gateway_ip;
+};
+
+struct egress_gw_policy_key6 {
+	struct bpf_lpm_trie_key lpm_key;
+	union v6addr saddr;
+	union v6addr daddr;
+};
+
+struct egress_gw_policy_entry6 {
+	union v6addr egress_ip;
+	__u32 gateway_ip;
+	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
 };
 
 struct srv6_vrf_key4 {
@@ -705,8 +708,8 @@ enum metric_dir {
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
-#define MARK_MAGIC_OVERLAY		0x0400
-#define MARK_MAGIC_EGW_DONE		0x0500
+#define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
+#define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
@@ -764,14 +767,6 @@ enum metric_dir {
 struct encrypt_config {
 	__u8 encrypt_key;
 } __packed;
-
-/**
- * or_encrypt_key - mask and shift key into encryption format
- */
-static __always_inline __u32 or_encrypt_key(__u8 key)
-{
-	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
-}
 
 /*
  * ctx->tc_index uses

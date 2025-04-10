@@ -89,7 +89,7 @@ int egressgw_ha_snat1_setup(struct __ctx_buff *ctx)
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -152,7 +152,7 @@ SETUP("tc", "tc_egressgw_ha_snat2")
 int egressgw_ha_snat2_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -191,7 +191,7 @@ int egressgw_ha_tuple_collision1_setup(struct __ctx_buff *ctx)
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -226,7 +226,7 @@ int egressgw_ha_tuple_collision2_setup(struct __ctx_buff *ctx)
 				     { GATEWAY_NODE_IP }, EGRESS_IP3, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -304,7 +304,7 @@ int egressgw_ha_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 				     EGRESS_GATEWAY_EXCLUDED_CIDR }, 0, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -381,7 +381,7 @@ int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 				     { GATEWAY_NODE_IP }, EGRESS_IP2, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;

@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
-	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
@@ -59,6 +59,6 @@ var Cell = cell.Module(
 		registerJobs,
 
 		// Inject the mutator to propagate the cluster ID to the tunnel map.
-		linux.InjectCEPrefixClusterMutator,
+		manager.InjectCEPrefixClusterMutator,
 	),
 )

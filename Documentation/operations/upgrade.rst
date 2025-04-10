@@ -297,6 +297,8 @@ communicating via the proxy must reconnect to re-establish connections.
   ``CiliumBGPNodeConfigOverride`` CRDs was deprecated in favor of the ``v2`` version. Change ``apiVersion: cilium.io/v2alpha1``
   to ``apiVersion: cilium.io/v2`` for these CRDs in all your BGP configs. The previously deprecated field
   ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
+* The ``CiliumBGPPeeringPolicy`` CRD is deprecated and will be removed in a future release. Please migrate to ``cilium.io/v2``
+  BGP CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) to configure BGP.
 
 
 Removed Options
@@ -322,6 +324,11 @@ Deprecated Options
   and will be removed in Cilium 1.19.
 * ``--l2-pod-announcements-interface`` has been deprecated in favor of 
   ``--l2-pod-announcements-interface-pattern`` and will be removed in Cilium 1.19.
+* The flag ``--enable-session-affinity`` has been deprecated and will be removed in Cilium 1.19.
+  The Session Affinity feature will be unconditionally enabled. Also, in Cilium 1.18, the
+  feature is enabled by default.
+* The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
+  be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~

@@ -125,7 +125,6 @@ cilium-agent [flags]
       --enable-cilium-health-api-server-access strings                 List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-mesh                                             Enables Cilium Mesh feature
       --enable-cluster-aware-addressing                                Enable cluster-aware addressing, to support overlapping PodCIDRs
-      --enable-custom-calls                                            Enable tail call hooks for custom eBPF programs
       --enable-drift-checker                                           Enables support for config drift checker (default true)
       --enable-dynamic-config                                          Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager                               Enables support for dynamic lifecycle management
@@ -192,7 +191,6 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining                              Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                                    Enable SCTP support (beta)
       --enable-service-topology                                        Enable support for service topology aware hints
-      --enable-session-affinity                                        Enable support for service session affinity
       --enable-svc-source-range-check                                  Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tcx                                                     Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                                 Enable tracing while determining policy (debugging)
@@ -288,6 +286,7 @@ cilium-agent [flags]
       --hubble-metrics-server-tls-client-ca-files strings              Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --hubble-metrics-server-tls-key-file string                      Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
       --hubble-monitor-events strings                                  Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
+      --hubble-network-policy-correlation-enabled                      Enable network policy correlation of Hubble flows (default true)
       --hubble-prefer-ipv6                                             Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                            Queue size of each Hubble recorder sink (default 1024)
       --hubble-recorder-storage-path string                            Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")

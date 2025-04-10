@@ -119,6 +119,7 @@ Starovoitov
 Stormtroopers
 Suchakra
 Suricata
+Synchronizer
 Talos
 Telco
 Terraform
@@ -710,6 +711,7 @@ routingMode
 runnable
 runtimes
 sandboxing
+scaffoldings
 scalable
 scripttest
 sctl
@@ -802,6 +804,7 @@ tracepoints
 tracestate
 transpiling
 tsne
+tunables
 tunings
 tunnelProtocol
 txtar
@@ -838,6 +841,7 @@ userInfo
 userspace
 uuid
 vCPU
+vSphere
 validator
 vendored
 verifier

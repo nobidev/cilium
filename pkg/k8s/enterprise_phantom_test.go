@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
+	"github.com/cilium/cilium/pkg/annotation"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -469,8 +470,8 @@ func TestGetAnnotationPhantom(t *testing.T) {
 				Spec:       slim_corev1.ServiceSpec{Type: tt.svcType},
 			}
 
-			assert.Equal(t, tt.expectedGlobal, getAnnotationIncludeExternal(&svc), "Incorrect global service detection")
-			assert.Equal(t, tt.expectedShared, getAnnotationShared(&svc), "Incorrect shared service detection")
+			assert.Equal(t, tt.expectedGlobal, annotation.GetAnnotationIncludeExternal(&svc), "Incorrect global service detection")
+			assert.Equal(t, tt.expectedShared, annotation.GetAnnotationShared(&svc), "Incorrect shared service detection")
 			assert.Equal(t, tt.expectedPhantom, getAnnotationPhantom(&svc), "Incorrect phantom service detection")
 		})
 	}
