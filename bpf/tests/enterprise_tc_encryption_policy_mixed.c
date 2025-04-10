@@ -85,7 +85,8 @@ int encryption_policy_native_v4_tcp_match_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(POD2_IPV4, 0, POD2_SEC_IDENTITY, POD2_TUNNEL_IPV4, 255);
 
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, true);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, true);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -136,7 +137,8 @@ SETUP("tc", "03_tc_encryption_policy_native_v4_tcp_no_match")
 int encryption_policy_native_v4_tcp_no_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, false);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, false);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -169,7 +171,8 @@ int encryption_policy_native_v6_tcp_match_setup(struct __ctx_buff *ctx)
 			     POD2_TUNNEL_IPV4, 255);
 
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, true);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, true);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -220,7 +223,8 @@ SETUP("tc", "06_tc_encryption_policy_native_v6_tcp_no_match")
 int encryption_policy_native_v6_tcp_no_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, false);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, false);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -247,7 +251,8 @@ SETUP("tc", "07_tc_encryption_policy_vxlan_v4_tcp_match")
 int encryption_policy_vxlan_v4_tcp_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, true);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, true);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -274,7 +279,8 @@ SETUP("tc", "08_tc_encryption_policy_vxlan_v4_tcp_no_match")
 int encryption_policy_vxlan_v4_tcp_no_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, false);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, false);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -301,7 +307,8 @@ SETUP("tc", "09_tc_encryption_policy_vxlan_v6_tcp_match")
 int encryption_policy_vxlan_v6_tcp_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, true);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, true);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -328,7 +335,8 @@ SETUP("tc", "10_tc_encryption_policy_vxlan_v6_tcp_no_match")
 int encryption_policy_vxlan_v6_tcp_no_match_setup(struct __ctx_buff *ctx)
 {
 	/* insert encryption policy */
-	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, 6, POD2_L4_PORT, false);
+	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
+				    POD2_L4_PORT, false);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
