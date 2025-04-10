@@ -233,12 +233,12 @@ WARNING: A Limited feature GatewayAPI was enabled, but it is not an approved fea
   {{- end -}}
 {{- end -}}
 {{- if (eq "true" (print .hubble.timescape.enabled))  -}}
-  {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "HubbleTimescape" .enterprise.featureGate.approved))) -}}
+  {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "HubbleTimescape" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
-      {{- fail "\nBeta feature: HubbleTimescape was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
+      {{- fail "\nLimited feature: HubbleTimescape was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
     {{- else -}}
       {{ $fails = true }}
-WARNING: A Beta feature HubbleTimescape was enabled, but it is not an approved feature.
+WARNING: A Limited feature HubbleTimescape was enabled, but it is not an approved feature.
     {{- end -}}
   {{- end -}}
 {{- end -}}
