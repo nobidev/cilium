@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -67,7 +68,17 @@ type metricsHandler struct {
 	AllowList               filters.FilterFuncs
 	DenyList                filters.FilterFuncs
 
-	initialized bool
+	// The metrics handler is referenced by the exporter through a set of hooks
+	// at startup regardless of whether it has been initialized by the metrics
+	// server or not. To avoid uninitialized access, protect update callpaths
+	// with an atomic bool.
+	// NOTE: Deinit() only removes collector references from the registry but does
+	// not invalidate the collectors, therefore once intialized, the pointers will
+	// always be valid. In a racy condition between deinit/init, we could access
+	// old collectors and send metrics update that will never get emitted. We accept
+	// that caveat and classify it as edge-case/rare, while also avoiding the
+	// performance cost of a more involved synchronization strategy.
+	initialized atomic.Bool
 }
 
 // Init implements the metricsAPI.Handler interface.
@@ -108,7 +119,7 @@ func (h *metricsHandler) Init(registry *prometheus.Registry, options *metricsAPI
 	registry.MustRegister(h.flowsExportedBytesTotal)
 	registry.MustRegister(h.flowsExportTimestamp)
 
-	h.initialized = true
+	h.initialized.Store(true)
 	return nil
 }
 
@@ -168,7 +179,7 @@ func (h *metricsHandler) SetFilters(cfg *metricsAPI.MetricConfig) error {
 
 // UpdateFlowMetrics updates the flow metrics.
 func (h *metricsHandler) UpdateFlowMetrics(_ context.Context, flow *flowpb.Flow, name string) error {
-	if !h.initialized {
+	if !h.initialized.Load() {
 		return nil
 	}
 
@@ -186,7 +197,7 @@ func (h *metricsHandler) UpdateFlowMetrics(_ context.Context, flow *flowpb.Flow,
 
 // updateExportedBytesTotal updates the bytes total metric.
 func (h *metricsHandler) updateExportedBytesTotal(byteCount int, name string) {
-	if !h.initialized {
+	if !h.initialized.Load() {
 		return
 	}
 	h.flowsExportedBytesTotal.WithLabelValues(name).Add(float64(byteCount))
