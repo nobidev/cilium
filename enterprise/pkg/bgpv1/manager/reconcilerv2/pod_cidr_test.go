@@ -586,16 +586,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Logger:    logger,
 				SLogger:   hivetest.Logger(t),
 				PeerAdvert: &IsovalentAdvertisement{
-					logger:     logger,
-					peerConfig: InitMockStore(tt.peerConfig),
-					adverts:    InitMockStore(tt.advertisements),
-					vrfs:       store.InitMockStore([]*v1alpha1.IsovalentBGPVRFConfig{}),
+					logger:      logger,
+					peerConfigs: store.InitMockStore(tt.peerConfig),
+					adverts:     store.InitMockStore(tt.advertisements),
+					vrfs:        store.InitMockStore([]*v1alpha1.IsovalentBGPVRFConfig{}),
 				},
 				DaemonConfig: &option.DaemonConfig{IPAM: "Kubernetes"},
 				Upgrader:     newUpgraderMock(tt.testBGPInstanceConfig),
 			})
 			podCIDRReconciler := out.Reconciler.(*PodCIDRReconciler)
-			podCIDRReconciler.peerAdvert.initialized.Store(true)
 
 			// preconfigure advertisements
 			testBGPInstance := &EnterpriseBGPInstance{

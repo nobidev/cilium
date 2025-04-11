@@ -187,21 +187,18 @@ func TestPeerAdvertisements(t *testing.T) {
 			req := require.New(t)
 
 			isoAdvert := &IsovalentAdvertisement{
-				logger:     advertTestLogger,
-				peerConfig: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
-				adverts:    newMockResourceStore[*v1.IsovalentBGPAdvertisement](),
+				logger:      advertTestLogger,
+				peerConfigs: store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig](),
+				adverts:     store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement](),
 			}
 
 			if tt.peerConfig != nil {
-				isoAdvert.peerConfig = InitMockStore[*v1.IsovalentBGPPeerConfig]([]*v1.IsovalentBGPPeerConfig{tt.peerConfig})
+				isoAdvert.peerConfigs = store.InitMockStore[*v1.IsovalentBGPPeerConfig]([]*v1.IsovalentBGPPeerConfig{tt.peerConfig})
 			}
 
 			if tt.advertisement != nil {
-				isoAdvert.adverts = InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
+				isoAdvert.adverts = store.InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
 			}
-
-			// Initialize the advertisement reconciler
-			isoAdvert.initialized.Store(true)
 
 			reconciledPeerAdverts, err := isoAdvert.GetConfiguredPeerAdvertisements(tt.reqBGPNodeInstance, tt.reqAdvertType)
 			req.NoError(err)
@@ -293,20 +290,17 @@ func TestVRFAdvertisements(t *testing.T) {
 
 			isoAdvert := &IsovalentAdvertisement{
 				logger:  advertTestLogger,
-				adverts: newMockResourceStore[*v1.IsovalentBGPAdvertisement](),
+				adverts: store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement](),
 				vrfs:    store.NewMockBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig](),
 			}
 
 			if tt.advertisement != nil {
-				isoAdvert.adverts = InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
+				isoAdvert.adverts = store.InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{tt.advertisement})
 			}
 
 			if tt.vrfConfig != nil {
 				isoAdvert.vrfs = store.InitMockStore[*v1alpha1.IsovalentBGPVRFConfig]([]*v1alpha1.IsovalentBGPVRFConfig{tt.vrfConfig})
 			}
-
-			// Initialize the advertisement reconciler
-			isoAdvert.initialized.Store(true)
 
 			reconciledVRFAdverts, err := isoAdvert.GetConfiguredVRFAdvertisements(tt.reqBGPNodeInstance, tt.reqAdvertType)
 			req.NoError(err)

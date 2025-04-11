@@ -635,7 +635,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			for _, vrfConfig := range tt.vrfConfigs {
 				vrfConfigMockStore.Upsert(vrfConfig)
 			}
-			advertMockStore := newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+			advertMockStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 			for _, advert := range tt.adverts {
 				advertMockStore.Upsert(advert)
 			}
@@ -644,7 +644,6 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				adverts: advertMockStore,
 				vrfs:    vrfConfigMockStore,
 			}
-			isoAdverts.initialized.Store(true)
 
 			// service mocks
 			svcStore := store.NewFakeDiffStore[*slim_corev1.Service]()
@@ -1025,10 +1024,9 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 
 			isoAdverts := &IsovalentAdvertisement{
 				logger:  svcVRFTestLogger,
-				adverts: InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert}),
+				adverts: store.InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert}),
 				vrfs:    store.InitMockStore[*v1alpha1.IsovalentBGPVRFConfig]([]*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config}),
 			}
-			isoAdverts.initialized.Store(true)
 
 			// service mocks
 			svcStore := store.NewFakeDiffStore[*slim_corev1.Service]()

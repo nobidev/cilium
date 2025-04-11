@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -523,8 +524,8 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			mockPeerConfigStore := newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-			mockAdvertStore := newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+			mockPeerConfigStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+			mockAdvertStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 
 			reconciler := EgressGatewayIPsReconciler{
 				logger:         logger,
@@ -532,15 +533,14 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				egwIPsProvider: newEGWManagerMock(tt.testEGWPolicies),
 				upgrader:       newUpgraderMock(tt.testBGPInstanceConfig),
 				peerAdvert: &IsovalentAdvertisement{
-					logger:     logger,
-					peerConfig: mockPeerConfigStore,
-					adverts:    mockAdvertStore,
+					logger:      logger,
+					peerConfigs: mockPeerConfigStore,
+					adverts:     mockAdvertStore,
 				},
 				metadata: make(map[string]EgressGatewayIPsMetadata),
 			}
 
 			// set peer advert state
-			reconciler.peerAdvert.initialized.Store(true)
 			mockPeerConfigStore.Upsert(peerConfig)
 			if tt.advertisement != nil {
 				mockAdvertStore.Upsert(tt.advertisement)

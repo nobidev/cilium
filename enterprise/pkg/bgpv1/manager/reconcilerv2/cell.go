@@ -33,6 +33,7 @@ var ConfigReconcilers = cell.Group(
 		store.NewBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig],
 		store.NewBGPCPResourceStore[*v1.IsovalentBGPPeerConfig],
 		store.NewBGPCPResourceStore[*v1.IsovalentBGPNodeConfig],
+		store.NewBGPCPResourceStore[*v1.IsovalentBGPAdvertisement],
 	),
 
 	cell.Provide(

@@ -696,8 +696,8 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -714,9 +714,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(instanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
-			logger:     logger,
-			peerConfig: mockPeerConfigStore,
-			adverts:    mockAdvertStore,
+			logger:      logger,
+			peerConfigs: mockPeerConfigStore,
+			adverts:     mockAdvertStore,
 		},
 		SvcDiffStore: svcDiffstore,
 		EPDiffStore:  epDiffStore,
@@ -725,7 +725,6 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
 
 	// set peer advert state
-	ceeReconciler.peerAdvert.initialized.Store(true)
 	mockPeerConfigStore.Upsert(peerConfig)
 
 	ceeReconciler.Init(testBGPInstance)
@@ -2034,8 +2033,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -2049,9 +2048,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
-					logger:     logger,
-					peerConfig: mockPeerConfigStore,
-					adverts:    mockAdvertStore,
+					logger:      logger,
+					peerConfigs: mockPeerConfigStore,
+					adverts:     mockAdvertStore,
 				},
 				SvcDiffStore: svcDiffstore,
 				EPDiffStore:  epDiffStore,
@@ -2059,9 +2058,6 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			}
 
 			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			// set peer advert state
-			ceeReconciler.peerAdvert.initialized.Store(true)
 
 			ceeReconciler.Init(testBGPInstance)
 			defer ceeReconciler.Cleanup(testBGPInstance)
@@ -2420,8 +2416,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -2435,9 +2431,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
-					logger:     logger,
-					peerConfig: mockPeerConfigStore,
-					adverts:    mockAdvertStore,
+					logger:      logger,
+					peerConfigs: mockPeerConfigStore,
+					adverts:     mockAdvertStore,
 				},
 				SvcDiffStore: svcDiffstore,
 				EPDiffStore:  epDiffStore,
@@ -2445,9 +2441,6 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			}
 
 			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			// set peer advert state
-			ceeReconciler.peerAdvert.initialized.Store(true)
 
 			ceeReconciler.Init(testBGPInstance)
 			defer ceeReconciler.Cleanup(testBGPInstance)
@@ -2806,8 +2799,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					Name:   testBGPInstance.Name,
 					Router: testBGPInstance.Router,
 				}
-				mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 			)
@@ -2821,9 +2814,9 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				SLogger:   hivetest.Logger(t),
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
-					logger:     logger,
-					peerConfig: mockPeerConfigStore,
-					adverts:    mockAdvertStore,
+					logger:      logger,
+					peerConfigs: mockPeerConfigStore,
+					adverts:     mockAdvertStore,
 				},
 				SvcDiffStore: svcDiffstore,
 				EPDiffStore:  epDiffStore,
@@ -2831,9 +2824,6 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			}
 
 			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			// set peer advert state
-			ceeReconciler.peerAdvert.initialized.Store(true)
 
 			ceeReconciler.Init(testBGPInstance)
 			defer ceeReconciler.Cleanup(testBGPInstance)
@@ -3218,8 +3208,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -3233,9 +3223,9 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
-			logger:     logger,
-			peerConfig: mockPeerConfigStore,
-			adverts:    mockAdvertStore,
+			logger:      logger,
+			peerConfigs: mockPeerConfigStore,
+			adverts:     mockAdvertStore,
 		},
 		SvcDiffStore: svcDiffstore,
 		EPDiffStore:  epDiffStore,
@@ -3245,7 +3235,6 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
 
 	// set peer advert state
-	ceeReconciler.peerAdvert.initialized.Store(true)
 	mockPeerConfigStore.Upsert(redPeerConfig)
 
 	ceeReconciler.Init(testBGPInstance)
@@ -3553,8 +3542,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -3568,9 +3557,9 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
-			logger:     logger,
-			peerConfig: mockPeerConfigStore,
-			adverts:    mockAdvertStore,
+			logger:      logger,
+			peerConfigs: mockPeerConfigStore,
+			adverts:     mockAdvertStore,
 		},
 		SvcDiffStore: svcDiffstore,
 		EPDiffStore:  epDiffStore,
@@ -3580,7 +3569,6 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
 
 	// set peer advert state
-	ceeReconciler.peerAdvert.initialized.Store(true)
 	mockPeerConfigStore.Upsert(redPeerConfig)
 
 	ceeReconciler.Init(testBGPInstance)
@@ -3880,8 +3868,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 			Name:   testBGPInstance.Name,
 			Router: testBGPInstance.Router,
 		}
-		mockPeerConfigStore = newMockResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = newMockResourceStore[*v1.IsovalentBGPAdvertisement]()
+		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
 	)
@@ -3895,9 +3883,9 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 		SLogger:   hivetest.Logger(t),
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
-			logger:     logger,
-			peerConfig: mockPeerConfigStore,
-			adverts:    mockAdvertStore,
+			logger:      logger,
+			peerConfigs: mockPeerConfigStore,
+			adverts:     mockAdvertStore,
 		},
 		SvcDiffStore: svcDiffstore,
 		EPDiffStore:  epDiffStore,
@@ -3906,7 +3894,6 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 
 	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
 
-	ceeReconciler.peerAdvert.initialized.Store(true)
 	mockPeerConfigStore.Upsert(redPeerConfig)
 
 	ceeReconciler.Init(testBGPInstance)
