@@ -356,54 +356,13 @@ jobs:
           kubectl logs -n cilium deployment/clife-controller-manager
           kubectl logs -n cilium daemonset/cilium --all-containers=true
 
-      - name: Run Cilium CLI tests
+      - name: Run tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        id: tests-cli
+        uses: ./.github/actions/enterprise-openshift-tests
         timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          # Create the SCC to provide the required priviliges for running the tests
-          kubectl apply -f ../common/test-scc.yaml
-          mkdir -p ./test-results
-          echo "Cilium CLI tests starting at: $(date)"
-          set +e
-          # SecurityContextConstraints would need to be amended (additional namespaces) to allow TEST_CONCURRENCY=3
-          # Disabling both flow validation and hubble is aligned with the EKS conformance tests
-          # Without it there was 1 unexpected packet drop: "CT: Map insertion failed" that would need investigation
-          # Disabling log check as it also considers logs before the tests started and
-          # disruptions are expected during the installation process.
-          cilium connectivity test -n cilium --flow-validation=disabled --hubble=false --test='!check-log-errors' 2>&1 > ./test-results/cilium-cli-results.txt
-          result=$?
-          set -e
-          cat ./test-results/cilium-cli-results.txt
-          if [ $result -eq 0 ]; then
-            echo "Result: Success"
-            exit 0
-          else
-            echo "Result: Failure"
-            exit 1
-          fi
-
-      - name: Run CNI conformance tests
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        id: tests-cni
-        timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          make test-cni-conformance
-
-      - name: Run KubeVirt conformance tests
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        id: tests-kubevirt
-        timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          if [ "${{ steps.vars.outputs.kubevirt }}" != "true" ]; then
-            echo "Provisioning of bare-metal nodes and KubeVirt conformance tests skipped."
-            echo "Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them"
-          else
-            make test-kubevirt-conformance
-          fi
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+          test-results-dir: "test-results"
 
       - name: Retrieve cluster info
         id: cluster-info
@@ -457,46 +416,12 @@ jobs:
             exit 1
           fi
 
-      - name: Run Cilium CLI tests [KPR]
+      - name: Run tests with KPR
+        uses: ./.github/actions/enterprise-openshift-tests
         timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          mkdir -p ./test-results/kpr
-          echo "Cilium CLI tests starting at: $(date)"
-          set +e
-          # SecurityContextConstraints would need to be amended (additional namespaces) to allow TEST_CONCURRENCY=3
-          # Disabling both flow validation and hubble is aligned with the EKS conformance tests
-          # Without it there was 1 unexpected packet drop: "CT: Map insertion failed" that would need investigation
-          # Disabling log check as it also considers logs before the tests started and
-          # disruptions are expected during the installation process.
-          cilium connectivity test -n cilium --flow-validation=disabled --hubble=false --test='!check-log-errors' 2>&1 > ./test-results/kpr/cilium-cli-results.txt
-          result=$?
-          set -e
-          cat ./test-results/kpr/cilium-cli-results.txt
-          if [ $result -eq 0 ]; then
-            echo "Result: Success"
-            exit 0
-          else
-            echo "Result: Failure"
-            exit 1
-          fi
-
-      - name: Run CNI conformance tests [KPR]
-        timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          make test-cni-conformance
-
-      - name: Run KubeVirt conformance tests [KPR]
-        timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          if [ "${{ steps.vars.outputs.kubevirt }}" != "true" ]; then
-            echo "Provisioning of bare-metal nodes and KubeVirt conformance tests skipped."
-            echo "Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them"
-          else
-            make test-kubevirt-conformance
-          fi
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+          test-results-dir: "test-results/kpr"
 
       - name: Collect sysdumps
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
