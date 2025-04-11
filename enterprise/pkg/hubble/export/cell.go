@@ -38,11 +38,18 @@ var Cell = cell.Module(
 	"enterprise-hubble-exporter",
 	"Hubble Enterprise flow log exporter",
 
+	cell.ProvidePrivate(newMetricsHandler),
 	cell.Provide(newMergedConfig),
 	cell.Provide(newHubbleEnterpriseExporter),
 	cell.Config(defaultConfig),
 	cell.Config(defaultLegacyConfig),
 )
+
+func newMetricsHandler() *metricsHandler {
+	metricsHandler := &metricsHandler{}
+	registerMetricsHandler(metricsHandler)
+	return metricsHandler
+}
 
 // config represent the EE static exporter configuration used by Cilium >=1.18.0.
 //
@@ -225,6 +232,7 @@ type hubbleEnterpriseExporterParams struct {
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
 	Config    mergedConfig
+	Metrics   *metricsHandler
 
 	// TODO: replace by slog
 	Logger  logrus.FieldLogger
@@ -266,17 +274,13 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				Compress:   params.Config.oss.ExportFileCompress,
 			}
 
-			// register flow metrics
-			metricsHandler := &metricsHandler{}
-			registerMetricsHandler(metricsHandler)
-
 			// setup exporter options
 			exporterOpts := []exporter.Option{
 				exporter.WithAllowList(params.SLogger, allowList),
 				exporter.WithDenyList(params.SLogger, denyList),
 				exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 					var writer io.WriteCloser = writer
-					writer = metricsHandler.WrapWriter(writer)
+					writer = params.Metrics.WrapWriter(writer)
 					return writer, nil
 				}),
 				exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
@@ -323,7 +327,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 					// we only care about flow events
 					return false, nil
 				}
-				err := metricsHandler.UpdateMetrics(ctx, flow)
+				err := params.Metrics.UpdateMetrics(ctx, flow)
 				if err != nil {
 					return false, fmt.Errorf("failed to update flow metrics: %w", err)
 				}
