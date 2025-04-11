@@ -178,12 +178,18 @@ func (h *metricsHandler) UpdateMetrics(_ context.Context, flow *flowpb.Flow) err
 	return nil
 }
 
-// WrapWriter wraps the provided writer with a new writer that counts the number of bytes written.
-func (h *metricsHandler) WrapWriter(w io.WriteCloser) io.WriteCloser {
+// updateExportedBytesTotal updates the bytes total metric.
+func (h *metricsHandler) updateExportedBytesTotal(byteCount int) {
 	if !h.initialized {
-		return w
+		return
 	}
-	return byteCounterWriter{w, h.flowsExportedBytesTotal}
+	h.flowsExportedBytesTotal.Add(float64(byteCount))
+}
+
+// WrapWriter wraps the provided writer with a new writer that updates the bytes total metric with
+// the number of bytes written.
+func (h *metricsHandler) WrapWriter(w io.WriteCloser) io.WriteCloser {
+	return byteCounterWriter{w, h}
 }
 
 func (h *metricsHandler) getLabelNames() []string {
@@ -233,16 +239,12 @@ func (h *metricsHandler) getLabelValues(flow *flowpb.Flow) ([]string, error) {
 }
 
 type byteCounterWriter struct {
-	writer       io.WriteCloser
-	bytesWritten prometheus.Counter
+	io.WriteCloser
+	metricsHandler *metricsHandler
 }
 
 func (w byteCounterWriter) Write(p []byte) (int, error) {
-	n, err := w.writer.Write(p)
-	w.bytesWritten.Add(float64(n))
+	n, err := w.WriteCloser.Write(p)
+	w.metricsHandler.updateExportedBytesTotal(n)
 	return n, err
-}
-
-func (w byteCounterWriter) Close() error {
-	return w.writer.Close()
 }
