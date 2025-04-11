@@ -2,15 +2,16 @@ name: OLM Build CI
 
 on:
   pull_request:
-    branches:
-      - main-ce
-      # TODO: cover release branches later on
+    types:
+      - opened
+      - synchronize
+      - reopened
     paths:
       - enterprise/olm/**
   push:
     branches:
       - main-ce
-      # TODO: cover release branches later on
+      - ft/main-ce/**
     paths:
       - enterprise/olm/**
 
