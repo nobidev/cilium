@@ -2800,6 +2800,35 @@
                         "anyOf": [
                           {
                             "properties": {
+                              "aggregation": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "aggregationIgnoreSourcePort": {
+                                "type": "boolean"
+                              },
+                              "aggregationRenewTTL": {
+                                "type": "boolean"
+                              },
+                              "aggregationStateFilter": {
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "type": "array"
+                              },
+                              "aggregationTTL": {
+                                "type": "string"
+                              },
                               "excludeFilters": {
                                 "items": {},
                                 "type": "array"
@@ -2820,12 +2849,24 @@
                               "filePath": {
                                 "type": "string"
                               },
+                              "fileRotationInterval": {
+                                "type": "string"
+                              },
+                              "formatVersion": {
+                                "type": "string"
+                              },
                               "includeFilters": {
                                 "items": {},
                                 "type": "array"
                               },
                               "name": {
                                 "type": "string"
+                              },
+                              "nodeName": {
+                                "type": "null"
+                              },
+                              "rateLimit": {
+                                "type": "integer"
                               }
                             }
                           }

@@ -2010,6 +2010,15 @@ hubble:
             fileMaxSizeMb: 10
             fileMaxBackups: 5
             fileCompress: false
+            fileRotationInterval: 0s
+            formatVersion: v1
+            rateLimit: -1
+            nodeName: null
+            aggregation: []
+            aggregationIgnoreSourcePort: true
+            aggregationRenewTTL: true
+            aggregationStateFilter: ["new", "error", "closed"]
+            aggregationTTL: 30s
             #   - name: "test002"
             #     filePath: "/var/log/network/flow-log/pa/test002.log"
             #     fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
@@ -2023,6 +2032,15 @@ hubble:
             #     fileMaxBackups: 10
             #     fileCompress: true
             #     end: "2023-10-09T23:59:59-07:00"
+            #     fileRotationInterval: 1m
+            #     formatVersion: ''
+            #     rateLimit: 100
+            #     nodeName: my-node
+            #     aggregation: ["connection", "identity"]
+            #     aggregationIgnoreSourcePort: false
+            #     aggregationRenewTTL: false
+            #     aggregationStateFilter: ["established", "first_error"]
+            #     aggregationTTL: 1m
   # -- Emit v1.Events related to pods on detection of packet drops.
   #    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
   dropEventEmitter:

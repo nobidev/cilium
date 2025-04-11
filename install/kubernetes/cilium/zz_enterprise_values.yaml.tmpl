@@ -650,6 +650,48 @@ hubble:
       # @schema
       # @default -- `30s`
       aggregationTTL: ~
+    dynamic:
+      config:
+        content:
+          - name: all
+            fieldMask: []
+            includeFilters: []
+            excludeFilters: []
+            filePath: "/var/run/cilium/hubble/events.log"
+            fileMaxSizeMb: 10
+            fileMaxBackups: 5
+            fileCompress: false
+            fileRotationInterval: 0s
+            formatVersion: v1
+            rateLimit: -1
+            nodeName: null
+            aggregation: []
+            aggregationIgnoreSourcePort: true
+            aggregationRenewTTL: true
+            aggregationStateFilter: ["new", "error", "closed"]
+            aggregationTTL: 30s
+            #   - name: "test002"
+            #     filePath: "/var/log/network/flow-log/pa/test002.log"
+            #     fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+            #     includeFilters:
+            #     - source_pod: ["default/"]
+            #       event_type:
+            #       - type: 1
+            #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
+            #     excludeFilters: []
+            #     fileMaxSizeMb: 1
+            #     fileMaxBackups: 10
+            #     fileCompress: true
+            #     end: "2023-10-09T23:59:59-07:00"
+            #     fileRotationInterval: 1m
+            #     formatVersion: ''
+            #     rateLimit: 100
+            #     nodeName: my-node
+            #     aggregation: ["connection", "identity"]
+            #     aggregationIgnoreSourcePort: false
+            #     aggregationRenewTTL: false
+            #     aggregationStateFilter: ["established", "first_error"]
+            #     aggregationTTL: 1m
 
 envoyConfig:
   policy:
