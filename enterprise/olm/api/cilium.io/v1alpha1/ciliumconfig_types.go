@@ -61,7 +61,8 @@ type CiliumConfigStatus struct {
 // +kubebuilder:resource:path=ciliumconfigs,scope=Cluster,categories={all,cilium},shortName={cconf,cconfs}
 // +kubebuilder:subresource:status
 
-// CiliumConfig is the Schema for the ciliumconfigs API
+// CiliumConfig defines the configuration of Isovalent Networking for Kubernetes and all its components
+// +operator-sdk:csv:customresourcedefinitions:displayName="CiliumConfig"
 type CiliumConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

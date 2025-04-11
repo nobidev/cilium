@@ -44,6 +44,10 @@ cp ${values_file} ${tmp_file}
 function yq_replace {
   docker run --rm -v "${tmp_file}":/workdir/values.yaml --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -i "$1" /workdir/values.yaml
 }
+# yq_replace_csv makes in place modifications of clife.clusterserviceversion.yaml
+function yq_replace_csv {
+  docker run --rm -v "${root_dir}/enterprise/olm/config/manifests/bases/clife.clusterserviceversion.yaml":/workdir/csv.yaml --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -i "$1" /workdir/csv.yaml
+}
 
 # yq_get retrieves values of fields in values.yaml
 yq_get_result=""
@@ -72,7 +76,8 @@ yq_replace ".nodeinit.image.repository = \"quay.io/isovalent/startup-script${out
 yq_replace ".certgen.image.repository = \"quay.io/isovalent/certgen${out_tree_suffix}\""
 yq_replace ".envoy.image.repository = \"quay.io/isovalent/cilium-envoy${out_tree_suffix}\""
 yq_replace ".operator.image.suffix = \"${in_tree_suffix}\""
-# Set the image digests
+# Set the image digests and populate related images in the ClusterServiceVersion
+related_imgs="["
 # cilium agent
 yq_get ".image.repository"
 img=${yq_get_result}
@@ -81,6 +86,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"agent\",\"image\":\"${registry}/cilium${in_tree_suffix}:${digest}\"},"
 # preflight
 yq_get ".preflight.image.repository"
 img=${yq_get_result}
@@ -89,6 +95,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".preflight.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"preflight\",\"image\":\"${registry}/cilium${in_tree_suffix}:${digest}\"},"
 # hubble relay
 yq_get ".hubble.relay.image.repository"
 img=${yq_get_result}
@@ -97,6 +104,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".hubble.relay.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"hubble-relay\",\"image\":\"${registry}/hubble-relay${in_tree_suffix}:${digest}\"},"
 # clustermesh
 yq_get ".clustermesh.apiserver.image.repository"
 img=${yq_get_result}
@@ -105,6 +113,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".clustermesh.apiserver.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"clustermesh-apiserver\",\"image\":\"${registry}/clustermesh-apiserver${in_tree_suffix}:${digest}\"},"
 # startup-script
 yq_get ".nodeinit.image.repository"
 img=${yq_get_result}
@@ -113,6 +122,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".nodeinit.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"nodeinit\",\"image\":\"quay.io/isovalent/startup-script${in_tree_suffix}:${digest}\"},"
 # certgen
 yq_get ".certgen.image.repository"
 img=${yq_get_result}
@@ -121,6 +131,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".certgen.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"certgen\",\"image\":\"quay.io/isovalent/certgen${in_tree_suffix}:${digest}\"},"
 # envoy
 yq_get ".envoy.image.repository"
 img=${yq_get_result}
@@ -129,6 +140,7 @@ tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".envoy.image.digest = \"${digest}\""
+related_imgs+="{\"name\": \"cilium-envoy\",\"image\":\"quay.io/isovalent/cilium-envoy${in_tree_suffix}:${digest}\"},"
 # operator
 yq_get ".operator.image.repository"
 img=${yq_get_result}
@@ -139,7 +151,9 @@ op_suffix=${yq_get_result}
 get_digest "${img}-generic${op_suffix}" "${tag}"
 digest=${get_digest_result}
 yq_replace ".operator.image.digest = \"${digest}\""
-
+related_imgs+="{\"name\": \"cilium-operator\",\"image\":\"${registry}/cilium-operator-generic${in_tree_suffix}:${digest}\"}"
+related_imgs+="]"
+yq_replace_csv ".spec.relatedImages = ${related_imgs}"
 cp ${tmp_file} ${values_file}
 
 echo "values.yaml updated"

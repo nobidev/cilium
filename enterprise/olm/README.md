@@ -54,7 +54,6 @@ make deploy IMG=<some-registry>/clife:tag
 
 **Create an instance of the custom resource:**
 
-
 ```sh
 kubectl apply -k config/samples/
 ```
@@ -99,6 +98,28 @@ make build-installer IMG=<some-registry>/clife:tag
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/<org>/olm/<tag or branch>/dist/install.yaml
 ```
+
+## OLM
+
+Generate the Operator Lifecycle Manager (OLM) bundle manifests with:
+
+```sh
+make bundle VERSION=xxx IMG=<some-registry>/clife:tag IMAGE_TAG_BASE=<some-registry>/clife
+```
+xxx is the Cilium version populated in the ClusterServiceVersion, e.g. 1.17.1
+
+Create the bundle image with:
+```sh
+make bundle-build VERSION=xxx IMAGE_TAG_BASE=<some-registry>/clife
+```
+
+Push the bundle image to the registry with:
+
+```sh
+make bundle-push VERSION=xxx IMAGE_TAG_BASE=<some-registry>/clife
+```
+
+Metadata and configuration changes need to be applied to: `config/manifests/bases/clife.clusterserviceversion.yaml` and `bundle/metadata/annotations.yaml`. The ClusterServiceVersion in the bundle directory gets automatically updated.
 
 ## Contributing
 
