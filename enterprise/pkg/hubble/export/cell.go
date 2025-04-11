@@ -274,13 +274,15 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				Compress:   params.Config.oss.ExportFileCompress,
 			}
 
+			metricsHandlerNameLabel := "static"
+
 			// setup exporter options
 			exporterOpts := []exporter.Option{
 				exporter.WithAllowList(params.SLogger, allowList),
 				exporter.WithDenyList(params.SLogger, denyList),
 				exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 					var writer io.WriteCloser = writer
-					writer = params.Metrics.WrapWriter(writer)
+					writer = params.Metrics.WrapWriter(writer, metricsHandlerNameLabel)
 					return writer, nil
 				}),
 				exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
@@ -327,7 +329,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 					// we only care about flow events
 					return false, nil
 				}
-				err := params.Metrics.UpdateMetrics(ctx, flow)
+				err := params.Metrics.UpdateFlowMetrics(ctx, flow, metricsHandlerNameLabel)
 				if err != nil {
 					return false, fmt.Errorf("failed to update flow metrics: %w", err)
 				}

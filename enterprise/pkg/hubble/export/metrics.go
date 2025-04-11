@@ -61,8 +61,8 @@ Options:` +
 
 type metricsHandler struct {
 	flowsExportedTotal      *prometheus.CounterVec
-	flowsExportedBytesTotal prometheus.Counter
-	flowsExportTimestamp    prometheus.Gauge
+	flowsExportedBytesTotal *prometheus.CounterVec
+	flowsExportTimestamp    *prometheus.GaugeVec
 	context                 *metricsAPI.ContextOptions
 	AllowList               filters.FilterFuncs
 	DenyList                filters.FilterFuncs
@@ -82,25 +82,27 @@ func (h *metricsHandler) Init(registry *prometheus.Registry, options *metricsAPI
 		return err
 	}
 
-	labels := h.getLabelNames()
+	commonLabels := []string{"name"}
 
+	flowsExportedTotalLabels := h.flowExportedLabelNames()
+	flowsExportedTotalLabels = append(flowsExportedTotalLabels, commonLabels...)
 	h.flowsExportedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsAPI.DefaultPrometheusNamespace,
 		Name:      "flows_exported_total",
 		Help:      "Total number of flows exported",
-	}, labels)
+	}, flowsExportedTotalLabels)
 
-	h.flowsExportedBytesTotal = prometheus.NewCounter(prometheus.CounterOpts{
+	h.flowsExportedBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsAPI.DefaultPrometheusNamespace,
 		Name:      "flows_exported_bytes_total",
 		Help:      "Number of bytes exported for flows",
-	})
+	}, commonLabels)
 
-	h.flowsExportTimestamp = prometheus.NewGauge(prometheus.GaugeOpts{
+	h.flowsExportTimestamp = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsAPI.DefaultPrometheusNamespace,
 		Name:      "flows_last_exported_timestamp",
 		Help:      "Timestamp of the most recent flow to be exported",
-	})
+	}, commonLabels)
 
 	registry.MustRegister(h.flowsExportedTotal)
 	registry.MustRegister(h.flowsExportedBytesTotal)
@@ -164,41 +166,45 @@ func (h *metricsHandler) SetFilters(cfg *metricsAPI.MetricConfig) error {
 	return nil
 }
 
-// UpdateMetrics is the method responsible for updating the metrics of this handler.
-func (h *metricsHandler) UpdateMetrics(_ context.Context, flow *flowpb.Flow) error {
+// UpdateFlowMetrics updates the flow metrics.
+func (h *metricsHandler) UpdateFlowMetrics(_ context.Context, flow *flowpb.Flow, name string) error {
 	if !h.initialized {
 		return nil
 	}
-	labels, err := h.getLabelValues(flow)
+
+	commonLabels := []string{name}
+	flowsExportedTotalLabels, err := h.flowExportedLabelValues(flow)
 	if err != nil {
 		return err
 	}
-	h.flowsExportedTotal.WithLabelValues(labels...).Inc()
-	h.flowsExportTimestamp.Set(float64(flow.GetTime().GetSeconds()))
+	flowsExportedTotalLabels = append(flowsExportedTotalLabels, commonLabels...)
+
+	h.flowsExportedTotal.WithLabelValues(flowsExportedTotalLabels...).Inc()
+	h.flowsExportTimestamp.WithLabelValues(commonLabels...).Set(float64(flow.GetTime().GetSeconds()))
 	return nil
 }
 
 // updateExportedBytesTotal updates the bytes total metric.
-func (h *metricsHandler) updateExportedBytesTotal(byteCount int) {
+func (h *metricsHandler) updateExportedBytesTotal(byteCount int, name string) {
 	if !h.initialized {
 		return
 	}
-	h.flowsExportedBytesTotal.Add(float64(byteCount))
+	h.flowsExportedBytesTotal.WithLabelValues(name).Add(float64(byteCount))
 }
 
 // WrapWriter wraps the provided writer with a new writer that updates the bytes total metric with
 // the number of bytes written.
-func (h *metricsHandler) WrapWriter(w io.WriteCloser) io.WriteCloser {
-	return byteCounterWriter{w, h}
+func (h *metricsHandler) WrapWriter(w io.WriteCloser, name string) io.WriteCloser {
+	return byteCounterWriter{w, h, name}
 }
 
-func (h *metricsHandler) getLabelNames() []string {
+func (h *metricsHandler) flowExportedLabelNames() []string {
 	labels := []string{"protocol", "type", "subtype", "verdict"}
 	labels = append(labels, h.context.GetLabelNames()...)
 	return labels
 }
 
-func (h *metricsHandler) getLabelValues(flow *flowpb.Flow) ([]string, error) {
+func (h *metricsHandler) flowExportedLabelValues(flow *flowpb.Flow) ([]string, error) {
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return nil, err
@@ -241,10 +247,11 @@ func (h *metricsHandler) getLabelValues(flow *flowpb.Flow) ([]string, error) {
 type byteCounterWriter struct {
 	io.WriteCloser
 	metricsHandler *metricsHandler
+	name           string
 }
 
 func (w byteCounterWriter) Write(p []byte) (int, error) {
 	n, err := w.WriteCloser.Write(p)
-	w.metricsHandler.updateExportedBytesTotal(n)
+	w.metricsHandler.updateExportedBytesTotal(n, w.name)
 	return n, err
 }
