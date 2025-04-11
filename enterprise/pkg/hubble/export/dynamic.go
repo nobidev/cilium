@@ -1,0 +1,405 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+package export
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"reflect"
+	"slices"
+	"sync"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/lumberjack/v2"
+	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/yaml"
+
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/shortener"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+var _ exporter.ExporterConfigParser = (*exporterConfigParser)(nil)
+
+type exporterConfigParser struct {
+	logger *slog.Logger
+}
+
+// Parse implements ExporterConfigParser.
+func (e *exporterConfigParser) Parse(r io.Reader) (map[string]exporter.ExporterConfig, error) {
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+	var config EnterpriseDynamicExportersConfig
+	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal yaml config: %w", err)
+	}
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+	configs := make(map[string]exporter.ExporterConfig, len(config.FlowLogs))
+	for _, fl := range config.FlowLogs {
+		configs[fl.Name] = fl
+	}
+	return configs, nil
+}
+
+var _ exporter.ExporterFactory = (*exporterFactory)(nil)
+
+type exporterFactory struct {
+	// TODO: replace by slog
+	logger         logrus.FieldLogger
+	sLogger        *slog.Logger
+	jobGroup       job.Group
+	metricsHandler *metricsHandler
+}
+
+// Create implements ExporterFactory.
+func (f *exporterFactory) Create(config exporter.ExporterConfig) (exporter.FlowLogExporter, error) {
+	if config, ok := config.(*EnterpriseFlowLogConfig); ok {
+		return f.create(config)
+	}
+	return nil, fmt.Errorf("invalid config type %T (%+v)", config, config)
+}
+
+// TODO: one-shot jobs added to the jobGroup are not cleaned up when an exporter is
+// removed following a reload. This could lead to a growing health table and somewhat
+// of a memory leak in environments with numerous updates to exporters with a large
+// name cardinality.
+// There is an ongoing effort in hive to support closing health reporters of jobs:
+// https://github.com/cilium/hive/pull/20
+func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.FlowLogExporter, error) {
+	f.logger.WithFields(logrus.Fields{
+		"exporter-name": config.Name,
+		"config":        fmt.Sprintf("%+v", config),
+	}).Debug("Creating new managed exporter")
+
+	// only create a scoped group if we have at least one job to add
+	scopedGroup := sync.OnceValue(func() job.ScopedGroup {
+		jobName := shortener.ShortenHiveJobName("hubble-exporter-" + config.FlowLogConfig.Name)
+		return f.jobGroup.Scoped(jobName)
+	})
+
+	// setup writer
+	writer := &lumberjack.Logger{
+		Filename:   config.FlowLogConfig.FilePath,
+		MaxSize:    config.FlowLogConfig.FileMaxSizeMB,
+		MaxBackups: config.FlowLogConfig.FileMaxBackups,
+		Compress:   config.FlowLogConfig.FileCompress,
+	}
+
+	// setup exporter options
+	exporterOpts := []exporter.Option{
+		exporter.WithAllowList(f.sLogger, config.FlowLogConfig.IncludeFilters),
+		exporter.WithDenyList(f.sLogger, config.FlowLogConfig.ExcludeFilters),
+		exporter.WithFieldMask(config.FlowLogConfig.FieldMask),
+		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
+			var writer io.WriteCloser = writer
+			// FIXME: at startup, the metrics handler is not yet initialized
+			// and result in missing the first few bytes written updates.
+			writer = f.metricsHandler.WrapWriter(writer, config.FlowLogConfig.Name)
+			return writer, nil
+		}),
+		exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
+			return newJsonEncoderFromDynamicConfig(config, writer), nil
+		}),
+		exporter.WithOnExportEventFunc(func(_ context.Context, _ *v1.Event, _ exporter.Encoder) (bool, error) {
+			stop := !config.IsActive()
+			return stop, nil
+		}),
+		exporter.WithOnExportEventFunc(func(_ context.Context, ev *v1.Event, _ exporter.Encoder) (bool, error) {
+			// stop export pipeline for non-flow events
+			stop := ev.GetFlow() == nil
+			return stop, nil
+		}),
+	}
+
+	// setup aggregator
+	aggregatorjobCancel := func() {}
+	if len(config.Aggregations) > 0 {
+		aggregator, err := newAggregatorFromDynamicConfig(config, f.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create enterprise aggregator: %w", err)
+		}
+		exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(aggregator))
+
+		jobName := shortener.ShortenHiveJobName("hubble-exporter-aggregator-" + config.FlowLogConfig.Name)
+		scopedGroup().Add(job.OneShot(jobName, func(ctx context.Context, _ cell.Health) error {
+			ctx, cancel := context.WithCancel(ctx)
+			aggregatorjobCancel = cancel
+			aggregator.Start(ctx)
+			return nil
+		}))
+	}
+
+	// setup rate-limiting
+	if config.RateLimit != nil && *config.RateLimit >= 0 {
+		ratelimiter, err := newRateLimiterFromDynamicConfig(config, f.logger)
+		if err != nil {
+			// non-fatal failure, log and continue
+			f.logger.WithError(err).WithField("config", config.FlowLogConfig.Name).Warn("Failed to create flow export rate limiter")
+		} else {
+			exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
+		}
+	}
+
+	// setup flow metrics reporting
+	//
+	// NOTE: make sure this is always the last exporter option so it remains accurate when
+	// aggregation/rate-limiting is performed.
+	exporterOpts = append(exporterOpts, exporter.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporter.Encoder) (bool, error) {
+		flow := ev.GetFlow()
+		if flow == nil {
+			// we only care about flow events
+			return false, nil
+		}
+		// FIXME: at startup, the metrics handler is not yet initialized
+		// and result in missing the first few flow metric updates.
+		err := f.metricsHandler.UpdateFlowMetrics(ctx, flow, config.FlowLogConfig.Name)
+		if err != nil {
+			return false, fmt.Errorf("failed to update flow metrics for %q: %w", config.FlowLogConfig.Name, err)
+		}
+		return false, nil
+	}))
+
+	// setup file rotation
+	fileRotateJobCancel := func() {}
+	if config.FileRotationInterval != nil && *config.FileRotationInterval != 0 {
+		f.logger.WithFields(logrus.Fields{
+			"filename": config.FlowLogConfig.FilePath,
+			"interval": config.FileRotationInterval,
+		}).Info("Periodically rotating JSON export file")
+
+		jobName := shortener.ShortenHiveJobName("hubble-exporter-file-rotate-" + config.FlowLogConfig.Name)
+		scopedGroup().Add(job.OneShot(jobName, func(ctx context.Context, health cell.Health) error {
+			ctx, cancel := context.WithCancel(ctx)
+			fileRotateJobCancel = cancel
+			ticker := time.NewTicker(time.Duration(*config.FileRotationInterval))
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					if err := writer.Rotate(); err != nil {
+						f.logger.WithError(err).
+							WithField("filename", config.FlowLogConfig.FilePath).
+							Warn("Failed to rotate JSON export file")
+					}
+				}
+			}
+		}))
+	}
+
+	staticExporter, err := exporter.NewExporter(f.sLogger, exporterOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create static exporter instance for %q: %w", config.FlowLogConfig.Name, err)
+	}
+	wrapperExporter := &wrappedExporter{
+		FlowLogExporter: staticExporter,
+		onStop: func() error {
+			aggregatorjobCancel()
+			fileRotateJobCancel()
+			return nil
+		},
+	}
+
+	return wrapperExporter, nil
+}
+
+func newAggregatorFromDynamicConfig(config *EnterpriseFlowLogConfig, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
+	aggregationTTL := time.Duration(0)
+	if config.AggregationTTL != nil {
+		aggregationTTL = time.Duration(*config.AggregationTTL)
+	}
+	aggFilter, err := aggregator.NewAggregation(
+		config.Aggregations,
+		config.AggregationStateChangeFilter,
+		config.AggregationIgnoreSourcePort,
+		aggregationTTL,
+		config.AggregationRenewTTL,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create flow aggregation filter: %w", err)
+	}
+	return aggregation.NewEnterpriseAggregator(aggFilter, logger)
+}
+
+type EnterpriseDynamicExportersConfig struct {
+	FlowLogs []*EnterpriseFlowLogConfig `json:"flowLogs,omitempty" yaml:"flowLogs,omitempty"`
+}
+
+func (c *EnterpriseDynamicExportersConfig) Validate() error {
+	flowlogNames := make(map[string]interface{})
+	flowlogPaths := make(map[string]interface{})
+
+	var errs error
+
+	for i := range c.FlowLogs {
+		if c.FlowLogs[i] == nil {
+			errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d", i))
+			continue
+		}
+		name := c.FlowLogs[i].FlowLogConfig.Name
+		if name == "" {
+			errs = errors.Join(errs, fmt.Errorf("name is required"))
+		} else {
+			if _, ok := flowlogNames[name]; ok {
+				errs = errors.Join(errs, fmt.Errorf("duplicated flowlog name %s", name))
+			}
+			flowlogNames[name] = struct{}{}
+		}
+
+		filePath := c.FlowLogs[i].FlowLogConfig.FilePath
+		if filePath == "" {
+			errs = errors.Join(errs, fmt.Errorf("filePath is required"))
+		} else {
+			if _, ok := flowlogPaths[filePath]; ok {
+				errs = errors.Join(errs, fmt.Errorf("duplicated flowlog path %s", filePath))
+			}
+			flowlogPaths[filePath] = struct{}{}
+		}
+	}
+
+	return errs
+}
+
+var _ exporter.ExporterConfig = (*EnterpriseFlowLogConfig)(nil)
+
+// EnterpriseFlowLogConfig represents configuration of single dynamic exporter.
+type EnterpriseFlowLogConfig struct {
+	exporter.FlowLogConfig
+
+	FileRotationInterval         *Duration `json:"fileRotationInterval,omitempty" yaml:"fileRotationInterval,omitempty"`
+	FormatVersion                string    `json:"formatVersion,omitempty" yaml:"formatVersion,omitempty"`
+	RateLimit                    *int      `json:"rateLimit,omitempty" yaml:"rateLimit,omitempty"`
+	NodeName                     string    `json:"nodeName,omitempty" yaml:"nodeName,omitempty"`
+	Aggregations                 []string  `json:"aggregation,omitempty" yaml:"aggregation,omitempty"`
+	AggregationIgnoreSourcePort  bool      `json:"aggregationIgnoreSourcePort,omitempty" yaml:"aggregationIgnoreSourcePort,omitempty"`
+	AggregationRenewTTL          bool      `json:"aggregationRenewTTL,omitempty" yaml:"aggregationRenewTTL,omitempty"`
+	AggregationStateChangeFilter []string  `json:"aggregationStateFilter,omitempty" yaml:"aggregationStateFilter,omitempty"`
+	AggregationTTL               *Duration `json:"aggregationTTL,omitempty" yaml:"aggregationTTL,omitempty"`
+}
+
+// Equal implements the ExporterConfig interface.
+func (f *EnterpriseFlowLogConfig) Equal(other interface{}) bool {
+	if other, ok := other.(*EnterpriseFlowLogConfig); ok {
+		return f.equals(other)
+	}
+	return false
+}
+
+func (f *EnterpriseFlowLogConfig) equals(other *EnterpriseFlowLogConfig) bool {
+	if !f.FlowLogConfig.Equal(&other.FlowLogConfig) {
+		return false
+	}
+
+	if f.FileRotationInterval == nil && other.FileRotationInterval != nil ||
+		f.FileRotationInterval != nil && other.FileRotationInterval == nil ||
+		f.FileRotationInterval != nil && other.FileRotationInterval != nil && *f.FileRotationInterval != *other.FileRotationInterval {
+		return false
+	}
+	if f.FormatVersion != other.FormatVersion {
+		return false
+	}
+	if f.RateLimit == nil && other.RateLimit != nil ||
+		f.RateLimit != nil && other.RateLimit == nil ||
+		f.RateLimit != nil && other.RateLimit != nil && *f.RateLimit != *other.RateLimit {
+		return false
+	}
+	if f.NodeName != other.NodeName {
+		return false
+	}
+	if !stringSlicesEqual(f.Aggregations, other.Aggregations) {
+		return false
+	}
+	if !stringSlicesEqual(f.AggregationStateChangeFilter, other.AggregationStateChangeFilter) {
+		return false
+	}
+	if f.AggregationIgnoreSourcePort != other.AggregationIgnoreSourcePort {
+		return false
+	}
+	if f.AggregationRenewTTL != other.AggregationRenewTTL {
+		return false
+	}
+	if f.AggregationTTL == nil && other.AggregationTTL != nil ||
+		f.AggregationTTL != nil && other.AggregationTTL == nil ||
+		f.AggregationTTL != nil && other.AggregationTTL != nil && *f.AggregationTTL != *other.AggregationTTL {
+		return false
+	}
+
+	return true
+}
+
+var _ exporter.FlowLogExporter = (*wrappedExporter)(nil)
+
+type onStopFn func() error
+
+type wrappedExporter struct {
+	exporter.FlowLogExporter
+	onStop onStopFn
+}
+
+// Stop implements FlowLogExporter.
+func (w *wrappedExporter) Stop() error {
+	if w.onStop != nil {
+		if err := w.onStop(); err != nil {
+			return err
+		}
+	}
+	return w.FlowLogExporter.Stop()
+}
+
+type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch value := v.(type) {
+	case float64:
+		*d = Duration(time.Duration(value))
+		return nil
+	case string:
+		tmp, err := time.ParseDuration(value)
+		if err != nil {
+			return err
+		}
+		*d = Duration(tmp)
+		return nil
+	default:
+		return errors.New("invalid duration")
+	}
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	xs := make([]string, len(a))
+	ys := make([]string, len(b))
+	copy(xs, a)
+	copy(ys, b)
+	slices.Sort(xs)
+	slices.Sort(ys)
+	return reflect.DeepEqual(xs, ys)
+}

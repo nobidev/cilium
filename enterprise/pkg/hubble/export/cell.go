@@ -39,8 +39,9 @@ var Cell = cell.Module(
 	"Hubble Enterprise flow log exporter",
 
 	cell.ProvidePrivate(newMetricsHandler),
-	cell.Provide(newMergedConfig),
+	cell.ProvidePrivate(newMergedConfig),
 	cell.Provide(newHubbleEnterpriseExporter),
+	cell.Provide(newHubbleEnterpriseDynamicExporter),
 	cell.Config(defaultConfig),
 	cell.Config(defaultLegacyConfig),
 )
@@ -286,7 +287,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 					return writer, nil
 				}),
 				exporter.WithNewEncoderFunc(func(writer io.Writer) (exporter.Encoder, error) {
-					return newEnterpriseJsonEncoder(params.Config.ee, writer), nil
+					return newJsonEncoderFromStaticConfig(params.Config.ee, writer), nil
 				}),
 				exporter.WithOnExportEventFunc(func(_ context.Context, ev *v1.Event, _ exporter.Encoder) (bool, error) {
 					// stop export pipeline for non-flow events
@@ -297,7 +298,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 
 			// create aggregator
 			if len(params.Config.ee.Aggregations) > 0 {
-				aggregator, err := newHubbleEnterpriseAggregator(params.Config.ee, params.Logger)
+				aggregator, err := newAggregatorFromStaticConfig(params.Config.ee, params.Logger)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create enterprise aggregator: %w", err)
 				}
@@ -310,7 +311,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 
 			// setup rate-limiting
 			if params.Config.ee.RateLimit >= 0 {
-				ratelimiter, err := newEnterpriseRateLimiter(params.Config.ee, params.Logger)
+				ratelimiter, err := newRateLimiterFromStaticConfig(params.Config.ee, params.Logger)
 				if err != nil {
 					// non-fatal failure, log and continue
 					params.Logger.WithError(err).Warn("Failed to create flow export rate limiter")
@@ -377,7 +378,56 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 	}, nil
 }
 
-func newHubbleEnterpriseAggregator(config config, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
+type hubbleEnterpriseDynamicExporterParams struct {
+	cell.In
+
+	JobGroup  job.Group
+	Lifecycle cell.Lifecycle
+	// depend on OSS config so we can re-use the hubble-flowlogs-config-path flag.
+	Config  exportercell.ValidatedConfig
+	Metrics *metricsHandler
+
+	// TODO: replace by slog
+	Logger  logrus.FieldLogger
+	SLogger *slog.Logger
+}
+
+func newHubbleEnterpriseDynamicExporter(params hubbleEnterpriseDynamicExporterParams) (HubbleEnterpriseExporterOut, error) {
+	if params.Config.FlowlogsConfigFilePath == "" {
+		params.Logger.Info("The Hubble EE dynamic exporter is disabled")
+		return HubbleEnterpriseExporterOut{}, nil
+	}
+
+	builder := &exportercell.FlowLogExporterBuilder{
+		Name:     "dynamic-ee-exporter",
+		Replaces: "dynamic-exporter",
+		Build: func() (exporter.FlowLogExporter, error) {
+			params.Logger.WithField("config-filepath", params.Config.FlowlogsConfigFilePath).Info("Building the Hubble EE dynamic exporter")
+
+			// dynamic exporter
+			exporterFactory := &exporterFactory{logger: params.Logger, sLogger: params.SLogger, jobGroup: params.JobGroup, metricsHandler: params.Metrics}
+			exporterConfigParser := &exporterConfigParser{params.SLogger}
+			dynamicExporter := exporter.NewDynamicExporter(params.SLogger, params.Config.FlowlogsConfigFilePath, exporterFactory, exporterConfigParser)
+
+			params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, _ cell.Health) error {
+				return dynamicExporter.Watch(ctx)
+			}))
+			params.Lifecycle.Append(cell.Hook{
+				OnStop: func(hc cell.HookContext) error {
+					return dynamicExporter.Stop()
+				},
+			})
+
+			return dynamicExporter, nil
+		},
+	}
+
+	return HubbleEnterpriseExporterOut{
+		ExporterBuilders: []*exportercell.FlowLogExporterBuilder{builder},
+	}, nil
+}
+
+func newAggregatorFromStaticConfig(config config, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
 	aggFilter, err := aggregator.NewAggregation(
 		config.Aggregations,
 		config.AggregationStateChangeFilter,

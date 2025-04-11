@@ -29,7 +29,15 @@ type enterpriseJsonEncoder struct {
 	nodeName           string
 }
 
-func newEnterpriseJsonEncoder(conf config, writer io.Writer) *enterpriseJsonEncoder {
+func newJsonEncoderFromStaticConfig(conf config, writer io.Writer) *enterpriseJsonEncoder {
+	return &enterpriseJsonEncoder{
+		enc:                json.NewEncoder(writer),
+		useFormatVersionV1: conf.FormatVersion == formatVersionV1,
+		nodeName:           conf.NodeName,
+	}
+}
+
+func newJsonEncoderFromDynamicConfig(conf *EnterpriseFlowLogConfig, writer io.Writer) *enterpriseJsonEncoder {
 	return &enterpriseJsonEncoder{
 		enc:                json.NewEncoder(writer),
 		useFormatVersionV1: conf.FormatVersion == formatVersionV1,

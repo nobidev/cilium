@@ -24,17 +24,30 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+const rateLimitInterval = 1 * time.Minute
+
 var _ exporter.OnExportEvent = (*enterpriseRateLimiter)(nil)
 
 type enterpriseRateLimiter struct {
 	ratelimiter *rateLimiter
 }
 
-func newEnterpriseRateLimiter(conf config, logger logrus.FieldLogger) (*enterpriseRateLimiter, error) {
-	rateLimitInterval := 1 * time.Minute
+func newRateLimiterFromStaticConfig(conf config, logger logrus.FieldLogger) (*enterpriseRateLimiter, error) {
 	ratelimiter, err := NewRateLimiter(conf.RateLimit, rateLimitInterval, conf.NodeName, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create flow export rate limiter: %w", err)
+		return nil, fmt.Errorf("failed to create static flow export rate limiter: %w", err)
+	}
+	return &enterpriseRateLimiter{ratelimiter: ratelimiter}, nil
+}
+
+func newRateLimiterFromDynamicConfig(conf *EnterpriseFlowLogConfig, logger logrus.FieldLogger) (*enterpriseRateLimiter, error) {
+	rateLimit := -1
+	if conf.RateLimit != nil {
+		rateLimit = *conf.RateLimit
+	}
+	ratelimiter, err := NewRateLimiter(rateLimit, rateLimitInterval, conf.NodeName, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic flow export rate limiter: %w", err)
 	}
 	return &enterpriseRateLimiter{ratelimiter: ratelimiter}, nil
 }
