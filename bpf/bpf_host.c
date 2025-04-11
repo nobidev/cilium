@@ -4,7 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
+#include <bpf/config/node.h>
 #include <bpf/config/global.h>
 #include <bpf/config/endpoint.h>
 #include <bpf/config/host.h>
@@ -375,17 +375,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
-	} else {
-		struct tunnel_key key = {};
-
-		/* IPv6 lookup key: daddr/96 */
-		ipv6_addr_copy(&key.ip6, dst);
-		key.ip6.p4 = 0;
-		key.family = ENDPOINT_KEY_IPV6;
-
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
 	}
 skip_tunnel:
 #endif
@@ -606,6 +595,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct iphdr *ip4;
+	fraginfo_t fraginfo __maybe_unused;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -615,7 +605,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
  * then drop the packet.
  */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
@@ -841,17 +832,6 @@ skip_vtep:
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
-	} else {
-		/* IPv4 lookup key: daddr & IPV4_MASK */
-		struct tunnel_key key = {};
-
-		key.ip4 = ip4->daddr & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-
-		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
 	}
 skip_tunnel:
 #endif
@@ -1487,58 +1467,110 @@ skip_host_firewall:
 	{
 		void *data, *data_end;
 		struct iphdr *ip4;
-		struct ipv4_ct_tuple tuple = {};
+		struct ipv6hdr __maybe_unused *ip6;
+		struct ipv4_ct_tuple tuple4 = {};
+		struct ipv6_ct_tuple __maybe_unused tuple6 = {};
 		int l4_off;
 		struct remote_endpoint_info *info;
 		struct endpoint_info *src_ep;
 		bool is_reply;
+		fraginfo_t fraginfo;
 
 		if (src_sec_identity == HOST_ID)
-			goto skip_egress_gateway;
-
-		if (proto != bpf_htons(ETH_P_IP))
 			goto skip_egress_gateway;
 
 		if (ctx_egw_done(ctx))
 			goto skip_egress_gateway;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
-			goto drop_err;
-		}
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
 
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
+			fraginfo = ipfrag_encode_ipv4(ip4);
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple,
-					NULL);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_CT_UNKNOWN_PROTO)
+			tuple4.nexthdr = ip4->protocol;
+			tuple4.daddr = ip4->daddr;
+			tuple4.saddr = ip4->saddr;
+
+			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+			ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+						CT_EGRESS, &tuple4);
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CT_UNKNOWN_PROTO)
+					goto skip_egress_gateway;
+				goto drop_err;
+			}
+
+			/* Only handle outbound connections: */
+			is_reply = ct_is_reply4(get_ct_map4(&tuple4), &tuple4);
+			if (is_reply)
 				goto skip_egress_gateway;
 
-			goto drop_err;
+			src_ep = __lookup_ip4_endpoint(ip4->saddr);
+			if (src_ep)
+				src_sec_identity = src_ep->sec_id;
+
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+			if (info && info->sec_identity)
+				dst_sec_identity = info->sec_identity;
+
+			/* lower-level code expects CT tuple to be flipped: */
+			__ipv4_ct_tuple_reverse(&tuple4);
+			ret = egress_gw_handle_packet(ctx, &tuple4,
+						      src_sec_identity, dst_sec_identity,
+						      &trace);
+			break;
+#if defined(ENABLE_IPV6)
+		case bpf_htons(ETH_P_IPV6):
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+
+			tuple6.nexthdr = ip6->nexthdr;
+			ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
+			ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
+
+			l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &tuple6.nexthdr);
+			if (l4_off < 0) {
+				ret = l4_off;
+				goto drop_err;
+			}
+
+			ret = ct_extract_ports6(ctx, l4_off, &tuple6);
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CT_UNKNOWN_PROTO)
+					goto skip_egress_gateway;
+				goto drop_err;
+			}
+
+			/* Only handle outbound connections: */
+			is_reply = ct_is_reply6(get_ct_map6(&tuple6), &tuple6);
+			if (is_reply)
+				goto skip_egress_gateway;
+
+			src_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+			if (src_ep)
+				src_sec_identity = src_ep->sec_id;
+
+			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+			if (info && info->sec_identity)
+				dst_sec_identity = info->sec_identity;
+
+			/* lower-level code expects CT tuple to be flipped: */
+			__ipv6_ct_tuple_reverse(&tuple6);
+			ret = egress_gw_handle_packet_v6(ctx, &tuple6,
+							 src_sec_identity, dst_sec_identity,
+							 &trace);
+			break;
+#endif
+		default:
+			goto skip_egress_gateway;
 		}
 
-		/* Only handle outbound connections: */
-		is_reply = ct_is_reply4(get_ct_map4(&tuple), &tuple);
-		if (is_reply)
-			goto skip_egress_gateway;
-
-		src_ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (src_ep)
-			src_sec_identity = src_ep->sec_id;
-
-		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (info && info->sec_identity)
-			dst_sec_identity = info->sec_identity;
-
-		/* lower-level code expects CT tuple to be flipped: */
-		__ipv4_ct_tuple_reverse(&tuple);
-		ret = egress_gw_handle_packet(ctx, &tuple,
-					      src_sec_identity, dst_sec_identity,
-					      &trace);
 		if (IS_ERR(ret))
 			goto drop_err;
 

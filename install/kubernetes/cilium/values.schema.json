@@ -2392,6 +2392,9 @@
                     "anyOf": [
                       {
                         "properties": {
+                          "action": {
+                            "type": "string"
+                          },
                           "replacement": {
                             "type": "string"
                           },
@@ -3129,6 +3132,9 @@
                     "anyOf": [
                       {
                         "properties": {
+                          "action": {
+                            "type": "string"
+                          },
                           "replacement": {
                             "type": "string"
                           },
@@ -3209,6 +3215,14 @@
                 }
               },
               "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "networkPolicyCorrelation": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
             }
           },
           "type": "object"
@@ -4718,6 +4732,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "labels": {
+                  "type": "object"
+                },
                 "nodePort": {
                   "type": "integer"
                 },
@@ -6179,6 +6196,9 @@
                 "anyOf": [
                   {
                     "properties": {
+                      "action": {
+                        "type": "string"
+                      },
                       "replacement": {
                         "type": "string"
                       },

@@ -4,7 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
+#include <bpf/config/node.h>
 #include <bpf/config/global.h>
 #include <netdev_config.h>
 #include "lib/mcast.h"
@@ -151,6 +151,37 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 not_esp:
 #endif
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+	{
+		__u32 egress_ifindex = 0;
+		union v6addr snat_addr, daddr;
+
+		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+		if (egress_gw_snat_needed_hook_v6((union v6addr *)&ip6->saddr,
+						  &daddr, &snat_addr,
+						  &egress_ifindex)) {
+			if (ipv6_addr_equals(&snat_addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6))
+				return DROP_NO_EGRESS_IP;
+
+			ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_INGRESS);
+			if (unlikely(ret != CTX_ACT_OK))
+				return ret;
+
+			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
+
+			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
+			ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
+								   &daddr, egress_ifindex,
+								   ext_err);
+			if (ret != CTX_ACT_OK)
+				return ret;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+		}
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
@@ -289,6 +320,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
+	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -300,7 +332,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
  * then drop the packet.
  */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
@@ -444,7 +477,7 @@ not_esp:
 			if (unlikely(ret != CTX_ACT_OK))
 				return ret;
 
-			ctx_egw_done_set(ctx);
+			set_identity_mark(ctx, *identity, MARK_MAGIC_EGW_DONE);
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,

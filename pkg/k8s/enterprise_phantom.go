@@ -54,7 +54,7 @@ func PhantomServiceMutator(svc *slim_corev1.Service, svcInfo *Service) {
 
 func getAnnotationPhantom(svc *slim_corev1.Service) bool {
 	// Cannot be a phantom service if it's already declared as global, or it is not of type LB.
-	if getAnnotationIncludeExternal(svc) || svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
+	if annotation.GetAnnotationIncludeExternal(svc) || svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return false
 	}
 
