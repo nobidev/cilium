@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -227,6 +228,9 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
 		}
+		if err := r.Spec.SanitizeOrder(); err != nil {
+			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy spec: %s", err))
+		}
 		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
 		retRules = append(retRules, cr)
 	}
@@ -236,12 +240,22 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 
 			}
+			if err := rule.SanitizeOrder(); err != nil {
+				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
+			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
 			retRules = append(retRules, cr)
 		}
 	}
 
 	return retRules, nil
+}
+
+func (r *IsovalentNetworkPolicyRule) SanitizeOrder() error {
+	if order := r.Order; order != nil && *order < 0 {
+		return errors.New("rule order must be ≥ 0")
+	}
+	return nil
 }
 
 func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, namespace, name string, uid types.UID) *api.Rule {

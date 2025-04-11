@@ -122,11 +122,14 @@ func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Ev
 	)
 
 	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
+	if r := pol.Spec; r != nil {
+		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.SanitizeOrder())
+
 	}
 	for _, r := range pol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.SanitizeOrder())
 	}
 
 	newPol := pol.DeepCopy()
