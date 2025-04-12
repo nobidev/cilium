@@ -125,6 +125,8 @@ jobs:
             --helm-set=encryption.type=wireguard \
             --helm-set=enterprise.encryption.policy.enabled=true \
             --helm-set=enterprise.encryption.policy.fallbackBehavior=plaintext \
+            --helm-set=enterprise.featureGate.strict=true \
+            --helm-set='enterprise.featureGate.approved={CiliumEndpointSlice,EncryptionWireguard,EncryptionPolicy}' \
             --helm-set-string=extraConfig.encryption-policy-map-max=131072 \
             --wait=false"
           # only add SHA to the image tags if it was set
