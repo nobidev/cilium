@@ -38,6 +38,20 @@ const (
 	egressIP1 = "192.168.1.50"
 )
 
+func filterEgressIPs(nlAddrs []netlink.Addr, label string) []netip.Addr {
+	addrs := make([]netip.Addr, 0, len(nlAddrs))
+	for _, nlAddr := range nlAddrs {
+		if label != "" && nlAddr.Label != label {
+			continue
+		}
+
+		addr, _ := netip.AddrFromSlice(nlAddr.IP)
+		addrs = append(addrs, addr)
+	}
+
+	return addrs
+}
+
 func runTest(t *testing.T, prepareLink func(*netlink.Handle, netlink.Link, string)) {
 	testutils.PrivilegedTest(t)
 
@@ -664,18 +678,14 @@ func TestPrivilegedPrune(t *testing.T) {
 	})
 	require.NoError(t, err, "ops.Prune")
 
-	// egress IPs should have been left untouched
+	// egressIP_1 should have been deleted
 	nlAddrs, err := safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
 		//nolint:forbidigo
 		return nlh.AddrList(link, netlink.FAMILY_V4)
 	})
 	require.NoError(t, err, "netlink.AddrList")
-	addrs := make([]netip.Addr, 0, len(nlAddrs))
-	for _, nlAddr := range nlAddrs {
-		addr, _ := netip.AddrFromSlice(nlAddr.IP)
-		addrs = append(addrs, addr)
-	}
-	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
+	addrs := filterEgressIPs(nlAddrs, "")
+	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_2})
 
 	// only the rule for egressIP_1 should have been deleted
 	rules, err := safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
@@ -737,18 +747,14 @@ func TestPrivilegedPrune(t *testing.T) {
 	})
 	require.NoError(t, err, "ops.Prune")
 
-	// egress IPs should have been left untouched
+	// egressIP_2 should have been deleted
 	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
 		//nolint:forbidigo
 		return nlh.AddrList(link, netlink.FAMILY_V4)
 	})
 	require.NoError(t, err, "netlink.AddrList")
-	addrs = make([]netip.Addr, 0, len(nlAddrs))
-	for _, nlAddr := range nlAddrs {
-		addr, _ := netip.AddrFromSlice(nlAddr.IP)
-		addrs = append(addrs, addr)
-	}
-	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
+	addrs = filterEgressIPs(nlAddrs, "")
+	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1})
 
 	// only the rule for egressIP_2 should have been deleted
 	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
@@ -797,18 +803,77 @@ func TestPrivilegedPrune(t *testing.T) {
 	})
 	require.NoError(t, err, "ops.Prune")
 
-	// egress IPs should have been left untouched
+	// egress IPs should have been deleted
 	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
 		//nolint:forbidigo
 		return nlh.AddrList(link, netlink.FAMILY_V4)
 	})
 	require.NoError(t, err, "netlink.AddrList")
-	addrs = make([]netip.Addr, 0, len(nlAddrs))
-	for _, nlAddr := range nlAddrs {
-		addr, _ := netip.AddrFromSlice(nlAddr.IP)
-		addrs = append(addrs, addr)
+	addrs = filterEgressIPs(nlAddrs, "")
+	require.Empty(t, addrs)
+
+	// all rules should have been deleted
+	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
+	require.NoError(t, err, "RuleListFiltered")
+	require.Empty(t, rules)
+
+	// all routes should have been deleted
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
+	require.NoError(t, err, "RouteListFiltered")
+	require.Empty(t, routes)
+
+	// *** Now validate that we don't prune old-style IPs:
+
+	// Add an unlabeled IP, and reconcile the rest:
+	addr := addrForEgressIP(egressIP_2, "")
+	if err = nlh.AddrAdd(link, addr); err != nil {
+		t.Fatal(err)
 	}
-	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
+
+	// call again Update() to reconcile network config as specified in the entries
+	for _, entry := range entries {
+		err = ns.Do(func() error {
+			return ops.Update(context.Background(), nil, 0, entry)
+		})
+		require.NoError(t, err, "ops.Update")
+	}
+
+	// build a fake empty iterator and call Prune
+	err = ns.Do(func() error {
+		return ops.Prune(context.Background(), nil, newFakeIterator())
+	})
+	require.NoError(t, err, "ops.Prune")
+
+	// egressIP_2 should still be there
+	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
+	require.NoError(t, err, "netlink.AddrList")
+	addrs = filterEgressIPs(nlAddrs, "")
+	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_2})
 
 	// all rules should have been deleted
 	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {

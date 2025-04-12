@@ -221,15 +221,22 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 		return fmt.Errorf("failed to list egress-gateway IPAM routes: %w", err)
 	}
 
+	// There's currently no way to filter for specific labels, so we list all addresses:
+	addrs, err := safenetlink.AddrList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		return fmt.Errorf("failed to list egress-gateway IPAM addresses: %w", err)
+	}
+
 	// build a map of in-use egressIP -> destinations:
+	egressIPs := make(map[netip.Addr]struct{})
 	egressRoutes := make(map[netip.Addr][]netip.Prefix)
 	for entry := range iter {
+		egressIPs[entry.Addr] = struct{}{}
 		egressRoutes[entry.Addr] = append(egressRoutes[entry.Addr], entry.Destinations...)
 	}
 
-	// prune rules and routes that are not part of the desired state (that is,
+	// prune rules / routes / addrs that are not part of the desired state (that is,
 	// the stateDB current snapshot).
-	// We avoid pruning IP addresses since we can't reliably identify Cilium-managed egress IPs.
 	for _, rule := range rules {
 		if rule.Src == nil {
 			continue
@@ -285,6 +292,30 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 			Protocol: linux_defaults.RTProto,
 		}); err != nil {
 			return fmt.Errorf("failed to delete route for egress IP %s while pruning: %w", addr, err)
+		}
+	}
+
+	for _, a := range addrs {
+		if a.Label != egressIPLabel {
+			continue
+		}
+
+		addr, ok := netipx.FromStdIP(a.IP)
+		if !ok {
+			return fmt.Errorf("failed to convert netlink addr IP: %s", a.IP.String())
+		}
+
+		if _, ok := egressIPs[addr]; ok {
+			// TODO could also check whether the IP is set on the expected interface
+			continue
+		}
+
+		ops.logger.Debug("Pruning address",
+			logfields.Address, addr,
+			logfields.LinkIndex, a.LinkIndex)
+
+		if err := netlink.AddrDel(nil, &a); err != nil {
+			return fmt.Errorf("failed to delete egress IP %s: %w", addr, err)
 		}
 	}
 
