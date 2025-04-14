@@ -156,7 +156,6 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto, __u32 src_sec_identit
 	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	bool from_tunnel __maybe_unused = false;
 	__u32 magic __maybe_unused = 0;
 
 	__u8 l4_proto;
