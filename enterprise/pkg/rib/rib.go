@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -286,3 +287,15 @@ func (p Protocol) AdminDistance() uint8 {
 type NextHop interface {
 	isNextHop()
 }
+
+type HEncaps struct {
+	Segments []types.SID
+}
+
+func (*HEncaps) isNextHop() {}
+
+type EndDT4 struct {
+	VRFID uint32
+}
+
+func (*EndDT4) isNextHop() {}
