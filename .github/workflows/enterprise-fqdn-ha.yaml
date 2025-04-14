@@ -57,7 +57,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_config: .github/kind-config.yaml
+  kind_config: .github/kind-config-dual.yaml
 
 jobs:
   commit-status-start:
@@ -87,6 +87,29 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
+
+      - name: Add external docker network
+        uses: ./.github/actions/kind-external-network
+        id: external_network
+
+      - name: Create kind cluster
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+        with:
+          kind_network: ${{ steps.external_network.outputs.kind_network }}
+          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
 
       - name: Set up job variables for GHA environment
         id: vars
@@ -121,6 +144,16 @@ jobs:
             --test='to-fqdn' \
             --test='external-cilium-dns-proxy' \
             --collect-sysdump-on-failure \
+            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
+            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
+            --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
+            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
+            --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
+            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
+            --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
+            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
+            --external-target-ipv6-capable
           "
 
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
@@ -134,15 +167,6 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-        with:
-          version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
-          kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ${{ env.kind_config }}
-          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -182,12 +206,16 @@ jobs:
 
       - name: Apply policy
         run: |
-          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          cat ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml | \
+            sed -e "s/EXTERNAL_TARGET/${{ steps.external_targets.outputs.external_target_name }}/" > ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
+          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: Run tests before Cilium pods are down
         run: |
-          ./enterprise/fqdn-proxy/scripts/test-fqdn-ha.sh
+          ./enterprise/fqdn-proxy/scripts/test-fqdn-ha.sh \
+            ${{ steps.external_targets.outputs.external_target_name }} \
+            ${{ steps.external_targets.outputs.other_external_target_name }}
 
       - name: Bring Cilium down
         run: |
@@ -195,7 +223,9 @@ jobs:
 
       - name: Run tests after Cilium pods are down
         run: |
-          ./enterprise/fqdn-proxy/scripts/test-fqdn-ha.sh
+          ./enterprise/fqdn-proxy/scripts/test-fqdn-ha.sh \
+            ${{ steps.external_targets.outputs.external_target_name }} \
+            ${{ steps.external_targets.outputs.other_external_target_name }}
 
       - name: Post-test information gathering
         if: ${{ !success() }}

@@ -1,12 +1,12 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: client-egress-to-fqdns-cilium-io
+  name: client-egress-to-fqdns-external-target
   namespace: cilium-test-1
 spec:
   egress:
   - toFQDNs:
-    - matchName: cilium.io
+    - matchName: EXTERNAL_TARGET
   - toEndpoints:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
