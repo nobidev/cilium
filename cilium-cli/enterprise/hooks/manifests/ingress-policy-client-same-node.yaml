@@ -1,0 +1,14 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-client-same-node-to-ingress-same-node"
+spec:
+  description: "Allow only the traffic originating from client to same node Ingress"
+  endpointSelector:
+    matchLabels:
+      "ingress:name": cilium-ingress-cilium-test-1-same-node
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        name: client

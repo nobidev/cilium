@@ -56,6 +56,9 @@ const (
 
 	// LoadBalancer: whether standalone loadbalancer is enabled
 	LoadBalancer features.Feature = "loadbalancer"
+
+	// DedicatedEnvoyConfigPolicy is the indicator whether dedicated ingress policy is enabled
+	DedicatedEnvoyConfigPolicy features.Feature = "envoy-config-policy-mode"
 )
 
 func Detect(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -143,6 +146,10 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 		Enabled: cm.Data[string(EncryptionPolicy)] == "true",
 	}
 
+	ct.Features[DedicatedEnvoyConfigPolicy] = features.Status{
+		Enabled: cm.Data[string(DedicatedEnvoyConfigPolicy)] == "dedicated",
+	}
+
 	return nil
 }
 
@@ -197,6 +204,10 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 
 	collector.FeatureSet[LoadBalancer] = features.Status{
 		Enabled: cm != nil && cm.Data[option.LoadbalancerControlplaneEnabled] == "true",
+	}
+
+	collector.FeatureSet[DedicatedEnvoyConfigPolicy] = features.Status{
+		Enabled: cm != nil && cm.Data[string(DedicatedEnvoyConfigPolicy)] == "dedicated",
 	}
 
 	return nil

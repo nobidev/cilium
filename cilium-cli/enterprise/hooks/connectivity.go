@@ -14,11 +14,13 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/enterprise/defaults"
 	enterpriseCheck "github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/deploy"
@@ -46,6 +48,12 @@ var clientEgressDNSToEchoYAML string
 
 //go:embed manifests/encrypt-client-to-echo-8080.yaml
 var encryptClientToEchoYAML string
+
+//go:embed manifests/ingress-policy-client-same-node.yaml
+var ingressPolicyClientSameNodeYAML string
+
+//go:embed manifests/ingress-policy-client-other-node.yaml
+var ingressPolicyClientOtherNodeYAML string
 
 type EnterpriseConnectivity struct {
 	externalCiliumDNSProxyPods map[string]check.Pod
@@ -85,6 +93,10 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 	}
 
 	if err := ec.addBFDTests(cts[0]); err != nil {
+		return err
+	}
+
+	if err := ec.addIngressPolicyTests(cts[0]); err != nil {
 		return err
 	}
 
@@ -535,6 +547,57 @@ func (ec *EnterpriseConnectivity) addBFDTests(ct *check.ConnectivityTest) (err e
 			)
 	}
 	bfdBGPTest(ct).WithScenarios(enterpriseTests.BFDWithBGP())
+
+	return nil
+}
+
+func (ec *EnterpriseConnectivity) addIngressPolicyTests(ct *check.ConnectivityTest) error {
+	newTest := func(ct *check.ConnectivityTest, name string) *enterpriseCheck.EnterpriseTest {
+		return enterpriseCheck.NewEnterpriseConnectivityTest(ct).
+			NewEnterpriseTest(name).
+			WithFeatureRequirements(
+				features.RequireEnabled(enterpriseFeatures.DedicatedEnvoyConfigPolicy),
+				features.RequireEnabled(features.IngressController),
+			)
+	}
+
+	newTest(ct, "pod-to-ingress-service-policy").
+		WithCiliumPolicy(ingressPolicyClientSameNodeYAML).
+		WithScenarios(tests.PodToIngress()).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			// other node Ingress should be allowed as usual
+			if strings.Contains(a.Destination().Name(), "cilium-ingress-other-node") {
+				return check.ResultOK, check.ResultOK
+			}
+
+			// same node Ingress should be allowed only for name:client pod
+			if a.Source().HasLabel("name", "client") &&
+				strings.Contains(a.Destination().Name(), "cilium-ingress-same-node") {
+				return check.ResultOK, check.ResultOK
+			}
+
+			// other traffic should be dropped
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	newTest(ct, "pod-to-ingress-service-policy-other-node").
+		WithCiliumPolicy(ingressPolicyClientOtherNodeYAML).
+		WithScenarios(tests.PodToIngress()).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			// other node Ingress should be allowed as usual
+			if strings.Contains(a.Destination().Name(), "cilium-ingress-same-node") {
+				return check.ResultOK, check.ResultOK
+			}
+
+			// same node Ingress should be allowed only for name:client pod
+			if a.Source().HasLabel("other", "client-other-node") &&
+				strings.Contains(a.Destination().Name(), "cilium-ingress-other-node") {
+				return check.ResultOK, check.ResultOK
+			}
+
+			// other traffic should be dropped
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
 
 	return nil
 }

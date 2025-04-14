@@ -1,0 +1,14 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-client-same-node-to-ingress-other-node"
+spec:
+  description: "Allow only the traffic originating from other client to other node Ingress"
+  endpointSelector:
+    matchLabels:
+      "ingress:name": cilium-ingress-cilium-test-1-other-node
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        other: client-other-node
