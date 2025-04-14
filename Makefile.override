@@ -8,6 +8,7 @@
 # or reproduction of this material is strictly forbidden unless prior written
 # permission is obtained from Isovalent Inc.
 
+CILIUM_BUILD_DIR := enterprise
 SUBDIRS_CILIUM_CONTAINER := enterprise/cilium-dbg enterprise/daemon cilium-health enterprise/bugtool tools/mount tools/sysctlfix enterprise/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := enterprise/operator
 SUBDIR_RELAY_CONTAINER := enterprise/hubble-relay
@@ -32,71 +33,25 @@ GO_BUILD = $(GO_BUILD_WITH_CGO)
 GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
 endif
 
-.PHONY: build-enterprise-cli
-build-enterprise-cli: ## Build cilium-dbg daemon binary
-	$(QUIET)$(MAKE) -C enterprise/cilium-dbg
-
-.PHONY: build-enterprise-cni
-build-enterprise-cni: ## Build cilium-cni plugin binary
-	$(QUIET)$(MAKE) -C enterprise/cilium-cni
-
-.PHONY: build-enterprise-agent
-build-enterprise-agent: ## Build cilium daemon binary
-	$(QUIET)$(MAKE) -C enterprise/daemon
-
-.PHONY: build-enterprise-relay
-build-enterprise-relay: ## Build hubble-relay
-	$(QUIET)$(MAKE) -C enterprise/hubble-relay
-
 .PHONY: kind-loadbalancer
 kind-loadbalancer: ## Create a kind cluster for LoadBalancer development.
 	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --xdp "" 4 "" "" "none" "ipv4"
 
 .PHONY: kind-image-fast-enterprise-agent
-kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterprise-cni build-enterprise-agent build-hubble-cli build-bugtool ## Build agent and node CLI binaries. Copy them and bpf files to kind nodes.
-	$(eval dst:=/cilium-binaries)
-	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
-			docker exec -ti $${node_name} mkdir -p "${dst}"; \
-			\
-			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
-			docker exec -ti $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
-			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
-			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
-			\
-			docker exec -ti $${node_name} rm -rf "${dst}/cilium-dbg"; \
-			docker cp "./enterprise/cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
-			\
-			docker exec $${node_name} rm -f "/opt/cni/bin/cilium-cni"; \
-			docker cp "./enterprise/cilium-cni/cilium-cni" $${node_name}:"/opt/cni/bin"; \
-			docker exec $${node_name} chmod +x "/opt/cni/bin/cilium-cni"; \
-			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
-			docker cp "./enterprise/daemon/cilium-agent" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
-			\
-			docker exec $${node_name} rm -f "${dst}/hubble"; \
-			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
-			docker exec $${node_name} chmod +x "${dst}/hubble"; \
-			\
-			docker exec $${node_name} rm -f "${dst}/cilium-bugtool"; \
-			docker cp "./bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
-			docker exec $${node_name} chmod +x "${dst}/cilium-bugtool"; \
-		done; \
-		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
-	done
+kind-image-fast-enterprise-agent:
+	$(MAKE) $(SUBMAKEOPTS) kind-image-fast-agent
 
 .PHONY: kind-image-fast-enterprise-operator
-kind-image-fast-enterprise-operator: CILIUM_BUILD_DIR=./enterprise
-kind-image-fast-enterprise-operator: kind-image-fast-operator ## Build cilium operator binary and copy it to all kind nodes.
+kind-image-fast-enterprise-operator: ## Build cilium operator binary and copy it to all kind nodes.
+	$(MAKE) $(SUBMAKEOPTS) kind-image-fast-operator
 
 .PHONY: kind-image-fast-enterprise-clustermesh-apiserver
-kind-image-fast-enterprise-clustermesh-apiserver: CILIUM_BUILD_DIR=./enterprise
-kind-image-fast-enterprise-clustermesh-apiserver: kind-image-fast-clustermesh-apiserver ## Build clustermesh-apiserver binary and copy it to all kind nodes.
+kind-image-fast-enterprise-clustermesh-apiserver: ## Build clustermesh-apiserver binary and copy it to all kind nodes.
+	$(MAKE) $(SUBMAKEOPTS) kind-image-fast-clustermesh-apiserver
 
 .PHONY: kind-image-enterprise-fast
-kind-image-enterprise-fast: kind-image-fast-enterprise-agent kind-image-fast-enterprise-operator kind-image-fast-enterprise-clustermesh-apiserver ## Build all binaries and copy them to kind nodes.
+kind-image-enterprise-fast: ## Build all binaries and copy them to kind nodes
+	$(MAKE) $(SUBMAKEOPTS) kind-image-fast
 
 .PHONY: kind-egressgwha-install-cilium
 kind-egressgwha-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
