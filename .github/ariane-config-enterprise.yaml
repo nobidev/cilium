@@ -15,6 +15,7 @@ triggers:
     #- enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
     - enterprise-encryption-policy.yaml
+    - enterprise-ingress-policy.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
@@ -65,6 +66,9 @@ triggers:
   /ci-panda-scale(\s+(?:nodes=[0-9]+)?(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
     workflows:
     - enterprise-panda-scale.yaml
+  /ci-ingress-policy:
+    workflows:
+    - enterprise-ingress-policy.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:
@@ -90,4 +94,6 @@ workflows:
   enterprise-lb-vsphere.yaml:
     paths-ignore-regex: (Documentation/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   enterprise-conformance-openshift.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
+  enterprise-ingress-policy.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
