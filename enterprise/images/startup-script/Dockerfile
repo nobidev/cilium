@@ -11,10 +11,9 @@
 # based on https://github.com/cilium/image-tools/blob/master/images/startup-script/Dockerfile
 
 ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal
-ARG UPSTREAM_VERSION=master
+ARG UPSTREAM_VERSION=c54c7edeab7fde4da68e59acd319ab24af242c3f
 
-FROM curlimages/curl:8.12.1 AS manage-script-getter
-RUN curl --output /tmp/manage-startup-script.sh https://raw.githubusercontent.com/cilium/image-tools/${UPSTREAM_VERSION}/images/startup-script/manage-startup-script.sh
+FROM quay.io/cilium/startup-script:${UPSTREAM_VERSION} AS manage-script-getter
 
 FROM ${BASE_IMAGE}
 
@@ -38,6 +37,6 @@ RUN ln -s /usr/share/licenses /licenses
 
 WORKDIR /go/src/github.com/isovalent/cilium/enterprise/images/runtime
 RUN --mount=type=bind,readwrite,target=. ./install-deps.sh
-COPY --from=manage-script-getter /tmp/manage-startup-script.sh /usr/bin/
+COPY --from=manage-script-getter /usr/bin/manage-startup-script.sh /usr/bin/
 RUN chmod +x /usr/bin/manage-startup-script.sh
 CMD [ "/usr/bin/manage-startup-script.sh" ]
