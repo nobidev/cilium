@@ -17,8 +17,8 @@ generators=(
     "enterprise/operator/cilium-operator-azure cmdref"
     "enterprise/operator/cilium-operator-generic cmdref"
     "enterprise/operator/cilium-operator-alibabacloud cmdref"
+    "enterprise/bugtool/cilium-bugtool cmdref"
 
-    "bugtool/cilium-bugtool cmdref"
     "cilium-cli/cilium cmdref"
     "cilium-health/cilium-health cmdref"
 )

@@ -700,6 +700,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining enterprise-specific agent code
 # - @isovalent/cilium-datapath
 #   Responsible for maintaining enterprise-specific datapath code
+# - @isovalent/cni
+#   Catch-all group for enterprise code in the Cilium core
 # - @isovalent/core-structure
 #   A team responsible for mindfulness of isovalent/cilium codebase. If the
 #   core-structure team gets added as a reviewer for a pull request, it likely
@@ -847,6 +849,7 @@ Makefile* @cilium/build
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
 /enterprise/api/extensions @isovalent/hubble-api
+/enterprise/bugtool @isovalent/cni
 /enterprise/cilium-cni/ @isovalent/cilium-agent
 /enterprise/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/cilium-dbg/ @isovalent/cli
