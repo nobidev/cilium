@@ -1,2 +1,2 @@
-SUBDIRS_HUBBLE_CLI := ./enterprise
-VERSION := $(shell cat ../VERSION)-cee
+SUBDIRS_HUBBLE_CLI := $(ROOT_DIR)/enterprise/hubble
+VERSION := $(shell cat $(ROOT_DIR)/VERSION)-cee

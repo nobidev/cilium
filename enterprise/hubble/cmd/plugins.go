@@ -11,10 +11,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/enterprise/hubble/plugins"
+	aggregation "github.com/cilium/cilium/enterprise/hubble/plugins/hubble-flow-aggregation"
+	login "github.com/cilium/cilium/enterprise/hubble/plugins/hubble-login"
 	htemplate "github.com/cilium/cilium/hubble/cmd/common/template"
-	"github.com/cilium/cilium/hubble/enterprise/plugins"
-	aggregation "github.com/cilium/cilium/hubble/enterprise/plugins/hubble-flow-aggregation"
-	login "github.com/cilium/cilium/hubble/enterprise/plugins/hubble-login"
 )
 
 func runCommandPlugins(cmd *cobra.Command, vp *viper.Viper) error {

@@ -864,7 +864,9 @@ Makefile* @cilium/build
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
 /enterprise/fqdn-proxy/installation/ @isovalent/dns-proxy @isovalent/helm
 /enterprise/dashboards/ @isovalent/isovalent-loadbalancer
+/enterprise/hubble/ @isovalent/hubble
 /enterprise/hubble-relay/ @isovalent/hubble
+/enterprise/hubble-timescape/ @isovalent/hubble
 /enterprise/images/ @isovalent/infrastructure
 /enterprise/olm/ @isovalent/openshift
 /enterprise/operator/ @isovalent/cilium-agent
@@ -909,11 +911,9 @@ Makefile* @cilium/build
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
-/enterprise/hubble-timescape/ @isovalent/hubble
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /enterprise/tools/map-testowners/main.go @isovalent/ci-structure
 /hubble/Makefile.override @isovalent/hubble
-/hubble/enterprise/ @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure
 /install/kubernetes/cilium/*enterprise* @isovalent/sig-k8s @isovalent/helm

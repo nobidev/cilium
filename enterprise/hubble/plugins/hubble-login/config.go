@@ -28,7 +28,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/cilium/cilium/hubble/enterprise/plugins/hubble-login/oauth2params"
+	"github.com/cilium/cilium/enterprise/hubble/plugins/hubble-login/oauth2params"
 	"github.com/cilium/cilium/hubble/pkg/logger"
 )
 

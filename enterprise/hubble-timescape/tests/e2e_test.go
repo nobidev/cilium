@@ -237,7 +237,7 @@ func newK8sClient(kubeconfig, contextName string) (kubernetes.Interface, error) 
 func HubbleCLI(ctx context.Context, args ...string) (string, error) {
 	_, fname, _, _ := runtime.Caller(0)
 	hubbleDir := path.Join(
-		fname, "..", "..", "..", "..", "hubble", "enterprise",
+		fname, "..", "..", "..", "..", "enterprise", "hubble",
 	)
 
 	args = append([]string{"run", hubbleDir}, args...)

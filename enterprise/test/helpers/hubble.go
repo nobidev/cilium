@@ -28,7 +28,7 @@ import (
 func HubbleCLI(ctx context.Context, args ...string) (string, error) {
 	_, fname, _, _ := runtime.Caller(0)
 	hubbleDir := path.Join(
-		path.Dir(fname), "..", "..", "..", "hubble", "enterprise",
+		path.Dir(fname), "..", "..", "..", "enterprise", "hubble",
 	)
 
 	args = append([]string{"run", hubbleDir}, args...)

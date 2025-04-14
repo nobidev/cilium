@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/cilium/cilium/hubble/enterprise/cmd"
+	"github.com/cilium/cilium/enterprise/hubble/cmd"
 )
 
 func main() {
