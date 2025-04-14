@@ -16,13 +16,18 @@ import (
 	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -60,6 +65,7 @@ type OperatorParams struct {
 	Nodes         resource.Resource[*slim_corev1.Node]
 	CiliumNodes   resource.Resource[*cilium_api_v2.CiliumNode]
 	Healthchecker healthcheck.Healthchecker
+	EventRecorder record.EventRecorder
 
 	PolicyConfigsTable statedb.RWTable[*PolicyConfig]
 	DB                 *statedb.DB
@@ -132,6 +138,9 @@ type OperatorManager struct {
 
 	// restartOnce is used to re-initialize nodes health status once at startup
 	restartOnce sync.Once
+
+	// eventRecorder is used to emit Event resources
+	eventRecorder record.EventRecorder
 }
 
 func NewEgressGatewayOperatorManager(p OperatorParams) (out struct {
@@ -165,6 +174,7 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 		policyCache:          make(map[policyID]*Policy),
 		healthchecker:        p.Healthchecker,
 		db:                   p.DB,
+		eventRecorder:        p.EventRecorder,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -214,6 +224,34 @@ func newNodeResource(lc cell.Lifecycle, cs k8sClient.Clientset, opts ...func(*me
 		opts...,
 	)
 	return resource.New[*slim_corev1.Node](lc, lw, resource.WithMetric("Node")), nil
+}
+
+func newEventRecorder(cs k8sClient.Clientset) record.EventRecorder {
+	if !cs.IsEnabled() {
+		return nil
+	}
+
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&typedv1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
+
+	recorder := broadcaster.NewRecorder(slimscheme.Scheme, core_v1.EventSource{Component: "cilium-operator"})
+	return recorder
+}
+
+type egressGatewayEvent struct {
+	Type    string
+	Reason  string
+	Message string
+}
+
+func (e egressGatewayEvent) Emit(obj runtime.Object, r record.EventRecorder, args ...interface{}) {
+	r.Eventf(obj, e.Type, e.Reason, e.Message, args...)
+}
+
+var probeMethodChanged = egressGatewayEvent{
+	Type:    core_v1.EventTypeNormal,
+	Reason:  "ProbeMethodChanged",
+	Message: "Probe method changed to %s for Egress Gateway HA",
 }
 
 func (operatorManager *OperatorManager) processEvents(ctx context.Context) {
@@ -382,8 +420,9 @@ func (operatorManager *OperatorManager) handleCiliumNodeEvent(event resource.Eve
 }
 
 type k8sNode struct {
-	name   string
-	taints []slim_corev1.Taint
+	typeMeta   slim_metav1.TypeMeta
+	objectMeta slim_metav1.ObjectMeta
+	taints     []slim_corev1.Taint
 }
 
 // handleNodeEvent takes care of node upserts and removals.
@@ -392,18 +431,19 @@ func (operatorManager *OperatorManager) handleNodeEvent(event resource.Event[*sl
 
 	n := event.Object
 	k8sNode := k8sNode{
-		name:   n.Name,
-		taints: n.Spec.Taints,
+		typeMeta:   n.TypeMeta,
+		objectMeta: n.ObjectMeta,
+		taints:     n.Spec.Taints,
 	}
 
 	operatorManager.Lock()
 	defer operatorManager.Unlock()
 
 	if event.Kind == resource.Upsert {
-		operatorManager.k8sNodeDataStore[k8sNode.name] = k8sNode
+		operatorManager.k8sNodeDataStore[k8sNode.objectMeta.Name] = k8sNode
 		operatorManager.onChangeNodeLocked("K8s Node updated")
 	} else {
-		delete(operatorManager.k8sNodeDataStore, k8sNode.name)
+		delete(operatorManager.k8sNodeDataStore, k8sNode.objectMeta.Name)
 		operatorManager.onChangeNodeLocked("K8s Node deleted")
 	}
 }
@@ -567,6 +607,13 @@ func (operatorManager *OperatorManager) updateHealthProbe(probeModeByNode map[st
 	for nodeName, probeMode := range probeModeByNode {
 		if operatorManager.healthchecker.SetProber(operatorManager.gatewayNodeDataStore[nodeName], probeMode) {
 			log.WithField(logfields.NodeName, nodeName).Debugf("health probe mode changed to %s", probeMode)
+
+			if n, found := operatorManager.k8sNodeDataStore[nodeName]; found {
+				probeMethodChanged.Emit(&slim_corev1.Node{
+					TypeMeta:   n.typeMeta,
+					ObjectMeta: n.objectMeta,
+				}, operatorManager.eventRecorder, probeMode)
+			}
 		}
 	}
 }

@@ -292,4 +292,13 @@ rules:
   verbs:
     - patch
 {{- end }}
+{{- if .Values.enterprise.egressGatewayHA.enabled }}
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+{{- end }}
 {{- end }}
