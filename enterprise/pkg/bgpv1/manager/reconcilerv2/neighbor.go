@@ -346,9 +346,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 
 	routeReflectors := []string{}
 	clients := []string{}
+	eBGPPeers := []string{}
 
 	for _, peer := range instance.Peers {
-		if peer.RouteReflector == nil || peer.PeerAddress == nil {
+		if peer.PeerAddress == nil {
 			continue
 		}
 
@@ -367,11 +368,16 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 			continue
 		}
 
-		switch peer.RouteReflector.Role {
-		case v1.RouteReflectorRoleRouteReflector:
-			routeReflectors = append(routeReflectors, prefix)
-		case v1.RouteReflectorRoleClient:
-			clients = append(clients, prefix)
+		if peer.RouteReflector != nil {
+			switch peer.RouteReflector.Role {
+			case v1.RouteReflectorRoleRouteReflector:
+				routeReflectors = append(routeReflectors, prefix)
+			case v1.RouteReflectorRoleClient:
+				clients = append(clients, prefix)
+			}
+		} else if peer.PeerASN != nil && instance.LocalASN != nil && (*peer.PeerASN != *instance.LocalASN) {
+			// Record non-RR eBGP peers
+			eBGPPeers = append(eBGPPeers, prefix)
 		}
 	}
 
@@ -421,18 +427,45 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		// RR allows all exports to any peers
 		if len(clients) != 0 || len(routeReflectors) != 0 {
 			name := "rr-rr-allow-all-exports"
-			desiredRoutePolicies[name] = &types.RoutePolicy{
-				Name: name,
-				Type: types.RoutePolicyTypeExport,
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: types.RoutePolicyConditions{},
+			policy := &types.RoutePolicy{
+				Name:       name,
+				Type:       types.RoutePolicyTypeExport,
+				Statements: []*types.RoutePolicyStatement{},
+			}
+
+			if len(eBGPPeers) > 0 {
+				// For all eBGP peers, advertise routes
+				// without modifying nexthop. Since
+				// this doesn't care if the nexthop is
+				// in the same L2 or not, the
+				// advertised routes may or may not
+				// work depending on the network
+				// topology.
+				policy.Statements = append(policy.Statements,
+					&types.RoutePolicyStatement{
+						Conditions: types.RoutePolicyConditions{
+							MatchNeighbors: eBGPPeers,
+						},
 						Actions: types.RoutePolicyActions{
 							RouteAction: types.RoutePolicyActionAccept,
+							NextHop: &types.RoutePolicyActionNextHop{
+								Unchanged: true,
+							},
 						},
 					},
-				},
+				)
 			}
+
+			policy.Statements = append(policy.Statements,
+				&types.RoutePolicyStatement{
+					Conditions: types.RoutePolicyConditions{},
+					Actions: types.RoutePolicyActions{
+						RouteAction: types.RoutePolicyActionAccept,
+					},
+				},
+			)
+
+			desiredRoutePolicies[name] = policy
 		}
 
 		// We still don't allow imports from non-route-reflector peers with the default import policy.

@@ -683,6 +683,67 @@ func TestRouteReflectorPolicy(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "route-reflector to eBGP peer",
+			instance: &v1.IsovalentBGPNodeInstance{
+				LocalASN: ptr.To(int64(65000)),
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+				Peers: []v1.IsovalentBGPNodePeer{
+					{
+						PeerAddress: ptr.To("10.0.0.1"),
+						PeerASN:     ptr.To(int64(65000)),
+						RouteReflector: &v1.NodeRouteReflector{
+							Role: v1.RouteReflectorRoleClient,
+						},
+					},
+					{
+						PeerAddress: ptr.To("10.0.0.2"),
+						PeerASN:     ptr.To(int64(65001)),
+					},
+				},
+			},
+			expected: reconcilerv2.RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-imports-from-clients",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.1/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"rr-rr-allow-all-exports": &types.RoutePolicy{
+					Name: "rr-rr-allow-all-exports",
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []string{"10.0.0.2/32"},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+								NextHop: &types.RoutePolicyActionNextHop{
+									Unchanged: true,
+								},
+							},
+						},
+						{
+							Conditions: types.RoutePolicyConditions{},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
