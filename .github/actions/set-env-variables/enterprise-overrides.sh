@@ -23,8 +23,7 @@ echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true --helm-se
 echo "BGP_CONTROL_PLANE_HELM_VALUES=--helm-set=enterprise.bgpControlPlane.enabled=true --helm-set=enterprise.bfd.enabled=true" >> "$GITHUB_ENV"
 
 echo "CILIUM_CLI_RELEASE_REPO=isovalent/cilium-cli-releases" >> "$GITHUB_ENV"
-# renovate: datasource=github-releases depName=isovalent/cilium-cli-releases
-CILIUM_CLI_VERSION="v0.16.3-cee.1"
+CILIUM_CLI_VERSION=""
 echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> "$GITHUB_ENV"
 echo "CILIUM_CLI_IMAGE_REPO=quay.io/isovalent-dev/cilium-cli-ci" >> $GITHUB_ENV
 echo "CILIUM_CLI_SKIP_BUILD=false" >> $GITHUB_ENV
