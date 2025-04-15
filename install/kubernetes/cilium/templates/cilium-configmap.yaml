@@ -543,6 +543,9 @@ data:
 {{- if .Values.tunnelSourcePortRange }}
   tunnel-source-port-range: {{ .Values.tunnelSourcePortRange | quote }}
 {{- end }}
+{{- if .Values.underlayProtocol }}
+  underlay-protocol: {{ .Values.underlayProtocol | quote }}
+{{- end }}
 
 {{- if .Values.serviceNoBackendResponse }}
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
@@ -1247,10 +1250,6 @@ data:
 {{- end }}
 
   identity-management-mode: {{ .Values.identityManagementMode | quote }}
-
-{{- if hasKey .Values "enableK8sTerminatingEndpoint" }}
-  enable-k8s-terminating-endpoint: {{ .Values.enableK8sTerminatingEndpoint | quote }}
-{{- end }}
 
 {{- if hasKey .Values.sctp "enabled" }}
   enable-sctp: {{ .Values.sctp.enabled | quote }}

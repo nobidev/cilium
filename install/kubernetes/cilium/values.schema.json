@@ -1496,6 +1496,9 @@
         "install": {
           "type": "boolean"
         },
+        "iptablesRemoveAWSRules": {
+          "type": "boolean"
+        },
         "logFile": {
           "type": "string"
         },
@@ -1702,9 +1705,6 @@
       "type": "boolean"
     },
     "enableInternalTrafficPolicy": {
-      "type": "boolean"
-    },
-    "enableK8sTerminatingEndpoint": {
       "type": "boolean"
     },
     "enableLBIPAM": {
@@ -5257,6 +5257,9 @@
         },
         "periodSeconds": {
           "type": "integer"
+        },
+        "requireK8sConnectivity": {
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -6766,6 +6769,9 @@
       "type": "string"
     },
     "tunnelSourcePortRange": {
+      "type": "string"
+    },
+    "underlayProtocol": {
       "type": "string"
     },
     "updateStrategy": {

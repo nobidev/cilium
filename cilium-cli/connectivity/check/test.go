@@ -554,7 +554,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 	pl.Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
 
 	// Set the excluded CIDRs
-	pl.Spec.ExcludedCIDRs = []ciliumv2.IPv4CIDR{}
+	pl.Spec.ExcludedCIDRs = []ciliumv2.CIDR{}
 
 	switch params.ExcludedCIDRsConf {
 	case ExternalNodeExcludedCIDRs:
@@ -563,7 +563,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 				continue
 			}
 
-			cidr := ciliumv2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+			cidr := ciliumv2.CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
 			pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
 		}
 	}
@@ -797,6 +797,17 @@ func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer, ipFam 
 // is created for, name should be a visually-distinguishable name.
 func (t *Test) NewGenericAction(s Scenario, name string) *Action {
 	return t.NewAction(s, name, nil, nil, features.IPFamilyAny)
+}
+
+// Scenarios returns a slice of all Scenarios belonging to the Test.
+func (t *Test) Scenarios() []Scenario {
+	var out []Scenario
+
+	for s := range t.scenarios {
+		out = append(out, s)
+	}
+
+	return out
 }
 
 // failedActions returns a list of failed Actions in the Test.

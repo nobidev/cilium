@@ -117,8 +117,8 @@ func newMulticastManager(p MulticastManagerParams) (*MulticastManager, error) {
 	}
 
 	// check if vxlan is enabled
-	if p.TunnelConfig.Protocol() != tunnel.VXLAN {
-		return nil, fmt.Errorf("unsupported tunnel protocol for multicast. Expected vxlan, got %q", p.TunnelConfig.Protocol().String())
+	if p.TunnelConfig.EncapProtocol() != tunnel.VXLAN {
+		return nil, fmt.Errorf("unsupported tunnel protocol for multicast. Expected vxlan, got %q", p.TunnelConfig.EncapProtocol().String())
 	}
 
 	mm := &MulticastManager{

@@ -32,7 +32,7 @@ func TestNodeStoreUpdate(t *testing.T) {
 	tests := []struct {
 		primary  string
 		fallback cemrcfg.FallbackType
-		proto    tunnel.Protocol
+		proto    tunnel.EncapProtocol
 		expected string
 	}{
 		{

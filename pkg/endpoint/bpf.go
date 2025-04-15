@@ -380,6 +380,13 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// Wait for the datapath to be initialized before we take the compilation read lock.
+	// If we take the read lock before the datapath is initialized, we end up blocking
+	// the datapath initialization which needs the write lock on `e.compilationLock`.
+	// Yet, we will be blocked while waiting for the initialization to finish, thus causing
+	// a deadlock.
+	<-e.orchestrator.DatapathInitialized()
+
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
 	e.compilationLock.RLock()
@@ -652,7 +659,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// can get the new DNS rules for restoration now, before we take the endpoint lock below.
 	// NOTE: Endpoint lock must not be held during 'GetDNSRules' as it locks IPCache, which
 	// leads to a deadlock if endpoint lock is held.
-	rules := e.dnsRulesApi.GetDNSRules(e.ID)
+	rules := e.dnsRulesAPI.GetDNSRules(e.ID)
 
 	stats.waitingForLock.Start()
 	err = e.lockAlive()
@@ -669,13 +676,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if !e.ctCleaned {
 		go func() {
 			if !e.isProperty(PropertyFakeEndpoint) {
-				ipv4 := option.Config.EnableIPv4
-				ipv6 := option.Config.EnableIPv6
-				exists := ctmap.Exists(nil, ipv4, ipv6)
-				if e.ConntrackLocal() {
-					exists = ctmap.Exists(e, ipv4, ipv6)
-				}
-				if exists {
+				if ctmap.Exists(option.Config.EnableIPv4, option.Config.EnableIPv6) {
 					e.scrubIPsInConntrackTable()
 				}
 			}
@@ -862,20 +863,6 @@ func (e *Endpoint) deleteMaps() []error {
 		e.bandwidthManager.DeleteIngressBandwidthLimit(e.ID)
 	}
 
-	if e.ConntrackLocalLocked() {
-		// Remove endpoint-specific CT map pins.
-		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6) {
-			ctPath, err := m.Path()
-			if err != nil {
-				errors = append(errors, fmt.Errorf("getting path for CT map pin %s: %w", m.Name(), err))
-				continue
-			}
-			if err := os.RemoveAll(ctPath); err != nil {
-				errors = append(errors, fmt.Errorf("removing CT map pin %s: %w", ctPath, err))
-			}
-		}
-	}
-
 	// Remove program array pins as the last step. This permanently invalidates
 	// the endpoint programs' state, because removing a program array map pin
 	// removes the map's entries even if the map is still referenced by any live
@@ -903,14 +890,7 @@ func (e *Endpoint) deleteMaps() []error {
 //
 // The endpoint lock must be held
 func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
-	var maps []*ctmap.Map
-
-	if e.ConntrackLocalLocked() {
-		maps = ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6)
-	} else {
-		maps = ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6)
-	}
-	for _, m := range maps {
+	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
 		if err := m.Open(); err != nil {
 			// If the CT table doesn't exist, there's nothing to GC.
 			scopedLog := log.WithError(err).WithField(logfields.EndpointID, e.ID)

@@ -82,7 +82,7 @@ func TestDatapathConfigProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
-				outProto tunnel.Protocol
+				outProto tunnel.EncapProtocol
 				outDef   = dpcfgdef.Map{}
 			)
 
@@ -100,7 +100,7 @@ func TestDatapathConfigProvider(t *testing.T) {
 					Tunnel           tunnel.Config
 					NodeExtraDefines []dpcfgdef.Map `group:"header-node-defines"`
 				}) {
-					outProto = in.Tunnel.Protocol()
+					outProto = in.Tunnel.EncapProtocol()
 					for _, ned := range in.NodeExtraDefines {
 						outDef.Merge(ned)
 					}

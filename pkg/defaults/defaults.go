@@ -463,6 +463,10 @@ const (
 	// L4-based lookups
 	EnableIPv4FragmentsTracking = true
 
+	// EnableIPv6FragmentsTracking enables IPv6 fragments tracking for
+	// L4-based lookups
+	EnableIPv6FragmentsTracking = true
+
 	// FragmentsMapEntries is the default number of entries allowed in an
 	// the map used to track datagram fragments.
 	FragmentsMapEntries = 8192
@@ -506,6 +510,9 @@ const (
 	// TunnelSourcePortRange specifies the default tunnel source port range. Both
 	// zero means that we rely on the kernel driver defaults.
 	TunnelSourcePortRange = "0-0"
+
+	// UnderlayProtocol is the default IP family for the underlay.
+	UnderlayProtocol = "ipv4"
 
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"

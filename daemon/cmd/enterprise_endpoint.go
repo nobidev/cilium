@@ -20,6 +20,6 @@ import (
 // CreateEndpoint is a wrapper so that we can create endpoints from the
 // enterprise code.
 func (d *Daemon) CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
-	ep, _, err := d.createEndpoint(ctx, d.dnsRulesAPI, epTemplate)
+	ep, _, err := d.createEndpoint(ctx, epTemplate)
 	return ep, err
 }

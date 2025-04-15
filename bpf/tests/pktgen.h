@@ -31,6 +31,7 @@
 #define mac_five_addr {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D}
 #define mac_six_addr {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E}
 #define mac_zero_addr {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+#define mac_v6mcast_base_addr {0x33, 0x33, 0x00, 0x00, 0x00, 0x00}
 
 volatile const __u8 mac_one[] = mac_one_addr;
 volatile const __u8 mac_two[] = mac_two_addr;
@@ -39,6 +40,7 @@ volatile const __u8 mac_four[] = mac_four_addr;
 volatile const __u8 mac_five[] = mac_five_addr;
 volatile const __u8 mac_six[] = mac_six_addr;
 volatile const __u8 mac_zero[] = mac_zero_addr;
+volatile const __u8 mac_v6mcast_base[] = mac_v6mcast_base_addr;
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
@@ -67,6 +69,10 @@ volatile const __u8 mac_zero[] = mac_zero_addr;
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
 #define v4_all	IPV4(0, 0, 0, 0)
+
+/* IPv6 mcast base address */
+#define v6_mcast_base_addr {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xFF, 0, 0, 0};
+volatile const __u8 v6_mcast_base[] = v6_mcast_base_addr;
 
 /* IPv6 addresses for pods in the cluster */
 #define v6_pod_one_addr {0xfd, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
@@ -156,6 +162,7 @@ enum pkt_layer {
 	PKT_LAYER_IPV6_ROUTING,
 	PKT_LAYER_IPV6_AUTH,
 	PKT_LAYER_IPV6_DEST,
+	PKT_LAYER_IPV6_FRAGMENT,
 
 	/* L4 layers */
 	PKT_LAYER_TCP,
@@ -346,6 +353,11 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	case NEXTHDR_DEST:
 		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_DEST);
 		hdrlen = (length - 8) / 8;
+		break;
+	case NEXTHDR_FRAGMENT:
+		length = 8;
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_FRAGMENT);
+		hdrlen = 0;
 		break;
 	default:
 		break;
@@ -944,6 +956,9 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 	case PKT_LAYER_IPV6_DEST:
 		ipv6_layer->nexthdr = NEXTHDR_DEST;
 		break;
+	case PKT_LAYER_IPV6_FRAGMENT:
+		ipv6_layer->nexthdr = NEXTHDR_FRAGMENT;
+		break;
 	case PKT_LAYER_TCP:
 		ipv6_layer->nexthdr = IPPROTO_TCP;
 		break;
@@ -998,6 +1013,9 @@ static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder
 		break;
 	case PKT_LAYER_IPV6_DEST:
 		ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
+		break;
+	case PKT_LAYER_IPV6_FRAGMENT:
+		ipv6_opt_layer->nexthdr = NEXTHDR_FRAGMENT;
 		break;
 	case PKT_LAYER_TCP:
 		ipv6_opt_layer->nexthdr = IPPROTO_TCP;
@@ -1228,6 +1246,7 @@ void pktgen__finish(const struct pktgen *builder)
 		case PKT_LAYER_IPV6_ROUTING:
 		case PKT_LAYER_IPV6_AUTH:
 		case PKT_LAYER_IPV6_DEST:
+		case PKT_LAYER_IPV6_FRAGMENT:
 			pktgen__finish_ipv6_opt(builder, i);
 			break;
 

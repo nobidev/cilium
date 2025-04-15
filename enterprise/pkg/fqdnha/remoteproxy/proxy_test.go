@@ -84,7 +84,7 @@ func (m *mockFQDNProxyClient) GetRules(
 func TestConnectionLifecycle(t *testing.T) {
 	var remoteProxy *RemoteFQDNProxy
 
-	localProxy, err := dnsproxy.StartDNSProxy(dnsproxy.DNSProxyConfig{
+	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
 		Address: "127.0.0.2",
 		IPv4:    false,
 		IPv6:    false,
@@ -96,7 +96,7 @@ func TestConnectionLifecycle(t *testing.T) {
 			return nil
 		},
 	)
-
+	err := localProxy.Listen()
 	require.NoError(t, err)
 	t.Cleanup(localProxy.Cleanup)
 
@@ -171,7 +171,7 @@ func TestConnectionLifecycle(t *testing.T) {
 // TestDumpRules ensures that Dumprules in enterprise_getallrules.go matches
 // ruleToMsg
 func TestDumpRules(t *testing.T) {
-	localProxy, err := dnsproxy.StartDNSProxy(dnsproxy.DNSProxyConfig{
+	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
 		Address: "127.0.0.2",
 		IPv4:    false,
 		IPv6:    false,
@@ -183,7 +183,7 @@ func TestDumpRules(t *testing.T) {
 			return nil
 		},
 	)
-
+	err := localProxy.Listen()
 	require.NoError(t, err)
 	t.Cleanup(localProxy.Cleanup)
 

@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -87,7 +86,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	epModelsCh := make(chan *models.Endpoint, maxGoroutines)
 
 	epWorkersWg.Add(maxGoroutines)
-	for i := 0; i < maxGoroutines; i++ {
+	for range maxGoroutines {
 		// Run goroutines to process each endpoint and the corresponding model.
 		// The obtained endpoint model is sent to the endpoint models channel from
 		// where it will be aggregated later.
@@ -349,7 +348,7 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
-func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRulesAPI, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	if option.Config.EnableEndpointRoutes {
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
@@ -404,7 +403,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	epTemplate.Labels = nil
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, dnsRulesApi, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	ep, err := d.endpointCreator.NewEndpointFromChangeModel(d.ctx, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %w", err))
 	}
@@ -663,7 +662,7 @@ func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middlewar
 	}
 	defer r.Done()
 
-	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d.dnsRulesAPI, epTemplate)
+	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
 	if err != nil {
 		r.Error(err, code)
 		return api.Error(code, err)
@@ -715,7 +714,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d.dnsRulesAPI, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	newEp, err2 := d.endpointCreator.NewEndpointFromChangeModel(d.ctx, epTemplate)
 	if err2 != nil {
 		r.Error(err2, PutEndpointIDInvalidCode)
 		return api.Error(PutEndpointIDInvalidCode, err2)
@@ -864,50 +863,6 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 	}
 
 	return nErrors, nil
-}
-
-// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
-// which works around the difficulties in initializing various subsystems
-// involved in managing endpoints, such as the EndpointManager, IPAM and
-// the Monitor.
-//
-// It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
-func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
-	if !option.Config.DryMode {
-		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
-	}
-
-	if !conf.NoIPRelease {
-		if option.Config.EnableIPv4 {
-			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice(), ipam.PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
-			}
-		}
-	}
-}
-
-// EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
-// allowing the EndpointManager to be the primary implementer of the core
-// endpoint management functionality while deferring other responsibilities
-// to the daemon.
-//
-// It is called after Daemon calls into d.endpointManager.AddEndpoint().
-func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
-	if !option.Config.DryMode {
-		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointCreateMessage(ep))
-	}
-}
-
-// EndpointRestored implements endpointmanager.Subscriber.
-func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
-	// No-op
 }
 
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {

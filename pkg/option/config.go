@@ -981,6 +981,10 @@ const (
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragment-tracking"
 
+	// EnableIPv6FragmentsTrackingName is the name of the option to enable
+	// IPv6 fragments tracking for L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTrackingName = "enable-ipv6-fragment-tracking"
+
 	// FragmentsMapEntriesName configures max entries for BPF fragments
 	// tracking map.
 	FragmentsMapEntriesName = "bpf-fragments-map-max"
@@ -1048,10 +1052,6 @@ const (
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
-
-	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
-	// state for endpoints in order to support graceful termination.
-	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
 
 	// EnableVTEP enables cilium VXLAN VTEP integration
 	EnableVTEP = "enable-vtep"
@@ -2035,6 +2035,10 @@ type DaemonConfig struct {
 	// L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTracking bool
 
+	// EnableIPv6FragmentsTracking enables IPv6 fragments tracking for
+	// L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTracking bool
+
 	// FragmentsMapEntries is the maximum number of fragmented datagrams
 	// that can simultaneously be tracked in order to retrieve their L4
 	// ports for all fragments.
@@ -2144,10 +2148,6 @@ type DaemonConfig struct {
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore bool
-
-	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
-	// Kubernetes service endpoints.
-	EnableK8sTerminatingEndpoint bool
 
 	// EnableVTEP enable Cilium VXLAN VTEP integration
 	EnableVTEP bool
@@ -2725,8 +2725,8 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 
 // ReadDirConfig reads the given directory and returns a map that maps the
 // filename to the contents of that file.
-func ReadDirConfig(dirName string) (map[string]interface{}, error) {
-	m := map[string]interface{}{}
+func ReadDirConfig(dirName string) (map[string]any, error) {
+	m := map[string]any{}
 	files, err := os.ReadDir(dirName)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("unable to read configuration directory: %w", err)
@@ -2767,7 +2767,7 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 }
 
 // MergeConfig merges the given configuration map with viper's configuration.
-func MergeConfig(vp *viper.Viper, m map[string]interface{}) error {
+func MergeConfig(vp *viper.Viper, m map[string]any) error {
 	err := vp.MergeConfigMap(m)
 	if err != nil {
 		return fmt.Errorf("unable to read merge directory configuration: %w", err)
@@ -2783,7 +2783,7 @@ func MergeConfig(vp *viper.Viper, m map[string]interface{}) error {
 // Once we remove them from this function we also need to remove them from
 // daemon_main.go and warn users about the old environment variable nor the
 // option in the configuration map have any effect.
-func ReplaceDeprecatedFields(m map[string]interface{}) {
+func ReplaceDeprecatedFields(m map[string]any) {
 	deprecatedFields := map[string]string{
 		"monitor-aggregation-level":   MonitorAggregationName,
 		"ct-global-max-entries-tcp":   CTMapEntriesGlobalTCPName,
@@ -2973,6 +2973,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
 	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
+	c.EnableIPv6FragmentsTracking = vp.GetBool(EnableIPv6FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
@@ -3164,7 +3165,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
 	var ctMonitorReportFlags uint16
-	for i := 0; i < len(monitorAggregationFlags); i++ {
+	for i := range monitorAggregationFlags {
 		value := strings.ToLower(monitorAggregationFlags[i])
 		flag, exists := TCPFlags[value]
 		if !exists {
@@ -3312,7 +3313,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
-	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)
@@ -3939,7 +3939,7 @@ func sanitizeIntParam(vp *viper.Viper, paramName string, paramDefault int) int {
 	return intParam
 }
 
-func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) error {
+func validateConfigMapFlag(flag *pflag.Flag, key string, value any) error {
 	var err error
 	switch t := flag.Value.Type(); t {
 	case "bool":
@@ -3986,7 +3986,7 @@ func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) erro
 }
 
 // validateConfigMap checks whether the flag exists and validate its value
-func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
+func validateConfigMap(cmd *cobra.Command, m map[string]any) error {
 	flags := cmd.Flags()
 
 	for key, value := range m {

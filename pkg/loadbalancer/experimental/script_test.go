@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -54,9 +53,6 @@ func TestScript(t *testing.T) {
 	// the default.
 	// Issue for fixing this: https://github.com/cilium/cilium/issues/35537
 	version.Force(testutils.DefaultVersion)
-
-	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
-	option.Config.EnableK8sTerminatingEndpoint = true
 
 	// Set the node name
 	nodeTypes.SetName("testnode")
@@ -100,7 +96,6 @@ func TestScript(t *testing.T) {
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
 							EnableNodePort:                  true,
-							EnableK8sTerminatingEndpoint:    true,
 							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
@@ -166,9 +161,7 @@ var httpGetCmd = script.Command(
 
 		fmt.Fprintf(f, "%s\n", resp.Status)
 
-		keys := slices.Collect(maps.Keys(resp.Header))
-		sort.Strings(keys)
-		for _, k := range keys {
+		for _, k := range slices.Sorted(maps.Keys(resp.Header)) {
 			h := resp.Header[k]
 			if k == "Date" {
 				h = []string{"<omitted>"}

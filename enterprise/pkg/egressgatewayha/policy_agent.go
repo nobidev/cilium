@@ -13,6 +13,7 @@ package egressgatewayha
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -183,7 +184,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				if gc.iface != "" {
 					iface, err = safenetlink.LinkByName(gc.iface)
 				} else {
-					iface, err = route.NodeDeviceWithDefaultRoute(true, false)
+					iface, err = route.NodeDeviceWithDefaultRoute(manager.logger, true, false)
 				}
 				if err != nil {
 					logger.WithError(err).Error("Failed to find interface while updating node egress IP config")
@@ -195,7 +196,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				gwc.ifaceName = iface.Attrs().Name
 				gwc.egressIfindex = uint32(iface.Attrs().Index)
 				gwc.egressIP = egressIP
-			} else if err := gwc.deriveFromGroupConfig(&gc); err != nil {
+			} else if err := gwc.deriveFromGroupConfig(manager.logger, &gc); err != nil {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
 				continue
 			}
@@ -264,7 +265,7 @@ func updateEgressIPsConfig(
 
 // deriveFromGroupConfig retrieves all the missing gateway configuration data
 // (such as egress IP or interface) given a policy group config
-func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
+func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupConfig) error {
 	var err error
 
 	switch {
@@ -299,7 +300,7 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(gc *groupConfig) error {
 	default:
 		// If the group config doesn't specify any egress IP or interface, use
 		// the interface with the IPv4 default route
-		iface, err := route.NodeDeviceWithDefaultRoute(true, false)
+		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
 		if err != nil {
 			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with default route: %w", err)

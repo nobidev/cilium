@@ -724,6 +724,7 @@ selftests
 serverinfo
 serviceAccount
 serviceMonitor
+serviceaccount
 setrlimit
 sfc
 sg
@@ -815,6 +816,7 @@ uid
 uint
 unaudited
 uncommented
+uncordon
 unencrypted
 unexported
 unicast

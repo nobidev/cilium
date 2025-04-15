@@ -101,9 +101,9 @@ func newManager(in params) *manager {
 		config: in.Config,
 	}
 
-	mgr.modes = append(mgr.modes, toRoutingMode(in.DaemonConfig.RoutingMode, option.RoutingModeTunnel, in.Tunnel.Protocol()))
+	mgr.modes = append(mgr.modes, toRoutingMode(in.DaemonConfig.RoutingMode, option.RoutingModeTunnel, in.Tunnel.EncapProtocol()))
 	if mgr.enabled() && (in.Config.FallbackRoutingMode == cemrcfg.FallbackTunnel) != (in.DaemonConfig.TunnelingEnabled()) {
-		mgr.modes = append(mgr.modes, toRoutingMode(in.Config.FallbackRoutingMode, cemrcfg.FallbackTunnel, in.Tunnel.Protocol()))
+		mgr.modes = append(mgr.modes, toRoutingMode(in.Config.FallbackRoutingMode, cemrcfg.FallbackTunnel, in.Tunnel.EncapProtocol()))
 	}
 
 	if mgr.enabledWithFallback() {
@@ -262,7 +262,7 @@ func parseRoutingModes(in string) (valid routingModesType, invalid []string) {
 // toRoutingMode returns the routing mode representation, based on mode and protocol.
 // We compare the routing mode against the given tunnel representation to avoid relying
 // on the fact that both the primary and fallback modes are represented in the same way.
-func toRoutingMode[T comparable](rm T, rmtun T, proto tunnel.Protocol) routingModeType {
+func toRoutingMode[T comparable](rm T, rmtun T, proto tunnel.EncapProtocol) routingModeType {
 	if rm == rmtun {
 		switch proto {
 		case tunnel.VXLAN:

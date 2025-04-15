@@ -303,7 +303,7 @@ func main() {
 		}
 	}()
 
-	proxy, err = dnsproxy.StartDNSProxy(
+	proxy = dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
 		LookupEndpointIDByIP,
 		proxyCtx.LookupSecIDByIP,
@@ -311,6 +311,7 @@ func main() {
 		NotifyOnDNSMsg,
 	)
 
+	err = proxy.Listen()
 	if err != nil {
 		log.Fatalf("Failed to start dns proxy: %v", err)
 	}

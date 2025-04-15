@@ -363,8 +363,6 @@ Makefile* @cilium/build
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/fqdn* @cilium/fqdn
-/daemon/cmd/health* @cilium/sig-agent
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
@@ -531,6 +529,7 @@ Makefile* @cilium/build
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
+/pkg/datapath/sockets/ @cilium/sig-lb
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
 /pkg/dial @cilium/sig-agent
@@ -650,7 +649,6 @@ Makefile* @cilium/build
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
-/test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
 /test/verifier @cilium/loader @cilium/ci-structure
 # Policy tests
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
@@ -828,7 +826,6 @@ Makefile* @cilium/build
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
-/daemon/cmd/enterprise_fqdn_relay.go @isovalent/dns-proxy
 /Documentation/cmdref/
 /Makefile.fqdn-proxy @isovalent/dns-proxy
 /renovate.json5 @isovalent/infrastructure

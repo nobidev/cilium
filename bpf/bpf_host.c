@@ -37,8 +37,8 @@
 #include "lib/policy.h"
 #include "lib/trace.h"
 #include "lib/identity.h"
-#include "lib/l3.h"
 #include "lib/l4.h"
+#include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
@@ -155,10 +155,19 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	if (is_defined(ENABLE_HOST_FIREWALL) || !from_host) {
 		__u8 nexthdr = ip6->nexthdr;
@@ -1328,17 +1337,19 @@ int cil_from_host(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
-	magic = inherit_identity_from_host(ctx, &identity);
-	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
-		obs_point = TRACE_FROM_PROXY;
-
 #if defined(ENABLE_L7_LB)
-	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		/* extracted identity is actually the endpoint ID */
-		ret = tail_call_egress_policy(ctx, (__u16)identity);
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		__u16 lxc_id = get_epid(ctx);
+
+		ctx->mark = 0;
+		ret = tail_call_egress_policy(ctx, lxc_id);
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	}
 #endif
+
+	magic = inherit_identity_from_host(ctx, &identity);
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
+		obs_point = TRACE_FROM_PROXY;
 
 #ifdef ENABLE_IPSEC
 	if (magic == MARK_MAGIC_ENCRYPT) {
@@ -1385,6 +1396,10 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
+		src_sec_identity = get_identity(ctx);
+#endif
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
+	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
 #endif
 
@@ -1530,6 +1545,12 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
+			fraginfo = ipv6_get_fraginfo(ctx, ip6);
+			if (fraginfo < 0) {
+				ret = (int)fraginfo;
+				goto drop_err;
+			}
+
 			tuple6.nexthdr = ip6->nexthdr;
 			ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
 			ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
@@ -1540,7 +1561,8 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
-			ret = ct_extract_ports6(ctx, l4_off, &tuple6);
+			ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
+						CT_EGRESS, &tuple6);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CT_UNKNOWN_PROTO)
 					goto skip_egress_gateway;
@@ -1980,20 +2002,24 @@ int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
-	__u32 lxc_id;
-	int ret;
-	__s8 ext_err = 0;
 
 	if (from_host) {
+		__u32 lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
+		__u32 src_sec_identity = HOST_ID;
+		__s8 ext_err = 0;
+		int ret;
+
 		ret = from_host_to_lxc(ctx, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error_ext(ctx, HOST_ID, ret, ext_err,
-							  METRIC_EGRESS);
+			goto drop_err;
 
-		lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
-		ctx_store_meta(ctx, CB_SRC_LABEL, HOST_ID);
+		local_delivery_fill_meta(ctx, src_sec_identity, false,
+					 true, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
-		return send_drop_notify_error(ctx, HOST_ID, ret, METRIC_EGRESS);
+
+drop_err:
+		return send_drop_notify_error_ext(ctx, src_sec_identity,
+						  ret, ext_err, METRIC_EGRESS);
 	}
 
 	return to_host_from_lxc(ctx);

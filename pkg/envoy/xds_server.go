@@ -1591,7 +1591,7 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, 
 	p := &cilium.NetworkPolicy{
 		EndpointIps:      ips,
 		EndpointId:       ep.GetID(),
-		ConntrackMapName: ep.ConntrackNameLocked(),
+		ConntrackMapName: "global",
 	}
 
 	var ingressMap policy.L4PolicyMap
