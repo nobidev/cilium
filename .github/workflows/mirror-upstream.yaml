@@ -11,7 +11,7 @@ jobs:
     # This job mirrors github.com/cilium/cilium to github.com/isovalent/cilium
     name: Mirror cilium/cilium branches
     if: github.repository == 'isovalent/cilium'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Get Token for Mirroring Upstream
         id: get_token
