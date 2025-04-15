@@ -107,8 +107,7 @@
   tunnel: 'disabled'
   encryption: 'wireguard'
   encryption-node: 'false'
-  # encryption-strict-mode temporarily disabled, see https://github.com/isovalent/cilium/pull/6945
-  encryption-strict-mode: 'false'
+  encryption-strict-mode: 'true'
   misc: 'socketLB.enabled=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
@@ -139,8 +138,7 @@
   tunnel: 'disabled'
   encryption: 'wireguard'
   encryption-node: 'true'
-  # encryption-strict-mode temporarily disabled, see https://github.com/isovalent/cilium/pull/6945
-  encryption-strict-mode: 'false'
+  encryption-strict-mode: 'true'
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
