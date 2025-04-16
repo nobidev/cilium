@@ -708,6 +708,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		Cfg: Config{
 			SvcHealthCheckingEnabled:    true,
 			RouterAdvertisementInterval: defaultConfig.RouterAdvertisementInterval,
+			EnableLegacySRv6Responder:   false,
 		},
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 		Logger:    svcTestLogger,
