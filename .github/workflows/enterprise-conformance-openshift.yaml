@@ -107,6 +107,16 @@ jobs:
     name: Installation and Connectivity Test
     runs-on: ubuntu-24.04
     timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: KPR enabled by default
+            kpr-default: true
+            region: us-east-1
+          - name: KPR disabled by default
+            kpr-default: false
+            region: us-east-2
     env:
       job_name: "Installation and Connectivity Test"
 
@@ -162,7 +172,7 @@ jobs:
           echo ocp_minor_version=${ocp_minor_version} >> $GITHUB_OUTPUT
           echo sha=${sha} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
-          echo region="us-east-1" >> $GITHUB_OUTPUT
+          echo region="${{ matrix.region }}" >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -278,6 +288,7 @@ jobs:
           region="${{ steps.vars.outputs.region }}"
           pull_secret_path="${PWD}/.pullsecret.json"
           base_domain="ci.covalent.lol"
+          cilium_kpr_enabled="${{ matrix.kpr-default }}"
           cilium_olm_repo_type="clife"
           cilium_olm_repo="dir:$(pwd)/../.."
           cilium_olm_repo_branch="${{ steps.vars.outputs.sha }}"
@@ -363,14 +374,6 @@ jobs:
           kubectl logs -n cilium deployment/clife-controller-manager
           kubectl logs -n cilium daemonset/cilium --all-containers=true
 
-      - name: Run tests
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        uses: ./.github/actions/enterprise-openshift-tests
-        timeout-minutes: 120
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-          test-results-dir: "test-results"
-
       - name: Retrieve cluster info
         id: cluster-info
         run: |
@@ -378,18 +381,8 @@ jobs:
           echo "k8s_service_host=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $1}')" >> $GITHUB_OUTPUT
           echo "k8s_service_port=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $2}')" >> $GITHUB_OUTPUT
 
-      - name: Enable Kube Proxy Replacement
-        run: |
-          kubectl -n cilium patch ciliumconfig config \
-                  --type merge \
-                  --patch '{"spec":{"k8sServiceHost": "'${{ steps.cluster-info.outputs.k8s_service_host }}'", "k8sServicePort": "'${{ steps.cluster-info.outputs.k8s_service_port }}'", "kubeProxyReplacement": true}}'
-
-      - name: Restart cilium to pick up new config
-        run: |
-          kubectl -n cilium delete ds cilium
-          cilium status -n cilium --wait
-
-      - name: Verifying if KPR has been enabled
+      - name: Verifying KPR [if enabled]
+        if: ${{ matrix.kpr-default == true }}
         run: |
           kpr_status="$(kubectl -n cilium exec ds/cilium -- cilium-dbg config get KubeProxyReplacement)"
           if [[ ${kpr_status,,} != "true" ]]
@@ -398,7 +391,49 @@ jobs:
             exit 1
           fi
 
-      - name: Remove kube-proxy
+      - name: Verify OpenShift kube-proxy removed
+        if: ${{ matrix.kpr-default == true }}
+        run: |
+          count="$(kubectl get pods -A -l app=kube-proxy | wc -l)"
+          if [[ $count -gt 0 ]]
+          then
+            echo "OpenShift kube-proxy was not removed!"
+            exit 1
+          fi
+
+      - name: Run tests
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
+        uses: ./.github/actions/enterprise-openshift-tests
+        timeout-minutes: 120
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+          test-results-dir: "test-results"
+
+      - name: Enable KPR [if disabled]
+        if: ${{ matrix.kpr-default == false }}
+        run: |
+          kubectl patch ciliumconfig config \
+                  --type merge \
+                  --patch '{"spec":{"k8sServiceHost": "'${{ steps.cluster-info.outputs.k8s_service_host }}'", "k8sServicePort": "'${{ steps.cluster-info.outputs.k8s_service_port }}'", "kubeProxyReplacement": true}}'
+
+      - name: Restart cilium to pick up new config
+        if: ${{ matrix.kpr-default == false }}
+        run: |
+          kubectl -n cilium delete ds cilium
+          cilium status -n cilium --wait
+
+      - name: Verifying KPR has been enabled
+        if: ${{ matrix.kpr-default == false }}
+        run: |
+          kpr_status="$(kubectl -n cilium exec ds/cilium -- cilium-dbg config get KubeProxyReplacement)"
+          if [[ ${kpr_status,,} != "true" ]]
+          then
+            echo "KPR is not enabled [status: $kpr_status]"
+            exit 1
+          fi
+
+      - name: Remove OpenShift kube-proxy
+        if: ${{ matrix.kpr-default == false }}
         run: |
           kubectl patch network.operator cluster \
                   --type=merge \
@@ -411,7 +446,7 @@ jobs:
             count="$(kubectl get pods -A -l app=kube-proxy | wc -l || true)"
             if [[ $count -eq 0 ]]
             then
-              echo "openshift kube-proxy removed"
+              echo "OpenShift kube-proxy removed"
               removed="true"
               break
             fi
@@ -424,6 +459,7 @@ jobs:
           fi
 
       - name: Run tests with KPR
+        if: ${{ matrix.kpr-default == false }}
         uses: ./.github/actions/enterprise-openshift-tests
         timeout-minutes: 120
         with:
@@ -456,7 +492,7 @@ jobs:
         if: always() && steps.wait-for-co.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: output
+          name: output-kpr-default-${{ matrix.kpr-default }}
           path: ${{ steps.upload_dir.outputs.path }}
           if-no-files-found: ignore
           retention-days: 3
