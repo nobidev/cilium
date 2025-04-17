@@ -9,15 +9,15 @@ make kind-loadbalancer && \
 kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
 ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast && \
 make kind-image-enterprise-fast && \
-./enterprise/examples/kubernetes/loadbalancer/lb_configure.sh && \
+./enterprise/examples/kubernetes/loadbalancer/configure_ilb_nodes.sh && \
 ./enterprise/examples/kubernetes/loadbalancer/deploy_perses.sh
 ```
 
 To setup the kind cluster for in-cluster mode where all nodes have T1 & T2 functionality configured,
-just pass `in-cluster` as first argument to `lb_configure.sh`.
+just pass `in-cluster` as first argument to `configure_ilb_nodes.sh`.
 
 ```sh
-./enterprise/examples/kubernetes/loadbalancer/lb_configure.sh in-cluster
+./enterprise/examples/kubernetes/loadbalancer/configure_ilb_nodes.sh in-cluster
 ```
 
 Alternatively, to deploy the Grafana dashboards visualisation, replace the last line above with:
@@ -55,13 +55,14 @@ The conversion between Grafana json and Perses yaml is done with:
 make sync-grafana-to-perses
 ```
 
-To access the Perses UI at http://localhost:8080 execute the port-forwarding as follows:
+To access the Perses UI at <http://localhost:8080> execute the port-forwarding as follows:
 
 ```sh
    kubectl port-forward -n monitoring svc/perses 8080:8080
 ```
 
 ### Grafana (alternative)
+
 To expose the Grafana dashboard:
 
 ```sh

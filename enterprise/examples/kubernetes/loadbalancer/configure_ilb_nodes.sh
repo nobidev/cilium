@@ -40,32 +40,3 @@ done
 
 # Allow privileged ports (Envoy)
 kind get nodes --name kind | xargs -I container_name docker exec container_name sysctl -w net.ipv4.ip_unprivileged_port_start=0
-
-# Remove Kubeproxy
-kubectl -n kube-system delete ds kube-proxy 2>/dev/null || true
-
-echo -n "Waiting for CRDs "
-crds=(
-  "ciliumnodeconfigs.cilium.io"
-  "ciliumloadbalancerippools.cilium.io"
-  "ciliumbgppeeringpolicies.cilium.io"
-  "isovalentbfdprofiles.isovalent.com"
-  "lbservices.isovalent.com"
-  "lbbackendpools.isovalent.com"
-  "lbvips.isovalent.com"
-  "lbdeployments.isovalent.com"
-)
-for crd in "${crds[@]}"; do
-  while ! kubectl get crd "${crd}" &>/dev/null; do
-    echo -n "."
-    sleep 2
-  done
-done
-echo ""
-
-# Restart coredns pods to ensure they don't run on tainted T1 nodes
-kubectl -n kube-system delete pods -l k8s-app=kube-dns
-
-# Wait until LB nodes are ready
-echo -n "Waiting until LB nodes are ready ..."
-cilium status --wait --interactive=false --ignore-warnings
