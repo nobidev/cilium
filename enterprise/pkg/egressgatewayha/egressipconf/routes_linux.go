@@ -47,12 +47,12 @@ func NextHopFromDefaultRoute(iface string) (netip.Addr, error) {
 	}
 	// should never happen if err == nil, but better safe than sorry
 	if len(routes) == 0 {
-		return netip.Addr{}, fmt.Errorf("no default route available for iface %s: %w", iface, err)
+		return netip.Addr{}, fmt.Errorf("no default route available for iface %s", iface)
 	}
 
 	gw, ok := netipx.FromStdIP(routes[0].Gw)
 	if !ok {
-		return netip.Addr{}, fmt.Errorf("unable to convert next hop address for iface %s: %w", iface, err)
+		return netip.Addr{}, fmt.Errorf("unable to convert next hop address for iface %s", iface)
 	}
 
 	return gw, nil
