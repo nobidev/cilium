@@ -29,6 +29,7 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
+#include "lib/local_delivery.h"
 #include "lib/lxc.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
@@ -86,7 +87,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -139,13 +140,18 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 {
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
+	fraginfo_t fraginfo;
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
 	int ret = 0;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -175,9 +181,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		if (unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&key, &tuple, svc, &ct_state_new, false, ext_err,
-				ENDPOINT_NETNS_COOKIE);
+		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
+				l4_off, &key, &tuple, svc, &ct_state_new,
+				false, ext_err, ENDPOINT_NETNS_COOKIE);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE)
@@ -375,7 +381,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
+	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,		\
 				   ct_buffer.l4_off, DIR, scope,		\
 				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
@@ -705,20 +711,6 @@ ct_recreate6:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
-		struct tunnel_key key = {};
-		union v6addr *daddr = (union v6addr *)&ip6->daddr;
-
-		/* Lookup the destination prefix in the list of known
-		 * destination prefixes. If there is a match, the packet will
-		 * be encapsulated to that node and then routed by the agent on
-		 * the remote node.
-		 *
-		 * IPv6 lookup key: daddr/96
-		 */
-		ipv6_addr_copy(&key.ip6, daddr);
-		key.ip6.p4 = 0;
-		key.family = ENDPOINT_KEY_IPV6;
-
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/* See comment in handle_ipv4_from_lxc(). */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -843,9 +835,19 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo __maybe_unused;
+	int ret __maybe_unused;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
 	 * are subjected to forwarding into the container.
@@ -1241,14 +1243,8 @@ skip_vtep:
 	 * destination's `skip_tunnel` flag.
 	 */
 	if (ct_state->from_tunnel || !skip_tunnel) {
-		struct tunnel_key key = {};
-
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
-
-		key.ip4 = ip4->daddr & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-		key.cluster_id = (__u16)cluster_id;
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/*
@@ -1563,6 +1559,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv6_ct_tuple *tuple;
+	bool is_untracked_fragment = false;
+	fraginfo_t fraginfo;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
@@ -1571,7 +1569,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#endif
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
@@ -1610,7 +1619,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple);
+					   ct_state->rev_nat_index, tuple,
+					   ipfrag_has_l4_header(fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}
@@ -1624,9 +1634,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off, src_label,
-					      SECLABEL_IPV6, &policy_match_type, &audited,
-					      ext_err, proxy_port);
+		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
+					      is_untracked_fragment, src_label, SECLABEL_IPV6,
+					      &policy_match_type, &audited, ext_err, proxy_port);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
@@ -2353,16 +2363,20 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	magic = inherit_identity_from_host(ctx, &identity);
-	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
-		trace = TRACE_FROM_PROXY;
 #if defined(ENABLE_L7_LB)
-	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		ret = tail_call_egress_policy(ctx, (__u16)identity);
-		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		__u16 lxc_id = get_epid(ctx);
+
+		ctx->mark = 0;
+		ret = tail_call_egress_policy(ctx, lxc_id);
+		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
 	}
 #endif
+
+	magic = inherit_identity_from_host(ctx, &identity);
+	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
+		trace = TRACE_FROM_PROXY;
 
 	send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
 			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);

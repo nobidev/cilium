@@ -642,10 +642,12 @@ func (c *Collector) Run() error {
 
 					p, err := c.Client.ListPods(ctx, namespace.Name, metav1.ListOptions{})
 					if err != nil {
-						return fmt.Errorf("failed to get logs from Hubble certgen pods")
+						return fmt.Errorf("failed to get logs from crashloop/restarted pods: %w", err)
 					}
-					if err := c.SubmitLogsTasks(filterCrashedPods(p, 0), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
-						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
+					if err := c.SubmitLogsTasks(append(
+						filterCrashedPods(p, 0),
+						filterRestartedContainersPods(p, 0)...), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+						return fmt.Errorf("failed to collect logs from crashloop/restarted pods: %w", err)
 					}
 				}
 				return nil
@@ -2193,21 +2195,21 @@ func collectCiliumV2OrV2Alpha1Resource(collector *Collector, resource, title str
 	}
 }
 
-func (c *Collector) log(msg string, args ...interface{}) {
+func (c *Collector) log(msg string, args ...any) {
 	fmt.Fprintf(c.logWriter, msg+"\n", args...)
 }
 
-func (c *Collector) logDebug(msg string, args ...interface{}) {
+func (c *Collector) logDebug(msg string, args ...any) {
 	if c.Options.Debug {
 		c.log("🩺 "+msg, args...)
 	}
 }
 
-func (c *Collector) logTask(msg string, args ...interface{}) {
+func (c *Collector) logTask(msg string, args ...any) {
 	c.log("🔍 "+msg, args...)
 }
 
-func (c *Collector) logWarn(msg string, args ...interface{}) {
+func (c *Collector) logWarn(msg string, args ...any) {
 	c.log("⚠️ "+msg, args...)
 }
 

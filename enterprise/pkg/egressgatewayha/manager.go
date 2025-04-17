@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strings"
@@ -130,6 +131,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
 type Manager struct {
+	logger *slog.Logger
+
 	lock.Mutex
 
 	// allCachesSynced is true when all k8s objects we depend on have had
@@ -222,6 +225,8 @@ type Manager struct {
 type Params struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
 	IdentityAllocator identityCache.IdentityAllocator
@@ -262,7 +267,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, nil
 	}
 
-	if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
+	if probes.HaveProgramHelper(p.Logger, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
 		return out, errors.New("egwha requires support for bpf_redirect_neigh (Linux 5.10 or newer)")
 	}
 
@@ -316,6 +321,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	txn.Commit()
 
 	manager := &Manager{
+		logger:                        p.Logger,
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[netip.Addr][]*PolicyConfig),

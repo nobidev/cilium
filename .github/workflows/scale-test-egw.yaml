@@ -66,18 +66,18 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.1
+  go_version: 1.24.2
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.206.0
+  eksctl_version: v0.207.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.32.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 515.0.0
+  gcloud_version: 517.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 18680c178237d37875266f6e19ff106b28b4b6ac
+  egw_utils_ref: 0a0ea6cc5fc936ad64ec964fa84ec6d15f5f4c30
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -365,7 +365,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@0caa9e5cbfe3a80a1fd6bbc1f5f9926da35b0373 # v0.18.2
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -604,7 +604,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@4499d7d0bfb04076af2334f5022c7a1bd654ecd0 # main
+        uses: cilium/scale-tests-action/export-results@bf86f0dd91b6d492e030845847f81869f8f93faf # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}

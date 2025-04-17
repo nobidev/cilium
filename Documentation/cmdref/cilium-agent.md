@@ -165,12 +165,12 @@ cilium-agent [flags]
       --enable-ipv4-masquerade                                         Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                                    Enable IPv6 support (default true)
       --enable-ipv6-big-tcp                                            Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
+      --enable-ipv6-fragment-tracking                                  Enable IPv6 fragments tracking for L4-based lookups (default true)
       --enable-ipv6-masquerade                                         Masquerade IPv6 traffic from endpoints leaving the host (default true)
       --enable-ipv6-ndp                                                Enable IPv6 NDP support
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                                      Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
-      --enable-k8s-terminating-endpoint                                Enable auto-detect of terminating endpoint condition (default true)
       --enable-l2-announcements                                        Enable L2 announcements
       --enable-l2-neigh-discovery                                      Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec (default true)
       --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP
@@ -447,6 +447,7 @@ cilium-agent [flags]
       --tunnel-port uint16                                             Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                         Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --tunnel-source-port-range string                                Tunnel source port range hint (default 0-0) (default "0-0")
+      --underlay-protocol string                                       IP family for the underlay ("ipv4" or "ipv6") (default "ipv4")
       --use-full-tls-context                                           If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
       --version                                                        Print version information
       --vlan-bpf-bypass strings                                        List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs

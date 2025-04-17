@@ -120,7 +120,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Login to Azure
-        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -234,7 +234,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Login to Azure
-        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -271,7 +271,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@0caa9e5cbfe3a80a1fd6bbc1f5f9926da35b0373 # v0.18.2
+        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

@@ -27,9 +27,9 @@ nodeport_nat_egress_ipv4_hook(struct __ctx_buff *ctx __maybe_unused,
 	return CTX_ACT_OK;
 }
 
-#undef nodeport_rev_dnat_ingress_ipv4_hook
+#undef nodeport_rev_dnat_ipv4_hook
 static __always_inline int
-nodeport_rev_dnat_ingress_ipv4_hook(struct __ctx_buff *ctx __maybe_unused,
+nodeport_rev_dnat_ipv4_hook(struct __ctx_buff *ctx __maybe_unused,
 				    struct iphdr *ip4 __maybe_unused,
 				    struct ipv4_ct_tuple *tuple __maybe_unused,
 				    __u32 *tunnel_endpoint __maybe_unused,

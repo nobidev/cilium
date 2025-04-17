@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -296,13 +298,17 @@ type Service struct {
 	l7lbSvcs map[lb.ServiceName]*L7LBInfo
 
 	backendConnectionHandler sockets.SocketDestroyer
+	nsIterator               func() (iter.Seq2[string, *netns.NetNS], <-chan error)
 
 	backendDiscovery       datapathTypes.NodeNeighbors
 	k8sControlplaneEnabled bool
+
+	config *option.DaemonConfig
 }
 
 // newService creates a new instance of the service handler.
-func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
+func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool,
+	config *option.DaemonConfig) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
@@ -323,6 +329,8 @@ func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap data
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
+		config:                   config,
+		nsIterator:               netns.All,
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
@@ -1772,6 +1780,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 			)
 		}
 		s.lbmap.DeleteBackendByID(id)
+		// Note: TerminateUDPConnectionsToBackend returns an error but we do not need to handle it here.
+		// errors are already logged inside the function and we do not want to return early in case of
+		// termination failures - these are always best effort.
 		s.TerminateUDPConnectionsToBackend(&be.L3n4Addr)
 	}
 
@@ -2242,7 +2253,7 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 }
 
 // segregateBackends returns the list of active, preferred and nonActive backends to be
-// added to the lbmaps. If EnableK8sTerminatingEndpoint and there are no active backends,
+// added to the lbmaps. If there are no active backends,
 // segregateBackends will return all terminating backends as active.
 func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb.Backend,
 	activeBackends map[string]*lb.Backend, nonActiveBackends []lb.BackendID,
@@ -2271,7 +2282,7 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb
 	// In case that there are no Active backends, use the Backends in TerminatingState to answer new requests
 	// and avoid traffic disruption until new active backends are created.
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
-	if option.Config.EnableK8sTerminatingEndpoint && len(activeBackends) == 0 {
+	if len(activeBackends) == 0 {
 		nonActiveBackends = []lb.BackendID{}
 		for _, b := range backends {
 			if b.State == lb.BackendStateTerminating {

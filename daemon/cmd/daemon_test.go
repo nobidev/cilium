@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -58,6 +57,8 @@ type DaemonSuite struct {
 	oldPolicyEnabled string
 
 	PolicyImporter policycell.PolicyImporter
+	envoyXdsServer envoy.XDSServer
+	dnsProxy       defaultdns.Proxy
 }
 
 func setupTestDirectories() string {
@@ -90,14 +91,6 @@ func TestMain(m *testing.M) {
 	time.Local = time.UTC
 
 	os.Exit(m.Run())
-}
-
-type dummyEpSyncher struct{}
-
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
-}
-
-func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
 func setupDaemonSuite(tb testing.TB) *DaemonSuite {
@@ -139,6 +132,12 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
 		}),
+		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
+			ds.envoyXdsServer = envoyXdsServer
+		}),
+		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
+			ds.dnsProxy = dnsProxy
+		}),
 	)
 
 	// bootstrap global config
@@ -156,8 +155,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
 
-	ds.d.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
-	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
+	ds.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
@@ -248,5 +246,5 @@ func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
 func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)
-	require.NotEqual(t, "", m)
+	require.NotEmpty(t, m)
 }

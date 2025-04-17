@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -53,11 +54,11 @@ type FQDNProxyAgentServer struct {
 	daemonPromise   promise.Promise[*cmd.Daemon]
 	restorerPromise promise.Promise[endpointstate.Restorer]
 
-	dataSource      DNSProxyDataSource
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
 	localIDs        stream.Observable[cache.IdentityChange]
 	defaultProxy    defaultdns.Proxy
+	requestHandler  bootstrap.DNSRequestHandler
 
 	db        *statedb.DB
 	selectors statedb.RWTable[FQDNSelector]
@@ -73,6 +74,7 @@ type params struct {
 	Cfg               fqdnhaconfig.Config
 	IdentityAllocator identityCell.CachingIdentityAllocator
 	DefaultProxy      defaultdns.Proxy
+	RequestHandler    bootstrap.DNSRequestHandler
 
 	DB    *statedb.DB
 	Table statedb.RWTable[FQDNSelector]
@@ -145,6 +147,12 @@ func (s *FQDNProxyAgentServer) LookupIPsBySecurityIdentity(ctx context.Context, 
 func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notification *pb.DNSNotification) (*pb.Empty, error) {
 	//TODO: this should probably be factored out into stream of DNS notifications instead of a rpc call per DNS msg
 
+	serverAddrPort, err := netip.ParseAddrPort(notification.ServerAddr)
+	if err != nil {
+		log.Errorf("Failed to parse server address and port: %s", err)
+		return &pb.Empty{}, err
+	}
+
 	endpoint, err := s.endpointManager.Lookup(strconv.Itoa(int(notification.Endpoint.ID)))
 	if err != nil {
 		log.WithField("Endpoint ID", notification.Endpoint.ID).Errorf("Failed to retrieve endpoint")
@@ -152,22 +160,21 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 
 	dnsMsg := &dns.Msg{}
 	err = dnsMsg.Unpack(notification.Msg)
-
 	if err != nil {
 		log.Errorf("Failed to unpack DNS message: %s", err)
 		return &pb.Empty{}, err
 	}
 
-	return &pb.Empty{}, s.dataSource.NotifyOnDNSMsg(
+	return &pb.Empty{}, s.requestHandler.NotifyOnDNSMsg(
 		notification.Time.AsTime(),
 		endpoint,
 		notification.EpIPPort,
 		identity.NumericIdentity(notification.ServerID),
-		notification.ServerAddr,
+		serverAddrPort,
 		dnsMsg,
 		notification.Protocol,
 		notification.Allowed,
-		nil)
+		&dnsproxy.ProxyRequestContext{DataSource: "external-proxy"})
 }
 
 func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
@@ -408,6 +415,7 @@ func NewFQDNProxyAgentServer(
 		endpointManager: p.EndpointManager,
 		localIDs:        p.IdentityAllocator.LocalIdentityChanges(),
 		defaultProxy:    p.DefaultProxy,
+		requestHandler:  p.RequestHandler,
 		db:              p.DB,
 		selectors:       p.Table,
 	}
@@ -416,11 +424,10 @@ func NewFQDNProxyAgentServer(
 }
 
 func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
-	daemon, err := s.daemonPromise.Await(ctx)
+	_, err := s.daemonPromise.Await(ctx)
 	if err != nil {
 		return err
 	}
-	s.dataSource = daemon
 
 	restorer, err := s.restorerPromise.Await(ctx)
 	if err != nil {

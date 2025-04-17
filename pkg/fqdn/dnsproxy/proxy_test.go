@@ -23,8 +23,10 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -84,13 +86,17 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
 	}
-	proxy, err := StartDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
+	proxy := NewDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 			if s.restoring {
 				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady), false, nil
+			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+			ep.Start(uint16(model.ID))
+			tb.Cleanup(ep.Stop)
+			return ep, false, err
 		},
 		// LookupSecIDByIP
 		func(ip netip.Addr) (ipcache.Identity, bool) {
@@ -127,7 +133,8 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 			return nil
 		},
 	)
-	require.NoError(tb, err, "error starting DNS Proxy")
+	err := proxy.Listen()
+	require.NoError(tb, err, "error listening for DNS requests")
 	s.proxy = proxy
 
 	// This is here because Listener or Listener.Addr() was nil. The
@@ -747,12 +754,12 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1.Sort(nil)
-	require.EqualValues(t, expected1, restored1)
+	require.Equal(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
 	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
 	restored2.Sort(nil)
-	require.EqualValues(t, expected2, restored2)
+	require.Equal(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
@@ -766,7 +773,7 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
 	restored3.Sort(nil)
-	require.EqualValues(t, expected3, restored3)
+	require.Equal(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
 	oldUsed := s.proxy.usedServers
@@ -786,7 +793,7 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1b.Sort(nil)
-	require.EqualValues(t, expected1b, restored1b)
+	require.Equal(t, expected1b, restored1b)
 
 	// unlimited again
 	s.proxy.usedServers = oldUsed
@@ -837,7 +844,13 @@ func TestFullPathDependence(t *testing.T) {
 	require.False(t, allowed, "request was allowed when it should be rejected")
 
 	// Restore rules
-	ep1 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep1.Start(uint16(model.ID))
+	t.Cleanup(ep1.Stop)
+
 	ep1.DNSRulesV2 = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -883,7 +896,13 @@ func TestFullPathDependence(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID3), endpoint.StateReady)
+	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
+	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), modelEP3)
+	require.NoError(t, err)
+
+	ep3.Start(uint16(modelEP3.ID))
+	t.Cleanup(ep3.Stop)
+
 	ep3.DNSRulesV2 = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -967,7 +986,7 @@ func TestFullPathDependence(t *testing.T) {
 	err = json.Unmarshal(jsn, &rules)
 	rules = rules.Sort(nil)
 	require.NoError(t, err, "Could not unmarshal restored rules from json")
-	require.EqualValues(t, expected1, rules)
+	require.Equal(t, expected1, rules)
 
 	// Marshal again & compare
 	// Marshal restored rules to JSON
@@ -1089,7 +1108,13 @@ func TestRestoredEndpoint(t *testing.T) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep1.Start(uint16(model.ID))
+	t.Cleanup(ep1.Stop)
+
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRulesV2 = restored
@@ -1209,14 +1234,14 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	rulesPerEP := make([]policy.L7DataMap, 0, nEPs)
 
 	var defaultRules []api.PortRuleDNS
-	for i := 0; i < nMatchPatterns; i++ {
+	for i := range nMatchPatterns {
 		defaultRules = append(defaultRules, api.PortRuleDNS{MatchPattern: "*.bar" + strconv.Itoa(i) + "another.very.long.domain.here"})
 	}
-	for i := 0; i < nMatchNames; i++ {
+	for i := range nMatchNames {
 		defaultRules = append(defaultRules, api.PortRuleDNS{MatchName: strconv.Itoa(i) + "very.long.domain.containing.a.lot.of.chars"})
 	}
 
-	for i := 0; i < nEPs; i++ {
+	for i := range nEPs {
 		commonRules := slices.Clone(defaultRules)
 		if i%everyNIsEqual != 0 {
 			commonRules = append(
@@ -1235,9 +1260,8 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	pea := perEPAllow{}
 	c := regexCache{}
 	b.ReportAllocs()
-	b.StopTimer()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for epID := uint64(0); epID < nEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, nil)
 		}
@@ -1352,8 +1376,8 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	pea := perEPAllow{}
 	c := regexCache{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for epID := uint64(0); epID < numEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, rules)
 		}
@@ -1392,4 +1416,14 @@ func getMemStats() runtime.MemStats {
 
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
+}
+
+func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRequest {
+	return &models.EndpointChangeRequest{
+		ID:    int64(id),
+		State: ptr.To(models.EndpointState(state)),
+		Properties: map[string]interface{}{
+			endpoint.PropertyFakeEndpoint: true,
+		},
+	}
 }

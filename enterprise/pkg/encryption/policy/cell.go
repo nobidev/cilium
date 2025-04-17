@@ -155,7 +155,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		return nil
 	}
 
-	if params.DaemonConfig.TunnelingEnabled() && params.Tunnel.Protocol() != tunnel.VXLAN {
+	if params.DaemonConfig.TunnelingEnabled() && params.Tunnel.EncapProtocol() != tunnel.VXLAN {
 		params.Log.Error("Encryption Policy requires VXLAN as the tunnel potocol")
 		return nil
 	}

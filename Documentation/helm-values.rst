@@ -960,6 +960,10 @@
      - Install the CNI configuration and binary files into the filesystem.
      - bool
      - ``true``
+   * - :spelling:ignore:`cni.iptablesRemoveAWSRules`
+     - Enable the removal of iptables rules created by the AWS CNI VPC plugin.
+     - bool
+     - ``true``
    * - :spelling:ignore:`cni.logFile`
      - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
      - string
@@ -1126,10 +1130,6 @@
      - ``true``
    * - :spelling:ignore:`enableInternalTrafficPolicy`
      - Enable Internal Traffic Policy
-     - bool
-     - ``true``
-   * - :spelling:ignore:`enableK8sTerminatingEndpoint`
-     - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
      - bool
      - ``true``
    * - :spelling:ignore:`enableLBIPAM`
@@ -1467,7 +1467,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:1069f1f0ecda0f12de4406fa9510c81b23032e5e2c6f3efba6c8e3d829a4ba1e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.2-1742995211-ca0b42f0ecdf835224a8ddfc6fe0442368d4d766","useDigest":true}``
+     - ``{"digest":"sha256:b8f10a6769013b589725f95b99b990a07eeec6d6b34d5ea748f816dd671d04ca","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.2-1743993934-6e55b1412ae5976fb0c8fdc87a5e53942f70b0fc","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -3068,6 +3068,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`livenessProbe.requireK8sConnectivity`
+     - whether to require k8s connectivity as part of the check.
+     - bool
+     - ``false``
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
@@ -3860,6 +3864,10 @@
      - Configure VXLAN and Geneve tunnel source port range hint.
      - string
      - 0-0 to let the kernel driver decide the range
+   * - :spelling:ignore:`underlayProtocol`
+     - IP family for the underlay.
+     - string
+     - ``"ipv4"``
    * - :spelling:ignore:`updateStrategy`
      - Cilium agent update strategy
      - object

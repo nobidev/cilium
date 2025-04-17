@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -73,8 +74,8 @@ func namespaceIndexFunc(obj any) ([]string, error) {
 	return []string{object.GetNamespace()}, nil
 }
 
-func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
-	return func(obj interface{}) ([]string, error) {
+func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj any) ([]string, error) {
+	return func(obj any) ([]string, error) {
 		if identity, ok := obj.(*cilium_api_v2.CiliumIdentity); ok {
 			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
 		}
@@ -393,7 +394,10 @@ func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
 		return ParseEndpointSliceV1(logger, obj), nil
 	case *slim_discoveryv1beta1.EndpointSlice:
 		return ParseEndpointSliceV1Beta1(obj), nil
+	case cache.DeletedFinalStateUnknown:
+		return obj, nil
 	default:
+		logger.Error("Unknown endpoint or endpoint slice object", logfields.Name, reflect.TypeOf(obj))
 		return nil, fmt.Errorf("%T not a known endpoint or endpoint slice object", obj)
 	}
 }
