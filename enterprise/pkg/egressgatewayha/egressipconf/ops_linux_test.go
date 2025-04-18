@@ -66,7 +66,7 @@ func TestOps(t *testing.T) {
 	ifName := link.Attrs().Name
 
 	egressIP := netip.MustParseAddr("192.168.1.50")
-	destinations := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
+	destinations := []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("192.168.1.0/24")}
 
 	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
 
@@ -146,7 +146,7 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "expected no error from second update")
 
 	// Update() with a different list of destinations should update the routes
-	updDests := []netip.Prefix{netip.MustParsePrefix("192.168.2.0/24"), netip.MustParsePrefix("192.168.3.0/24")}
+	updDests := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
 
 	updEntry := &tables.EgressIPEntry{
 		Addr:         entry.Addr,
