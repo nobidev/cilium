@@ -102,7 +102,11 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 
 	// delete stale routes
 	for _, r := range routes {
-		dst := ipNetToPrefix(*r.Dst)
+		dst, ok := netipx.FromStdIPNet(r.Dst)
+		if !ok {
+			return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
+		}
+
 		found := false
 		for _, dest := range entry.Destinations {
 			if dest.String() == dst.String() {
@@ -116,7 +120,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 				logfields.DestinationIP, r.Dst,
 				logfields.Interface, iface.Attrs().Name)
 
-			if err := route.DeleteV4(routeForEgressIP(entry.Addr, ipNetToPrefix(*r.Dst), iface)); err != nil && !errors.Is(err, syscall.ESRCH) {
+			if err := route.DeleteV4(routeForEgressIP(entry.Addr, dst, iface)); err != nil && !errors.Is(err, syscall.ESRCH) {
 				return fmt.Errorf("failed to delete route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 			}
 		}
@@ -126,7 +130,11 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 	for _, dest := range entry.Destinations {
 		found := false
 		for _, r := range routes {
-			dst := ipNetToPrefix(*r.Dst)
+			dst, ok := netipx.FromStdIPNet(r.Dst)
+			if !ok {
+				return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
+			}
+
 			if dst.String() == dest.String() {
 				gw, ok := netipx.FromStdIP(r.Gw)
 				if !ok && !entry.NextHop.IsValid() {
@@ -329,12 +337,6 @@ func prefixToIPNet(prefix netip.Prefix) net.IPNet {
 		IP:   prefix.Addr().AsSlice(),
 		Mask: net.CIDRMask(prefix.Bits(), prefix.Addr().BitLen()),
 	}
-}
-
-func ipNetToPrefix(prefix net.IPNet) netip.Prefix {
-	addr, _ := netip.AddrFromSlice(prefix.IP)
-	cidr, _ := prefix.Mask.Size()
-	return netip.PrefixFrom(addr, cidr)
 }
 
 func rulesFilter() (*netlink.Rule, uint64) {
