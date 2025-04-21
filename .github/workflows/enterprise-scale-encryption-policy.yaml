@@ -1,4 +1,4 @@
-name: Encryption Policy Scale Test
+name: Encryption Policy Scale Test (scale-encryption-policy)
 
 on:
 
