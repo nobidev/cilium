@@ -44,7 +44,7 @@ const (
 	egwIPAMPoolExhausted       = "isovalent.com/PoolExhausted"
 	egwIPAMPoolConflicting     = "isovalent.com/PoolConflict"
 
-	egressGatewayPrefix                 = "egw.isovalant.com"
+	egressGatewayPrefix                 = "egw.isovalent.com"
 	nodeEgressGatewayPrefix             = egressGatewayPrefix + "/node"
 	nodeEgressGatewayUnschedulableValue = "unschedulable"
 )
