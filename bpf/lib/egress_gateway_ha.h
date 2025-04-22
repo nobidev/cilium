@@ -13,17 +13,13 @@ struct egress_gw_ha_policy_key {
 
 #define EGRESS_GW_HA_MAX_GATEWAY_NODES 64
 
-struct egress_gw_ha_policy_entry {
+struct egress_gw_ha_policy_entry_v2 {
 	/* Size is the number of IPs set in the gateway_ips field (i.e. the number of
 	 * gateways configured for the policy).
 	 */
 	__u32 size;
 	__be32 egress_ip;
 	__be32 gateway_ips[EGRESS_GW_HA_MAX_GATEWAY_NODES];
-};
-
-struct egress_gw_ha_policy_entry_v2 {
-	struct egress_gw_ha_policy_entry policy;
 	__u32 egress_ifindex;
 };
 
@@ -106,7 +102,7 @@ void update_egress_gw_ha_ct_entry(struct ipv4_ct_tuple *ct_key, __be32 gateway)
 }
 
 static __always_inline
-__be32 pick_egress_gateway(const struct egress_gw_ha_policy_entry *policy)
+__be32 pick_egress_gateway(const struct egress_gw_ha_policy_entry_v2 *policy)
 {
 	unsigned int index = get_prandom_u32() % policy->size;
 
@@ -126,7 +122,7 @@ __be32 pick_egress_gateway(const struct egress_gw_ha_policy_entry *policy)
  * to the special EGRESS_GATEWAY_EXCLUDED_CIDR IPv4 (0.0.0.1)
  */
 static __always_inline
-bool egress_gw_ha_policy_entry_is_excluded_cidr(const struct egress_gw_ha_policy_entry *policy)
+bool egress_gw_ha_policy_entry_is_excluded_cidr(const struct egress_gw_ha_policy_entry_v2 *policy)
 {
 	return policy->size == 1 &&
 		policy->gateway_ips[0] == EGRESS_GATEWAY_EXCLUDED_CIDR;
@@ -138,8 +134,7 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA) && !defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
-	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
-	const struct egress_gw_ha_policy_entry *egress_gw_policy;
+	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy;
 	const struct egress_gw_ha_ct_entry *egress_ct;
 	struct ipv4_ct_tuple ct_key;
 
@@ -173,12 +168,11 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 	}
 
 	/* Lookup the (src IP, dst IP) tuple in the the egress policy map */
-	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(ipv4_ct_reverse_tuple_saddr(rtuple),
-								ipv4_ct_reverse_tuple_daddr(rtuple));
-	if (!egress_gw_policy_v2)
+	egress_gw_policy = lookup_ip4_egress_gw_ha_policy_v2(ipv4_ct_reverse_tuple_saddr(rtuple),
+							     ipv4_ct_reverse_tuple_daddr(rtuple));
+	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
-	egress_gw_policy = &egress_gw_policy_v2->policy;
 	if (!egress_gw_policy->size) {
 		/* If no gateway is found, drop the packet. */
 		return DROP_NO_EGRESS_GATEWAY;
@@ -210,15 +204,13 @@ bool egress_gw_ha_snat_needed(__be32 saddr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
-	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
-	const struct egress_gw_ha_policy_entry *egress_gw_policy;
+	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy;
 
-	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(saddr, daddr);
-	if (!egress_gw_policy_v2)
+	egress_gw_policy = lookup_ip4_egress_gw_ha_policy_v2(saddr, daddr);
+	if (!egress_gw_policy)
 		return false;
 
-	egress_gw_policy = &egress_gw_policy_v2->policy;
-	*egress_ifindex = egress_gw_policy_v2->egress_ifindex;
+	*egress_ifindex = egress_gw_policy->egress_ifindex;
 
 	/* If this is an excluded CIDR, skip SNAT */
 	if (egress_gw_ha_policy_entry_is_excluded_cidr(egress_gw_policy))
@@ -243,7 +235,7 @@ egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 		return false;
 
 	/* If this is an excluded CIDR, skip redirection */
-	if (egress_gw_ha_policy_entry_is_excluded_cidr(&egress_gw_policy_v2->policy))
+	if (egress_gw_ha_policy_entry_is_excluded_cidr(egress_gw_policy_v2))
 		return false;
 
 	return true;

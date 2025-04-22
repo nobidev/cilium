@@ -30,11 +30,9 @@ enum egressgw_ha_test {
 	};											\
 												\
 	struct egress_gw_ha_policy_entry_v2 in_val = {						\
-		.policy = {									\
-			.size        = _size,							\
-			.egress_ip   = _egress_ip,						\
-			.gateway_ips = _gateway_ips,						\
-		},										\
+		.size        = _size,								\
+		.egress_ip   = _egress_ip,							\
+		.gateway_ips = _gateway_ips,							\
 		.egress_ifindex = _egress_ifindex,						\
 	};											\
 												\

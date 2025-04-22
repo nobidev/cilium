@@ -11,15 +11,21 @@
 package alignchecker
 
 import (
+	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 )
 
 func init() {
 	registerToCheck(map[string][]any{
-		"endpoint_key":            {extepspolicy.Key{}},
-		"encryption_policy_key":   {encryptionpolicymap.EncryptionPolicyKey{}},
-		"encryption_policy_entry": {encryptionpolicymap.EncryptionPolicyVal{}},
+		"egress_gw_ha_ct_entry":        {egressmapha.EgressCtVal4{}},
+		"egress_gw_ha_policy_key":      {egressmapha.EgressPolicyV2Key4{}},
+		"egress_gw_ha_policy_entry_v2": {egressmapha.EgressPolicyV2Val4{}},
+		"egress_gw_standalone_key":     {egressmapha.SEGWMapKey4{}},
+		"egress_gw_standalone_entry":   {egressmapha.SEGWMapVal4{}},
+		"endpoint_key":                 {extepspolicy.Key{}},
+		"encryption_policy_key":        {encryptionpolicymap.EncryptionPolicyKey{}},
+		"encryption_policy_entry":      {encryptionpolicymap.EncryptionPolicyVal{}},
 	})
 
 	registerToCheckSizes(map[string][]any{
