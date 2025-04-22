@@ -122,7 +122,10 @@ func (r *RIB) UpsertRoute(vrfID uint32, newRoute Route) {
 func (r *RIB) DeleteRoute(vrfID uint32, route Route) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+	r.deleteRoute(vrfID, route)
+}
 
+func (r *RIB) deleteRoute(vrfID uint32, route Route) {
 	trie, found := r.vrfTries[vrfID]
 	if !found {
 		return
@@ -167,7 +170,10 @@ func (r *RIB) DeleteRoute(vrfID uint32, route Route) {
 func (r *RIB) ListRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
+	return r.listRoutes(owner)
+}
 
+func (r *RIB) listRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 	vrfRoutes := map[uint32]*bitlpm.CIDRTrie[*Route]{}
 	for vrfID, trie := range r.vrfTries {
 		routes := bitlpm.NewCIDRTrie[*Route]()
@@ -183,8 +189,23 @@ func (r *RIB) ListRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 			vrfRoutes[vrfID] = routes
 		}
 	}
-
 	return vrfRoutes
+}
+
+// DeleteRoutesByOwner deletes all the routes for a given owner
+func (r *RIB) DeleteRoutesByOwner(owner string) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	// It is not safe to delete node from trie while iterating over it, so
+	// we first collect all routes to delete and then delete them.
+	vrfRoutes := r.listRoutes(owner)
+	for vrfID, trie := range vrfRoutes {
+		trie.ForEach(func(prefix netip.Prefix, route *Route) bool {
+			r.deleteRoute(vrfID, *route)
+			return true
+		})
+	}
 }
 
 // Best path selection algorithm. First, it compares the Admin Distance of the

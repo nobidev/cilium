@@ -351,3 +351,50 @@ func TestRIB_DataPlaneIntegration(t *testing.T) {
 		dataPlane.Clear()
 	})
 }
+
+func TestRIB_DeleteRoutesByOwner(t *testing.T) {
+	dataPlane := &testDataPlane{}
+	rib := New(in{DataPlane: dataPlane})
+
+	vrfID := uint32(1)
+	route0 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
+		Owner:    "owner0",
+		Protocol: ProtocolIBGP,
+	}
+	route1 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.2.0/24"),
+		Owner:    "owner0",
+		Protocol: ProtocolIBGP,
+	}
+	route2 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.3.0/24"),
+		Owner:    "owner1",
+		Protocol: ProtocolEBGP,
+	}
+
+	rib.UpsertRoute(vrfID, *route0)
+	rib.UpsertRoute(vrfID, *route1)
+	rib.UpsertRoute(vrfID, *route2)
+
+	// Ensure routes exist on the RIB
+	require.Equal(t, uint(2), rib.ListRoutes("owner0")[vrfID].Len())
+	require.Equal(t, uint(1), rib.ListRoutes("owner1")[vrfID].Len())
+
+	// Delete routes for owner0
+	rib.DeleteRoutesByOwner("owner0")
+
+	// Ensure all routes for owner0 are deleted
+	require.Empty(t, rib.ListRoutes("owner0"))
+
+	// Ensure owner1's route is still present
+	require.Equal(t, uint(1), rib.ListRoutes("owner1")[vrfID].Len())
+
+	// Ensure dataplane is getting the updates. We don't need to
+	// check the content of the updates here because internally
+	// DeleteRoutesByOwner uses DeleteRoute which is already tested.
+	//
+	// 3 new routes + 2 deleted routes = 5 updates
+	require.Len(t, dataPlane.receivedUpdates, 5)
+
+}
