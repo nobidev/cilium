@@ -24,11 +24,12 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -47,6 +48,9 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdnha/relay")
 type FQDNProxyAgentServer struct {
 	pb.UnimplementedFQDNProxyAgentServer
 
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	grpcServer *grpc.Server
 
 	daemonPromise   promise.Promise[*cmd.Daemon]
@@ -55,11 +59,13 @@ type FQDNProxyAgentServer struct {
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
 	localIDs        stream.Observable[cache.IdentityChange]
-	defaultProxy    defaultdns.Proxy
 	requestHandler  bootstrap.DNSRequestHandler
 
-	db        *statedb.DB
-	selectors statedb.RWTable[FQDNSelector]
+	db          *statedb.DB
+	selectors   statedb.RWTable[FQDNSelector]
+	configTable statedb.Table[*tables.ProxyConfig]
+
+	dp *doubleproxy.DoubleProxy
 }
 
 type params struct {
@@ -71,11 +77,12 @@ type params struct {
 	EndpointManager   endpointmanager.EndpointManager
 	Cfg               fqdnhaconfig.Config
 	IdentityAllocator identityCell.CachingIdentityAllocator
-	DefaultProxy      defaultdns.Proxy
 	RequestHandler    bootstrap.DNSRequestHandler
+	DP                *doubleproxy.DoubleProxy
 
-	DB    *statedb.DB
-	Table statedb.RWTable[FQDNSelector]
+	DB          *statedb.DB
+	Table       statedb.RWTable[FQDNSelector]
+	ConfigTable statedb.Table[*tables.ProxyConfig]
 }
 
 func (s *FQDNProxyAgentServer) ProvideMappings(stream pb.FQDNProxyAgent_ProvideMappingsServer) error {
@@ -357,6 +364,51 @@ func fromLabels(lbls labels.Labels) []*pb.Label {
 	return res
 }
 
+// SubscribeFQDNRules streams all existing and new FQDNRules from the agent to a remote proxy.
+func (s *FQDNProxyAgentServer) SubscribeFQDNRules(stream grpc.BidiStreamingServer[pb.Empty, pb.FQDNRules]) error {
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+
+	at := s.dp.RegisterRemote()
+	defer s.dp.UnregisterRemote(at)
+
+	wtxn := s.db.WriteTxn(s.configTable)
+	changeIter, err := s.configTable.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		log.WithError(err).Error("BUG: failed to watch for ProxyConfig changes")
+		return err
+	}
+
+	log.Info("SubscribeFQDNRules() stream beginning.")
+
+	for {
+		changes, watch := changeIter.Next(s.db.ReadTxn())
+		for change, rev := range changes {
+			msg := change.Object.ToMsg(change.Deleted)
+			log.WithField(logfields.EndpointID, msg.EndpointID).Debug("SubscribeFQDNRules(): forwarding update")
+			if err := stream.Send(msg); err != nil {
+				// only Info level, as client may have restarted.
+				log.WithError(err).Info("SubscribeFQDNRules(): failed to forward update")
+				return err
+			}
+			// Wait for agent to ack rules.
+			if _, err := stream.Recv(); err != nil {
+				log.WithError(err).Info("SubscribeFQDNRules(): failed to receive response")
+				return err
+			}
+			at.Ack(rev)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-stream.Context().Done():
+			return nil
+		case <-watch:
+		}
+	}
+}
+
 func NewFQDNProxyAgentServer(
 	lc cell.Lifecycle,
 	p params,
@@ -370,11 +422,13 @@ func NewFQDNProxyAgentServer(
 		ipCacheGetter:   p.IPCacheGetter,
 		endpointManager: p.EndpointManager,
 		localIDs:        p.IdentityAllocator.LocalIdentityChanges(),
-		defaultProxy:    p.DefaultProxy,
 		requestHandler:  p.RequestHandler,
 		db:              p.DB,
 		selectors:       p.Table,
+		configTable:     p.ConfigTable,
+		dp:              p.DP,
 	}
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 	lc.Append(s)
 	return s
 }
@@ -414,6 +468,7 @@ func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
 func (s *FQDNProxyAgentServer) Stop(ctx cell.HookContext) error {
 	log.Info("Stopping FQDN relay gRPC server")
 	s.grpcServer.Stop()
+	s.cancel()
 	return nil
 }
 
