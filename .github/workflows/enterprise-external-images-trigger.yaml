@@ -2,6 +2,9 @@ name: Trigger build images external to isovalent/cilium
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  schedule:
+    # Every day at 00:00
+    - cron: "0 0 * * *"
   push:
     branches:
       - main-ce
