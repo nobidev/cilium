@@ -69,7 +69,7 @@ func NewImportedVPNRouteReconciler(params ImportedVPNRouteReconcilerIn) Imported
 
 	return ImportedVPNRouteReconcilerOut{
 		Reconciler: &ImportedVPNRouteReconciler{
-			Logger:      params.Logger.WithField(types.ReconcilerLogField, "import-vpn-route"),
+			Logger:      params.Logger.WithField(types.ReconcilerLogField, "ImportVPNRoute"),
 			Clientset:   params.Clientset,
 			Upgrader:    params.Upgrader,
 			SRv6Manager: params.SRv6Manager,

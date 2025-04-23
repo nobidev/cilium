@@ -73,7 +73,7 @@ type IsovalentAdvertisement struct {
 
 func newIsovalentAdvertisement(p AdvertisementIn) *IsovalentAdvertisement {
 	pa := &IsovalentAdvertisement{
-		logger:      p.Logger.WithField(types.ReconcilerLogField, "advertisements"),
+		logger:      p.Logger.WithField(types.ReconcilerLogField, "Advertisement"),
 		peerConfigs: p.PeerConfigStore,
 		adverts:     p.AdvertStore,
 		vrfs:        p.VRFConfigStore,

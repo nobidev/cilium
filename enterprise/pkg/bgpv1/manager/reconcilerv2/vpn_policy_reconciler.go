@@ -69,8 +69,8 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 
 	rp := &VPNRoutePolicyReconciler{
 		metadata: make(map[string]VPNRoutePolicyMetadata),
-		logger:   in.Logger.WithField(types.ReconcilerLogField, "vpn-route-policy"),
-		sLogger:  in.SLogger.With(types.ReconcilerLogField, "vpn-route-policy"),
+		logger:   in.Logger.WithField(types.ReconcilerLogField, "VPNRoutePolicy"),
+		sLogger:  in.SLogger.With(types.ReconcilerLogField, "VPNRoutePolicy"),
 		upgrader: in.Upgrader,
 	}
 

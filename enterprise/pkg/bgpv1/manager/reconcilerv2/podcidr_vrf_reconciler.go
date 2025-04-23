@@ -81,8 +81,8 @@ func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut 
 	}
 
 	pr := &PodCIDRVRFReconciler{
-		Logger:      in.Logger.WithField(types.ReconcilerLogField, "pod-cidr-vrf"),
-		SLogger:     in.SLogger.With(types.ReconcilerLogField, "pod-cidr-vrf"),
+		Logger:      in.Logger.WithField(types.ReconcilerLogField, "PodCIDRVRF"),
+		SLogger:     in.SLogger.With(types.ReconcilerLogField, "PodCIDRVRF"),
 		Adverts:     in.Adverts,
 		Upgrader:    in.Upgrader,
 		SRv6Paths:   in.SRv6Paths,

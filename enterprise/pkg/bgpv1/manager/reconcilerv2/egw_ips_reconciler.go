@@ -57,8 +57,8 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 
 	return EGWIPsReconcilerOut{
 		Reconciler: &EgressGatewayIPsReconciler{
-			logger:         params.Logger,
-			sLogger:        params.SLogger,
+			logger:         params.Logger.WithField(types.ReconcilerLogField, "EgressGatewayIP"),
+			sLogger:        params.SLogger.With(types.ReconcilerLogField, "EgressGatewayIP"),
 			egwIPsProvider: params.EGWIPsProvider,
 			upgrader:       params.Upgrader,
 			peerAdvert:     params.PeerAdvert,

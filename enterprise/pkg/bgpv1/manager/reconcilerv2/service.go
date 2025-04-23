@@ -121,8 +121,8 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	}
 
 	r := &ServiceReconciler{
-		logger:           in.Logger,
-		sLogger:          in.SLogger,
+		logger:           in.Logger.WithField(bgptypes.ReconcilerLogField, "Service"),
+		sLogger:          in.SLogger.With(bgptypes.ReconcilerLogField, "Service"),
 		cfg:              in.Cfg,
 		signaler:         in.Signaler,
 		healthChecker:    in.HealthCheckManager,
