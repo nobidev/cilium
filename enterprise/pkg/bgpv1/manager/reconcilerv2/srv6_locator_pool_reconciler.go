@@ -90,6 +90,7 @@ func NewSRv6LocatorPoolReconciler(params srv6LocatorPoolReconcilerIn) srv6Locato
 
 	r := &LocatorPoolReconciler{
 		logger:        params.Logger,
+		sLogger:       params.SLogger,
 		sidAllocators: make(map[string]sidmanager.SIDAllocator),
 		upgrader:      params.Upgrader,
 		peerAdvert:    params.PeerAdvert,

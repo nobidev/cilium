@@ -83,6 +83,7 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 	return ServiceVRFReconcilerOut{
 		Reconciler: &ServiceVRFReconciler{
 			logger:       in.Logger.WithField(types.ReconcilerLogField, "ServiceVRF"),
+			sLogger:      in.SLogger.With(types.ReconcilerLogField, "ServiceVRF"),
 			adverts:      in.Adverts,
 			svcDiffStore: in.SvcDiffStore,
 			epDiffStore:  in.EPDiffStore,
