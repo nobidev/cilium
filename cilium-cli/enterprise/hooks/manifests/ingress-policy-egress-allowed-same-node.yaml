@@ -1,0 +1,17 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-ingress-egress-to-echo-same-node"
+spec:
+  description: "Allow the traffic to only echo-same-node from both Ingress resources (same node and other node)"
+  endpointSelector:
+    # This match expression will match both Ingress resources (e.g. same-node and other-node)
+    matchExpressions:
+    - key: reserved:ingress
+      operator: Exists
+  egress:
+  # Allow to only echo-same-node service
+  - toEndpoints:
+    - matchLabels:
+        name: echo-same-node

@@ -49,11 +49,17 @@ var clientEgressDNSToEchoYAML string
 //go:embed manifests/encrypt-client-to-echo-8080.yaml
 var encryptClientToEchoYAML string
 
-//go:embed manifests/ingress-policy-client-same-node.yaml
-var ingressPolicyClientSameNodeYAML string
+// Ingress policy related files
+var (
+	//go:embed manifests/ingress-policy-client-same-node.yaml
+	ingressPolicyClientSameNodeYAML string
 
-//go:embed manifests/ingress-policy-client-other-node.yaml
-var ingressPolicyClientOtherNodeYAML string
+	//go:embed manifests/ingress-policy-client-other-node.yaml
+	ingressPolicyClientOtherNodeYAML string
+
+	//go:embed manifests/ingress-policy-egress-allowed-same-node.yaml
+	ingressPolicyEgressAllowedSameNodeYAML string
+)
 
 type EnterpriseConnectivity struct {
 	externalCiliumDNSProxyPods map[string]check.Pod
@@ -599,6 +605,17 @@ func (ec *EnterpriseConnectivity) addIngressPolicyTests(ct *check.ConnectivityTe
 				return check.ResultOK, check.ResultOK
 			}
 
+			// other traffic should be dropped
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	newTest(ct, "pod-to-ingress-service-policy-egress-same-node-allowed").
+		WithCiliumPolicy(ingressPolicyEgressAllowedSameNodeYAML).
+		WithScenarios(tests.PodToIngress()).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			if strings.Contains(a.Destination().Name(), "cilium-ingress-same-node") {
+				return check.ResultOK, check.ResultOK
+			}
 			// other traffic should be dropped
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
