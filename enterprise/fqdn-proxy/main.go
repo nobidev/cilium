@@ -24,7 +24,6 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -52,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -64,7 +62,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -98,6 +95,7 @@ var (
 	clientPtr atomic.Pointer[fqdnAgentClient]
 	client    = clientPtr.Load
 	cache     AgentDataCache
+	watcher   *rulesWatcher
 
 	DNSNotificationQueue             chan *pb.DNSNotification
 	DNSNotificationSendRetryInterval = 10 * time.Second
@@ -311,12 +309,6 @@ func main() {
 		NotifyOnDNSMsg,
 	)
 
-	err = proxy.Listen()
-	if err != nil {
-		log.Fatalf("Failed to start dns proxy: %v", err)
-	}
-	log.Info("started dns proxy")
-
 	// TODO: Refactor upstream proxy.SetRejectReply function to return an error to
 	// avoid duplicating deny response validation code.
 	switch strings.ToLower(*ToFQDNSRejectResponseCode) {
@@ -328,8 +320,14 @@ func main() {
 		log.WithField("code", *ToFQDNSRejectResponseCode).Fatalf("invalid fqdn reject response code, must be one of %v", option.FQDNRejectOptions)
 	}
 
-	log.Info("fqdn proxy is now ready")
-	go runServer(proxy)
+	watcher = newRulesWatcher(proxy)
+	go watcher.watchRules()
+
+	err = proxy.Listen()
+	if err != nil {
+		log.Fatalf("Failed to start dns proxy: %v", err)
+	}
+	log.Info("started dns proxy")
 
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
@@ -527,6 +525,7 @@ func updateAgentReachability(err error) *status.Status {
 		// Not a gRPC error indicating communication failure, assume agent communication worked.
 		if !agentReachable.Swap(true) {
 			log.Info("Agent connectivity established.")
+			watcher.notifyAgentConnected()
 		}
 		return sts
 	}
@@ -765,106 +764,6 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	}
 	stat.ProcessingTime.End(true)
 	return nil
-}
-
-type FQDNProxyServer struct {
-	pb.UnimplementedFQDNProxyServer
-
-	proxy *dnsproxy.DNSProxy
-}
-
-func (s *FQDNProxyServer) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
-	cachedSelectorREEntry := make(dnsproxy.CachedSelectorREEntry)
-
-	for key, rule := range rules.Rules.SelectorRegexMapping {
-		regex, err := regexp.Compile(rule)
-		if err != nil {
-			return &pb.Empty{}, err
-		}
-
-		ids, ok := rules.Rules.SelectorIdentitiesMapping[key]
-		if !ok {
-			return &pb.Empty{}, fmt.Errorf("malformed message: key %s not found in identities mapping", key)
-		}
-
-		nids := make([]identity.NumericIdentity, len(ids.List))
-
-		for i, id := range ids.List {
-			nids[i] = identity.NumericIdentity(id)
-		}
-
-		selector := SimpleSelector{
-			identities: nids,
-			name:       key,
-		}
-
-		cachedSelectorREEntry[&selector] = regex
-	}
-
-	var portProto restore.PortProto
-	if rules.DestProto == 0 {
-		portProto = restore.PortProto(rules.DestPort)
-	} else {
-		portProto = restore.MakeV2PortProto(uint16(rules.DestPort), u8proto.U8proto(rules.DestProto))
-	}
-	s.proxy.UpdateAllowedFromSelectorRegexes(rules.EndpointID, portProto, cachedSelectorREEntry)
-	return &pb.Empty{}, nil
-}
-
-func (s *FQDNProxyServer) RemoveRestoredRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.Empty, error) {
-	// noop, but implemented so that agents don't see an error.
-	return &pb.Empty{}, nil
-}
-
-func (s *FQDNProxyServer) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
-	rules, err := s.proxy.GetRules(versioned.Latest(), uint16(endpointIDMsg.EndpointID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rules for endpoint: %w", err)
-	}
-
-	msg := &pb.RestoredRules{Rules: make(map[uint32]*pb.IPRules, len(rules))}
-
-	for port, ipRules := range rules {
-		msgRules := &pb.IPRules{
-			List: make([]*pb.IPRule, 0, len(ipRules)),
-		}
-		for _, ipRule := range ipRules {
-			pattern := ""
-			if ipRule.Re.Pattern != nil {
-				pattern = *ipRule.Re.Pattern
-			}
-			msgRule := &pb.IPRule{
-				Regex: pattern,
-				Ips:   make([]string, 0, len(ipRule.IPs)),
-			}
-			for ip := range ipRule.IPs {
-				msgRule.Ips = append(msgRule.Ips, ip.String())
-			}
-
-			msgRules.List = append(msgRules.List, msgRule)
-		}
-
-		msg.Rules[uint32(port)] = msgRules
-	}
-
-	return msg, nil
-}
-
-func newServer(proxy *dnsproxy.DNSProxy) *FQDNProxyServer {
-	return &FQDNProxyServer{proxy: proxy}
-}
-
-func runServer(proxy *dnsproxy.DNSProxy) {
-	socket := "/var/run/cilium/proxy.sock"
-	os.Remove(socket)
-	lis, err := net.Listen("unix", socket)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterFQDNProxyServer(grpcServer, newServer(proxy))
-	grpcServer.Serve(lis)
 }
 
 var _ policy.CachedSelector = &SimpleSelector{}
