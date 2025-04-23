@@ -1,4 +1,4 @@
-name: EnterpriseIngressPolicy (ci-ingress-policy)
+name: Enterprise Ingress Policy (ci-ingress-policy)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -88,6 +88,8 @@ jobs:
             --set=enterprise.featureGate.strict=true \
             --set='enterprise.featureGate.approved={DatapathIPModeDualStack,IngressController}' \
             --set=ipv6.enabled=true \
+            --set=kubeProxyReplacement=true \
+            --set=ingressController.enabled=true \
             --set=envoyConfig.policy.mode=dedicated
           kubectl rollout status -n kube-system ds/cilium --watch
 
@@ -95,7 +97,7 @@ jobs:
         run: |
           cilium version
           cilium connectivity test \
-            --test="l7|sni|tls|ingress|check-log-errors" \
+            --test="l7|sni|tls|ingress-service-policy|check-log-errors" \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --debug --collect-sysdump-on-failure
