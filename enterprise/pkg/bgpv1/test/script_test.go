@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/daemon/cmd"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -68,28 +70,31 @@ const (
 	// test resource names
 	testNodeName         = "test-node"
 	testSecretsNamespace = "kube-system"
-	testLinkName         = "cilium-bgp-test"
+	testLink1Name        = "centbgptest1"
+	testLink2Name        = "centbgptest2"
 
 	// test arguments
-	testPeeringIPsFlag = "test-peering-ips"
-	ipamFlag           = "ipam"
-	probeTCPMD5Flag    = "probe-tcp-md5"
+	testPeeringIPsFlag     = "test-peering-ips"
+	ipamFlag               = "ipam"
+	probeTCPMD5Flag        = "probe-tcp-md5"
+	requireIPv6LLAddrsFlag = "require-ipv6-lladdrs"
+
+	// test environment variables
+	link1EnvVar   = "LINK1"
+	link2EnvVar   = "LINK2"
+	llAddr1EnvVar = "LLADDR1"
+	llAddr2EnvVar = "LLADDR2"
 )
 
 func TestScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
-	// setup test link
-	dummy := &netlink.Dummy{
-		LinkAttrs: netlink.LinkAttrs{Name: testLinkName},
-	}
-	netlink.LinkDel(dummy) // cleanup from potential previous test run
-	err := netlink.LinkAdd(dummy)
-	require.NoError(t, err, "error by adding test link %s", testLinkName)
-	t.Cleanup(func() {
-		netlink.LinkDel(dummy)
-	})
+	// set test environment variables
+	envVars := []string{"PATH=" + os.Getenv("PATH")}
+
+	// setup test links
+	envVars = setupTestLinks(t, envVars)
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var (
@@ -105,6 +110,7 @@ func TestScript(t *testing.T) {
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		requireIPv6LLAddrs := flags.Bool(requireIPv6LLAddrsFlag, false, "Require IPv6 link local addresses to be present on the test links")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -112,6 +118,11 @@ func TestScript(t *testing.T) {
 			require.NoError(t, err)
 			if !available {
 				t.Skip("TCP_MD5SIG socket option is not available")
+			}
+		}
+		if *requireIPv6LLAddrs {
+			if !hasIPv6LLAddrs(envVars) {
+				t.Skip("Link-local IPv6 addresses not available on test interfaces")
 			}
 		}
 
@@ -209,22 +220,7 @@ func TestScript(t *testing.T) {
 		})
 
 		// setup test peering IPs
-		l, err := netlink.LinkByName(testLinkName)
-		require.NoError(t, err)
-		for _, ip := range *peeringIPs {
-			ipAddr, err := netip.ParseAddr(ip)
-			require.NoError(t, err)
-			bits := 32
-			if ipAddr.Is6() {
-				bits = 128
-			}
-			prefix := netip.PrefixFrom(ipAddr, bits)
-			err = netlink.AddrAdd(l, toNetlinkAddr(prefix))
-			if err != nil && os.IsExist(err) {
-				t.Fatalf("Peering address %s is probably already used by another test", ip)
-			}
-			require.NoError(t, err)
-		}
+		setupTestPeeringIPs(t, *peeringIPs)
 
 		// set up GoBGP command
 		gobgpCmdCtx := commands.NewGoBGPCmdContext()
@@ -248,20 +244,102 @@ func TestScript(t *testing.T) {
 	scripttest.Test(t,
 		ctx,
 		setup,
-		[]string{"PATH=" + os.Getenv("PATH")},
+		envVars,
 		"testdata/*.txtar")
 }
 
-// toNetlinkAddr converts netip.Prefix to *netlink.Addr
-func toNetlinkAddr(prefix netip.Prefix) *netlink.Addr {
+func setupTestLinks(t *testing.T, envVars []string) []string {
+	envVars = append(envVars, []string{
+		link1EnvVar + "=" + testLink1Name,
+		link2EnvVar + "=" + testLink2Name,
+	}...)
+
+	veth := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: testLink1Name},
+		PeerName:  testLink2Name,
+	}
+	netlink.LinkDel(veth) // cleanup from potential interrupted test run
+	err := netlink.LinkAdd(veth)
+	require.NoError(t, err, "error by adding veth %s", testLink1Name)
+	t.Cleanup(func() {
+		// cleanup after test finishes
+		netlink.LinkDel(veth)
+	})
+
+	veth1, err := netlink.LinkByName(testLink1Name)
+	require.NoError(t, err)
+	veth2, err := netlink.LinkByName(testLink2Name)
+	require.NoError(t, err)
+
+	err = netlink.LinkSetUp(veth1)
+	require.NoError(t, err)
+	err = netlink.LinkSetUp(veth2)
+	require.NoError(t, err)
+
+	addrs, err := netlink.AddrList(veth1, netlink.FAMILY_V6)
+	require.NoError(t, err)
+	for _, addr := range addrs {
+		if addr.IP.IsLinkLocalUnicast() {
+			envVars = append(envVars, llAddr1EnvVar+"="+addr.IP.String())
+		}
+	}
+	addrs, err = netlink.AddrList(veth2, netlink.FAMILY_V6)
+	require.NoError(t, err)
+	for _, addr := range addrs {
+		if addr.IP.IsLinkLocalUnicast() {
+			envVars = append(envVars, llAddr2EnvVar+"="+addr.IP.String())
+		}
+	}
+	return envVars
+}
+
+func setupTestPeeringIPs(t testing.TB, peeringIPs []string) {
+	l, err := netlink.LinkByName(testLink1Name)
+	require.NoError(t, err)
+	for _, ip := range peeringIPs {
+		ipAddr, err := netip.ParseAddr(ip)
+		require.NoError(t, err)
+		bits := 32
+		if ipAddr.Is6() {
+			bits = 128
+		}
+		prefix := netip.PrefixFrom(ipAddr, bits)
+		err = netlink.AddrAdd(l, createNetlinkAddr(prefix))
+		if err != nil && os.IsExist(err) {
+			t.Fatalf("Peering address %s is probably already used by another test", ip)
+		}
+		require.NoError(t, err)
+	}
+}
+
+// createNetlinkAddr creates new netlink.Addr for the provided prefix
+func createNetlinkAddr(prefix netip.Prefix) *netlink.Addr {
 	pLen := 128
 	if prefix.Addr().Is4() {
 		pLen = 32
 	}
-	return &netlink.Addr{
+	addr := &netlink.Addr{
 		IPNet: &net.IPNet{
 			IP:   prefix.Addr().AsSlice(),
 			Mask: net.CIDRMask(prefix.Bits(), pLen),
 		},
 	}
+	if prefix.Addr().Is6() {
+		addr.Flags = unix.IFA_F_NODAD // disable duplicate address detection so that we can use the address immediately
+	}
+	return addr
+}
+
+// hasIPv6LLAddrs returns true IPv6 link-local addresses were found on both test links
+func hasIPv6LLAddrs(envVars []string) bool {
+	found := 0
+	for _, v := range envVars {
+		if strings.HasPrefix(v, llAddr1EnvVar) || strings.HasPrefix(v, llAddr2EnvVar) {
+			found++
+			if found == 2 {
+				return true
+			}
+		}
+	}
+	return false
 }
