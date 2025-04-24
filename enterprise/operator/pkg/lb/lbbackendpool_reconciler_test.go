@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -87,7 +88,7 @@ func TestLBBackendPoolStatusAccepted(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			r.updateAcceptedStatusCondition(tc.lbbp)
+			r.updateAcceptedStatusCondition(tc.lbbp, []*corev1.Service{}, []string{})
 
 			assert.Len(t, tc.lbbp.Status.Conditions, tc.expectedNrOfConditions)
 

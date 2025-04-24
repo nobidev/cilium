@@ -1870,6 +1870,23 @@ type LBBackendPoolList struct {
 	Items []LBBackendPool `json:"items"`
 }
 
+func (r *LBBackendPool) AllReferencedK8sServiceNames() []string {
+	k8sServices := []string{}
+
+	if r.Spec.BackendType != BackendTypeK8sService {
+		return k8sServices
+	}
+
+	for _, b := range r.Spec.Backends {
+		if b.K8sServiceRef != nil && b.K8sServiceRef.Name != "" {
+			k8sServices = append(k8sServices, b.K8sServiceRef.Name)
+		}
+	}
+
+	slices.Sort(k8sServices)
+	return slices.Compact(k8sServices)
+}
+
 func (r *LBBackendPool) UpsertStatusCondition(conditionType string, condition metav1.Condition) {
 	conditionExists := false
 	for i, c := range r.Status.Conditions {

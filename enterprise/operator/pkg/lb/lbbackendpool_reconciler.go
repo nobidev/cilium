@@ -17,15 +17,23 @@ import (
 	"math/big"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+const (
+	lbBackendPoolK8sServiceIndexName = ".spec.backends.k8sServiceRef"
 )
 
 type lbBackendPoolReconciler struct {
@@ -43,9 +51,21 @@ func newLbBackendPoolReconciler(logger *slog.Logger, client client.Client) *lbBa
 // SetupWithManager sets up the controller with the Manager and configures
 // the different watches. All the watcher trigger a reconciliation.
 func (r *lbBackendPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		lbBackendPoolK8sServiceIndexName: func(rawObj client.Object) []string {
+			return rawObj.(*isovalentv1alpha1.LBBackendPool).AllReferencedK8sServiceNames()
+		},
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBBackendPool{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch for changed LBBackendPool resources (main resource)
 		For(&isovalentv1alpha1.LBBackendPool{}).
+		// Watch for changed K8s Service resources and trigger LBBackendPools that reference the changed Service.
+		Watches(&corev1.Service{}, r.enqueueReferencingLBBackendPoolsByIndex(lbBackendPoolK8sServiceIndexName)).
 		Complete(r)
 }
 
@@ -76,7 +96,18 @@ func (r *lbBackendPoolReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return controllerruntime.Success()
 	}
 
-	r.updateAcceptedStatusCondition(lb)
+	if err := r.reconcileResources(ctx, lb); err != nil {
+		if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+			// The creation of one of the resources failed because the
+			// namespace is terminating. The LBBackendPool resource itself is also expected
+			// to be marked for deletion, but we haven't yet received the
+			// corresponding event, so let's not print an error message.
+			scopedLog.Info("Aborting reconciliation because namespace is being terminated")
+			return controllerruntime.Success()
+		}
+
+		return controllerruntime.Fail(fmt.Errorf("failed to reconcile LBService: %w", err))
+	}
 
 	lb.UpdateResourceStatus()
 
@@ -88,7 +119,75 @@ func (r *lbBackendPoolReconciler) Reconcile(ctx context.Context, req reconcile.R
 	return controllerruntime.Success()
 }
 
-func (r *lbBackendPoolReconciler) updateAcceptedStatusCondition(lbbp *isovalentv1alpha1.LBBackendPool) {
+func (r *lbBackendPoolReconciler) reconcileResources(ctx context.Context, lbbp *isovalentv1alpha1.LBBackendPool) error {
+	// Try loading relevant K8s Services that are referenced by this LBBackendPool
+	// -> can be an empty list
+	k8sServices, missingServiceNames, err := r.loadK8sServices(ctx, lbbp)
+	if err != nil {
+		return fmt.Errorf("failed to load K8s Services: %w", err)
+	}
+
+	r.updateAcceptedStatusCondition(lbbp, k8sServices, missingServiceNames)
+
+	return nil
+}
+
+func (r *lbBackendPoolReconciler) loadK8sServices(ctx context.Context, lbbp *isovalentv1alpha1.LBBackendPool) ([]*corev1.Service, []string, error) {
+	services := []*corev1.Service{}
+	missingServices := []string{}
+
+	allReferencedK8sServicesNames := lbbp.AllReferencedK8sServiceNames()
+
+	for _, sName := range allReferencedK8sServicesNames {
+		svc := &corev1.Service{}
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbbp.Namespace, Name: sName}, svc); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return nil, nil, fmt.Errorf("failed to get referenced K8s Service: %w", err)
+			}
+
+			// Continue reconciliation if Service don't exist (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced Service gets created it will trigger a reconciliation
+			missingServices = append(missingServices, sName)
+			continue
+		}
+
+		services = append(services, svc)
+	}
+
+	return services, missingServices, nil
+}
+
+func (r *lbBackendPoolReconciler) enqueueReferencingLBBackendPoolsByIndex(indexName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		lbbpList := isovalentv1alpha1.LBBackendPoolList{}
+
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexName, obj.GetName()),
+			Namespace:     obj.GetNamespace(),
+		}
+
+		if err := r.client.List(ctx, &lbbpList, listOps); err != nil {
+			r.logger.Warn("Failed to list LBBackendPools", logfields.Error, err)
+			return nil
+		}
+
+		result := []reconcile.Request{}
+
+		for _, i := range lbbpList.Items {
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: i.Namespace,
+					Name:      i.Name,
+				},
+			})
+		}
+
+		return result
+	})
+}
+
+func (r *lbBackendPoolReconciler) updateAcceptedStatusCondition(lbbp *isovalentv1alpha1.LBBackendPool, k8sServices []*corev1.Service, missingK8sServiceNames []string) {
 	backendPoolValidCondition := metav1.Condition{
 		Type:               isovalentv1alpha1.ConditionTypeBackendAccepted,
 		Status:             metav1.ConditionTrue,
@@ -101,6 +200,10 @@ func (r *lbBackendPoolReconciler) updateAcceptedStatusCondition(lbbp *isovalentv
 	invalidMessages := []string{}
 
 	if valid, invalidMessage := r.validateMaglevTableSizePrime(lbbp); !valid {
+		invalidMessages = append(invalidMessages, invalidMessage)
+	}
+
+	if valid, invalidMessage := r.validateK8sServiceRefs(lbbp, k8sServices, missingK8sServiceNames); !valid {
 		invalidMessages = append(invalidMessages, invalidMessage)
 	}
 
@@ -119,6 +222,38 @@ func (r *lbBackendPoolReconciler) validateMaglevTableSizePrime(lbbp *isovalentv1
 
 		if !big.NewInt(int64(desiredMaglevTableSize)).ProbablyPrime(1) {
 			return false, fmt.Sprintf(".spec.loadBalancing.algorithm.consistentHashing.algorithm.maglev.tableSize %d is not prime", desiredMaglevTableSize)
+		}
+	}
+
+	return true, ""
+}
+
+func (r *lbBackendPoolReconciler) validateK8sServiceRefs(lbbp *isovalentv1alpha1.LBBackendPool, k8sServices []*corev1.Service, missingK8sServiceNames []string) (bool, string) {
+	if len(missingK8sServiceNames) > 0 {
+		return false, fmt.Sprintf("There are referenced K8s Services that do not exist: %v", missingK8sServiceNames)
+	}
+
+	svcs := map[string]*corev1.Service{}
+
+	for _, s := range k8sServices {
+		svcs[s.Name] = s
+	}
+
+	for _, b := range lbbp.Spec.Backends {
+		if b.K8sServiceRef != nil && b.K8sServiceRef.Name != "" {
+			portFound := false
+			if s, ok := svcs[b.K8sServiceRef.Name]; ok {
+				for _, sp := range s.Spec.Ports {
+					if sp.Port == b.Port {
+						portFound = true
+						break
+					}
+				}
+			}
+
+			if !portFound {
+				return false, fmt.Sprintf("The backend port %d doesn't exist on the referenced K8s Service %q", b.Port, b.K8sServiceRef.Name)
+			}
 		}
 	}
 
