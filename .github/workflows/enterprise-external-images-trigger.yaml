@@ -11,6 +11,8 @@ on:
       - v1.[0-9]+-ce
     paths:
       - install/kubernetes/Makefile.values
+  # Allow to run manually
+  workflow_dispatch: {}
 
 permissions: read-all
 

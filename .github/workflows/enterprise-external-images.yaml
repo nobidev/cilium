@@ -51,27 +51,23 @@ jobs:
       - name: Check ${{ inputs.component }} code changes
         id: check-changes
         run: |
-          if git diff --unified=0 ${{ github.event.before }} -- install/kubernetes/Makefile.values | grep ${{ inputs.component }} ; then
-            echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
-            echo "version=${version}" >> $GITHUB_OUTPUT
-            echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-            cee_image=$(basename ${{ inputs.docker-context }})
-            echo "cee_image=${cee_image}" >> $GITHUB_OUTPUT
-            # Don't build if the image reference does not exist in Makefile.values
-            # This is a workaround as etcd-operator, for instance, should not be part of the matrix in the -trigger workflow for main-ce
-            if [[ -z "${version}" ]]; then
-               echo "No version available for ${{ inputs.component }} in install/kubernetes/Makefile.values. Build skipped."
-               echo "rebuild=false" >> $GITHUB_OUTPUT
-            # Don't rebuild if the image already exists
-            elif docker manifest inspect quay.io/isovalent/${cee_image}-ubi:${version}; then
-              echo "Image already exist!"
-              echo "rebuild=false" >> $GITHUB_OUTPUT
-            else
-              echo "rebuild=true" >> $GITHUB_OUTPUT
-            fi
-          else
+          echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          cee_image=$(basename ${{ inputs.docker-context }})
+          echo "cee_image=${cee_image}" >> $GITHUB_OUTPUT
+          # Don't build if the image reference does not exist in Makefile.values
+          # This is a workaround as etcd-operator, for instance, should not be part of the matrix in the -trigger workflow for main-ce
+          if [[ -z "${version}" ]]; then
+             echo "No version available for ${{ inputs.component }} in install/kubernetes/Makefile.values. Build skipped."
+             echo "rebuild=false" >> $GITHUB_OUTPUT
+          # Don't rebuild if the image already exists
+          elif docker manifest inspect quay.io/isovalent/${cee_image}-ubi:${version}; then
+            echo "Image already exist!"
             echo "rebuild=false" >> $GITHUB_OUTPUT
+          else
+            echo "rebuild=true" >> $GITHUB_OUTPUT
           fi
 
   build-push-image:
