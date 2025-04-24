@@ -1494,12 +1494,14 @@ type LBBackendPool struct {
 	Status LBBackendPoolStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Backend format must match to the backendType and exactly one of ip or host must be specified",rule="((self.backendType == 'IP' && self.backends.all(b, has(b.ip))) || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host)))) && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b, !has(b.ip) && !has(b.host))))"
-// +kubebuilder:validation:XValidation:message="Custom resolver configuration is only valid when backendType is Hostname",rule="(self.backendType == 'Hostname' || (self.backendType == 'IP' && !has(self.dnsResolverConfig)))"
+// +kubebuilder:validation:XValidation:message="Backend format must match to the backendType",rule="( (self.backendType == 'IP' && self.backends.all(b, has(b.ip))) || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host))) || (self.backendType == 'K8sService' && self.backends.all(b, has(b.k8sServiceRef))) )"
+// +kubebuilder:validation:XValidation:message="Exactly one of ip, host or k8sServiceRef must be specified on the backend",rule="!( (self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b, has(b.ip) && has(b.k8sServiceRef))) || (self.backends.exists(b, has(b.host) && has(b.k8sServiceRef))) || (self.backends.exists(b, !has(b.ip) && !has(b.host) && !has(b.k8sServiceRef))) )"
+// +kubebuilder:validation:XValidation:message="Custom resolver configuration is only valid when backendType is Hostname",rule="(self.backendType == 'Hostname' || !has(self.dnsResolverConfig))"
 type LBBackendPoolSpec struct {
-	// Type of the backends. Either IP or Hostname. If IP is specified, backends
-	// must be specified by IP address. If Hostname is specified, backends must be
-	// specified by host name.
+	// Type of the backends. Either IP, Hostname or K8sService.
+	// If IP is specified, backends must be specified by IP address.
+	// If Hostname is specified, backends must be specified by host name.
+	// If K8sService is specified, backends must be specified by a reference to a K8s Service.
 	//
 	// +kubebuilder:validation:Required
 	BackendType BackendType `json:"backendType"`
@@ -1546,12 +1548,13 @@ type LBBackendPoolSpec struct {
 	HTTPConfig *LBBackendHTTPConfig `json:"httpConfig,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=IP;Hostname
+// +kubebuilder:validation:Enum=IP;Hostname;K8sService
 type BackendType string
 
 const (
-	BackendTypeIP       BackendType = "IP"
-	BackendTypeHostname BackendType = "Hostname"
+	BackendTypeIP         BackendType = "IP"
+	BackendTypeHostname   BackendType = "Hostname"
+	BackendTypeK8sService BackendType = "K8sService"
 )
 
 type DNSResolverConfig struct {
@@ -1653,6 +1656,13 @@ type Backend struct {
 	// +kubebuilder:validation:Format=hostname
 	Host *string `json:"host,omitempty"`
 
+	// The reference to the K8s Service resource that should act as backend.
+	// The referred K8s Service must exist in the same namespace
+	// as the LBBackendPool.
+	//
+	// +kubebuilder:validation:Optional
+	K8sServiceRef *LBBackendPoolK8sServiceRef `json:"k8sServiceRef,omitempty"`
+
 	// The port that the backend listens on.
 	//
 	// +kubebuilder:validation:Required
@@ -1678,6 +1688,14 @@ type Backend struct {
 	//
 	// +kubebuilder:validation:Optional
 	Status *BackendStatus `json:"status,omitempty"`
+}
+
+type LBBackendPoolK8sServiceRef struct {
+	// The name of the K8s Service resource.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // +kubebuilder:validation:Enum=Draining

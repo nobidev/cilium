@@ -55,12 +55,14 @@ spec:
             properties:
               backendType:
                 description: |-
-                  Type of the backends. Either IP or Hostname. If IP is specified, backends
-                  must be specified by IP address. If Hostname is specified, backends must be
-                  specified by host name.
+                  Type of the backends. Either IP, Hostname or K8sService.
+                  If IP is specified, backends must be specified by IP address.
+                  If Hostname is specified, backends must be specified by host name.
+                  If K8sService is specified, backends must be specified by a reference to a K8s Service.
                 enum:
                 - IP
                 - Hostname
+                - K8sService
                 type: string
               backends:
                 description: The list of backends included in the pool.
@@ -75,6 +77,19 @@ spec:
                       description: The IP address of the backend.
                       format: ip
                       type: string
+                    k8sServiceRef:
+                      description: |-
+                        The reference to the K8s Service resource that should act as backend.
+                        The referred K8s Service must exist in the same namespace
+                        as the LBBackendPool.
+                      properties:
+                        name:
+                          description: The name of the K8s Service resource.
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
                     port:
                       description: The port that the backend listens on.
                       format: int32
@@ -377,16 +392,20 @@ spec:
             - healthCheck
             type: object
             x-kubernetes-validations:
-            - message: Backend format must match to the backendType and exactly one
-                of ip or host must be specified
-              rule: ((self.backendType == 'IP' && self.backends.all(b, has(b.ip)))
-                || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host))))
-                && !((self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b,
-                !has(b.ip) && !has(b.host))))
+            - message: Backend format must match to the backendType
+              rule: ( (self.backendType == 'IP' && self.backends.all(b, has(b.ip)))
+                || (self.backendType == 'Hostname' && self.backends.all(b, has(b.host)))
+                || (self.backendType == 'K8sService' && self.backends.all(b, has(b.k8sServiceRef)))
+                )
+            - message: Exactly one of ip, host or k8sServiceRef must be specified
+                on the backend
+              rule: '!( (self.backends.exists(b, has(b.ip) && has(b.host))) || (self.backends.exists(b,
+                has(b.ip) && has(b.k8sServiceRef))) || (self.backends.exists(b, has(b.host)
+                && has(b.k8sServiceRef))) || (self.backends.exists(b, !has(b.ip) &&
+                !has(b.host) && !has(b.k8sServiceRef))) )'
             - message: Custom resolver configuration is only valid when backendType
                 is Hostname
-              rule: (self.backendType == 'Hostname' || (self.backendType == 'IP' &&
-                !has(self.dnsResolverConfig)))
+              rule: (self.backendType == 'Hostname' || !has(self.dnsResolverConfig))
           status:
             properties:
               conditions:
