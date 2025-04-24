@@ -253,7 +253,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		// the services which will be upserted in the test step
 		upsertedServices []*slim_corev1.Service
 		// the services which will be deleted in the test step
-		deletedServices []resource.Key
+		deletedServices []*slim_corev1.Service
 		// a list of backend updates applied during the test step
 		backendUpdates []backendUpdate
 		// the expected metadata after the reconciliation
@@ -435,7 +435,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 		{
 			name:            "do not advertise deleted service even after healthy backend update",
-			deletedServices: []resource.Key{svcKey},
+			deletedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates: []backendUpdate{
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
@@ -740,8 +740,8 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			for _, obj := range tt.upsertedServices {
 				svcDiffstore.Upsert(obj)
 			}
-			for _, key := range tt.deletedServices {
-				svcDiffstore.Delete(key)
+			for _, obj := range tt.deletedServices {
+				svcDiffstore.Delete(obj)
 			}
 
 			// update active backends
@@ -2875,6 +2875,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		upsertAdverts    []*v1.IsovalentBGPAdvertisement
 		upsertServices   []*slim_corev1.Service
 		upsertEPs        []*k8s.Endpoints
+		deleteEPs        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
@@ -3198,6 +3199,55 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "Delete local endpoints (Cluster, External)",
+			deleteEPs: []*k8s.Endpoints{eps1Mixed},
+			expectedMetadata: ServiceReconcilerMetadata{
+				// Both cluster and external IPs are withdrawn since local endpoints were deleted.
+				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
+									Addresses: []v2.BGPServiceAddressType{
+										v2.BGPClusterIPAddr,
+										v2.BGPExternalIPAddr,
+									},
+								},
+								Selector: redSvcSelector,
+								Attributes: &v2.BGPAttributes{
+									Communities: &v2.BGPCommunities{
+										Standard:  []v2.BGPStandardCommunity{"65535:65281"},
+										WellKnown: []v2.BGPWellKnownCommunity{"no-export"},
+									},
+								},
+							},
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
+							{
+								AdvertisementType: v1.BGPServiceAdvert,
+								Service: &v1.BGPServiceOptions{
+									Addresses: []v2.BGPServiceAddressType{
+										v2.BGPClusterIPAddr,
+										v2.BGPExternalIPAddr,
+									},
+								},
+								Selector: redSvcSelector,
+								Attributes: &v2.BGPAttributes{
+									Communities: &v2.BGPCommunities{
+										Standard:  []v2.BGPStandardCommunity{"65535:65281"},
+										WellKnown: []v2.BGPWellKnownCommunity{"no-export"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	req := require.New(t)
@@ -3252,6 +3302,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 
 		for _, ep := range tt.upsertEPs {
 			epDiffStore.Upsert(ep)
+		}
+
+		for _, ep := range tt.deleteEPs {
+			epDiffStore.Delete(ep)
 		}
 
 		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
@@ -3585,7 +3639,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		}
 
 		for _, svc := range tt.deletetServices {
-			svcDiffstore.Delete(resource.Key{Name: svc.Name, Namespace: svc.Namespace})
+			svcDiffstore.Delete(svc)
 		}
 
 		for _, ep := range tt.upsertEPs {
@@ -3916,7 +3970,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 		}
 
 		for _, svc := range tt.deletetServices {
-			svcDiffstore.Delete(resource.Key{Name: svc.Name, Namespace: svc.Namespace})
+			svcDiffstore.Delete(svc)
 		}
 
 		for _, ep := range tt.upsertEPs {
