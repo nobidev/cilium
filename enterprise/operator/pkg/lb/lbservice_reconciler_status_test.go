@@ -347,7 +347,13 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{}},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
@@ -383,8 +389,20 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-2"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{Loadbalancing: &isovalentv1alpha1.Loadbalancing{Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{}}}}},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-2"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{Loadbalancing: &isovalentv1alpha1.Loadbalancing{Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{ConsistentHashing: &isovalentv1alpha1.LoadbalancingAlgorithmConsistentHashing{}}}},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
@@ -420,8 +438,20 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-2"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{Loadbalancing: &isovalentv1alpha1.Loadbalancing{Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{RoundRobin: &isovalentv1alpha1.LoadbalancingAlgorithmRoundRobin{}}}}},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-2"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{Loadbalancing: &isovalentv1alpha1.Loadbalancing{Algorithm: isovalentv1alpha1.LoadbalancingAlgorithm{RoundRobin: &isovalentv1alpha1.LoadbalancingAlgorithmRoundRobin{}}}},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
@@ -441,7 +471,13 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				Status: isovalentv1alpha1.LBServiceStatus{Conditions: []metav1.Condition{{Type: conditionType, Status: metav1.ConditionTrue, Reason: "reason", Message: "message"}}},
 			},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{}},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
@@ -464,7 +500,13 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				}},
 			},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{}},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 2,
 			expectedStatus:         metav1.ConditionTrue,
@@ -479,11 +521,17 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
-					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
-						Version: 1,
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+							Version: 1,
+						},
 					},
-				}},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
@@ -503,11 +551,17 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
-					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
-						Version: 1,
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+							Version: 1,
+						},
 					},
-				}},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
@@ -525,21 +579,55 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 				},
 			}},
 			backends: []*isovalentv1alpha1.LBBackendPool{
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-1"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
-					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
-						Version: 2,
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+							Version: 2,
+						},
 					},
-				}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "backend-2"}, Spec: isovalentv1alpha1.LBBackendPoolSpec{
-					ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
-						Version: 1,
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
 					},
-				}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-2"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						ProxyProtocolConfig: &isovalentv1alpha1.LBBackendPoolProxyProtocolConfig{
+							Version: 1,
+						},
+					},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
 			},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
 			expectedReason:         "AllBackendsCompatible",
 			expectedMessage:        "All referenced backends are compatible",
+		},
+		{
+			desc: "Backends not yet accepted",
+			lbsvc: &isovalentv1alpha1.LBService{Spec: isovalentv1alpha1.LBServiceSpec{
+				ProxyProtocolConfig: &isovalentv1alpha1.LBServiceProxyProtocolConfig{},
+				Applications: isovalentv1alpha1.LBServiceApplications{
+					HTTPProxy: &isovalentv1alpha1.LBServiceApplicationHTTPProxy{
+						Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+					},
+				},
+			}},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec:       isovalentv1alpha1.LBBackendPoolSpec{},
+					Status:     isovalentv1alpha1.LBBackendPoolStatus{},
+				},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "IncompatibleBackends",
+			expectedMessage:        "Backend \"backend-1\" is not yet accepted (no accepted condition)",
 		},
 	}
 	for _, tc := range testCases {
@@ -963,5 +1051,14 @@ func TestLBServiceLBDeployments(t *testing.T) {
 			assert.Equal(t, tc.expectedReason, c.Reason)
 			assert.Equal(t, tc.expectedMessage, c.Message)
 		})
+	}
+}
+
+func acceptedCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:    isovalentv1alpha1.ConditionTypeBackendAccepted,
+		Status:  metav1.ConditionTrue,
+		Reason:  isovalentv1alpha1.BackendAcceptedConditionReasonValid,
+		Message: "BackendPool is valid and accepted",
 	}
 }

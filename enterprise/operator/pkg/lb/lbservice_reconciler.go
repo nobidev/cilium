@@ -959,7 +959,12 @@ func (*lbServiceReconciler) getInvalidBackends(backends []*isovalentv1alpha1.LBB
 	for _, b := range backends {
 		condition := b.GetStatusCondition(isovalentv1alpha1.ConditionTypeBackendAccepted)
 
-		if condition != nil && condition.Reason == isovalentv1alpha1.BackendAcceptedConditionReasonInvalid {
+		if condition == nil {
+			invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is not yet accepted (no accepted condition)", b.Name))
+			continue
+		}
+
+		if condition.Reason == isovalentv1alpha1.BackendAcceptedConditionReasonInvalid {
 			invalidBackendMessages = append(invalidBackendMessages, fmt.Sprintf("Backend %q is invalid: %q", b.Name, condition.Message))
 		}
 	}
