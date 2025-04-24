@@ -83,6 +83,27 @@
  *   - packet goes through cilium mesh ingress policies logic, which gets skipped as it's a reply
  */
 
+#ifndef SKIP_POLICY_MAP
+struct non_pinned_policy_map {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct policy_key);
+	__type(value, struct policy_entry);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} __dummy_inner_cilium_mesh_policy_map__ __section_maps_btf;
+
+/* Per-endpoint policy enforcement map for Cilium Mesh */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
+	__type(key, struct endpoint_key);
+	__type(value, int);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_MESH_POLICY_MAP_SIZE);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__array(values, struct non_pinned_policy_map);
+} cilium_cilium_mesh_ep_to_policy __section_maps_btf;
+#endif
+
 static __always_inline void *cilium_mesh_endpoint_policy_map(__u32 ip __maybe_unused)
 {
 #if !defined(SKIP_POLICY_MAP)
@@ -91,7 +112,7 @@ static __always_inline void *cilium_mesh_endpoint_policy_map(__u32 ip __maybe_un
 	key.ip4 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&CILIUM_MESH_POLICY_MAP, &key);
+	return map_lookup_elem(&cilium_cilium_mesh_ep_to_policy, &key);
 #endif
 	return 0;
 }

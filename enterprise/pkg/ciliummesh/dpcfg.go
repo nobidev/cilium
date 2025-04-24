@@ -25,7 +25,6 @@ func datapathNodeHeaderConfigProvider(cfg ciliummeshpolicymap.Config) dpcfgdef.N
 		}
 
 		output["CILIUM_MESH_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", ciliummeshpolicymap.MaxEntries)
-		output["CILIUM_MESH_POLICY_MAP"] = ciliummeshpolicymap.MapName
 		output["CILIUM_MESH"] = "1"
 
 		return output, nil
