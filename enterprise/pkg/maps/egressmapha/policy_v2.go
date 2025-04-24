@@ -73,7 +73,6 @@ func createPolicyMapV2FromDaemonConfig(in struct {
 	defines.NodeOut
 }) {
 	out.NodeDefines = map[string]string{
-		"EGRESS_GW_HA_POLICY_MAP_V2":      PolicyMapNameV2,
 		"EGRESS_GW_HA_POLICY_MAP_V2_SIZE": fmt.Sprint(in.EgressGatewayHAPolicyMapMax),
 	}
 
