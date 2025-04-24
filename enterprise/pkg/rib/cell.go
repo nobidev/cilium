@@ -19,5 +19,6 @@ var Cell = cell.Module(
 	"Routing Information Base",
 	cell.Provide(
 		New,
+		ribReadCommands,
 	),
 )
