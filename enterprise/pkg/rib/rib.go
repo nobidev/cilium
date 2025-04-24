@@ -47,6 +47,12 @@ type DataPlane interface {
 	ProcessUpdate(u *RIBUpdate)
 }
 
+// nopDataPlane is a no-op implementation of the DataPlane interface. It is
+// used when there's no data plane provided.
+type nopDataPlane struct{}
+
+func (nopDataPlane) ProcessUpdate(_ *RIBUpdate) {}
+
 // RIBUpdate is the update for the RIB
 type RIBUpdate struct {
 	VRFID   uint32
@@ -61,6 +67,11 @@ type in struct {
 }
 
 func New(in in) *RIB {
+	if in.DataPlane == nil {
+		// Provide a no-op data plane if none is provided. Otherwise,
+		// calling the data plane will panic.
+		in.DataPlane = &nopDataPlane{}
+	}
 	return &RIB{
 		vrfTries:  make(map[uint32]*bitlpm.CIDRTrie[*Destination]),
 		dataPlane: in.DataPlane,

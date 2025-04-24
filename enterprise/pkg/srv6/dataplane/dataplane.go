@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -29,8 +30,9 @@ var _ rib.DataPlane = &DataPlane{}
 type in struct {
 	cell.In
 
-	PolicyMap4 *srv6map.PolicyMap4
-	SIDMap     *srv6map.SIDMap
+	DaemonConfig *option.DaemonConfig
+	PolicyMap4   *srv6map.PolicyMap4
+	SIDMap       *srv6map.SIDMap
 }
 
 // TODO: Make srv6map package mockable
@@ -48,6 +50,9 @@ type sidMap interface {
 }
 
 func New(in in) rib.DataPlane {
+	if !in.DaemonConfig.EnableSRv6 {
+		return nil
+	}
 	return &DataPlane{
 		policyMap4: in.PolicyMap4,
 		sidMap:     in.SIDMap,

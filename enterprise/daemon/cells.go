@@ -37,7 +37,9 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/pkg/nat/stats"
 	policyK8s "github.com/cilium/cilium/enterprise/pkg/policy/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/service/healthchecker"
+	srv6dataplane "github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/promise"
@@ -76,8 +78,10 @@ var (
 		cecm.Cell,
 		sidmanager.SIDManagerCell,
 		srv6manager.Cell,
+		srv6dataplane.Cell,
 		bgpv1.Cell,
 		bfd.Cell,
+		rib.Cell,
 		egressgatewayha.Cell,
 		egressgatewayha.PolicyCell,
 		cell.Invoke(func(*egressgatewayha.Manager) {}),
