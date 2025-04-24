@@ -3853,6 +3853,23 @@ func (in *LBServiceStatus) DeepEqual(other *LBServiceStatus) bool {
 		return false
 	}
 
+	if ((in.K8sServiceRefs != nil) && (other.K8sServiceRefs != nil)) || ((in.K8sServiceRefs == nil) != (other.K8sServiceRefs == nil)) {
+		in, other := &in.K8sServiceRefs, &other.K8sServiceRefs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if in.Status != other.Status {
 		return false
 	}

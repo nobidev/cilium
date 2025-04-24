@@ -1137,6 +1137,12 @@ type LBServiceStatus struct {
 	// +kubebuilder:validation:Required
 	Applications LBServiceApplicationsStatus `json:"applications"`
 
+	// Contains K8s services that are referenced by all referenced
+	// LBBackendPools.
+	//
+	// +kubebuilder:validation:Optional
+	K8sServiceRefs []LBBackendPoolK8sServiceRef `json:"k8sServiceRefs,omitempty"`
+
 	// The current conditions of the LBService.
 	//
 	// +optional
@@ -1403,6 +1409,17 @@ func (r *LBService) AllReferencedVIPNames() []string {
 
 	slices.Sort(vips)
 	return slices.Compact(vips)
+}
+
+func (r *LBService) AllReferencedK8sServiceNames() []string {
+	k8sServiceNames := []string{}
+
+	for _, s := range r.Status.K8sServiceRefs {
+		k8sServiceNames = append(k8sServiceNames, s.Name)
+	}
+
+	slices.Sort(k8sServiceNames)
+	return slices.Compact(k8sServiceNames)
 }
 
 func (r *LBService) UpsertStatusCondition(conditionType string, condition metav1.Condition) {

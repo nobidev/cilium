@@ -4432,6 +4432,11 @@ func (in *LBServiceStatus) DeepCopyInto(out *LBServiceStatus) {
 	*out = *in
 	in.Addresses.DeepCopyInto(&out.Addresses)
 	in.Applications.DeepCopyInto(&out.Applications)
+	if in.K8sServiceRefs != nil {
+		in, out := &in.K8sServiceRefs, &out.K8sServiceRefs
+		*out = make([]LBBackendPoolK8sServiceRef, len(*in))
+		copy(*out, *in)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))

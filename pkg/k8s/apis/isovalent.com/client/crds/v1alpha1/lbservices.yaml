@@ -1978,6 +1978,20 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              k8sServiceRefs:
+                description: |-
+                  Contains K8s services that are referenced by all referenced
+                  LBBackendPools.
+                items:
+                  properties:
+                    name:
+                      description: The name of the K8s Service resource.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               status:
                 description: Status of the resource.
                 enum:

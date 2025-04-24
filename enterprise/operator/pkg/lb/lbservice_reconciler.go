@@ -42,7 +42,10 @@ const (
 	lbServiceVIPIndexName        = ".spec.vipRef.name"
 	lbServiceBackendIndexName    = ".spec.routes.http.backend"
 	lbServiceTlsSecretsIndexName = ".spec.tls.secrets" // TLS Certificates & Validation secrets
+	lbServiceK8sServiceIndexName = ".status.k8sServiceRef.name"
+)
 
+const (
 	logfieldIPv4Assigned        = "ipv4Assigned"
 	logfieldStatusConditionsMet = "statusConditionsMet"
 	logfieldResult              = "result"
@@ -133,6 +136,9 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		lbServiceTlsSecretsIndexName: func(rawObj client.Object) []string {
 			return rawObj.(*isovalentv1alpha1.LBService).AllReferencedSecretNames()
 		},
+		lbServiceK8sServiceIndexName: func(rawObj client.Object) []string {
+			return rawObj.(*isovalentv1alpha1.LBService).AllReferencedK8sServiceNames()
+		},
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &isovalentv1alpha1.LBService{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -143,14 +149,18 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changed LBService resources (main resource)
 		For(&isovalentv1alpha1.LBService{}).
 		// Watch for changed LBVIP resources and trigger LBServices that reference the changed lbvip
-		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBServicesByIndex(lbServiceVIPIndexName)).
+		Watches(&isovalentv1alpha1.LBVIP{}, r.enqueueReferencingLBServicesByIndex(lbServiceVIPIndexName, byName)).
 		// Watch for changed LBBackend resources and trigger LBServices that reference the changed backend
-		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBServicesByIndex(lbServiceBackendIndexName)).
+		Watches(&isovalentv1alpha1.LBBackendPool{}, r.enqueueReferencingLBServicesByIndex(lbServiceBackendIndexName, byName)).
 		// Watch for changed LBDeployment resources and trigger all LBServices
 		Watches(&isovalentv1alpha1.LBDeployment{}, r.enqueueAllLBServices(true)).
 		// Watch for changed Secrets resources and trigger LBServices that reference the changed Secret.
 		// This is mainly to update the status. The actual content of the Secrets are getting transferred via sDS.
-		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName)).
+		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName, byName)).
+		// Watch for changed EndpointSlice resources and trigger LBServices that indirectly reference the changed EndpointSlice.
+		// Note: Multiple EndpointSlice can exist per K8s Service by design. They reference their K8s Service via K8s Label.
+		Watches(&discoveryv1.EndpointSlice{}, r.enqueueReferencingLBServicesByIndex(lbServiceK8sServiceIndexName, byServiceNameLabel)).
+		// Watch for changed LBDeployment resources and trigger all LBServices
 		// T1 Service resource with OwnerReference to the LBService
 		Owns(&corev1.Service{}).
 		// T1 EndpointSlice resource with OwnerReference to the LBService
@@ -257,6 +267,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	r.updateBackendExistenceInStatus(lbsvc, missingBackends)
 	r.updateBackendCompatibilityInStatus(lbsvc, backends)
+	r.updateBackendK8sServiceRefsInStatus(lbsvc, backends)
 
 	// Try loading referenced TLS Secrets (in same namespace) to update the status accordingly
 	referencedSecrets, missingSecrets, err := r.loadTLSSecrets(ctx, lbsvc)
@@ -598,12 +609,12 @@ func (r *lbServiceReconciler) ensureCECDeleted(ctx context.Context, model *lbSer
 	return nil
 }
 
-func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName string) handler.EventHandler {
+func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName string, indexKeyFunc func(obj client.Object) string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		lbList := isovalentv1alpha1.LBServiceList{}
 
 		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexName, obj.GetName()),
+			FieldSelector: fields.OneTermEqualSelector(indexName, indexKeyFunc(obj)),
 			Namespace:     obj.GetNamespace(),
 		}
 
@@ -625,6 +636,14 @@ func (r *lbServiceReconciler) enqueueReferencingLBServicesByIndex(indexName stri
 
 		return result
 	})
+}
+
+func byName(obj client.Object) string {
+	return obj.GetName()
+}
+
+func byServiceNameLabel(obj client.Object) string {
+	return obj.GetLabels()[discoveryv1.LabelServiceName]
 }
 
 func (r *lbServiceReconciler) enqueueAllLBServices(onlySameNamespace bool) handler.EventHandler {
@@ -830,6 +849,27 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 	}
 
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeBackendsCompatible, backendsCompatibleCondition)
+}
+
+func (r *lbServiceReconciler) updateBackendK8sServiceRefsInStatus(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) {
+	allReferencedK8sServiceNames := []string{}
+
+	for _, b := range backends {
+		allReferencedK8sServiceNames = append(allReferencedK8sServiceNames, b.AllReferencedK8sServiceNames()...)
+	}
+
+	slices.Sort(allReferencedK8sServiceNames)
+	allReferencedK8sServiceNames = slices.Compact(allReferencedK8sServiceNames)
+
+	k8sServiceRefs := make([]isovalentv1alpha1.LBBackendPoolK8sServiceRef, 0, len(allReferencedK8sServiceNames))
+
+	for _, s := range allReferencedK8sServiceNames {
+		k8sServiceRefs = append(k8sServiceRefs, isovalentv1alpha1.LBBackendPoolK8sServiceRef{
+			Name: s,
+		})
+	}
+
+	lbsvc.Status.K8sServiceRefs = k8sServiceRefs
 }
 
 func (*lbServiceReconciler) getIncompatiblePersistentBackendLBAlgorithms(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
