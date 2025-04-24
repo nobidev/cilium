@@ -13,6 +13,7 @@
     ".github/workflows/enterprise-*",
     "enterprise/images/**",
     "enterprise/olm/Dockerfile",
+    "enterprise/**/go.mod",
     "images/cilium/download-hubble-enterprise.sh",
     "install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl",
   ],
@@ -71,6 +72,21 @@
       "matchBaseBranches": [
         "main-ce",
       ],
+    },
+    {
+      "groupName": "all enterprise go dependencies main",
+      "groupSlug": "all-enterprise-go-deps-main",
+      "matchFileNames": [
+        "enterprise/**/go.mod",
+        "enterprise/**/go.sum"
+      ],
+      "postUpdateOptions": [
+        // update source import paths on major updates
+        "gomodUpdateImportPaths"
+      ],
+      matchBaseBranches: [
+        "main-ce"
+      ]
     },
     {
       "groupName": "Hubble CLI Enterprise",
