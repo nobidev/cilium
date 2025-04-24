@@ -21,6 +21,10 @@ type testNextHop struct{}
 
 func (m testNextHop) isNextHop() {}
 
+func (m testNextHop) String() string {
+	return "test"
+}
+
 type testDataPlane struct {
 	receivedUpdates []*RIBUpdate
 }

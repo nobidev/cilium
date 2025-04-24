@@ -11,7 +11,9 @@
 package rib
 
 import (
+	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -192,6 +194,23 @@ func (r *RIB) listRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 	return vrfRoutes
 }
 
+func (r *RIB) ForEach(cb func(uint32, netip.Prefix, *Destination) bool) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	vrfIDs := make([]uint32, 0, len(r.vrfTries))
+	for vrfID := range r.vrfTries {
+		vrfIDs = append(vrfIDs, vrfID)
+	}
+	slices.Sort(vrfIDs)
+
+	for _, vrfID := range vrfIDs {
+		r.vrfTries[vrfID].ForEach(func(prefix netip.Prefix, dest *Destination) bool {
+			return cb(vrfID, prefix, dest)
+		})
+	}
+}
+
 // DeleteRoutesByOwner deletes all the routes for a given owner
 func (r *RIB) DeleteRoutesByOwner(owner string) {
 	r.mutex.Lock()
@@ -307,6 +326,13 @@ func (p Protocol) AdminDistance() uint8 {
 // isNextHop method is a safe guard for that.
 type NextHop interface {
 	isNextHop()
+
+	// String returns a string representation of the nexthop. This will be
+	// used to display nexthop in the Hive Script. The string must be
+	// started with the type of the next hop and followed by the
+	// type-specific parameters. It must be a single line and short enough
+	// to fit in a terminal window.
+	String() string
 }
 
 type HEncaps struct {
@@ -315,8 +341,20 @@ type HEncaps struct {
 
 func (*HEncaps) isNextHop() {}
 
+func (s *HEncaps) String() string {
+	segments := make([]string, len(s.Segments))
+	for i, s := range s.Segments {
+		segments[i] = s.String()
+	}
+	return fmt.Sprintf("H.Encaps %v", segments)
+}
+
 type EndDT4 struct {
 	VRFID uint32
 }
 
 func (*EndDT4) isNextHop() {}
+
+func (s *EndDT4) String() string {
+	return fmt.Sprintf("End.DT4 vrf %d", s.VRFID)
+}
