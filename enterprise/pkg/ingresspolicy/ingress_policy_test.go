@@ -81,6 +81,30 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 		require.Equal(t, 1, mockSDSServer.nrOfUpdates)
 		require.Contains(t, mockSDSServer.policies, "default/cec")
 	})
+
+	t.Run("successfully reconcile policy with different identity", func(t *testing.T) {
+		mockSDSServer := newMockXdsServer()
+		m := &ingressPolicyManager{
+			logger:                 hivetest.Logger(t),
+			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(identityMap),
+			policyRepository:       newMockPolicyRepository(t),
+			xdsServer:              mockSDSServer,
+
+			ingressIdentities: make(map[resource.Key]*identity.Identity),
+			ingressPolicies: map[resource.Key]*IngressPolicy{
+				{Name: "cec", Namespace: "default"}: {id: 16777217}, // other identity allocated before
+			},
+		}
+
+		err := m.EnsureIngressPolicy(context.Background(), resource.Key{Name: "cec", Namespace: "default"}, map[string]string{
+			"foo": "bar",
+		})
+		require.NoError(t, err)
+		require.Len(t, m.cacheIdentityAllocator.GetIdentities(), 1)
+		require.Equal(t, 1, mockSDSServer.nrOfUpdates)
+		require.Equal(t, 1, mockSDSServer.nrOfDeletions)
+		require.Contains(t, mockSDSServer.policies, "default/cec")
+	})
 }
 
 func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {

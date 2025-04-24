@@ -121,6 +121,13 @@ func (m *ingressPolicyManager) EnsureIngressPolicy(ctx context.Context, key reso
 		if existingPolicy.GetID() == uint64(ingressIdentity.ID.Uint32()) {
 			m.logger.Debug("Using the existing policy", logfields.Identity, ingressIdentity.ID.Uint32())
 			return m.policyUpdateCallbackLocked(key, existingPolicy, false)
+		} else {
+			// Perform the policy cleanup for the old policy if it exists.
+			// This should be done after the new policy is created.
+			defer func(p *IngressPolicy) {
+				m.logger.Debug("Cleaning up old policy", logfields.PolicyID, p.GetID())
+				m.xdsServer.RemoveNetworkPolicy(p)
+			}(existingPolicy)
 		}
 	}
 
