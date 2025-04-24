@@ -97,7 +97,6 @@ func createPolicyMapFromConfig(p encryptionPolicyParams) (out struct {
 	}
 
 	out.NodeDefines = map[string]string{
-		"ENCRYPTION_POLICY_MAP":      PolicyMapName,
 		"ENCRYPTION_POLICY_MAP_SIZE": fmt.Sprint(p.EncryptionPolicyMapMax),
 	}
 	out.MapOut = bpf.NewMapOut(createPolicyMap(p.Lifecycle, p.MapConfig, ebpf.PinByName))

@@ -18,7 +18,7 @@ add_encryption_policy_entry(__u32 src_sec_identity, __u32 dst_sec_identity, __u8
 		.encrypt = encrypt,
 	};
 
-	map_update_elem(&ENCRYPTION_POLICY_MAP, &key, &val, 0);
+	map_update_elem(&cilium_encryption_policy_map, &key, &val, 0);
 }
 
 static __always_inline int

@@ -4,6 +4,15 @@
 #pragma once
 
 #ifdef ENABLE_ENCRYPTION_POLICY
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct encryption_policy_key);
+	__type(value, struct encryption_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, ENCRYPTION_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_encryption_policy_map __section_maps_btf;
+
 
 #include "lib/wireguard.h"
 
@@ -22,7 +31,7 @@ encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port
 	};
 
 	/* check if current direction (src_id, dst_id, dst_port, proto) needs encryption */
-	entry = map_lookup_elem(&ENCRYPTION_POLICY_MAP, &key);
+	entry = map_lookup_elem(&cilium_encryption_policy_map, &key);
 	if (entry)
 		return entry->encrypt;
 
@@ -31,7 +40,7 @@ encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port
 	key.dst_sec_identity = src_id;
 	key.port = src_port;
 
-	entry = map_lookup_elem(&ENCRYPTION_POLICY_MAP, &key);
+	entry = map_lookup_elem(&cilium_encryption_policy_map, &key);
 	if (entry)
 		return entry->encrypt;
 
