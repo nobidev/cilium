@@ -21,6 +21,7 @@ import (
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -239,7 +240,8 @@ func (m *ingressPolicyManager) getIngressLabels(key resource.Key, resourceLabels
 		desiredLabels = append(desiredLabels, labels.NewLabel(k, v, labels.LabelSourceK8s))
 	}
 
-	return desiredLabels
+	identityLabels, _ := labelsfilter.Filter(desiredLabels.Labels())
+	return identityLabels.LabelArray()
 }
 
 // policyUpdateCallback is called from endpoint manager to perform incremental

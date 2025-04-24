@@ -21,6 +21,7 @@ import (
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -41,6 +42,9 @@ var identityMap = map[identity.NumericIdentity]labels.LabelArray{
 }
 
 func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
+	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	require.NoError(t, err)
+
 	t.Run("no associated identity", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
 		m := &ingressPolicyManager{
@@ -80,6 +84,9 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 }
 
 func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
+	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	require.NoError(t, err)
+
 	t.Run("no associated identity", func(t *testing.T) {
 		m := &ingressPolicyManager{
 			logger:                 hivetest.Logger(t),
