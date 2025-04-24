@@ -557,12 +557,12 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			status = lbBackendStatusDraining
 		}
 
-		var address string
+		addresses := []string{}
 		switch typ {
 		case isovalentv1alpha1.BackendTypeIP:
-			address = *backend.IP
+			addresses = append(addresses, *backend.IP)
 		case isovalentv1alpha1.BackendTypeHostname:
-			address = *backend.Host
+			address := *backend.Host
 			// FIXME: This is a workaround for the issue that no_default_search_domain
 			// of Envoy is broken (https://github.com/envoyproxy/envoy/issues/33138).
 			// This leads to the situation that the default search domain is mistakenly
@@ -571,15 +571,19 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			if !strings.HasSuffix(address, ".") {
 				address = address + "."
 			}
+
+			addresses = append(addresses, address)
+		case isovalentv1alpha1.BackendTypeK8sService:
+			// TODO
 		default:
-			address = *backend.IP
+			addresses = append(addresses, *backend.IP)
 		}
 
 		ret = append(ret, lbBackend{
-			address: address,
-			port:    uint32(backend.Port),
-			weight:  weight,
-			status:  status,
+			addresses: addresses,
+			port:      uint32(backend.Port),
+			weight:    weight,
+			status:    status,
 		})
 	}
 

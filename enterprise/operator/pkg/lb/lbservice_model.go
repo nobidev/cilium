@@ -578,10 +578,10 @@ const (
 )
 
 type lbBackend struct {
-	address string
-	port    uint32
-	weight  uint32
-	status  lbBackendStatus
+	addresses []string
+	port      uint32
+	weight    uint32
+	status    lbBackendStatus
 }
 
 type lbBackendStatus int

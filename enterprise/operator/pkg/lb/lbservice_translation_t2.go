@@ -1847,16 +1847,18 @@ func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignment(name string, b
 	lbEndpoints := []*envoy_config_endpoint_v3.LbEndpoint{}
 
 	for _, lbBackend := range b.lbBackends {
-		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
-			LoadBalancingWeight: wrapperspb.UInt32(lbBackend.weight),
-			HealthStatus:        r.toHealthStatus(lbBackend.status),
-			HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
-				Address: &envoy_config_core_v3.Address{Address: &envoy_config_core_v3.Address_SocketAddress{SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Address:       lbBackend.address,
-					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(lbBackend.port)},
-				}}},
-			}},
-		})
+		for _, a := range lbBackend.addresses {
+			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
+				LoadBalancingWeight: wrapperspb.UInt32(lbBackend.weight),
+				HealthStatus:        r.toHealthStatus(lbBackend.status),
+				HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint_v3.Endpoint{
+					Address: &envoy_config_core_v3.Address{Address: &envoy_config_core_v3.Address_SocketAddress{SocketAddress: &envoy_config_core_v3.SocketAddress{
+						Address:       a,
+						PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(lbBackend.port)},
+					}}},
+				}},
+			})
+		}
 	}
 
 	return &envoy_config_endpoint_v3.ClusterLoadAssignment{

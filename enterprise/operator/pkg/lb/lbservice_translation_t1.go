@@ -199,12 +199,12 @@ func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService)
 				if port != b.port {
 					r.logger.Debug("Skipping incompatible backend",
 						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
-						logfields.Address, b.address,
+						logfields.Address, b.addresses,
 						logfields.Port, b.port,
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, b.address)
+				epAddresses = append(epAddresses, b.addresses...)
 			}
 		}
 	}
@@ -237,12 +237,12 @@ func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService)
 				if port != b.port {
 					r.logger.Debug("Skipping incompatible backend",
 						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
-						logfields.Address, b.address,
+						logfields.Address, b.addresses,
 						logfields.Port, b.port,
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, b.address)
+				epAddresses = append(epAddresses, b.addresses...)
 			}
 		}
 	}
