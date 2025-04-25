@@ -325,7 +325,7 @@ func (em *endpointManager) mutateRemoteEndpointInfo(key *ipcmap.Key, rei *ipcmap
 	var ip hostIPType
 	if !rei.TunnelEndpoint.IsZero() {
 		// The tunnel endpoint is found, match based on it.
-		ip = rei.TunnelEndpoint.String()
+		ip = rei.GetTunnelEndpoint().String()
 	} else {
 		// Otherwise, try to match based on the prefix, if it represents a single
 		// IP, so that we configure the flag correctly also for the NodeInternalIP
