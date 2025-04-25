@@ -565,17 +565,7 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 		case isovalentv1alpha1.BackendTypeIP:
 			addresses = append(addresses, *backend.IP)
 		case isovalentv1alpha1.BackendTypeHostname:
-			address := *backend.Host
-			// FIXME: This is a workaround for the issue that no_default_search_domain
-			// of Envoy is broken (https://github.com/envoyproxy/envoy/issues/33138).
-			// This leads to the situation that the default search domain is mistakenly
-			// appended to the hostname. This workaround is to append a dot to the hostname
-			// make it fully qualified.
-			if !strings.HasSuffix(address, ".") {
-				address = address + "."
-			}
-
-			addresses = append(addresses, address)
+			addresses = append(addresses, r.fixedHostname(*backend.Host))
 		case isovalentv1alpha1.BackendTypeK8sService:
 			addresses = append(addresses, r.getAddressesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)...)
 			backendPort = r.getBackendPortFromService(referencedK8sServices, referencedEndpointSlices, backend.K8sServiceRef.Name, backendPort)
@@ -592,6 +582,19 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 	}
 
 	return ret
+}
+
+func (r *ingestor) fixedHostname(address string) string {
+	// FIXME: This is a workaround for the issue that no_default_search_domain
+	// of Envoy is broken (https://github.com/envoyproxy/envoy/issues/33138).
+	// This leads to the situation that the default search domain is mistakenly
+	// appended to the hostname. This workaround is to append a dot to the hostname
+	// make it fully qualified.
+	if !strings.HasSuffix(address, ".") {
+		address = address + "."
+	}
+
+	return address
 }
 
 func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []discoveryv1.EndpointSlice, k8sServiceName string) []string {
