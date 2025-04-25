@@ -1210,6 +1210,7 @@ const (
 	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
 	ConditionTypeSecretsExist       = "lb.cilium.io/SecretsExist"
 	ConditionTypeSecretsCompatible  = "lb.cilium.io/SecretsCompatible"
+	ConditionTypeK8sServiceExist    = "lb.cilium.io/K8sServiceExist"
 	ConditionTypeEPSlicesExist      = "lb.cilium.io/EndpointSliceExist"
 )
 
@@ -1263,6 +1264,11 @@ const (
 	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
 	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
 	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"
+)
+
+const (
+	K8sServiceExistConditionReasonAllK8sServicesExist = "AllK8sServicesExist"
+	K8sServiceExistConditionReasonMissingK8sServices  = "MissingK8sServices"
 )
 
 const (

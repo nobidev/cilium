@@ -45,8 +45,8 @@ func newIngestor(logger *slog.Logger, defaultT1LabelSelector slim_metav1.LabelSe
 	}
 }
 
-func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret, referencedEndpointSlices []discoveryv1.EndpointSlice) (*lbService, error) {
-	referencedBackends := r.toReferencedBackends(backends, referencedEndpointSlices)
+func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret, referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice) (*lbService, error) {
+	referencedBackends := r.toReferencedBackends(backends, referencedK8sServices, referencedEndpointSlices)
 
 	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
 	if err != nil {
@@ -249,14 +249,14 @@ func (*ingestor) toTLSConfig(tlsConfig isovalentv1alpha1.LBServiceTLSConfig) lbS
 	}
 }
 
-func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendPool, referencedEndpointSlices []discoveryv1.EndpointSlice) map[string]backend {
+func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendPool, referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice) map[string]backend {
 	referencedBackends := map[string]backend{}
 
 	for _, b := range backends {
 		referencedBackends[b.Name] = backend{
 			name:        b.Name,
 			typ:         r.toBackendType(b.Spec.BackendType),
-			lbBackends:  r.toBackends(b.Spec.BackendType, b.Spec.Backends, referencedEndpointSlices),
+			lbBackends:  r.toBackends(b.Spec.BackendType, b.Spec.Backends, referencedK8sServices, referencedEndpointSlices),
 			lbAlgorithm: r.toLBBackendAlgorithm(b.Spec.Loadbalancing),
 			healthCheckConfig: lbBackendHealthCheckConfig{
 				http:                         r.toHTTPHealthCheck(&b.Spec.HealthCheck),
@@ -544,7 +544,7 @@ func (r *ingestor) toBackendType(backendType isovalentv1alpha1.BackendType) lbBa
 	}
 }
 
-func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isovalentv1alpha1.Backend, referencedEndpointSlices []discoveryv1.EndpointSlice) []lbBackend {
+func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isovalentv1alpha1.Backend, referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice) []lbBackend {
 	ret := []lbBackend{}
 
 	for _, backend := range backends {
@@ -557,6 +557,8 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 		if backend.Status != nil && *backend.Status == isovalentv1alpha1.BackendStatusDraining {
 			status = lbBackendStatusDraining
 		}
+
+		backendPort := uint32(backend.Port)
 
 		addresses := []string{}
 		switch typ {
@@ -576,14 +578,14 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			addresses = append(addresses, address)
 		case isovalentv1alpha1.BackendTypeK8sService:
 			addresses = append(addresses, r.getAddressesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)...)
-			// TODO: translate svc -> pod port
+			backendPort = r.getBackendPortFromService(referencedK8sServices, referencedEndpointSlices, backend.K8sServiceRef.Name, backendPort)
 		default:
 			addresses = append(addresses, *backend.IP)
 		}
 
 		ret = append(ret, lbBackend{
 			addresses: addresses,
-			port:      uint32(backend.Port),
+			port:      backendPort,
 			weight:    weight,
 			status:    status,
 		})
@@ -612,6 +614,41 @@ func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []dis
 
 	slices.Sort(ipAddresses)
 	return slices.Compact(ipAddresses)
+}
+
+// getBackendPortFromService translates the given service port to the target port (of the pod)
+func (r *ingestor) getBackendPortFromService(referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice, k8sServiceName string, servicePort uint32) uint32 {
+	for _, svc := range referencedK8sServices {
+		if svc.Name == k8sServiceName {
+			for _, sp := range svc.Spec.Ports {
+				if sp.Port == int32(servicePort) {
+					if sp.TargetPort.IntValue() != 0 {
+						return uint32(sp.TargetPort.IntValue())
+					}
+
+					if sp.TargetPort.StrVal != "" {
+						for _, es := range referencedEndpointSlices {
+							if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && es.AddressType == discoveryv1.AddressTypeIPv4 {
+								for _, ep := range es.Ports {
+									if ep.Name != nil && *ep.Name == sp.TargetPort.StrVal && ep.Port != nil && *ep.Port != 0 {
+										return uint32(*ep.Port)
+									}
+								}
+							}
+						}
+					}
+
+				}
+			}
+		}
+	}
+
+	r.logger.Debug("No corresponding target port found. Falling back to use the service port.",
+		logfields.ServiceName, k8sServiceName,
+		logfields.Port, servicePort,
+	)
+
+	return servicePort
 }
 
 func (r *ingestor) toLBBackendAlgorithm(loadbalancing *isovalentv1alpha1.Loadbalancing) lbBackendLBAlgorithm {

@@ -157,6 +157,8 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changed Secrets resources and trigger LBServices that reference the changed Secret.
 		// This is mainly to update the status. The actual content of the Secrets are getting transferred via sDS.
 		Watches(&corev1.Secret{}, r.enqueueReferencingLBServicesByIndex(lbServiceTlsSecretsIndexName, byName)).
+		// Watch for changed K8s Service resources and trigger LBServices that indirectly reference the changed Service.
+		Watches(&corev1.Service{}, r.enqueueReferencingLBServicesByIndex(lbServiceK8sServiceIndexName, byName)).
 		// Watch for changed EndpointSlice resources and trigger LBServices that indirectly reference the changed EndpointSlice.
 		// Note: Multiple EndpointSlice can exist per K8s Service by design. They reference their K8s Service via K8s Label.
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueReferencingLBServicesByIndex(lbServiceK8sServiceIndexName, byServiceNameLabel)).
@@ -278,6 +280,14 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	r.updateSecretExistenceInStatus(lbsvc, missingSecrets)
 	r.updateSecretCompatibilityInStatus(lbsvc, referencedSecrets)
 
+	// Try loading referenced K8s Services
+	referencedK8sServices, missingK8sServices, err := r.loadK8sServices(ctx, lbsvc)
+	if err != nil {
+		return fmt.Errorf("failed to load referenced K8s Services: %w", err)
+	}
+
+	r.updateK8sServiceExistenceInStatus(lbsvc, missingK8sServices)
+
 	// Try loading EndpointSlices of referenced K8s Services
 	referencedEndpointSlices, missingEndpointSlices, err := r.loadK8sEndpointSlices(ctx, lbsvc)
 	if err != nil {
@@ -290,7 +300,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(ctx, vip, lbsvc, backends, deployments, allNodes, existingT1K8sService, referencedSecrets, referencedEndpointSlices)
+	model, err := r.ingestor.ingest(ctx, vip, lbsvc, backends, deployments, allNodes, existingT1K8sService, referencedSecrets, referencedK8sServices, referencedEndpointSlices)
 	if err != nil {
 		return fmt.Errorf("failed to ingest resources: %w", err)
 	}
@@ -484,6 +494,33 @@ func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovale
 	}
 
 	return secretMap, missingSecrets, nil
+}
+
+func (r *lbServiceReconciler) loadK8sServices(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]corev1.Service, []string, error) {
+	missingSVCs := []string{}
+	result := []corev1.Service{}
+
+	// K8s Services
+	allReferencedK8sServiceNames := lbsvc.AllReferencedK8sServiceNames()
+
+	for _, serviceName := range allReferencedK8sServiceNames {
+		s := &corev1.Service{}
+		if err := r.client.Get(ctx, types.NamespacedName{Namespace: lbsvc.Namespace, Name: serviceName}, s); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return nil, nil, fmt.Errorf("failed to get referenced K8s Service: %w", err)
+			}
+
+			// Continue reconciliation if K8s Service don't exist (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced service gets created it will trigger a reconciliation
+			missingSVCs = append(missingSVCs, serviceName)
+			continue
+		}
+
+		result = append(result, *s)
+	}
+
+	return result, missingSVCs, nil
 }
 
 func (r *lbServiceReconciler) loadK8sEndpointSlices(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]discoveryv1.EndpointSlice, []string, error) {
@@ -1159,6 +1196,25 @@ func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha
 	}
 
 	return messages
+}
+
+func (*lbServiceReconciler) updateK8sServiceExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingK8sServices []string) {
+	svcExistCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeK8sServiceExist,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.K8sServiceExistConditionReasonAllK8sServicesExist,
+		Message:            "All K8s Services exist",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(missingK8sServices) > 0 {
+		svcExistCondition.Status = metav1.ConditionFalse
+		svcExistCondition.Reason = isovalentv1alpha1.K8sServiceExistConditionReasonMissingK8sServices
+		svcExistCondition.Message = fmt.Sprintf("There are referenced K8s Services that do not exist: %v", missingK8sServices)
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeK8sServiceExist, svcExistCondition)
 }
 
 func (*lbServiceReconciler) updateEndpointSliceExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingEndpointSlices []string) {
