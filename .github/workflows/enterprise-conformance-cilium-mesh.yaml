@@ -142,6 +142,8 @@ jobs:
           #SHASHA=b03a71925b1fe6aed15b50daf370a87b41c3c869
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=enterprise.featureGate.strict=true \
+            --helm-set=enterprise.featureGate.approved={ClusterMeshOverlappingPodCIDR} \
             --helm-set=debug.enabled=true \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
