@@ -5,6 +5,9 @@
 *.so
 *.dylib
 bin/*
+# Not interested in versioning the CI catalog.
+# It is regenerated from the state stored in quay.
+catalog-dev/*
 Dockerfile.cross
 
 # Test binary, built with `go test -c`

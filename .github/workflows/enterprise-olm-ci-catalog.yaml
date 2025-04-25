@@ -1,0 +1,116 @@
+name: OLM CI Catalog
+on:
+  # Allow to run manually
+  workflow_dispatch: {}
+  # Additionally run once a day at 4:17am
+  schedule:
+    - cron:  '17 4 * * *'
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  pull-requests: write
+
+jobs:
+  olm-ci-catalog:
+    # This job builds an OLM bundle based on the most recent commit of the branch
+    # adds it to the CI catalog and publish the new version of the catalog.
+    name: Populate OLM CI catalog
+    if: github.repository == 'isovalent/cilium'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Get Token
+        id: get_token
+        uses: getsentry/action-github-app-token@d4b5da6c5e37703f8c3b3e43abb5705b46e159cc # v3
+        with:
+            app_id: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID }}
+            private_key: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_PEM }}
+
+      - name: Authenticate with GH CLI
+        run: |
+          gh auth login --with-token <<< "${{ steps.get_token.outputs.token }}"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Login to quay.io
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
+
+      - name: Login to registry.redhat.io for pulling images
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Check that component images are available
+        id: check_images
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          for image in cilium-ubi-ci operator-generic-ubi-ci hubble-relay-ubi-ci clustermesh-apiserver-ubi-ci; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ github.sha }} &> /dev/null; do sleep 45s; done
+          done
+          echo "images available"
+          # Some special handling is needed for clife as it does not get built for every push / PR, per default
+          # only when enterprise/olm is modified.
+          i=0
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ github.sha }} &> /dev/null || [[ "${i}" -gt 10 ]]; do sleep 30s; i=$((i + 1)); done
+          if [[ "${i}" -gt 10 ]]; then
+            echo "CLife rebuild needed"
+            echo rebuild_clife='true' >> $GITHUB_OUTPUT
+          else
+            echo "Clife image available"
+            echo rebuild_clife='false' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Push CLife image
+        if: ${{ steps.check_images.outputs.rebuild_clife  == 'true' }}
+        env:
+          IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ github.sha }}"
+        working-directory: ./enterprise/olm
+        run: |
+          # Sync manifests first
+          rm -rf manifests
+          cp -a ../../install/kubernetes/cilium/. manifests
+          export CL_TAG=${{ github.sha }}
+          make set-images
+          make docker-build docker-push
+
+      - name: Build and Push the bundle image
+        working-directory: ./enterprise/olm
+        env:
+          VERSION: "0.0.1-${{ github.sha }}"
+          IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ github.sha }}"
+          IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"
+        run: |
+          make set-images
+          make bundle
+          make bundle-build
+          make bundle-push
+
+      - name: Add the bundle image to the catalog and publish the new catalog version
+        working-directory: ./enterprise/olm
+        env:
+          # renovate: datasource=github-releases depName=mikefarah/yq
+          yq_version: 4.45.1
+          # renovate: datasource=github-releases depName=operator-framework/operator-registry
+          opm_version: 1.52.0
+          # opm tooling cannot cope with anything that is not semver... and not with semver either... forced to use - when + would be correct
+          VERSION: "0.0.1-${{ github.sha }}"
+          IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"
+        run: |
+          channel="${{ github.ref }}"
+          channel="${channel#v}"
+          make catalog-dev-build CHANNEL=${channel}
+          make catalog-dev-push

@@ -121,6 +121,79 @@ make bundle-push VERSION=xxx IMAGE_TAG_BASE=<some-registry>/clife
 
 Metadata and configuration changes need to be applied to: `config/manifests/bases/clife.clusterserviceversion.yaml` and `bundle/metadata/annotations.yaml`. The ClusterServiceVersion in the bundle directory gets automatically updated.
 
+Generate the manifests and populate an OLM catalog image with the follwing:
+```sh
+make catalog-dev-build VERSION="xxx" IMAGE_TAG_BASE=<some-registry>/clife CHANNEL="ccc"
+make catalog-dev-push VERSION="xxx" IMAGE_TAG_BASE=<some-registry>/clife
+```
+It will also add the bundle with version xxx to the catalog channel ccc. If a catalog already exists at <some-registry>/clife-catalog the bundle will be added to it otherwise a new catalog will be generated.
+
+To deploy Cilium on a kind cluster using OLM.
+
+Install OLM:
+```sh
+operator-sdk olm install
+```
+
+Create a cilium namespace:
+```sh
+kubectl create ns cilium
+```
+
+Create an OperatorGroup:
+```sh
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: clife
+  namespace: cilium
+spec:
+  upgradeStrategy: Default
+status:
+  namespaces:
+  - ""
+EOF
+```
+
+Create a CatalogSource:
+```sh
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: clife-catalog
+  namespace: cilium
+spec:
+  sourceType: grpc
+  image:  <some-registry>/clife-catalog:latest
+EOF
+```
+
+Create a Subscription:
+```sh
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  labels:
+    operators.coreos.com/tetragon-operator.tetragon: ""
+  name: cilium
+  namespace: cilium
+spec:
+  name: clife
+  source: clife-catalog
+  sourceNamespace: cilium
+  config:
+    env:
+EOF
+```
+
+Create a custom resource CiliumConfig with the desired configuration, e.g.:
+```sh
+kubectl apply -k config/samples/
+```
+
 ## Contributing
 
 > [!TIP]
