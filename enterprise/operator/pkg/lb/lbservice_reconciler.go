@@ -278,11 +278,19 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	r.updateSecretExistenceInStatus(lbsvc, missingSecrets)
 	r.updateSecretCompatibilityInStatus(lbsvc, referencedSecrets)
 
+	// Try loading EndpointSlices of referenced K8s Services
+	referencedEndpointSlices, missingEndpointSlices, err := r.loadK8sEndpointSlices(ctx, lbsvc)
+	if err != nil {
+		return fmt.Errorf("failed to load referenced EndpointSlices (for K8s Services): %w", err)
+	}
+
+	r.updateEndpointSliceExistenceInStatus(lbsvc, missingEndpointSlices)
+
 	//
 	// Translate into internal model
 	//
 
-	model, err := r.ingestor.ingest(ctx, vip, lbsvc, backends, deployments, allNodes, existingT1K8sService, referencedSecrets)
+	model, err := r.ingestor.ingest(ctx, vip, lbsvc, backends, deployments, allNodes, existingT1K8sService, referencedSecrets, referencedEndpointSlices)
 	if err != nil {
 		return fmt.Errorf("failed to ingest resources: %w", err)
 	}
@@ -476,6 +484,41 @@ func (r *lbServiceReconciler) loadTLSSecrets(ctx context.Context, lbsvc *isovale
 	}
 
 	return secretMap, missingSecrets, nil
+}
+
+func (r *lbServiceReconciler) loadK8sEndpointSlices(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]discoveryv1.EndpointSlice, []string, error) {
+	missingES := []string{}
+	result := []discoveryv1.EndpointSlice{}
+
+	// K8s Services
+	allReferencedK8sServiceNames := lbsvc.AllReferencedK8sServiceNames()
+
+	for _, serviceName := range allReferencedK8sServiceNames {
+		esList := &discoveryv1.EndpointSliceList{}
+		listOptions := []client.ListOption{
+			client.InNamespace(lbsvc.Namespace),
+			client.MatchingLabels{
+				discoveryv1.LabelServiceName: serviceName,
+			},
+		}
+		if err := r.client.List(ctx, esList, listOptions...); err != nil {
+			return nil, nil, fmt.Errorf("failed to list EndpointSlices for Service %s: %w", serviceName, err)
+		}
+
+		if len(esList.Items) == 0 {
+			// Continue reconciliation if no EndpointSlice exists for the given K8s Service (yet).
+			// But keep track of them to report in log and status later on.
+			// Once the missing referenced EndpointSlice gets created it will trigger a reconciliation
+			missingES = append(missingES, serviceName)
+			continue
+		}
+
+		for _, es := range esList.Items {
+			result = append(result, es)
+		}
+	}
+
+	return result, missingES, nil
 }
 
 func (r *lbServiceReconciler) loadT1Service(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*corev1.Service, error) {
@@ -1116,4 +1159,23 @@ func (r *lbServiceReconciler) getIncompatibleSecretTypes(lbsvc *isovalentv1alpha
 	}
 
 	return messages
+}
+
+func (*lbServiceReconciler) updateEndpointSliceExistenceInStatus(lbsvc *isovalentv1alpha1.LBService, missingEndpointSlices []string) {
+	esExistCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeEPSlicesExist,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.EPSlicesExistConditionReasonAllEndpointSlicesExist,
+		Message:            "All EndpointSlices exist",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	if len(missingEndpointSlices) > 0 {
+		esExistCondition.Status = metav1.ConditionFalse
+		esExistCondition.Reason = isovalentv1alpha1.EPSlicesExistConditionReasonMissingEndpointSlices
+		esExistCondition.Message = fmt.Sprintf("There are referenced K8s Services where the corresponding EndpointSlices do not exist: %v", missingEndpointSlices)
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeEPSlicesExist, esExistCondition)
 }

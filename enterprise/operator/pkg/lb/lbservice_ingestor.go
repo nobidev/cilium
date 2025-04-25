@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -44,8 +45,8 @@ func newIngestor(logger *slog.Logger, defaultT1LabelSelector slim_metav1.LabelSe
 	}
 }
 
-func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret) (*lbService, error) {
-	referencedBackends := r.toReferencedBackends(backends)
+func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret, referencedEndpointSlices []discoveryv1.EndpointSlice) (*lbService, error) {
+	referencedBackends := r.toReferencedBackends(backends, referencedEndpointSlices)
 
 	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
 	if err != nil {
@@ -248,14 +249,14 @@ func (*ingestor) toTLSConfig(tlsConfig isovalentv1alpha1.LBServiceTLSConfig) lbS
 	}
 }
 
-func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendPool) map[string]backend {
+func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendPool, referencedEndpointSlices []discoveryv1.EndpointSlice) map[string]backend {
 	referencedBackends := map[string]backend{}
 
 	for _, b := range backends {
 		referencedBackends[b.Name] = backend{
 			name:        b.Name,
 			typ:         r.toBackendType(b.Spec.BackendType),
-			lbBackends:  r.toBackends(b.Spec.BackendType, b.Spec.Backends),
+			lbBackends:  r.toBackends(b.Spec.BackendType, b.Spec.Backends, referencedEndpointSlices),
 			lbAlgorithm: r.toLBBackendAlgorithm(b.Spec.Loadbalancing),
 			healthCheckConfig: lbBackendHealthCheckConfig{
 				http:                         r.toHTTPHealthCheck(&b.Spec.HealthCheck),
@@ -543,7 +544,7 @@ func (r *ingestor) toBackendType(backendType isovalentv1alpha1.BackendType) lbBa
 	}
 }
 
-func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isovalentv1alpha1.Backend) []lbBackend {
+func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isovalentv1alpha1.Backend, referencedEndpointSlices []discoveryv1.EndpointSlice) []lbBackend {
 	ret := []lbBackend{}
 
 	for _, backend := range backends {
@@ -574,7 +575,8 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 
 			addresses = append(addresses, address)
 		case isovalentv1alpha1.BackendTypeK8sService:
-			// TODO
+			addresses = append(addresses, r.getAddressesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)...)
+			// TODO: translate svc -> pod port
 		default:
 			addresses = append(addresses, *backend.IP)
 		}
@@ -588,6 +590,28 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 	}
 
 	return ret
+}
+
+func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []discoveryv1.EndpointSlice, k8sServiceName string) []string {
+	ipAddresses := []string{}
+
+	for _, es := range referencedEndpointSlices {
+		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && es.AddressType == discoveryv1.AddressTypeIPv4 {
+			for _, e := range es.Endpoints {
+				// TODO: check conditions (kubelet healthchecks) ?
+				ipAddresses = append(ipAddresses, e.Addresses...)
+			}
+		}
+	}
+
+	r.logger.Debug("Resolved IPs from EndpointSlices",
+		logfields.ServiceName, k8sServiceName,
+		logfields.ResourceName, referencedEndpointSlices,
+		logfields.PodIPs, ipAddresses,
+	)
+
+	slices.Sort(ipAddresses)
+	return slices.Compact(ipAddresses)
 }
 
 func (r *ingestor) toLBBackendAlgorithm(loadbalancing *isovalentv1alpha1.Loadbalancing) lbBackendLBAlgorithm {

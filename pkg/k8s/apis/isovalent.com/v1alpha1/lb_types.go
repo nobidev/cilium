@@ -1210,6 +1210,7 @@ const (
 	ConditionTypeBackendsCompatible = "lb.cilium.io/BackendsCompatible"
 	ConditionTypeSecretsExist       = "lb.cilium.io/SecretsExist"
 	ConditionTypeSecretsCompatible  = "lb.cilium.io/SecretsCompatible"
+	ConditionTypeEPSlicesExist      = "lb.cilium.io/EndpointSliceExist"
 )
 
 const (
@@ -1262,6 +1263,11 @@ const (
 	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
 	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
 	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"
+)
+
+const (
+	EPSlicesExistConditionReasonAllEndpointSlicesExist = "AllEndpointSlicesExist"
+	EPSlicesExistConditionReasonMissingEndpointSlices  = "MissingEndpointSlices"
 )
 
 func (r *LBService) AllReferencedSecretNames() []string {

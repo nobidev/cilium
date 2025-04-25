@@ -118,7 +118,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := newIngestor(hivetest.Logger(t), defaultT1LabelSelector, defaultT2LabelSelector)
 
-		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets)
+		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets, nil)
 		assert.NoError(t, err)
 
 		// Input Config
