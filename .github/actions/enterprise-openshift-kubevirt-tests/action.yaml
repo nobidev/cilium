@@ -1,0 +1,16 @@
+name: OpenShift tests
+description: Runs OpenShift related tests
+
+inputs:
+  working-dir:
+    required: true
+    description: 'Test cluster configuration directory'
+
+runs:
+  using: composite
+  steps:
+    - name: Run KubeVirt conformance tests
+      shell: bash
+      working-directory: "${{ inputs.working-dir }}"
+      run: |
+          make test-kubevirt-conformance

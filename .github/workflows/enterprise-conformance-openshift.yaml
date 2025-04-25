@@ -426,13 +426,28 @@ jobs:
             exit 1
           fi
 
-      - name: Run tests
+      - name: Cilium connectivity tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        uses: ./.github/actions/enterprise-openshift-tests
-        timeout-minutes: 120
+        uses: ./.github/actions/enterprise-openshift-cilium-conn-tests
+        timeout-minutes: 60
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
           test-results-dir: "test-results"
+
+      - name: CNI conformance tests
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
+        uses: ./.github/actions/enterprise-openshift-cni-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+
+      - name: KubeVirt conformance tests
+        # Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kubevirt == 'true' }}
+        uses: ./.github/actions/enterprise-openshift-kubevirt-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
 
       - name: Enable KPR [if disabled]
         if: ${{ matrix.kpr-default == false }}
@@ -483,13 +498,28 @@ jobs:
             exit 1
           fi
 
-      - name: Run tests with KPR
-        if: ${{ matrix.kpr-default == false }}
-        uses: ./.github/actions/enterprise-openshift-tests
-        timeout-minutes: 120
+      - name: Cilium connectivity tests [KPR]
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && matrix.kpr-default == false }}
+        uses: ./.github/actions/enterprise-openshift-cilium-conn-tests
+        timeout-minutes: 60
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
           test-results-dir: "test-results/kpr"
+
+      - name: CNI conformance tests [KPR]
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && matrix.kpr-default == false }}
+        uses: ./.github/actions/enterprise-openshift-cni-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+
+      - name: KubeVirt conformance tests [KPR]
+        # Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && matrix.kpr-default == false && steps.vars.outputs.kubevirt == 'true' }}
+        uses: ./.github/actions/enterprise-openshift-kubevirt-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
 
       - name: Collect sysdumps
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
