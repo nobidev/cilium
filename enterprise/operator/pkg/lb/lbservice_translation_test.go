@@ -78,6 +78,8 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		inputLBBackends := []*isovalentv1alpha1.LBBackendPool{}
 		inputLBDeployments := []isovalentv1alpha1.LBDeployment{}
 		inputSecrets := map[string]*corev1.Secret{}
+		inputK8sServices := []corev1.Service{}
+		inputK8sEPSlices := []discoveryv1.EndpointSlice{}
 
 		for _, d := range entries {
 			if d.IsDir() {
@@ -101,6 +103,14 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 				inputSecret := &corev1.Secret{}
 				readInput(t, fname, inputSecret)
 				inputSecrets[inputSecret.Name] = inputSecret
+			case strings.HasPrefix(d.Name(), "input-k8s-service-"):
+				inputK8sService := &corev1.Service{}
+				readInput(t, fname, inputK8sService)
+				inputK8sServices = append(inputK8sServices, *inputK8sService)
+			case strings.HasPrefix(d.Name(), "input-k8s-endpointslice-"):
+				inputK8sEPSlice := &discoveryv1.EndpointSlice{}
+				readInput(t, fname, inputK8sEPSlice)
+				inputK8sEPSlices = append(inputK8sEPSlices, *inputK8sEPSlice)
 			}
 		}
 
@@ -118,7 +128,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// ingestion
 		ing := newIngestor(hivetest.Logger(t), defaultT1LabelSelector, defaultT2LabelSelector)
 
-		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets, nil, nil)
+		model, err := ing.ingest(t.Context(), inputLBVIP, inputLBService, inputLBBackends, inputLBDeployments, inputNodes, inputService, inputSecrets, inputK8sServices, inputK8sEPSlices)
 		assert.NoError(t, err)
 
 		// Input Config
