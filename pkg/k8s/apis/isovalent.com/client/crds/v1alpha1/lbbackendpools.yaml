@@ -21,6 +21,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.backendType
+      name: Type
+      type: string
     - jsonPath: .status.status
       name: Status
       type: string

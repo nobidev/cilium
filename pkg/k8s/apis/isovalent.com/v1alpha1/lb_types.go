@@ -1474,6 +1474,7 @@ type LBServiceList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbbackendpool",path="lbbackendpools",scope="Namespaced",shortName={lbbep}
+// +kubebuilder:printcolumn:JSONPath=".spec.backendType",name="Type",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
