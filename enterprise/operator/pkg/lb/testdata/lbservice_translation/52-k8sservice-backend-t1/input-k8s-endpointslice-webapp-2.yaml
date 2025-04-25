@@ -1,0 +1,40 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: webapp-2
+    name: webapp-2
+  namespace: default
+  name: webapp-2-rct6q
+addressType: IPv4
+endpoints:
+  - addresses:
+      - 10.244.1.224
+      - 10.244.1.230
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: kind-worker4
+    targetRef:
+      kind: Pod
+      name: webapp-2-7b5f599dcb-b4ps7
+      namespace: default
+      uid: 30418736-d563-407d-9931-5920d832a21b
+  - addresses:
+      - 10.244.1.231
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: kind-worker3
+    targetRef:
+      kind: Pod
+      name: webapp-2-7b5f599dcb-b4ps8
+      namespace: default
+      uid: 30418736-d563-407d-9931-5920d832a21b
+ports:
+  - name: web
+    port: 80
+    protocol: TCP
