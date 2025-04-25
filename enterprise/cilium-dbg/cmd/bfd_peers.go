@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/cilium-dbg/cmd"
+	shell "github.com/cilium/cilium/pkg/shell/client"
 )
 
 // bfdCmd is the root command of the BFD subsystem
@@ -31,7 +32,7 @@ var bfdPeersCmd = &cobra.Command{
 	Short:   "List state of BFD peers",
 	Long:    "List current state of all configured BFD peers",
 	Run: func(_ *cobra.Command, args []string) {
-		cmd.ShellExchange(os.Stdout, "db/show bfd-peers")
+		shell.ShellExchange(os.Stdout, "db/show bfd-peers")
 	},
 }
 

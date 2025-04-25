@@ -242,7 +242,7 @@
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
-/.github/actions/ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -618,6 +618,7 @@ Makefile* @cilium/build
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/shell @cilium/sig-foundations
 /pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations
@@ -820,7 +821,6 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/multicast.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
-/cilium-dbg/cmd/enterprise_* @isovalent/cli
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
