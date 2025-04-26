@@ -750,6 +750,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining tools for managing releases.
 # - @isovalent/security
 #   Responsible for security related features and issues.
+# - @isovalent/service-mesh
+#   Responsible for maintaining service mesh or L7 proxy related features and issues.
 # - @isovalent/sig-k8s:
 #   Provide input on all interactions with Kubernetes, both for standard
 #   resources and CRDs. Ensure best practices are followed for the coordination
@@ -868,6 +870,7 @@ Makefile* @cilium/build
 /enterprise/pkg/datapath/sockets/ @isovalent/egress-gateway
 /enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
+/enterprise/pkg/ingresspolicy/ @isovalent/service-mesh
 /enterprise/pkg/hubble/ @isovalent/hubble
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
 /enterprise/pkg/ipmigration/ @isovalent/networking-framework
