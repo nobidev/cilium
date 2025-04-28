@@ -86,13 +86,10 @@ jobs:
       - name: Build and Push OLM container image
         env:
           IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"
+          CL_TAG: "${{ steps.vars.outputs.sha }}"
+        working-directory: ./enterprise/olm
         run: |
-          # Sync manifests first
-          rm -rf enterprise/olm/manifests
-          cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
-          cd enterprise/olm
-          export CL_TAG=${{ steps.tag.outputs.tag }}
-          make docker-build docker-push
+          make docker-buildx
 
       - name: CI Build digest
         id: docker_digest

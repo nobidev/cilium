@@ -37,9 +37,10 @@ jobs:
           persist-credentials: false
 
       - name: Sync enterprise/olm/manifests
+        working-directory: ./enterprise/olm
         run: |
-          rm -rf enterprise/olm/manifests
-          cp -a ./install/kubernetes/cilium/. enterprise/olm/manifests
+          make sync-helm-manifests
+          make set-images
 
       - name: Create PR
         run: |

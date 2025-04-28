@@ -127,14 +127,19 @@ lint: golangci-lint ## Run golangci-lint linter
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
+##@ Build
+
+.PHONY: sync-helm-manifests
+sync-helm-manifests: 
+	rm -rf ./manifests
+	cp -a ../../install/kubernetes/cilium/. manifests
+
 .PHONY: set-images
 set-images: # Set the images versions matching the local state in the helm values embedded into CLife. A different tag, suffix and registry can be selected by setting env variables: CL_TAG, CL_IS_CI, CL_SUFFIX and CL_REGISTRY
 	./scripts/set-images.sh
 
-##@ Build
-
 .PHONY: build
-build: manifests generate fmt vet set-images ## Build manager binary.
+build: manifests generate fmt sync-helm-manifests vet set-images ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 .PHONY: run
@@ -145,7 +150,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: set-images ## Build docker image with the manager.
+docker-build: sync-helm-manifests set-images ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
@@ -160,7 +165,7 @@ docker-push: ## Push docker image with the manager.
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
 PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
-docker-buildx: set-images ## Build and push docker image for the manager for cross-platform support
+docker-buildx: sync-helm-manifests set-images ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
