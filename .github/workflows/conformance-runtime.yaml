@@ -371,7 +371,7 @@ jobs:
 
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
-        timeout-minutes: 60
+        timeout-minutes: 40
         uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
