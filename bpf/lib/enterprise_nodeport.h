@@ -48,7 +48,7 @@ nodeport_rev_dnat_ipv4_hook(struct __ctx_buff *ctx __maybe_unused,
 		 * ctx_snat_done == src is from a CiliumMesh EP. Again, its a hack.
 		 */
 		if (ctx_snat_done(ctx)) {
-			info = ipcache_lookup4(&cilium_ipcache, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 			if (info && identity_is_remote_node(info->sec_identity)) {
 				src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 				if (src)

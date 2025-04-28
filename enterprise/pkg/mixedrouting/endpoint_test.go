@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	ipcmap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 type fakeEPEntry struct {
@@ -185,7 +184,8 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		tunnelSkipFlagSet   = ipcmap.RemoteEndpointInfoFlags(1)
 	)
 
-	te := types.IPv4(net.ParseIP("10.255.0.1").To4())
+	te := net.ParseIP("10.255.0.1")
+
 	tests := []struct {
 		name     string
 		key      ipcmap.Key
@@ -197,23 +197,23 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		{
 			name:     "Tunnel endpoint match, should unset",
 			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
-			rei:      ipcmap.RemoteEndpointInfo{TunnelEndpoint: te, Flags: tunnelSkipFlagSet},
+			rei:      ipcmap.NewValue(0, te, 0, tunnelSkipFlagSet),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.255.0.1"), routingModeVXLAN) },
-			expected: tunnelSkipFlagUnset,
+			expected: tunnelSkipFlagUnset | ipcmap.FlagHasTunnelEndpoint,
 		},
 		{
 			name:     "Tunnel endpoint match, should set",
 			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
-			rei:      ipcmap.RemoteEndpointInfo{TunnelEndpoint: te, Flags: tunnelSkipFlagUnset},
+			rei:      ipcmap.NewValue(0, te, 0, tunnelSkipFlagUnset),
 			primary:  routingModeGeneve,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.255.0.1"), routingModeNative) },
-			expected: tunnelSkipFlagSet,
+			expected: tunnelSkipFlagSet | ipcmap.FlagHasTunnelEndpoint,
 		},
 		{
 			name:     "Prefix match (single IP), IPv4",
 			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
-			rei:      ipcmap.RemoteEndpointInfo{TunnelEndpoint: types.IPv4{}, Flags: tunnelSkipFlagSet},
+			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagSet),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.0.0.4"), routingModeGeneve) },
 			expected: tunnelSkipFlagUnset,
@@ -221,7 +221,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		{
 			name:     "Prefix match (single IP), IPv6",
 			key:      ipcmap.NewKey(net.ParseIP("fd00::4"), net.CIDRMask(128, 128), 0),
-			rei:      ipcmap.RemoteEndpointInfo{TunnelEndpoint: types.IPv4{}, Flags: tunnelSkipFlagUnset},
+			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagUnset),
 			primary:  routingModeVXLAN,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("fd00::4"), routingModeNative) },
 			expected: tunnelSkipFlagSet,
@@ -229,7 +229,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		{
 			name:     "Prefix match, should default to primary",
 			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(30, 32), 0),
-			rei:      ipcmap.RemoteEndpointInfo{TunnelEndpoint: types.IPv4{}, Flags: tunnelSkipFlagUnset},
+			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagUnset),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.0.0.4"), routingModeVXLAN) },
 			expected: tunnelSkipFlagSet,
@@ -237,14 +237,14 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		{
 			name:    "No match, should default to primary",
 			key:     ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(30, 32), 0),
-			rei:     ipcmap.RemoteEndpointInfo{TunnelEndpoint: te, Flags: tunnelSkipFlagSet},
+			rei:     ipcmap.NewValue(0, te, 0, tunnelSkipFlagSet),
 			primary: routingModeGeneve,
 			init: func(em *endpointManager) {
 				em.setMapping(net.ParseIP("10.0.0.1"), routingModeGeneve)
 				em.setMapping(net.ParseIP("10.0.0.4"), routingModeGeneve)
 				em.unsetMapping(net.ParseIP("10.0.0.4"))
 			},
-			expected: tunnelSkipFlagUnset,
+			expected: tunnelSkipFlagUnset | ipcmap.FlagHasTunnelEndpoint,
 		},
 	}
 
@@ -257,7 +257,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 
 			tt.init(&em)
 			em.mutateRemoteEndpointInfo(&tt.key, &tt.rei)
-			require.Equal(t, tt.expected, tt.rei.Flags)
+			require.Equal(t, tt.expected, tt.rei.Flags, tt.name)
 		})
 	}
 }
