@@ -1642,7 +1642,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 ) error {
 	v6FE := svc.frontend.IsIPv6()
 
-	var toDeleteAffinity, toAddAffinity []lb.BackendID
+	var (
+		toDeleteAffinity, toAddAffinity []lb.BackendID
+	)
 
 	// Update sessionAffinity
 	//
