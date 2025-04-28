@@ -1224,7 +1224,7 @@ func nativeRoutingCIDR(ctx context.Context, ct *check.ConnectivityTest) (netip.P
 	iface := strings.TrimSpace(stdout.String())
 
 	// get iface local address
-	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info.[0].local'", iface)}
+	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info[0].local'", iface)}
 	stdout, err = ct.K8sClient().ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("failed to get interface %s address: %w", iface, err)
@@ -1232,7 +1232,7 @@ func nativeRoutingCIDR(ctx context.Context, ct *check.ConnectivityTest) (netip.P
 	addr := stdout.String()
 
 	// get iface local address mask bitlen
-	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info.[0].prefixlen'", iface)}
+	cmd = []string{"/bin/sh", "-c", fmt.Sprintf("ip --family inet --json addr show %s | jq -j -r '.[0].addr_info[0].prefixlen'", iface)}
 	stdout, err = ct.K8sClient().ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("failed to get interface %s mask bitlen: %w", iface, err)
