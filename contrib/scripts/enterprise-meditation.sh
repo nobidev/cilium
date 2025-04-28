@@ -89,6 +89,16 @@ BPF_NOISY_GLOBS=(
   ':!bpf/node_config.h'
 )
 
+# CEC_NOISY_GLOBS is an array, like the ones defined above, which filters out
+# CEC code files where we have accepted a trade-off in mindfulness.
+CEC_NOISY_GLOBS=(
+  ':!pkg/ciliumenvoyconfig/cec_resource_parser.go'
+  ':!pkg/ciliumenvoyconfig/cell.go'
+  ':!pkg/ciliumenvoyconfig/exp_test.go'
+  ':!pkg/ciliumenvoyconfig/legacy/cell.go'
+  ':!pkg/ciliumenvoyconfig/script_test.go'
+)
+
 usage() {
   echo -e "$0 [FLAGS] [COMMIT]"
   echo
@@ -116,7 +126,8 @@ diff_upstream() {
     "${IGNORE_HUNK_REGEXES[@]}" \
     -- "${DIFF_EXCL_GLOBS[@]}" \
        "${DIFF_NOISY_GLOBS[@]}" \
-       "${BPF_NOISY_GLOBS[@]}"
+       "${BPF_NOISY_GLOBS[@]}" \
+       "${CEC_NOISY_GLOBS[@]}"
 }
 
 main() {
@@ -144,6 +155,7 @@ main() {
       -n|--noisy)
         DIFF_NOISY_GLOBS=()
         BPF_NOISY_GLOBS=()
+	CEC_NOISY_GLOBS=()
         ;;
       -r|--repo)
         UPSTREAM_REPO="$2"
