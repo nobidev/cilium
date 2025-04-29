@@ -302,12 +302,12 @@ func (r *lbTestScenario) desiredBackendK8sService(name string, port int32) *core
 	}
 }
 
-func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
+func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, backendTLSCertHostname string) *corev1.PodList {
 	var deployment *appsv1.Deployment
 
-	if tls {
+	if len(backendTLSCertHostname) > 0 {
 		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
-			tlsCertHostname: "secure-backend.acme.io",
+			tlsCertHostname: backendTLSCertHostname,
 		})
 	} else {
 		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
