@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -33,30 +34,40 @@ import (
 )
 
 type rulesWatcher struct {
+	pb.UnimplementedFQDNProxyServer
+
 	grpcServer *grpc.Server
 
 	proxy          *dnsproxy.DNSProxy
 	agentConnected chan struct{}
 
+	// Closed when first set of rules is received, indicating it's safe
+	// to open the socket.
+	rulesReceived chan struct{}
+	onFirstRule   func()
+
 	muteErrors bool // if true, don't log subsequent reconnects
 }
 
 func newRulesWatcher(proxy *dnsproxy.DNSProxy) *rulesWatcher {
-	return &rulesWatcher{
+	rw := &rulesWatcher{
 		proxy:          proxy,
 		agentConnected: make(chan struct{}),
+		rulesReceived:  make(chan struct{}),
 	}
-}
+	rw.onFirstRule = sync.OnceFunc(func() { close(rw.rulesReceived) })
+	return rw
 
-type FQDNProxyServer struct {
-	pb.UnimplementedFQDNProxyServer
-
-	proxy *dnsproxy.DNSProxy
 }
 
 // watchRules plumbs the rule pipeline from the agent to the proxy.
 // Rules are the set of allowed FQDNs a given endpoint is allowed to query.
-func (rw *rulesWatcher) watchRules() {
+func (rw *rulesWatcher) watchRules() <-chan struct{} {
+	go rw.doWatchRules()
+	return rw.rulesReceived
+}
+
+func (rw *rulesWatcher) doWatchRules() {
 	for {
 		// First things first: try the SubscribeRules method.
 		err := rw.trySubscribeRules()
@@ -101,9 +112,9 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 		// noop if already stopped
 		rw.stopServer()
 
-		err = updateAllowed(proxy, rule)
+		err = rw.updateAllowed(rule)
 		if err != nil {
-			log.WithError(err).Error("Failed to apply invalid rule to proxy")
+			log.WithError(err).WithField(logfields.Endpoint, rule.EndpointID).Error("Failed to apply invalid rule to proxy")
 		}
 		err = rulesStream.Send(&pb.Empty{}) // ack the rule
 		if err != nil {
@@ -140,8 +151,7 @@ func (rw *rulesWatcher) runServer(proxy *dnsproxy.DNSProxy) {
 	}
 	var opts []grpc.ServerOption
 	rw.grpcServer = grpc.NewServer(opts...)
-	fqdnps := &FQDNProxyServer{proxy: proxy}
-	pb.RegisterFQDNProxyServer(rw.grpcServer, fqdnps)
+	pb.RegisterFQDNProxyServer(rw.grpcServer, rw)
 	go rw.grpcServer.Serve(lis)
 }
 
@@ -154,23 +164,28 @@ func (rw *rulesWatcher) stopServer() {
 	rw.grpcServer = nil
 }
 
-func (s *FQDNProxyServer) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
-	err := updateAllowed(s.proxy, rules)
+func (rw *rulesWatcher) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
+	err := rw.updateAllowed(rules)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Endpoint, rules.EndpointID).Error("Failed to apply invalid rule to proxy")
+	}
 	return &pb.Empty{}, err
 }
 
-func (s *FQDNProxyServer) RemoveRestoredRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.Empty, error) {
+func (rw *rulesWatcher) RemoveRestoredRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.Empty, error) {
 	// noop, but implemented so that agents don't see an error.
 	return &pb.Empty{}, nil
 }
 
-func (s *FQDNProxyServer) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
+func (rw *rulesWatcher) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
 	// noop, never actually called by the agent, return empty result
 	return &pb.RestoredRules{}, nil
-
 }
 
-func updateAllowed(proxy *dnsproxy.DNSProxy, rules *pb.FQDNRules) error {
+func (rw *rulesWatcher) updateAllowed(rules *pb.FQDNRules) error {
+	// If this is the first rule, tell the proxy to open the socket.
+	rw.onFirstRule()
+
 	var portProto restore.PortProto
 	if rules.DestProto == 0 {
 		portProto = restore.PortProto(rules.DestPort)
@@ -212,7 +227,7 @@ func updateAllowed(proxy *dnsproxy.DNSProxy, rules *pb.FQDNRules) error {
 		cachedSelectorREEntry[&selector] = regex
 	}
 
-	return proxy.UpdateAllowedFromSelectorRegexes(rules.EndpointID, portProto, cachedSelectorREEntry)
+	return rw.proxy.UpdateAllowedFromSelectorRegexes(rules.EndpointID, portProto, cachedSelectorREEntry)
 }
 
 // isUnimplementedError returns true if err is a

@@ -321,8 +321,12 @@ func main() {
 	}
 
 	watcher = newRulesWatcher(proxy)
-	go watcher.watchRules()
+	gotRules := watcher.watchRules()
 
+	log.Info("Waiting for agent to provide endpoint configurations...")
+	<-gotRules
+
+	log.Info("Got endpoint configurations, opening sockets.")
 	err = proxy.Listen()
 	if err != nil {
 		log.Fatalf("Failed to start dns proxy: %v", err)
