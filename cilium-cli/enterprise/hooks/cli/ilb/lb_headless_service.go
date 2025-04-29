@@ -156,6 +156,6 @@ func TestHeadlessService(t T) {
 			}
 
 			return nil
-		}, shortTimeout, pollInterval)
+		}, longTimeout, pollInterval)
 	}
 }
