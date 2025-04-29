@@ -79,6 +79,49 @@ jobs:
             UPSTREAM_IMAGE=${{ steps.version.outputs.upstream_repo }}:${{ steps.version.outputs.version }}@${{ steps.version.outputs.upstream_digest }}
             VERSION=${{ steps.version.outputs.version }}
 
+      - name: Release cilium-envoy digest
+        id: docker_digest
+        shell: bash
+        run: |
+          digest=$(images/scripts/get-image-digest.sh quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }})
+          echo digest=${digest} >> $GITHUB_OUTPUT
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
+      - name: Sign Container Images
+        run: |
+          cosign sign -y quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json
+          output-file: ./sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json
+          image: quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+          upload-release-assets: false
+
+      - name: Attach SBOM attestation to container image
+        run: |
+          cosign attest -r -y --predicate sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+
+      - name: Image Release Digest
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "### cilium-envoy" > image-digest/cilium-envoy.txt
+          echo "" >> image-digest/cilium-envoy.txt
+          echo "\`quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/cilium-envoy.txt
+          echo "" >> image-digest/cilium-envoy.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digest cilium-envoy-ubi
+          path: image-digest
+          retention-days: 10
+
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
@@ -245,10 +288,183 @@ jobs:
           path: image-digest
           retention-days: 10
 
+
+  build-and-push-clife:
+    timeout-minutes: 45
+    name: Build and Push OLM Images
+    environment: release
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          tag=${GITHUB_REF##*/}
+          echo tag=$tag >> $GITHUB_OUTPUT
+          echo image_tag_base=quay.io/${{ env.QUAY_ORGANIZATION }}/clife >> $GITHUB_OUTPUT
+          echo image_tag=quay.io/${{ env.QUAY_ORGANIZATION }}/clife:$tag >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Login to quay.io
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Login to registry.redhat.io for pull of UBI images
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: CLife Build and Push
+        id: docker_build_clife
+        shell: bash
+        env:
+          IMG: "${{ steps.tag.outputs.image_tag }}"
+          CL_TAG: "${{ steps.tag.outputs.tag }}"
+        working-directory: ./enterprise/olm
+        run: |
+          make docker-buildx
+
+      - name: OLM Bundle Build and Push
+        working-directory: ./enterprise/olm
+        env:
+          VERSION: "${{ steps.tag.outputs.tag }}"
+          IMG: "${{ steps.tag.outputs.image_tag }}"
+          IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
+        run: |
+          make bundle
+          make bundle-build
+          make bundle-push
+
+      - name: Add bundle image to catalog and publish
+        working-directory: ./enterprise/olm
+        env:
+          # renovate: datasource=github-releases depName=mikefarah/yq
+          yq_version: 4.45.1
+          # renovate: datasource=github-releases depName=operator-framework/operator-registry
+          opm_version: 1.52.0
+          VERSION: "${{ steps.tag.outputs.tag }}"
+          CATALOG_TAG: "1.0.0"
+          IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
+        run: |
+          channel="${{ steps.tag.outputs.tag }}"
+          channel="${channel#v}"
+          # separate channels per minor version
+          channel=$(cut -d '.' -f 1,2 <<< "${channel}")
+          make catalog-dev-build CHANNEL=${channel}
+          make catalog-dev-push
+
+      - name: Clife digests
+        id: clife_docker_digests
+        shell: bash
+        run: |
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag }}")
+          echo clife=${digest} >> $GITHUB_OUTPUT
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}")
+          echo bundle=${digest} >> $GITHUB_OUTPUT
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0")
+          echo catalog=${digest} >> $GITHUB_OUTPUT
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
+      - name: Sign Container Images
+        run: |
+          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.clife }}
+          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.bundle }}
+          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.catalog }}
+
+      - name: Generate SBOM for CLife
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
+          image: ${{ steps.tag.outputs.image_tag }}
+          upload-release-assets: false
+
+      - name: Attach SBOM attestation to CLife container image
+        run: |
+          cosign attest -r -y --predicate sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag }}
+
+      - name: Generate SBOM for the bundle
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
+          image: "${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}"
+          upload-release-assets: false
+
+      - name: Attach SBOM attestation to the bundle container image
+        run: |
+          cosign attest -r -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}
+
+      - name: Generate SBOM for the catalog
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          artifact-name: sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
+          image: "${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0"
+          upload-release-assets: false
+
+      - name: Attach SBOM attestation to the catalog container image
+        run: |
+          cosign attest -r -y --predicate sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0
+
+      - name: Image Release Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "### clife" > image-digest/clife.txt
+          echo "" >> image-digest/clife.txt
+          echo "\`${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.clife }}\`" >> image-digest/clife.txt
+          echo "" >> image-digest/clife.txt
+
+          echo "### clife bundle" > image-digest/clife-bundle.txt
+          echo "" >> image-digest/clife-bundle.txt
+          echo "\`${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.bundle }}\`" >> image-digest/clife-bundle.txt
+          echo "" >> image-digest/clife-bundle.txt
+
+          echo "### clife catalog" > image-digest/clife-catalog.txt
+          echo "" >> image-digest/clife-catalog.txt
+          echo "\`${{ steps.tag.outputs.image_tag_base }}-catalog:0.0.1@${{ steps.clife_docker_digests.outputs.catalog }}\`" >> image-digest/clife-catalog.txt
+          echo "" >> image-digest/clife-catalog.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digest clife
+          path: image-digest
+          retention-days: 10
+
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: build-and-push
+    needs: [build-and-push-envoy, build-and-push, build-and-push-clife]
 
     steps:
       - name: Prepare image digests download
