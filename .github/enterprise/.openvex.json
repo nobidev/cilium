@@ -569,6 +569,19 @@
       "status": "not_affected",
       "status_notes": "The affected package is not used",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-3576"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium-ci"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The affected package is not used",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
