@@ -84,6 +84,7 @@ BPF_NOISY_GLOBS=(
   ':!bpf/lib/maps.h'
   ':!bpf/lib/nat.h'
   ':!bpf/lib/nodeport.h'
+  ':!bpf/lib/policy_log.h' # https://github.com/isovalent/cilium/issues/7110
   ':!bpf/lib/source_info.h'
   ':!bpf/lib/vxlan.h'
   ':!bpf/node_config.h'
