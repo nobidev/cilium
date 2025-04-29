@@ -52,8 +52,7 @@ func parseAgentIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*AgentPolicyConfig, 
 		return nil, err
 	}
 	return &AgentPolicyConfig{
-		matchedEndpoints: make(map[endpointID]*endpointMetadata),
-		PolicyConfig:     *config,
+		PolicyConfig: *config,
 	}, nil
 }
 
