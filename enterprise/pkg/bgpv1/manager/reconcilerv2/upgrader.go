@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -70,35 +71,31 @@ type paramUpgrader interface {
 type reconcilerParamsUpgraderIn struct {
 	cell.In
 
-	Logger           logrus.FieldLogger
-	BGPConfig        config.Config
-	BGPNodeConfigRes resource.Resource[*v1.IsovalentBGPNodeConfig]
-	LocalNodeRes     daemon_k8s.LocalCiliumNodeResource
-	Signaler         *signaler.BGPCPSignaler
-	JobGroup         job.Group
+	Logger             logrus.FieldLogger
+	BGPConfig          config.Config
+	BGPNodeConfigStore store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig] // BGPCPResourceStore triggers BGP CP reconciliation upon IsovalentBGPNodeConfig events
+	LocalNodeRes       daemon_k8s.LocalCiliumNodeResource
+	Signaler           *signaler.BGPCPSignaler
+	JobGroup           job.Group
 }
 
 type reconcileParamsUpgrader struct {
 	initialized   atomic.Bool
 	nodeName      string
 	nodeNameMutex lock.Mutex
-	store         resource.Store[*v1.IsovalentBGPNodeConfig]
+	store         store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig]
 }
 
 func newReconcileParamsUpgrader(in reconcilerParamsUpgraderIn) paramUpgrader {
-	u := &reconcileParamsUpgrader{}
+	u := &reconcileParamsUpgrader{
+		store: in.BGPNodeConfigStore,
+	}
 	if !in.BGPConfig.Enabled {
 		// No need to initialize the upgrader if enterprise BGP control plane is not enabled.
 		return u
 	}
 
 	in.JobGroup.Add(job.OneShot("bgp-reconcile-params-upgrader-init", func(ctx context.Context, health cell.Health) error {
-		s, err := in.BGPNodeConfigRes.Store(ctx)
-		if err != nil {
-			return err
-		}
-		u.store = s
-
 		for event := range in.LocalNodeRes.Events(ctx) {
 			switch event.Kind {
 			case resource.Upsert:
@@ -111,22 +108,6 @@ func newReconcileParamsUpgrader(in reconcilerParamsUpgraderIn) paramUpgrader {
 			event.Done(nil)
 		}
 
-		return nil
-	}))
-
-	// Trigger BGP CP reconciliation upon IsovalentBGPNodeConfig events.
-	// As CiliumBGPNodeConfig is not updated upon IsovalentBGPNodeConfig changes, we need to trigger it from here.
-	// All other IsovalentBGP* resources are synced by the operator to their CiliumBGP* version (including the reference
-	// to the IsovalentBGP* resource version in an annotation), so we do not need to trigger reconciliation for them.
-	in.JobGroup.Add(job.OneShot("bgp-upgrader-node-config-events", func(ctx context.Context, health cell.Health) (err error) {
-		for event := range in.BGPNodeConfigRes.Events(ctx) {
-			// There could be duplicate triggers in cases where a change in IsovalentBGPClusterConfig will change
-			// both IsovalentBGPNodeConfig and CiliumBGPNodeConfig (e.g. when adding/removing a peer).
-			// However, often they may be coalesced by the signaler anyway. If this triggers too many reconciles,
-			// we can consider filtering the events here to only enterprise-related changes.
-			in.Signaler.Event(struct{}{})
-			event.Done(nil)
-		}
 		return nil
 	}))
 

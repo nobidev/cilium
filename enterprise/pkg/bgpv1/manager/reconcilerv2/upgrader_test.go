@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -46,6 +47,57 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		jg job.Group
 	)
 
+	ossNode := &v2.CiliumBGPNodeConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node0",
+		},
+		Spec: v2.CiliumBGPNodeSpec{
+			BGPInstances: []v2.CiliumBGPNodeInstance{
+				{
+					Name: "instance0",
+					Peers: []v2.CiliumBGPNodePeer{
+						{
+							Name:        "peer1",
+							PeerAddress: ptr.To("10.10.10.10"),
+						},
+						{
+							Name:        "peer2-unnumbered",
+							PeerAddress: ptr.To("fe80::aabb:1234"), // normally set by LinkLocalReconciler for unnumbered peers
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ceeNode := &v1.IsovalentBGPNodeConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node0",
+		},
+		Spec: v1.IsovalentBGPNodeSpec{
+			BGPInstances: []v1.IsovalentBGPNodeInstance{
+				{
+					Name: ossNode.Spec.BGPInstances[0].Name,
+					Peers: []v1.IsovalentBGPNodePeer{
+						{
+							Name:        ossNode.Spec.BGPInstances[0].Peers[0].Name,
+							PeerAddress: ossNode.Spec.BGPInstances[0].Peers[0].PeerAddress,
+						},
+						{
+							Name: ossNode.Spec.BGPInstances[0].Peers[1].Name,
+							AutoDiscovery: &v1.BGPAutoDiscovery{
+								Mode: v1.BGPADUnnumbered,
+								Unnumbered: &v1.BGPUnnumbered{
+									Interface: "eth0", // should cause copying PeerAddress from oss NodeConfig
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	h := hive.New(
 		job.Cell,
 		cell.Provide(
@@ -55,6 +107,9 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			k8s.IsovalentBGPNodeConfigResource,
 			signaler.NewBGPCPSignaler,
 			cell.NewSimpleHealth,
+			func() store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig] {
+				return store.InitMockStore([]*v1.IsovalentBGPNodeConfig{ceeNode})
+			},
 			func(r job.Registry, health cell.Health) job.Group {
 				return r.NewGroup(health)
 			},
@@ -100,67 +155,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		&v2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node0",
-			},
-		},
-		metav1.CreateOptions{},
-	)
-	require.NoError(t, err)
-
-	ossNode, err := cs.CiliumV2().CiliumBGPNodeConfigs().Create(
-		context.Background(),
-		&v2.CiliumBGPNodeConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node0",
-			},
-			Spec: v2.CiliumBGPNodeSpec{
-				BGPInstances: []v2.CiliumBGPNodeInstance{
-					{
-						Name: "instance0",
-						Peers: []v2.CiliumBGPNodePeer{
-							{
-								Name:        "peer1",
-								PeerAddress: ptr.To("10.10.10.10"),
-							},
-							{
-								Name:        "peer2-unnumbered",
-								PeerAddress: ptr.To("fe80::aabb:1234"), // normally set by LinkLocalReconciler for unnumbered peers
-							},
-						},
-					},
-				},
-			},
-		},
-		metav1.CreateOptions{},
-	)
-	require.NoError(t, err)
-
-	_, err = cs.IsovalentV1().IsovalentBGPNodeConfigs().Create(
-		context.Background(),
-		&v1.IsovalentBGPNodeConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node0",
-			},
-			Spec: v1.IsovalentBGPNodeSpec{
-				BGPInstances: []v1.IsovalentBGPNodeInstance{
-					{
-						Name: ossNode.Spec.BGPInstances[0].Name,
-						Peers: []v1.IsovalentBGPNodePeer{
-							{
-								Name:        ossNode.Spec.BGPInstances[0].Peers[0].Name,
-								PeerAddress: ossNode.Spec.BGPInstances[0].Peers[0].PeerAddress,
-							},
-							{
-								Name: ossNode.Spec.BGPInstances[0].Peers[1].Name,
-								AutoDiscovery: &v1.BGPAutoDiscovery{
-									Mode: v1.BGPADUnnumbered,
-									Unnumbered: &v1.BGPUnnumbered{
-										Interface: "eth0", // should cause copying PeerAddress from oss NodeConfig
-									},
-								},
-							},
-						},
-					},
-				},
 			},
 		},
 		metav1.CreateOptions{},
