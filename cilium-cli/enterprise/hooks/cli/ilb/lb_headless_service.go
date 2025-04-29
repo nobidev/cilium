@@ -78,6 +78,15 @@ func TestHeadlessService(t T) {
 			},
 			serviceTLS: true,
 		},
+		{
+			name:        "TCPProxy",
+			suffix:      "-tcp-proxy",
+			serviceHost: "secure.acme.io",
+			serviceOptions: []serviceOption{
+				withPort(443),
+				withTCPProxyApplication(withTCPProxyRoute(testName + "-tcp-proxy")),
+			},
+		},
 	}
 
 	for _, tt := range tests {
