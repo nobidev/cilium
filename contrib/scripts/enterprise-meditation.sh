@@ -73,6 +73,7 @@ DIFF_NOISY_GLOBS=(
   ':!pkg/k8s/apis/cell.go' # Register Enterprise CRDs
   ':!pkg/k8s/synced/crd.go' # Register Enterprise CRDs
   ':!pkg/maps/multicast/subscribermap.go' # https://github.com/isovalent/cilium/issues/7111
+  ':!test/helpers/kubectl.go' # https://github.com/isovalent/cilium/issues/7112
 )
 
 # BPF_NOISY_GLOBS is an array, like the ones defined above, which filters out
