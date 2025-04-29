@@ -110,7 +110,7 @@ jobs:
           VERSION: "0.0.1-${{ github.sha }}"
           IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"
         run: |
-          channel="${{ github.ref }}"
+          channel="$(basename ${{ github.ref }})"
           channel="${channel#v}"
           make catalog-dev-build CHANNEL=${channel}
           make catalog-dev-push
