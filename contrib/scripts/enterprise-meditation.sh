@@ -79,17 +79,9 @@ DIFF_NOISY_GLOBS=(
 # BPF_NOISY_GLOBS is an array, like the ones defined above, which filters out
 # BPF code files where we have accepted a trade-off in mindfulness.
 BPF_NOISY_GLOBS=(
-  ':!bpf/bpf_alignchecker.c'
-  ':!bpf/bpf_host.c'
-  ':!bpf/lib/common.h'
   ':!bpf/lib/egress_gateway.h'
-  ':!bpf/lib/maps.h'
-  ':!bpf/lib/nat.h'
-  ':!bpf/lib/nodeport.h'
   ':!bpf/lib/policy_log.h' # https://github.com/isovalent/cilium/issues/7110
   ':!bpf/lib/source_info.h'
-  ':!bpf/lib/vxlan.h'
-  ':!bpf/node_config.h'
 )
 
 # CEC_NOISY_GLOBS is an array, like the ones defined above, which filters out
