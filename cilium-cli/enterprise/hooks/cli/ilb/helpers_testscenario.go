@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -198,6 +199,178 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 	}
 
 	return containers
+}
+
+func (r *lbTestScenario) desiredBackendK8sDeployment(t T, name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "SERVICE_NAME",
+			Value: name,
+		},
+		{
+			Name: "INSTANCE_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+	}
+	if config.h2cEnabled {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "H2C_ENABLED",
+			Value: "true",
+		})
+	}
+	if config.tlsCertHostname != "" {
+		// It is ok to just generate a self-signed cert here and don't share
+		// it with the client. The client will not verify the cert.
+		key, cert, err := genSelfSignedX509(config.tlsCertHostname)
+		if err != nil {
+			t.Failedf("failed to gen x509: %s", err)
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TLS_ENABLED",
+			Value: "true",
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TLS_KEY_BASE64",
+			Value: base64.StdEncoding.EncodeToString(key.Bytes()),
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TLS_CERT_BASE64",
+			Value: base64.StdEncoding.EncodeToString(cert.Bytes()),
+		})
+	}
+	if config.listenPort != 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "LISTEN_ADDRESS",
+			Value: fmt.Sprintf(":%d", config.listenPort),
+		})
+	}
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"app": name,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(replicas),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "healthcheck",
+							Image: FlagAppImage,
+							Env:   envs,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *lbTestScenario) desiredBackendK8sService(name string, port int32) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Selector: map[string]string{
+				"app": name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Protocol: corev1.ProtocolTCP,
+					Port:     port,
+				},
+			},
+		},
+	}
+}
+
+func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, tls bool) *corev1.PodList {
+	var deployment *appsv1.Deployment
+
+	if tls {
+		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
+			tlsCertHostname: "secure-backend.acme.io",
+		})
+	} else {
+		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
+			h2cEnabled: true,
+		})
+	}
+
+	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(t.Context(), deployment, metav1.CreateOptions{}); err != nil {
+		t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
+	}
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
+	})
+
+	service := r.desiredBackendK8sService(name, 8080)
+	if _, err := k8sCli.CoreV1().Services(namespace).Create(t.Context(), service, metav1.CreateOptions{}); err != nil {
+		t.Failedf("failed to create service (%s): %s", service.Name, err)
+	}
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return k8sCli.CoreV1().Services(namespace).Delete(ctx, service.Name, metav1.DeleteOptions{})
+	})
+
+	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(t.Context(), metav1.ListOptions{
+		LabelSelector: "app=" + name,
+	})
+	if err != nil {
+		t.Failedf("failed to watch deployment (%s): %s", name, err)
+	}
+	defer watch.Stop()
+
+	timeout := time.After(longTimeout)
+
+	for {
+		var completed bool
+		select {
+		case ev := <-watch.ResultChan():
+			deploy, ok := ev.Object.(*appsv1.Deployment)
+			if !ok {
+				t.Failedf("unexpected object type: %T", ev.Object)
+			}
+			if deploy.Name != name {
+				continue
+			}
+			if deploy.Status.ReadyReplicas != replicas {
+				continue
+			}
+			completed = true
+		case <-timeout:
+			t.Failedf("timed out waiting for deployment (%s)", name)
+		}
+		if completed {
+			break
+		}
+	}
+
+	pods, err := k8sCli.CoreV1().Pods(namespace).List(t.Context(), metav1.ListOptions{
+		LabelSelector: "app=" + name,
+	})
+	if err != nil {
+		t.Failedf("failed to list pods (%s): %s", name, err)
+	}
+
+	return pods
 }
 
 func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config backendApplicationConfig) []string {
