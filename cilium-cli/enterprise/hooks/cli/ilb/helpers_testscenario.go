@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
@@ -282,7 +283,7 @@ func (r *lbTestScenario) desiredBackendK8sDeployment(t T, name string, replicas 
 	}
 }
 
-func (r *lbTestScenario) desiredBackendK8sService(name string, port int32) *corev1.Service {
+func (r *lbTestScenario) desiredBackendK8sService(name string, port int32, targetPort int32) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -294,8 +295,9 @@ func (r *lbTestScenario) desiredBackendK8sService(name string, port int32) *core
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Protocol: corev1.ProtocolTCP,
-					Port:     port,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       port,
+					TargetPort: intstr.FromInt32(targetPort),
 				},
 			},
 		},
@@ -322,7 +324,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Cl
 		return k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
 	})
 
-	service := r.desiredBackendK8sService(name, 8080)
+	service := r.desiredBackendK8sService(name, 8080, 8080)
 	if _, err := k8sCli.CoreV1().Services(namespace).Create(t.Context(), service, metav1.CreateOptions{}); err != nil {
 		t.Failedf("failed to create service (%s): %s", service.Name, err)
 	}
