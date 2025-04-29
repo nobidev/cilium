@@ -120,8 +120,12 @@ func (r *PodCIDRVRFReconciler) Cleanup(i *instance.BGPInstance) {
 func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.Upgrader.upgrade(p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.Logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		if errors.Is(err, NotInitializedErr) {
-			r.Logger.Debug("Initialization is not done, skipping pod CIDR VPN reconciliation")
+			r.Logger.Debugf("Initialization is not done, skipping %s reconciliation", r.Name())
 			return nil
 		}
 		return err

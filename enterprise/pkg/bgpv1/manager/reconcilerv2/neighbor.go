@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -157,6 +158,10 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 
 	p, err := r.upgrader.upgrade(_p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.Logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		return err
 	}
 

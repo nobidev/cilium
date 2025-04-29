@@ -165,6 +165,10 @@ func (r *ServiceVRFReconciler) Priority() int {
 func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		if errors.Is(err, NotInitializedErr) {
 			r.logger.Debug("Initialization is not done, skipping service VRF reconciliation")
 			return nil

@@ -184,6 +184,10 @@ func (r *LocatorPoolReconciler) Reconcile(ctx context.Context, p reconcilerv2.Re
 
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		return err
 	}
 

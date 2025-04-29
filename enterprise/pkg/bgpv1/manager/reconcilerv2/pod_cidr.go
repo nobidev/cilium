@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -116,6 +117,10 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconcilerv2.Recon
 
 	p, err := r.upgrader.upgrade(_p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		return err
 	}
 

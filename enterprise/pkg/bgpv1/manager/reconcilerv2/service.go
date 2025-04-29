@@ -282,6 +282,10 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		return err
 	}
 

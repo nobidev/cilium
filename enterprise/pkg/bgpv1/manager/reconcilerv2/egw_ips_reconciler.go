@@ -109,6 +109,10 @@ func (r *EgressGatewayIPsReconciler) Cleanup(i *instance.BGPInstance) {
 func (r *EgressGatewayIPsReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
+		if errors.Is(err, EntNodeConfigNotFoundErr) {
+			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			return nil
+		}
 		return err
 	}
 

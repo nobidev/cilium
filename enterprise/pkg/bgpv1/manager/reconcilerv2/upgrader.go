@@ -32,8 +32,9 @@ import (
 )
 
 var (
-	NotInitializedErr     = fmt.Errorf("not initialized")
-	UpdateConfigNotSetErr = fmt.Errorf("config missing")
+	NotInitializedErr        = fmt.Errorf("not initialized")
+	EntNodeConfigNotFoundErr = fmt.Errorf("enterprise node config not found")
+	UpdateConfigNotSetErr    = fmt.Errorf("config missing")
 )
 
 // EnterpriseReconcileParams is an enterprise specific version of
@@ -129,7 +130,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 	}
 
 	if !exists {
-		return EnterpriseReconcileParams{}, fmt.Errorf("enterprise node config not found")
+		return EnterpriseReconcileParams{}, EntNodeConfigNotFoundErr
 	}
 
 	for i, inst := range nc.Spec.BGPInstances {
@@ -194,7 +195,7 @@ func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcil
 	}
 
 	if !exists {
-		return EnterpriseStateReconcileParams{}, fmt.Errorf("enterprise node config not found")
+		return EnterpriseStateReconcileParams{}, EntNodeConfigNotFoundErr
 	}
 
 	for i, inst := range nc.Spec.BGPInstances {
