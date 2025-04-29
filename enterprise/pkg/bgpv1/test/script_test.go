@@ -40,6 +40,7 @@ import (
 	enterprisebgpv1 "github.com/cilium/cilium/enterprise/pkg/bgpv1"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
+	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1"
@@ -140,6 +141,8 @@ func TestScript(t *testing.T) {
 			sidmanager.SIDManagerCell,
 			srv6manager.Cell,
 			srv6map.Cell,
+			rib.Cell,
+			rib.NopDataPlaneCell,
 
 			// Enterprise BGP dependencies
 			cell.Provide(

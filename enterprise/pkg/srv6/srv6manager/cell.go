@@ -26,10 +26,12 @@ var Cell = cell.Module(
 	"SRv6 DataPath Manager",
 
 	// The Controller which is the entry point of the module
-	cell.Provide(NewSRv6Manager),
+	cell.Provide(
+		NewSRv6Manager,
+		newIsovalentVRFResource,
+	),
 
 	cell.ProvidePrivate(
-		newIsovalentVRFResource,
 		newIsovalentSRv6EgressPolicyResource,
 	),
 
