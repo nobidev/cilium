@@ -160,7 +160,11 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 
 		nodeIP, ok := netipx.FromStdIP(node.GetK8sNodeIP())
 		if !ok {
-			return groupStatus{}, fmt.Errorf("unable to convert node IP %s", node.GetK8sNodeIP())
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: node.Name,
+				logfields.NodeIPv4: node.GetK8sNodeIP().String()}).
+				Warn("Failed to convert NodeIP, skipping this node.")
+			continue
 		}
 
 		// add the node to the list of healthy gateway IPs.
