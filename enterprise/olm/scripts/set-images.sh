@@ -67,7 +67,7 @@ yq_replace ".preflight.image.tag = \"${tag}\""
 yq_replace ".operator.image.tag = \"${tag}\""
 yq_replace ".hubble.relay.image.tag = \"${tag}\""
 yq_replace ".clustermesh.apiserver.image.tag = \"${tag}\""
-# Set the image suffixes
+# Set the image repositories
 yq_replace ".image.repository = \"${registry}/cilium${in_tree_suffix}\""
 yq_replace ".preflight.image.repository = \"${registry}/cilium${in_tree_suffix}\""
 yq_replace ".hubble.relay.image.repository = \"${registry}/hubble-relay${in_tree_suffix}\""
@@ -75,6 +75,7 @@ yq_replace ".clustermesh.apiserver.image.repository = \"${registry}/clustermesh-
 yq_replace ".nodeinit.image.repository = \"quay.io/isovalent/startup-script${out_tree_suffix}\""
 yq_replace ".certgen.image.repository = \"quay.io/isovalent/certgen${out_tree_suffix}\""
 yq_replace ".envoy.image.repository = \"quay.io/isovalent/cilium-envoy${out_tree_suffix}\""
+yq_replace ".operator.image.repository = \"${registry}/operator\""
 yq_replace ".operator.image.suffix = \"${in_tree_suffix}\""
 # Set the image digests and populate related images in the ClusterServiceVersion
 related_imgs="["
