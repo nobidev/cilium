@@ -974,6 +974,7 @@ Makefile* @cilium/build
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/clustermesh/privnet/ @isovalent/clustermesh @isovalent/private-networking
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
+/enterprise/pkg/functional/ @isovalent/egress-gateway
 /enterprise/pkg/evpn/ @isovalent/traffic-engineering
 /enterprise/pkg/datapath/sockets/ @isovalent/egress-gateway
 /enterprise/pkg/diagnostics/ @isovalent/cni
