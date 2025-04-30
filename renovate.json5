@@ -46,7 +46,7 @@
     "fileMatch": [".*values\\.yaml\\.tmpl$"]
   },
   "stopUpdatingLabel": "renovate/stop-updating",
-  "allowedPostUpgradeCommands": [
+  "allowedCommands": [
     "^make .*$",
   ],
   "packageRules": [
