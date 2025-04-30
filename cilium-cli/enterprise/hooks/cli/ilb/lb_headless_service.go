@@ -101,7 +101,7 @@ func TestHeadlessService(t T) {
 		if tt.backendTLS {
 			backendTLSHostname = "secure-backend.acme.io"
 		}
-		desiredBackends := scenario.AddAndWaitForK8sBackendApplications(t, k8sCli, testK8sNamespace, testName+tt.suffix, backendReplicas, backendTLSHostname)
+		desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testK8sNamespace, testName+tt.suffix, backendReplicas, backendTLSHostname)
 
 		t.Log("Creating clients and add BGP peering ...")
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]

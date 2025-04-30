@@ -304,39 +304,39 @@ func (r *lbTestScenario) desiredBackendK8sService(name string, port int32, targe
 	}
 }
 
-func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Clientset, namespace, name string, replicas int32, backendTLSCertHostname string) *corev1.PodList {
+func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name string, replicas int32, backendTLSCertHostname string) *corev1.PodList {
 	var deployment *appsv1.Deployment
 
 	if len(backendTLSCertHostname) > 0 {
-		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
+		deployment = r.desiredBackendK8sDeployment(r.t, name, replicas, backendApplicationConfig{
 			tlsCertHostname: backendTLSCertHostname,
 		})
 	} else {
-		deployment = r.desiredBackendK8sDeployment(t, name, replicas, backendApplicationConfig{
+		deployment = r.desiredBackendK8sDeployment(r.t, name, replicas, backendApplicationConfig{
 			h2cEnabled: true,
 		})
 	}
 
-	if _, err := k8sCli.AppsV1().Deployments(namespace).Create(t.Context(), deployment, metav1.CreateOptions{}); err != nil {
-		t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
+	if _, err := r.k8sCli.AppsV1().Deployments(namespace).Create(r.t.Context(), deployment, metav1.CreateOptions{}); err != nil {
+		r.t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
 	}
-	t.RegisterCleanup(func(ctx context.Context) error {
-		return k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
 	})
 
 	service := r.desiredBackendK8sService(name, 8080, 8080)
-	if _, err := k8sCli.CoreV1().Services(namespace).Create(t.Context(), service, metav1.CreateOptions{}); err != nil {
-		t.Failedf("failed to create service (%s): %s", service.Name, err)
+	if _, err := r.k8sCli.CoreV1().Services(namespace).Create(r.t.Context(), service, metav1.CreateOptions{}); err != nil {
+		r.t.Failedf("failed to create service (%s): %s", service.Name, err)
 	}
-	t.RegisterCleanup(func(ctx context.Context) error {
-		return k8sCli.CoreV1().Services(namespace).Delete(ctx, service.Name, metav1.DeleteOptions{})
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		return r.k8sCli.CoreV1().Services(namespace).Delete(ctx, service.Name, metav1.DeleteOptions{})
 	})
 
-	watch, err := k8sCli.AppsV1().Deployments(namespace).Watch(t.Context(), metav1.ListOptions{
+	watch, err := r.k8sCli.AppsV1().Deployments(namespace).Watch(r.t.Context(), metav1.ListOptions{
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		t.Failedf("failed to watch deployment (%s): %s", name, err)
+		r.t.Failedf("failed to watch deployment (%s): %s", name, err)
 	}
 	defer watch.Stop()
 
@@ -348,7 +348,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Cl
 		case ev := <-watch.ResultChan():
 			deploy, ok := ev.Object.(*appsv1.Deployment)
 			if !ok {
-				t.Failedf("unexpected object type: %T", ev.Object)
+				r.t.Failedf("unexpected object type: %T", ev.Object)
 			}
 			if deploy.Name != name {
 				continue
@@ -358,18 +358,18 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(t T, k8sCli *k8s.Cl
 			}
 			completed = true
 		case <-timeout:
-			t.Failedf("timed out waiting for deployment (%s)", name)
+			r.t.Failedf("timed out waiting for deployment (%s)", name)
 		}
 		if completed {
 			break
 		}
 	}
 
-	pods, err := k8sCli.CoreV1().Pods(namespace).List(t.Context(), metav1.ListOptions{
+	pods, err := r.k8sCli.CoreV1().Pods(namespace).List(r.t.Context(), metav1.ListOptions{
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		t.Failedf("failed to list pods (%s): %s", name, err)
+		r.t.Failedf("failed to list pods (%s): %s", name, err)
 	}
 
 	return pods
