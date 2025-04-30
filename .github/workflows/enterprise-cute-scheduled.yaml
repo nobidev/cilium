@@ -143,7 +143,7 @@ jobs:
             dir: .,
             umbrella: false,
             oss: false,
-            region: eu-west-3,
+            region: eu-north-1,
             deploy: stable,
             owner: U04GD9ACYTE # Philip
           },
