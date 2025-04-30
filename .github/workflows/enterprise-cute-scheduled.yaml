@@ -110,6 +110,17 @@ jobs:
             owner: U02T9JVUR0B # Hart
           },
           {
+            repo: sony,
+            dir: RKE2,
+            umbrella: false,
+            oss: false,
+            region: us-west-2,
+            deploy: cute,
+            upgrade: stable,
+            ipsec: false,
+            owner: U02T9JVUR0B # Hart
+          },
+          {
             repo: swiss-post,
             dir: aws-eks-vpc-cni-chaining,
             umbrella: false,
