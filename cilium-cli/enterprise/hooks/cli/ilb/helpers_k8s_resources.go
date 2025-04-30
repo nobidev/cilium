@@ -890,6 +890,19 @@ func withHostnameBackend(hostname string, port int32) backendPoolOption {
 	}
 }
 
+func withK8sServiceBackend(serviceName string, servicePort uint32) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.BackendType = isovalentv1alpha1.BackendTypeK8sService
+		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
+			K8sServiceRef: &isovalentv1alpha1.LBBackendPoolK8sServiceRef{
+				Name: serviceName,
+			},
+			Port:   int32(servicePort),
+			Weight: ptr.To[uint32](1),
+		})
+	}
+}
+
 func withConsistentHashing() backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
 		o.Spec.Loadbalancing = &isovalentv1alpha1.Loadbalancing{
