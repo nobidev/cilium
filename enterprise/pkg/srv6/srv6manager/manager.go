@@ -23,6 +23,7 @@ import (
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
@@ -46,9 +47,7 @@ const (
 	ownerName = "srv6-manager"
 )
 
-var (
-	legacySIDStructure = srv6Types.MustNewSIDStructure(128, 0, 0, 0)
-)
+var legacySIDStructure = srv6Types.MustNewSIDStructure(128, 0, 0, 0)
 
 // SIDAllocation is a bookkeeping structure for locally allocated SIDs.
 // These SID allocations serve as SRV6 VRF locators.
@@ -106,8 +105,9 @@ type Manager struct {
 
 	// Promise to wait for the initialization of the Daemon. This is solely used
 	// for waiting for the IPAM initialization. Once the IPAM subsystem becomes
-	// modular, we can change this to inject IPAM cell.
-	daemonPromise promise.Promise[daemon]
+	// fully modular (including lifecycle aspects), we can get rid of the dependency
+	// to the daemon promise.
+	daemonPromise promise.Promise[*cmd.Daemon]
 
 	// sidManager is an interface to interact with SIDManager
 	sidManagerPromise promise.Promise[sidmanager.SIDManager]
@@ -134,7 +134,7 @@ type Params struct {
 	DaemonConfig              *option.DaemonConfig
 	Sig                       *signaler.BGPCPSignaler
 	CacheIdentityAllocator    identityCache.IdentityAllocator
-	DaemonPromise             promise.Promise[daemon]
+	DaemonPromise             promise.Promise[*cmd.Daemon]
 	SIDManagerPromise         promise.Promise[sidmanager.SIDManager]
 	CiliumEndpointResource    resource.Resource[*k8sTypes.CiliumEndpoint]
 	IsovalentVRFResource      resource.Resource[*iso_v1alpha1.IsovalentVRF]
@@ -144,6 +144,7 @@ type Params struct {
 	Policy4Map                *srv6map.PolicyMap4
 	Policy6Map                *srv6map.PolicyMap6
 	SIDMap                    *srv6map.SIDMap
+	IPAM                      *ipam.IPAM
 }
 
 // NewSRv6Manager returns a new SRv6 policy manager.
@@ -178,11 +179,11 @@ func NewSRv6Manager(p Params) *Manager {
 	p.JobGroup.Add(
 		job.OneShot("init", func(ctx context.Context, health cell.Health) error {
 			// Wait for the IPAM to be initialized
-			d, err := manager.daemonPromise.Await(ctx)
+			_, err := manager.daemonPromise.Await(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to await on Daemon (IPAM): %w", err)
 			}
-			manager.setSIDAllocator(d.GetIPv6Allocator())
+			manager.setSIDAllocator(p.IPAM.IPv6Allocator)
 
 			// Create Endpoints store and watch for Endpoints events
 			manager.cepStore, err = manager.cepResource.Store(ctx)
@@ -1299,7 +1300,7 @@ func (m *Manager) removeIngressPathVRFs(allocs []*SIDAllocation) {
 				"vrfID": alloc.VRFID,
 			},
 		)
-		var shouldRelease = true
+		shouldRelease := true
 		if err := m.sidMap.Delete(&srv6map.SIDKey{SID: alloc.SIDInfo.SID.As16()}); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
 			l.WithError(err).Error("failed deleting SIDMap entry for allocation")
 			shouldRelease = false

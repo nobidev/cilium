@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
@@ -262,14 +263,6 @@ func bpfMapsEqual[T comparableKV[T]](a, b []T) bool {
 	return true
 }
 
-type fakeDaemon struct {
-	a ipam.Allocator
-}
-
-func (fd *fakeDaemon) GetIPv6Allocator() ipam.Allocator {
-	return fd.a
-}
-
 type fixture struct {
 	watching chan struct{}
 	hive     *hive.Hive
@@ -308,12 +301,13 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 						EnableSRv6: true,
 					}
 				},
-				func() (promise.Promise[daemon], *fakeIPAMAllocator) {
+				func() (promise.Promise[*cmd.Daemon], *ipam.IPAM, *fakeIPAMAllocator) {
 					fia := &fakeIPAMAllocator{}
-					fd := &fakeDaemon{a: fia}
-					daemonResolver, daemonPromise := promise.New[daemon]()
-					daemonResolver.Resolve(fd)
-					return daemonPromise, fia
+					ipam := &ipam.IPAM{IPv6Allocator: fia}
+					daemonResolver, daemonPromise := promise.New[*cmd.Daemon]()
+					daemonResolver.Resolve(&cmd.Daemon{})
+
+					return daemonPromise, ipam, fia
 				},
 				func() cache.IdentityAllocator {
 					return testidentity.NewMockIdentityAllocator(nil)

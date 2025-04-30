@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
@@ -108,7 +109,7 @@ func TestScript(t *testing.T) {
 		// parse the shebang arguments in the script
 		flags := pflag.NewFlagSet("test-flags", pflag.ContinueOnError)
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
-		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
+		useIPAM := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		requireIPv6LLAddrs := flags.Bool(requireIPv6LLAddrsFlag, false, "Require IPv6 link local addresses to be present on the test links")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
@@ -172,6 +173,9 @@ func TestScript(t *testing.T) {
 					daemonResolver.Resolve(&cmd.Daemon{})
 					return daemonPromise
 				},
+				func() *ipam.IPAM {
+					return &ipam.IPAM{}
+				},
 			),
 
 			// OSS + CEE BGP DaemonConfig
@@ -181,7 +185,7 @@ func TestScript(t *testing.T) {
 					EnableBGPControlPlane:     true,
 					BGPSecretsNamespace:       testSecretsNamespace,
 					BGPRouterIDAllocationMode: defaults.BGPRouterIDAllocationMode,
-					IPAM:                      *ipam,
+					IPAM:                      *useIPAM,
 					EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
 						EnableEnterpriseBGPControlPlane: true,
 						EnableBFD:                       true,
