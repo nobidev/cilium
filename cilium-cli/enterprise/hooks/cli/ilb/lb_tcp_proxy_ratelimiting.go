@@ -99,6 +99,6 @@ func TestTCPProxyRatelimiting_Fail_T1Only(t T) {
 	}
 
 	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with rate limits") {
-		t.Failedf("CreateLBService returned the wrong error")
+		t.Failedf("CreateLBService returned the wrong error: %s", err.Error())
 	}
 }
