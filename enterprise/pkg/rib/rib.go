@@ -53,6 +53,10 @@ type nopDataPlane struct{}
 
 func (nopDataPlane) ProcessUpdate(_ *RIBUpdate) {}
 
+func newNopDataPlane() DataPlane {
+	return &nopDataPlane{}
+}
+
 // RIBUpdate is the update for the RIB
 type RIBUpdate struct {
 	VRFID   uint32

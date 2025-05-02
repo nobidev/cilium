@@ -22,3 +22,11 @@ var Cell = cell.Module(
 		ribReadCommands,
 	),
 )
+
+var NopDataPlaneCell = cell.Module(
+	"nop-dataplane",
+	"An empty dataplane implementation for testing purposes",
+	cell.Provide(
+		newNopDataPlane,
+	),
+)
