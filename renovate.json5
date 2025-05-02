@@ -220,14 +220,15 @@
     },
     {
       // Group hubble dependencies together and request review from hubble
-      "groupName": "Hubble helm dependencies",
-      "groupSlug": "hubble-helm-dependencies",
+      "groupName": "Hubble dependencies",
+      "groupSlug": "hubble-dependencies",
       "matchDepNames": [
         "quay.io/isovalent/vector",
         "quay.io/isovalent/hubble-rbac",
         "quay.io/isovalent/hubble-timescape",
         "quay.io/isovalent/hubble-timescape-ui",
         "quay.io/isovalent/hubble-k8s-exporter",
+        "github.com/isovalent/hubble-timescape/api", // API go module needs to be updated at the same time for e2e to pass.
       ],
       "reviewers": [
         "isovalent/hubble",
