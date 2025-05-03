@@ -27,6 +27,8 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/enterprise/pkg/rib"
+	"github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
@@ -321,6 +323,8 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 				newIsovalentSRv6EgressPolicyResource,
 			),
 			srv6map.Cell,
+			rib.Cell,
+			dataplane.Cell,
 		),
 		cell.Invoke(
 			invokeFn,
@@ -756,9 +760,10 @@ func TestSRv6Manager(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var (
-				ia cache.IdentityAllocator
-				cs client.Clientset
-				m  *Manager
+				ia         cache.IdentityAllocator
+				cs         client.Clientset
+				m          *Manager
+				policyMap4 *srv6map.PolicyMap4
 			)
 
 			fixture := newFixture(
@@ -770,6 +775,7 @@ func TestSRv6Manager(t *testing.T) {
 					manager *Manager,
 					fia *fakeIPAMAllocator,
 					fsm *fakeSIDManager,
+					pm4 *srv6map.PolicyMap4,
 				) {
 					ia = identityAllocator
 					cs = clientset
@@ -780,6 +786,8 @@ func TestSRv6Manager(t *testing.T) {
 						sid:          sid3,
 						behaviorType: srv6Types.BehaviorTypeBase,
 					}
+
+					policyMap4 = pm4
 				},
 			)
 
@@ -818,7 +826,7 @@ func TestSRv6Manager(t *testing.T) {
 				assert.True(t, bpfMapsEqual(currentVRFMapEntries, test.initVRFMapEntries), "VRF map entries are mismatched, retrying")
 
 				currentPolicyMapEntries := []*policyKV{}
-				m.policyMap4.IterateWithCallback(func(k *srv6map.PolicyKey, v *srv6map.PolicyValue) {
+				policyMap4.IterateWithCallback(func(k *srv6map.PolicyKey, v *srv6map.PolicyValue) {
 					currentPolicyMapEntries = append(currentPolicyMapEntries, &policyKV{k: k, v: v})
 				})
 				assert.True(t, bpfMapsEqual(currentPolicyMapEntries, test.initPolicyMapEntries), "Policy map entries are mismatching, retrying")
@@ -895,7 +903,7 @@ func TestSRv6Manager(t *testing.T) {
 				assert.True(t, bpfMapsEqual(currentVRFMapEntries, test.updatedVRFMapEntries), "VRF map entries are mismatched, retrying")
 
 				currentPolicyMapEntries := []*policyKV{}
-				m.policyMap4.IterateWithCallback(func(k *srv6map.PolicyKey, v *srv6map.PolicyValue) {
+				policyMap4.IterateWithCallback(func(k *srv6map.PolicyKey, v *srv6map.PolicyValue) {
 					currentPolicyMapEntries = append(currentPolicyMapEntries, &policyKV{k: k, v: v})
 				})
 				assert.True(t, bpfMapsEqual(currentPolicyMapEntries, test.updatedPolicyMapEntries), "Policy map entries are mismatched, retrying")

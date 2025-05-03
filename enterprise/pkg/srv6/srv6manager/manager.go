@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -24,9 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -119,11 +122,11 @@ type Manager struct {
 	sidAllocatorSyncers map[string]sidmanager.SIDAllocator
 
 	// BPF Maps
-	vrfMap4    *srv6map.VRFMap4
-	vrfMap6    *srv6map.VRFMap6
-	policyMap4 *srv6map.PolicyMap4
-	policyMap6 *srv6map.PolicyMap6
-	sidMap     *srv6map.SIDMap
+	vrfMap4 *srv6map.VRFMap4
+	vrfMap6 *srv6map.VRFMap6
+	sidMap  *srv6map.SIDMap
+
+	rib *rib.RIB
 }
 
 type Params struct {
@@ -141,10 +144,9 @@ type Params struct {
 	IsovalentSRv6EgressPolicy resource.Resource[*iso_v1alpha1.IsovalentSRv6EgressPolicy]
 	VRF4Map                   *srv6map.VRFMap4
 	VRF6Map                   *srv6map.VRFMap6
-	Policy4Map                *srv6map.PolicyMap4
-	Policy6Map                *srv6map.PolicyMap6
 	SIDMap                    *srv6map.SIDMap
 	IPAM                      *ipam.IPAM
+	RIB                       *rib.RIB
 }
 
 // NewSRv6Manager returns a new SRv6 policy manager.
@@ -168,9 +170,8 @@ func NewSRv6Manager(p Params) *Manager {
 		sidAllocatorSyncers: make(map[string]sidmanager.SIDAllocator),
 		vrfMap4:             p.VRF4Map,
 		vrfMap6:             p.VRF6Map,
-		policyMap4:          p.Policy4Map,
-		policyMap6:          p.Policy6Map,
 		sidMap:              p.SIDMap,
+		rib:                 p.RIB,
 	}
 
 	initDone := make(chan struct{})
@@ -638,7 +639,7 @@ func (manager *Manager) OnAddSRv6Policy(policy EgressPolicy) {
 
 	manager.policies[policy.id] = &policy
 
-	manager.reconcilePoliciesAndSIDs()
+	manager.reconcilePolicies()
 }
 
 // OnDeleteSRv6Policy deletes the internal state associated with the given
@@ -658,7 +659,7 @@ func (manager *Manager) OnDeleteSRv6Policy(policyID policyID) {
 
 	delete(manager.policies, policyID)
 
-	manager.reconcilePoliciesAndSIDs()
+	manager.reconcilePolicies()
 }
 
 // OnAddSRv6VRF and updates the manager internal state with the VRF
@@ -715,113 +716,56 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 	return identity.Labels, nil
 }
 
-// addMissingSRv6PolicyRules is responsible for adding any missing egress SRv6
-// policies stored in the manager (i.e. k8s IsovalentSRv6EgressPolicies) to the
-// egress policy BPF map.
-func (manager *Manager) addMissingSRv6PolicyRules() {
-	srv6Policies := map[srv6map.PolicyKey]srv6map.PolicyValue{}
-	manager.policyMap4.IterateWithCallback(
-		func(key *srv6map.PolicyKey, val *srv6map.PolicyValue) {
-			srv6Policies[*key] = *val
-		})
-	manager.policyMap6.IterateWithCallback(
-		func(key *srv6map.PolicyKey, val *srv6map.PolicyValue) {
-			srv6Policies[*key] = *val
-		})
+func (manager *Manager) desiredHEncapsRoutes() map[uint32]*bitlpm.CIDRTrie[*rib.Route] {
+	desiredRoutes := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
 
-	var err error
 	for _, policy := range manager.policies {
+		sid, err := srv6Types.NewSID(netip.AddrFrom16(policy.SID))
+		if err != nil {
+			manager.logger.WithError(err).Error("Failed to create SID")
+			continue
+		}
 		for _, dstCIDR := range policy.DstCIDRs {
-			policyKey := srv6map.PolicyKey{
-				VRFID:    policy.VRFID,
-				DestCIDR: dstCIDR,
+			route := &rib.Route{
+				Prefix:   dstCIDR,
+				Owner:    ownerName,
+				Protocol: rib.ProtocolKubernetes,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{sid},
+				},
 			}
-
-			policyVal, policyPresent := srv6Policies[policyKey]
-			if policyPresent && policyVal.SID == policy.SID {
-				continue
+			trie, found := desiredRoutes[policy.VRFID]
+			if !found {
+				trie = bitlpm.NewCIDRTrie[*rib.Route]()
+				desiredRoutes[policy.VRFID] = trie
 			}
-
-			if dstCIDR.Addr().Is4() {
-				err = manager.policyMap4.Update(&policyKey, policy.SID)
-			} else {
-				err = manager.policyMap6.Update(&policyKey, policy.SID)
-			}
-
-			logger := manager.logger.WithFields(logrus.Fields{
-				logfields.VRF:             policy.VRFID,
-				logfields.DestinationCIDR: dstCIDR,
-				logfields.SID:             policy.SID,
-			})
-			if err != nil {
-				logger.WithError(err).Error("Error applying egress SRv6 policy")
-			} else {
-				logger.Info("Egress SRv6 policy applied")
-			}
+			trie.Upsert(dstCIDR, route)
 		}
 	}
+
+	return desiredRoutes
 }
 
-// removeUnusedSRv6PolicyRules is responsible for removing any entry in the SRv6 policy BPF map which
-// is not baked by an actual k8s IsovalentSRv6EgressPolicy.
-//
-// The algorithm for this function can be expressed as:
-//
-//	nextPolicyKey:
-//	for each entry in the srv6_policy map {
-//	    for each policy in k8s IsovalentSRv6EgressPolices {
-//	        if policy matches entry {
-//	            // we found one k8s policy that matches the current BPF entry, move to the next one
-//	            continue nextPolicyKey
-//	        }
-//	    }
-//
-//	    // the current BPF entry is not backed by any k8s policy, delete it
-//	    srv6map.RemoveSRv6Policy(entry)
-//	}
-func (manager *Manager) removeUnusedSRv6PolicyRules() {
-	srv6Policies := map[srv6map.PolicyKey]srv6map.PolicyValue{}
-	manager.policyMap4.IterateWithCallback(
-		func(key *srv6map.PolicyKey, val *srv6map.PolicyValue) {
-			srv6Policies[*key] = *val
-		})
-	manager.policyMap6.IterateWithCallback(
-		func(key *srv6map.PolicyKey, val *srv6map.PolicyValue) {
-			srv6Policies[*key] = *val
-		})
+func (manager *Manager) currentHEncapsRoutes() map[uint32]*bitlpm.CIDRTrie[*rib.Route] {
+	currentRoutes := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
 
-nextPolicyKey:
-	for policyKey := range srv6Policies {
-		for _, policy := range manager.policies {
-			for _, dstCIDR := range policy.DstCIDRs {
-				k := srv6map.PolicyKey{
-					VRFID:    policy.VRFID,
-					DestCIDR: dstCIDR,
-				}
-				if policyKey.Equal(&k) {
-					continue nextPolicyKey
-				}
+	for vrfID, trie := range manager.rib.ListRoutes(ownerName) {
+		t := bitlpm.NewCIDRTrie[*rib.Route]()
+
+		trie.ForEach(func(p netip.Prefix, r *rib.Route) bool {
+			if _, ok := r.NextHop.(*rib.HEncaps); !ok {
+				return true
 			}
-		}
-
-		logger := manager.logger.WithFields(logrus.Fields{
-			logfields.VRF:             policyKey.VRFID,
-			logfields.DestinationCIDR: policyKey.DestCIDR,
+			t.Upsert(p, r)
+			return true
 		})
 
-		var err error
-		if policyKey.DestCIDR.Addr().Is4() {
-			err = manager.policyMap4.Delete(&policyKey)
-		} else {
-			err = manager.policyMap6.Delete(&policyKey)
-		}
-
-		if err != nil {
-			logger.WithError(err).Error("Error removing SRv6 egress policy")
-		} else {
-			logger.Info("SRv6 egress policy removed")
+		if t.Len() > 0 {
+			currentRoutes[vrfID] = t
 		}
 	}
+
+	return currentRoutes
 }
 
 func (manager *Manager) addMissingSRv6SIDs() {
@@ -1313,17 +1257,33 @@ func (m *Manager) removeIngressPathVRFs(allocs []*SIDAllocation) {
 	}
 }
 
-// reconcilePoliciesAndSIDs is responsible for reconciling the state of the
-// manager (i.e. the desired state) with the actual state of the node (SRv6
-// policy map entries).
-//
-// Whenever it encounters an error, it will just log it and move to the next
-// item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcilePoliciesAndSIDs() {
-	// The order of the next 2 function calls matters, as by first adding missing policies and
-	// only then removing obsolete ones we make sure there will be no connectivity disruption
-	manager.addMissingSRv6PolicyRules()
-	manager.removeUnusedSRv6PolicyRules()
+func (manager *Manager) reconcilePolicies() {
+	desired := manager.desiredHEncapsRoutes()
+	current := manager.currentHEncapsRoutes()
+
+	for desiredVRFID, desiredTrie := range desired {
+		desiredTrie.ForEach(func(p netip.Prefix, r *rib.Route) bool {
+			manager.rib.UpsertRoute(desiredVRFID, *r)
+			return true
+		})
+	}
+
+	for currentVRFID, currentTrie := range current {
+		desiredTrie, found := desired[currentVRFID]
+		if found {
+			currentTrie.ForEach(func(p netip.Prefix, r *rib.Route) bool {
+				if _, found := desiredTrie.ExactLookup(p); !found {
+					manager.rib.DeleteRoute(currentVRFID, *r)
+				}
+				return true
+			})
+		} else {
+			currentTrie.ForEach(func(p netip.Prefix, r *rib.Route) bool {
+				manager.rib.DeleteRoute(currentVRFID, *r)
+				return true
+			})
+		}
+	}
 }
 
 // reconcileVRF is responsible for reconciling the state of the
