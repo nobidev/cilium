@@ -307,6 +307,7 @@ const (
 	ProtocolUnknown Protocol = iota
 	ProtocolIBGP
 	ProtocolEBGP
+	ProtocolKubernetes
 )
 
 func (p Protocol) String() string {
@@ -315,6 +316,8 @@ func (p Protocol) String() string {
 		return "iBGP"
 	case ProtocolEBGP:
 		return "eBGP"
+	case ProtocolKubernetes:
+		return "Kubernetes"
 	default:
 		return "unknown"
 	}
@@ -328,6 +331,11 @@ func (p Protocol) AdminDistance() uint8 {
 		return 200
 	case ProtocolEBGP:
 		return 20
+	case ProtocolKubernetes:
+		// We treat Kubernetes like a static route. FRR uses 1 for
+		// static routes, but we use 10 to leave some room for future
+		// protocols.
+		return 10
 	default:
 		return 255
 	}
