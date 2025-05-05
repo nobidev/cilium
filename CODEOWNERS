@@ -840,6 +840,7 @@ Makefile* @cilium/build
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
+/contrib/scripts/enterprise-meditation.sh @isovalent/core-structure
 /Documentation/cmdref/
 /Makefile.fqdn-proxy @isovalent/dns-proxy
 /renovate.json5 @isovalent/infrastructure
