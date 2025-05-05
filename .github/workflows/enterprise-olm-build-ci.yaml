@@ -86,7 +86,7 @@ jobs:
       - name: Build and Push OLM container image
         env:
           IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"
-          CL_TAG: "${{ steps.vars.outputs.sha }}"
+          CL_TAG: "${{ steps.tag.outputs.tag }}"
         working-directory: ./enterprise/olm
         run: |
           make docker-buildx
