@@ -844,9 +844,6 @@ static __always_inline int
 nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		       __s8 *ext_err)
 {
-#ifdef ENABLE_NAT_46X64_GATEWAY
-	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
-#endif
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET6,
@@ -870,8 +867,8 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifdef ENABLE_NAT_46X64_GATEWAY
-	if (nat_46x64_fib)
+#if !defined(IS_BPF_LXC) && defined(ENABLE_NAT_46X64_GATEWAY)
+	if (nat46x64_cb_route(ctx))
 		goto fib_lookup;
 #endif
 
@@ -1438,7 +1435,8 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
-    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST)) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
+		DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 		if (is_svc_proto) {
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 						      &key.address,
@@ -2212,7 +2210,8 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	}
 
 skip_revdnat:
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
+	(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
@@ -2248,7 +2247,8 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
+		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))) ||	\
     defined(TUNNEL_MODE)
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
@@ -2357,7 +2357,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
+		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -2767,7 +2768,8 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
-    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST)) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
+		DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 		if (is_svc_proto) {
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:

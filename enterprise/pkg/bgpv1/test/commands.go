@@ -130,7 +130,7 @@ func UpdateSvcBackendsCommand(svcHcMgrMock *serviceHealthCheckManagerMock) scrip
 				return nil, fmt.Errorf("invalid backend count: %s", args[2])
 			}
 			for i := 0; i < backendCount; i++ {
-				upd.ActiveBackends = append(upd.ActiveBackends, lb.Backend{
+				upd.ActiveBackends = append(upd.ActiveBackends, lb.LegacyBackend{
 					ID: lb.BackendID(i),
 				})
 			}

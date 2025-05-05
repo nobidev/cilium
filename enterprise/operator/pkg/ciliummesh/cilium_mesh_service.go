@@ -204,6 +204,12 @@ func (m *cepInformer) AddEventHandlerWithResyncPeriod(cache.ResourceEventHandler
 	panic("implement me")
 }
 
+func (m *cepInformer) AddEventHandlerWithOptions(handler cache.ResourceEventHandler, options cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error) {
+	// No need to implement this method since it's not used.
+	// If it is ever used then we should panic.
+	panic("implement me")
+}
+
 func (m *cepInformer) RemoveEventHandler(cache.ResourceEventHandlerRegistration) error {
 	// No need to implement this method since it's not used.
 	// If it is ever used then we should panic.
@@ -228,6 +234,12 @@ func (m *cepInformer) Run(<-chan struct{}) {
 	panic("implement me")
 }
 
+func (m *cepInformer) RunWithContext(ctx context.Context) {
+	// No need to implement this method since it's not used.
+	// If it is ever used then we should panic.
+	panic("implement me")
+}
+
 func (m *cepInformer) LastSyncResourceVersion() string {
 	// No need to implement this method since it's not used.
 	// If it is ever used then we should panic.
@@ -240,6 +252,11 @@ func (m *cepInformer) SetWatchErrorHandler(cache.WatchErrorHandler) error {
 	panic("implement me")
 }
 
+func (m *cepInformer) SetWatchErrorHandlerWithContext(handler cache.WatchErrorHandlerWithContext) error {
+	// No need to implement this method since it's not used.
+	// If it is ever used then we should panic.
+	panic("implement me")
+}
 func (m *cepInformer) SetTransform(cache.TransformFunc) error {
 	// No need to implement this method since it's not used.
 	// If it is ever used then we should panic.

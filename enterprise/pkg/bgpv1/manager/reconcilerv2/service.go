@@ -102,8 +102,8 @@ type ServiceReconcilerIn struct {
 
 // svcFrontendHealth keeps health information about a service frontend, as received from the service health-checker
 type svcFrontendHealth struct {
-	frontendAddr   loadbalancer.L3n4Addr  // frontend address (one service can have multiple frontend addresses)
-	activeBackends []loadbalancer.Backend // current list of active (healthy) backends of the frontend
+	frontendAddr   loadbalancer.L3n4Addr        // frontend address (one service can have multiple frontend addresses)
+	activeBackends []loadbalancer.LegacyBackend // current list of active (healthy) backends of the frontend
 }
 
 // svcFrontendHealthMap is a map of service frontend health information keyed by the frontend address

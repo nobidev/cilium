@@ -33,11 +33,11 @@ var (
 	sAddr     = *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, 0)
 	beAddr1   = *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("10.1.1.1"), 8080, 0)
 	beAddr2   = *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("10.1.1.2"), 8080, 0)
-	backends1 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, beAddr1.AddrCluster, beAddr1.Port),
-		lb.NewBackend(0, lb.TCP, beAddr2.AddrCluster, beAddr2.Port),
+	backends1 = []*lb.LegacyBackend{
+		lb.NewLegacyBackend(0, lb.TCP, beAddr1.AddrCluster, beAddr1.Port),
+		lb.NewLegacyBackend(0, lb.TCP, beAddr2.AddrCluster, beAddr2.Port),
 	}
-	backends2 = []*lb.Backend{
+	backends2 = []*lb.LegacyBackend{
 		lb.NewBackendWithState(0, lb.TCP, beAddr1.AddrCluster, beAddr1.Port, 0, lb.BackendStateMaintenance),
 		lb.NewBackendWithState(0, lb.TCP, beAddr2.AddrCluster, beAddr2.Port, 0, lb.BackendStateTerminating),
 	}
@@ -176,7 +176,7 @@ func TestHealthChecker_UpsertService(t *testing.T) {
 	assert.Equal(t, lb.BackendStateQuarantined, ev.beState)
 
 	// Update service backends
-	bes := []*lb.Backend{backends1[0]}
+	bes := []*lb.LegacyBackend{backends1[0]}
 
 	thc.hc.UpsertService(sAddr, sName, lb.SVCTypeClusterIP, cfg, bes)
 
@@ -220,7 +220,7 @@ func TestHealthChecker_UpsertDeleteServiceWithCommonBackend(t *testing.T) {
 	sAddr2 := *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, 0)
 	sName2 := sName
 	sName2.Name = "bar"
-	bes := []*lb.Backend{backends1[1]}
+	bes := []*lb.LegacyBackend{backends1[1]}
 
 	thc.hc.UpsertService(sAddr, sName, lb.SVCTypeLoadBalancer, cfg, backends1)
 	// Add a service with common backend.
@@ -264,7 +264,7 @@ func TestHealthChecker_UpsertServiceWithHealthCheckConfig(t *testing.T) {
 	// Set the threshold for healthy and unhealthy probes.
 	cc["service.cilium.io/health-check-threshold-healthy"] = "3"
 	cc["service.cilium.io/health-check-threshold-unhealthy"] = "4"
-	bes := []*lb.Backend{backends1[0]}
+	bes := []*lb.LegacyBackend{backends1[0]}
 
 	thc.hc.UpsertService(sAddr, sName, lb.SVCTypeLoadBalancer, cc, bes)
 
@@ -295,7 +295,7 @@ func TestHealthChecker_UpsertServiceWithHealthCheckConfig(t *testing.T) {
 	sAddr2 := *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, 0)
 	sName2 := sName
 	sName2.Name = "bar"
-	bes2 := []*lb.Backend{backends1[0]}
+	bes2 := []*lb.LegacyBackend{backends1[0]}
 
 	thc.hc.UpsertService(sAddr2, sName2, lb.SVCTypeLoadBalancer, cc2, bes2)
 
@@ -321,7 +321,7 @@ func TestHealthChecker_UpsertServiceWithHealthCheckConfigUpdate(t *testing.T) {
 	// Set the threshold for healthy and unhealthy probes.
 	cc["service.cilium.io/health-check-threshold-healthy"] = "3"
 	cc["service.cilium.io/health-check-threshold-unhealthy"] = "3"
-	bes := []*lb.Backend{backends1[0]}
+	bes := []*lb.LegacyBackend{backends1[0]}
 	sAddr2 := *lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, 0)
 	sName2 := sName
 	sName2.Name = "bar"
