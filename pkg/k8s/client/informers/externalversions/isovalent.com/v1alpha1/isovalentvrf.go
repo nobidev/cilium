@@ -48,13 +48,25 @@ func NewFilteredIsovalentVRFInformer(client versioned.Interface, resyncPeriod ti
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().IsovalentVRFs().List(context.TODO(), options)
+				return client.IsovalentV1alpha1().IsovalentVRFs().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().IsovalentVRFs().Watch(context.TODO(), options)
+				return client.IsovalentV1alpha1().IsovalentVRFs().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.IsovalentV1alpha1().IsovalentVRFs().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.IsovalentV1alpha1().IsovalentVRFs().Watch(ctx, options)
 			},
 		},
 		&apisisovalentcomv1alpha1.IsovalentVRF{},

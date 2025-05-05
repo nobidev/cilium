@@ -1,12 +1,12 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:75af17cb28464a2973cb7dc11bd0401f7be8f059@sha256:84d1f026fa12290001370ed1c73c75a117354bc544b720265ccb409ced052f4d
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:dafe1d5690acd008c6f86482eb69681ad692f5ea@sha256:5ae08955b7a99ca53f79aee0034809519430d91188db2796affe06d08dbd1ea9
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:65fa0b0a5e0cd4fbd4b243d8f2aba5751fc0eeff@sha256:8ddea1434c9e407ecf6f212b9cd06fdb6955e4895581d8bb100533f9f1f2de99
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.33.2-1744753111-e70c5e7ab46016327bd89c26f24125c2b85735fc@sha256:1c534a0f4690a81ac9520ca727d5a3faa982527bab6a695360f5b7bee6c38d42
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.33.2-1745652483-4356534263d0997c01f0be36ebae702db2b5ab81@sha256:cf4f50253db458bbef4150a0f1e7ac388975b7aab311468da34621c3a13c7476
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
@@ -57,15 +57,20 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     mv hubble /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble
 
 # Extract debug symbols to /tmp/debug and strip the binaries if NOSTRIP is not set.
+# Use the appropriate objcopy for the target architecture.
 RUN set -xe && \
     export D=/tmp/debug/${TARGETOS}/${TARGETARCH} && \
     cd /tmp/install/${TARGETOS}/${TARGETARCH} && \
     find . -type f \
       -executable \
       -exec sh -c \
-        'filename=$(basename ${0}) && \
-         objcopy --only-keep-debug ${0} ${0}.debug && \
-         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
+        'OBJCOPY_CMD=objcopy; \
+         if [ "${TARGETARCH}" = "amd64" ]; then OBJCOPY_CMD=x86_64-linux-gnu-objcopy; \
+         elif [ "${TARGETARCH}" = "arm64" ]; then OBJCOPY_CMD=aarch64-linux-gnu-objcopy; \
+         fi; \
+         filename=$(basename ${0}) && \
+         ${OBJCOPY_CMD} --only-keep-debug ${0} ${0}.debug && \
+         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then ${OBJCOPY_CMD} --strip-all ${0} && (cd $(dirname ${0}) && ${OBJCOPY_CMD} --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
          mkdir -p $(dirname ${D}/${0}) && \
          mv -v ${0}.debug ${D}/${0}.debug' \
       {} \;

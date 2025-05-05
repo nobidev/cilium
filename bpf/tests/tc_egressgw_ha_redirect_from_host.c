@@ -15,8 +15,6 @@
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #include "lib/egressgw.h"
 #include "lib/egressgw_ha.h"
 #include "lib/endpoint.h"

@@ -112,7 +112,7 @@ func (hc *HealthChecker) SetCallback(cb service.HealthCheckCallbackFunc) {
 	hc.cb = cb
 }
 
-func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName, svcType lb.SVCType, svcAnnotations map[string]string, backends []*lb.Backend) {
+func (hc *HealthChecker) UpsertService(svcAddr lb.L3n4Addr, name lb.ServiceName, svcType lb.SVCType, svcAnnotations map[string]string, backends []*lb.LegacyBackend) {
 	svcHealthCheckConfig := getAnnotationHealthCheckConfig(svcAnnotations)
 	tmpHealthCheckConfig := HealthCheckConfig{
 		State: HealthCheckDisabled,

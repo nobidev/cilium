@@ -16,11 +16,12 @@
 
 #define EVENT_SOURCE LXC_ID
 
+#define USE_LOOPBACK_LB		1
+
 #include "lib/auth.h"
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/config.h"
-#include "lib/maps.h"
 #include "lib/arp.h"
 #include "lib/edt.h"
 #include "lib/ipv6.h"
@@ -769,26 +770,14 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
-	if (encrypt_key && info->flag_has_tunnel_ep) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
-					SECLABEL_IPV6, false, false);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
-	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack.
-		 * If the stack hairpins the packet back to a local endpoint the
-		 * source identity can still be derived even if SNAT is
-		 * performed by a component such as portmap.
-		 */
-		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+	/* Always encode the source identity when passing to the stack.
+	 * If the stack hairpins the packet back to a local endpoint the
+	 * source identity can still be derived even if SNAT is
+	 * performed by a component such as portmap.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
-	}
 
 #ifdef TUNNEL_MODE
 encrypt_to_stack:
@@ -1331,26 +1320,14 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
-	if (encrypt_key && info->flag_has_tunnel_ep) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
-					SECLABEL_IPV4, false, false);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
-	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack.
-		 * If the stack hairpins the packet back to a local endpoint the
-		 * source identity can still be derived even if SNAT is
-		 * performed by a component such as portmap.
-		 */
-		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
+	/* Always encode the source identity when passing to the stack.
+	 * If the stack hairpins the packet back to a local endpoint the
+	 * source identity can still be derived even if SNAT is
+	 * performed by a component such as portmap.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
-	}
 
 #if defined(TUNNEL_MODE)
 encrypt_to_stack:
@@ -1965,7 +1942,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
+#if defined(ENABLE_PER_PACKET_LB)
 		/* When an endpoint connects to itself via service clusterIP, we need
 		 * to skip the policy enforcement. If we didn't, the user would have to
 		 * define policy rules to allow pods to talk to themselves. We still
@@ -1983,7 +1960,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		if (unlikely(ct_state->loopback))
 			break;
-#endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
+#endif /* ENABLE_PER_PACKET_LB */
 
 		verdict = policy_can_ingress4(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,

@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
@@ -154,8 +155,8 @@ func (r *reconciler) upsertCIDRGroup(ctx context.Context, cidrs []api.CIDR) erro
 		if k8sErrors.IsNotFound(err) {
 			cidrGroup := &v2alpha1.CiliumCIDRGroup{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: v2alpha1.SchemeGroupVersion.String(),
-					Kind:       v2alpha1.CCGKindDefinition,
+					APIVersion: v2.SchemeGroupVersion.String(),
+					Kind:       v2.CCGKindDefinition,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: r.fqdnGroup,

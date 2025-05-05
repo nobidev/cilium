@@ -44,6 +44,7 @@ cilium-agent hive [flags]
       --enable-active-lb-health-checking                               Enable active health checking on loadbalancer services
       --enable-bandwidth-manager                                       Enable BPF bandwidth manager
       --enable-bbr                                                     Enable BBR for the bandwidth manager
+      --enable-bbr-hostns-only                                         Enable BBR only in the host network namespace.
       --enable-bfd                                                     Enables BFD subsystem
       --enable-bgp-svc-health-checking                                 Enables BGP integration with service health-checking
       --enable-cilium-api-server-access strings                        List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
@@ -77,6 +78,7 @@ cilium-agent hive [flags]
       --enable-policy-secrets-sync                                     Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                              Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                        Enable support for service topology aware hints
+      --enable-standalone-dns-proxy                                    Enables standalone DNS proxy
       --enable-well-known-identities                                   Enable well-known identities for known Kubernetes components (default true)
       --enable-xt-socket-fallback                                      Enable fallback for missing xt_socket module (default true)
       --encryption-policy-map-max int                                  Maximum number of entries in encryption policy map (default 16384)
@@ -237,6 +239,7 @@ cilium-agent hive [flags]
       --read-cni-conf string                                           CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restored-proxy-ports-age-limit uint                            Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --router-advertisement-interval duration                         Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled (default 3s)
+      --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration                    The duration after which a probe is considered failed (default 1m0s)
       --status-collector-interval duration                             The interval between probe invocations (default 5s)

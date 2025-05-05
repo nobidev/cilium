@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	_ "github.com/cilium/cilium/enterprise/fips"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	// the enterprise code has migrated over to it.
 	hive.AddConfigOverride(
 		agentHive,
-		func(cfg *experimental.Config) { cfg.EnableExperimentalLB = false },
+		func(cfg *loadbalancer.Config) { cfg.EnableExperimentalLB = false },
 	)
 
 	hiveFn := func() *hive.Hive {

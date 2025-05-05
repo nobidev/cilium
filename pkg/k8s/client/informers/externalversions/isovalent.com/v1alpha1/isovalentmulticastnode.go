@@ -48,13 +48,25 @@ func NewFilteredIsovalentMulticastNodeInformer(client versioned.Interface, resyn
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().IsovalentMulticastNodes().List(context.TODO(), options)
+				return client.IsovalentV1alpha1().IsovalentMulticastNodes().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.IsovalentV1alpha1().IsovalentMulticastNodes().Watch(context.TODO(), options)
+				return client.IsovalentV1alpha1().IsovalentMulticastNodes().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.IsovalentV1alpha1().IsovalentMulticastNodes().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.IsovalentV1alpha1().IsovalentMulticastNodes().Watch(ctx, options)
 			},
 		},
 		&apisisovalentcomv1alpha1.IsovalentMulticastNode{},

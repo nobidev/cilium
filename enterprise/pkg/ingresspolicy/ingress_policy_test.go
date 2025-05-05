@@ -42,7 +42,7 @@ var identityMap = map[identity.NumericIdentity]labels.LabelArray{
 }
 
 func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, "")
 	require.NoError(t, err)
 
 	t.Run("no associated identity", func(t *testing.T) {
@@ -108,7 +108,7 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 }
 
 func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
-	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, "")
 	require.NoError(t, err)
 
 	t.Run("no associated identity", func(t *testing.T) {

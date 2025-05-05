@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identityCell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -59,7 +59,7 @@ type FQDNProxyAgentServer struct {
 	ipCacheGetter   IPCacheGetter
 	endpointManager endpointmanager.EndpointManager
 	localIDs        stream.Observable[cache.IdentityChange]
-	requestHandler  bootstrap.DNSRequestHandler
+	requestHandler  messagehandler.DNSMessageHandler
 
 	db          *statedb.DB
 	selectors   statedb.RWTable[FQDNSelector]
@@ -77,7 +77,7 @@ type params struct {
 	EndpointManager   endpointmanager.EndpointManager
 	Cfg               fqdnhaconfig.Config
 	IdentityAllocator identityCell.CachingIdentityAllocator
-	RequestHandler    bootstrap.DNSRequestHandler
+	RequestHandler    messagehandler.DNSMessageHandler
 	DP                *doubleproxy.DoubleProxy
 
 	DB          *statedb.DB

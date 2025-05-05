@@ -6,14 +6,11 @@ package ingresspolicy
 import (
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -231,8 +228,8 @@ func (owner *ingressPolicyOwner) GetNamedPort(ingress bool, name string, proto u
 }
 
 // PolicyDebug is to satisfy the PolicyOwner interface.
-func (owner *ingressPolicyOwner) PolicyDebug(fields logrus.Fields, msg string) {
-	owner.logger.Debug("Ingress Policy: "+msg, logfields.Debug, fields)
+func (owner *ingressPolicyOwner) PolicyDebug(msg string, attrs ...any) {
+	owner.logger.Debug("Ingress Policy: "+msg, attrs...)
 }
 
 // IsHost is to satisfy the PolicyOwner interface.

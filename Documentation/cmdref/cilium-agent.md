@@ -112,6 +112,7 @@ cilium-agent [flags]
       --enable-auto-protect-node-port-range                            Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
       --enable-bandwidth-manager                                       Enable BPF bandwidth manager
       --enable-bbr                                                     Enable BBR for the bandwidth manager
+      --enable-bbr-hostns-only                                         Enable BBR only in the host network namespace.
       --enable-bfd                                                     Enables BFD subsystem
       --enable-bgp-control-plane                                       Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                         Enable the BGP control plane status reporting (default true)
@@ -191,6 +192,7 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining                              Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                                    Enable SCTP support (beta)
       --enable-service-topology                                        Enable support for service topology aware hints
+      --enable-standalone-dns-proxy                                    Enables standalone DNS proxy
       --enable-svc-source-range-check                                  Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tcx                                                     Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                                 Enable tracing while determining policy (debugging)
@@ -433,6 +435,7 @@ cilium-agent [flags]
       --routing-mode string                                            Routing mode ("native" or "tunnel") (default "tunnel")
       --service-no-backend-response string                             Response to traffic for a service without backends (default "reject")
       --socket-path string                                             Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
+      --standalone-dns-proxy-server-port int                           Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
       --state-dir string                                               Directory path to store runtime state (default "/var/run/cilium")
       --static-cnp-path string                                         Directory path to watch and load static cilium network policy yaml files.
       --status-collector-failure-threshold duration                    The duration after which a probe is considered failed (default 1m0s)
