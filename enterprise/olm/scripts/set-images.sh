@@ -20,17 +20,21 @@ root_dir=$(git rev-parse --show-toplevel)
 values_file="${root_dir}/enterprise/olm/manifests/values.yaml"
 registry="${CL_REGISTRY:-quay.io/isovalent-dev}"
 is_ci="${CL_IS_CI:-true}"
+echo "is_ci: ${is_ci}"
 in_tree_suffix="${CL_SUFFIX:--ubi}"
 out_tree_suffix="${CL_SUFFIX:--ubi}"
+echo "out_tree_suffix: ${out_tree_suffix}"
 if [ "${is_ci}" == "true" ]; then
   in_tree_suffix="${in_tree_suffix}-ci"
 fi
+echo "in_tree_suffix: ${in_tree_suffix}"
 if [ -z "${CL_TAG+x}" ] ; then
   echo "Using the commit id of the head as tag, set CL_TAG to the desired value otherwise"
   tag="$(git rev-parse HEAD)"
 else
   tag="${CL_TAG}"
 fi
+echo "tag: ${tag}"
 # Using a temporary file avoid getting a half processed result file if an issue occurs
 tmp_file=$(mktemp)
 function cleanup {
@@ -80,77 +84,101 @@ yq_replace ".operator.image.suffix = \"${in_tree_suffix}\""
 # Set the image digests and populate related images in the ClusterServiceVersion
 related_imgs="["
 # cilium agent
+echo "Process cilium agent"
 yq_get ".image.repository"
 img=${yq_get_result}
 yq_get ".image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"agent\",\"image\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
 # preflight
+echo "Process preflight"
 yq_get ".preflight.image.repository"
 img=${yq_get_result}
 yq_get ".preflight.image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".preflight.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"preflight\",\"image\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
 # hubble relay
+echo "Process hubble relay"
 yq_get ".hubble.relay.image.repository"
 img=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 yq_get ".hubble.relay.image.tag"
 tag=${yq_get_result}
 get_digest "${img}" "${tag}"
+echo "digest: ${digest}"
 digest=${get_digest_result}
 yq_replace ".hubble.relay.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"hubble-relay\",\"image\":\"${registry}/hubble-relay${in_tree_suffix}:${tag}@${digest}\"},"
 # clustermesh
+echo "Process clustermesh"
 yq_get ".clustermesh.apiserver.image.repository"
 img=${yq_get_result}
 yq_get ".clustermesh.apiserver.image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".clustermesh.apiserver.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"clustermesh-apiserver\",\"image\":\"${registry}/clustermesh-apiserver${in_tree_suffix}:${tag}@${digest}\"},"
 # startup-script
+echo "Process startup-script"
 yq_get ".nodeinit.image.repository"
 img=${yq_get_result}
 yq_get ".nodeinit.image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".nodeinit.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"nodeinit\",\"image\":\"quay.io/isovalent/startup-script${out_tree_suffix}:${tag}@${digest}\"},"
 # certgen
+echo "Process certgen"
 yq_get ".certgen.image.repository"
 img=${yq_get_result}
 yq_get ".certgen.image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".certgen.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"certgen\",\"image\":\"quay.io/isovalent/certgen${out_tree_suffix}:${tag}@${digest}\"},"
 # envoy
+echo "Process envoy"
 yq_get ".envoy.image.repository"
 img=${yq_get_result}
 yq_get ".envoy.image.tag"
 tag=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".envoy.image.digest = \"${digest}\""
 related_imgs+="{\"name\": \"cilium-envoy\",\"image\":\"quay.io/isovalent/cilium-envoy${out_tree_suffix}:${tag}@${digest}\"},"
 # operator
+echo "Process operator"
 yq_get ".operator.image.repository"
 img=${yq_get_result}
 yq_get ".operator.image.tag"
 tag=${yq_get_result}
 yq_get ".operator.image.suffix"
 op_suffix=${yq_get_result}
+echo "get digest: ${img} ${tag}" 
 get_digest "${img}-generic${op_suffix}" "${tag}"
 digest=${get_digest_result}
+echo "digest: ${digest}"
 yq_replace ".operator.image.genericDigest = \"${digest}\""
 related_imgs+="{\"name\": \"cilium-operator\",\"image\":\"${registry}/operator-generic${in_tree_suffix}:${tag}@${digest}\"}"
 related_imgs+="]"
