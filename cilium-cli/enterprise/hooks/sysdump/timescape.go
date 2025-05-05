@@ -41,9 +41,9 @@ var (
 func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, timescapeBugtoolPrefix string, bugtoolFlags []string) error {
 	var submitErrors []error
 	for _, p := range pods {
-		switch p.GetLabels()["app.kubernetes.io/component"] {
-		case "server":
-			err := submitTimescapeBugtoolTaskForContainer(c, p, "server", timescapeBugtoolTaskConfig{
+		switch component := p.GetLabels()["app.kubernetes.io/component"]; component {
+		case "server", "analyzer":
+			err := submitTimescapeBugtoolTaskForContainer(c, p, component, timescapeBugtoolTaskConfig{
 				prefix:           timescapeBugtoolPrefix,
 				bugtoolExtraArgs: bugtoolFlags,
 			})
@@ -74,9 +74,6 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 			if err != nil {
 				submitErrors = append(submitErrors, err)
 			}
-		case "trimmer", "database":
-			// The trimmer is a job and can't give us bugtool output
-			// The database pod is ClickHouse, we can't get bugtool output either
 		case "ui":
 			err := submitTimescapeUIBugtoolTaskForContainer(c, p, "ui", timescapeUIBugtoolTaskConfig{
 				prefix:           timescapeBugtoolPrefix,
@@ -85,9 +82,12 @@ func SubmitTimescapeBugtoolTasks(c *sysdump.Collector, pods []*corev1.Pod, times
 			if err != nil {
 				submitErrors = append(submitErrors, err)
 			}
+		case "trimmer", "database":
+			// The trimmer is a job and can't give us bugtool output
+			// The database pod is ClickHouse, we can't get bugtool output either
 		default:
 			// Unknown component
-			submitErrors = append(submitErrors, fmt.Errorf("unexpected timescape pod %s/%s, skipping", p.GetNamespace(), p.GetName()))
+			submitErrors = append(submitErrors, fmt.Errorf("unexpected timescape pod %s/%s (component:%s), skipping", p.GetNamespace(), p.GetName(), component))
 		}
 	}
 	return errors.Join(submitErrors...)
