@@ -1,63 +1,67 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base",
-    ":gitSignOff",
-    ":dependencyDashboard",
-    "helpers:pinGitHubActionDigests"
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':gitSignOff',
+    ':dependencyDashboard',
+    'helpers:pinGitHubActionDigests',
   ],
   // This ensures that the gitAuthor and gitSignOff fields match
-  "gitAuthor": "isovalent-renovate[bot] <141654053+isovalent-renovate[bot]@users.noreply.github.com>",
-  "includePaths": [
-    ".github/actions/set-env-variables/enterprise-overrides.sh",
-    ".github/workflows/enterprise-*",
-    "enterprise/images/**",
-    "enterprise/olm/Dockerfile",
-    "enterprise/**/go.mod",
-    "images/cilium/download-hubble-enterprise.sh",
-    "install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl",
+  gitAuthor: 'isovalent-renovate[bot] <141654053+isovalent-renovate[bot]@users.noreply.github.com>',
+  includePaths: [
+    '.github/actions/set-env-variables/enterprise-overrides.sh',
+    '.github/workflows/enterprise-*',
+    'enterprise/images/**',
+    'enterprise/olm/Dockerfile',
+    'enterprise/**/go.mod',
+    'images/cilium/download-hubble-enterprise.sh',
+    'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
   ],
-  "pinDigests": true,
-  "ignorePresets": [":prHourlyLimit2"],
-  "separateMajorMinor": true,
-  "separateMultipleMajor": true,
-  "separateMinorPatch": true,
-  "pruneStaleBranches": true,
-  "baseBranches": [
-    "main-ce",
-    "v1.17-ce",
-    "v1.16-ce",
-    "v1.15-ce",
-    "v1.14-ce",
+  pinDigests: true,
+  ignorePresets: [
+    ':prHourlyLimit2',
   ],
-  "vulnerabilityAlerts": {
-    "enabled": true
+  separateMajorMinor: true,
+  separateMultipleMajor: true,
+  separateMinorPatch: true,
+  pruneStaleBranches: true,
+  baseBranches: [
+    'main-ce',
+    'v1.17-ce',
+    'v1.16-ce',
+    'v1.15-ce',
+    'v1.14-ce',
+  ],
+  vulnerabilityAlerts: {
+    enabled: true,
   },
-  "labels": [
-    "renovate/stop-updating",
-    "kind/enhancement",
+  labels: [
+    'renovate/stop-updating',
+    'kind/enhancement',
     // Pull requests from Renovate do not show up in release notes by default.
     // Override the release-note label in the packageRules section below for
     // those dependencies that are relevant to end users.
-    "release-note/ignore",
+    'release-note/ignore',
   ],
   // Extend the default fileMatch so that it matches enterprise values too.
-  "helm-values": {
-    "fileMatch": [".*values\\.yaml\\.tmpl$"]
+  'helm-values': {
+    fileMatch: [
+      '.*values\\.yaml\\.tmpl$',
+    ],
   },
-  "stopUpdatingLabel": "renovate/stop-updating",
-  "allowedCommands": [
-    "^make .*$",
+  stopUpdatingLabel: 'renovate/stop-updating',
+  allowedCommands: [
+    '^make .*$',
   ],
-  "packageRules": [
+  packageRules: [
     {
-      "groupName": "Cilium CLI Enterprise",
-      "groupSlug": "cilium-cli-ee",
-      "ignoreUnstable": false,
-      "matchDepNames": [
-        "isovalent/cilium-cli-releases",
+      groupName: 'Cilium CLI Enterprise',
+      groupSlug: 'cilium-cli-ee',
+      ignoreUnstable: false,
+      matchDepNames: [
+        'isovalent/cilium-cli-releases',
       ],
-      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-cee\\.(?<build>\\d+)$",
+      versioning: 'regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-cee\\.(?<build>\\d+)$',
     },
     {
       // Don't update CILIUM_CLI_VERSION environment variable in main-ce branch.
@@ -65,47 +69,47 @@
       // latest released version of cilium-cli to run connectivity tests. In
       // main-ce branch, CI workflows always build cilium-cli locally to run
       // connectivity tests using the latest unreleased code.
-      "enabled": false,
-      "matchDepNames": [
-        "isovalent/cilium-cli-releases",
-      ],
-      "matchBaseBranches": [
-        "main-ce",
-      ],
-    },
-    {
-      "groupName": "all enterprise go dependencies main",
-      "groupSlug": "all-enterprise-go-deps-main",
-      "matchFileNames": [
-        "enterprise/**/go.mod",
-        "enterprise/**/go.sum"
-      ],
-      "postUpdateOptions": [
-        // update source import paths on major updates
-        "gomodUpdateImportPaths"
+      enabled: false,
+      matchDepNames: [
+        'isovalent/cilium-cli-releases',
       ],
       matchBaseBranches: [
-        "main-ce"
-      ]
-    },
-    {
-      "groupName": "Hubble CLI Enterprise",
-      "groupSlug": "hubble-cli-ee",
-      "ignoreUnstable": false,
-      "labels": [
-        "renovate/stop-updating",
-        "kind/enhancement",
-        "release-note/misc",
-      ],
-      "matchDepNames": [
-        "isovalent/hubble-releases",
+        'main-ce',
       ],
     },
     {
-      "groupName": "all github action dependencies in enterprise workflows",
-      "groupSlug": "all-github-action",
-      "matchFileNames": [
-        ".github/workflows/enterprise-*"
+      groupName: 'all enterprise go dependencies main',
+      groupSlug: 'all-enterprise-go-deps-main',
+      matchFileNames: [
+        'enterprise/**/go.mod',
+        'enterprise/**/go.sum',
+      ],
+      postUpdateOptions: [
+        // update source import paths on major updates
+        'gomodUpdateImportPaths',
+      ],
+      matchBaseBranches: [
+        'main-ce',
+      ],
+    },
+    {
+      groupName: 'Hubble CLI Enterprise',
+      groupSlug: 'hubble-cli-ee',
+      ignoreUnstable: false,
+      labels: [
+        'renovate/stop-updating',
+        'kind/enhancement',
+        'release-note/misc',
+      ],
+      matchDepNames: [
+        'isovalent/hubble-releases',
+      ],
+    },
+    {
+      groupName: 'all github action dependencies in enterprise workflows',
+      groupSlug: 'all-github-action',
+      matchFileNames: [
+        '.github/workflows/enterprise-*',
       ],
       excludeDepNames: [
         "quay.io/cilium/kindest-node"
@@ -123,115 +127,115 @@
       ]
     },
     {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
+      matchPackageNames: [
+        'docker.io/library/golang',
+        'go',
       ],
-      "allowedVersions": "<1.23",
-      "matchBaseBranches": [
-        "v1.14-ce",
-        "v1.15-ce",
-        "v1.16-ce",
-        "v1.17-ce",
-      ]
-    },
-    {
-      "groupName": "all kind-images",
-      "groupSlug": "all-kind-images",
-      "matchPackageNames": [
-        "kindest/node",
-        "quay.io/cilium/kindest-node"
-      ],
-      "matchUpdateTypes": [
-        "digest",
-        "patch",
-        "pin",
-        "pinDigest"
-      ],
-      "schedule": [
-        "on monday"
+      allowedVersions: '<1.23',
+      matchBaseBranches: [
+        'v1.14-ce',
+        'v1.15-ce',
+        'v1.16-ce',
+        'v1.17-ce',
       ],
     },
     {
-      "matchDepNames": [
-        "quay.io/lvh-images/complexity-test",
-        "quay.io/lvh-images/kind"
+      groupName: 'all kind-images',
+      groupSlug: 'all-kind-images',
+      matchPackageNames: [
+        'kindest/node',
+        'quay.io/cilium/kindest-node',
       ],
-      "versioning": "regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
+      matchUpdateTypes: [
+        'digest',
+        'patch',
+        'pin',
+        'pinDigest',
+      ],
+      schedule: [
+        'on monday',
+      ],
+    },
+    {
+      matchDepNames: [
+        'quay.io/lvh-images/complexity-test',
+        'quay.io/lvh-images/kind',
+      ],
+      versioning: 'regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$',
     },
     {
       // Do not allow any updates for major.minor, they will be done by maintainers
-      "enabled": false,
-      "matchPackageNames": [
-        "quay.io/lvh-images/complexity-test",
-        "quay.io/lvh-images/kind",
-        "kindest/node",
-        "quay.io/cilium/kindest-node"
+      enabled: false,
+      matchPackageNames: [
+        'quay.io/lvh-images/complexity-test',
+        'quay.io/lvh-images/kind',
+        'kindest/node',
+        'quay.io/cilium/kindest-node',
       ],
-      "matchUpdateTypes": [
-        "major",
-        "minor"
+      matchUpdateTypes: [
+        'major',
+        'minor',
       ],
     },
     {
       // References to base images in Dockerfiles
-      groupName: "base-images",
+      groupName: 'base-images',
       matchFileNames: [
-        "enterprise/**/Dockerfile",
+        'enterprise/**/Dockerfile',
       ],
       matchPackageNames: [
-        "registry.redhat.io/ubi9",
-        "quay.io/isovalent-dev",
+        'registry.redhat.io/ubi9',
+        'quay.io/isovalent-dev',
       ],
-      versioning: "semver",
+      versioning: 'semver',
     },
     {
-      "matchPackageNames": [
-        "quay.io/cilium/kindest-node"
+      matchPackageNames: [
+        'quay.io/cilium/kindest-node',
       ],
-      "ignoreUnstable": false,
+      ignoreUnstable: false,
     },
     {
-      "matchFileNames": [
-        "install/kubernetes/**"
+      matchFileNames: [
+        'install/kubernetes/**',
       ],
-      "postUpgradeTasks": {
-        "commands": [
-          "make -C install/kubernetes update-versions check-values-yaml docs lint",
-          "make -C Documentation update-helm-values"
+      postUpgradeTasks: {
+        commands: [
+          'make -C install/kubernetes update-versions check-values-yaml docs lint',
+          'make -C Documentation update-helm-values',
         ],
-        "fileFilters": [
-          "install/kubernetes/Makefile.values",
-          "install/kubernetes/cilium/README.md",
-          "install/kubernetes/cilium/values.yaml",
-          "Documentation/helm-values.rst"
+        fileFilters: [
+          'install/kubernetes/Makefile.values',
+          'install/kubernetes/cilium/README.md',
+          'install/kubernetes/cilium/values.yaml',
+          'Documentation/helm-values.rst',
         ],
-        "executionMode": "update"
-      }
+        executionMode: 'update',
+      },
     },
     {
       // Disable dep updates for clickhouse until we sort out how to manage it
-      "enabled": false,
-      "groupName": "clickhouse server",
-      "matchDepNames": [
-        "docker.io/clickhouse/clickhouse-server",
-        "clickhouse/clickhouse-server"
+      enabled: false,
+      groupName: 'clickhouse server',
+      matchDepNames: [
+        'docker.io/clickhouse/clickhouse-server',
+        'clickhouse/clickhouse-server',
       ],
     },
     {
       // Group hubble dependencies together and request review from hubble
-      "groupName": "Hubble dependencies",
-      "groupSlug": "hubble-dependencies",
-      "matchDepNames": [
-        "quay.io/isovalent/vector",
-        "quay.io/isovalent/hubble-rbac",
-        "quay.io/isovalent/hubble-timescape",
-        "quay.io/isovalent/hubble-timescape-ui",
-        "quay.io/isovalent/hubble-k8s-exporter",
-        "github.com/isovalent/hubble-timescape/api", // API go module needs to be updated at the same time for e2e to pass.
+      groupName: 'Hubble dependencies',
+      groupSlug: 'hubble-dependencies',
+      matchDepNames: [
+        'quay.io/isovalent/vector',
+        'quay.io/isovalent/hubble-rbac',
+        'quay.io/isovalent/hubble-timescape',
+        'quay.io/isovalent/hubble-timescape-ui',
+        'quay.io/isovalent/hubble-k8s-exporter',
+        'github.com/isovalent/hubble-timescape/api', // API go module needs to be updated at the same time for e2e to pass.
       ],
-      "reviewers": [
-        "isovalent/hubble",
+      reviewers: [
+        'isovalent/hubble',
       ],
     },
   ],
