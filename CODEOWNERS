@@ -786,6 +786,7 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-*fqdn-ha*.yaml @isovalent/dns-proxy
 /.github/workflows/enterprise-kind.yaml @isovalent/dns-proxy
 /.github/workflows/enterprise-kind-hubble-rbac.yaml @isovalent/hubble
+/.github/workflows/enterprise-kind-integrated-timescape.yaml @isovalent/timescape
 /.github/workflows/enterprise-lb.yaml @isovalent/isovalent-loadbalancer
 /.github/workflows/enterprise-lb-dashboards.yaml @isovalent/isovalent-loadbalancer
 /.github/workflows/enterprise-multi-network.yaml @isovalent/multi-network

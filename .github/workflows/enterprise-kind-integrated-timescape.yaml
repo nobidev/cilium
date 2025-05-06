@@ -11,10 +11,29 @@ on:
       - 'Documentation/**'
       - 'test/**'
 
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
+
 permissions: read-all
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
   cancel-in-progress: true
 
 env:
@@ -50,10 +69,13 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo ${version}
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHA="${{ inputs.SHA }}"
-          else
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SHA="${{ github.sha}}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            echo "Unknown event_name ${{ github.event_name }}"
+            exit 1
           fi
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
