@@ -39,6 +39,7 @@ concurrency:
 env:
   helm_chart_repo: oci://quay.io/isovalent-charts-dev/cilium
   kind_config: ".github/kind-config.yaml"
+  job_name: "Integrated Timescape E2E test"
 
 jobs:
   test-integrated-timescape:
@@ -85,6 +86,14 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.5
+
+      - name: Prepare environment
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
+          go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
 
       - name: Configure Git to be able to access isovalent repositories
         run: |
@@ -159,9 +168,23 @@ jobs:
           TEST_HUBBLE_OBSERVE_TLS: true
           TEST_PUSH_API_CLIENT_CRT: ${{ github.workspace }}/client.crt
           TEST_PUSH_API_CLIENT_KEY: ${{ github.workspace }}/client.key
+          CODEOWNERS_PATH: ../../CODEOWNERS,../../TESTOWNERS.enterprise
+          JUNIT_PATH: ../../test/${{ env.job_name }}.xml
         run: |
           cd enterprise/hubble-timescape
-          go test -count=1 -tags enterprise_integrated_timescape_e2e ./tests/...
+          go test -count=1 \
+              -tags enterprise_integrated_timescape_e2e \
+              -json \
+              ./tests/... \
+          | tee >(go-junit-report \
+                      -parser gojson \
+                      -p owner=@isovalent/timescape \
+                      -code-owners="$CODEOWNERS_PATH" \
+                      -code-owners-prefix github.com/isovalent/cilium/ \
+                      -out "$JUNIT_PATH") \
+                >(tparse -follow) \
+                >/dev/null \
+          | cat # Wait for all output to complete
         shell: bash
 
       - name: Cleanup
@@ -185,3 +208,27 @@ jobs:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Fetch JUnits
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits-${{ env.job_name }}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
