@@ -823,6 +823,8 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/mixedrouting.go @isovalent/clustermesh
 /cilium-cli/enterprise/hooks/connectivity/tests/multicast.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
+/cilium-cli/enterprise/hooks/connectivity_ingress.go @isovalent/service-mesh
+/cilium-cli/enterprise/hooks/manifests/ingress-policy/ @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
