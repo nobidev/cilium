@@ -88,7 +88,7 @@ func (ec *EnterpriseConnectivity) addConnectivityTests(cts ...*check.Connectivit
 		return err
 	}
 
-	if err := ec.addIngressPolicyTests(cts[0]); err != nil {
+	if err := ec.addIngressPolicyTests(cts[0], templates); err != nil {
 		return err
 	}
 
