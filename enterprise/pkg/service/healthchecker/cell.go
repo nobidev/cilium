@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -25,24 +26,25 @@ var Cell = cell.Module(
 	"Service Health Checker",
 
 	//exhaustruct:ignore
-	cell.Config(config{}),
+	cell.Config(Config{}),
 	cell.Provide(registerActiveHealthChecker),
 )
 
-type config struct {
+type Config struct {
 	EnableActiveLbHealthChecking bool
 }
 
-func (r config) Flags(flags *pflag.FlagSet) {
+func (r Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-active-lb-health-checking", false, "Enable active health checking on loadbalancer services")
 }
 
 func registerActiveHealthChecker(
 	lifecycle cell.Lifecycle,
 	logger *slog.Logger,
-	cfg config,
+	cfg Config,
+	lbConfig lb.Config,
 ) healthCheckerResult {
-	if !cfg.EnableActiveLbHealthChecking {
+	if !cfg.EnableActiveLbHealthChecking || lbConfig.EnableExperimentalLB {
 		return healthCheckerResult{}
 	}
 
