@@ -5,7 +5,8 @@ db/initialized
 db/list health --index=level --format=json --out=degraded.actual Degraded
 * cmp empty degraded.actual
 
-db/cmp policy-config policyconfig.state.expected.1 
+# Validate that worker1 is present in the groupStatus.
+* db/cmp policy-config policyconfig.state.expected.1
 
 k8s/add ciliumnode2.yaml
 
