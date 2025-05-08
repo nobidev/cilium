@@ -91,8 +91,8 @@ github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 h1:+ngKgrYPPJr
 github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79/go.mod h1:FecbI9+v66THATjSRHfNgh1IVFe/9kFxbXtjV0ctIMA=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/isovalent/hubble-timescape/api v1.7.0 h1:oMUrGruAB/pihLxBIqYKvpG6qGlC5IOP1RicAQwU42A=
-github.com/isovalent/hubble-timescape/api v1.7.0/go.mod h1:eDXEftOF7L4lKOXQRnllnvmGZ0QwHO+rjORbM+3HBiA=
+github.com/isovalent/hubble-timescape/api v1.7.1 h1:VvkMG72Q1LyMEunvrkassrWtLwwgpWRiqC5yWlceHZM=
+github.com/isovalent/hubble-timescape/api v1.7.1/go.mod h1:Qr17OrqUyYBhy9GnE4WyRy7Us+2cjQIF7VAgTqgkCz8=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
