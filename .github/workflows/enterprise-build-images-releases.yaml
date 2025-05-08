@@ -120,7 +120,6 @@ jobs:
         with:
           name: image-digest cilium-envoy-ubi
           path: image-digest
-          retention-days: 10
 
   build-and-push:
     timeout-minutes: 45
@@ -286,7 +285,6 @@ jobs:
         with:
           name: image-digest ${{ matrix.name }}-${{ matrix.postfix }}
           path: image-digest
-          retention-days: 10
 
 
   build-and-push-clife:
@@ -459,7 +457,6 @@ jobs:
         with:
           name: image-digest clife
           path: image-digest
-          retention-days: 10
 
   image-digests:
     name: Display Digests
