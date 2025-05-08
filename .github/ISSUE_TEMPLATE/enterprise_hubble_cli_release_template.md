@@ -12,8 +12,8 @@ assignees: ''
 > [!IMPORTANT]
 > When a new Cilium Enterprise release tag gets pushed, [Hubble CLI release workflow] gets triggered.
 > Hubble CLI gets released only from the latest stable branch. For example, if the current supported
-> versions are v1.14-ce, v1.15-ce, and v1.16-ce, Hubble CLI gets released from v1.16-ce branch. Ignore
-> workflow runs from v1.14-ce and v1.15-ce branches.
+> versions are v1.15-ce, and v1.16-ce, Hubble CLI gets released from v1.16-ce branch. Ignore
+> workflow runs from v1.15-ce branches.
 
 - [ ] Ask [Hubble team] to approve the [Hubble CLI release workflow] run.
 - [ ] Wait for the workflow to finish. A draft release gets pushed to [isovalent/hubble-releases repo].
