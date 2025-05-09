@@ -207,7 +207,7 @@ features:
       bpf.datapathMode: "lb-only"
 
   DatapathIPModeDualStack:
-    maturity: Beta
+    maturity: Limited
     description: |
       Enable dual-stack IPv4+IPv6 datapath, enabled by having both ipv4-enabled and ipv6-enabled set to true
     flags:
