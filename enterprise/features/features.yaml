@@ -318,7 +318,7 @@ features:
       encryption.type: ipsec
 
   EncryptionWireguard:
-    maturity: Limited
+    maturity: Stable
     description: |
       Transparent Wireguard encryption for all traffic between Cilium endpoints
     flags:
