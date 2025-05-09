@@ -13,6 +13,7 @@ package egressgatewayha
 import (
 	"context"
 	"maps"
+	"net"
 	"testing"
 
 	hiveExt "github.com/cilium/hive"
@@ -20,18 +21,36 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
+	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -90,6 +109,117 @@ func TestOperatorScripts(t *testing.T) {
 		}, []string{}, "testdata/operator_*.txtar")
 }
 
+func TestAgentScripts(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
+	ctx := t.Context()
+
+	// Set the node name to be "localnode1" for all the tests.
+	nodeTypes.SetName("localnode1")
+
+	scripttest.Test(t,
+		ctx,
+		func(t testing.TB, args []string) *script.Engine {
+			h := hive.New(
+				k8sFake.FakeClientCell(),
+				daemonk8s.ResourcesCell,
+				daemonk8s.NamespaceTableCell,
+				agent.Cell,
+
+				Cell,
+				sysctl.Cell,
+
+				// Note: We use the default local node store, and setup the node obj
+				// using the mock node sync type.
+				node.LocalNodeStoreCell,
+				endpointmanager.Cell,
+				garp.Cell,
+
+				testCell,
+
+				PolicyCell,
+				cell.Config(metrics.RegistryConfig{}),
+				cell.Provide(
+					metrics.NewRegistry,
+					// LocalNodeSynchronizer syncs via apiserver, after the node is initialized, generally
+					// using local stored config (if available) in daemon package.
+					func() (*gc.GC, ctmap.GCRunner) {
+						return &gc.GC{}, ctmap.NewFakeGCRunner()
+					},
+					func() node.LocalNodeSynchronizer {
+						return &mockNodeSync{}
+					},
+
+					func() *option.DaemonConfig {
+						return &option.DaemonConfig{
+							EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
+								EnableIPv4EgressGatewayHA: true,
+							},
+							EnableBPFMasquerade:    true,
+							EnableIPv4Masquerade:   true,
+							IdentityAllocationMode: option.IdentityAllocationModeCRD,
+							EnableHealthChecking:   true,
+							Debug:                  false,
+						}
+					},
+
+					func() cache.IdentityAllocator {
+						m := testidentity.NewMockIdentityAllocator(nil)
+						_, _, err := m.AllocateIdentity(context.TODO(),
+							labels.NewLabelsFromSortedList("k8s:foo=bar"),
+							false,
+							30000,
+						)
+						assert.NoError(t, err)
+						return m
+					},
+
+					tables.NewDeviceTable,
+					func(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+						db.RegisterTable(devices)
+						return devices
+					},
+					tables.NewNodeAddressTable,
+					func(db *statedb.DB, na statedb.RWTable[tables.NodeAddress]) statedb.Table[tables.NodeAddress] {
+						db.RegisterTable(na)
+						return na
+					},
+
+					func() *signaler.BGPCPSignaler {
+						return signaler.NewBGPCPSignaler()
+					},
+				),
+
+				cell.Invoke(func(*Manager) {}),
+			)
+
+			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+			h.RegisterFlags(flags)
+
+			t.Cleanup(func() {
+				assert.NoError(t, h.Stop(log, context.TODO()))
+			})
+			cmds, err := h.ScriptCommands(log)
+			require.NoError(t, err, "ScriptCommands")
+			maps.Insert(cmds, maps.All(script.DefaultCmds()))
+			return &script.Engine{
+				Cmds:          cmds,
+				RetryInterval: 1500 * time.Millisecond,
+			}
+		}, []string{}, "testdata/agent_*.txtar")
+}
+
+var testCell = cell.Group(
+	testCommandsCell,
+	cell.Provide(
+		func() egressmapha.PolicyConfig {
+			return egressmapha.DefaultPolicyConfig
+		},
+		egressmapha.CreatePrivatePolicyMapV2,
+		egressmapha.CreatePrivateCtMap,
+	),
+)
+
 type mockHealthChecker struct{}
 
 func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]healthcheck.ProbeMode) {
@@ -103,4 +233,19 @@ func (m *mockHealthChecker) Events() chan healthcheck.Event {
 }
 func (m *mockHealthChecker) SetProber(node nodeTypes.Node, mode healthcheck.ProbeMode) bool {
 	return false
+}
+
+type mockNodeSync struct{}
+
+func (m *mockNodeSync) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
+	n.Node = nodeTypes.Node{
+		Name: "localnode1",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("172.18.0.3")},
+		},
+	}
+	return nil
+}
+
+func (m *mockNodeSync) SyncLocalNode(context.Context, *node.LocalNodeStore) {
 }
