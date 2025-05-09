@@ -142,3 +142,41 @@ jobs:
             UPSTREAM_VERSION=${{ needs.check-changes.outputs.version }}
             UPSTREAM_IMAGE=${{ needs.check-changes.outputs.repo }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}
             VERSION=${{ needs.check-changes.outputs.version }}
+
+      - name: Image Release Digest Runtime
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "## ${{ inputs.image-name }}" > image-digest/${{ inputs.image-name }}.txt
+          echo "" >> image-digest/${{ inputs.image-name }}.txt
+          echo "\`quay.io/isovalent/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
+          echo "" >> image-digest/${{ inputs.image-name }}.txt
+
+      - name: Upload artifact digests runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digest ${{ inputs.image-name }}
+          path: image-digest
+
+  image-digests:
+    name: Display Digests
+    runs-on: ubuntu-24.04
+    needs: build-push-image
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          path: image-digest/
+          pattern: "*image-digest *"
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
