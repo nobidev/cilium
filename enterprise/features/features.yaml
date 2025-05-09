@@ -353,6 +353,15 @@ features:
 
   ### Envoy
 
+  EnvoyDaemonSet:
+    maturity: Stable
+    description:
+      Enables running Cilium Envoy as a Daemonset.
+    flags:
+      external-envoy-proxy: true
+    helm:
+      envoy.enabled: true
+
   IngressController:
     maturity: Limited
     description: |
