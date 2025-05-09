@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestLabelBasedBackend_T1T2(t T) {
@@ -27,6 +28,14 @@ func TestLabelBasedBackend_T1Only(t T) {
 func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
+
+	// label based backends are only supported in v1.18 and newer
+	minVersion := ">=1.18.0"
+	currentVersion := getCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
 
 	testK8sNamespace := "default"
 

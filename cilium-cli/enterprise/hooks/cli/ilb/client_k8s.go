@@ -34,18 +34,7 @@ type ciliumCli struct {
 }
 
 func NewCiliumAndK8sCli(f FailureReporter) (*ciliumCli, *k8s.Clientset) {
-	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
-
-	// use KUBECONFIG env var if set
-	kubeConfigEnv := os.Getenv("KUBECONFIG")
-	if kubeConfigEnv != "" {
-		kubeConfigPath = kubeConfigEnv
-	}
-
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-	if err != nil {
-		f.Failedf("failed to read kube config: %s", err)
-	}
+	restConfig := newK8sClientRestConfig(f)
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
@@ -60,6 +49,23 @@ func NewCiliumAndK8sCli(f FailureReporter) (*ciliumCli, *k8s.Clientset) {
 	k8s := k8s.NewForConfigOrDie(restConfig)
 
 	return &ciliumCli{cli}, k8s
+}
+
+func newK8sClientRestConfig(f FailureReporter) *rest.Config {
+	kubeConfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+
+	// use KUBECONFIG env var if set
+	kubeConfigEnv := os.Getenv("KUBECONFIG")
+	if kubeConfigEnv != "" {
+		kubeConfigPath = kubeConfigEnv
+	}
+
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	if err != nil {
+		f.Failedf("failed to read kube config: %s", err)
+	}
+
+	return restConfig
 }
 
 func (c *ciliumCli) CreateLBVIP(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBVIP, opts metav1.CreateOptions) error {
