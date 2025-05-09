@@ -16,6 +16,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -30,17 +31,49 @@ func NewLBTestRun(ctx context.Context) *lbTestRun {
 }
 
 func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
-	runRegexp, err := regexp.Compile(FlagRun)
-	if err != nil {
-		return fmt.Errorf("failed to parse run regexp (%s): %w", FlagRun, err)
+	runRegexp := []*regexp.Regexp{}
+	skipRegexp := []*regexp.Regexp{}
+	for _, r := range FlagRun {
+		if strings.HasPrefix(r, "!") {
+			rgx, err := regexp.Compile(strings.TrimPrefix(r, "!"))
+			if err != nil {
+				return fmt.Errorf("failed to parse run-tests regexp (%s): %w", r, err)
+			}
+			skipRegexp = append(skipRegexp, rgx)
+		} else {
+			rgx, err := regexp.Compile(r)
+			if err != nil {
+				return fmt.Errorf("failed to parse run-tests regexp (%s): %w", r, err)
+			}
+			runRegexp = append(runRegexp, rgx)
+		}
 	}
 
 	testsToExecute := []*LbTestFunc{}
-
 	for _, test := range Tests {
 		tf := NewLBTestFunc(r, ctx, test)
 		testFuncName := tf.Name()
-		if runRegexp.Match([]byte(testFuncName)) {
+
+		skip := false
+		for _, rgx := range skipRegexp {
+			if rgx.Match([]byte(testFuncName)) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
+		for _, rgx := range runRegexp {
+			if rgx.Match([]byte(testFuncName)) {
+				testsToExecute = append(testsToExecute, tf)
+			}
+		}
+
+		// Previously there was only a single regexp: ""
+		// This always matched all test names, so now we need this check.
+		if len(runRegexp) == 0 {
 			testsToExecute = append(testsToExecute, tf)
 		}
 	}

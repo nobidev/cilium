@@ -128,7 +128,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().BoolVar(&ilbCli.FlagUseRemoteAddress, "use-remote-address", true, "Use remote address for client IP in HTTP requests")
 	cmd.Flags().IntVar(&ilbCli.FlagXffNumTrustedHops, "xff-num-trusted-hops", 2, "Number of trusted hops in X-Forwarded-For header")
 
-	cmd.Flags().StringVar(&ilbCli.FlagRun, "run", "", "Run only the tests matching the regular expression (only respecting top level test functions)")
+	cmd.Flags().StringSliceVar(&ilbCli.FlagRun, "run", []string{}, "Run tests that match one of the given regular expressions. If an expression starts with '!', then instead, it specifies tests to be skipped. Provide multiple expressions by providing this flag multiple times.")
 
 	cmd.AddCommand(newCmdLoadbalancerTestList())
 
