@@ -8,7 +8,7 @@
 # or reproduction of this material is strictly forbidden unless prior written
 # permission is obtained from Isovalent Inc.
 
-ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
+ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:e1c4703364c5cb58f5462575dc90345bcd934ddc45e6c32f9c162f2b5617681c
 ARG UPSTREAM_IMAGE=quay.io/cilium/certgen:v0.2.3@sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc
 
 FROM ${UPSTREAM_IMAGE} AS upstream
