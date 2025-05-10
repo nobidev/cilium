@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-micro@sha256:8a6071b01366611fd9433bf9688f5c3150de819874fa2c06c4fcd4c25ea26f03
+ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-micro@sha256:839f16991579b023d4452eadd0efa925e438f8b73063afe4f75bdc6cf7a09b12
 
 FROM docker.io/library/golang:1.13@sha256:8ebb6d5a48deef738381b56b1d4cd33d99a5d608e0d03c5fe8dfa3f68d41a1f8 AS builder
 ADD . /go/src/github.com/cilium/cilium-etcd-operator
