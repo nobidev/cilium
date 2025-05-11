@@ -239,54 +239,58 @@
       ],
     },
   ],
-  "regexManagers": [
+  customManagers: [
     {
-      "fileMatch": [
-        ".github/actions/set-env-variables/enterprise-overrides.sh",
+      customType: 'regex',
+      fileMatch: [
+        '.github/actions/set-env-variables/enterprise-overrides.sh',
       ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+CILIUM_CLI_VERSION=\"(?<currentValue>.*)\"",
-      ]
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+CILIUM_CLI_VERSION="(?<currentValue>.*)"',
+      ],
     },
     {
-      "fileMatch": [
-        "images/cilium/download-hubble-enterprise\\.sh",
+      customType: 'regex',
+      fileMatch: [
+        'images/cilium/download-hubble-enterprise\\.sh',
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version="(?<currentValue>.*)"',
         // The digestVersion in this regex is required for Renovate to be able
         // to match the digest to the pinned version. It will not work without it.
         // Note that for GitHub release artifact digests, you likely want to use
         // github-release-attachments as the datasource here.
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
-      ]
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*="(?<currentDigest>.*)"',
+      ],
     },
     {
-      "fileMatch": [
-        "^\\.github/workflows/enterprise-[^/]+\\.ya?ml$",
+      customType: 'regex',
+      fileMatch: [
+        '^\\.github/workflows/enterprise-[^/]+\\.ya?ml$',
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)(?: registryUrl=(?<registryUrl>.+?))\\s+.+_VERSION: (?<currentValue>.*)",
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)(?: registryUrl=(?<registryUrl>.+?))\\s+.+_VERSION: (?<currentValue>.*)',
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"'
-      ]
+        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+      ],
     },
     {
-      "fileMatch": [
-        "^.github/workflows/enterprise-renovate-config-validator\\.yaml$"
+      customType: 'regex',
+      fileMatch: [
+        '^.github/workflows/enterprise-renovate-config-validator\\.yaml$',
       ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
-      ]
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE="(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+      ],
     },
-  ]
+  ],
 }
