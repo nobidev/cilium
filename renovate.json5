@@ -111,20 +111,20 @@
       matchFileNames: [
         '.github/workflows/enterprise-*',
       ],
-      excludeDepNames: [
-        "quay.io/cilium/kindest-node"
+      matchUpdateTypes: [
+        'major',
+        'minor',
+        'digest',
+        'patch',
+        'pin',
+        'pinDigest',
       ],
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "digest",
-        "patch",
-        "pin",
-        "pinDigest"
+      schedule: [
+        'on monday',
       ],
-      "schedule": [
-        "on monday"
-      ]
+      matchDepNames: [
+        '!quay.io/cilium/kindest-node',
+      ],
     },
     {
       matchPackageNames: [
