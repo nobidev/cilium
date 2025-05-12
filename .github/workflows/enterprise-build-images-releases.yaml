@@ -307,6 +307,13 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Setup go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.2
+
       - name: Getting image tag
         id: tag
         run: |
@@ -343,6 +350,8 @@ jobs:
         env:
           IMG: "${{ steps.tag.outputs.image_tag }}"
           CL_TAG: "${{ steps.tag.outputs.tag }}"
+          CL_REGISTRY: "quay.io/${{ env.QUAY_ORGANIZATION }}"
+          CL_IS_CI: false
         working-directory: ./enterprise/olm
         run: |
           make docker-buildx
@@ -354,6 +363,7 @@ jobs:
           IMG: "${{ steps.tag.outputs.image_tag }}"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
         run: |
+          VERSION="${VERSION#v}"
           make bundle
           make bundle-build
           make bundle-push
@@ -369,11 +379,14 @@ jobs:
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
         run: |
-          channel="${{ steps.tag.outputs.tag }}"
-          channel="${channel#v}"
+          VERSION="${VERSION#v}"
+          channel="${VERSION}"
           # separate channels per minor version
           channel=$(cut -d '.' -f 1,2 <<< "${channel}")
-          make catalog-dev-build CHANNEL=${channel}
+          if [[ ${VERSION} =~ "beta" ]]; then
+            channel="${channel}-beta"
+          fi
+          make catalog-dev-build CHANNEL=${channel} DEFAULT_CHANNEL="1.17"
           make catalog-dev-push
 
       - name: Clife digests
@@ -382,7 +395,7 @@ jobs:
         run: |
           digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag }}")
           echo clife=${digest} >> $GITHUB_OUTPUT
-          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}")
+          digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}")
           echo bundle=${digest} >> $GITHUB_OUTPUT
           digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0")
           echo catalog=${digest} >> $GITHUB_OUTPUT
@@ -393,8 +406,8 @@ jobs:
       - name: Sign Container Images
         run: |
           cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.clife }}
-          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.bundle }}
-          cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.catalog }}
+          cosign sign -y ${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}@${{ steps.clife_docker_digests.outputs.bundle }}
+          cosign sign -y ${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0@${{ steps.clife_docker_digests.outputs.catalog }}
 
       - name: Generate SBOM for CLife
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
@@ -413,12 +426,12 @@ jobs:
         with:
           artifact-name: sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
-          image: "${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}"
+          image: "${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}"
           upload-release-assets: false
 
       - name: Attach SBOM attestation to the bundle container image
         run: |
-          cosign attest -r -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}
+          cosign attest -r -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM for the catalog
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
@@ -443,7 +456,7 @@ jobs:
 
           echo "### clife bundle" > image-digest/clife-bundle.txt
           echo "" >> image-digest/clife-bundle.txt
-          echo "\`${{ steps.tag.outputs.image_tag_base }}-bundle:v${{ steps.tag.outputs.image_tag }}@${{ steps.clife_docker_digests.outputs.bundle }}\`" >> image-digest/clife-bundle.txt
+          echo "\`${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}@${{ steps.clife_docker_digests.outputs.bundle }}\`" >> image-digest/clife-bundle.txt
           echo "" >> image-digest/clife-bundle.txt
 
           echo "### clife catalog" > image-digest/clife-catalog.txt

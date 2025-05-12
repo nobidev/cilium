@@ -19,6 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 olm_dir="${root_dir}/enterprise/olm"
 tag="$(git rev-parse --short HEAD)"
 bundle_version="${BUNDLE_VERSION:-${tag}}"
+default_channel="${DEFAULT_CHANNEL:-main-ce}"
 channel="${CHANNEL:-main-ce}"
 repo_base_name="${IMAGE_TAG_BASE:-quay.io/isovalent-dev/clife-ci}"
 catalog_tag="${CATALOG_TAG:-latest}"
@@ -29,9 +30,9 @@ if docker manifest inspect ${repo_base_name}-catalog:${catalog_tag}; then
 else
   # Used for bootstrapping
   # TODO: check that the reinitilization of the catalog is not triggered by a connectivity or quay issue
-  docker run --rm -v "${olm_dir}":/workdir quay.io/operator-framework/opm:${opm_version} init clife --default-channel=main-ce --description=/workdir/catalog-README.md --icon=/workdir/isovalent.svg --output yaml > "${olm_dir}/catalog-dev/index.yaml"
+  docker run --rm -v "${olm_dir}":/workdir quay.io/operator-framework/opm:${opm_version} init clife --default-channel="${default_channel}" --description=/workdir/catalog-README.md --icon=/workdir/isovalent.svg --output yaml > "${olm_dir}/catalog-dev/index.yaml"
 fi
-bundle=$(docker run --rm -v "${olm_dir}":/workdir mikefarah/yq:${yq_version} ".name | select(. == \"clife.${bundle_version}\")" /workdir/catalog-dev/index.yaml)
+bundle=$(docker run --rm -v "${olm_dir}":/workdir mikefarah/yq:${yq_version} ".name | select(. == \"clife.v${bundle_version}\")" /workdir/catalog-dev/index.yaml)
 if [ -n "$bundle" ]; then
   printf "Bundle clife.%s already present in catalog index\n" "${bundle_version}"
 else
@@ -40,7 +41,7 @@ else
 fi
 
 # Add the channel if it does not exist
-channel_snippet="---\nschema: olm.channel\npackage: clife\nname: ${channel}\nentries:"
+channel_snippet="---\nschema: olm.channel\npackage: clife\nname: \"${channel}\"\nentries:"
 channel_yaml=$(docker run --rm -v "${olm_dir}":/workdir mikefarah/yq:${yq_version} ". | select (.schema == \"olm.channel\" and .name == \"${channel}\")" /workdir/catalog-dev/index.yaml)
 if [ -z "$channel_yaml" ]; then
   printf "Adding the channel %s to the catalog\n" "${channel}"
