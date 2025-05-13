@@ -30,7 +30,6 @@
     'v1.17-ce',
     'v1.16-ce',
     'v1.15-ce',
-    'v1.14-ce',
   ],
   vulnerabilityAlerts: {
     enabled: true,
