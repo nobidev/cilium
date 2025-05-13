@@ -358,7 +358,7 @@ jobs:
           CL_IS_CI: false
         working-directory: ./enterprise/olm
         run: |
-          make docker-buildx
+          make docker-buildx VERSION=${{ steps.tag.outputs.tag }}
 
       - name: OLM Bundle Build and Push
         working-directory: ./enterprise/olm

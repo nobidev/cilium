@@ -242,7 +242,7 @@ jobs:
           CL_TAG: "${{ steps.vars.outputs.sha }}"
         working-directory: ./enterprise/olm
         run: |
-          make docker-buildx
+          make docker-buildx VERSION=${{ steps.vars.outputs.sha }}
 
       - name: Checkout the OpenShift CuTE repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

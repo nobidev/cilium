@@ -27,7 +27,31 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o cl
 
 # Use distroless as minimal base image to package the manager binary
 FROM registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
+
+LABEL name="CLife, Cilium lifecycle operator of Isovalent Networking for Kubernetes" \
+      maintainer="support@isovalent.com" \
+      vendor="Isovalent" \
+      release="1" \
+      summary="CLife, Cilium lifecycle operator of Isovalent Networking for Kubernetes" \
+      description="Image of CLife, Cilium lifecycle operator of Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
+      org.opencontainers.image.authors="Isovalent" \
+      org.opencontainers.image.url="https://isovalent.com" \
+      org.opencontainers.image.documentation="https://isovalent.com/product" \
+      org.opencontainers.image.vendor="Isovalent, part of Cisco" \
+      org.opencontainers.image.title="Isovalent Networking for Kubernetes CLife image" \
+      org.opencontainers.image.description="Image of the Cilium lifecycle operator of Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
+      io.k8s.description="Image of the Cilium lifecycle operator of Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
+      io.k8s.display-name="CLife, Cilium lifeycle operator of Isovalent Networking for Kubernetes"
+ARG BUILD_DATE
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL build-date="${BUILD_DATE}"
+ARG VERSION=0.0.0
+LABEL version=${VERSION}
+
 WORKDIR /
+COPY LICENSE /usr/share/licenses/isovalent/
+COPY LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies
+RUN ln -s /usr/share/licenses /licenses
 COPY --from=builder /workspace/clife-manager .
 COPY manifests/ manifests/
 USER 65532:65532

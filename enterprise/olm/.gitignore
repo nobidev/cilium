@@ -28,3 +28,9 @@ go.work
 *.swp
 *.swo
 *~
+
+# Generated list of open source licenses
+LICENSE.all
+
+# vendor dir generated only for getting the licenses
+vendor

@@ -72,6 +72,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+BUILD_DATE=$$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
 .PHONY: all
 all: build
 
@@ -146,11 +148,15 @@ build: manifests generate fmt sync-helm-manifests vet set-images ## Build manage
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+licenses-all: ## Generate a file with the licenses of all the dependencies.
+	go mod vendor
+	go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
+
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: sync-helm-manifests set-images ## Build docker image with the manager.
+docker-build: sync-helm-manifests set-images licenses-all ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
@@ -165,13 +171,13 @@ docker-push: ## Push docker image with the manager.
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
 PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
-docker-buildx: sync-helm-manifests set-images ## Build and push docker image for the manager for cross-platform support
+docker-buildx: sync-helm-manifests set-images licenses-all ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
+	$(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm project-v3-builder
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} --build-arg VERSION=${VERSION} --build-arg BUILD_DATE=$(BUILD_DATE) -f Dockerfile.cross .
+	$(CONTAINER_TOOL) buildx rm project-v3-builder
 	rm Dockerfile.cross
 
 .PHONY: build-installer
