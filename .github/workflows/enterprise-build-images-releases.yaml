@@ -87,13 +87,16 @@ jobs:
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
+        if: ${{ steps.version.outputs.exist == 'false' }}
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: Sign Container Images
+        if: ${{ steps.version.outputs.exist == 'false' }}
         run: |
           cosign sign -y quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
+        if: ${{ steps.version.outputs.exist == 'false' }}
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
           artifact-name: sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json
@@ -102,6 +105,7 @@ jobs:
           upload-release-assets: false
 
       - name: Attach SBOM attestation to container image
+        if: ${{ steps.version.outputs.exist == 'false' }}
         run: |
           cosign attest -r -y --predicate sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
 
