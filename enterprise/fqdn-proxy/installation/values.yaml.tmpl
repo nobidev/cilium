@@ -77,25 +77,5 @@ dnsPolicy: ""
 nodeSelector:
   kubernetes.io/os: linux
 
-# -- Enable compatibility with older versions of cilium-agent.
-# This enables additional logic to ensure compatibility with the specified
-# version of cilium-agent. This can be disabled (via empty string) if you are
-# are running with matching versions for cilium-dnsproxy and cilium-agent.
-# Supported values: "", "1.13"
-upgradeCompatibility: "1.13"
-
-# -- iptables container used for upgrade compatibility
-iptables:
-  image:
-    override: ~
-    repository: registry.k8s.io/build-image/distroless-iptables
-    tag: v0.4.1@sha256:6b7fef6529c4f47e40b38eb07f3de832f1c8a808ed0a895408053d00c34b6c86
-    imagePullPolicy: IfNotPresent
-  securityContext:
-    capabilities:
-      add:
-        - NET_ADMIN
-        - SYS_MODULE
-
 # -- Annotations to add to cilium-dnsproxy DaemonSet
 annotations: {}

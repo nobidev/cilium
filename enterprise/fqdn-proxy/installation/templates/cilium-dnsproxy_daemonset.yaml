@@ -64,41 +64,6 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 6 }}
 {{- end }}
-{{- if eq .Values.upgradeCompatibility "1.13" }}
-      initContainers:
-      - name: upgrade-compatibility
-        image: "{{ if .Values.iptables.image.override }}{{ .Values.iptables.image.override }}{{ else }}{{ .Values.iptables.image.repository }}:{{ .Values.iptables.image.tag }}{{ end }}"
-        imagePullPolicy: {{ .Values.iptables.image.imagePullPolicy }}
-        command:
-          - sh
-          - -c
-          - |
-            {{- .Files.Get "files/ensure-cilium-v114-rules.sh" | nindent 12 }}
-        env:
-          - name: CILIUM_ENABLE_IPV4
-            valueFrom:
-              configMapKeyRef:
-                key: enable-ipv4
-                name: cilium-config
-                optional: true
-          - name: CILIUM_ENABLE_IPV6
-            valueFrom:
-              configMapKeyRef:
-                key: enable-ipv6
-                name: cilium-config
-                optional: true
-        terminationMessagePolicy: FallbackToLogsOnError
-{{- with .Values.iptables.securityContext }}
-        securityContext:
-          {{- toYaml . | nindent 10 }}
-{{- end }}
-        volumeMounts:
-          - name: lib-modules
-            mountPath: /lib/modules
-            readOnly: true
-          - name: xtables-lock
-            mountPath: /run/xtables.lock
-{{- end }}
       containers:
       - command:
         - dnsproxy
@@ -229,7 +194,7 @@ spec:
 {{- end }}
       hostNetwork: true
       restartPolicy: Always
-      priorityClassName: {{ include "priorityClass" (list $ .Values.priorityClassName "system-node-critical") }} 
+      priorityClassName: {{ include "priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       terminationGracePeriodSeconds: 1
