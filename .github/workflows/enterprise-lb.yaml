@@ -247,6 +247,8 @@ jobs:
              --helm-set=debug.enabled=true \
              --helm-set=debug.verbose="envoy datapath" \
              --helm-set=envoy.dnsPolicy=ClusterFirstWithHostNet \
+             --helm-set=envoy.startupProbe.enabled=false \
+             --helm-set=envoy.livenessProbe.enabled=false \
              --helm-set=envoyConfig.enabled=true \
              --helm-set=bpf.monitorAggregation=none \
              --helm-set=bpf.lbAlgorithmAnnotation=true \

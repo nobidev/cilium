@@ -12,6 +12,11 @@ debug:
   enabled: true
   verbose: "envoy datapath"
 envoy:
+  # disable probes to prevent k8s kubelet killing the Pods during maintenance / draining.
+  startupProbe:
+    enabled: false
+  livenessProbe:
+    enabled: false
   prometheus:
     enabled: true
     serviceMonitor:
