@@ -197,9 +197,10 @@ func (r *importVPNRouteReconciler) reconcileRIB(
 	for vrfID, desiredRoutes := range desired {
 		if currentRoutes, found := current[vrfID]; found {
 			trie := bitlpm.NewCIDRTrie[*rib.Route]()
-			desiredRoutes.ForEach(func(prefix netip.Prefix, route *rib.Route) bool {
-				if _, found := currentRoutes.ExactLookup(prefix); !found {
-					trie.Upsert(prefix, route)
+			desiredRoutes.ForEach(func(prefix netip.Prefix, desiredRoute *rib.Route) bool {
+				currentRoute, found := currentRoutes.ExactLookup(prefix)
+				if !found || !desiredRoute.Equal(currentRoute) {
+					trie.Upsert(prefix, desiredRoute)
 				}
 				return true
 			})
