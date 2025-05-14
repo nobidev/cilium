@@ -1,0 +1,94 @@
+#! --cluster-id=1 --cluster-name=cluster1 --enable-cluster-aware-addressing=false --enable-phantom-services=false
+
+hive/start
+db/initialized
+
+# 1. Create a service to which add the external backends.
+k8s/add service.yaml
+
+# 2. Add the test/echo service from "cluster2"
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# The frontends should include one entry, associated with the external backend.
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# 3. Switch test/echo to be a phantom service (includeExternal=false)
+sed '"includeExternal": true' '"includeExternal": false' clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# The frontend should still be there, but not associated with any backends,
+# given that phantom services are disabled.
+db/cmp frontends frontends-without-backends.table
+* db/empty backends
+
+# 4. Switch test/echo to be again a global service (includeExternal=true)
+sed '"includeExternal": false' '"includeExternal": true' clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# The frontends should still be there, associated with the external backend again.
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+###
+
+-- frontends.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:90/TCP    ClusterIP  test/echo           Done    20.0.0.2:9090/TCP
+
+-- frontends-without-backends.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:90/TCP    ClusterIP  test/echo           Done
+
+-- backends.table --
+Address              Instances         NodeName
+20.0.0.2:9090/TCP    test/echo (tcp)
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 90
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "shared": true,
+  "includeExternal": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "frontends": {
+	  "10.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 90
+      }
+	  }
+  },
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}

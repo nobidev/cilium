@@ -1,0 +1,206 @@
+#! --cluster-id=1 --cluster-name=cluster1 --enable-cluster-aware-addressing=false --enable-phantom-services=true
+
+hive/start
+db/initialized
+
+# 1. Add the test/echo service from local and from "cluster2"
+k8s/add service.yaml endpointslice.yaml
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# Backends will contain both the local backend and the one from cluster2.
+# Since the cluster service is not a phantom service both of these backends
+# are associated with the same frontend.
+db/cmp backends backends.table
+db/cmp frontends frontends.table
+
+# 2. Add a phantom service from cluster 3 with the same name
+kvstore/update cilium/state/services/v1/cluster3/test/echo clusterservice3_phantom.json
+db/cmp backends backends_one_phantom.table
+db/cmp frontends frontends_one_phantom.table
+
+# 3. Switch test/echo from cluster 2 to also be a phantom service (includeExternal=false)
+sed '"includeExternal": true' '"includeExternal": false' clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+db/cmp backends backends_two_phantoms.table
+db/cmp frontends frontends_two_phantoms.table
+
+# 4. Revert back to non-phantom
+sed '"includeExternal": false' '"includeExternal": true' clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+
+# Frontend should be removed
+db/cmp frontends frontends_one_phantom.table
+
+# 5. Remove the non-phantom service from cluster 2
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+
+# Backends from cluster 2 should be removed
+db/cmp backends backends_phantom_3.table
+db/cmp frontends frontends_phantom_3.table
+
+# 6. Add back as phantom service to test deletion
+sed '"includeExternal": true' '"includeExternal": false' clusterservice2.json
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+db/cmp backends backends_two_phantoms.table
+db/cmp frontends frontends_two_phantoms.table
+
+# 7. Remove both phantom services
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+kvstore/delete cilium/state/services/v1/cluster3/test/echo
+
+# Frontends and backends should be removed
+db/cmp frontends frontends_only_local.table
+db/cmp backends backends_only_local.table
+
+###
+
+-- backends.table --
+Address              Instances         NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+20.0.0.2:9090/TCP    test/echo (tcp)
+
+-- backends_only_local.table --
+Address              Instances         NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+
+-- backends_one_phantom.table --
+Address              Instances                 NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
+20.0.0.2:9090/TCP    test/echo (tcp)
+30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+
+-- backends_two_phantoms.table --
+Address              Instances                 NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
+20.0.0.2:9090/TCP    cluster2/test/echo (tcp)
+30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+
+-- backends_phantom_3.table --
+Address              Instances                 NodeName
+10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
+30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+
+-- frontends.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo           Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP
+
+-- frontends_only_local.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo           Done    10.1.0.1:8080/TCP
+
+-- frontends_one_phantom.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo           Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP
+30.0.0.1:90/TCP    ClusterIP  cluster3/test/echo  Done    30.0.0.2:9090/TCP
+
+-- frontends_two_phantoms.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo           Done    10.1.0.1:8080/TCP
+20.0.0.1:90/TCP    ClusterIP  cluster2/test/echo  Done    20.0.0.2:9090/TCP
+30.0.0.1:90/TCP    ClusterIP  cluster3/test/echo  Done    30.0.0.2:9090/TCP
+
+-- frontends_phantom_3.table --
+Address            Type       ServiceName         Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo           Done    10.1.0.1:8080/TCP
+30.0.0.1:90/TCP    ClusterIP  cluster3/test/echo  Done    30.0.0.2:9090/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  type: ClusterIP
+
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP
+
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "shared": true,
+  "includeExternal": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "frontends": {
+    "20.0.0.1": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 90
+      }
+    }
+  },
+  "backends": {
+    "20.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+-- clusterservice3_phantom.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "shared": true,
+  "includeExternal": false,
+  "cluster": "cluster3",
+  "clusterID": 3,
+  "frontends": {
+    "30.0.0.1": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 90
+      }
+    }
+  },
+  "backends": {
+    "30.0.0.2": {
+      "tcp": {
+        "Protocol": "TCP",
+        "Port": 9090
+      }
+    }
+  }
+}
+
+
