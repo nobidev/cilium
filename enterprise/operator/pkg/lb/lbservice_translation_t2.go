@@ -187,6 +187,7 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy
 		AccessLog:                     accessLoggers,
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		StatPrefix:                    fmt.Sprintf("%s_%s", model.namespace, model.name),
+		TrafficDirection:              envoy_config_core_v3.TrafficDirection_INBOUND,
 	}
 }
 
@@ -207,6 +208,7 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListener(model *lbService) *envoy
 		ListenerFilters:               r.desiredEnvoyUDPListenerFilters(model),
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		StatPrefix:                    fmt.Sprintf("%s_%s", model.namespace, model.name),
+		TrafficDirection:              envoy_config_core_v3.TrafficDirection_INBOUND,
 	}
 }
 
