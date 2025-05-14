@@ -9,15 +9,7 @@ on:
       - reopened
     paths:
       - enterprise/images/runtime/**
-  # This workflow can be reused so that renovate can execute this workflow_dispatch:
-  # run from a different environment than 'release-base-images'. See
-  # build-images-base-renovate.yaml
   workflow_call:
-    secrets:
-      QUAY_BASE_RELEASE_USERNAME_202411:
-        required: true
-      QUAY_BASE_RELEASE_PASSWORD_202411:
-        required: true
     inputs:
       environment:
         required: true
