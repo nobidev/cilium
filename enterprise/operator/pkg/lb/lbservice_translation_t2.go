@@ -215,12 +215,16 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListener(model *lbService) *envoy
 func (r *lbServiceT2Translator) desiredEnvoyTCPListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
 	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
 
-	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
-		Name: "envoy.filters.listener.tls_inspector",
-		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(&envoy_extensions_filters_listener_tlsinspector_v3.TlsInspector{}),
-		},
-	})
+	// Don't add TLS inspector for TCP proxy to prevent some issues with certain protocols (e.g. mysql).
+	// see https://github.com/envoyproxy/envoy/issues/21044
+	if !model.isTCPProxy() {
+		listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
+			Name: "envoy.filters.listener.tls_inspector",
+			ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_listener_tlsinspector_v3.TlsInspector{}),
+			},
+		})
+	}
 
 	if model.proxyProtocolConfig != nil {
 		// Without this filter, Envoy will not be able to parse the Proxy Protocol header

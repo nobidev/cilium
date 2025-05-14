@@ -86,9 +86,6 @@ spec:
                   - sourceIp: {}
                 statPrefix: tcp_proxy_default_lb-1_0
       listenerFilters:
-        - name: envoy.filters.listener.tls_inspector
-          typedConfig:
-            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
         - name: cilium.bpf_metadata
           typedConfig:
             "@type": type.googleapis.com/cilium.BpfMetadata
