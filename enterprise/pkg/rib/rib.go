@@ -301,6 +301,22 @@ type Route struct {
 	NextHop NextHop
 }
 
+func (r0 *Route) Equal(r1 *Route) bool {
+	if r0 == nil || r1 == nil {
+		return false
+	}
+	if r0.Prefix != r1.Prefix {
+		return false
+	}
+	if r0.Owner != r1.Owner {
+		return false
+	}
+	if r0.Protocol != r1.Protocol {
+		return false
+	}
+	return r0.NextHop.Equal(r1.NextHop)
+}
+
 type Protocol uint8
 
 const (
@@ -356,6 +372,9 @@ type NextHop interface {
 	// type-specific parameters. It must be a single line and short enough
 	// to fit in a terminal window.
 	String() string
+
+	// Equal returns true if the two nexthops are equal
+	Equal(NextHop) bool
 }
 
 type HEncaps struct {
@@ -363,6 +382,25 @@ type HEncaps struct {
 }
 
 func (*HEncaps) isNextHop() {}
+
+func (n0 *HEncaps) Equal(_n1 NextHop) bool {
+	if n0 == nil || _n1 == nil {
+		return false
+	}
+	n1, ok := _n1.(*HEncaps)
+	if !ok {
+		return false
+	}
+	if len(n0.Segments) != len(n1.Segments) {
+		return false
+	}
+	for i, s := range n0.Segments {
+		if s != n1.Segments[i] {
+			return false
+		}
+	}
+	return true
+}
 
 func (s *HEncaps) String() string {
 	segments := make([]string, len(s.Segments))
@@ -377,6 +415,17 @@ type EndDT4 struct {
 }
 
 func (*EndDT4) isNextHop() {}
+
+func (n0 *EndDT4) Equal(_n1 NextHop) bool {
+	if n0 == nil || _n1 == nil {
+		return false
+	}
+	n1, ok := _n1.(*EndDT4)
+	if !ok {
+		return false
+	}
+	return n0.VRFID == n1.VRFID
+}
 
 func (s *EndDT4) String() string {
 	return fmt.Sprintf("End.DT4 vrf %d", s.VRFID)

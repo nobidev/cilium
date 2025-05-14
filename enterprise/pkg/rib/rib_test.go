@@ -17,12 +17,25 @@ import (
 	require "github.com/stretchr/testify/require"
 )
 
-type testNextHop struct{}
+type testNextHop struct {
+	differentiator int
+}
 
-func (m testNextHop) isNextHop() {}
+func (m *testNextHop) isNextHop() {}
 
-func (m testNextHop) String() string {
+func (m *testNextHop) String() string {
 	return "test"
+}
+
+func (m0 *testNextHop) Equal(_m1 NextHop) bool {
+	if m0 == nil || _m1 == nil {
+		return false
+	}
+	m1, ok := _m1.(*testNextHop)
+	if !ok {
+		return false
+	}
+	return m0.differentiator == m1.differentiator
 }
 
 type testDataPlane struct {
@@ -45,7 +58,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:    "owner0",
 			Protocol: ProtocolEBGP,
-			NextHop:  testNextHop{},
+			NextHop:  &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, *route)
@@ -68,7 +81,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:    "owner0",
 			Protocol: ProtocolEBGP,
-			NextHop:  testNextHop{},
+			NextHop:  &testNextHop{},
 		}
 
 		// These upserts should not duplicate the route
@@ -85,14 +98,14 @@ func TestRIB_UpsertRoute(t *testing.T) {
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:    "owner0",
 			Protocol: ProtocolEBGP,
-			NextHop:  testNextHop{},
+			NextHop:  &testNextHop{},
 		}
 
 		route1 := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:    "owner1",
 			Protocol: ProtocolEBGP,
-			NextHop:  testNextHop{},
+			NextHop:  &testNextHop{},
 		}
 
 		// These upserts should end up with two routes in the same destination
@@ -114,7 +127,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, *route)
@@ -129,7 +142,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, *route)
@@ -144,12 +157,12 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		route0 := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 		route1 := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner1",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, *route0)
@@ -169,12 +182,12 @@ func TestRIB_ListRoutes(t *testing.T) {
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 		route1 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.2.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, route0)
@@ -194,12 +207,12 @@ func TestRIB_ListRoutes(t *testing.T) {
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner0",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 		route1 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
 			Owner:   "owner1",
-			NextHop: testNextHop{},
+			NextHop: &testNextHop{},
 		}
 
 		rib.UpsertRoute(1, route0)
@@ -224,19 +237,19 @@ func TestRIB_selectBestPath(t *testing.T) {
 		Prefix:   prefix,
 		Protocol: ProtocolEBGP,
 		Owner:    "owner0",
-		NextHop:  testNextHop{},
+		NextHop:  &testNextHop{},
 	}
 	route1 := &Route{
 		Prefix:   prefix,
 		Protocol: ProtocolIBGP,
 		Owner:    "owner1",
-		NextHop:  testNextHop{},
+		NextHop:  &testNextHop{},
 	}
 	route2 := &Route{
 		Prefix:   prefix,
 		Protocol: ProtocolIBGP,
 		Owner:    "owner2",
-		NextHop:  testNextHop{},
+		NextHop:  &testNextHop{},
 	}
 
 	tests := []struct {
@@ -314,13 +327,13 @@ func TestRIB_DataPlaneIntegration(t *testing.T) {
 		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 		Protocol: ProtocolIBGP,
 		Owner:    "owner0",
-		NextHop:  testNextHop{},
+		NextHop:  &testNextHop{},
 	}
 	route1 := &Route{
 		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
 		Protocol: ProtocolEBGP,
 		Owner:    "owner1",
-		NextHop:  testNextHop{},
+		NextHop:  &testNextHop{},
 	}
 
 	t.Run("Initial route", func(t *testing.T) {
