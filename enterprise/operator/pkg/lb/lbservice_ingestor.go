@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -156,6 +157,22 @@ func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes [
 			var nodeIP string
 			for _, addr := range cn.Status.Addresses {
 				if addr.Type == slim_corev1.NodeInternalIP {
+					a, err := netip.ParseAddr(addr.Address)
+					if err != nil {
+						r.logger.Debug("invalid node IP",
+							logfields.NodeName, cn.Name,
+							logfields.Error, err,
+						)
+						continue
+					}
+
+					if a.Is6() {
+						// skip ipv6 addresses for now
+						continue
+					}
+
+					// use first ipv4 address
+					// TODO: support multiple addresses? (at least to configure the Envoy source IP filter)
 					nodeIP = addr.Address
 					break
 				}
@@ -166,6 +183,7 @@ func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes [
 				)
 				continue
 			}
+
 			nodeIPs = append(nodeIPs, nodeIP)
 		}
 	}

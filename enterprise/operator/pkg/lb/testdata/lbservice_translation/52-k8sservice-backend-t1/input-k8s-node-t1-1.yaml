@@ -14,9 +14,9 @@ metadata:
 spec: {}
 status:
   addresses:
-    - address: 172.18.0.0
-      type: InternalIP
     - address: fc00:c111::2
+      type: InternalIP
+    - address: 172.18.0.0
       type: InternalIP
     - address: kind-control-plane
       type: Hostname
