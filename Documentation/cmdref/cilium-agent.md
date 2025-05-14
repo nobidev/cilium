@@ -362,6 +362,8 @@ cilium-agent [flags]
       --label-prefix-file string                                       Valid label prefixes file path
       --labels strings                                                 List of label prefixes used to determine identity of an endpoint
       --lib-dir string                                                 Directory path to store runtime build environment (default "/var/lib/cilium")
+      --loadbalancer-envoy-health-state-sync-enabled                   Enables LB health state sync between K8s node and the node-local Envoy proxy
+      --loadbalancer-envoy-health-state-sync-interval duration         Interval for the periodic (fallback) LB health state sync between K8s node and the node-local Envoy proxy (default 1m0s)
       --loadbalancer-flow-logs-enabled                                 Enables LB Per-packet Flow Logs
       --loadbalancer-flow-logs-gc-frequency uint                       LB Garbage Collection Frequency (seconds) (default 60)
       --loadbalancer-flow-logs-map-size uint32                         Select the size of the LB flow log ringbuffer map (default 33554432)

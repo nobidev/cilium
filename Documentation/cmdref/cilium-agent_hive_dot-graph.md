@@ -193,6 +193,8 @@ cilium-agent hive dot-graph [flags]
       --k8s-kubeconfig-path string                                     Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                  Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous arp messages
+      --loadbalancer-envoy-health-state-sync-enabled                   Enables LB health state sync between K8s node and the node-local Envoy proxy
+      --loadbalancer-envoy-health-state-sync-interval duration         Interval for the periodic (fallback) LB health state sync between K8s node and the node-local Envoy proxy (default 1m0s)
       --loadbalancer-flow-logs-enabled                                 Enables LB Per-packet Flow Logs
       --loadbalancer-flow-logs-gc-frequency uint                       LB Garbage Collection Frequency (seconds) (default 60)
       --loadbalancer-flow-logs-map-size uint32                         Select the size of the LB flow log ringbuffer map (default 33554432)

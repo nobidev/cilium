@@ -156,6 +156,7 @@ enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quot
 loadbalancer-cp-enabled: "true"
 loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 loadbalancer-metrics-enabled: "true"
+loadbalancer-envoy-health-state-sync-enabled: "true"
 enable-active-lb-health-checking: "true"
 enable-ipip-termination: "true"
 bpf-lb-ipip-sock-mark: "true"
