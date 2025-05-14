@@ -29,8 +29,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	cecIngressPolicy "github.com/cilium/cilium/enterprise/pkg/ingresspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration"
-	lbFlowLogs "github.com/cilium/cilium/enterprise/pkg/lb/flowlogs"
-	lbMetrics "github.com/cilium/cilium/enterprise/pkg/lb/metrics"
+	"github.com/cilium/cilium/enterprise/pkg/lb"
 	cemaps "github.com/cilium/cilium/enterprise/pkg/maps"
 	"github.com/cilium/cilium/enterprise/pkg/mixedrouting"
 	"github.com/cilium/cilium/enterprise/pkg/multicast"
@@ -106,8 +105,7 @@ var (
 
 		config.Cell,
 
-		lbFlowLogs.Cell,
-		lbMetrics.Cell,
+		lb.Cell,
 
 		hubble.Cell,
 
