@@ -18,20 +18,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // ciliumNodeSource implements controller-runtime' source.Source and bridges between
 // Cilium CiliumNodeEvents and controller-runtime' GenericEvent.
 // This way, CiliumNodeEvents can be used to trigger reconciliations.
 type ciliumNodeSource struct {
-	resource.Resource[*ciliumv2.CiliumNode]
+	resource.Resource[*slim_corev1.Node]
 
 	nodeEvents chan event.GenericEvent
 }
 
-func newNodeSource(config Config, jobGroup job.Group, nodeResource resource.Resource[*ciliumv2.CiliumNode]) *ciliumNodeSource {
+func newNodeSource(config Config, jobGroup job.Group, nodeResource resource.Resource[*slim_corev1.Node]) *ciliumNodeSource {
 	if !config.LoadBalancerCPEnabled {
 		return nil
 	}
@@ -49,7 +49,7 @@ func newNodeSource(config Config, jobGroup job.Group, nodeResource resource.Reso
 	return ciliumNodeSource
 }
 
-func (r *ciliumNodeSource) HandleEvent(ctx context.Context, ev resource.Event[*ciliumv2.CiliumNode]) error {
+func (r *ciliumNodeSource) HandleEvent(ctx context.Context, ev resource.Event[*slim_corev1.Node]) error {
 	defer ev.Done(nil)
 	r.nodeEvents <- event.GenericEvent{Object: ev.Object}
 	return nil

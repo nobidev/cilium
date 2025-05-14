@@ -27,6 +27,7 @@ import (
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -74,7 +75,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		entries, err := os.ReadDir(fmt.Sprintf("%s/%s", translationDir, tc.name))
 		require.NoError(t, err)
 
-		inputNodes := []*ciliumv2.CiliumNode{}
+		inputNodes := []*slim_corev1.Node{}
 		inputLBBackends := []*isovalentv1alpha1.LBBackendPool{}
 		inputLBDeployments := []isovalentv1alpha1.LBDeployment{}
 		inputSecrets := map[string]*corev1.Secret{}
@@ -87,10 +88,6 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			}
 			fname := fmt.Sprintf("%s/%s/%s", translationDir, tc.name, d.Name())
 			switch {
-			case strings.HasPrefix(d.Name(), "input-ciliumnode-"):
-				inputNode := &ciliumv2.CiliumNode{}
-				readInput(t, fname, inputNode)
-				inputNodes = append(inputNodes, inputNode)
 			case strings.HasPrefix(d.Name(), "input-lbbackend-"):
 				inputLBBackend := &isovalentv1alpha1.LBBackendPool{}
 				readInput(t, fname, inputLBBackend)
@@ -103,6 +100,10 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 				inputSecret := &corev1.Secret{}
 				readInput(t, fname, inputSecret)
 				inputSecrets[inputSecret.Name] = inputSecret
+			case strings.HasPrefix(d.Name(), "input-k8s-node-"):
+				inputNode := &slim_corev1.Node{}
+				readInput(t, fname, inputNode)
+				inputNodes = append(inputNodes, inputNode)
 			case strings.HasPrefix(d.Name(), "input-k8s-service-"):
 				inputK8sService := &corev1.Service{}
 				readInput(t, fname, inputK8sService)

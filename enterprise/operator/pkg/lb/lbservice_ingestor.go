@@ -23,12 +23,11 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 type ingestor struct {
@@ -45,7 +44,7 @@ func newIngestor(logger *slog.Logger, defaultT1LabelSelector slim_metav1.LabelSe
 	}
 }
 
-func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*ciliumv2.CiliumNode, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret, referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice) (*lbService, error) {
+func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool, deployments []isovalentv1alpha1.LBDeployment, nodes []*slim_corev1.Node, t1Service *corev1.Service, referencedSecrets map[string]*corev1.Secret, referencedK8sServices []corev1.Service, referencedEndpointSlices []discoveryv1.EndpointSlice) (*lbService, error) {
 	referencedBackends := r.toReferencedBackends(backends, referencedK8sServices, referencedEndpointSlices)
 
 	t1LabelSelector, t2LabelSelector, err := r.getTierLabelSelectors(deployments)
@@ -135,7 +134,7 @@ func (r *ingestor) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, dep
 	return &combinedLabelSelector, nil
 }
 
-func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*ciliumv2.CiliumNode, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
+func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*slim_corev1.Node, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
 	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t1LabelSelector)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
@@ -149,15 +148,15 @@ func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*ciliumv2.Cil
 	return t1NodeIPs, t2NodeIPs, nil
 }
 
-func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes []*ciliumv2.CiliumNode, selector labels.Selector) ([]string, error) {
+func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes []*slim_corev1.Node, selector labels.Selector) ([]string, error) {
 	nodeIPs := []string{}
 
 	for _, cn := range nodes {
 		if selector.Matches(labels.Set(cn.Labels)) {
 			var nodeIP string
-			for _, addr := range cn.Spec.Addresses {
-				if addr.Type == addressing.NodeInternalIP {
-					nodeIP = addr.IP
+			for _, addr := range cn.Status.Addresses {
+				if addr.Type == slim_corev1.NodeInternalIP {
+					nodeIP = addr.Address
 					break
 				}
 			}
