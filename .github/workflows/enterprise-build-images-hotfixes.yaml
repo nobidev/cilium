@@ -137,7 +137,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          platforms: ${{ matrix.platforms }}
+          platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ github.sha }}
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }}
