@@ -22,7 +22,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CiliumConfig is the Schema for the ciliumconfigs API
+        description: CiliumConfig defines the configuration of Isovalent Networking
+          for Kubernetes and all its components
         properties:
           apiVersion:
             description: |-
