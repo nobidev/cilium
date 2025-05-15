@@ -115,7 +115,7 @@ jobs:
           mkdir -p image-digest/
           echo "### cilium-envoy" > image-digest/cilium-envoy.txt
           echo "" >> image-digest/cilium-envoy.txt
-          echo "\`quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/cilium-envoy.txt
+          echo "\`quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/cilium-envoy.txt
           echo "" >> image-digest/cilium-envoy.txt
 
       # Upload artifact digests
