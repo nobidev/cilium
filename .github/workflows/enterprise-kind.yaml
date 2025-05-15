@@ -21,7 +21,7 @@ env:
   helm_chart_repo: oci://quay.io/isovalent-charts-dev/cilium
   kind_config: .github/kind-config-enterprise-dual.yaml
   # renovate: datasource=github-releases depName=yannh/kubeconform
-  kubeconform_version: v0.6.7
+  kubeconform_version: v0.7.0
 
 jobs:
   installation-and-connectivity:

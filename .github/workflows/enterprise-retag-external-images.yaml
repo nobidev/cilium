@@ -154,7 +154,7 @@ jobs:
         run: cosign sign -y ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
         with:
           artifact-name: sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json
           output-file: ./sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json
@@ -204,7 +204,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

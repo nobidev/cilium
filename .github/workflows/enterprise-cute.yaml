@@ -41,7 +41,7 @@ env:
   name: ${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.32.3
+  kubectl_version: v1.33.0
   terraform_version: 1.10.5
   upload_dir: github-upload
   artifact_retention_days: 15
@@ -305,7 +305,7 @@ jobs:
 
       - name: Set up AWS CLI credentials
         if: steps.cute_props.outputs.provider == 'aws'
-        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_CUTE_ASSUME_ROLE }}
           aws-region: ${{ steps.cute_props.outputs.region }}
@@ -516,7 +516,7 @@ jobs:
 
       - name: Send notification
         if: ${{ always() && steps.vars.outputs.notify != '' }}
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           method: chat.postMessage
           token: ${{ secrets.CUTE_SLACK_BOT_TOKEN }}
