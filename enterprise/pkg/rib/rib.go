@@ -257,7 +257,7 @@ func (r *RIB) selectBestPath(dest *Destination) (*Route, bool) {
 			best = rt
 		}
 	}
-	return best, best != dest.best
+	return best, !best.Equal(dest.best)
 }
 
 // isSameRoute reports whether given two routes are the "same" from the RIB's

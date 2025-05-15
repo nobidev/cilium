@@ -335,6 +335,14 @@ func TestRIB_DataPlaneIntegration(t *testing.T) {
 		Owner:    "owner1",
 		NextHop:  &testNextHop{},
 	}
+	route2 := &Route{
+		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
+		Protocol: ProtocolEBGP,
+		Owner:    "owner1",
+		NextHop: &testNextHop{
+			differentiator: 1,
+		},
+	}
 
 	t.Run("Initial route", func(t *testing.T) {
 		rib.UpsertRoute(1, *route0)
@@ -352,10 +360,18 @@ func TestRIB_DataPlaneIntegration(t *testing.T) {
 		dataPlane.Clear()
 	})
 
-	t.Run("Delete best route", func(t *testing.T) {
-		rib.DeleteRoute(1, *route1)
+	t.Run("Update nexthop of the current best route", func(t *testing.T) {
+		rib.UpsertRoute(1, *route2)
 		require.Len(t, dataPlane.receivedUpdates, 1)
 		require.Equal(t, route1, dataPlane.receivedUpdates[0].OldBest)
+		require.Equal(t, route2, dataPlane.receivedUpdates[0].NewBest)
+		dataPlane.Clear()
+	})
+
+	t.Run("Delete best route", func(t *testing.T) {
+		rib.DeleteRoute(1, *route2)
+		require.Len(t, dataPlane.receivedUpdates, 1)
+		require.Equal(t, route2, dataPlane.receivedUpdates[0].OldBest)
 		require.Equal(t, route0, dataPlane.receivedUpdates[0].NewBest)
 		dataPlane.Clear()
 	})
