@@ -41,7 +41,7 @@ LABEL name="CLife, Cilium lifecycle operator of Isovalent Networking for Kuberne
       org.opencontainers.image.title="Isovalent Networking for Kubernetes CLife image" \
       org.opencontainers.image.description="Image of the Cilium lifecycle operator of Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
       io.k8s.description="Image of the Cilium lifecycle operator of Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
-      io.k8s.display-name="CLife, Cilium lifeycle operator of Isovalent Networking for Kubernetes"
+      io.k8s.display-name="CLife, Cilium lifecycle operator of Isovalent Networking for Kubernetes"
 ARG BUILD_DATE
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL build-date="${BUILD_DATE}"
