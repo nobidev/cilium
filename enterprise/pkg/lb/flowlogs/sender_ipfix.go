@@ -41,8 +41,9 @@ var _ FlowLogSender = &flowLogIPFixSender{}
 // flowLogIPFixSender sends the received flow log entries to an
 // IPFix collector endpoint.
 type flowLogIPFixSender struct {
-	logger           *slog.Logger
-	collectorAddress string
+	logger            *slog.Logger
+	collectorAddress  string
+	collectorProtocol string
 }
 
 func (r *flowLogIPFixSender) Name() string {
@@ -126,7 +127,7 @@ func (r *flowLogIPFixSender) openConnectionToCollector() (*exporter.ExportingPro
 
 	return exporter.InitExportingProcess(exporter.ExporterInput{
 		CollectorAddress:    r.collectorAddress,
-		CollectorProtocol:   "tcp",
+		CollectorProtocol:   r.collectorProtocol,
 		ObservationDomainID: 1,
 		TempRefTimeout:      0,
 	})

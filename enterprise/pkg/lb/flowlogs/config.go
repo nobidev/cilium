@@ -31,6 +31,7 @@ type Config struct {
 	LoadbalancerFlowLogsReaderQueueSize             uint
 	LoadbalancerFlowLogsSender                      string
 	LoadbalancerFlowLogsSenderIpfixCollectorAddress string
+	LoadbalancerFlowLogsSenderProtocol              string
 }
 
 var defaultConfig = Config{
@@ -41,6 +42,7 @@ var defaultConfig = Config{
 	LoadbalancerFlowLogsReaderQueueSize:             1024,
 	LoadbalancerFlowLogsSender:                      "ipfix",
 	LoadbalancerFlowLogsSenderIpfixCollectorAddress: "",
+	LoadbalancerFlowLogsSenderProtocol:              "udp",
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
@@ -50,6 +52,7 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint("loadbalancer-flow-logs-gc-frequency", defaultConfig.LoadbalancerFlowLogsGcFrequency, "LB Garbage Collection Frequency (seconds)")
 	flags.Uint("loadbalancer-flow-logs-reader-queue-size", defaultConfig.LoadbalancerFlowLogsReaderQueueSize, "LB flow log reader queue size")
 	flags.String("loadbalancer-flow-logs-sender", defaultConfig.LoadbalancerFlowLogsSender, "Name of the sender where flow logs should be sent to (ipfix, stdout)")
+	flags.String("loadbalancer-flow-logs-sender-protocol", defaultConfig.LoadbalancerFlowLogsSenderProtocol, "The protocol to be used when sending flow logs (udp, tcp)")
 	flags.String("loadbalancer-flow-logs-sender-ipfix-collector-address", defaultConfig.LoadbalancerFlowLogsSenderIpfixCollectorAddress, "LB Flow Logs IPFix collector address in the IP:port format")
 }
 

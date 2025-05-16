@@ -116,8 +116,9 @@ func newFlowLogIPFixSender(p lbFlowLogIPFixSenderParams) lbFlowLogSenderOut {
 	}
 
 	sender := &flowLogIPFixSender{
-		logger:           p.Logger,
-		collectorAddress: p.Config.LoadbalancerFlowLogsSenderIpfixCollectorAddress,
+		logger:            p.Logger,
+		collectorAddress:  p.Config.LoadbalancerFlowLogsSenderIpfixCollectorAddress,
+		collectorProtocol: p.Config.LoadbalancerFlowLogsSenderProtocol,
 	}
 
 	sender.loadRegistry()
