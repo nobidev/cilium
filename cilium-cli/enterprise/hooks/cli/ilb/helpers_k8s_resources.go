@@ -939,6 +939,15 @@ func withHealthCheckTLS() backendPoolOption {
 	}
 }
 
+func withTCPHealthCheck() backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.HealthCheck = isovalentv1alpha1.HealthCheck{
+			IntervalSeconds: ptr.To[int32](5),
+			TCP:             &isovalentv1alpha1.HealthCheckTCP{},
+		}
+	}
+}
+
 func withProxyProtocolConfig(version int, tlvs []int) backendPoolOption {
 	temp := make([]isovalentv1alpha1.LBProxyProtocolTLV, len(tlvs))
 	for i, tlv := range tlvs {
