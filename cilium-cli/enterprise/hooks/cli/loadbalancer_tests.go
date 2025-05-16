@@ -65,7 +65,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
 			dockerCli := ilbCli.NewDockerCli(lbTestRun)
 
-			for _, img := range []string{ilbCli.FlagAppImage, ilbCli.FlagClientImage, ilbCli.FlagCoreDNSImage, ilbCli.FlagNginxImage} {
+			for _, img := range []string{ilbCli.FlagAppImage, ilbCli.FlagClientImage, ilbCli.FlagCoreDNSImage, ilbCli.FlagNginxImage, ilbCli.FlagMariaDBImage} {
 				if err := dockerCli.EnsureImage(c.Context(), img); err != nil {
 					return fmt.Errorf("failed to ensure Docker image %s: %w", img, err)
 				}
@@ -111,6 +111,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().StringVar(&ilbCli.FlagUtilsImage, "utils-image", "busybox:1.37.0-musl", "utils container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagCoreDNSImage, "coredns-image", "coredns/coredns:1.11.1", "coredns container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagNginxImage, "nginx-image", "library/nginx:1.27.2", "nginx container image name")
+	cmd.Flags().StringVar(&ilbCli.FlagMariaDBImage, "mariadb-image", "library/mariadb:11.7.2", "mariadb container image name")
 	cmd.Flags().BoolVar(&ilbCli.FlagEnsureImages, "ensure-images", true, "Ensure images by checking and pre-pulling images")
 
 	cmd.Flags().BoolVar(&ilbCli.FlagCleanup, "cleanup", true, "Cleanup created resources after each test case run")

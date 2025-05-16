@@ -18,6 +18,7 @@ var (
 	FlagUtilsImage   string
 	FlagCoreDNSImage string
 	FlagNginxImage   string
+	FlagMariaDBImage string
 
 	FlagEnsureImages bool
 
