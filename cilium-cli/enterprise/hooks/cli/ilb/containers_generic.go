@@ -33,6 +33,10 @@ func (c *dockerContainer) Exec(ctx context.Context, cmd string) (string, string,
 	return c.dockerCli.ContainerExec(ctx, c.id, []string{"sh", "-c", cmd})
 }
 
+func (c *dockerContainer) ExecDetached(ctx context.Context, cmd []string) error {
+	return c.dockerCli.ContainerExecDetached(ctx, c.id, cmd)
+}
+
 func (c *dockerContainer) Copy(ctx context.Context, content []byte, dstFile, dstDir string) error {
 	return c.dockerCli.copyToContainer(ctx, c.id, content, dstFile, dstDir)
 }
