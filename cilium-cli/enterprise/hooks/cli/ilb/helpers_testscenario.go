@@ -167,11 +167,15 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 		config.listenPort = 8080
 	}
 
+	if config.image == "" {
+		config.image = FlagAppImage
+	}
+
 	for i := startIndex; i < startIndex+numberOfBackends; i++ {
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(r.t.Context(), appName, FlagAppImage, envVars, containerNetwork, false, nil, nil)
+		id, ip, err := r.dockerCli.createContainer(r.t.Context(), appName, config.image, envVars, containerNetwork, false, nil, nil)
 		if err != nil {
 			r.t.Failedf("cannot create app container (%s): %s", appName, err)
 		}
@@ -398,6 +402,11 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 
 	if config.listenPort != 0 {
 		env = append(env, fmt.Sprintf("LISTEN_ADDRESS=:%d", config.listenPort))
+	}
+
+	// add additional env vars
+	for k, v := range config.envVars {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	return env

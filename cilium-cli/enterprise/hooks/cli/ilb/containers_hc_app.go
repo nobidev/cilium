@@ -24,6 +24,8 @@ type backendApplicationConfig struct {
 	h2cEnabled      bool
 	tlsCertHostname string
 	listenPort      uint32
+	image           string
+	envVars         map[string]string
 }
 
 type hcState string
