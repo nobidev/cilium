@@ -176,7 +176,7 @@ jobs:
           GATEWAY_NAME=${{ env.gatewayNamePfx}}${i}
           docker create \
             --name ${GATEWAY_NAME} \
-            --network ${{ env.internalNetwork }} \
+            --network=name=${{ env.internalNetwork }},driver-opt=com.docker.network.endpoint.ifname=eth0 \
             --privileged=true \
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} \
                 cilium-agent \
@@ -203,7 +203,7 @@ jobs:
                 --devices=eth0,eth1 \
                 --direct-routing-device=eth0
 
-          docker network connect ${{ env.externalNetwork }} $GATEWAY_NAME
+          docker network connect --driver-opt=com.docker.network.endpoint.ifname=eth1 ${{ env.externalNetwork }} $GATEWAY_NAME
           docker start $GATEWAY_NAME
 
           GATEWAY_IP_INTERNAL=$(docker inspect -f json $GATEWAY_NAME | jq '.[0].NetworkSettings.Networks.${{ env.internalNetwork }}.IPAddress')
