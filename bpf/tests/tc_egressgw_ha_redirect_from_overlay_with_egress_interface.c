@@ -6,8 +6,6 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define HAVE_FIB_NEIGH	1
-
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY_HA
