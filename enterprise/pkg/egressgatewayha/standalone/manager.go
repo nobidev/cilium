@@ -77,10 +77,9 @@ type params struct {
 	Config    segwcfg.Config
 	PolicyMap egressmapha.PolicyMapV2
 
-	Lifecycle   cell.Lifecycle
-	JobRegistry job.Registry
-	JobGroup    job.Group
-	Log         *slog.Logger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+	Log       *slog.Logger
 }
 
 func registerJobs(p params) {
