@@ -404,8 +404,7 @@ Minor version
 ~~~~~~~~~~~~~
 
 #. Check if it is possible to remove the last supported Kubernetes version from
-   :ref:`k8scompatibility`, :ref:`k8s_requirements`, :ref:`test_matrix`,
-   :ref:`running_k8s_tests`, :ref:`gsg_istio` and add the new Kubernetes
+   :ref:`k8scompatibility`, :ref:`k8s_requirements` and add the new Kubernetes
    version to that list.
 
 #. If the minimal supported version changed, leave a note in the upgrade guide
@@ -702,10 +701,10 @@ for debugging what is going on inside them, for example:
 .. code-block:: shell-session
 
     # ls /sys/fs/bpf/tc/globals/
-    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_v2_25729  cilium_policy_v2_60670       cilium_proxy6
-    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_v2_3978   cilium_policy_v2_reserved_1  cilium_reserved_policy
-    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_v2_4314   cilium_policy_v2_reserved_2  cilium_tunnel_map
-    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_v2_15124  cilium_policy_v2_48896  cilium_proxy4
+    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_v2_25729     cilium_policy_v2_60670       cilium_tunnel_map
+    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_v2_3978      cilium_policy_v2_reserved_1
+    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_v2_4314      cilium_policy_v2_reserved_2
+    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_v2_15124  cilium_policy_v2_48896  cilium_reserved_policy
     # bpf-map info /sys/fs/bpf/tc/globals/cilium_policy_v2_15124
     Type:           Hash
     Key size:       8

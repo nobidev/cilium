@@ -38,7 +38,6 @@ import (
 	endpointrestapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	types "github.com/cilium/cilium/enterprise/pkg/ipmigration/types"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -65,7 +64,7 @@ func newMockEndpointMgr() *mockEndpointMgr {
 	}
 }
 
-func (m *mockEndpointMgr) CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
+func (m *mockEndpointMgr) CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	name := epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName
 
 	ep := &endpoint.Endpoint{
@@ -85,7 +84,7 @@ func (m *mockEndpointMgr) CreateEndpoint(ctx context.Context, epTemplate *models
 	}
 
 	m.eps[name] = append(m.eps[name], ep)
-	return ep, nil
+	return ep, 0, nil
 }
 
 func (m *mockEndpointMgr) GetEndpointsByPodName(name string) []*endpoint.Endpoint {
@@ -113,7 +112,7 @@ func (m *mockEndpointMgr) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.De
 }
 
 func (m *mockEndpointMgr) Handle(p endpointrestapi.PutEndpointIDParams) middleware.Responder {
-	ep, err := m.CreateEndpoint(context.TODO(), p.Endpoint)
+	ep, _, err := m.CreateEndpoint(context.TODO(), p.Endpoint)
 	if err != nil {
 		return endpointrestapi.NewPutEndpointIDFailed().WithPayload(models.Error(err.Error()))
 	}
@@ -246,6 +245,7 @@ func newTestManager(t *testing.T) (*manager, *statedb.DB, statedb.RWTable[agentK
 		},
 		endpointManager:     mockEpMgr,
 		endpointTemplates:   ephemeralEndpointTemplates(),
+		endpointAPIManager:  mockEpMgr,
 		ipamMetadataManager: mockIPAMMetadata,
 		ipam:                mockIPAMAllocator,
 		localNodeStore:      node.NewTestLocalNodeStore(mockLocalNode),
@@ -254,9 +254,6 @@ func newTestManager(t *testing.T) (*manager, *statedb.DB, statedb.RWTable[agentK
 		podTable:            podTable,
 		db:                  db,
 	}
-
-	var endpointCreatorInterface endpointcreator.EndpointCreator = mockEpMgr
-	mgr.endpointCreator.Store(&endpointCreatorInterface)
 
 	return mgr, db, podTable, mockEpMgr, mockIPAMAllocator
 }
@@ -450,7 +447,8 @@ func Test_manager(t *testing.T) {
 			},
 			IPV6: &models.IPAMAddressResponse{
 				IP: "fd00::20",
-			}}),
+			},
+		}),
 	)
 
 	// Endpoint creation request for detached pod
@@ -544,7 +542,6 @@ func Test_manager(t *testing.T) {
 	epTmpls, err = m.endpointTemplates.getEndpointTemplatesForPod(podB.UID)
 	require.ErrorIs(t, err, fs.ErrNotExist)
 	require.Empty(t, epTmpls)
-
 }
 
 func Test_manager_handlePodEvent_sync(t *testing.T) {

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -33,7 +32,7 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -267,10 +266,12 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				ipfrag_encode_ipv4(l3), &l4_off, &tuple);
+	l3_off = sizeof(*status_code) + ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(l3);
+
+	ret = lb4_extract_tuple(ctx, l3, ipfrag_encode_ipv4(l3), l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
@@ -542,10 +543,12 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				ipfrag_encode_ipv4(l3), &l4_off, &tuple);
+	l3_off = sizeof(*status_code) + ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(l3);
+
+	ret = lb4_extract_tuple(ctx, l3, ipfrag_encode_ipv4(l3), l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;

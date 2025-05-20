@@ -105,27 +105,27 @@ primary: true
 devicename: test
 
 -- health_no_service.table --
-Module                      Component                         Level   Message                    Error
-loadbalancer-healthserver   job-control-loop                  OK      0 health servers running
-loadbalancer-reconciler     job-reconcile                     OK      OK, 0 object(s)
-loadbalancer-reconciler     job-refresh                       OK      Next refresh in 30m0s
-loadbalancer-reconciler     job-start-reconciler              Stopped Started
-loadbalancer-reflectors     job-reflect-pods                  OK      Running
-loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
-loadbalancer-writer         job-node-addr-reconciler          OK      Running
-loadbalancer-writer         job-zone-watcher                  OK      Running
+Module                                    Component                         Level   Message                    Error
+loadbalancer-healthserver                 job-control-loop                  OK      0 health servers running
+loadbalancer-reconciler                   job-reconcile                     OK      OK, 0 object(s)
+loadbalancer-reconciler                   job-refresh                       OK      Next refresh in 30m0s
+loadbalancer-reconciler                   job-start-reconciler              Stopped Started
+loadbalancer-reflectors.k8s-reflector     job-reflect-pods                  OK      Running
+loadbalancer-reflectors.k8s-reflector     job-reflect-services-endpoints    OK      Running
+loadbalancer-writer                       job-node-addr-reconciler          OK      Running
+loadbalancer-writer                       job-zone-watcher                  OK      Running
 
 -- health_with_service.table --
-Module                      Component                         Level   Message                    Error
-loadbalancer-healthserver   job-control-loop                  OK      1 health servers running
-loadbalancer-healthserver   job-listener-40000                OK      Running
-loadbalancer-reconciler     job-reconcile                     OK      OK, 4 object(s)
-loadbalancer-reconciler     job-refresh                       OK      Next refresh in 30m0s
-loadbalancer-reconciler     job-start-reconciler              Stopped Started
-loadbalancer-reflectors     job-reflect-pods                  OK      Running
-loadbalancer-reflectors     job-reflect-services-endpoints    OK      Running
-loadbalancer-writer         job-node-addr-reconciler          OK      Running
-loadbalancer-writer         job-zone-watcher                  OK      Running
+Module                                    Component                         Level   Message                    Error
+loadbalancer-healthserver                 job-control-loop                  OK      1 health servers running
+loadbalancer-healthserver                 job-listener-40000                OK      Running
+loadbalancer-reconciler                   job-reconcile                     OK      OK, 4 object(s)
+loadbalancer-reconciler                   job-refresh                       OK      Next refresh in 30m0s
+loadbalancer-reconciler                   job-start-reconciler              Stopped Started
+loadbalancer-reflectors.k8s-reflector     job-reflect-pods                  OK      Running
+loadbalancer-reflectors.k8s-reflector     job-reflect-services-endpoints    OK      Running
+loadbalancer-writer                       job-node-addr-reconciler          OK      Running
+loadbalancer-writer                       job-zone-watcher                  OK      Running
 
 -- services.table --
 Name                   Source   PortNames  TrafficPolicy   Flags
@@ -301,17 +301,17 @@ REV: ID=2 ADDR=1.1.1.1:30781
 REV: ID=3 ADDR=10.96.50.104:80
 REV: ID=4 ADDR=172.16.1.1:80
 REV: ID=5 ADDR=172.16.1.1:40000
-SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
 SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
 SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
-SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
 SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
 SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
-SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
 SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
 SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
-SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
 SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
 SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=5 ADDR=172.16.1.1:40000/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=5 ADDR=172.16.1.1:40000/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
 SVC: ID=5 ADDR=172.16.1.1:40000/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal

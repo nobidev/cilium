@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -30,7 +29,7 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -235,14 +234,18 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
 	fraginfo_t fraginfo;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	fraginfo = ipv6_get_fraginfo(ctx, l3);
-	if (fraginfo < 0)
-		return (int)fraginfo;
+	l3_off = sizeof(*status_code) + ETH_HLEN;
 
-	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				fraginfo, &l4_off, &tuple);
+	tuple.nexthdr = l3->nexthdr;
+	ret = ipv6_hdrlen_offset(ctx, l3_off, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
+		return ret;
+
+	l4_off = l3_off + ret;
+
+	ret = lb6_extract_tuple(ctx, l3, fraginfo, l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;

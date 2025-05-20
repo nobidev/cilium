@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,7 @@ var bpfEgressCtListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress ct list")
 
-		ctMap, err := egressmapha.OpenPinnedCtMap()
+		ctMap, err := egressmapha.OpenPinnedCtMap(logging.DefaultSlogLogger)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				Fatalf("Cannot find egress gateway bpf maps")

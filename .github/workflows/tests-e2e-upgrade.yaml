@@ -132,7 +132,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 40
+      max-parallel: 100
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
@@ -178,7 +178,7 @@ jobs:
             EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[@]}"
+          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[*]}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
@@ -199,6 +199,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -225,6 +226,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -324,7 +326,7 @@ jobs:
 
           if ${{ matrix.encryption == 'ipsec' }}; then
             kubectl create -n kube-system secret generic cilium-ipsec-keys \
-                --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+                --from-literal=keys="3+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
           fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
@@ -343,7 +345,7 @@ jobs:
         if: ${{ matrix.node-local-dns == 'true' }}
         shell: bash
         run: |
-          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
+          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath="{.spec.clusterIP}") && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           sed -i "s/__PILLAR__UPSTREAM__SERVERS__/1.1.1.1/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
           kubectl rollout status -n kube-system ds/node-local-dns
@@ -355,6 +357,9 @@ jobs:
           CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
           if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+          if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
           fi
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
@@ -398,9 +403,10 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          # enable the check for proxy traffic.
+          # Enable the check for proxy traffic only if IPv4 is enabled.
+          # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check

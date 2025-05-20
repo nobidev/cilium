@@ -49,19 +49,18 @@ import (
 	osstest "github.com/cilium/cilium/pkg/bgpv1/test"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/defaults"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -187,7 +186,7 @@ func TestScript(t *testing.T) {
 				option.Config = &option.DaemonConfig{
 					EnableBGPControlPlane:     true,
 					BGPSecretsNamespace:       testSecretsNamespace,
-					BGPRouterIDAllocationMode: defaults.BGPRouterIDAllocationMode,
+					BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
 					IPAM:                      *useIPAM,
 					EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
 						EnableEnterpriseBGPControlPlane: true,

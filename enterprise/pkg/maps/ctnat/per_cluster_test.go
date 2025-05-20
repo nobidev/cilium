@@ -30,8 +30,9 @@ import (
 
 func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
+	log := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(log, "")
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
 
 	// Override the map names to avoid clashing with the real ones.
@@ -121,6 +122,7 @@ func TestPerClusterMapsLifecycle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
 			tt.init(t)
 
 			maps, _ := newPerCluster(perClusterParams{
@@ -130,22 +132,22 @@ func TestPerClusterMapsLifecycle(t *testing.T) {
 				DaemonConfig: tt.dcfg,
 			})
 
-			tt.assertV4(t, bpf.MapPath(ctname(nat.IPv4)), "IPv4 CT map not correct")
-			tt.assertV6(t, bpf.MapPath(ctname(nat.IPv6)), "IPv6 CT map not correct")
-			tt.assertV4(t, bpf.MapPath(nat.ClusterOuterMapName(nat.IPv4)), "IPv4 NAT map not correct")
-			tt.assertV6(t, bpf.MapPath(nat.ClusterOuterMapName(nat.IPv6)), "IPv6 NAT map not correct")
+			tt.assertV4(t, bpf.MapPath(log, ctname(nat.IPv4)), "IPv4 CT map not correct")
+			tt.assertV6(t, bpf.MapPath(log, ctname(nat.IPv6)), "IPv6 CT map not correct")
+			tt.assertV4(t, bpf.MapPath(log, nat.ClusterOuterMapName(nat.IPv4)), "IPv4 NAT map not correct")
+			tt.assertV6(t, bpf.MapPath(log, nat.ClusterOuterMapName(nat.IPv6)), "IPv6 NAT map not correct")
 
 			require.NoError(t, maps.Update(11))
-			tt.assertV4(t, bpf.MapPath(ctname(nat.IPv4, 11)), "IPv4 inner CT map not correct")
-			tt.assertV6(t, bpf.MapPath(ctname(nat.IPv6, 11)), "IPv6 inner CT map  not correct")
-			tt.assertV4(t, bpf.MapPath(nat.ClusterInnerMapName(nat.IPv4, 11)), "IPv4 inner NAT map not correct")
-			tt.assertV6(t, bpf.MapPath(nat.ClusterInnerMapName(nat.IPv6, 11)), "IPv6 inner NAT map not correct")
+			tt.assertV4(t, bpf.MapPath(log, ctname(nat.IPv4, 11)), "IPv4 inner CT map not correct")
+			tt.assertV6(t, bpf.MapPath(log, ctname(nat.IPv6, 11)), "IPv6 inner CT map  not correct")
+			tt.assertV4(t, bpf.MapPath(log, nat.ClusterInnerMapName(nat.IPv4, 11)), "IPv4 inner NAT map not correct")
+			tt.assertV6(t, bpf.MapPath(log, nat.ClusterInnerMapName(nat.IPv6, 11)), "IPv6 inner NAT map not correct")
 
 			require.NoError(t, maps.Delete(11))
-			require.NoFileExists(t, bpf.MapPath(ctname(nat.IPv4, 11)), "IPv4 inner CT map incorrectly present")
-			require.NoFileExists(t, bpf.MapPath(ctname(nat.IPv6, 11)), "IPv6 inner CT map incorrectly present")
-			require.NoFileExists(t, bpf.MapPath(nat.ClusterInnerMapName(nat.IPv4, 11)), "IPv4 inner NAT map incorrectly present")
-			require.NoFileExists(t, bpf.MapPath(nat.ClusterInnerMapName(nat.IPv6, 11)), "IPv6 inner NAT map incorrectly present")
+			require.NoFileExists(t, bpf.MapPath(log, ctname(nat.IPv4, 11)), "IPv4 inner CT map incorrectly present")
+			require.NoFileExists(t, bpf.MapPath(log, ctname(nat.IPv6, 11)), "IPv6 inner CT map incorrectly present")
+			require.NoFileExists(t, bpf.MapPath(log, nat.ClusterInnerMapName(nat.IPv4, 11)), "IPv4 inner NAT map incorrectly present")
+			require.NoFileExists(t, bpf.MapPath(log, nat.ClusterInnerMapName(nat.IPv6, 11)), "IPv6 inner NAT map incorrectly present")
 		})
 	}
 }

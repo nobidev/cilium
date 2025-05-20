@@ -39,7 +39,8 @@ import (
 // TestDumpRules ensures that Dumprules in enterprise_getallrules.go
 // produces correct output.
 func TestDumpRules(t *testing.T) {
-	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
+	log := hivetest.Logger(t)
+	localProxy := dnsproxy.NewDNSProxy(log, dnsproxy.DNSProxyConfig{
 		Address: "127.0.0.2",
 		IPv4:    false,
 		IPv6:    false,
@@ -92,7 +93,8 @@ func TestDumpRules(t *testing.T) {
 // TestWriteRules ensures that the statedb table is populated with correct data, both
 // on startup and continuing operation.
 func TestWriteRules(t *testing.T) {
-	localProxy := dnsproxy.NewDNSProxy(dnsproxy.DNSProxyConfig{
+	log := hivetest.Logger(t)
+	localProxy := dnsproxy.NewDNSProxy(log, dnsproxy.DNSProxyConfig{
 		Address: "127.0.0.2",
 		IPv4:    false,
 		IPv6:    false,

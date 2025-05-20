@@ -60,7 +60,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		// Set local node store as it is accessed by NewLogRecord to get node IPv4
 		node.SetTestLocalNodeStore()
 
-		re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+		re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 	})
 
 	ds := &DaemonFQDNSuite{}
@@ -69,6 +69,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d.endpointManager = endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
+		Logger:            logger,
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
 		PolicyHandler:     d.policyRepo.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,

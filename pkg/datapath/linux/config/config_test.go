@@ -9,14 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -28,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
@@ -46,6 +45,7 @@ var (
 		Devices:            []*tables.Device{},
 		NodeAddresses:      []tables.NodeAddress{},
 		HostEndpointID:     1,
+		MaglevConfig:       maglev.DefaultConfig,
 	}
 	dummyDevCfg   testutils.TestEndpoint
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
@@ -96,6 +96,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 			provideNodemap,
 			tables.DirectRoutingDeviceCell,
 			maglev.Cell,
+			cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
@@ -235,8 +236,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 	setupConfigSuite(t)
 
 	var (
-		na   datapath.NodeAddressing
-		magl *maglev.Maglev
+		na datapath.NodeAddressing
 	)
 	h := hive.New(
 		cell.Provide(
@@ -245,10 +245,8 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		maglev.Cell,
 		cell.Invoke(func(
 			nodeaddressing datapath.NodeAddressing,
-			ml *maglev.Maglev,
 		) {
 			na = nodeaddressing
-			magl = ml
 		}),
 	)
 
@@ -268,7 +266,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -289,7 +286,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -306,7 +302,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
-		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -318,7 +313,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 	testCases := []struct {
 		name    string
 		devices []tables.DeviceAddress
-		want    net.IP
+		want    netip.Addr
 	}{
 		{
 			name: "link_local_only",
@@ -327,7 +322,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 				},
 			},
-			want: net.ParseIP("fe80::4001:aff:fe35:a805"),
+			want: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 		},
 		{
 			name: "global_only",
@@ -336,7 +331,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "local_first",
@@ -348,7 +343,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "global_first",
@@ -360,7 +355,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 		{
 			name: "select_first_global",
@@ -372,14 +367,13 @@ func TestPreferredIPv6Address(t *testing.T) {
 					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:3::"),
 				},
 			},
-			want: net.ParseIP("2600:1900:4001:2a1:0:2::"),
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := preferredIPv6Address(tc.devices)
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("preferredIPv6Address() mismatch (-want +got):\n%s", diff)
+			if got := preferredIPv6Address(tc.devices); got != tc.want {
+				t.Errorf("preferredIPv6Address() mismatch, got %s want %s", got, tc.want)
 			}
 		})
 	}
@@ -389,20 +383,15 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setupConfigSuite(t)
 
-	lc := hivetest.Lifecycle(t)
-	magl, err := maglev.New(maglev.DefaultConfig, lc)
-	require.NoError(t, err, "maglev.New")
-
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err = NewHeaderfileWriter(WriterParams{
+	_, err := NewHeaderfileWriter(WriterParams{
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
-		Maglev:             magl,
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -413,7 +402,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
-		Maglev:             magl,
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

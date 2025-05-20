@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -31,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -115,7 +113,8 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 type BPFOps struct {
 	LBMaps maps.LBMaps
 	log    *slog.Logger
-	cfg    loadbalancer.ExternalConfig
+	cfg    loadbalancer.Config
+	extCfg loadbalancer.ExternalConfig
 	maglev *maglev.Maglev
 
 	serviceIDAlloc     idAllocator
@@ -165,22 +164,23 @@ type backendState struct {
 type bpfOpsParams struct {
 	cell.In
 
-	Lifecycle     cell.Lifecycle
-	Log           *slog.Logger
-	Cfg           loadbalancer.Config
-	ExtCfg        loadbalancer.ExternalConfig
-	LBMaps        maps.LBMaps
-	Maglev        *maglev.Maglev
-	DB            *statedb.DB
-	NodeAddresses statedb.Table[tables.NodeAddress]
+	Lifecycle      cell.Lifecycle
+	Log            *slog.Logger
+	Config         loadbalancer.Config
+	ExternalConfig loadbalancer.ExternalConfig
+	LBMaps         maps.LBMaps
+	Maglev         *maglev.Maglev
+	DB             *statedb.DB
+	NodeAddresses  statedb.Table[tables.NodeAddress]
 }
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
-	if !p.Cfg.EnableExperimentalLB {
+	if !p.Config.EnableExperimentalLB {
 		return nil
 	}
 	ops := &BPFOps{
-		cfg:       p.ExtCfg,
+		cfg:       p.Config,
+		extCfg:    p.ExternalConfig,
 		maglev:    p.Maglev,
 		log:       p.Log,
 		LBMaps:    p.LBMaps,
@@ -279,7 +279,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *loadbalancer.Frontend) error {
-	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
 
@@ -628,7 +628,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
-	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
 
@@ -688,6 +688,17 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	// the operations that depend on the state have been performed. If this invariant is not
 	// followed then we may leak data due to not retrying a failed operation.
 
+	svc := fe.Service
+	proxyDelegation := svc.GetProxyDelegation()
+
+	// Check for invalid feature combinations to catch bugs at the upper layers.
+	switch {
+	case svc.SessionAffinity && svc.ProxyRedirect != nil:
+		return fmt.Errorf("invalid feature combination: SessionAffinity with proxy redirection is not supported")
+	case svc.LoopbackHostPort && proxyDelegation != loadbalancer.SVCProxyDelegationNone:
+		return fmt.Errorf("invalid feature combination: HostPort loopback with proxy delegation is not supported ")
+	}
+
 	// Assign/lookup an identifier for the service. May fail if we have run out of IDs.
 	// The Frontend.ID field is purely for debugging purposes.
 	feID, err := ops.serviceIDAlloc.acquireLocalID(fe.Address, 0)
@@ -721,7 +732,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
-	svc := fe.Service
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
@@ -729,9 +739,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
+		SourceRangeDeny:  svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
 		CheckSourceRange: len(svc.SourceRanges) > 0,
 		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
-		LoopbackHostport: svc.LoopbackHostPort,
+		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
 	})
 	svcVal.SetFlags(flag.UInt16())
@@ -863,11 +874,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 	orphanSourceRanges := prevSourceRanges.Clone()
 	srcRangeValue := &lbmap.SourceRangeValue{}
-	for _, cidr := range fe.Service.SourceRanges {
-		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+	for _, prefix := range fe.Service.SourceRanges {
+		if prefix.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
 		}
-		prefix := cidrToPrefix(cidr)
 
 		err := ops.LBMaps.UpdateSourceRange(
 			srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
@@ -933,43 +943,47 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
-	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.NodePortAlg)
-	if ops.cfg.LoadBalancerAlgorithmAnnotation {
-		alg := fe.Service.GetLBAlgorithmAnnotation()
-		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
-			return alg
-		}
+	if !ops.cfg.AlgorithmAnnotation {
+		// Use the undefined algorithm to fall back to default when annotations are disabled.
+		return loadbalancer.SVCLoadBalancingAlgorithmUndef
 	}
-	return defaultAlgorithm
+	return fe.Service.GetLBAlgorithmAnnotation()
 }
 
 func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
-	if ops.lbAlgorithm(fe) != loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	alg := ops.lbAlgorithm(fe)
+	switch {
+	// Wildcarded frontend is not exposed for external traffic.
+	case fe.Address.AddrCluster.IsUnspecified():
 		return false
-	}
+
+	// Maglev algorithm annotation overrides rest of the checks.
+	case alg != loadbalancer.SVCLoadBalancingAlgorithmUndef:
+		return alg == loadbalancer.SVCLoadBalancingAlgorithmMaglev
+
+	case ops.cfg.LBAlgorithm != loadbalancer.LBAlgorithmMaglev:
+		return false
+
 	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
+	case fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP:
 		return false
-	}
-	// Wildcarded frontend is not exposed for external traffic.
-	if fe.Address.AddrCluster.IsUnspecified() {
-		return false
-	}
-	// Only provision the Maglev LUT for service types which are reachable
-	// from outside the node.
-	switch fe.Type {
-	case loadbalancer.SVCTypeClusterIP,
-		loadbalancer.SVCTypeNodePort,
-		loadbalancer.SVCTypeLoadBalancer,
-		loadbalancer.SVCTypeHostPort,
-		loadbalancer.SVCTypeExternalIPs:
-		return true
-	}
-	return false
 
+	default:
+		// Only provision the Maglev LUT for service types which are reachable
+		// from outside the node.
+		switch fe.Type {
+		case loadbalancer.SVCTypeClusterIP,
+			loadbalancer.SVCTypeNodePort,
+			loadbalancer.SVCTypeLoadBalancer,
+			loadbalancer.SVCTypeHostPort,
+			loadbalancer.SVCTypeExternalIPs:
+			return true
+		}
+		return false
+	}
 }
 
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
@@ -983,7 +997,7 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 			"Unable to update element for LB bpf map: "+
 			"You can resize it with the flag \"--%s\". "+
 			"The resizing might break existing connections to services",
-			svcKey, svcVal, option.LBMapEntriesName)
+			svcKey, svcVal, loadbalancer.LBMapEntriesName)
 	}
 	return err
 }
@@ -1036,13 +1050,13 @@ func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *loadbalancer.Bac
 
 	if be.Address.AddrCluster.Is6() {
 		lbbe, err = lbmap.NewBackend6V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, ops.cfg.GetZoneID(be.Zone))
+			be.State, ops.extCfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}
 	} else {
 		lbbe, err = lbmap.NewBackend4V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, ops.cfg.GetZoneID(be.Zone))
+			be.State, ops.extCfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}
@@ -1422,10 +1436,4 @@ func srcRangeKey(cidr netip.Prefix, revNATID uint16, ipv6 bool) lbmap.SourceRang
 		copy(key.Address[:], as4[:])
 		return key
 	}
-}
-
-func cidrToPrefix(cidr cidr.CIDR) netip.Prefix {
-	cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-	ones, _ := cidr.Mask.Size()
-	return netip.PrefixFrom(cidrAddr, ones)
 }

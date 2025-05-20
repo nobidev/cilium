@@ -32,16 +32,16 @@ import (
 
 func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	kvstore.SetupDummy(t, "etcd")
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-mgr.InitIdentityAllocator(nil)
 	t.Cleanup(mgr.Close)
 
 	maps := cectnat.NewFakePerCluster(true, true)
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
-	logger := hivetest.Logger(t)
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,
@@ -103,10 +103,11 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 
 func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	kvstore.SetupDummy(t, "etcd")
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-mgr.InitIdentityAllocator(nil)
 	t.Cleanup(mgr.Close)
 
@@ -121,7 +122,6 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
 	idsMgr := newClusterIDManager(logging.DefaultLogger, cinfo, maps)
-	logger := hivetest.Logger(t)
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,

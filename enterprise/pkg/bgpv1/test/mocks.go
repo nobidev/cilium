@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 // egwManagerMock is a mock implementation of EGWIPsProvider ( EGWManager ). This is

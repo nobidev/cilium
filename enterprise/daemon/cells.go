@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
-	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	cecIngressPolicy "github.com/cilium/cilium/enterprise/pkg/ingresspolicy"
@@ -42,7 +41,6 @@ import (
 	srv6dataplane "github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 var (
@@ -51,11 +49,6 @@ var (
 		"Cilium Agent Enterprise",
 
 		cmd.Agent,
-
-		// Provide the endpoint API handlers the ability to create endpoints via the daemon.
-		cell.Provide(func(dp promise.Promise[*cmd.Daemon]) promise.Promise[endpointcreator.EndpointCreator] {
-			return promise.Map(dp, func(d *cmd.Daemon) endpointcreator.EndpointCreator { return d })
-		}),
 
 		// enterprise-only cells here
 		ControlPlane,

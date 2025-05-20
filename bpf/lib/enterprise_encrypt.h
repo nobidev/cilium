@@ -79,6 +79,7 @@ encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
 	__u16 inner_l3_proto;
 	__u32 __maybe_unused inner_l3_off;
 	__u32 __maybe_unused ipv6_off;
+	fraginfo_t __maybe_unused fraginfo;
 	int ret;
 
 	inner_l3_proto = vxlan_get_inner_proto(data, data_end, *l4_off);
@@ -99,7 +100,7 @@ encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
 					   sizeof(struct ethhdr);
 
 		/* with the offset of the inner ip packet, calculate length of inner ipv6 header */
-		ipv6_off = ipv6_hdrlen_offset(ctx, l4_proto, inner_l3_off);
+		ipv6_off = ipv6_hdrlen_offset(ctx, inner_l3_off, l4_proto, &fraginfo);
 		if (ipv6_off < 0)
 			return ipv6_off;
 

@@ -61,8 +61,9 @@ func (m *mockReconciler) Prune() {}
 
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(log, "")
 	require.NoError(t, rlimit.RemoveMemlock())
 
 	k := &EgressGatewayTestSuite{}
@@ -73,7 +74,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 
 	lc := hivetest.Lifecycle(t)
 	policyMapV2 := egressmapha.CreatePrivatePolicyMapV2(lc, egressmapha.DefaultPolicyConfig)
-	ctMap := egressmapha.CreatePrivateCtMap(lc)
+	ctMap := egressmapha.CreatePrivateCtMap(lc, log)
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{
 		Node: nodeTypes.Node{

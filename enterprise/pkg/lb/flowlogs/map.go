@@ -12,6 +12,7 @@ package lbflowlogs
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 
 	ebpfRingBuf "github.com/cilium/ebpf/ringbuf"
@@ -25,9 +26,9 @@ type lbFlowLogMap struct {
 	readers []*ebpfRingBuf.Reader
 }
 
-func newLbFlowLogMap(config Config, name string) *lbFlowLogMap {
+func newLbFlowLogMap(log *slog.Logger, config Config, name string) *lbFlowLogMap {
 	return &lbFlowLogMap{
-		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
+		bpfMap: ebpf.NewMap(log, &ebpf.MapSpec{
 			Name:       name,
 			Type:       ebpf.RingBuf,
 			MaxEntries: config.LoadbalancerFlowLogsMapSize,

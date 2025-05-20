@@ -12,6 +12,7 @@ package ciliummeshpolicymap
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"unsafe"
 
@@ -45,6 +46,7 @@ type ciliumMeshPolicyParams struct {
 
 	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
+	Slog      *slog.Logger
 }
 
 type CiliumMeshPolicyWriter interface {
@@ -111,7 +113,7 @@ func newCiliumMeshPolicyParams(p ciliumMeshPolicyParams) (out struct {
 		return
 	}
 
-	out.MapOut = bpf.NewMapOut(CiliumMeshPolicyWriter(createWithName(p.Lifecycle, MapName)))
+	out.MapOut = bpf.NewMapOut(CiliumMeshPolicyWriter(createWithName(p.Lifecycle, p.Slog, MapName)))
 
 	return
 }
@@ -135,7 +137,7 @@ type CiliumMeshPolicyValue struct{ Fd uint32 }
 //
 // The specified name allows non-standard map paths to be used, for instance
 // for testing purposes.
-func createWithName(lc cell.Lifecycle, name string) *ciliumMeshPolicyMap {
+func createWithName(lc cell.Lifecycle, log *slog.Logger, name string) *ciliumMeshPolicyMap {
 	innerMapSpec := &ebpf.MapSpec{
 		Name:       innerMapName,
 		Type:       ebpf.LPMTrie,
@@ -144,7 +146,7 @@ func createWithName(lc cell.Lifecycle, name string) *ciliumMeshPolicyMap {
 		MaxEntries: MaxEntries,
 	}
 
-	cmpm := ebpf.NewMap(&ebpf.MapSpec{
+	cmpm := ebpf.NewMap(log, &ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.HashOfMaps,
 		KeySize:    uint32(unsafe.Sizeof(EndpointKey{})),

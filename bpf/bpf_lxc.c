@@ -87,8 +87,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	int ret = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -146,13 +147,16 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
-	int ret = 0;
+	int ret;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
+	tuple.nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
+		return ret;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	l4_off = ETH_HLEN + ret;
+
+	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -271,7 +275,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-__section_tail(CILIUM_MAP_CALLS, ID)						\
+__declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
@@ -338,7 +342,7 @@ int NAME(struct __ctx_buff *ctx)						\
 }
 
 #define TAIL_CT_LOOKUP6(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-__section_tail(CILIUM_MAP_CALLS, ID)						\
+__declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
@@ -473,7 +477,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u8 __maybe_unused encrypt_key = 0;
 	bool __maybe_unused skip_tunnel = false;
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -495,7 +498,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info) {
 			*dst_sec_identity = info->sec_identity;
-			encrypt_key = get_min_encrypt_key(info->key);
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
@@ -631,7 +633,7 @@ ct_recreate6:
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
 					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT,
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
 #endif /* ENABLE_NODEPORT */
@@ -726,9 +728,8 @@ ct_recreate6:
 			 * (a) the packet needs IPSec encap so push ctx to stack for encap, or
 			 * (b) packet was redirected to tunnel device so return.
 			 */
-			ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
-						     SECLABEL_IPV6, *dst_sec_identity,
-						     &trace);
+			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
+						     *dst_sec_identity, &trace);
 			switch (ret) {
 			case CTX_ACT_OK:
 				goto encrypt_to_stack;
@@ -791,7 +792,7 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC_CONT)
+__declare_tail(CILIUM_CALL_IPV6_FROM_LXC_CONT)
 static __always_inline
 int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
@@ -827,6 +828,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret __maybe_unused;
+	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -845,7 +847,10 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN)))
 		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS, ext_err);
 
-	if (unlikely(!is_valid_lxc_src_ip(ip6)))
+#ifdef ENABLE_L7_LB
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+#endif
+	if (!from_l7lb && unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
 #ifdef ENABLE_PER_PACKET_LB
@@ -857,7 +862,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 #endif /* ENABLE_PER_PACKET_LB */
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+__declare_tail(CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
@@ -899,7 +904,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u8 __maybe_unused encrypt_key = 0;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -926,7 +930,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info) {
 		*dst_sec_identity = info->sec_identity;
-		encrypt_key = get_min_encrypt_key(info->key);
 		skip_tunnel = info->flag_skip_tunnel;
 	} else {
 		*dst_sec_identity = WORLD_IPV4_ID;
@@ -1269,9 +1272,8 @@ skip_vtep:
 #endif
 
 		if (info && info->flag_has_tunnel_ep) {
-			ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
-						     SECLABEL_IPV4, *dst_sec_identity,
-						     &trace);
+			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV4,
+						     *dst_sec_identity, &trace);
 			switch (ret) {
 			case CTX_ACT_OK:
 				/* IPsec, pass up to stack for XFRM processing. */
@@ -1339,7 +1341,7 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_CONT)
+__declare_tail(CILIUM_CALL_IPV4_FROM_LXC_CONT)
 static __always_inline
 int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
@@ -1375,6 +1377,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo __maybe_unused;
+	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1389,7 +1392,10 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
-	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+#ifdef ENABLE_L7_LB
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+#endif
+	if (!from_l7lb && unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
 #ifdef ENABLE_MULTICAST
@@ -1418,7 +1424,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 #endif /* ENABLE_PER_PACKET_LB */
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+__declare_tail(CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
@@ -1435,7 +1441,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with THIS_INTERFACE_MAC
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+__declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	union macaddr mac = THIS_INTERFACE_MAC;
@@ -1603,7 +1609,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
 					   ct_state->rev_nat_index, tuple,
-					   ipfrag_has_l4_header(fraginfo));
+					   ipfrag_has_l4_header(fraginfo), CT_INGRESS);
 			if (IS_ERR(ret2))
 				return ret2;
 		}
@@ -1682,7 +1688,7 @@ redirect_to_proxy:
 	return POLICY_ACT_PROXY_REDIRECT;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
@@ -1760,7 +1766,7 @@ drop_err:
 				    ret, ext_err, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
+__declare_tail(CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -1790,18 +1796,16 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		if (info != NULL) {
 			__u32 sec_identity = info->sec_identity;
 
-			if (sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "src_sec_identity"
-				 * (passed into this function) reports the src
-				 * as the host. So we can ignore the ipcache
-				 * if it reports the source as HOST_ID.
-				 */
-				if (sec_identity != HOST_ID)
-					src_sec_identity = sec_identity;
-			}
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "src_sec_identity"
+			 * (passed into this function) reports the src
+			 * as the host. So we can ignore the ipcache
+			 * if it reports the source as HOST_ID.
+			 */
+			if (sec_identity != HOST_ID)
+				src_sec_identity = sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *)src)[3], src_sec_identity);
@@ -2029,7 +2033,7 @@ redirect_to_proxy:
 	return POLICY_ACT_PROXY_REDIRECT;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
+__declare_tail(CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
@@ -2116,7 +2120,7 @@ drop_err:
 				    ret, ext_err, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
+__declare_tail(CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -2140,18 +2144,16 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		if (info != NULL) {
 			__u32 sec_identity = info->sec_identity;
 
-			if (sec_identity) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "src_sec_identity"
-				 * (passed into this function) reports the src
-				 * as the host. So we can ignore the ipcache
-				 * if it reports the source as HOST_ID.
-				 */
-				if (sec_identity != HOST_ID)
-					src_sec_identity = sec_identity;
-			}
+			/* When SNAT is enabled on traffic ingressing
+			 * into Cilium, all traffic from the world will
+			 * have a source IP of the host. It will only
+			 * actually be from the host if "src_sec_identity"
+			 * (passed into this function) reports the src
+			 * as the host. So we can ignore the ipcache
+			 * if it reports the source as HOST_ID.
+			 */
+			if (sec_identity != HOST_ID)
+				src_sec_identity = sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, src_sec_identity);

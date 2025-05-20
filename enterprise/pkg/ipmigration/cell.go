@@ -24,7 +24,6 @@ import (
 	"log/slog"
 	"net"
 	"strings"
-	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -39,11 +38,11 @@ import (
 	endpointrestapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/ipmigration/types"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -85,9 +84,9 @@ type managerParams struct {
 
 	RestorerPromise promise.Promise[endpointstate.Restorer]
 
-	EndpointManager   endpointmanager.EndpointManager
-	EndpointTemplates *endpointTemplates
-	EndpointCreator   promise.Promise[endpointcreator.EndpointCreator]
+	EndpointManager    endpointmanager.EndpointManager
+	EndpointTemplates  *endpointTemplates
+	EndpointAPIManager endpointapi.EndpointAPIManager
 
 	IPAM                *ipam.IPAM
 	IPAMMetadataManager ipamMetadata.Manager
@@ -111,6 +110,10 @@ type endpointManager interface {
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
 }
 
+type endpointAPIManager interface {
+	CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error)
+}
+
 type cfg struct {
 	ipv4Enabled bool
 	ipv6Enabled bool
@@ -131,8 +134,9 @@ type manager struct {
 	log *slog.Logger
 	cfg cfg
 
-	endpointManager   endpointManager
-	endpointTemplates *endpointTemplates
+	endpointManager    endpointManager
+	endpointTemplates  *endpointTemplates
+	endpointAPIManager endpointAPIManager
 
 	ipam                ipamAllocator
 	ipamMetadataManager ipamMetadata.Manager
@@ -140,9 +144,6 @@ type manager struct {
 
 	db       *statedb.DB
 	podTable statedb.Table[agentK8s.LocalPod]
-
-	// Note: This fields is initialized late by the `start-ip-migration` job
-	endpointCreator atomic.Pointer[endpointcreator.EndpointCreator]
 
 	// Note: These two fields are set by injectAPIHandlers during Hive construction
 	putEP     endpointrestapi.PutEndpointIDHandler
@@ -165,8 +166,9 @@ func newMigrationManager(params managerParams) *manager {
 			retryAttempts: 20,
 		},
 
-		endpointManager:   params.EndpointManager,
-		endpointTemplates: params.EndpointTemplates,
+		endpointManager:    params.EndpointManager,
+		endpointTemplates:  params.EndpointTemplates,
+		endpointAPIManager: params.EndpointAPIManager,
 
 		ipam:                params.IPAM,
 		ipamMetadataManager: params.IPAMMetadataManager,
@@ -176,18 +178,10 @@ func newMigrationManager(params managerParams) *manager {
 		podTable: params.PodTable,
 	}
 
-	// The pod watcher can only be started once its dependency (endpoint creator) is available.
-	// In addition, we also only want to start the watcher once alls endpoints have been restored, as otherwise
+	// The pod watcher can only be started once all endpoints have been restored, as otherwise
 	// we observe pods without endpoints, which causes the code to wrongly assume those pods are detached.
 	params.JobGroup.Add(
 		job.OneShot("start-ip-migration", func(ctx context.Context, _ cell.Health) error {
-			// This blocks until the Daemon has been started
-			epCreator, err := params.EndpointCreator.Await(ctx)
-			if err != nil {
-				return err
-			}
-			m.endpointCreator.Store(&epCreator)
-
 			// WaitForEndpointRestore blocks until all endpoints have been restored
 			restorer, err := params.RestorerPromise.Await(ctx)
 			if err != nil {
@@ -260,13 +254,6 @@ func (m *manager) createEndpoint(
 	ep *models.EndpointChangeRequest,
 ) (err error) {
 	owner := ep.K8sNamespace + "/" + ep.K8sPodName
-	epCreatorPtr := m.endpointCreator.Load()
-	if epCreatorPtr == nil || *epCreatorPtr == nil {
-		// This should never happen, since attachRunningPod should only be called from the pod watcher, and the
-		// pod watcher is only started once we've obtained a reference to the endpoint creator.
-		// However, just to be safe and avoid any nil-pointer panics, we error out here:
-		return errors.New("BUG: endpoint creator not initialized")
-	}
 
 	// Allocate IPv4 address
 	if addr := ep.Addressing; addr != nil && addr.IPV4 != "" {
@@ -306,7 +293,7 @@ func (m *manager) createEndpoint(
 		}()
 	}
 
-	_, err = (*epCreatorPtr).CreateEndpoint(ctx, ep)
+	_, _, err = m.endpointAPIManager.CreateEndpoint(ctx, ep)
 	return err
 }
 

@@ -13,6 +13,7 @@ package egressmapha
 import (
 	"fmt"
 	"iter"
+	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -119,8 +120,8 @@ func createPolicyMapV2(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType
 	return &policyMapV2{m}
 }
 
-func OpenPinnedPolicyMapV2() (PolicyMapV2, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapNameV2), &EgressPolicyV2Key4{}, &EgressPolicyV2Val4{})
+func OpenPinnedPolicyMapV2(log *slog.Logger) (PolicyMapV2, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(log, PolicyMapNameV2), &EgressPolicyV2Key4{}, &EgressPolicyV2Val4{})
 	if err != nil {
 		return nil, err
 	}

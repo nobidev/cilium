@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
@@ -81,6 +82,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
+			func() *server.Server { return nil },
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
@@ -109,13 +111,13 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 	// Disable the experimental LB control-plane. The tests here use the "LBMockMap" which is not used
 	// by the new implementation. Once we switch implementations we can remove the LB related tests from
 	// here as they're already covered by the LB test suite.
-	hive.AddConfigOverride(h.hive, func(c *loadbalancer.Config) {
+	hive.AddConfigOverride(h.hive, func(c *loadbalancer.UserConfig) {
 		c.EnableExperimentalLB = false
 	})
 }
 
 func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(*option.DaemonConfig)) {
-	option.Config.Populate(h.hive.Viper())
+	option.Config.Populate(h.log, h.hive.Viper())
 
 	option.Config.RunDir = testDir
 	option.Config.StateDir = testDir
@@ -134,7 +136,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementTrue
 	option.Config.K8sRequireIPv6PodCIDR = false
 	option.Config.EnableL7Proxy = false
-	option.Config.EnableHealthCheckNodePort = false
 	option.Config.Debug = true
 
 	// Apply the test-specific agent configuration modifier

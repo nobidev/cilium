@@ -167,15 +167,15 @@ func NamespaceResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*met
 	return resource.New[*slim_corev1.Namespace](lc, lw, resource.WithMetric("Namespace")), nil
 }
 
-func LBIPPoolsResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
+func LBIPPoolsResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](params.ClientSet.CiliumV2alpha1().CiliumLoadBalancerIPPools()),
+		utils.ListerWatcherFromTyped(params.ClientSet.CiliumV2().CiliumLoadBalancerIPPools()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](params.Lifecycle, lw, resource.WithMetric("CiliumLoadBalancerIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](params.Lifecycle, lw, resource.WithMetric("CiliumLoadBalancerIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func CiliumIdentityResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
@@ -445,7 +445,7 @@ func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, er
 		)
 		return nil, nil
 	}
-	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 		indices = append(indices, cep.Networking.NodeIP)
 	}
 	return indices, nil
@@ -465,7 +465,9 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeS
 		opts...,
 	)
 	indexers := cache.Indexers{
-		"localNode": ciliumEndpointSliceLocalPodIndexFunc,
+		"localNode": func(obj any) ([]string, error) {
+			return ciliumEndpointSliceLocalPodIndexFunc(params.Logger, obj)
+		},
 	}
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
 		resource.WithMetric("CiliumEndpointSlice"),
@@ -476,14 +478,14 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeS
 
 // ciliumEndpointSliceLocalPodIndexFunc is an IndexFunc that indexes CiliumEndpointSlices
 // by their corresponding Pod, which are running locally on this Node.
-func ciliumEndpointSliceLocalPodIndexFunc(obj any) ([]string, error) {
+func ciliumEndpointSliceLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, error) {
 	ces, ok := obj.(*cilium_api_v2alpha1.CiliumEndpointSlice)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object type: %T", obj)
 	}
 	indices := []string{}
 	for _, ep := range ces.Endpoints {
-		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 			indices = append(indices, ep.Networking.NodeIP)
 			break
 		}
