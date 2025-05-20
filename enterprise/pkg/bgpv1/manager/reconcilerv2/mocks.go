@@ -12,23 +12,32 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
 
 	"github.com/YutaroHayakawa/go-ra"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/resiliency"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type mockEGWPolicy struct {
@@ -231,4 +240,75 @@ func (m *mockRADaemon) Status() *ra.Status {
 		}
 	}
 	return s
+}
+
+type mockStateReconcilerIn struct {
+	cell.In
+
+	JG               job.Group
+	Logger           *slog.Logger
+	Instance         *instance.BGPInstance
+	StateCh          types.StateNotificationCh
+	StateReconcilers []reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+}
+
+// Mocked state reconciler. It only supports pre-configured, single instance.
+// It only supports Update event.
+type mockStateReconciler struct {
+	in          mockStateReconcilerIn
+	reconcilers []reconcilerv2.StateReconciler
+}
+
+func registerMockStateReconciler(in mockStateReconcilerIn) *mockStateReconciler {
+	r := &mockStateReconciler{
+		in: in,
+		reconcilers: reconcilerv2.GetActiveStateReconcilers(
+			in.Logger,
+			in.StateReconcilers,
+		),
+	}
+	in.JG.Add(job.OneShot("loop", r.loop))
+	return r
+}
+
+func (m *mockStateReconciler) reconcile(ctx context.Context, retries int) (bool, error) {
+	params := reconcilerv2.StateReconcileParams{
+		ConfigMode: mode.NewConfigMode(),
+		UpdatedInstance: &instance.BGPInstance{
+			Name:   m.in.Instance.Name,
+			Config: m.in.Instance.Config,
+			Router: m.in.Instance.Router,
+		},
+	}
+	params.ConfigMode.Set(mode.BGPv2)
+
+	for _, reconciler := range m.reconcilers {
+		if err := reconciler.Reconcile(ctx, params); err != nil {
+			m.in.Logger.Debug("Reconcile failed", logfields.Error, err)
+			return false, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (m *mockStateReconciler) loop(ctx context.Context, _ cell.Health) error {
+	for {
+		select {
+		case <-m.in.StateCh:
+			if err := resiliency.Retry(
+				ctx,
+				100*time.Millisecond,
+				100,
+				m.reconcile,
+			); err != nil {
+				m.in.Logger.Debug(
+					"Reconcile retry failed",
+					logfields.Error, err,
+				)
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

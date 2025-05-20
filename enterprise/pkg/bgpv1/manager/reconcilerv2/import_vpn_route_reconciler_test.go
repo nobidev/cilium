@@ -11,11 +11,36 @@
 package reconcilerv2
 
 import (
+	"errors"
+	"io"
+	"log/slog"
 	"net/netip"
 	"testing"
+	"time"
 
+	"github.com/YutaroHayakawa/bgplay/pkg/bgpcap"
+	"github.com/YutaroHayakawa/bgplay/pkg/replayer"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/rib"
+	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
+	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // This test covers the most complicated MPReachNLRI parsing logic.
@@ -146,6 +171,296 @@ func TestParseMPReachNLRI(t *testing.T) {
 			require.Equal(t, tt.expectedPrefix, prefix)
 			require.Equal(t, tt.expectedLabel, label)
 			require.ErrorIs(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestSRv6RouteImport(t *testing.T) {
+	var (
+		RIB        *rib.RIB
+		router     types.Router
+		reconciler *importVPNRouteReconciler
+	)
+
+	hive := hive.New(cell.Module(
+		"test",
+		"test module",
+		rib.Cell,
+		rib.NopDataPlaneCell,
+		client.FakeClientCell,
+		cell.Provide(
+			k8s.IsovalentVRFResource,
+			newImportVPNRouteReconciler,
+			newImportVPNRouteStateReconciler,
+			func() Config {
+				return Config{
+					SvcHealthCheckingEnabled:    false,
+					RouterAdvertisementInterval: time.Second,
+					EnableLegacySRv6Responder:   false,
+				}
+			},
+			func() config.Config {
+				return config.Config{
+					Enabled:             true,
+					StatusReportEnabled: false,
+				}
+			},
+			func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableSRv6: true,
+				}
+			},
+			func() *legacyImportVPNRouteReconciler {
+				return nil
+			},
+			func() types.StateNotificationCh {
+				return make(chan struct{}, 1)
+			},
+			func() types.BGPGlobal {
+				opt := &types.RouteSelectionOptions{}
+				return types.BGPGlobal{
+					ASN:                   65111,
+					RouterID:              "10.0.0.1",
+					ListenPort:            11799,
+					RouteSelectionOptions: opt,
+				}
+			},
+			func(
+				logger *slog.Logger,
+				global types.BGPGlobal,
+				stateCh types.StateNotificationCh,
+			) (types.Router, error) {
+				return gobgp.NewGoBGPServer(
+					t.Context(),
+					logger,
+					types.ServerParameters{
+						Global:            global,
+						StateNotification: stateCh,
+					},
+				)
+			},
+			func(router types.Router, global types.BGPGlobal) *instance.BGPInstance {
+				return &instance.BGPInstance{
+					Name:   "test",
+					Global: global,
+					Router: router,
+					Config: &v2.CiliumBGPNodeInstance{
+						Name: "test",
+					},
+				}
+			},
+			func(inst *instance.BGPInstance) paramUpgrader {
+				return newUpgraderMock(&v1.IsovalentBGPNodeInstance{
+					Name: inst.Name,
+					VRFs: []v1.IsovalentBGPNodeVRF{
+						{
+							VRFRef:    "vrf0",
+							ImportRTs: []string{"65000:1"},
+						},
+						{
+							VRFRef:    "vrf1",
+							ImportRTs: []string{"65000:2"},
+						},
+					},
+				})
+			},
+		),
+		cell.Invoke(
+			registerMockStateReconciler,
+			func(
+				r *rib.RIB,
+				rtr types.Router,
+				rec *importVPNRouteReconciler,
+			) {
+				RIB = r
+				router = rtr
+				reconciler = rec
+			},
+			func(cs *client.FakeClientset) {
+				_, err := cs.IsovalentV1alpha1().IsovalentVRFs().Create(
+					t.Context(),
+					&v1alpha1.IsovalentVRF{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "vrf0",
+						},
+						Spec: v1alpha1.IsovalentVRFSpec{
+							VRFID: 1,
+						},
+					},
+					metav1.CreateOptions{},
+				)
+				require.NoError(t, err)
+				_, err = cs.IsovalentV1alpha1().IsovalentVRFs().Create(
+					t.Context(),
+					&v1alpha1.IsovalentVRF{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "vrf1",
+						},
+						Spec: v1alpha1.IsovalentVRFSpec{
+							VRFID: 2,
+						},
+					},
+					metav1.CreateOptions{},
+				)
+				require.NoError(t, err)
+			},
+		),
+	))
+
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	err := hive.Start(logger, t.Context())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		hive.Stop(logger, t.Context())
+	})
+
+	// Allow all route import for VPNv4 paths. As we don't have
+	// VPNPolicyReconciler.
+	policy := types.RoutePolicyRequest{
+		DefaultExportAction: types.RoutePolicyActionReject,
+		Policy: &types.RoutePolicy{
+			Name: "allow-all-vpnv4-routes",
+			Type: types.RoutePolicyTypeImport,
+			Statements: []*types.RoutePolicyStatement{
+				{
+					Conditions: types.RoutePolicyConditions{
+						MatchFamilies: []types.Family{
+							{
+								Afi:  types.AfiIPv4,
+								Safi: types.SafiMplsVpn,
+							},
+						},
+					},
+					Actions: types.RoutePolicyActions{
+						RouteAction: types.RoutePolicyActionAccept,
+					},
+				},
+			},
+		},
+	}
+	err = router.AddRoutePolicy(t.Context(), policy)
+	require.NoError(t, err)
+
+	// Peering locally
+	err = router.AddNeighbor(t.Context(), &types.Neighbor{
+		Address: netip.MustParseAddr("127.0.0.1"),
+		ASN:     65000,
+		Timers: &types.NeighborTimers{
+			ConnectRetry: 1,
+		},
+		Transport: &types.NeighborTransport{
+			RemotePort: 11799,
+		},
+		AfiSafis: []*types.Family{
+			{
+				Afi:  types.AfiIPv4,
+				Safi: types.SafiMplsVpn,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name           string
+		bgpcapfile     string
+		expectedRoutes map[uint32][]*rib.Route
+	}{
+		{
+			name:       "FRR VPNv4",
+			bgpcapfile: "testdata/vpnv4-frr.bgpcap",
+			expectedRoutes: map[uint32][]*rib.Route{
+				1: {
+					&rib.Route{
+						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
+						Owner:    reconciler.ribOwnerName("test"),
+						Protocol: rib.ProtocolUnknown,
+						NextHop: &rib.HEncaps{
+							Segments: []srv6Types.SID{
+								{
+									Addr: netip.MustParseAddr("fd00:2222:0:0:1::"),
+								},
+							},
+						},
+					},
+				},
+				2: {
+					&rib.Route{
+						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
+						Owner:    reconciler.ribOwnerName("test"),
+						Protocol: rib.ProtocolUnknown,
+						NextHop: &rib.HEncaps{
+							Segments: []srv6Types.SID{
+								{
+									Addr: netip.MustParseAddr("fd00:2222:0:0:2::"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := bgpcap.Open(tt.bgpcapfile)
+			require.NoError(t, err)
+			defer file.Close()
+
+			openMsg, err := file.Read()
+			require.NoError(t, err)
+			require.IsType(t, &bgp.BGPOpen{}, openMsg.Body,
+				"The first message should be an OPEN message")
+
+			d := replayer.Dialer{
+				OpenMessage: openMsg,
+			}
+			conn, err := d.Connect(
+				t.Context(),
+				netip.MustParseAddrPort("127.0.0.1:11799"),
+			)
+			require.NoError(t, err)
+			defer conn.Close()
+
+			for {
+				msg, err := file.Read()
+				if err != nil && errors.Is(err, io.EOF) {
+					break
+				}
+				require.NoError(t, err)
+
+				err = conn.Write(msg)
+				require.NoError(t, err)
+			}
+
+			expectedRoutes := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
+			for vrfID, routes := range tt.expectedRoutes {
+				trie := bitlpm.NewCIDRTrie[*rib.Route]()
+				for _, route := range routes {
+					trie.Upsert(route.Prefix, route)
+				}
+				if trie.Len() > 0 {
+					expectedRoutes[vrfID] = trie
+				}
+			}
+
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				toUpsert, toDelete := calculateRouteDiffs(
+					expectedRoutes,
+					RIB.ListRoutes(reconciler.ribOwnerName("test")),
+				)
+				if !assert.True(
+					ct,
+					len(toUpsert) == 0 && len(toDelete) == 0,
+					"Still have diff between expected and actual routes: %d upsert, %d delete",
+					len(toUpsert),
+					len(toDelete),
+				) {
+					return
+				}
+			}, time.Second*5, 100*time.Millisecond)
 		})
 	}
 }
