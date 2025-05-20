@@ -207,6 +207,7 @@ jobs:
             --set=dnsProxy.minTtl=300 \
             --set=hubble.enabled=true \
             --set=hubble.eventBufferCapacity=65535 \
+            --set=enterprise.featureGate.approved={DNSProxyHA,LocalRedirectPolicy} \
             --values=values-export-aggregation.yaml \
             --values=values-hubble-metrics.yaml \
             --wait=false"
