@@ -192,9 +192,9 @@ func (r *importVPNRouteReconciler) ribOwnerName(instanceName string) string {
 	return "bgpv2-" + instanceName
 }
 
-func (r *importVPNRouteReconciler) reconcileRIB(
-	desired map[uint32]*bitlpm.CIDRTrie[*rib.Route],
-	current map[uint32]*bitlpm.CIDRTrie[*rib.Route],
+func calculateRouteDiffs(desired, current map[uint32]*bitlpm.CIDRTrie[*rib.Route]) (
+	map[uint32]*bitlpm.CIDRTrie[*rib.Route],
+	map[uint32]*bitlpm.CIDRTrie[*rib.Route],
 ) {
 	toUpsert := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
 	toDelete := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
@@ -233,6 +233,12 @@ func (r *importVPNRouteReconciler) reconcileRIB(
 			toDelete[vrfID] = currentRoutes
 		}
 	}
+
+	return toUpsert, toDelete
+}
+
+func (r *importVPNRouteReconciler) reconcileRIB(desired, current map[uint32]*bitlpm.CIDRTrie[*rib.Route]) {
+	toUpsert, toDelete := calculateRouteDiffs(desired, current)
 
 	for vrfID, routes := range toUpsert {
 		routes.ForEach(func(_ netip.Prefix, route *rib.Route) bool {
