@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+# Copyright (C) Isovalent, Inc. - All Rights Reserved.
+
+# This script looks at the current state and the environment variables set
+# to populate the relatedImages field in the ClusterServiceVersion with the matching image versions.
+# Due to the way opm works the base for ClusterServiceVersion is not updated but environment variables
+# are set on the manager deployment, which get later added to the relatedImages field of the rendered
+# ClusterServiceVersion.
+# CL_REGISTRY: select a specific registry, defaults to quay.io/isovalent-dev
+# CL_SUFFIX: whether a suffix needs to get appended, defaults to -ubi
+# CL_IS_CI: whether an additional -ci suffix needs to get appended, defaults to true
+# CL_TAG: the tag to use for in-tree images, defaults to the commit id of the head
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# renovate: datasource=github-releases depName=mikefarah/yq
+yq_version=4.45.1  
+
+root_dir=$(git rev-parse --show-toplevel)
+values_file="${root_dir}/enterprise/olm/manifests/values.yaml"
+registry="${CL_REGISTRY:-quay.io/isovalent-dev}"
+is_ci="${CL_IS_CI:-true}"
+echo "is_ci: ${is_ci}"
+in_tree_suffix="${CL_SUFFIX:--ubi}"
+out_tree_suffix="${CL_SUFFIX:--ubi}"
+echo "out_tree_suffix: ${out_tree_suffix}"
+if [ "${is_ci}" == "true" ]; then
+  in_tree_suffix="${in_tree_suffix}-ci"
+fi
+echo "in_tree_suffix: ${in_tree_suffix}"
+if [ -z "${CL_TAG+x}" ] ; then
+  echo "Using the commit id of the head as tag, set CL_TAG to the desired value otherwise"
+  tag="$(git rev-parse HEAD)"
+else
+  tag="${CL_TAG}"
+fi
+echo "tag: ${tag}"
+
+# yq_replace_mgr makes in place modifications of manager.yaml
+function yq_replace_mgr {
+  docker run --rm -v "${root_dir}/enterprise/olm/config/manager/manager.yaml":/workdir/manager.yaml --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -i "$1" /workdir/manager.yaml
+}
+
+# yq_get_mgr_json retrieves values of fields in manager.yaml and gives a json format as output
+yq_get_mgr_result=""
+function yq_get_mgr_json {
+  yq_get_mgr_result=$(docker run --rm -v "${root_dir}/enterprise/olm/config/manager/manager.yaml":/workdir/manager.yaml --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -o=json "$1" /workdir/manager.yaml)
+}
+
+# yq_get retrieves values of fields in values.yaml
+yq_get_result=""
+function yq_get {
+  yq_get_result=$(docker run --rm -v "${values_file}":/workdir/values.yaml --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e "$1" /workdir/values.yaml)
+}
+
+# get_digest gives the digest of the image from the image reference and tag
+get_digest_result=""
+function get_digest {
+  get_digest_result=$(${root_dir}/images/scripts/get-image-digest.sh "$1:$2")
+}
+
+# Get the image digests and populate related images in the ClusterServiceVersion
+related_imgs="["
+# cilium agent
+echo "Process cilium agent"
+echo "get digest: ${registry}/cilium${in_tree_suffix} ${tag}" 
+get_digest "${registry}/cilium${in_tree_suffix}" "${tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_AGENT\",\"value\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
+# preflight
+echo "Preflight does not need to be added to relatedImages as long as it is the same image as Cilium agent."
+echo "opm does not accept the same image being referenced multiple times."
+# echo "Process preflight"
+# echo "get digest: ${registry}/cilium${in_tree_suffix} ${tag}"
+# get_digest "${registry}/cilium${in_tree_suffix}" "${tag}"
+# digest=${get_digest_result}
+# echo "digest: ${digest}"
+# related_imgs+="{\"name\": \"RELATED_IMAGE_PREFLIGHT\",\"value\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
+# hubble relay
+echo "Process hubble relay"
+echo "get digest: ${registry}/hubble-relay${in_tree_suffix} ${tag}" 
+get_digest "${registry}/hubble-relay${in_tree_suffix}" "${tag}"
+echo "digest: ${digest}"
+digest=${get_digest_result}
+related_imgs+="{\"name\": \"RELATED_IMAGE_HUBBLE-RELAY\",\"value\":\"${registry}/hubble-relay${in_tree_suffix}:${tag}@${digest}\"},"
+# clustermesh
+echo "Process clustermesh"
+echo "get digest: ${registry}/clustermesh-apiserver${in_tree_suffix} ${tag}" 
+get_digest "${registry}/clustermesh-apiserver${in_tree_suffix}" "${tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CLUSTERMESH-APISERVER\",\"value\":\"${registry}/clustermesh-apiserver${in_tree_suffix}:${tag}@${digest}\"},"
+# startup-script
+echo "Process startup-script"
+yq_get ".nodeinit.image.tag"
+startup_tag=${yq_get_result}
+echo "get digest: quay.io/isovalent/startup-script${out_tree_suffix} ${startup_tag}" 
+get_digest "quay.io/isovalent/startup-script${out_tree_suffix}" "${startup_tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"quay.io/isovalent/startup-script${out_tree_suffix}:${startup_tag}@${digest}\"},"
+# certgen
+echo "Process certgen"
+yq_get ".certgen.image.tag"
+certgen_tag=${yq_get_result}
+echo "get digest: quay.io/isovalent/certgen${out_tree_suffix} ${certgen_tag}" 
+get_digest "quay.io/isovalent/certgen${out_tree_suffix}" "${certgen_tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"quay.io/isovalent/certgen${out_tree_suffix}:${certgen_tag}@${digest}\"},"
+# envoy
+echo "Process envoy"
+yq_get ".envoy.image.tag"
+envoy_tag=${yq_get_result}
+echo "get digest: quay.io/isovalent/cilium-envoy${out_tree_suffix} ${envoy_tag}" 
+get_digest "quay.io/isovalent/cilium-envoy${out_tree_suffix}" "${envoy_tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"quay.io/isovalent/cilium-envoy${out_tree_suffix}:${envoy_tag}@${digest}\"},"
+# operator
+echo "Process operator"
+echo "get digest: ${registry}/operator-generic${in_tree_suffix} ${tag}" 
+get_digest "${registry}/operator-generic${in_tree_suffix}" "${tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-OPERATOR\",\"value\":\"${registry}/operator-generic${in_tree_suffix}:${tag}@${digest}\"}"
+# clife
+echo "Process clife"
+echo "get digest: ${registry}/clife${in_tree_suffix} ${tag}"
+get_digest "${registry}/clife" "${tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CLIFE\",\"value\":\"${registry}/clife${in_tree_suffix}:${tag}@${digest}\"},"
+
+related_imgs+="]"
+# the deployment is the second document in the manifest file
+yq_get_mgr_json "select(documentIndex == 1) | .spec.template.spec.containers[0].env | filter(.name != \"RELATED_IMAGE_*\")"
+env_vars=${yq_get_mgr_result}
+echo "existing variables:"
+echo "${env_vars}"
+yq_replace_mgr "(select(documentIndex == 1) | .spec.template.spec.containers[0].env) = ${env_vars}"
+yq_replace_mgr "(select(documentIndex == 1) | .spec.template.spec.containers[0].env) += ${related_imgs}"
+
+echo "Manager updated"

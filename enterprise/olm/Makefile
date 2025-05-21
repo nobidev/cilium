@@ -140,6 +140,10 @@ sync-helm-manifests:
 set-images: # Set the images versions matching the local state in the helm values embedded into CLife. A different tag, suffix and registry can be selected by setting env variables: CL_TAG, CL_IS_CI, CL_SUFFIX and CL_REGISTRY
 	./scripts/set-images.sh
 
+.PHONY: set-related-images
+set-related-images: # Set the related images as env variables in manager.yaml from the local state in the helm values embedded into CLife. A different tag, suffix and registry can be selected by setting env variables: CL_TAG, CL_IS_CI, CL_SUFFIX and CL_REGISTRY. They get then set in the ClusterServiceVersion down the stream through the opm tooling.
+	./scripts/set-related-images.sh
+
 .PHONY: build
 build: manifests generate fmt sync-helm-manifests vet set-images ## Build manager binary.
 	go build -o bin/manager cmd/main.go
@@ -294,7 +298,7 @@ endif
 endif
 
 .PHONY: bundle
-bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize operator-sdk set-related-images ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)

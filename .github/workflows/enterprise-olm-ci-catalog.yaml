@@ -94,7 +94,6 @@ jobs:
           IMG: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ github.sha }}"
           IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"
         run: |
-          make set-images
           make bundle
           make bundle-build
           make bundle-push

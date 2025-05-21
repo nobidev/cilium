@@ -62,26 +62,9 @@ spec:
   maintainers:
   - email: support@isovalent.com
     name: Isovalent, part of Cisco
-  maturity: beta
+  maturity: stable
   minKubeVersion: 1.27.0
   provider:
     name: Isovalent, part of Cisco
     url: https://isovalent.com/
-  relatedImages:
-  - image: quay.io/isovalent/cilium-ubi
-    name: agent
-  - image: quay.io/isovalent/operator-generic-ubi
-    name: cilium-operator
-  - image: quay.io/isovalent/startup-script-ubi
-    name: nodeinit
-  - image: quay.io/isovalent/cilium-ubi
-    name: preflight
-  - image: quay.io/isovalent/hubble-relay-ubi
-    name: hubble-relay
-  - image: quay.io/isovalent/certgen-ubi
-    name: certgen
-  - image: quay.io/isovalent/clustermesh-apiserver-ubi
-    name: clustermesh-apiserver
-  - image: quay.io/isovalent/cilium-envoy-ubi
-    name: cilium-envoy
   version: 0.0.0
