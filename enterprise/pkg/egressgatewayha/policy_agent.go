@@ -288,6 +288,9 @@ func updateEgressIPsConfig(
 // (such as egress IP or interface) given a policy group config
 func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupConfig) error {
 	var err error
+	var egressIP4 netip.Addr
+
+	gwc.egressIP = EgressIPNotFoundIPv4
 
 	switch {
 	case gc.iface != "":
@@ -297,21 +300,19 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 
 		iface, err := safenetlink.LinkByName(gc.iface)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
 		}
 
 		gwc.egressIfindex = uint32(iface.Attrs().Index)
 
-		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
+		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	case gc.egressIP.IsValid():
 		// If the group config specifies an egress IP, use the interface with that IP as egress
 		// interface
-		gwc.egressIP = gc.egressIP
+		egressIP4 = gc.egressIP
 		// Don't apply ifindex-based BPF forwarding, and instead defer to IP routing:
 		gwc.egressIfindex = 0
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
@@ -323,18 +324,18 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 		// the interface with the IPv4 default route
 		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with default route: %w", err)
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
 		gwc.egressIfindex = uint32(iface.Attrs().Index)
-		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
+		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	}
+
+	gwc.egressIP = egressIP4
 
 	return nil
 }
