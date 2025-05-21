@@ -788,7 +788,7 @@ func (manager *Manager) updateEgressRulesV2() {
 					logfields.DestinationCIDR: dstCIDR.String(),
 					logfields.EgressIP:        egressIP,
 					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-					logfields.Interface:       egressIfindex,
+					logfields.LinkIndex:       egressIfindex,
 				}).Error("Error applying egress gateway policy")
 			} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 				log.WithFields(logrus.Fields{
@@ -796,7 +796,7 @@ func (manager *Manager) updateEgressRulesV2() {
 					logfields.DestinationCIDR: dstCIDR.String(),
 					logfields.EgressIP:        egressIP,
 					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-					logfields.Interface:       egressIfindex,
+					logfields.LinkIndex:       egressIfindex,
 				}).Debug("Egress gateway policy applied")
 			}
 		}
