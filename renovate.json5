@@ -49,9 +49,6 @@
     ],
   },
   stopUpdatingLabel: 'renovate/stop-updating',
-  allowedCommands: [
-    '^make .*$',
-  ],
   packageRules: [
     {
       groupName: 'Cilium CLI Enterprise',

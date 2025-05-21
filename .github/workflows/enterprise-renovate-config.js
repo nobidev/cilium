@@ -13,4 +13,7 @@ module.exports = {
       password: "{{ process.env.RH_REGISTRY_PASSWORD }}",
     },
   ],
+  allowedCommands: [
+    '^make .*$',
+  ],
 };
