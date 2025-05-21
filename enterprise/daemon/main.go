@@ -26,7 +26,7 @@ func main() {
 	// the enterprise code has migrated over to it.
 	hive.AddConfigOverride(
 		agentHive,
-		func(cfg *loadbalancer.Config) { cfg.EnableExperimentalLB = false },
+		func(cfg *loadbalancer.UserConfig) { cfg.EnableExperimentalLB = false },
 	)
 
 	hiveFn := func() *hive.Hive {

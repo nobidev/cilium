@@ -146,16 +146,10 @@ func TestScript(t *testing.T) {
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					func(cfg lb.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                      true,
-							EnableIPv6:                      true,
-							SockRevNatEntries:               1000,
-							LBMapEntries:                    1000,
-							NodePortAlg:                     cfg.NodePortAlg,
-							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
-							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
-							EnableNodePort:                  true,
-							ExternalClusterIP:               cfg.ExternalClusterIP,
-							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
+							EnableIPv4:           true,
+							EnableIPv6:           true,
+							KubeProxyReplacement: option.KubeProxyReplacementTrue,
+							EnableNodePort:       true,
 						}
 					},
 				),

@@ -13,11 +13,11 @@ package k8s
 import (
 	"log/slog"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	cmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 )

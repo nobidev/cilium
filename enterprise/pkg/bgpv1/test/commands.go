@@ -26,7 +26,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 // BGPTestScriptCmds are special purpose script commands for BGP Control Plane tests.

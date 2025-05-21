@@ -8,6 +8,7 @@
 #include "lib/overloadable.h"
 
 #include "encap.h"
+#include "eps.h"
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
@@ -38,7 +39,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 				      __u32 egress_ifindex, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	int oif = 0;
+	__u32 oif;
 	int ret;
 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
@@ -57,20 +58,19 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 		if (!neigh_resolver_available())
 			return CTX_ACT_OK;
 
-		/* Don't redirect without a valid target ifindex: */
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
+	oif = fib_params.l.ifindex;
+
 	/* Skip redirect in to-netdev if we stay on the same iface: */
-	if (is_defined(IS_BPF_HOST) && fib_params.l.ifindex == ctx_get_ifindex(ctx))
+	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, &oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
@@ -411,7 +411,7 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 					 __u32 egress_ifindex, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	int oif = 0;
+	__u32 oif;
 	int ret;
 
 	if (egress_ifindex && neigh_resolver_available())
@@ -427,35 +427,32 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		if (!neigh_resolver_available())
 			return CTX_ACT_OK;
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
-	if (is_defined(IS_BPF_HOST) &&
-	    fib_params.l.ifindex == ctx_get_ifindex(ctx))
+	oif = fib_params.l.ifindex;
+
+	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, &oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
 }
 
 static __always_inline
-bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6, __u32 *tunnel_endpoint,
-					    __u32 *dst_sec_identity)
+bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6,
+					    struct remote_endpoint_info **info)
 {
 	if (egress_gw_reply_matches_policy_v6(ip6)) {
-		struct remote_endpoint_info *info;
+		struct remote_endpoint_info *egw_info;
 
-		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (!info || info->tunnel_endpoint.ip4 == 0)
+		egw_info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		if (!egw_info || egw_info->tunnel_endpoint.ip4 == 0)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint.ip4;
-		*dst_sec_identity = info->sec_identity;
-
+		*info = egw_info;
 		return true;
 	}
 

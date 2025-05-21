@@ -29,6 +29,8 @@
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
+#include "lib/encrypt.h"
+#include "lib/eps.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
@@ -47,7 +49,6 @@
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
-#include "lib/eps.h"
 #endif /* ENABLE_VTEP */
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
@@ -216,7 +217,7 @@ not_esp:
 	}
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
+__declare_tail(CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -306,7 +307,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	return DROP_UNROUTABLE;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT)
+__declare_tail(CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT)
 int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -522,7 +523,7 @@ not_esp:
 	return ipv4_host_delivery(ctx, ip4);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
+__declare_tail(CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -541,7 +542,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
  * ARP responder for ARP requests from VTEP
  * Respond to remote VTEP endpoint with cilium_vxlan MAC
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+__declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	struct remote_endpoint_info fake_info = {0};

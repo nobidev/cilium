@@ -10,18 +10,21 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 func TestGetTopologyAware(t *testing.T) {
@@ -223,7 +226,9 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 
-	_, svc := ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	lbcfg := loadbalancer.DefaultConfig
+
+	_, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -231,7 +236,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only ClusterIP
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "ClusterIP"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Empty(t, svc.NodePorts)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -240,7 +245,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only NodePort
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "NodePort"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Len(t, svc.NodePorts, 1)
 	require.Empty(t, svc.LoadBalancerIPs)
@@ -249,7 +254,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose only LoadBalancer
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "LoadBalancer"
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Empty(t, svc.FrontendIPs)
 	require.Empty(t, svc.NodePorts)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -258,7 +263,7 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	// Expose all
 
 	delete(k8sSvc.Annotations, annotation.ServiceTypeExposure)
-	_, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	_, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
 	require.Len(t, svc.NodePorts, 1)
 	require.Len(t, svc.LoadBalancerIPs, 1)
@@ -267,12 +272,9 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 
 func TestParseService(t *testing.T) {
 	oldDefaultLbMode := option.Config.NodePortMode
-	oldDefaultLbAlg := option.Config.NodePortAlg
 	option.Config.NodePortMode = option.NodePortModeSNAT
-	option.Config.NodePortAlg = option.NodePortAlgRandom
 	defer func() {
 		option.Config.NodePortMode = oldDefaultLbMode
-		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 	objMeta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -293,7 +295,9 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
+	lbcfg := loadbalancer.DefaultConfig
+
+	id, svc := ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
@@ -319,7 +323,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -345,7 +349,7 @@ func TestParseService(t *testing.T) {
 	}
 	k8sSvc.ObjectMeta.Labels[corev1.IsHeadlessService] = ""
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		IsHeadless:               true,
@@ -374,7 +378,7 @@ func TestParseService(t *testing.T) {
 		},
 	}
 
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, nil)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, nil)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
@@ -449,14 +453,11 @@ func TestParseService(t *testing.T) {
 		ipv4InternalAddrCluster.Addr(),
 		ipv4NodePortAddrCluster.Addr(),
 	}
-	oldLbAlg := option.Config.LoadBalancerAlgorithmAnnotation
-	option.Config.LoadBalancerAlgorithmAnnotation = true
 
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	defer func() {
-		option.Config.LoadBalancerAlgorithmAnnotation = oldLbAlg
-	}()
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	lbcfg.AlgorithmAnnotation = true
+	lbcfg.LBAlgorithm = loadbalancer.LBAlgorithmMaglev
+
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -486,7 +487,7 @@ func TestParseService(t *testing.T) {
 		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmMaglev,
 	}, svc)
 
-	objMeta.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
+	objMeta.Annotations[annotation.ServiceLoadBalancingAlgorithm] = loadbalancer.LBAlgorithmRandom
 
 	ipMode := slim_corev1.LoadBalancerIPModeProxy
 	k8sSvc = &slim_corev1.Service{
@@ -521,7 +522,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -549,7 +550,7 @@ func TestParseService(t *testing.T) {
 		TopologyAware:            true,
 		Annotations: map[string]string{
 			"service.kubernetes.io/topology-aware-hints": "auto",
-			annotation.ServiceLoadBalancingAlgorithm:     option.NodePortAlgRandom,
+			annotation.ServiceLoadBalancingAlgorithm:     loadbalancer.LBAlgorithmRandom,
 		},
 		LoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
 	}, svc)
@@ -578,7 +579,7 @@ func TestParseService(t *testing.T) {
 			},
 		},
 	}
-	id, svc = ParseService(hivetest.Logger(t), k8sSvc, addrs)
+	id, svc = ParseService(hivetest.Logger(t), lbcfg, k8sSvc, addrs)
 	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.Equal(t, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -606,7 +607,7 @@ func TestParseService(t *testing.T) {
 		TopologyAware:            true,
 		Annotations: map[string]string{
 			"service.kubernetes.io/topology-aware-hints": "auto",
-			annotation.ServiceLoadBalancingAlgorithm:     option.NodePortAlgRandom,
+			annotation.ServiceLoadBalancingAlgorithm:     loadbalancer.LBAlgorithmRandom,
 		},
 		LoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
 	}, svc)
@@ -1262,13 +1263,13 @@ func TestServiceString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, svc := ParseService(hivetest.Logger(t), tt.service, nil)
+		_, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, tt.service, nil)
 		require.Equal(t, tt.svcString, svc.String())
 	}
 }
 
 func TestNewClusterService(t *testing.T) {
-	id, svc := ParseService(hivetest.Logger(t), &slim_corev1.Service{
+	id, svc := ParseService(hivetest.Logger(t), loadbalancer.DefaultConfig, &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
@@ -1344,6 +1345,83 @@ func TestParseServiceIDFrom(t *testing.T) {
 			if got := ParseServiceIDFrom(tt.args.dn); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseServiceIDFrom() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestCheckServiceNodeExposure(t *testing.T) {
+	tests := []struct {
+		name           string // description of this test case
+		nodeLabels     map[string]string
+		svcAnnotations map[string]string
+		wantExposed    bool
+	}{
+		{
+			name:           "no annotation matches all nodes",
+			nodeLabels:     map[string]string{},
+			svcAnnotations: map[string]string{},
+			wantExposed:    true,
+		},
+		{
+			name:           "match via service.cilium.io/node annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeExposure: "beefy"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via service.cilium.io/node annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeExposure: "slow"},
+			wantExposed:    false,
+		},
+		{
+			name:           "exact match via service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node == beefy"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via exact service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node == slow"},
+			wantExposed:    false,
+		},
+		{
+			name:           "in match via service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    true,
+		},
+		{
+			name:           "in match via service.cilium.io/node-selector annotation 2",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "slow"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via in service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "another"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    false,
+		},
+		{
+			name:       "no match via via node annotation if node-selector exists and doesn't match",
+			nodeLabels: map[string]string{"service.cilium.io/node": "another"},
+			svcAnnotations: map[string]string{
+				annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )",
+				annotation.ServiceNodeExposure:         "another",
+			},
+			wantExposed: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exposedOnLocalNode, err := CheckServiceNodeExposure(
+				node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{Labels: tt.nodeLabels}}),
+				tt.svcAnnotations,
+			)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantExposed, exposedOnLocalNode)
 		})
 	}
 }

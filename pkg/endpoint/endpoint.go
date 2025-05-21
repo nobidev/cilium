@@ -621,7 +621,7 @@ func createEndpoint(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, lo
 		DNSRules:         nil,
 		DNSRulesV2:       nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies:       fqdn.NewDNSZombieMappings(logging.DefaultSlogLogger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}),
@@ -696,8 +696,9 @@ func CreateIngressEndpoint(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQu
 
 	// node.GetIngressIPv4 has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
 	// address format. Use netipx.FromStdIP() to make sure we get a plain IPv4 address.
-	ep.IPv4, _ = netipx.FromStdIP(node.GetIngressIPv4())
-	ep.IPv6, _ = netip.AddrFromSlice(node.GetIngressIPv6())
+	logger := ep.getLogger()
+	ep.IPv4, _ = netipx.FromStdIP(node.GetIngressIPv4(logger))
+	ep.IPv6, _ = netip.AddrFromSlice(node.GetIngressIPv6(logger))
 
 	ep.setState(StateWaitingForIdentity, "Ingress Endpoint creation")
 

@@ -21,10 +21,11 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/enterprise/pkg/endpointcreator"
 	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -52,8 +53,8 @@ type CiliumMeshController struct {
 	// yet support endpoint updates. TODO: Implement
 	meshEndpoints map[string]struct{}
 
-	// endpointsCreator will be used to create IME into the local daemon.
-	endpointsCreator endpointcreator.EndpointCreator
+	// endpointsAPIManager will be used to create IME into the local daemon.
+	endpointAPIManager endpointapi.EndpointAPIManager
 
 	// endpointsModify will be used to delete IME from the local daemon.
 	endpointsModify endpointmanager.EndpointsModify
@@ -78,7 +79,8 @@ type ciliumMeshParams struct {
 
 	EndpointsLookup endpointmanager.EndpointsLookup
 
-	EndpointCreator promise.Promise[endpointcreator.EndpointCreator]
+	EndpointRestorer   promise.Promise[endpointstate.Restorer]
+	EndpointAPIManager endpointapi.EndpointAPIManager
 
 	CiliumMeshPolicyWriter ciliummeshpolicymap.CiliumMeshPolicyWriter
 
@@ -99,17 +101,14 @@ func newCiliumMeshController(p ciliumMeshParams) *CiliumMeshController {
 		endpointsModify:     p.EndpointsModify,
 		endpointsLookup:     p.EndpointsLookup,
 		ciliumMeshPolicyMap: p.CiliumMeshPolicyWriter,
-		// endpointsCreator can't be initialized now, it will be initialized
-		// later, when the jobs runs.
-		endpointsCreator: nil,
+		endpointAPIManager:  p.EndpointAPIManager,
 	}
 
 	p.JobGroup.Add(
 		job.OneShot("cilium-mesh-main", func(ctx context.Context, _ cell.Health) error {
 			var err error
-			// We need the endpoint creator to be ready before we start handling
-			// events.
-			cmm.endpointsCreator, err = p.EndpointCreator.Await(ctx)
+			// We need the endpointsrestorer to be ready before we start handling events.
+			_, err = p.EndpointRestorer.Await(ctx)
 			if err != nil {
 				return err
 			}
@@ -168,7 +167,6 @@ func (cmm *CiliumMeshController) run(ctx context.Context) {
 }
 
 func populatePolicyMetaMap(cmm *CiliumMeshController, ep *endpoint.Endpoint) error {
-
 	policyMap, err := ep.GetPolicyMap()
 	if err != nil {
 		cmm.logger.WithError(err).Warn("failed to get ep.policyMap")
@@ -219,7 +217,7 @@ func (cmm *CiliumMeshController) addMeshEndpoint(e *v1alpha1.IsovalentMeshEndpoi
 				e, e.GetNamespace(), e.GetName(), e.GetNamespace(), ep.GetK8sNamespace())
 		}
 	} else {
-		ep, err = cmm.endpointsCreator.CreateEndpoint(context.TODO(), epReq)
+		ep, _, err = cmm.endpointAPIManager.CreateEndpoint(context.TODO(), epReq)
 		if err != nil {
 			return err
 		}

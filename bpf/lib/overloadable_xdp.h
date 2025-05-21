@@ -71,12 +71,13 @@ redirect_self(struct xdp_md *ctx __maybe_unused)
 }
 
 static __always_inline __maybe_unused int
-redirect_neigh(int ifindex __maybe_unused,
+redirect_neigh(__u32 ifindex __maybe_unused,
 	       struct bpf_redir_neigh *params __maybe_unused,
 	       int plen __maybe_unused,
 	       __u32 flags __maybe_unused)
 {
-	return XDP_DROP;
+	/* Available only in TC BPF. */
+	__throw_build_bug();
 }
 
 static __always_inline __maybe_unused bool
@@ -253,7 +254,8 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 static __always_inline __maybe_unused int
 ctx_set_encap_info6(struct xdp_md *ctx __maybe_unused,
 		    const union v6addr *tunnel_endpoint __maybe_unused,
-		    __u32 seclabel __maybe_unused)
+		    __u32 seclabel __maybe_unused, void *opt __maybe_unused,
+		    __u32 opt_len __maybe_unused)
 {
 	return 0;
 }

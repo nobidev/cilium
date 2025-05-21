@@ -10,6 +10,29 @@
 #include "lib/csum.h"
 
 /*
+ * Points 'inner' to the inner IPv4 header of a IPv4 VXLan excapsulated
+ * packet.
+ *
+ * The caller should be sure the VXLan packet is encapsulating IPv4 traffic
+ * before calling this method.
+ *
+ * Returns 'true' if 'inner' now points to a bounds-checked inner IPv4 header.
+ * Returns 'false' if an error occurred.
+ */
+static __always_inline bool
+vxlan_get_inner_ipv4(const void *data, const void *data_end, __u32 l4_off,
+		     struct iphdr **inner) {
+	if (data + l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+	    sizeof(struct ethhdr) + sizeof(struct iphdr) > data_end)
+		return false;
+
+	*inner = (struct iphdr *)(data + l4_off + sizeof(struct udphdr) +
+		  sizeof(struct vxlanhdr) + sizeof(struct ethhdr));
+
+	return true;
+}
+
+/*
  * Points 'inner' to the inner IPv6 header of a IPv4 VXLan excapsulated
  * packet.
  *

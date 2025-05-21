@@ -12,7 +12,7 @@ package watchers
 
 import "github.com/cilium/cilium/pkg/k8s"
 
-func init() {
+func enterpriseSetupServiceMutators(k8sSvcCache *k8s.ServiceCacheImpl) {
 	// Enable the special processing to support phantom services.
-	K8sSvcCache.ServiceMutators = append(K8sSvcCache.ServiceMutators, k8s.PhantomServiceMutator)
+	k8sSvcCache.ServiceMutators = append(k8sSvcCache.ServiceMutators, k8s.PhantomServiceMutator)
 }

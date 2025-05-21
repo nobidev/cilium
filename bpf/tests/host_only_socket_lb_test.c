@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
 #include <bpf/ctx/unspec.h>
-#include <bpf/api.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define TEST_BPF_SOCK 1
@@ -15,8 +14,6 @@
 #define DST_PORT 6000
 #define DST_PORT_HOSTNS 6001
 #define BACKEND_PORT 7000
-
-#define HAVE_NETNS_COOKIE 1
 
 /* Hardcode the host netns cookie to 0 */
 #define HOST_NETNS_COOKIE 0

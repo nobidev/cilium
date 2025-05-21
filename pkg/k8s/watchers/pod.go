@@ -52,14 +52,14 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -90,6 +90,7 @@ type k8sPodWatcherParams struct {
 	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
 	LRPManager        *redirectpolicy.Manager
 	CGroupManager     cgroup.CGroupManager
+	LBConfig          loadbalancer.Config
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
@@ -109,6 +110,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		db:                    params.DB,
 		pods:                  params.Pods,
 		nodeAddrs:             params.NodeAddrs,
+		lbConfig:              params.LBConfig,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -137,6 +139,7 @@ type K8sPodWatcher struct {
 	db                    *statedb.DB
 	pods                  statedb.Table[agentK8s.LocalPod]
 	nodeAddrs             statedb.Table[datapathTables.NodeAddress]
+	lbConfig              loadbalancer.Config
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -567,11 +570,11 @@ func (k *K8sPodWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string
 				continue
 			}
 
-			if int(p.HostPort) >= option.Config.NodePortMin &&
-				int(p.HostPort) <= option.Config.NodePortMax {
+			if uint16(p.HostPort) >= k.lbConfig.NodePortMin &&
+				uint16(p.HostPort) <= k.lbConfig.NodePortMax {
 				logger.Warn(
 					fmt.Sprintf("The requested hostPort %d is colliding with the configured NodePort range [%d, %d]. Ignoring.",
-						p.HostPort, option.Config.NodePortMin, option.Config.NodePortMax))
+						p.HostPort, k.lbConfig.NodePortMin, k.lbConfig.NodePortMax))
 				continue
 			}
 
@@ -861,7 +864,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndex()
+	hostKey := node.GetEndpointEncryptKeyIndex(k.logger)
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,

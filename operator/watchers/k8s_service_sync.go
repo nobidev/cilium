@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sync"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -15,19 +16,16 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, nil, nil, k8s.NewSVCMetricsNoop())
-
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
+func k8sServiceHandler(ctx context.Context, K8sSvcCache *k8s.ServiceCacheImpl, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWGDone()
 
@@ -96,6 +94,11 @@ type ServiceSyncParameters struct {
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger) {
+	k8sSvcCache := k8s.NewServiceCache(logger, loadbalancer.DefaultConfig, nil, nil, k8s.NewSVCMetricsNoop())
+
+	// Unmindfully add the service mutators. This is a temporary fix made during main-ce sync.
+	enterpriseSetupServiceMutators(k8sSvcCache)
+
 	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
@@ -123,7 +126,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		logger.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, logger)
+		k8sServiceHandler(ctx, k8sSvcCache, cfg.ClusterInfo, logger)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints
@@ -169,9 +172,9 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 						onSync()
 					}
 				case resource.Upsert:
-					K8sSvcCache.UpdateService(ev.Object, swg)
+					k8sSvcCache.UpdateService(ev.Object, swg)
 				case resource.Delete:
-					K8sSvcCache.DeleteService(ev.Object, swg)
+					k8sSvcCache.DeleteService(ev.Object, swg)
 				}
 				ev.Done(nil)
 
@@ -188,9 +191,9 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 						onSync()
 					}
 				case resource.Upsert:
-					K8sSvcCache.UpdateEndpoints(ev.Object, swg)
+					k8sSvcCache.UpdateEndpoints(ev.Object, swg)
 				case resource.Delete:
-					K8sSvcCache.DeleteEndpoints(ev.Object.EndpointSliceID, swg)
+					k8sSvcCache.DeleteEndpoints(ev.Object.EndpointSliceID, swg)
 				}
 				ev.Done(nil)
 			}

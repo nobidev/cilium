@@ -14,6 +14,7 @@ package tests
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,6 +42,8 @@ import (
 // test would just fail and you'd need to fix this or the flag registeration
 // here to have it covered.
 func TestValidateFeaturesYAMLFlags(t *testing.T) {
+	log := hivetest.Logger(t)
+
 	mockAgentCmd := &cobra.Command{}
 	dh := hive.New(daemonCmd.Agent)
 	daemonCmd.InitGlobalFlags(mockAgentCmd, dh.Viper())
@@ -49,7 +52,7 @@ func TestValidateFeaturesYAMLFlags(t *testing.T) {
 	mockOperatorCmd := &cobra.Command{}
 	oh := hive.New(operatorCmd.Operator)
 	oh.RegisterFlags(mockOperatorCmd.Flags())
-	operatorCmd.InitGlobalFlags(mockOperatorCmd, dh.Viper())
+	operatorCmd.InitGlobalFlags(log, mockOperatorCmd, dh.Viper())
 
 	var fs features.YAMLFeatures
 	err := yaml.Unmarshal(features.FeaturesYamlContents, &fs)

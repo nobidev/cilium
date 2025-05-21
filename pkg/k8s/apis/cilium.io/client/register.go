@@ -79,7 +79,7 @@ const (
 	BGPNodeConfigOverrideCRDName = k8sconstv2.BGPNCOKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
 	// LBIPPoolCRDName is the full name of the BGPPool CRD.
-	LBIPPoolCRDName = k8sconstv2alpha1.PoolKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	LBIPPoolCRDName = k8sconstv2.PoolKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
 	// CNCCRDNameAlpha is the full name of the CiliumNodeConfig CRD.
 	// TODO remove me when CNC CRD v2alpha1 will be deprecated.
@@ -173,14 +173,9 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     BGPNodeConfigOverrideCRDName,
 			FullName: k8sconstv2.BGPNCOName,
 		},
-		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): {
+		synced.CRDResourceName(k8sconstv2.LBIPPoolName): {
 			Name:     LBIPPoolCRDName,
-			FullName: k8sconstv2alpha1.LBIPPoolName,
-		},
-		// TODO remove me when CNC v2alpha 1 will be deprecated
-		synced.CRDResourceName(k8sconstv2alpha1.CNCName): {
-			Name:     CNCCRDNameAlpha,
-			FullName: k8sconstv2alpha1.CNCName,
+			FullName: k8sconstv2.LBIPPoolName,
 		},
 		synced.CRDResourceName(k8sconstv2.CCGName): {
 			Name:     CCGCRDName,
@@ -273,8 +268,8 @@ var (
 	//go:embed crds/v2/ciliumbgpnodeconfigoverrides.yaml
 	crdsv2Ciliumbgpnodeconfigoverrides []byte
 
-	//go:embed crds/v2alpha1/ciliumloadbalancerippools.yaml
-	crdsv2Alpha1Ciliumloadbalancerippools []byte
+	//go:embed crds/v2/ciliumloadbalancerippools.yaml
+	crdsv2Ciliumloadbalancerippools []byte
 
 	//go:embed crds/v2/ciliumcidrgroups.yaml
 	crdsv2CiliumCIDRGroups []byte
@@ -335,10 +330,9 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	case BGPNodeConfigOverrideCRDName:
 		crdBytes = crdsv2Ciliumbgpnodeconfigoverrides
 	case LBIPPoolCRDName:
-		crdBytes = crdsv2Alpha1Ciliumloadbalancerippools
-	case CNCCRDNameAlpha:
-		crdBytes = crdsv2CiliumNodeConfigs
+		crdBytes = crdsv2Ciliumloadbalancerippools
 	case CNCCRDName:
+		// Contains both v2 and v2alpha1 versions
 		crdBytes = crdsv2CiliumNodeConfigs
 	case CCGCRDName:
 		crdBytes = crdsv2CiliumCIDRGroups

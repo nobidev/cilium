@@ -41,8 +41,9 @@ func iterateWithCallback(m *PolicyMap, cb encryptionPolicyIterateCallback) error
 
 func TestPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(log, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	encryptionPolicyMap := createPolicyMap(hivetest.Lifecycle(t), defaultEncryptionPolicyMapConfig, ebpf.PinNone)

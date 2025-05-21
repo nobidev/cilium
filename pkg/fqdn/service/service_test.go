@@ -88,13 +88,15 @@ func TestFQDNDataServer(t *testing.T) {
 							pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 							return ipcache.NewIPCache(&ipcache.Configuration{
 								Context:           t.Context(),
+								Logger:            logger,
 								IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
 								PolicyHandler:     pr.GetSelectorCache(),
 								DatapathHandler:   em,
 							})
 						},
-						func(ipc *ipcache.IPCache) namemanager.NameManager {
+						func(ipc *ipcache.IPCache, logger *slog.Logger) namemanager.NameManager {
 							return namemanager.New(namemanager.ManagerParams{
+								Logger: logger,
 								Config: namemanager.NameManagerConfig{
 									MinTTL:            1,
 									DNSProxyLockCount: defaults.DNSProxyLockCount,

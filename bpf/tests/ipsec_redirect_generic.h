@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#include "common.h"
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* mock and record calls to ctx_redirect */
@@ -31,7 +31,7 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #define SOURCE_IDENTITY 0xAB
 #define DST_IP v4_pod_two
 #define DST_NODE_ID 0x08b9
+#define DST_NODE_IP v4_node_one
 #define TARGET_SPI 2
-#define TARGET_MARK 0x08b92e00
 #define BAD_SPI 3
 

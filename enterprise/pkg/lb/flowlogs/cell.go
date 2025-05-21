@@ -138,7 +138,7 @@ func newFlowLogMap(p lbFlowLogMapParams) (bpf.MapOut[LBFlowLogMap], error) {
 		return bpf.NewMapOut(LBFlowLogMap(nil)), nil
 	}
 
-	lbFlowLogMap := newLbFlowLogMap(p.Config, v4MapName)
+	lbFlowLogMap := newLbFlowLogMap(p.Logger, p.Config, v4MapName)
 
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {

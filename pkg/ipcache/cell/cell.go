@@ -5,13 +5,17 @@ package ipcachecell
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
+	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/api"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/policy"
@@ -27,12 +31,14 @@ var Cell = cell.Module(
 		newIPCache,
 		newIPIdentityWatcher,
 		ipcache.NewIPIdentitySynchronizer,
+		newIPCacheAPIHandler,
 	),
 )
 
 type ipCacheParams struct {
 	cell.In
 
+	Logger                 *slog.Logger
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
 	PolicyRepository       policy.PolicyRepository
@@ -49,6 +55,7 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
+		Logger:            params.Logger,
 		IdentityAllocator: params.CacheIdentityAllocator,
 		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
 		PolicyUpdater:     params.PolicyUpdater,
@@ -70,9 +77,30 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 func newIPIdentityWatcher(in struct {
 	cell.In
 
+	Logger      *slog.Logger
 	ClusterInfo cmtypes.ClusterInfo
 	IPCache     *ipcache.IPCache
 	Factory     store.Factory
-}) *ipcache.IPIdentityWatcher {
-	return ipcache.NewIPIdentityWatcher(in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
+},
+) *ipcache.IPIdentityWatcher {
+	return ipcache.NewIPIdentityWatcher(in.Logger, in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
+}
+
+type ipcacheAPIHandlerParams struct {
+	cell.In
+
+	IPCache           *ipcache.IPCache
+	IdentityAllocator identitycell.CachingIdentityAllocator
+}
+
+type ipcacheAPIHandlerOut struct {
+	cell.Out
+
+	PolicyGetIPHandler policyapi.GetIPHandler
+}
+
+func newIPCacheAPIHandler(params ipcacheAPIHandlerParams) ipcacheAPIHandlerOut {
+	return ipcacheAPIHandlerOut{
+		PolicyGetIPHandler: api.NewIPCacheGetIPHandler(params.IPCache, params.IdentityAllocator),
+	}
 }

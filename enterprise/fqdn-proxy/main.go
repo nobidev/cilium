@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -279,7 +280,7 @@ func main() {
 
 	go manageDNSNotificationQueue()
 	log.Info("starting cilium dns proxy server")
-	if err := re.InitRegexCompileLRU(*FQDNRegexCompileLRUSize); err != nil {
+	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, *FQDNRegexCompileLRUSize); err != nil {
 		log.WithError(err).Fatal("failed to start DNS proxy: failed to init regex LRU cache")
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
@@ -302,6 +303,7 @@ func main() {
 	}()
 
 	proxy = dnsproxy.NewDNSProxy(
+		logging.DefaultSlogLogger,
 		dnsProxyConfig,
 		LookupEndpointIDByIP,
 		proxyCtx.LookupSecIDByIP,

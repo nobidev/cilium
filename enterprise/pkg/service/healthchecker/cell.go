@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/pflag"
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 // Cell provides service health checker functionality.

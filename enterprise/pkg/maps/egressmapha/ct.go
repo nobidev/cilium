@@ -12,6 +12,7 @@ package egressmapha
 
 import (
 	"fmt"
+	"log/slog"
 	"unsafe"
 
 	ciliumebpf "github.com/cilium/ebpf"
@@ -57,6 +58,7 @@ func createCtMapFromDaemonConfig(in struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
+	Log       *slog.Logger
 	*option.DaemonConfig
 }) (out struct {
 	cell.Out
@@ -73,7 +75,7 @@ func createCtMapFromDaemonConfig(in struct {
 		return
 	}
 
-	out.MapOut = bpf.NewMapOut(CtMap(createCtMap(in.Lifecycle, ebpf.PinByName)))
+	out.MapOut = bpf.NewMapOut(CtMap(createCtMap(in.Lifecycle, in.Log, ebpf.PinByName)))
 	return
 }
 
@@ -94,12 +96,12 @@ func PurgeEgressCTEntry(m CtMap, key ctmap.CtKey) {
 // CreatePrivateCtMap creates an unpinned CT map.
 //
 // Useful for testing.
-func CreatePrivateCtMap(lc cell.Lifecycle) CtMap {
-	return createCtMap(lc, ebpf.PinNone)
+func CreatePrivateCtMap(lc cell.Lifecycle, log *slog.Logger) CtMap {
+	return createCtMap(lc, log, ebpf.PinNone)
 }
 
-func createCtMap(lc cell.Lifecycle, pinning ebpf.PinType) *ctMap {
-	m := ebpf.NewMap(&ebpf.MapSpec{
+func createCtMap(lc cell.Lifecycle, log *slog.Logger, pinning ebpf.PinType) *ctMap {
+	m := ebpf.NewMap(log, &ebpf.MapSpec{
 		Name:       CtMapName,
 		Type:       ciliumebpf.LRUHash,
 		KeySize:    uint32(unsafe.Sizeof(EgressCtKey4{})),
@@ -120,8 +122,8 @@ func createCtMap(lc cell.Lifecycle, pinning ebpf.PinType) *ctMap {
 	return &ctMap{m}
 }
 
-func OpenPinnedCtMap() (CtMap, error) {
-	m, err := ebpf.LoadRegisterMap(CtMapName)
+func OpenPinnedCtMap(log *slog.Logger) (CtMap, error) {
+	m, err := ebpf.LoadRegisterMap(log, CtMapName)
 	if err != nil {
 		return nil, err
 	}

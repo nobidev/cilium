@@ -24,11 +24,12 @@ import (
 
 func TestEgressCTMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(log, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
-	egressCTMap := createCtMap(hivetest.Lifecycle(t), ebpf.PinNone)
+	egressCTMap := createCtMap(hivetest.Lifecycle(t), log, ebpf.PinNone)
 
 	// Create the following entry,
 	//  - Egress CT:
