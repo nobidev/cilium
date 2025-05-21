@@ -764,6 +764,7 @@ func TestSRv6Manager(t *testing.T) {
 				cs         client.Clientset
 				m          *Manager
 				policyMap4 *srv6map.PolicyMap4
+				sidMap     *srv6map.SIDMap
 			)
 
 			fixture := newFixture(
@@ -776,6 +777,7 @@ func TestSRv6Manager(t *testing.T) {
 					fia *fakeIPAMAllocator,
 					fsm *fakeSIDManager,
 					pm4 *srv6map.PolicyMap4,
+					sm *srv6map.SIDMap,
 				) {
 					ia = identityAllocator
 					cs = clientset
@@ -788,6 +790,7 @@ func TestSRv6Manager(t *testing.T) {
 					}
 
 					policyMap4 = pm4
+					sidMap = sm
 				},
 			)
 
@@ -832,7 +835,7 @@ func TestSRv6Manager(t *testing.T) {
 				assert.True(t, bpfMapsEqual(currentPolicyMapEntries, test.initPolicyMapEntries), "Policy map entries are mismatching, retrying")
 
 				currentSIDMapEntries := []*sidKV{}
-				m.sidMap.IterateWithCallback(func(k *srv6map.SIDKey, v *srv6map.SIDValue) {
+				sidMap.IterateWithCallback(func(k *srv6map.SIDKey, v *srv6map.SIDValue) {
 					currentSIDMapEntries = append(currentSIDMapEntries, &sidKV{k: k, v: v})
 				})
 				assert.True(t, bpfMapsEqual(currentSIDMapEntries, test.initSIDMapEntries), "SID map entries are mismatched, retrying")
@@ -909,7 +912,7 @@ func TestSRv6Manager(t *testing.T) {
 				assert.True(t, bpfMapsEqual(currentPolicyMapEntries, test.updatedPolicyMapEntries), "Policy map entries are mismatched, retrying")
 
 				currentSIDMapEntries := []*sidKV{}
-				m.sidMap.IterateWithCallback(func(k *srv6map.SIDKey, v *srv6map.SIDValue) {
+				sidMap.IterateWithCallback(func(k *srv6map.SIDKey, v *srv6map.SIDValue) {
 					currentSIDMapEntries = append(currentSIDMapEntries, &sidKV{k: k, v: v})
 				})
 				assert.True(t, bpfMapsEqual(currentSIDMapEntries, test.updatedSIDMapEntries), "SID map entries are mismatched, retrying")
@@ -1001,15 +1004,17 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 		c                 client.Clientset
 		manager           *Manager
 		identityAllocator cache.IdentityAllocator
+		sidMap            *srv6map.SIDMap
 	)
 
 	fixture := newFixture(
 		t,
 		true,
-		func(cs client.Clientset, m *Manager, ia cache.IdentityAllocator) {
+		func(cs client.Clientset, m *Manager, ia cache.IdentityAllocator, sm *srv6map.SIDMap) {
 			c = cs
 			manager = m
 			identityAllocator = ia
+			sidMap = sm
 		},
 	)
 
@@ -1077,7 +1082,7 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 			assert.Equal(t, srv6Types.BehaviorEndDT4, info.Behavior)
 
 			var val srv6map.SIDValue
-			err := manager.sidMap.Lookup(&srv6map.SIDKey{SID: sid1.As16()}, &val)
+			err := sidMap.Lookup(&srv6map.SIDKey{SID: sid1.As16()}, &val)
 			assert.NoError(t, err)
 		})
 	})
@@ -1127,12 +1132,12 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 			assert.Equal(t, srv6Types.BehaviorEndDT4, info.Behavior)
 
 			var val srv6map.SIDValue
-			err := manager.sidMap.Lookup(&srv6map.SIDKey{SID: sid2.As16()}, &val)
+			err := sidMap.Lookup(&srv6map.SIDKey{SID: sid2.As16()}, &val)
 			if !assert.NoError(t, err) {
 				return
 			}
 
-			err = manager.sidMap.Lookup(&srv6map.SIDKey{SID: sid1.As16()}, &val)
+			err = sidMap.Lookup(&srv6map.SIDKey{SID: sid1.As16()}, &val)
 			if !assert.Error(t, err) {
 				return
 			}
@@ -1159,7 +1164,7 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 			}
 
 			var val srv6map.SIDValue
-			err = manager.sidMap.Lookup(&srv6map.SIDKey{SID: sid2.As16()}, &val)
+			err = sidMap.Lookup(&srv6map.SIDKey{SID: sid2.As16()}, &val)
 			if !assert.Error(t, err) {
 				return
 			}

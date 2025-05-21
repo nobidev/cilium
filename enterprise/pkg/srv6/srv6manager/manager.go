@@ -30,7 +30,6 @@ import (
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -124,7 +123,6 @@ type Manager struct {
 	// BPF Maps
 	vrfMap4 *srv6map.VRFMap4
 	vrfMap6 *srv6map.VRFMap6
-	sidMap  *srv6map.SIDMap
 
 	rib *rib.RIB
 }
@@ -144,7 +142,6 @@ type Params struct {
 	IsovalentSRv6EgressPolicy resource.Resource[*iso_v1alpha1.IsovalentSRv6EgressPolicy]
 	VRF4Map                   *srv6map.VRFMap4
 	VRF6Map                   *srv6map.VRFMap6
-	SIDMap                    *srv6map.SIDMap
 	IPAM                      *ipam.IPAM
 	RIB                       *rib.RIB
 }
@@ -170,7 +167,6 @@ func NewSRv6Manager(p Params) *Manager {
 		sidAllocatorSyncers: make(map[string]sidmanager.SIDAllocator),
 		vrfMap4:             p.VRF4Map,
 		vrfMap6:             p.VRF6Map,
-		sidMap:              p.SIDMap,
 		rib:                 p.RIB,
 	}
 
@@ -773,39 +769,46 @@ func (manager *Manager) addMissingSRv6SIDs() {
 		if vrf.SIDInfo == nil {
 			continue
 		}
-		if err := manager.sidMap.Update(&srv6map.SIDKey{SID: vrf.SIDInfo.SID.As16()}, vrf.VRFID); err != nil {
-			manager.logger.WithField("VRF", vrf.id.Name).WithError(err).Error("VRF has SID allocation and SIDMap entry is missing, but failed to update")
-			continue
-		}
+		manager.rib.UpsertRoute(0, rib.Route{
+			Prefix:   netip.PrefixFrom(vrf.SIDInfo.SID.Addr, 128),
+			Owner:    ownerName,
+			Protocol: rib.ProtocolKubernetes,
+			NextHop: &rib.EndDT4{
+				VRFID: vrf.VRFID,
+			},
+		})
 	}
 }
 
 // removeUnusedSRv6SIDs implements the same as removeUnusedSRv6PolicyRules but
 // for the SID map.
 func (manager *Manager) removeUnusedSRv6SIDs() {
-	srv6SIDs := map[srv6map.SIDKey]srv6map.SIDValue{}
-	manager.sidMap.IterateWithCallback(
-		func(key *srv6map.SIDKey, val *srv6map.SIDValue) {
-			srv6SIDs[*key] = *val
-		})
+	trie, found := manager.rib.ListRoutes(ownerName)[0]
+	if !found {
+		// We only support End.DT4 in the default VRF
+		return
+	}
 
-nextSIDKey:
-	for sidKey := range srv6SIDs {
+	toDelete := []*rib.Route{}
+	trie.ForEach(func(p netip.Prefix, r *rib.Route) bool {
+		if _, ok := r.NextHop.(*rib.EndDT4); !ok {
+			return true
+		}
 		for _, allocation := range manager.allocatedSIDs {
-			if sidKey.SID.Addr() == allocation.SIDInfo.SID.Addr {
-				continue nextSIDKey
+			if p.Addr() == allocation.SIDInfo.SID.Addr {
+				return true
 			}
 		}
+		toDelete = append(toDelete, r)
+		return true
+	})
 
+	for _, r := range toDelete {
 		logger := manager.logger.WithFields(logrus.Fields{
-			logfields.SID: sidKey.SID,
+			logfields.SID: r.Prefix.String(),
 		})
-
-		if err := manager.sidMap.Delete(&sidKey); err != nil {
-			logger.WithError(err).Error("Error removing SID")
-		} else {
-			logger.Info("SID removed")
-		}
+		manager.rib.DeleteRoute(0, *r)
+		logger.Info("SID removed")
 	}
 }
 
@@ -1127,10 +1130,14 @@ func (m *Manager) createIngressPathVRFs(vrfs []*VRF) {
 			}()
 
 			// populate SID map
-			if err := m.sidMap.Update(&srv6map.SIDKey{SID: info.SID.As16()}, vrf.VRFID); err != nil {
-				l.WithField("vrf", vrf.id.Name).WithError(err).Error("Failed to update SID Map")
-				return
-			}
+			m.rib.UpsertRoute(0, rib.Route{
+				Prefix:   netip.PrefixFrom(info.SID.Addr, 128),
+				Owner:    ownerName,
+				Protocol: rib.ProtocolKubernetes,
+				NextHop: &rib.EndDT4{
+					VRFID: vrf.VRFID,
+				},
+			})
 
 			m.updateVRFSIDAllocation(vrf, vrf.LocatorPool, info)
 
@@ -1178,17 +1185,21 @@ func (m *Manager) updateIngressPathVRFs(vrfs []*VRF) {
 				}
 			}()
 
-			err = m.sidMap.Delete(&srv6map.SIDKey{SID: oldAllocation.SIDInfo.SID.As16()})
-			if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
-				l.WithError(err).Error("Failed to delete SID map entry")
-				return
-			}
+			m.rib.DeleteRoute(0, rib.Route{
+				Prefix: netip.PrefixFrom(oldAllocation.SIDInfo.SID.Addr, 128),
+				Owner:  ownerName,
+			})
 
 			defer func() {
 				if err != nil {
-					if err := m.sidMap.Update(&srv6map.SIDKey{SID: oldAllocation.SIDInfo.SID.As16()}, vrf.VRFID); err != nil {
-						l.WithError(err).Error("Failed to recover by updating SID Map with old SID")
-					}
+					m.rib.UpsertRoute(0, rib.Route{
+						Prefix:   netip.PrefixFrom(oldAllocation.SIDInfo.SID.Addr, 128),
+						Owner:    ownerName,
+						Protocol: rib.ProtocolKubernetes,
+						NextHop: &rib.EndDT4{
+							VRFID: vrf.VRFID,
+						},
+					})
 				}
 			}()
 
@@ -1198,17 +1209,21 @@ func (m *Manager) updateIngressPathVRFs(vrfs []*VRF) {
 				return
 			}
 
-			err = m.sidMap.Update(&srv6map.SIDKey{SID: newInfo.SID.As16()}, vrf.VRFID)
-			if err != nil {
-				l.WithError(err).Error("Failed to update SID map entry")
-				return
-			}
+			m.rib.UpsertRoute(0, rib.Route{
+				Prefix:   netip.PrefixFrom(newInfo.SID.Addr, 128),
+				Owner:    ownerName,
+				Protocol: rib.ProtocolKubernetes,
+				NextHop: &rib.EndDT4{
+					VRFID: vrf.VRFID,
+				},
+			})
 
 			defer func() {
 				if err != nil {
-					if err := m.sidMap.Delete(&srv6map.SIDKey{SID: newInfo.SID.As16()}); err != nil {
-						l.WithError(err).Error("Failed to recover by deleting new SID from SID Map")
-					}
+					m.rib.DeleteRoute(0, rib.Route{
+						Prefix: netip.PrefixFrom(newInfo.SID.Addr, 128),
+						Owner:  ownerName,
+					})
 				}
 			}()
 
@@ -1244,16 +1259,13 @@ func (m *Manager) removeIngressPathVRFs(allocs []*SIDAllocation) {
 				"vrfID": alloc.VRFID,
 			},
 		)
-		shouldRelease := true
-		if err := m.sidMap.Delete(&srv6map.SIDKey{SID: alloc.SIDInfo.SID.As16()}); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
-			l.WithError(err).Error("failed deleting SIDMap entry for allocation")
-			shouldRelease = false
-		}
-		if shouldRelease {
-			m.releaseSID(alloc.LocatorPool, alloc.SIDInfo.SID)
-			m.deleteVRFSIDAllocation(alloc.VRFID)
-			l.Info("Deleted SID allocation for VRF")
-		}
+		m.rib.DeleteRoute(0, rib.Route{
+			Prefix: netip.PrefixFrom(alloc.SIDInfo.SID.Addr, 128),
+			Owner:  ownerName,
+		})
+		m.releaseSID(alloc.LocatorPool, alloc.SIDInfo.SID)
+		m.deleteVRFSIDAllocation(alloc.VRFID)
+		l.Info("Deleted SID allocation for VRF")
 	}
 }
 
