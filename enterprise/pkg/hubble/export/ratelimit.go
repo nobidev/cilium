@@ -14,12 +14,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -32,7 +33,7 @@ type enterpriseRateLimiter struct {
 	ratelimiter *rateLimiter
 }
 
-func newRateLimiterFromStaticConfig(conf config, logger logrus.FieldLogger) (*enterpriseRateLimiter, error) {
+func newRateLimiterFromStaticConfig(conf config, logger *slog.Logger) (*enterpriseRateLimiter, error) {
 	ratelimiter, err := NewRateLimiter(conf.RateLimit, rateLimitInterval, conf.NodeName, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create static flow export rate limiter: %w", err)
@@ -40,7 +41,7 @@ func newRateLimiterFromStaticConfig(conf config, logger logrus.FieldLogger) (*en
 	return &enterpriseRateLimiter{ratelimiter: ratelimiter}, nil
 }
 
-func newRateLimiterFromDynamicConfig(conf *EnterpriseFlowLogConfig, logger logrus.FieldLogger) (*enterpriseRateLimiter, error) {
+func newRateLimiterFromDynamicConfig(conf *EnterpriseFlowLogConfig, logger *slog.Logger) (*enterpriseRateLimiter, error) {
 	rateLimit := -1
 	if conf.RateLimit != nil {
 		rateLimit = *conf.RateLimit
@@ -73,7 +74,7 @@ type RateLimitInfo struct {
 type rateLimiter struct {
 	limiter *rate.Limiter
 
-	logger           logrus.FieldLogger
+	logger           *slog.Logger
 	nodeName         string
 	throttleInterval time.Duration
 
@@ -85,7 +86,7 @@ type rateLimiter struct {
 }
 
 // NewRateLimiter returns a rateLimiter instance.
-func NewRateLimiter(numEvents int, interval time.Duration, nodeName string, logger logrus.FieldLogger) (*rateLimiter, error) {
+func NewRateLimiter(numEvents int, interval time.Duration, nodeName string, logger *slog.Logger) (*rateLimiter, error) {
 	if numEvents < 0 {
 		return nil, errors.New("numEvents cannot be negative")
 	}
@@ -111,7 +112,7 @@ func (r *rateLimiter) Enforce(encoder exporter.Encoder) bool {
 	enforced := !r.limiter.Allow()
 	if enforced {
 		r.dropped += 1
-		r.logger.WithField("dropped", r.dropped).Debug("rate limited")
+		r.logger.Debug("rate limited", logfields.Dropped, r.dropped)
 	}
 	now := r.curTime()
 	if now.Sub(r.lastReport) > r.throttleInterval && r.dropped > 0 {
@@ -130,7 +131,10 @@ func (r *rateLimiter) report(encoder exporter.Encoder) {
 		Time:          r.lastReport,
 	})
 	if err != nil {
-		r.logger.WithError(err).WithField("dropped", r.dropped).Warn("Failed to encode RateLimitInfoEvent event")
+		r.logger.Warn("Failed to encode RateLimitInfoEvent event",
+			logfields.Error, err,
+			logfields.Dropped, r.dropped,
+		)
 	}
 }
 

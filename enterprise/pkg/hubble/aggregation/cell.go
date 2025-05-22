@@ -11,9 +11,10 @@
 package aggregation
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/jonboulle/clockwork"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
@@ -32,7 +33,7 @@ type observerFlowAggregatorOut struct {
 	ObserverOptions []observeroption.Option `group:"hubble-observer-options,flatten"`
 }
 
-func newObserverFlowAggregator(logger logrus.FieldLogger) (observerFlowAggregatorOut, error) {
+func newObserverFlowAggregator(logger *slog.Logger) (observerFlowAggregatorOut, error) {
 	clock := clockwork.NewRealClock()
 	flowAggregator := aggregator.NewFlowAggregator(clock, logger)
 	options := []observeroption.Option{

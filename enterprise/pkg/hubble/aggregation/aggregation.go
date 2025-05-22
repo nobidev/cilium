@@ -14,9 +14,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/api/aggregation"
@@ -33,7 +33,7 @@ type EnterpriseAggregator struct {
 	aggregators       types.Aggregator
 }
 
-func NewEnterpriseAggregator(aggFilter *aggregation.Aggregation, logger logrus.FieldLogger) (*EnterpriseAggregator, error) {
+func NewEnterpriseAggregator(aggFilter *aggregation.Aggregation, logger *slog.Logger) (*EnterpriseAggregator, error) {
 	if len(aggFilter.Aggregators) == 0 {
 		return nil, errors.New("no aggregator filters provided")
 	}

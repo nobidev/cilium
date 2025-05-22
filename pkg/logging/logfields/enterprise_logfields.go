@@ -71,4 +71,13 @@ const (
 
 	// Egress is the egress policy
 	Egress = "egress"
+
+	// Hubble flow aggregator.
+	Aggregator = "aggregator"
+
+	// Hubble exporter name.
+	ExporterName = "exporter-name"
+
+	// Hubble dropped count.
+	Dropped = "dropped"
 )

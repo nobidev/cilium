@@ -13,9 +13,9 @@ package aggregator
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/chain"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/internal/aggregation/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -56,13 +57,13 @@ type FlowAggregator interface {
 	OnFlowDelivery(context.Context, *flow.Flow) (bool, error)
 }
 
-func NewFlowAggregator(clock clockwork.Clock, logger logrus.FieldLogger) FlowAggregator {
+func NewFlowAggregator(clock clockwork.Clock, logger *slog.Logger) FlowAggregator {
 	return &flowAggregation{clock: clock, logger: logger}
 }
 
 type flowAggregation struct {
 	clock  clockwork.Clock
-	logger logrus.FieldLogger
+	logger *slog.Logger
 }
 
 type aggregatorCtx struct {
@@ -131,7 +132,7 @@ func (p *flowAggregation) NewContext(ctx context.Context, aggregator types.Aggre
 
 func (p *flowAggregation) newContext(ctx context.Context, agg *aggregationpb.Aggregation) (context.Context, error) {
 	aggregator, err := ConfigureAggregator(p.clock, agg.Aggregators)
-	p.logger.Debugf("Configured flow aggregator %#v", aggregator)
+	p.logger.Debug("Configured flow aggregator", logfields.Aggregator, fmt.Sprintf("%#v", aggregator))
 	if err != nil {
 		return ctx, err
 	}

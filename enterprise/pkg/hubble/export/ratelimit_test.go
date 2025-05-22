@@ -14,11 +14,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log/slog"
 	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 
@@ -26,8 +25,7 @@ import (
 )
 
 func TestNewRateLimiter(t *testing.T) {
-	log := logrus.New()
-	log.SetOutput(io.Discard)
+	log := slog.New(slog.DiscardHandler)
 
 	_, err := NewRateLimiter(0, time.Minute, "", log)
 	assert.NoError(t, err)
@@ -52,8 +50,7 @@ func Test_getLimit(t *testing.T) {
 }
 
 func TestEnforce(t *testing.T) {
-	log := logrus.New()
-	log.SetOutput(io.Discard)
+	log := slog.New(slog.DiscardHandler)
 
 	interval := 1 * time.Second
 	numEvents := 2

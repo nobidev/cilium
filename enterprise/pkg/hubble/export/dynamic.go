@@ -25,13 +25,13 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/lumberjack/v2"
-	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -65,9 +65,7 @@ func (e *exporterConfigParser) Parse(r io.Reader) (map[string]exporter.ExporterC
 var _ exporter.ExporterFactory = (*exporterFactory)(nil)
 
 type exporterFactory struct {
-	// TODO: replace by slog
-	logger         logrus.FieldLogger
-	sLogger        *slog.Logger
+	logger         *slog.Logger
 	jobGroup       job.Group
 	metricsHandler *metricsHandler
 }
@@ -87,10 +85,10 @@ func (f *exporterFactory) Create(config exporter.ExporterConfig) (exporter.FlowL
 // There is an ongoing effort in hive to support closing health reporters of jobs:
 // https://github.com/cilium/hive/pull/20
 func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.FlowLogExporter, error) {
-	f.logger.WithFields(logrus.Fields{
-		"exporter-name": config.Name,
-		"config":        fmt.Sprintf("%+v", config),
-	}).Debug("Creating new managed exporter")
+	f.logger.Debug("Creating new managed exporter",
+		logfields.ExporterName, config.Name,
+		logfields.Config, fmt.Sprintf("%+v", config),
+	)
 
 	// only create a scoped group if we have at least one job to add
 	scopedGroup := sync.OnceValue(func() job.ScopedGroup {
@@ -108,8 +106,8 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 
 	// setup exporter options
 	exporterOpts := []exporter.Option{
-		exporter.WithAllowList(f.sLogger, config.FlowLogConfig.IncludeFilters),
-		exporter.WithDenyList(f.sLogger, config.FlowLogConfig.ExcludeFilters),
+		exporter.WithAllowList(f.logger, config.FlowLogConfig.IncludeFilters),
+		exporter.WithDenyList(f.logger, config.FlowLogConfig.ExcludeFilters),
 		exporter.WithFieldMask(config.FlowLogConfig.FieldMask),
 		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 			var writer io.WriteCloser = writer
@@ -155,7 +153,10 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 		ratelimiter, err := newRateLimiterFromDynamicConfig(config, f.logger)
 		if err != nil {
 			// non-fatal failure, log and continue
-			f.logger.WithError(err).WithField("config", config.FlowLogConfig.Name).Warn("Failed to create flow export rate limiter")
+			f.logger.Warn("Failed to create flow export rate limiter",
+				logfields.Error, err,
+				logfields.Config, config.FlowLogConfig.Name,
+			)
 		} else {
 			exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
 		}
@@ -183,10 +184,10 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 	// setup file rotation
 	fileRotateJobCancel := func() {}
 	if config.FileRotationInterval != nil && *config.FileRotationInterval != 0 {
-		f.logger.WithFields(logrus.Fields{
-			"filename": config.FlowLogConfig.FilePath,
-			"interval": config.FileRotationInterval,
-		}).Info("Periodically rotating JSON export file")
+		f.logger.Info("Periodically rotating JSON export file",
+			logfields.FilePath, config.FlowLogConfig.FilePath,
+			logfields.Interval, config.FileRotationInterval,
+		)
 
 		jobName := shortener.ShortenHiveJobName("hubble-exporter-file-rotate-" + config.FlowLogConfig.Name)
 		scopedGroup().Add(job.OneShot(jobName, func(ctx context.Context, health cell.Health) error {
@@ -199,16 +200,17 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 					return nil
 				case <-ticker.C:
 					if err := writer.Rotate(); err != nil {
-						f.logger.WithError(err).
-							WithField("filename", config.FlowLogConfig.FilePath).
-							Warn("Failed to rotate JSON export file")
+						f.logger.Warn("Failed to rotate JSON export file",
+							logfields.Error, err,
+							logfields.FilePath, config.FlowLogConfig.FilePath,
+						)
 					}
 				}
 			}
 		}))
 	}
 
-	staticExporter, err := exporter.NewExporter(f.sLogger, exporterOpts...)
+	staticExporter, err := exporter.NewExporter(f.logger, exporterOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create static exporter instance for %q: %w", config.FlowLogConfig.Name, err)
 	}
@@ -224,7 +226,7 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 	return wrapperExporter, nil
 }
 
-func newAggregatorFromDynamicConfig(config *EnterpriseFlowLogConfig, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
+func newAggregatorFromDynamicConfig(config *EnterpriseFlowLogConfig, logger *slog.Logger) (*aggregation.EnterpriseAggregator, error) {
 	aggregationTTL := time.Duration(0)
 	if config.AggregationTTL != nil {
 		aggregationTTL = time.Duration(*config.AggregationTTL)

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/lumberjack/v2"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
@@ -29,6 +28,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -235,9 +235,7 @@ type hubbleEnterpriseExporterParams struct {
 	Config    mergedConfig
 	Metrics   *metricsHandler
 
-	// TODO: replace by slog
-	Logger  logrus.FieldLogger
-	SLogger *slog.Logger
+	Logger *slog.Logger
 }
 
 type HubbleEnterpriseExporterOut struct {
@@ -256,7 +254,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 		Name:     "static-ee-exporter",
 		Replaces: "static-exporter",
 		Build: func() (exporter.FlowLogExporter, error) {
-			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble EE static exporter")
+			params.Logger.Info("Building the Hubble EE static exporter", logfields.Config, fmt.Sprintf("%+v", params.Config))
 
 			allowList, err := hubble.ParseFlowFilters(params.Config.oss.ExportAllowlist)
 			if err != nil {
@@ -279,8 +277,8 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 
 			// setup exporter options
 			exporterOpts := []exporter.Option{
-				exporter.WithAllowList(params.SLogger, allowList),
-				exporter.WithDenyList(params.SLogger, denyList),
+				exporter.WithAllowList(params.Logger, allowList),
+				exporter.WithDenyList(params.Logger, denyList),
 				exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
 					var writer io.WriteCloser = writer
 					writer = params.Metrics.WrapWriter(writer, metricsHandlerNameLabel)
@@ -314,7 +312,7 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				ratelimiter, err := newRateLimiterFromStaticConfig(params.Config.ee, params.Logger)
 				if err != nil {
 					// non-fatal failure, log and continue
-					params.Logger.WithError(err).Warn("Failed to create flow export rate limiter")
+					params.Logger.Warn("Failed to create flow export rate limiter", logfields.Error, err)
 				} else {
 					exporterOpts = append(exporterOpts, exporter.WithOnExportEvent(ratelimiter))
 				}
@@ -337,15 +335,15 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 				return false, nil
 			}))
 
-			staticExporter, err := exporter.NewExporter(params.SLogger, exporterOpts...)
+			staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 			if err != nil {
 				// non-fatal failure, log and continue
-				params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
+				params.Logger.Error("Failed to configure Hubble static exporter", logfields.Error, err)
 				return nil, nil
 			}
 
 			if params.Config.ee.FileRotationInterval != 0 {
-				params.Logger.WithField("interval", params.Config.ee.FileRotationInterval).Info("Periodically rotating JSON export file")
+				params.Logger.Info("Periodically rotating JSON export file", logfields.Interval, params.Config.ee.FileRotationInterval)
 				params.JobGroup.Add(job.OneShot("hubble-exporter-file-rotate", func(ctx context.Context, health cell.Health) error {
 					ticker := time.NewTicker(params.Config.ee.FileRotationInterval)
 					for {
@@ -354,9 +352,10 @@ func newHubbleEnterpriseExporter(params hubbleEnterpriseExporterParams) (HubbleE
 							return nil
 						case <-ticker.C:
 							if err := writer.Rotate(); err != nil {
-								params.Logger.WithError(err).
-									WithField("filename", params.Config.oss.ExportFilePath).
-									Warn("Failed to rotate JSON export file")
+								params.Logger.Warn("Failed to rotate JSON export file",
+									logfields.Error, err,
+									logfields.FilePath, params.Config.oss.ExportFilePath,
+								)
 							}
 						}
 					}
@@ -387,9 +386,7 @@ type hubbleEnterpriseDynamicExporterParams struct {
 	Config  exportercell.ValidatedConfig
 	Metrics *metricsHandler
 
-	// TODO: replace by slog
-	Logger  logrus.FieldLogger
-	SLogger *slog.Logger
+	Logger *slog.Logger
 }
 
 func newHubbleEnterpriseDynamicExporter(params hubbleEnterpriseDynamicExporterParams) (HubbleEnterpriseExporterOut, error) {
@@ -402,12 +399,12 @@ func newHubbleEnterpriseDynamicExporter(params hubbleEnterpriseDynamicExporterPa
 		Name:     "dynamic-ee-exporter",
 		Replaces: "dynamic-exporter",
 		Build: func() (exporter.FlowLogExporter, error) {
-			params.Logger.WithField("config-filepath", params.Config.FlowlogsConfigFilePath).Info("Building the Hubble EE dynamic exporter")
+			params.Logger.Info("Building the Hubble EE dynamic exporter", logfields.ConfigPath, params.Config.FlowlogsConfigFilePath)
 
 			// dynamic exporter
-			exporterFactory := &exporterFactory{logger: params.Logger, sLogger: params.SLogger, jobGroup: params.JobGroup, metricsHandler: params.Metrics}
-			exporterConfigParser := &exporterConfigParser{params.SLogger}
-			dynamicExporter := exporter.NewDynamicExporter(params.SLogger, params.Config.FlowlogsConfigFilePath, exporterFactory, exporterConfigParser)
+			exporterFactory := &exporterFactory{logger: params.Logger, jobGroup: params.JobGroup, metricsHandler: params.Metrics}
+			exporterConfigParser := &exporterConfigParser{params.Logger}
+			dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, exporterFactory, exporterConfigParser)
 
 			params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, _ cell.Health) error {
 				return dynamicExporter.Watch(ctx)
@@ -427,7 +424,7 @@ func newHubbleEnterpriseDynamicExporter(params hubbleEnterpriseDynamicExporterPa
 	}, nil
 }
 
-func newAggregatorFromStaticConfig(config config, logger logrus.FieldLogger) (*aggregation.EnterpriseAggregator, error) {
+func newAggregatorFromStaticConfig(config config, logger *slog.Logger) (*aggregation.EnterpriseAggregator, error) {
 	aggFilter, err := aggregator.NewAggregation(
 		config.Aggregations,
 		config.AggregationStateChangeFilter,
