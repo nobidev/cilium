@@ -153,7 +153,7 @@ func waitForInitialConnection(t T, testClientOutput *strings.Builder) string {
 		}
 
 		return errors.New("t2 ip not found")
-	}, longTimeout, pollInterval)
+	}, shortTimeout, pollInterval)
 
 	return t2NodeIP
 }
@@ -172,7 +172,7 @@ func waitForReconnect(t T, testClientOutput *strings.Builder, vipIP string) {
 
 		// connection terminated by T2 Envoy - and reconnected to new T2 instance
 		return nil
-	}, longTimeout, pollInterval)
+	}, shortTimeout, pollInterval)
 }
 
 func waitUntil100NewHTTPRequestsDontUseT2Node(t T, client *frrContainer, testCmd string, t2NodeIP string) {
