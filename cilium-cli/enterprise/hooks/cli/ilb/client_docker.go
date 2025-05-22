@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
@@ -91,7 +90,7 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 	return stdout.String(), stderr.String(), err
 }
 
-func (c *dockerCli) ContainerExecDetached(ctx context.Context, name string, cmds []string) error {
+func (c *dockerCli) ContainerExecDetached(ctx context.Context, name string, cmds []string) (io.Reader, error) {
 	execConfig := container.ExecOptions{
 		Detach:       true,
 		AttachStdout: true,
@@ -101,22 +100,15 @@ func (c *dockerCli) ContainerExecDetached(ctx context.Context, name string, cmds
 
 	execID, err := c.ContainerExecCreate(ctx, name, execConfig)
 	if err != nil {
-		return fmt.Errorf("failed to exec command: %w", err)
+		return nil, fmt.Errorf("failed to exec command: %w", err)
 	}
 
 	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to attach: %w", err)
+		return nil, fmt.Errorf("failed to attach: %w", err)
 	}
 
-	go func() {
-		if _, err = io.Copy(os.Stdout, resp.Reader); err != nil {
-			fmt.Printf("failed to copy stdout and stderr from attached container: %\ns", err)
-			defer resp.Close()
-		}
-	}()
-
-	return err
+	return resp.Reader, err
 }
 
 func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {

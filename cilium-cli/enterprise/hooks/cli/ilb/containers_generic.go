@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"context"
+	"io"
 )
 
 type dockerContainer struct {
@@ -33,7 +34,7 @@ func (c *dockerContainer) Exec(ctx context.Context, cmd string) (string, string,
 	return c.dockerCli.ContainerExec(ctx, c.id, []string{"sh", "-c", cmd})
 }
 
-func (c *dockerContainer) ExecDetached(ctx context.Context, cmd []string) error {
+func (c *dockerContainer) ExecDetached(ctx context.Context, cmd []string) (io.Reader, error) {
 	return c.dockerCli.ContainerExecDetached(ctx, c.id, cmd)
 }
 

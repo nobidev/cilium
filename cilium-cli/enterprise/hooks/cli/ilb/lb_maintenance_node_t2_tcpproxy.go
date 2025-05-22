@@ -31,7 +31,7 @@ const (
 	mySqlPort     = 3306
 )
 
-func TestNodeMaintenance_T2_TCPProxy_T1T2(t T) {
+func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
@@ -96,9 +96,9 @@ func TestNodeMaintenance_T2_TCPProxy_T1T2(t T) {
 		//
 		// Actual start of tests
 		//
-		testCmd := fmt.Sprintf("lb-test-client %s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")
+		testCmd := fmt.Sprintf("lb-test-client sql %s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")
 		t.Log("Starting SQL client that opens TCP connection %q...", testCmd)
-		if err := client.ExecDetached(t.Context(), []string{"lb-test-client", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")}); err != nil {
+		if _, err := client.ExecDetached(t.Context(), []string{"lb-test-client", "sql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")}); err != nil {
 			t.Failedf("failed to start sql client (cmd: %q): %s", testCmd, err)
 		}
 
