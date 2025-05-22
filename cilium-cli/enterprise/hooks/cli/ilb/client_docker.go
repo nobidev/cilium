@@ -93,6 +93,7 @@ func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []strin
 func (c *dockerCli) ContainerExecDetached(ctx context.Context, name string, cmds []string) (io.Reader, error) {
 	execConfig := container.ExecOptions{
 		Detach:       true,
+		Tty:          true, // prevents cryptic character at line start when copying to stdout
 		AttachStdout: true,
 		AttachStderr: true,
 		Cmd:          cmds,
@@ -103,7 +104,9 @@ func (c *dockerCli) ContainerExecDetached(ctx context.Context, name string, cmds
 		return nil, fmt.Errorf("failed to exec command: %w", err)
 	}
 
-	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{
+		Tty: true, // prevents cryptic character at line start when copying to stdout
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to attach: %w", err)
 	}
