@@ -24,6 +24,9 @@ jobs:
         # for the oldest maintained Enterprise version, which does not receive
         # OSS dependency updates.
         branch: [v1.15, v1.16, v1.17]
+        include:
+          - image: cilium
+            branch: v1.17-ce
     steps:
       - name: Checkout latest VEX data
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
