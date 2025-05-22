@@ -68,7 +68,7 @@ func ribListCommand(r *RIB) script.Cmd {
 							continue
 						}
 						bestSymbol := " "
-						if r == d.best {
+						if r.Equal(d.best) {
 							bestSymbol = "*"
 						}
 						fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\n",
