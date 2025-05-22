@@ -4,14 +4,14 @@ contents:
   repositories:
     - https://packages.wolfi.dev/os
   packages:
-    - gops=0.3.28-r16
-    - grep=3.11-r2 #Needed by the mount-bpf-fs init container
-    - jq=1.7.1-r3 #Needed for cilium connectivity test to work
-    - mount=2.40.4-r31 #Needed by the mount-bpf-fs init container
-    - util-linux-misc=2.40.4-r31 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
+    - gops=0.3.28-r17
+    - grep=3.12-r0 #Needed by the mount-bpf-fs init container
+    - jq=1.7.1-r5 #Needed for cilium connectivity test to work
+    - mount=2.41-r41 #Needed by the mount-bpf-fs init container
+    - util-linux-misc=2.41-r41 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
     - bash=5.2.37-r30
-    - busybox=1.37.0-r30
-    - ca-certificates=20241121-r1
+    - busybox=1.37.0-r40
+    - ca-certificates=20241121-r40
     - ip6tables=1.8.9
     - iproute2=6.13.0-r20
     - ipset=7.22-r3
@@ -19,9 +19,9 @@ contents:
     - kmod=34.1-r0
     - gcc-11=11.5.0-r4 # for some header files
     - shadow=4.17.3-r31 # Needed for groupadd
-    - curl=8.12.1-r0  # temporary, for getting prometheus metrics in CI
+    - curl=8.13.0-r0  # temporary, for getting prometheus metrics in CI
     - openssl=3.4.1
-    - cni-plugins-loopback=1.6.2-r3
+    - cni-plugins-loopback=1.7.1-r0
 archs:
   - x86_64
   - arm64
