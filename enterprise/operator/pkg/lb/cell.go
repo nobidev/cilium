@@ -21,7 +21,6 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/accesslog"
-	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -116,7 +115,6 @@ type reconcilerParams struct {
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Config    Config
-	Metrics   lbmetrics.Metrics
 
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
