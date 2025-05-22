@@ -127,7 +127,7 @@ func toTestClientOutput(testClientOutputReader io.Reader) *strings.Builder {
 		}
 
 		if _, err := io.Copy(writer, testClientOutputReader); err != nil {
-			fmt.Printf("failed to copy stuff: %s\n", err)
+			fmt.Printf("failed to copy test app output: %s\n", err)
 		}
 	}()
 

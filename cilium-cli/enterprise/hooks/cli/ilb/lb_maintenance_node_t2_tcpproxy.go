@@ -13,6 +13,8 @@ package ilb
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -98,8 +100,17 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		//
 		testCmd := fmt.Sprintf("lb-test-client sql %s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")
 		t.Log("Starting SQL client that opens TCP connection %q...", testCmd)
-		if _, err := client.ExecDetached(t.Context(), []string{"lb-test-client", "sql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")}); err != nil {
+		testClientOutputReader, err := client.ExecDetached(t.Context(), []string{"lb-test-client", "sql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mySqlUser, mySqlPassword, vipIP, "80", "sys")})
+		if err != nil {
 			t.Failedf("failed to start sql client (cmd: %q): %s", testCmd, err)
+		}
+
+		if FlagVerbose {
+			go func() {
+				if _, err := io.Copy(os.Stdout, testClientOutputReader); err != nil {
+					fmt.Printf("failed to copy test app output: %s\n", err)
+				}
+			}()
 		}
 
 		t.Log("Waiting for connection on SQL server side...")
