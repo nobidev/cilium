@@ -10,7 +10,7 @@
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1732033893-de666b6@sha256:ee005bd47b20f78a727c06fdf2275861848be7acd242603c82f86ca8faaeda90
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:5a9c4852a21287686009bfe1cdc1fed6e7aabdea@sha256:188e398ee30456373530698d0d29de66dda0c4428068ea430027ceb7e9c15b7c
-ARG CILIUM_RUNTIME_BASE_IMAGE=quay.io/isovalent/cilium-runtime-base-wfi:55f76577578974f68afb82e184eb21fea5cced34@sha256:db1e29d94db80446a67649fb86821ee2fb493dcfd5e55c2104c7a05d1b1da484
+ARG CILIUM_RUNTIME_BASE_IMAGE=quay.io/isovalent/cilium-runtime-base-wfi:c1e95ada60a5c59fd4bb00a2a0407e8bc43cfa3b@sha256:de7e8a56940c0f3dc5ed8bae47118bc399ec15e03064fecea1f5f5cb1989d7a6
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
