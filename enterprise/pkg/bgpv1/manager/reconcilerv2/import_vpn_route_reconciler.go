@@ -169,7 +169,12 @@ func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconcilerv
 	owner := r.ribOwnerName(p.DesiredConfig.Name)
 
 	// Obtain the desired routes from BGP RIB
-	desiredRoutes, err := r.desiredRoutes(owner, res.Routes, p.DesiredConfig.VRFs)
+	desiredRoutes, err := r.desiredRoutes(
+		owner,
+		uint32(*p.DesiredConfig.LocalASN),
+		res.Routes,
+		p.DesiredConfig.VRFs,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get desired routes: %w", err)
 	}
@@ -246,6 +251,7 @@ func (r *importVPNRouteReconciler) reconcileRIB(
 
 func (r *importVPNRouteReconciler) desiredRoutes(
 	owner string,
+	localASN uint32,
 	bgpRoutes []*types.Route,
 	bgpVRFs []v1.IsovalentBGPNodeVRF,
 ) (map[uint32]*bitlpm.CIDRTrie[*rib.Route], error) {
@@ -273,17 +279,14 @@ func (r *importVPNRouteReconciler) desiredRoutes(
 			if !rtMatches(vpnPath.rts, vrf.ImportRTs) {
 				continue
 			}
+			proto := rib.ProtocolIBGP
+			if vpnPath.sourceASN != localASN {
+				proto = rib.ProtocolEBGP
+			}
 			routes.Upsert(vpnPath.prefix, &rib.Route{
-				Prefix: vpnPath.prefix,
-				Owner:  owner,
-				// We set this to unknown now because
-				// we first need to extend the Router
-				// interface to add information about
-				// the route source. Since it's not
-				// common to import SRv6 routes from
-				// both of iBGP and eBGP, we are ok
-				// to go with this for now.
-				Protocol: rib.ProtocolUnknown,
+				Prefix:   vpnPath.prefix,
+				Owner:    owner,
+				Protocol: proto,
 				NextHop: &rib.HEncaps{
 					Segments: []srv6Types.SID{vpnPath.sid},
 				},
@@ -298,9 +301,10 @@ func (r *importVPNRouteReconciler) desiredRoutes(
 }
 
 type vpnPath struct {
-	prefix netip.Prefix
-	sid    srv6Types.SID
-	rts    []string
+	prefix    netip.Prefix
+	sid       srv6Types.SID
+	rts       []string
+	sourceASN uint32
 }
 
 func rtMatches(pathRTs []string, vrfRTs []string) bool {
@@ -554,8 +558,9 @@ func parseVPNPath(path *types.Path) (*vpnPath, error) {
 	}
 
 	return &vpnPath{
-		prefix: prefix,
-		sid:    sid,
-		rts:    rts,
+		prefix:    prefix,
+		sid:       sid,
+		rts:       rts,
+		sourceASN: path.SourceASN,
 	}, nil
 }
