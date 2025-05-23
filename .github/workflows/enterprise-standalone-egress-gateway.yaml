@@ -17,6 +17,9 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
+  push:
+    branches:
+      - 'renovate/**'
   # Run every 6 hours
   schedule:
     - cron:  '0 3/6 * * *'
@@ -62,7 +65,7 @@ env:
 jobs:
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -76,7 +79,7 @@ jobs:
 
     steps:
     - name: Checkout context ref
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         ref: ${{ inputs.context-ref || github.sha }}
         persist-credentials: false
@@ -103,11 +106,13 @@ jobs:
         echo sha=${SHA} >> $GITHUB_OUTPUT
 
     - name: Install Cilium CLI
-      uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+      uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
       with:
+        skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+        image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+        image-tag: ${{ steps.vars.outputs.sha }}
         repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
         release-version: ${{ env.CILIUM_CLI_VERSION }}
-        local-path: './enterprise/cilium-cli'
 
     - name: Generate Kind configuration file
       env:
@@ -119,7 +124,7 @@ jobs:
           envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config.yaml
 
     - name: Create Workload Kind cluster
-      uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
+      uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
       with:
         cluster_name: ${{ env.clusterName }}
         version: ${{ env.KIND_VERSION }}
@@ -139,7 +144,7 @@ jobs:
     # Warning: since this is a privileged workflow, subsequent workflow job
     # steps must take care not to execute untrusted code.
     - name: Checkout pull request branch (NOT TRUSTED)
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         ref: ${{ steps.vars.outputs.sha }}
         persist-credentials: false
@@ -180,6 +185,7 @@ jobs:
             --privileged=true \
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} \
                 cilium-agent \
+                --feature-gates-minimum-maturity=Alpha \
                 --enable-bpf-masquerade=true \
                 --enable-endpoint-health-checking=false \
                 --enable-health-check-nodeport=false \
@@ -283,7 +289,7 @@ jobs:
           --field-selector spec.nodeName=${NODE} \
           -o jsonpath='{.items[*].metadata.name}')
 
-        for i in $(seq 1 30); do
+        for _ in $(seq 1 30); do
           echo "Checking the BPF policy entries..."
           GATEWAYS=$(kubectl exec -n kube-system ${CILIUM_POD} -c cilium-agent -- \
             cilium-dbg bpf egress-ha list -o json | \
@@ -307,7 +313,7 @@ jobs:
       run: |
         EXPECTED="${{ steps.gateway.outputs.ips }}"
 
-        for i in $(seq 1 100); do
+        for _ in $(seq 1 100); do
           # Make a request to service and get origin IP address returned from server
           GOT=$(kubectl exec netshoot -- curl --max-time 2 -s http://${{ steps.app.outputs.ip }}/get | jq -r .origin)
 
@@ -337,7 +343,7 @@ jobs:
 
     - name: Upload artifacts
       if: ${{ !success() }}
-      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: cilium-sysdumps
         path: sysdumps
@@ -347,7 +353,7 @@ jobs:
     name: Commit Status Final
     if: ${{ always() }}
     needs: installation-and-connectivity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
