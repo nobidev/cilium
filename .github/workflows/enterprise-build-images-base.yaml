@@ -23,9 +23,12 @@ on:
         required: true
       AUTO_COMMITTER_APP_ID:
         required: true
+      ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID:
+        required: true
+      ISOVALENT_MIRROR_UPSTREAM_BOT_APP_PEM:
+        required: true
     inputs:
       environment:
-        required: true
         type: string
         default: 'release-base-images'
 
@@ -43,7 +46,7 @@ jobs:
   has-credentials:
     name: Check for Quay secrets
     runs-on: ubuntu-24.04
-    environment: 'release-base-images'
+    environment: ${{ inputs.environment || 'release-base-images' }}
     timeout-minutes: 2
     outputs:
       present: ${{ steps.secrets.outputs.present }}
@@ -62,7 +65,7 @@ jobs:
     if: ${{ needs.has-credentials.outputs.present && ! (startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
-    environment: 'release-base-images'
+    environment: ${{ inputs.environment || 'release-base-images' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Get token

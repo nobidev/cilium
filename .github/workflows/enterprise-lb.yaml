@@ -131,10 +131,10 @@ jobs:
         with:
           comment_on_pr: false
 
-      - name: Checkout PR
+      - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ inputs.SHA || 'main-ce' }}
           persist-credentials: false
 
       - name: Set Environment Variables

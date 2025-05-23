@@ -102,7 +102,7 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ inputs.SHA }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -226,7 +226,6 @@ jobs:
           DOCKER_API_VERSION=1.45 LOADBALANCER_TESTS=true gotest -test.v -test.timeout=30m ./enterprise/test/ilb --mode=single-node
 
       - name: Run "cilium lb status"
-        if: ${{ steps.run-tests.outcome != 'skipped' }}
         shell: bash
         env:
           KUBECONFIG: ${{ steps.deploy-lb.outputs.lb_kubeconfig_path }}
@@ -234,19 +233,19 @@ jobs:
           cilium lb status
 
       - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ !success() }}
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
           mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          cilium sysdump --output-filename cilium-sysdump-final
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cilium-sysdumps-${{ matrix.name }}
+          name: cilium-sysdumps
           path: cilium-sysdump-*.zip
 
       - name: Cleanup LoadBalancer

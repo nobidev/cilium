@@ -172,6 +172,7 @@ jobs:
           kernel: ${{ matrix.kernel }}
           kind-config: ${{ env.kind_config }}
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+          kind-params: ""
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.

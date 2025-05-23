@@ -149,11 +149,10 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ inputs.image-name }}" > image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
-          echo "\`quay.io/isovalent/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
+          echo "\`quay.io/isovalent/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
 
       - name: Upload artifact digests runtime
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: image-digest ${{ inputs.image-name }}
