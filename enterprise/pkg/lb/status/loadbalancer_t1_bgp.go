@@ -39,7 +39,7 @@ func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context
 	bgpPeersByName := map[string]string{} // peerName => peerAddr-peerASN
 	bgpPeersByAddr := map[string]string{} // peerAddr-peerASN => map
 
-	cfgs, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
+	cfgs, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list IsovalentBGPClusterConfigs: %w", err)
 	}

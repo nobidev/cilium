@@ -13,7 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -175,19 +176,19 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isoval
 	bgpPeersByNameFromT1ClusterCfg map[string]string) ([]string, error) {
 
 	// Find IsovalentBGPAdvertisements which apply to a given LBService
-	var advs []*isovalentv1alpha1.IsovalentBGPAdvertisement
+	var advs []*isovalentv1.IsovalentBGPAdvertisement
 
-	advList, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
+	advList, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	for i, adv := range advList.Items {
 		for _, a := range adv.Spec.Advertisements {
-			if a.AdvertisementType != isovalentv1alpha1.BGPServiceAdvert {
+			if a.AdvertisementType != isovalentv1.BGPServiceAdvert {
 				continue
 			}
-			if a.Service == nil || !slices.Contains(a.Service.Addresses, v2alpha1.BGPLoadBalancerIPAddr) {
+			if a.Service == nil || !slices.Contains(a.Service.Addresses, v2.BGPLoadBalancerIPAddr) {
 				continue
 			}
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(a.Selector)
@@ -204,7 +205,7 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isoval
 	}
 
 	// Find BGPPeers which match the IsovalentBGPAdvertisements from above
-	peerCfgList, err := s.client.CiliumClientset.IsovalentV1alpha1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
+	peerCfgList, err := s.client.CiliumClientset.IsovalentV1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
