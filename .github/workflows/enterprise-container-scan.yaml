@@ -42,6 +42,7 @@ jobs:
       - name: Scan image
         id: scan
         run: |
+          # shellcheck disable=SC2193
           if [[ "${{ matrix.branch }}" == *"-ce" ]]; then
             org="isovalent-dev"
           else

@@ -255,6 +255,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
+          # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi

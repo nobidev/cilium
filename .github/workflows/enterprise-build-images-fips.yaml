@@ -111,11 +111,11 @@ jobs:
             images+=('{"name": "operator-generic", "dockerfile": "./images/operator/Dockerfile", "binaries": "cilium-operator-generic"}')
           fi
 
-          images=$(echo "${images[@]}" | jq -s -c)
-          image_names=$(echo "${images}" | jq -c '[.[].name]')
+          images_json=$(echo "${images[@]}" | jq -s -c)
+          image_names=$(echo "${images_json}" | jq -c '[.[].name]')
           echo "Images:"
-          echo "${images}" | jq
-          echo "images=$images" >> $GITHUB_OUTPUT
+          echo "${images_json}" | jq
+          echo "images=$images_json" >> $GITHUB_OUTPUT
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
       - name: Getting image tag
@@ -444,42 +444,42 @@ jobs:
             platform_tags="${{ needs.build-and-push.outputs.image_cilium_amd64 }} ${{ needs.build-and-push.outputs.image_cilium_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_cilium_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_cilium_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_cilium_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_cilium_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_cilium_secondary }}"
             fi
           elif [ "${image_name}" == "hubble-relay" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_hubble_relay_amd64 }} ${{ needs.build-and-push.outputs.image_hubble_relay_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_hubble_relay_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_hubble_relay_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_hubble_relay_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_hubble_relay_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_hubble_relay_secondary }}"
             fi
           elif [ "${image_name}" == "operator-aws" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_operator_aws_amd64 }} ${{ needs.build-and-push.outputs.image_operator_aws_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_operator_aws_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_aws_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_aws_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_operator_aws_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_aws_secondary }}"
             fi
           elif [ "${image_name}" == "operator-alibabacloud" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_operator_alibabacloud_amd64 }} ${{ needs.build-and-push.outputs.image_operator_alibabacloud_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_alibabacloud_secondary }}"
             fi
           elif [ "${image_name}" == "operator-azure" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_operator_azure_amd64 }} ${{ needs.build-and-push.outputs.image_operator_azure_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_operator_azure_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_azure_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_azure_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_operator_azure_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_azure_secondary }}"
             fi
           elif [ "${image_name}" == "operator-generic" ]; then
             platform_tags="${{ needs.build-and-push.outputs.image_operator_generic_amd64 }} ${{ needs.build-and-push.outputs.image_operator_generic_arm64 }}"
             primary_tag="${{ needs.build-and-push.outputs.manifest_operator_generic_primary }}"
             image_tags="-t ${{ needs.build-and-push.outputs.manifest_operator_generic_primary }}"
-            if [ ! -z "${{ needs.build-and-push.outputs.manifest_operator_generic_secondary }}" ]; then
+            if [ -n "${{ needs.build-and-push.outputs.manifest_operator_generic_secondary }}" ]; then
               image_tags+=" -t ${{ needs.build-and-push.outputs.manifest_operator_generic_secondary }}"
             fi
           else
@@ -556,6 +556,7 @@ jobs:
           echo "# File generated by .github/workflows/enterprise-build-images-releases-fips.yaml; DO NOT EDIT." > ../Makefile.digests
           echo "# Copyright (C) Isovalent, Inc. - All Rights Reserved." >> ../Makefile.digests
           echo "" >> ../Makefile.digests
+          # shellcheck disable=SC2016
           find -type f  -name "makefile-digest.txt" | sort | xargs -d '\n' awk '{print "export " $0}' >> ../Makefile.digests
 
       # Upload artifact digests

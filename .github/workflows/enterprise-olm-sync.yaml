@@ -47,7 +47,7 @@ jobs:
           git config --global user.email "isovalent-bot@isovalent.com"
           git config --global user.name "isovalent-bot"
           git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/isovalent/cilium.git
-          if [[ ! `git status --porcelain` ]]; then
+          if [[ ! $(git status --porcelain) ]]; then
             # No changes
             echo "No changes"
             exit 0

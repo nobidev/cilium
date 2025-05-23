@@ -193,8 +193,8 @@ jobs:
             --set=operator.replicas=1 \
             --set=envoyConfig.enabled=true \
             --set=envoy.enabled=true \
-            --set=ipam.mode="cluster-pool" \
-            --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]="10.0.0.0/9" \
+            --set=ipam.mode=\"cluster-pool\" \
+            --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]=\"10.0.0.0/9\" \
             --set=envoy.updateStrategy.rollingUpdate.maxUnavailable=10% \
             --set-string=extraConfig.external-dns-proxy=true \
             --set-string=extraConfig.monitor-aggregation-interval=10m \
@@ -239,7 +239,7 @@ jobs:
           echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
           echo ETCD_NODES=${ETCD_NODES} >> $GITHUB_OUTPUT
           echo SCRAPE_INTERVAL=${SCRAPE_INTERVAL} >> $GITHUB_OUTPUT
-          echo INSTANCES_PER_GROUP=$(( ${WORKLOAD_NODES} / 5 )) >> $GITHUB_OUTPUT
+          echo INSTANCES_PER_GROUP=$(( WORKLOAD_NODES / 5 )) >> $GITHUB_OUTPUT
           echo VERSION=${VERSION} >> $GITHUB_OUTPUT
 
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -480,8 +480,8 @@ jobs:
             minor_version=$(echo "${{ steps.vars.outputs.version }}" | cut -d'.' -f2)
           fi
           if (( minor_version < 17 )); then
-            VERSION_SPECIFIC_OPTIONS+=" --set=operator.extraArgs[0]="--k8s-client-qps=100" \
-                              --set=operator.extraArgs[1]="--k8s-client-burst=100""
+            VERSION_SPECIFIC_OPTIONS+=" --set=operator.extraArgs[0]=\"--k8s-client-qps=100\" \
+                              --set=operator.extraArgs[1]=\"--k8s-client-burst=100\""
           fi
 
           cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }} \
@@ -582,7 +582,7 @@ jobs:
 
       - name: Setup LRP
         run: |
-          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" ./examples/kubernetes-local-redirect/node-local-dns.yaml
+          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath='{.spec.clusterIP}') && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" ./examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl apply -f ./examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl rollout status daemonset node-local-dns -n kube-system
           kubectl apply -f ./examples/kubernetes-local-redirect/node-local-dns-lrp.yaml
@@ -608,6 +608,7 @@ jobs:
           # prometheus. Let's taint it so that it doesn't become a target to
           # schedule test pods, considering that it attracts an unfair number of
           # them (compatibly with max pods per node) due to its size.
+          # shellcheck disable=SC2196,SC2267
           kubectl get nodes -o name | egrep '^node/nodes-' | xargs -i kubectl label '{}' app=monitoring
           kubectl taint node -l app=monitoring monitoring:NoSchedule
 
@@ -675,6 +676,7 @@ jobs:
           # label selector, but kops appears to be significantly slow at reconciling
           # the labels to the node objects. Hence, let's just grep for the node names.
           while [[ "$cnt" -lt "$desired" ]]; do
+            # shellcheck disable=SC2196
             cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[-a-z0-9]+\s+Ready\s' || true)
             echo "workloads nodes count: $cnt"
             sleep 10

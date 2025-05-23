@@ -136,20 +136,16 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          # XXX fix the SHA for now so that I don't have to wait for image build
-          SHASHA=${SHA}
-          #SHASHA=b03a71925b1fe6aed15b50daf370a87b41c3c869
-
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=enterprise.featureGate.strict=true \
             --helm-set=enterprise.featureGate.approved={ClusterMeshOverlappingPodCIDR} \
             --helm-set=debug.enabled=true \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHASHA} \
+            --helm-set=image.tag=${SHA} \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix="-ci" \
-            --helm-set=operator.image.tag=${SHASHA} \
+            --helm-set=operator.image.suffix=\"-ci\" \
+            --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=ipam.mode=kubernetes \
             --helm-set=bpf.masquerade=true \
@@ -161,13 +157,13 @@ jobs:
             --helm-set=devices=eth+ \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHASHA} \
+            --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=clustermesh.useAPIServer=true \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
-            --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHASHA} \
+            --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHASHA} \
+            --helm-set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
             --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
             --helm-set=clustermesh.config.enabled=true \
             --helm-set=clustermesh.config.enableClusterAwareAddressing=true \

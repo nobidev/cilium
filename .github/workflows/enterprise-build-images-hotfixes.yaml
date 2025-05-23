@@ -126,7 +126,7 @@ jobs:
           UBI_IMAGE=${{ matrix.base_image }} \
           EXTRA_ARGS="--metadata-file .metadata.json --tag quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ github.sha }}" \
           make ${{ matrix.name }}-image
-          echo digest=$(cat ../../.metadata.json | jq '."containerimage.digest"') >> $GITHUB_OUTPUT
+          echo digest="$(cat ../../.metadata.json | jq '."containerimage.digest"')" >> $GITHUB_OUTPUT
 
       - name: Release Build ${{ matrix.name }} non-UBI based
         uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0

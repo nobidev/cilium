@@ -91,7 +91,6 @@ jobs:
         run: |
           repo=""
           dir="."
-          branch=""
           oss="false"
           region=""
           umbrella="false"
@@ -102,6 +101,7 @@ jobs:
           test_concurrency=1
 
           input="${{ inputs.extra-args }}"
+          # shellcheck disable=SC2206
           IFS='&' args=($input)
           for a in "${args[@]}"; do
             case $a in
@@ -180,17 +180,17 @@ jobs:
           echo "getting cloud provider and region ..."
           provider=""
           region=""
-          count=$(cat *.tf | grep -c 'provider "aws"' || true)
+          count=$(cat ./*.tf | grep -c 'provider "aws"' || true)
           if [[ "$count" -gt 0 ]]; then
             provider="aws"
             region=$(echo "$regions" | jq -r .aws)
           fi
-          count=$(cat *.tf | grep -c 'provider "azurerm"' || true)
+          count=$(cat ./*.tf | grep -c 'provider "azurerm"' || true)
           if [[ "$count" -gt 0 ]]; then
             provider="azure"
             region=$(echo "$regions" | jq -r .azure)
           fi
-          count=$(cat *.tf | grep -c 'provider "google"' || true)
+          count=$(cat ./*.tf | grep -c 'provider "google"' || true)
           if [[ "$count" -gt 0 ]]; then
             provider="gcp"
             region=$(echo "$regions" | jq -r .gcp)
@@ -204,7 +204,7 @@ jobs:
           fi
 
           echo "getting cute helm chart used version ..."
-          cute_chart_version=$(grep -A 3 '^variable "cilium_helm_version.*" {' *.tf | grep 'default')
+          cute_chart_version=$(grep -A 3 '^variable "cilium_helm_version.*" {' ./*.tf | grep 'default')
           cute_chart_version=$(echo "${cute_chart_version##*=}" | xargs)
           # remove patch version number
           if [[ $cute_chart_version =~ ^[[:digit:]]+.[[:digit:]]+..* ]]; then
@@ -442,7 +442,7 @@ jobs:
       - name: Set cluster config
         working-directory: ./cute/${{ steps.vars.outputs.cute_dir }}
         run: |
-          eval $(make kubeconfig | grep KUBECONFIG)
+          eval "$(make kubeconfig | grep KUBECONFIG)"
           [[ ! "$KUBECONFIG" =~ ^/.* ]] && KUBECONFIG="$(pwd)/$KUBECONFIG"
           cat $KUBECONFIG # useful for troubleshooting, especially for the RKE clusters.
           echo "KUBECONFIG=$KUBECONFIG" >> $GITHUB_ENV
@@ -531,7 +531,7 @@ jobs:
         run: |
           mkdir -p ${{ env.upload_dir }}/cilium-sysdumps
           # Move all previously created sysdumps
-          mv *.zip ${{ env.upload_dir }}/cilium-sysdumps/ || true
+          mv ./*.zip ${{ env.upload_dir }}/cilium-sysdumps/ || true
 
           cilium status
           cilium sysdump --output-filename ${{ env.upload_dir }}/cilium-sysdumps/cilium-sysdump-final
@@ -547,8 +547,7 @@ jobs:
 
           echo "Collecting cilium logs ..."
           mkdir -p ${{ env.upload_dir }}/cilium-logs
-          CILIUM_PODS=$(kubectl -n $CILIUM_NS get pods -l k8s-app=cilium -o=jsonpath='{range.items[*]}{.metadata.name}{"\n"}{end}')
-          for POD in $(echo $CILIUM_PODS); do
+          for POD in $(kubectl -n $CILIUM_NS get pods -l k8s-app=cilium -o=jsonpath='{range.items[*]}{.metadata.name}{"\n"}{end}'); do
             kubectl -n $CILIUM_NS describe pods $POD > ${{ env.upload_dir }}/cilium-logs/$POD-describe.log
             kubectl -n $CILIUM_NS logs $POD > ${{ env.upload_dir }}/cilium-logs/$POD.log
           done
@@ -563,7 +562,7 @@ jobs:
         id: upload_prep
         run: |
           if test -d ./cute/${{ steps.vars.outputs.cute_dir }}/${{ env.upload_dir }}; then
-            echo dir=$(realpath ./cute/${{ steps.vars.outputs.cute_dir }}/${{ env.upload_dir }}) >> $GITHUB_OUTPUT
+            echo dir="$(realpath ./cute/${{ steps.vars.outputs.cute_dir }}/${{ env.upload_dir }})" >> $GITHUB_OUTPUT
           else
             echo dir=nothingtoupload >> $GITHUB_OUTPUT
           fi
@@ -584,7 +583,7 @@ jobs:
         working-directory: ./cute/${{ steps.vars.outputs.cute_dir }}
         run: |
           echo "killing terraform processes ..."
-          ps -ef | grep terraform | grep -v grep | awk '{print $2}' | xargs -n 1 kill -9 || true
+          pkill -9 terraform || true
           if [ -f .terraform.tfstate.lock.info ]; then
             echo "unlocking terraform state ..."
             LOCK_ID=$(jq -r '.ID' .terraform.tfstate.lock.info)

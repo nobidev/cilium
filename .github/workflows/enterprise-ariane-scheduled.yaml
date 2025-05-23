@@ -52,7 +52,7 @@ jobs:
           readarray nightly_workflows < <(yq '.schedule.nightly.workflows[]' .github/ariane-config-enterprise.yaml)
 
 
-          for workflow in ${nightly_workflows[@]}; do
+          for workflow in "${nightly_workflows[@]}"; do
             echo triggering ${workflow}
             gh workflow run ${workflow} \
               --ref ${REF} \

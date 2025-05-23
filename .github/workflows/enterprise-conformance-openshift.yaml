@@ -314,7 +314,7 @@ jobs:
         id: kubeconfig
         working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
         run: |
-          eval $(make kubeconfig | grep KUBECONFIG)
+          eval "$(make kubeconfig | grep KUBECONFIG)"
           [[ ! "$KUBECONFIG" =~ ^/.* ]] && KUBECONFIG="$(pwd)/$KUBECONFIG"
           echo "base64 encoded kubeconfig:"
           cat $KUBECONFIG | base64 # useful for troubleshooting
@@ -342,8 +342,7 @@ jobs:
         run: |
           set +e
           while true; do
-            co_status=$(kubectl get co -o jsonpath="{range .items[*]}{.status.conditions[?(@.type=='Available')].status}{'\n'}{end}")
-            if [ $? -ne 0 ]; then
+            if ! co_status=$(kubectl get co -o jsonpath="{range .items[*]}{.status.conditions[?(@.type=='Available')].status}{'\n'}{end}"); then
               sleep 30s
               continue
             fi
@@ -406,7 +405,7 @@ jobs:
                   --patch='{"spec":{"deployKubeProxy":false}}'
 
           removed="false"
-          for i in {1..30} # wait 5 mins and give up
+          for _ in {1..30} # wait 5 mins and give up
           do
             sleep 10
             count="$(kubectl get pods -A -l app=kube-proxy | wc -l || true)"
@@ -448,7 +447,7 @@ jobs:
         working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
         run: |
           if test -d ./test-results; then
-            echo path=$(realpath ./test-results) >> $GITHUB_OUTPUT
+            echo path="$(realpath ./test-results)" >> $GITHUB_OUTPUT
           else
             echo path=nothingtoupload >> $GITHUB_OUTPUT
           fi
@@ -477,7 +476,7 @@ jobs:
         working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
         run: |
           echo "killing terraform processes ..."
-          ps -ef | grep terraform | grep -v grep | awk '{print $2}' | xargs -n 1 kill -9 || true
+          pkill -9 terraform || true
           if [ -f .terraform.tfstate.lock.info ]; then
             echo "unlocking terraform state ..."
             LOCK_ID=$(jq -r '.ID' .terraform.tfstate.lock.info)
