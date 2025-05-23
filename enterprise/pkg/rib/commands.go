@@ -62,7 +62,7 @@ func ribListCommand(r *RIB) script.Cmd {
 
 				fmt.Fprintf(tw, "Best\tVRF\tPrefix\tOwner\tProtocol\tNextHop\n")
 
-				r.ForEach(func(vrfID uint32, p netip.Prefix, d *Destination) bool {
+				r.forEach(func(vrfID uint32, p netip.Prefix, d *Destination) bool {
 					for _, r := range d.routes {
 						if !filter(vrfID) {
 							continue

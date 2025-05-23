@@ -209,7 +209,7 @@ func (r *RIB) listRoutes(owner string) map[uint32]*bitlpm.CIDRTrie[*Route] {
 	return vrfRoutes
 }
 
-func (r *RIB) ForEach(cb func(uint32, netip.Prefix, *Destination) bool) {
+func (r *RIB) forEach(cb func(uint32, netip.Prefix, *Destination) bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -240,6 +240,25 @@ func (r *RIB) DeleteRoutesByOwner(owner string) {
 			return true
 		})
 	}
+}
+
+// ListBestRoutes returns a map of VRF IDs to CIDRTrie of best routes
+func (r *RIB) ListBestRoutes() map[uint32]*bitlpm.CIDRTrie[*Route] {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	bestRoutes := make(map[uint32]*bitlpm.CIDRTrie[*Route])
+	r.forEach(func(vrfID uint32, prefix netip.Prefix, dest *Destination) bool {
+		if dest.best != nil {
+			if _, ok := bestRoutes[vrfID]; !ok {
+				bestRoutes[vrfID] = bitlpm.NewCIDRTrie[*Route]()
+			}
+			bestRoutes[vrfID].Upsert(prefix, dest.best)
+		}
+		return true
+	})
+
+	return bestRoutes
 }
 
 // Best path selection algorithm. First, it compares the Admin Distance of the
