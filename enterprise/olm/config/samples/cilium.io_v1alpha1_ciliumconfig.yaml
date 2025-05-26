@@ -23,8 +23,6 @@ spec:
      enabled: true
   hubble:
     enabled: true
-    relay:
-      enabled: true
   operator:
     prometheus:
       enabled: true

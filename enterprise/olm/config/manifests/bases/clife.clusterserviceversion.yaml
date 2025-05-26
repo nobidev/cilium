@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"cilium.io/v1alpha1","kind":"CiliumConfig","metadata":{"labels":{"app.kubernetes.io/name":"clife"},"name":"config"},"spec":{"cluster":{"name":"default"},"securityContext":{"privileged":true},"ipam":{"mode":"cluster-pool"},"cni":{"binPath":"/var/lib/cni/bin","confPath":"/var/run/multus/cni/net.d","chainingMode":"portmap","exclusive":false},"prometheus":{"serviceMonitor":{"enabled":false}},"hubble":{"enabled":true,"relay":{"enabled":true}},"sessionAffinity":true,"kubeProxyReplacement":false,"clusterHealthPort":9940,"tunnelPort":4789,"enterprise":{"featureGate":{"approved":["CNIChainingMode"]}}}}]'
+    alm-examples: '[{"apiVersion":"cilium.io/v1alpha1","kind":"CiliumConfig","metadata":{"labels":{"app.kubernetes.io/name":"clife"},"name":"config"},"spec":{"cluster":{"name":"default"},"securityContext":{"privileged":true},"ipam":{"mode":"cluster-pool"},"cni":{"binPath":"/var/lib/cni/bin","confPath":"/var/run/multus/cni/net.d","chainingMode":"portmap","exclusive":false},"prometheus":{"serviceMonitor":{"enabled":false}},"hubble":{"enabled":true},"sessionAffinity":true,"kubeProxyReplacement":false,"clusterHealthPort":9940,"tunnelPort":4789,"enterprise":{"featureGate":{"approved":["CNIChainingMode"]}}}}]'
     capabilities: Seamless Upgrades
     categories: Networking,Security
     features.operators.openshift.io/cni: "true"
