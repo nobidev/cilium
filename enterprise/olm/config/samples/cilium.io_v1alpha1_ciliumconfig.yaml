@@ -18,12 +18,18 @@ spec:
     chainingMode: portmap
     exclusive: false
   prometheus:
+    enabled: true
     serviceMonitor:
      enabled: true
   hubble:
     enabled: true
     relay:
       enabled: true
+  operator:
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
   sessionAffinity: true
   kubeProxyReplacement: false
   # avoid conflicts
