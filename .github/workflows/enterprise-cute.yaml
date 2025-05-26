@@ -323,7 +323,7 @@ jobs:
 
       - name: Set up gcloud CLI
         if: steps.cute_props.outputs.provider == 'gcp'
-        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a
+        uses: google-github-actions/setup-gcloud@a8b58010a5b2a061afd605f50e88629c9ec7536b
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 

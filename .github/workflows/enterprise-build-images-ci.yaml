@@ -181,7 +181,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         with:
           provenance: false
           context: /tmp/.cache/go
@@ -215,7 +215,7 @@ jobs:
           make ${{ matrix.name }}-image
 
       - name: CI Build ${{ matrix.name }} non-UBI based
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         id: docker_build_ci
         if: ${{ matrix.postfix != 'ubi' }}
         with:

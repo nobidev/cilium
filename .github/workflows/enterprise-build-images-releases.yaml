@@ -64,7 +64,7 @@ jobs:
 
       - name: Build and push cilium-envoy image
         if: ${{ steps.version.outputs.exist == 'false' }}
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         with:
           context: enterprise/images/cilium-envoy
           file: enterprise/images/cilium-envoy/Dockerfile
@@ -229,7 +229,7 @@ jobs:
           make ${{ matrix.name }}-image
 
       - name: Release Build ${{ matrix.name }} non-UBI based
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         id: docker_build_release
         if: ${{ matrix.postfix != 'ubi' }}
         with:
@@ -378,7 +378,7 @@ jobs:
           # renovate: datasource=github-releases depName=mikefarah/yq
           yq_version: 4.45.4
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.54.0
+          opm_version: 1.55.0
           VERSION: "${{ steps.tag.outputs.tag }}"
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
