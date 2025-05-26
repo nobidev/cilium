@@ -113,13 +113,13 @@ jobs:
 
       - name: Get Tag of Docker Image
         id: image-tag
-        uses: mikefarah/yq@8bf425b4d1344db7cd469a8d10a390876e0c77fd # v4.45.1
+        uses: mikefarah/yq@b534aa9ee5d38001fba3cd8fe254a037e4847b37 # v4.45.4
         with:
           cmd: yq eval '.${{ matrix.yq-path }}.tag' install/kubernetes/cilium/values.yaml
 
       - name: Get Digest of Docker Image
         id: image-digest
-        uses: mikefarah/yq@8bf425b4d1344db7cd469a8d10a390876e0c77fd # v4.45.1
+        uses: mikefarah/yq@b534aa9ee5d38001fba3cd8fe254a037e4847b37 # v4.45.4
         with:
           cmd: yq eval '.${{ matrix.yq-path }}.digest' install/kubernetes/cilium/values.yaml
 
@@ -148,7 +148,7 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       - name: Sign Container Image
         run: cosign sign -y ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}

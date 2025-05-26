@@ -45,7 +45,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.2
+  go_version: 1.24.3
 
 # This workflow builds each platform as part of separate jobs and then merges the
 # built images into a manifest before pushing. This is done for two reasons:
@@ -376,7 +376,7 @@ jobs:
           echo "$output" >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       - name: Sign Container Images
         run: |
