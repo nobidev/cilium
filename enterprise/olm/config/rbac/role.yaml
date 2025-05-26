@@ -165,3 +165,11 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - hostnetwork-v2
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
