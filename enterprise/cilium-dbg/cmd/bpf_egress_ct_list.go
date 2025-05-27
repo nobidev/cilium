@@ -45,7 +45,7 @@ var bpfEgressCtListCmd = &cobra.Command{
 	Short:   "List egress CT entries",
 	Long:    egressCtListUsage,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cilium bpf egress ct list")
+		common.RequireRootPrivilege("cilium-dbg bpf egress-ha ct list")
 
 		ctMap, err := egressmapha.OpenPinnedCtMap(logging.DefaultSlogLogger)
 		if err != nil {
