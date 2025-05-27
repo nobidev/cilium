@@ -159,7 +159,7 @@ jobs:
           TEST_PUSH_API_CLIENT_KEY: ${{ github.workspace }}/client.key
         run: |
           cd enterprise/hubble-timescape
-          go test -tags enterprise_integrated_timescape_e2e ./tests/...
+          go test -count=1 -tags enterprise_integrated_timescape_e2e ./tests/...
         shell: bash
 
       - name: Cleanup
