@@ -145,6 +145,12 @@ func TestIngestK8sEvents(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	defer func() {
+		// Cleanup network policy
+		err = k8sClient.NetworkingV1().NetworkPolicies("default").Delete(ctx, netPolName, metav1.DeleteOptions{})
+		require.NoError(t, err)
+	}()
+
 	// Check that Timescape ingests a matching k8s event
 	require.Eventually(t, func() bool {
 		stream, err := client.GetK8SEvents(ctx, &tspb.GetK8SEventsRequest{
@@ -173,10 +179,6 @@ func TestIngestK8sEvents(t *testing.T) {
 
 		return len(events) > 0
 	}, 30*time.Second, 500*time.Millisecond, "failed to get k8s event in 30 seconds")
-
-	// Cleanup network policy
-	err = k8sClient.NetworkingV1().NetworkPolicies("default").Delete(ctx, netPolName, metav1.DeleteOptions{})
-	require.NoError(t, err)
 }
 
 func encodeGetFlowsResponse(t *testing.T, flows []*observerpb.GetFlowsResponse) io.Reader {
