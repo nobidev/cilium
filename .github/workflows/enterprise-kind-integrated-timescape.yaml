@@ -144,8 +144,12 @@ jobs:
 
       - name: Get client certificate
         run: |
-          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath='{.data."tls\.crt"}' | base64 -d > client.crt
-          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath='{.data."tls\.key"}' | base64 -d > client.key
+          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath='{.data.tls\.crt}' | base64 -d > client.crt
+          kubectl -n kube-system get secret hubble-timescape-client-certs  -o jsonpath='{.data.tls\.key}' | base64 -d > client.key
+          if [ ! -s client.crt ] || [ ! -s client.key ]; then
+            echo "Failed to retrieve client certificate and key, they are empty."
+            exit 1
+          fi
         shell: bash
 
       - name: Run tests
