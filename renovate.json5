@@ -178,6 +178,7 @@
       groupName: 'base-images',
       matchFileNames: [
         'enterprise/**/Dockerfile',
+        '.github/workflows/*base*',
       ],
       matchPackageNames: [
         'registry.redhat.io/ubi9',
