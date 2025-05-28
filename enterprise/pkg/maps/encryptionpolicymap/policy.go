@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
 
 	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -110,7 +111,7 @@ func createPolicyMap(lc cell.Lifecycle, cfg MapConfig, pinning ebpf.PinType) *Po
 		&EncryptionPolicyKey{},
 		&EncryptionPolicyVal{},
 		cfg.EncryptionPolicyMapMax,
-		bpf.BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	lc.Append(cell.Hook{
