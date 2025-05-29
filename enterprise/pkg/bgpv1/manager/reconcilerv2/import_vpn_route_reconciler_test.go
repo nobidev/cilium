@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
@@ -245,13 +246,15 @@ func TestSRv6RouteImport(t *testing.T) {
 					Global: global,
 					Router: router,
 					Config: &v2.CiliumBGPNodeInstance{
-						Name: "test",
+						Name:     "test",
+						LocalASN: ptr.To[int64](65000),
 					},
 				}
 			},
 			func(inst *instance.BGPInstance) paramUpgrader {
 				return newUpgraderMock(&v1.IsovalentBGPNodeInstance{
-					Name: inst.Name,
+					Name:     inst.Name,
+					LocalASN: inst.Config.LocalASN,
 					VRFs: []v1.IsovalentBGPNodeVRF{
 						{
 							VRFRef:    "vrf0",
@@ -375,7 +378,7 @@ func TestSRv6RouteImport(t *testing.T) {
 					&rib.Route{
 						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
 						Owner:    reconciler.ribOwnerName("test"),
-						Protocol: rib.ProtocolUnknown,
+						Protocol: rib.ProtocolIBGP,
 						NextHop: &rib.HEncaps{
 							Segments: []srv6Types.SID{
 								{
@@ -389,7 +392,7 @@ func TestSRv6RouteImport(t *testing.T) {
 					&rib.Route{
 						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
 						Owner:    reconciler.ribOwnerName("test"),
-						Protocol: rib.ProtocolUnknown,
+						Protocol: rib.ProtocolIBGP,
 						NextHop: &rib.HEncaps{
 							Segments: []srv6Types.SID{
 								{
