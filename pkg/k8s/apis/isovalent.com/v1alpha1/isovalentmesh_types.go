@@ -4,10 +4,9 @@
 package v1alpha1
 
 import (
-	"log/slog"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -30,11 +29,11 @@ type IsovalentMeshEndpoint struct {
 	Spec IsovalentMeshEndpointSpec `json:"spec,omitempty"`
 }
 
-func (in *IsovalentMeshEndpoint) GetHostIP(log *slog.Logger) string {
+func (in *IsovalentMeshEndpoint) GetHostIP() string {
 	// At the moment we will set the HostIP as the host that contains the
 	// IsovalentMeshEndpoint even though it's not this host that is actually
 	// running the VM behind the IsovalentMeshEndpoint.
-	return node.GetIPv4(log).String()
+	return node.GetIPv4(logging.DefaultSlogLogger).String()
 }
 
 func (in *IsovalentMeshEndpoint) GetAPIVersion() string {

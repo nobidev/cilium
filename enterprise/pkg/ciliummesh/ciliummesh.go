@@ -38,6 +38,8 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+var _ endpoint.CEPOwnerInterface = (*v1alpha1.IsovalentMeshEndpoint)(nil)
+
 type CiliumMeshController struct {
 	// clusterName is the name of the cluster where the Cilium Mesh is running.
 	clusterName string
