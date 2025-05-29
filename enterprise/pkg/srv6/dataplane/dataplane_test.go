@@ -488,3 +488,153 @@ func TestDataPlane_EndDT4(t *testing.T) {
 		})
 	}
 }
+
+func TestDataPlane_ForEach(t *testing.T) {
+	var (
+		policyMap4 policyMap
+		sidMap     sidMap
+	)
+
+	if testutils.IsPrivileged() {
+		policyMap4, _, sidMap = realSRv6Maps(t)
+	} else {
+		policyMap4 = newMockPolicyMap()
+		sidMap = newMockSidMap()
+	}
+
+	dp := &DataPlane{
+		policyMap4: policyMap4,
+		sidMap:     sidMap,
+	}
+
+	type vrfRoute struct {
+		vrfID uint32
+		route *rib.Route
+	}
+
+	updates := []vrfRoute{
+		{
+			vrfID: 1,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+				Owner:    "test0",
+				Protocol: rib.ProtocolIBGP,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{
+						srv6Types.MustNewSID(
+							netip.MustParseAddr("2001:db8::1"),
+						),
+					},
+				},
+			},
+		},
+		{
+			vrfID: 2,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+				Owner:    "test1",
+				Protocol: rib.ProtocolEBGP,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{
+						srv6Types.MustNewSID(
+							netip.MustParseAddr("2001:db8::2"),
+						),
+					},
+				},
+			},
+		},
+		{
+			vrfID: 0,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("2001:db8::3/128"),
+				Owner:    "test2",
+				Protocol: rib.ProtocolIBGP,
+				NextHop: &rib.EndDT4{
+					VRFID: 1,
+				},
+			},
+		},
+		{
+			vrfID: 0,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("2001:db8::4/128"),
+				Owner:    "test3",
+				Protocol: rib.ProtocolEBGP,
+				NextHop: &rib.EndDT4{
+					VRFID: 2,
+				},
+			},
+		},
+	}
+	for _, update := range updates {
+		dp.ProcessUpdate(&rib.RIBUpdate{
+			VRFID:   update.vrfID,
+			NewBest: update.route,
+		})
+	}
+
+	expectedRoutes := []vrfRoute{
+		{
+			vrfID: 1,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{
+						srv6Types.MustNewSID(
+							netip.MustParseAddr("2001:db8::1"),
+						),
+					},
+				},
+			},
+		},
+		{
+			vrfID: 2,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{
+						srv6Types.MustNewSID(
+							netip.MustParseAddr("2001:db8::2"),
+						),
+					},
+				},
+			},
+		},
+		{
+			vrfID: 0,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("2001:db8::3/128"),
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.EndDT4{
+					VRFID: 1,
+				},
+			},
+		},
+		{
+			vrfID: 0,
+			route: &rib.Route{
+				Prefix:   netip.MustParsePrefix("2001:db8::4/128"),
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.EndDT4{
+					VRFID: 2,
+				},
+			},
+		},
+	}
+
+	actualRoutes := []vrfRoute{}
+	dp.ForEach(func(vrfID uint32, route *rib.Route) {
+		actualRoutes = append(actualRoutes, vrfRoute{
+			vrfID: vrfID,
+			route: route,
+		})
+	})
+
+	require.ElementsMatch(t, expectedRoutes, actualRoutes)
+}

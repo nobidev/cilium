@@ -11,9 +11,12 @@
 package dataplane
 
 import (
+	"net/netip"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/rib"
+	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -161,4 +164,35 @@ func (dp *DataPlane) parseEndDT4Route(rt *rib.Route) (*srv6map.SIDKey, uint32) {
 
 func (dp *DataPlane) isUpsert(u *rib.RIBUpdate) bool {
 	return (u.OldBest == nil && u.NewBest != nil) || (u.OldBest != nil && u.NewBest != nil)
+}
+
+func (dp *DataPlane) ForEach(cb func(uint32, *rib.Route)) {
+	dp.policyMap4.IterateWithCallback(func(k *srv6map.PolicyKey, v *srv6map.PolicyValue) {
+		cb(
+			k.VRFID,
+			&rib.Route{
+				Prefix:   k.DestCIDR,
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.HEncaps{
+					Segments: []srv6Types.SID{
+						{Addr: v.SID.Addr()},
+					},
+				},
+			},
+		)
+	})
+	dp.sidMap.IterateWithCallback(func(k *srv6map.SIDKey, v *srv6map.SIDValue) {
+		cb(
+			0,
+			&rib.Route{
+				Prefix:   netip.PrefixFrom(k.SID.Addr(), 128),
+				Owner:    rib.OwnerUnknown,
+				Protocol: rib.ProtocolUnknown,
+				NextHop: &rib.EndDT4{
+					VRFID: v.VRFID,
+				},
+			},
+		)
+	})
 }

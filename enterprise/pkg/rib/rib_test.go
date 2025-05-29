@@ -46,6 +46,8 @@ func (m *testDataPlane) ProcessUpdate(u *RIBUpdate) {
 	m.receivedUpdates = append(m.receivedUpdates, u)
 }
 
+func (m *testDataPlane) ForEach(_ func(uint32, *Route)) {}
+
 func (m *testDataPlane) Clear() {
 	m.receivedUpdates = nil
 }

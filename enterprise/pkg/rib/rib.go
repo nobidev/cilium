@@ -45,6 +45,11 @@ type DataPlane interface {
 	// result of a best path selection and contains the old and new best
 	// paths.
 	ProcessUpdate(u *RIBUpdate)
+
+	// ForEach iterates over all routes from the data plane. This is used
+	// by RIB to initialize the RIB with the routes that are already
+	// installed in the data plane.
+	ForEach(cb func(uint32, *Route))
 }
 
 // nopDataPlane is a no-op implementation of the DataPlane interface. It is
@@ -52,6 +57,8 @@ type DataPlane interface {
 type nopDataPlane struct{}
 
 func (nopDataPlane) ProcessUpdate(_ *RIBUpdate) {}
+
+func (nopDataPlane) ForEach(_ func(uint32, *Route)) {}
 
 func newNopDataPlane() DataPlane {
 	return &nopDataPlane{}
