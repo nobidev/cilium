@@ -336,6 +336,13 @@ func (r0 *Route) Equal(r1 *Route) bool {
 	return r0.NextHop.Equal(r1.NextHop)
 }
 
+const (
+	// OwnerUnknown is a special owner value that indicates that the owner
+	// is unknown. This is mainly used for routes that are restored from
+	// the data plane at startup and we don't know the owner of the route.
+	OwnerUnknown = "unknown"
+)
+
 type Protocol uint8
 
 const (
