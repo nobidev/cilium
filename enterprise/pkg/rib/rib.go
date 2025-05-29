@@ -11,16 +11,19 @@
 package rib
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // The RIB consists of a collection of CIDRTries per-VRF. The key is the IP
@@ -462,4 +465,52 @@ func (n0 *EndDT4) Equal(_n1 NextHop) bool {
 
 func (s *EndDT4) String() string {
 	return fmt.Sprintf("End.DT4 vrf %d", s.VRFID)
+}
+
+// This type is defined for making GC trigger channel injectable in Hive. This
+// is for making testing easier. When the testing/synctest is GA, we may want
+// to remove this type and call time.After directly within scheduleInitialGC.
+type gcChFn func() <-chan time.Time
+
+// This function is called from the Invoke hook before any other route owners
+// start to write to the RIB. It first fetches all routes from the data plane.
+// This will be done with the blocking call so that we can guarantee that the
+// RIB is filled before any route owner starts writing to it.
+//
+// The routes read from the data plane will have unknown owner and unknown
+// protocol (max AD), so it will always lose the best path selection. The route
+// owners will then write their routes to the RIB over the time, which will be
+// selected as the best paths.
+//
+// Then after a given timeout, the garbage collection job will deletes all
+// routes with unknown owners. This leaves the "active" routes written by the
+// route owners, but removes all the "stale" routes from the data plane.
+//
+// This approach is not optimal. It has a risk that if the owners are not fully
+// synced to the RIB before the garbage collection job runs, it may make the
+// traffic disruption. If we could wait for all the owners to sync their routes
+// to the RIB, we could avoid this timeout-based approach. However, the
+// complexity here is the route owners are dynamic (e.g. BGP Instances are
+// configurable by CRD, certain owners may have configuration flags to turn
+// them on and off), so it's not trivial to wait for "all" of them. That's why
+// we ended up with this simpler approach.
+//
+// Inspired by the Zebra's graceful-restart feature (-K option).
+// https://docs.frrouting.org/en/latest/zebra.html#cmdoption-zebra-K
+func scheduleInitialGC(jg job.Group, r *RIB, fn gcChFn) {
+	r.dataPlane.ForEach(func(vrfID uint32, route *Route) {
+		route.Owner = OwnerUnknown
+		route.Protocol = ProtocolUnknown
+		r.UpsertRoute(vrfID, *route)
+	})
+	ch := fn()
+	jg.Add(job.OneShot("initial-gc", func(ctx context.Context, health cell.Health) error {
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		r.DeleteRoutesByOwner(OwnerUnknown)
+		return nil
+	}))
 }

@@ -12,6 +12,9 @@ package rib
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
@@ -21,6 +24,17 @@ var Cell = cell.Module(
 		New,
 		ribReadCommands,
 	),
+	cell.ProvidePrivate(
+		func(cfg Config) gcChFn {
+			return func() <-chan time.Time {
+				return time.After(cfg.InitialGCDelay)
+			}
+		},
+	),
+	cell.Invoke(
+		scheduleInitialGC,
+	),
+	cell.Config(defaultConfig),
 )
 
 var NopDataPlaneCell = cell.Module(
@@ -30,3 +44,25 @@ var NopDataPlaneCell = cell.Module(
 		newNopDataPlane,
 	),
 )
+
+var defaultConfig = Config{
+	// InitialGCDelay is the delay before the initial garbage collection of
+	// the RIB. This value is chosen to be long enough to allow the route
+	// owners to write their routes to the RIB. For example, the default
+	// connect retry time of BGP CPlane is 120s, so this timeout allows BGP
+	// connection to fail twice (takes 240s to establish) and has 60s to
+	// install all routes.
+	InitialGCDelay: time.Minute * 5,
+}
+
+type Config struct {
+	InitialGCDelay time.Duration `mapstructure:"rib-initial-gc-delay"`
+}
+
+func (cfg Config) Flags(flags *pflag.FlagSet) {
+	// Adjusting this flag is not recommended and once we get rid of the
+	// timeout based approach, we'll remove this. Still, leave this knob as
+	// an escape hatch.
+	flags.Duration("rib-initial-gc-delay", cfg.InitialGCDelay, "Delay before the initial garbage collection of the RIB")
+	flags.MarkHidden("rib-initial-gc-delay")
+}

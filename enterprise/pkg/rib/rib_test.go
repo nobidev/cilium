@@ -11,10 +11,17 @@
 package rib
 
 import (
+	"context"
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	require "github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type testNextHop struct {
@@ -38,7 +45,13 @@ func (m0 *testNextHop) Equal(_m1 NextHop) bool {
 	return m0.differentiator == m1.differentiator
 }
 
+type vrfRoute struct {
+	vrfID uint32
+	route Route
+}
+
 type testDataPlane struct {
+	initialRoutes   []*vrfRoute
 	receivedUpdates []*RIBUpdate
 }
 
@@ -46,7 +59,11 @@ func (m *testDataPlane) ProcessUpdate(u *RIBUpdate) {
 	m.receivedUpdates = append(m.receivedUpdates, u)
 }
 
-func (m *testDataPlane) ForEach(_ func(uint32, *Route)) {}
+func (m *testDataPlane) ForEach(cb func(uint32, *Route)) {
+	for _, vrfRoute := range m.initialRoutes {
+		cb(vrfRoute.vrfID, &vrfRoute.route)
+	}
+}
 
 func (m *testDataPlane) Clear() {
 	m.receivedUpdates = nil
@@ -432,4 +449,129 @@ func TestRIB_DeleteRoutesByOwner(t *testing.T) {
 	// 3 new routes + 2 deleted routes = 5 updates
 	require.Len(t, dataPlane.receivedUpdates, 5)
 
+}
+
+func TestRIB_InitialGC(t *testing.T) {
+	ch := make(chan time.Time)
+
+	logger := hivetest.Logger(t)
+
+	initialRoutes := []*vrfRoute{
+		{
+			vrfID: 1,
+			route: Route{
+				Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+				Owner:    "owner0",
+				Protocol: ProtocolIBGP,
+				NextHop:  &testNextHop{},
+			},
+		},
+		{
+			vrfID: 2,
+			route: Route{
+				Prefix:   netip.MustParsePrefix("fd00::/64"),
+				Owner:    "owner1",
+				Protocol: ProtocolEBGP,
+				NextHop:  &testNextHop{},
+			},
+		},
+	}
+
+	var Rib *RIB
+
+	Hive := hive.New(
+		cell.Module(
+			"test",
+			"test module",
+			cell.Provide(
+				New,
+				func() DataPlane {
+					return &testDataPlane{
+						initialRoutes: initialRoutes,
+					}
+				},
+				func() gcChFn {
+					return func() <-chan time.Time {
+						return ch
+					}
+				},
+			),
+			cell.Invoke(
+				scheduleInitialGC,
+				func(r *RIB) {
+					Rib = r
+				},
+			),
+		),
+	)
+
+	err := Hive.Start(logger, context.TODO())
+	require.NoError(t, err, "Failed to start Hive")
+	t.Cleanup(func() {
+		Hive.Stop(logger, context.TODO())
+	})
+
+	// Now the DataPlane.ForEach should be called at the Invoke hook. At
+	// this point, we should only have the initial routes in the RIB with
+	// unknown owner and protocol.
+	bestRoutes := Rib.ListBestRoutes()
+
+	require.Contains(t, bestRoutes, uint32(1), "VRF 1 should have routes")
+	require.Contains(t, bestRoutes, uint32(2), "VRF 2 should have routes")
+
+	vrf1 := bestRoutes[1]
+	vrf2 := bestRoutes[2]
+
+	require.Equal(t, uint(1), vrf1.Len(), "VRF 1 should have one route")
+	require.Equal(t, uint(1), vrf2.Len(), "VRF 2 should have one route")
+
+	rt1, found := vrf1.ExactLookup(netip.MustParsePrefix("10.0.0.0/24"))
+	require.True(t, found, "VRF 1 should have route")
+	require.Equal(t, OwnerUnknown, rt1.Owner, "VRF 1 route should have unknown owner")
+	require.Equal(t, ProtocolUnknown, rt1.Protocol, "VRF 1 route should have unknown protocol")
+
+	rt2, found := vrf2.ExactLookup(netip.MustParsePrefix("fd00::/64"))
+	require.True(t, found, "VRF 2 should have route")
+	require.Equal(t, OwnerUnknown, rt2.Owner, "VRF 2 route should have unknown owner")
+	require.Equal(t, ProtocolUnknown, rt2.Protocol, "VRF 2 route should have unknown protocol")
+
+	// Insert route for VRF 1 only. This should win the best path selection.
+	// We don't update VRF 2's route, so it should remain unchanged.
+	Rib.UpsertRoute(1, Route{
+		Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+		Owner:    "owner0",
+		Protocol: ProtocolIBGP,
+		NextHop:  &testNextHop{},
+	})
+
+	// Now we can trigger the initial GC. This should sweep the VRF 2 route
+	// and the route with unknown owner and protocol for VRF 1.
+	close(ch)
+
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		bestRoutes := Rib.ListBestRoutes()
+
+		if !assert.Contains(ct, bestRoutes, uint32(1), "VRF 1 should still have routes") {
+			return
+		}
+		if !assert.NotContains(ct, bestRoutes, uint32(2), "VRF 2 should not have routes") {
+			return
+		}
+
+		vrf1 := bestRoutes[1]
+		if !assert.Equal(ct, uint(1), vrf1.Len(), "VRF 1 should have one route") {
+			return
+		}
+
+		rt1, found := vrf1.ExactLookup(netip.MustParsePrefix("10.0.0.0/24"))
+		if !assert.True(ct, found, "VRF 1 should have route") {
+			return
+		}
+		if !assert.Equal(ct, "owner0", rt1.Owner, "VRF 1 route should have unknown owner") {
+			return
+		}
+		if !assert.Equal(ct, ProtocolIBGP, rt1.Protocol, "VRF 1 route should have IBGP protocol") {
+			return
+		}
+	}, time.Second*5, time.Millisecond*100, "Initial GC did not run")
 }
