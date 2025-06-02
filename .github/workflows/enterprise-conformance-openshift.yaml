@@ -87,6 +87,8 @@ env:
   clusterName: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=quay.io/openshift-release-dev/ocp-release
   ocp_version_multi: 4.17.17-multi
+  pod_cidr: 10.244.0.0/16
+  pod_cidr_host_prefix: 23
 
 jobs:
   commit-status-start:
@@ -309,6 +311,8 @@ jobs:
           region="${{ steps.vars.outputs.region }}"
           pull_secret_path="${PWD}/.pullsecret.json"
           base_domain="ci.covalent.lol"
+          pod_cidr="${{ env.pod_cidr }}"
+          pod_cidr_host_prefix="${{ env.pod_cidr_host_prefix }}"
           cilium_kpr_enabled="${{ steps.vars.outputs.kpr }}"
           cilium_olm_repo_type="clife"
           cilium_olm_repo="dir:$(pwd)/../.."
@@ -326,7 +330,12 @@ jobs:
           fi
           cat terraform.tfvars
           # Use the CI CiliumConfig
-          cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml clife-ciliumconfig.yaml
+          if [[ "${{ steps.vars.outputs.kpr }}" == "true" ]]
+          then
+            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig_kpr.yaml clife-ciliumconfig.yaml
+          else
+            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml clife-ciliumconfig.yaml
+          fi
 
       # replace git SSH by HTTPS and use a private access token so that `terraform get`
       # can download modules from private repositories.
@@ -448,9 +457,10 @@ jobs:
       - name: Enable KPR [if disabled]
         if: ${{ steps.vars.outputs.kpr == 'false' }}
         run: |
-          kubectl patch ciliumconfig config \
-                  --type merge \
-                  --patch '{"spec":{"k8sServiceHost": "'${{ steps.cluster-info.outputs.k8s_service_host }}'", "k8sServicePort": "'${{ steps.cluster-info.outputs.k8s_service_port }}'", "kubeProxyReplacement": true}}'
+          cp enterprise/olm/config/samples/openshift_ci_ciliumconfig_kpr.yaml clife-ciliumconfig.yaml
+          yq e -i 'with(.spec.ipam.operator; .clusterPoolIPv4MaskSize = '${{ env.pod_cidr_host_prefix }}' | .clusterPoolIPv4PodCIDRList[] = "'${{ env.pod_cidr }}'")' clife-ciliumconfig.yaml
+          yq e -i 'with(.spec; .k8sServiceHost = "'${{ steps.cluster-info.outputs.k8s_service_host }}'" | .k8sServicePort = "'${{ steps.cluster-info.outputs.k8s_service_port }}'")' clife-ciliumconfig.yaml
+          kubectl apply -f clife-ciliumconfig.yaml
 
       - name: Restart cilium to pick up new config
         if: ${{ steps.vars.outputs.kpr == 'false' }}
