@@ -6,27 +6,15 @@ set -o pipefail # Exit if any command in a pipeline fails, that return code will
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-. "${script_dir}"/../../../dashboards/perses_cli.sh
 . "${script_dir}/deploy_prometheus.sh"
 
 VERSION="0.50.1"
 REPO=https://github.com/perses/perses
 
-tmp_dir=$(mktemp -d -t perses-XXXXXXXXXX)
-trap cleanup EXIT
-
-function cleanup() {
-    echo "Cleanup"
-    rm -rf -- "$tmp_dir"
-}
-
-fetch_percli ${REPO} ${VERSION} "${tmp_dir}"
-
 dashboards_dir="${script_dir}/../../../dashboards/loadbalancer/perses"
 
 MONITORING_NS=monitoring
-PERCLI=${tmp_dir}/percli
-PERSES_SIDECAR=false
+PERSES_SIDECAR=true
 PERSES_FWD_PORT=8080
 
 # verify we have helm
@@ -47,38 +35,28 @@ deploy_prometheus false
 helm upgrade --install --wait --timeout 5m perses perses/perses \
     -n ${MONITORING_NS} \
     --set image.version="v${VERSION}" \
-    --set sidecar.enabled=${PERSES_SIDECAR}
+    --set sidecar.enabled=${PERSES_SIDECAR} \
+    --set config.provisioning.interval=10s
 
 # wait for the perses service to become available
 echo "Waiting for the perses service to become available..."
 kubectl rollout status --watch --timeout=600s statefulset/perses -n ${MONITORING_NS}
 
-# port-forward the perses service
-kubectl port-forward svc/perses -n ${MONITORING_NS} ${PERSES_FWD_PORT}:8080 &
-PORT_FORWARD_PID=$!
+echo "Installing Perses Resources"
+for f in "$dashboards_dir"/*.yaml; do
+  basename="$(basename $f)"
+  name="perses-${basename%.*}"
 
-# wait for svc/perses to be responsive
-while ! curl -s http://localhost:${PERSES_FWD_PORT} > /dev/null; do
-    echo "Waiting for perses service to be responsive..."
-    sleep 5
+  kubectl create configmap "$name" \
+    --namespace ${MONITORING_NAMESPACE} \
+    --from-file="$f" || \
+    echo "There was already a ConfigMap named $name"
+
+  kubectl label configmap "$name" \
+    --namespace ${MONITORING_NAMESPACE} \
+    --overwrite \
+    perses.dev/resource=true
 done
-
-# apply the resources
-${PERCLI} login http://localhost:${PERSES_FWD_PORT}
-${PERCLI} apply -f ${dashboards_dir}/project.yaml
-${PERCLI} apply -f ${dashboards_dir}/datasource.yaml
-${PERCLI} apply -f ${dashboards_dir}/lb.yaml
-${PERCLI} apply -f ${dashboards_dir}/operator.yaml
-${PERCLI} apply -f ${dashboards_dir}/t2.yaml
 
 echo "To access the Perses UI at http://localhost:${PERSES_FWD_PORT} execute:"
 echo "   kubectl port-forward svc/perses -n ${MONITORING_NS} ${PERSES_FWD_PORT}:8080"
-
-# Function to clean up background processes
-cleanup() {
-    echo "Cleaning up..."
-    kill ${PORT_FORWARD_PID}
-}
-
-# Trap EXIT signal to run cleanup function
-trap cleanup EXIT
