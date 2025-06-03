@@ -20,7 +20,7 @@ contents:
     - gcc-11=11.5.0-r4 # for some header files
     - shadow=4.17.3-r31 # Needed for groupadd
     - curl=8.13.0-r0  # temporary, for getting prometheus metrics in CI
-    - openssl=3.4.1
+    - openssl=3.5.0-r2
     - cni-plugins-loopback=1.7.1-r0
 archs:
   - x86_64
