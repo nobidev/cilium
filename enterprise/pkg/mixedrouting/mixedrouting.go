@@ -13,13 +13,13 @@ package mixedrouting
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	dpipc "github.com/cilium/cilium/pkg/datapath/ipcache"
@@ -74,7 +74,7 @@ const (
 )
 
 type manager struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	config cemrcfg.Config
 	modes  routingModesType
 
@@ -85,7 +85,7 @@ type manager struct {
 type params struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	Config       cemrcfg.Config
 	DaemonConfig *option.DaemonConfig
@@ -110,7 +110,6 @@ func newManager(in params) *manager {
 	if mgr.enabledWithFallback() {
 		mgr.endpoints = &endpointManager{
 			logger:     mgr.logger,
-			debug:      in.DaemonConfig.Debug,
 			modes:      mgr.modes,
 			downstream: in.IPCache,
 			prefixes:   newPrefixCache(in.Metrics.BufferedEndpoints),
@@ -129,7 +128,7 @@ func newManager(in params) *manager {
 }
 
 func (mgr *manager) configureLocalNode(lns *node.LocalNodeStore) {
-	mgr.logger.WithField(logfields.RoutingModes, mgr.modes).Info("Supported routing modes configured")
+	mgr.logger.Info("Supported routing modes configured", logfields.RoutingModes, mgr.modes)
 	lns.Update(func(ln *node.LocalNode) {
 		// Create a clone, so that we don't mutate the current annotations,
 		// as LocalNodeStore.Update emits a shallow copy of the whole object.

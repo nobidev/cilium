@@ -15,11 +15,11 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/logging"
 	ipcmap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -60,7 +60,7 @@ func TestEndpointManager(t *testing.T) {
 	var fed fakeEPDownstream
 	me := newMetrics()
 	mgr := endpointManager{
-		logger: logging.DefaultLogger, debug: true,
+		logger:     hivetest.Logger(t),
 		downstream: &fed,
 		prefixes:   newPrefixCache(me.BufferedEndpoints),
 	}
@@ -251,8 +251,8 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			em := endpointManager{
-				logger: logging.DefaultLogger, debug: true,
-				modes: routingModesType{tt.primary},
+				logger: hivetest.Logger(t),
+				modes:  routingModesType{tt.primary},
 			}
 
 			tt.init(&em)

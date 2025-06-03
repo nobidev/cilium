@@ -11,10 +11,10 @@
 package mixedrouting
 
 import (
+	"fmt"
+	"log/slog"
 	"net"
 	"slices"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +28,7 @@ type endpointMapper interface {
 }
 
 type nodeManager struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	modes  routingModesType
 
 	downstream store.NodeManager
@@ -45,10 +45,10 @@ func (nm *nodeManager) NodeUpdated(node nodeTypes.Node) {
 		id      = node.Identity()
 		mode    = nm.routingMode(&node, true /* verbose */)
 		prev, _ = nm.nodesCache.Load(id)
-		log     = nm.logger.WithFields(logrus.Fields{
-			logfields.Node:        id.String(),
-			logfields.RoutingMode: mode,
-		})
+		log     = nm.logger.With(
+			logfields.Node, id,
+			logfields.RoutingMode, mode,
+		)
 	)
 
 	// The matching routing mode changed wrt the one previously configured. Let's
@@ -56,7 +56,7 @@ func (nm *nodeManager) NodeUpdated(node nodeTypes.Node) {
 	// (e.g., modify the node routes). This will disrupt all existing connections
 	// towards that node, but that's expected as we are changing routing mode.
 	if prev != nil && nm.routingMode(prev, false /* silent */) != mode {
-		log.Warning("Preferred routing mode changed. " +
+		log.Warn("Preferred routing mode changed. " +
 			"Expect connectivity disruption towards hosted endpoints")
 		nm.NodeDeleted(*prev)
 		prev = nil
@@ -76,10 +76,10 @@ func (nm *nodeManager) NodeUpdated(node nodeTypes.Node) {
 func (nm *nodeManager) NodeDeleted(node nodeTypes.Node) {
 	var (
 		id  = node.Identity()
-		log = nm.logger.WithFields(logrus.Fields{
-			logfields.Node:        id.String(),
-			logfields.RoutingMode: nm.routingMode(&node, false /* silent */),
-		})
+		log = nm.logger.With(
+			logfields.Node, id,
+			logfields.RoutingMode, nm.routingMode(&node, false /* silent */),
+		)
 	)
 
 	log.Debug("Observed node deletion")
@@ -119,22 +119,23 @@ func (nm *nodeManager) routingMode(node *nodeTypes.Node, verbose bool) routingMo
 	if len(invalid) > 0 && verbose {
 		// Ignore possible unrecognized routing modes to enable backward compatibility
 		// in case we would ever want to subsequently introduce a new routing mode.
-		nm.logger.WithFields(logrus.Fields{
-			logfields.Node:                node.Fullname(),
-			logfields.RoutingModes:        modes,
-			logfields.InvalidRoutingModes: logfields.Repr(invalid),
-		}).Warning("Unknown routing modes found: they will be ignored")
+		nm.logger.Warn("Unknown routing modes found: they will be ignored",
+			logfields.Node, node.Fullname(),
+			logfields.RoutingModes, modes,
+			logfields.InvalidRoutingModes, invalid,
+		)
 	}
 
 	mode, err := nm.modes.match(modes)
 	if err != nil {
 		mode = nm.modes.primary()
 		if verbose {
-			nm.logger.WithError(err).WithFields(logrus.Fields{
-				logfields.Node:         node.Fullname(),
-				logfields.RoutingModes: modes,
-			}).Errorf("Failed to determine routing mode, falling back to %s. "+
-				"Expect possible connectivity disruption", mode)
+			nm.logger.Error(fmt.Sprintf("Failed to determine routing mode, falling back to %s. "+
+				"Expect possible connectivity disruption", mode),
+				logfields.Error, err,
+				logfields.Node, node.Fullname(),
+				logfields.RoutingModes, modes,
+			)
 		}
 	}
 
@@ -144,21 +145,19 @@ func (nm *nodeManager) routingMode(node *nodeTypes.Node, verbose bool) routingMo
 // updateEndpointAssociations updates the mappings between Node{Internal,External}IP
 // addresses and preferred routing mode, leveraged to appropriately customize the
 // ipcache map skip_tunnel flag for each endpoint entry.
-func (nm *nodeManager) updateEndpointAssociations(old, new *nodeTypes.Node, log logrus.FieldLogger) {
+func (nm *nodeManager) updateEndpointAssociations(old, new *nodeTypes.Node, log *slog.Logger) {
 	var mode routingModeType
 	if new != nil {
 		mode = nm.routingMode(new, false /* silent */)
 	}
 
 	onAdded := func(ip net.IP) {
-		log.WithField(logfields.IPAddr, ip.String()).
-			Debug("Configured tunnel endpoint to routing mode association")
+		log.Debug("Configured tunnel endpoint to routing mode association", logfields.IPAddr, ip)
 		nm.epmapper.setMapping(ip, mode)
 	}
 
 	onDeleted := func(ip net.IP) {
-		log.WithField(logfields.IPAddr, ip.String()).
-			Debug("Removed tunnel endpoint to routing mode association")
+		log.Debug("Removed tunnel endpoint to routing mode association", logfields.IPAddr, ip)
 		nm.epmapper.unsetMapping(ip)
 	}
 

@@ -15,9 +15,9 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -90,7 +90,7 @@ func newNode(name string, id uint32, modes routingModesType, internalIPs []strin
 func TestNodeManager(t *testing.T) {
 	fd := newFakeNodeDownstream()
 	mgr := nodeManager{
-		logger:     logging.DefaultLogger,
+		logger:     hivetest.Logger(t),
 		modes:      routingModesType{routingModeNative, routingModeVXLAN},
 		downstream: fd,
 		epmapper:   newFakeEPMapper(),
@@ -186,7 +186,7 @@ func TestNodeManagerNeedsEncapsulation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s|%s", tt.local, tt.remote), func(t *testing.T) {
-			mgr := nodeManager{logger: logging.DefaultLogger, modes: tt.local}
+			mgr := nodeManager{logger: hivetest.Logger(t), modes: tt.local}
 			node := newNode("foo", 0, tt.remote, nil)
 			require.Equal(t, tt.expected, mgr.needsEncapsulation(node))
 			require.Equal(t, tt.expected, mgr.ipsetFilter(node))

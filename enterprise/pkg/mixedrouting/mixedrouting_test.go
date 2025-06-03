@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -79,7 +79,7 @@ func TestNodeStoreUpdate(t *testing.T) {
 				Node: types.Node{Annotations: map[string]string{"foo": "bar"}}})
 
 			newManager(params{
-				Logger:       logrus.StandardLogger(),
+				Logger:       hivetest.Logger(t),
 				DaemonConfig: &option.DaemonConfig{RoutingMode: tt.primary},
 				Config:       cemrcfg.Config{FallbackRoutingMode: tt.fallback},
 				Tunnel:       tunnel.NewTestConfig(tt.proto),

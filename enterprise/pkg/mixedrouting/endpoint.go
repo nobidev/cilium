@@ -12,9 +12,9 @@ package mixedrouting
 
 import (
 	"context"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -158,8 +158,7 @@ func (pc *prefixCache) unsetHostIPMapping(prefix prefixType, hostIP hostIPType) 
 }
 
 type endpointManager struct {
-	logger logrus.FieldLogger
-	debug  bool
+	logger *slog.Logger
 	modes  routingModesType
 
 	downstream ipcache.IPCacher
@@ -197,12 +196,11 @@ func (em *endpointManager) upsertLocked(prefix string, hostIP net.IP, hostKey ui
 	// Buffer the entry until we observe the node matching the hostIP, as we don't
 	// know its routing mode at the moment. Entries not associated with any tunnel
 	// endpoint (i.e., 0.0.0.0 and ::) are never buffered.
-	if em.debug {
-		em.logger.WithFields(logrus.Fields{
-			logfields.Prefix:     prefix,
-			logfields.TunnelPeer: hostIPStr,
-		}).Debug("Buffering endpoint until the corresponding node entry is seen")
-	}
+	em.logger.Debug(
+		"Buffering endpoint until the corresponding node entry is seen",
+		logfields.Prefix, prefix,
+		logfields.TunnelPeer, hostIPStr,
+	)
 
 	oldState, oldEntry := em.prefixes.upsert(prefix, &epEntry{hostIP, hostKey, k8sMeta, identity}, epStateBuffered)
 	if oldState == epStatePropagated {
@@ -255,13 +253,11 @@ func (em *endpointManager) setMapping(hostIP net.IP, mode routingModeType) {
 			message = "Triggering endpoint refresh due to routing mode change"
 		}
 
-		if em.debug {
-			em.logger.WithFields(logrus.Fields{
-				logfields.Prefix:      prefix,
-				logfields.TunnelPeer:  hostIPStr,
-				logfields.RoutingMode: mode,
-			}).Debug(message)
-		}
+		em.logger.Debug(message,
+			logfields.Prefix, prefix,
+			logfields.TunnelPeer, hostIPStr,
+			logfields.RoutingMode, mode,
+		)
 
 		// The routing mode associated with this endpoint changed with respect
 		// to the one previously configured. Trigger a deletion to make sure
@@ -301,21 +297,21 @@ func (em *endpointManager) warnBufferedEntries(context.Context) error {
 
 			// We print only a limited number of warnings to avoid flooding logs.
 			if count < limit {
-				em.logger.WithFields(logrus.Fields{
-					logfields.Prefix:     prefix,
-					logfields.TunnelPeer: entry.hostIP.String(),
-				}).Warning("Node entry corresponding to buffered endpoint not yet observed. " +
-					"Expect connectivity disruption towards it")
+				em.logger.Warn("Node entry corresponding to buffered endpoint not yet observed. "+
+					"Expect connectivity disruption towards it",
+					logfields.Prefix, prefix,
+					logfields.TunnelPeer, entry.hostIP,
+				)
 			}
 		}
 	}
 
 	if count > 0 {
-		em.logger.WithFields(logrus.Fields{
-			logfields.Count:   count,
-			logfields.Omitted: max(0, count-limit),
-		}).Warning("Detected buffered endpoints. Please check the health of the clustermesh " +
-			"control plane and whether agents are successfully connected to it.")
+		em.logger.Warn("Detected buffered endpoints. Please check the health of the clustermesh "+
+			"control plane and whether agents are successfully connected to it.",
+			logfields.Count, count,
+			logfields.Omitted, max(0, count-limit),
+		)
 	}
 
 	return nil
@@ -340,13 +336,11 @@ func (em *endpointManager) mutateRemoteEndpointInfo(key *ipcmap.Key, rei *ipcmap
 		mode = em.modes.primary()
 	}
 
-	if em.debug {
-		em.logger.WithFields(logrus.Fields{
-			logfields.Prefix:      key.Prefix().String(),
-			logfields.TunnelPeer:  rei.TunnelEndpoint.String(),
-			logfields.RoutingMode: mode,
-		}).Debug("Configuring ipcache BPF map entry")
-	}
+	em.logger.Debug("Configuring ipcache BPF map entry",
+		logfields.Prefix, key,
+		logfields.TunnelPeer, rei.TunnelEndpoint,
+		logfields.RoutingMode, mode,
+	)
 
 	if needsEncapsulation(mode) {
 		rei.Flags &= ^ipcmap.FlagSkipTunnel
