@@ -151,6 +151,7 @@ jobs:
         uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       - name: Sign Container Image
+        if: false # cosign signing is disabled for now
         run: cosign sign -y ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}
 
       - name: Generate SBOM
@@ -162,6 +163,7 @@ jobs:
           upload-release-assets: false
 
       - name: Attach SBOM attestation to container image
+        if: false # cosign signing is disabled for now
         run: |
           cosign attest -r -y --predicate sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json \
             --type spdxjson ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}
