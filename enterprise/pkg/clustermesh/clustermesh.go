@@ -13,8 +13,7 @@ package clustermesh
 import (
 	"errors"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -26,12 +25,12 @@ import (
 )
 
 type ClusterIDsManager struct {
-	logger  logrus.FieldLogger
+	logger  *slog.Logger
 	usedIDs *clustermesh.ClusterMeshUsedIDs
 	maps    cectnat.PerCluster
 }
 
-func newClusterIDManager(logger logrus.FieldLogger, cinfo types.ClusterInfo, maps cectnat.PerCluster) ClusterIDsManager {
+func newClusterIDManager(logger *slog.Logger, cinfo types.ClusterInfo, maps cectnat.PerCluster) ClusterIDsManager {
 	return ClusterIDsManager{
 		logger:  logger,
 		usedIDs: clustermesh.NewClusterMeshUsedIDs(cinfo.ID),
@@ -60,8 +59,10 @@ func (mgr ClusterIDsManager) ReleaseClusterID(clusterID uint32) {
 	}
 
 	if err := mgr.maps.Delete(clusterID); err != nil {
-		mgr.logger.WithField(logfields.ClusterID, clusterID).WithError(err).
-			Warning("Failed to cleanup per-cluster maps")
+		mgr.logger.Warn("Failed to cleanup per-cluster maps",
+			logfields.ClusterID, clusterID,
+			logfields.Error, err,
+		)
 	}
 
 	mgr.usedIDs.ReleaseClusterID(clusterID)

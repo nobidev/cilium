@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
@@ -45,7 +44,7 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,
-		ClusterIDsManager: newClusterIDManager(logging.DefaultLogger, cinfo, maps),
+		ClusterIDsManager: newClusterIDManager(hivetest.Logger(t), cinfo, maps),
 
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
@@ -121,7 +120,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 	require.NoError(t, err, "Failed to update NAT maps")
 
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
-	idsMgr := newClusterIDManager(logging.DefaultLogger, cinfo, maps)
+	idsMgr := newClusterIDManager(hivetest.Logger(t), cinfo, maps)
 	cm := clustermesh.NewClusterMesh(hivetest.Lifecycle(t), clustermesh.Configuration{
 		Config:            cmcommon.Config{ClusterMeshConfig: t.TempDir()},
 		ClusterInfo:       cinfo,
@@ -161,7 +160,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 func TestClusterIDManagerReserved(t *testing.T) {
 	cinfo := cmtypes.ClusterInfo{ID: 99, Name: "foo"}
 	maps := cectnat.NewFakePerCluster(true, true)
-	mgr := newClusterIDManager(logging.DefaultLogger, cinfo, maps)
+	mgr := newClusterIDManager(hivetest.Logger(t), cinfo, maps)
 
 	require.Error(t, mgr.ReserveClusterID(cmtypes.ClusterIDUnset), "Reserving ClusterID 0 should fail")
 	require.False(t, maps.CT().Has(cmtypes.ClusterIDUnset), "CT maps should not be created for ClusterID 0")
