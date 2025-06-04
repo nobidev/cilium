@@ -31,51 +31,9 @@ func NewLBTestRun(ctx context.Context) *lbTestRun {
 }
 
 func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
-	runRegexp := []*regexp.Regexp{}
-	skipRegexp := []*regexp.Regexp{}
-	for _, r := range FlagRun {
-		if strings.HasPrefix(r, "!") {
-			rgx, err := regexp.Compile(strings.TrimPrefix(r, "!"))
-			if err != nil {
-				return fmt.Errorf("failed to parse run-tests regexp (%s): %w", r, err)
-			}
-			skipRegexp = append(skipRegexp, rgx)
-		} else {
-			rgx, err := regexp.Compile(r)
-			if err != nil {
-				return fmt.Errorf("failed to parse run-tests regexp (%s): %w", r, err)
-			}
-			runRegexp = append(runRegexp, rgx)
-		}
-	}
-
-	testsToExecute := []*LbTestFunc{}
-	for _, test := range Tests {
-		tf := NewLBTestFunc(r, ctx, test)
-		testFuncName := tf.Name()
-
-		skip := false
-		for _, rgx := range skipRegexp {
-			if rgx.Match([]byte(testFuncName)) {
-				skip = true
-				break
-			}
-		}
-		if skip {
-			continue
-		}
-
-		for _, rgx := range runRegexp {
-			if rgx.Match([]byte(testFuncName)) {
-				testsToExecute = append(testsToExecute, tf)
-			}
-		}
-
-		// Previously there was only a single regexp: ""
-		// This always matched all test names, so now we need this check.
-		if len(runRegexp) == 0 {
-			testsToExecute = append(testsToExecute, tf)
-		}
+	testsToExecute, err := r.testsToExecute(ctx)
+	if err != nil {
+		return err
 	}
 
 	for i, test := range testsToExecute {
@@ -126,4 +84,57 @@ func (r *lbTestRun) RunCleanup() {
 	}
 
 	r.cleanupCb = []func(ctx context.Context) error{}
+}
+
+func (r *lbTestRun) testsToExecute(ctx context.Context) ([]*LbTestFunc, error) {
+	runRegexp, skipRegexp, err := runAndSkipRegexps()
+	if err != nil {
+		return nil, err
+	}
+
+	testsToExecute := []*LbTestFunc{}
+	for _, test := range Tests {
+		tf := NewLBTestFunc(r, ctx, test)
+
+		skip := false
+		for _, rgx := range skipRegexp {
+			if rgx.MatchString(tf.Name()) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
+		if len(runRegexp) == 0 {
+			testsToExecute = append(testsToExecute, tf)
+			continue
+		}
+
+		for _, rgx := range runRegexp {
+			if rgx.MatchString(tf.Name()) {
+				testsToExecute = append(testsToExecute, tf)
+				break
+			}
+		}
+	}
+	return testsToExecute, nil
+}
+
+func runAndSkipRegexps() ([]*regexp.Regexp, []*regexp.Regexp, error) {
+	runRegexp := []*regexp.Regexp{}
+	skipRegexp := []*regexp.Regexp{}
+	for _, r := range FlagRun {
+		rgx, err := regexp.Compile(strings.TrimPrefix(r, "!"))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse run-tests regexp (%s): %w", r, err)
+		}
+		if strings.HasPrefix(r, "!") {
+			skipRegexp = append(skipRegexp, rgx)
+			continue
+		}
+		runRegexp = append(runRegexp, rgx)
+	}
+	return runRegexp, skipRegexp, nil
 }
