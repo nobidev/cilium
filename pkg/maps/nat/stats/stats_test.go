@@ -41,10 +41,10 @@ func Test_topk(t *testing.T) {
 func Test_countNat(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	ip4Map := nat.NewMap("test_nat_map_ip4", nat.IPv4, 262144)
+	ip4Map := nat.NewMap(nil, "test_nat_map_ip4", nat.IPv4, 262144)
 	err := ip4Map.OpenOrCreate()
 	assert.NoError(t, err)
-	ip6Map := nat.NewMap("test_nat_map_ip6", nat.IPv6, 262144)
+	ip6Map := nat.NewMap(nil, "test_nat_map_ip6", nat.IPv6, 262144)
 	err = ip6Map.OpenOrCreate()
 	assert.NoError(t, err)
 	t.Cleanup(func() {
@@ -104,8 +104,8 @@ func Test_countNat(t *testing.T) {
 	ms := make(fakeMetrics)
 	h := hive.New(
 		cell.Provide(newTables),
-		cell.Provide(func(jg job.Registry) job.Group {
-			return jg.NewGroup(nil)
+		cell.Provide(func(jg job.Registry, lc cell.Lifecycle) job.Group {
+			return jg.NewGroup(nil, lc)
 		}),
 		cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 		cell.Provide(func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6], Config, natMetrics) {

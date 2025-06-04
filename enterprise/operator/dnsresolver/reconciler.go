@@ -15,11 +15,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 
 	"github.com/cilium/workerpool"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -37,7 +38,7 @@ import (
 // part of its fqdngroup and reconcile the related cidr group
 // object accordingly.
 type reconciler struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	fqdnGroup    string
 	fqdnGroupUID types.UID
@@ -53,7 +54,7 @@ type reconciler struct {
 }
 
 func newReconciler(
-	logger logrus.FieldLogger,
+	logger *slog.Logger,
 	fqdnGroup string,
 	fqdnGroupUID types.UID,
 	fqdns []string,
@@ -61,8 +62,9 @@ func newReconciler(
 	ctrMgr *controller.Manager,
 	store notifier,
 ) *reconciler {
+	const logKey = "fromFqdnGroup"
 	return &reconciler{
-		logger:       logger.WithField("fromFQDNGroup", fqdnGroup),
+		logger:       logger.With(logKey, fqdnGroup),
 		fqdnGroup:    fqdnGroup,
 		fqdnGroupUID: fqdnGroupUID,
 		fqdns:        fqdns,
@@ -108,12 +110,14 @@ func (r *reconciler) stop() error {
 	var errs []error
 	if err := r.store.stop(r.streamID); err != nil {
 		if errors.Is(err, errSubscriberNotFound) {
-			r.logger.WithError(err).Error(
+			r.logger.Error(
 				"Reconciler could not be stopped due to missing underlying subscriber. There's no leak, but please report this behavior to the developers. Continuing with deletion.",
+				logfields.Error, err,
 			)
 		} else {
-			r.logger.WithError(err).Error(
+			r.logger.Error(
 				"Reconciler could not be stopped because it already was. There's no leak, but please report this behavior to the developers. Continuing with deletion.",
+				logfields.Error, err,
 			)
 		}
 		errs = append(errs, err)
@@ -133,7 +137,7 @@ func cidrs(prefixes []netip.Prefix) []api.CIDR {
 }
 
 func (r *reconciler) upsertCIDRGroup(ctx context.Context, cidrs []api.CIDR) error {
-	logger := r.logger.WithField("cidrs", cidrs)
+	logger := r.logger.With(logfields.CIDRs, cidrs)
 
 	logger.Debug("reconciling cidr group")
 
@@ -177,12 +181,18 @@ func (r *reconciler) upsertCIDRGroup(ctx context.Context, cidrs []api.CIDR) erro
 				},
 			}
 			if _, err := r.clientset.Create(ctx, cidrGroup, metav1.CreateOptions{}); err != nil {
-				logger.WithError(err).Error("Creation of CiliumCIDRGroup from the IsovalentFQDNGroup failed, will retry")
+				r.logger.Error(
+					"Creation of CiliumCIDRGroup from the IsovalentFQDNGroup failed, will retry",
+					logfields.Error, err,
+				)
 				return fmt.Errorf("create failed for CiliumCIDRGroup: %w", err)
 			}
 			return nil
 		}
-		logger.WithError(err).Error("Patching of CiliumCIDRGroup with updated list of external CIDRs failed, will retry")
+		r.logger.Error(
+			"Patching of CiliumCIDRGroup with updated list of external CIDRs failed, will retry",
+			logfields.Error, err,
+		)
 		return fmt.Errorf("patch failed for CiliumCIDRGroup: %w", err)
 	}
 

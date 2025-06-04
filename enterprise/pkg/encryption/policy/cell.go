@@ -188,6 +188,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 	// Custom job group to obtain runtime metrics
 	jobGroup := params.Registry.NewGroup(params.Health,
+		params.Lifecycle,
 		job.WithMetrics(params.Metrics),
 		job.WithLogger(params.Log),
 	)
@@ -203,8 +204,6 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		engine.finishInitializer(clustermeshInitializer)
 		return err
 	}))
-
-	params.Lifecycle.Append(jobGroup)
 
 	return engine
 }

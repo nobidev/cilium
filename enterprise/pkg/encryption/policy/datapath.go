@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -58,13 +59,14 @@ type reconcilerParams struct {
 
 // startEncryptionPolicyReconciler starts a BPF map reconciler that reconciles the contents of the
 // encryption-policy StateDB table with the encryption-policy BPF map
-func startEncryptionPolicyReconciler(params reconcilerParams) (reconciler.Reconciler[*EncryptionPolicyEntry], error) {
+func startEncryptionPolicyReconciler(params reconcilerParams, registry *metrics.Registry) (reconciler.Reconciler[*EncryptionPolicyEntry], error) {
 	if !params.Config.EnableEncryptionPolicy {
 		return nil, nil
 	}
 
 	bpf.RegisterTablePressureMetricsJob[*EncryptionPolicyEntry, *encryptionpolicymap.PolicyMap](
 		params.JobGroup,
+		registry,
 		params.DB,
 		params.Table.ToTable(),
 		params.PolicyMap,
@@ -205,7 +207,7 @@ func (r *reconcilerMetrics) measureReconciliationTime(reason string, rev statedb
 // UpdateBatch implements reconciler.BatchOperations[*EncryptionPolicyEntry]
 func (r *reconcilerMetrics) UpdateBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*EncryptionPolicyEntry]) {
 	for _, entry := range batch {
-		err := r.ops.Update(ctx, txn, entry.Object)
+		err := r.ops.Update(ctx, txn, entry.Revision, entry.Object)
 		if err != nil {
 			r.metrics.BPFReconciliationErrors.WithLabelValues(operationUpdate).Inc()
 			entry.Result = err
@@ -218,7 +220,7 @@ func (r *reconcilerMetrics) UpdateBatch(ctx context.Context, txn statedb.ReadTxn
 // DeleteBatch implements reconciler.BatchOperations[*EncryptionPolicyEntry]
 func (r *reconcilerMetrics) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*EncryptionPolicyEntry]) {
 	for _, entry := range batch {
-		err := r.ops.Delete(ctx, txn, entry.Object)
+		err := r.ops.Delete(ctx, txn, entry.Revision, entry.Object)
 		if err != nil {
 			r.metrics.BPFReconciliationErrors.WithLabelValues(operationDelete).Inc()
 			entry.Result = err
@@ -229,15 +231,15 @@ func (r *reconcilerMetrics) DeleteBatch(ctx context.Context, txn statedb.ReadTxn
 }
 
 // Update implements reconciler.Operations[*EncryptionPolicyEntry]
-func (r *reconcilerMetrics) Update(ctx context.Context, txn statedb.ReadTxn, obj *EncryptionPolicyEntry) error {
+func (r *reconcilerMetrics) Update(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj *EncryptionPolicyEntry) error {
 	// only used for retries, just pass through
-	return r.ops.Update(ctx, txn, obj)
+	return r.ops.Update(ctx, txn, revision, obj)
 }
 
 // Delete implements reconciler.Operations[*EncryptionPolicyEntry]
-func (r *reconcilerMetrics) Delete(ctx context.Context, txn statedb.ReadTxn, obj *EncryptionPolicyEntry) error {
+func (r *reconcilerMetrics) Delete(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj *EncryptionPolicyEntry) error {
 	// only used for retries, just pass through
-	return r.ops.Delete(ctx, txn, obj)
+	return r.ops.Delete(ctx, txn, revision, obj)
 }
 
 // Prune implements reconciler.Operations[*EncryptionPolicyEntry]

@@ -301,6 +301,8 @@ podSecurityContext:
   # -- AppArmorProfile options for the `cilium-agent` and init containers
   appArmorProfile:
     type: "Unconfined"
+  seccompProfile:
+    type: RuntimeDefault
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 # -- Labels to be added to agent pods
@@ -320,6 +322,8 @@ initResources: {}
 securityContext:
   # -- User to run the pod with
   # runAsUser: 0
+  # -- disable privilege escalation
+  allowPrivilegeEscalation: false
   # -- Run the pod with elevated privileges
   privileged: false
   # -- SELinux options for the `cilium-agent` and init containers
@@ -837,14 +841,6 @@ daemon:
 # a non-local route. This should be used only when autodetection is not suitable.
 # devices: ""
 
-# -- Enables experimental support for the detection of new and removed datapath
-# devices. When devices change the eBPF datapath is reloaded and services updated.
-# If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered.
-#
-# This option has been deprecated and is a no-op.
-enableRuntimeDeviceDetection: true
-
 # -- Forces the auto-detection of devices, even if specific devices are explicitly listed
 forceDeviceDetection: false
 
@@ -1151,9 +1147,6 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
-externalIPs:
-  # -- Enable ExternalIPs service support.
-  enabled: false
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -1168,9 +1161,6 @@ healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
-  enabled: false
-hostPort:
-  # -- Enable hostPort service support.
   enabled: false
 # -- Configure socket LB
 socketLB:
@@ -1620,6 +1610,8 @@ hubble:
       runAsNonRoot: true
       runAsUser: 65532
       runAsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
       capabilities:
         drop:
           - ALL
@@ -1795,7 +1787,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui backend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -1829,7 +1822,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui frontend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -2950,7 +2944,9 @@ operator:
   # -- HostNetwork setting
   hostNetwork: true
   # -- Security context to be added to cilium-operator pods
-  podSecurityContext: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
   # -- Labels to be added to cilium-operator pods
@@ -2987,7 +2983,11 @@ operator:
   #     memory: 128Mi
 
   # -- Security context to be added to cilium-operator pods
-  securityContext: {}
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    allowPrivilegeEscalation: false
   # runAsUser: 0
 
   # -- Interval for endpoint garbage collection.
@@ -3129,6 +3129,7 @@ nodeinit:
       memory: 100Mi
   # -- Security context to be added to nodeinit pods.
   securityContext:
+    allowPrivilegeEscalation: false
     privileged: false
     seLinuxOptions:
       level: 's0'
@@ -3247,7 +3248,8 @@ preflight:
     # -- interval between checks of the readiness probe
     periodSeconds: 5
   # -- Security context to be added to preflight pods
-  securityContext: {}
+  securityContext:
+    allowPrivilegeEscalation: false
   #   runAsUser: 0
 
   # -- Path to write the `--tofqdns-pre-cache` file to.
@@ -3281,6 +3283,8 @@ clustermesh:
   enableEndpointSliceSynchronization: false
   # -- Enable Multi-Cluster Services API support
   enableMCSAPISupport: false
+  # -- Control whether policy rules assume by default the local cluster if not explicitly selected
+  policyDefaultLocalCluster: false
 
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
   annotations: {}

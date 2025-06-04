@@ -144,7 +144,7 @@ func (p *policyWatcher) upsertIsovalentNetworkPolicy(inp *types.SlimINP, initial
 		"Adding IsovalentNetworkPolicy",
 	)
 
-	rules, err := inp.Parse(scopedLog)
+	rules, err := inp.Parse(scopedLog, p.clusterName)
 	if err != nil {
 		scopedLog.Warn(
 			"Unable to add IsovalentNetworkPolicy",

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	dpopt "github.com/cilium/cilium/pkg/datapath/option"
 	ipamopt "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
@@ -51,7 +52,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 			"source and destination node (supported: %s)", FallbackTunnel))
 }
 
-func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnicfg cni.CNIConfigManager) error {
+func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnicfg cni.CNIConfigManager, lbcfg loadbalancer.Config) error {
 	switch cfg.FallbackRoutingMode {
 	case FallbackDisabled:
 		return nil
@@ -88,9 +89,9 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnic
 			fallbackRoutingModeFlag, option.IPAM, dcfg.IPAM)
 	}
 
-	if dcfg.LoadBalancerUsesDSR() {
+	if lbcfg.LoadBalancerUsesDSR() {
 		return fmt.Errorf("currently, %s requires %s=%s",
-			fallbackRoutingModeFlag, option.NodePortMode, option.NodePortModeSNAT)
+			fallbackRoutingModeFlag, lbcfg.LBMode, loadbalancer.LBModeSNAT)
 	}
 
 	if dcfg.DatapathMode != dpopt.DatapathModeVeth {

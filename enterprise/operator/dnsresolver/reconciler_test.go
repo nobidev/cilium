@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus/hooks/test"
 	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -48,7 +47,7 @@ func TestReconciler(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	// create a test logger
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	// create fake clientsets
 	cs, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))

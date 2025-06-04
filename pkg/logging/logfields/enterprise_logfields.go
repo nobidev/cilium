@@ -80,4 +80,12 @@ const (
 
 	// Hubble dropped count.
 	Dropped = "dropped"
+
+	FQDN = "fqdn"
+
+	FromFQDNGroup = "fromFQDNGroup"
+
+	NewResolvers = "newResolvers"
+
+	StaleResolvers = "staleResolvers"
 )

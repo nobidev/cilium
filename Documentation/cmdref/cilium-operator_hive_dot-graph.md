@@ -50,7 +50,6 @@ cilium-operator hive dot-graph [flags]
       --enable-ingress-secrets-sync                                    Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                                      Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-lb-ipam                                                 Enable LB IPAM (default true)
       --enable-multi-network                                           Enable support for multiple pod networks
       --enable-node-ipam                                               Enable Node IPAM
@@ -139,6 +138,7 @@ cilium-operator hive dot-graph [flags]
       --operator-pprof-address string                                  Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                                     Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                          Address to serve Prometheus metrics (default ":9963")
+      --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected
       --policy-secrets-namespace string                                Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --skip-crd-creation                                              When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                      Enable SRv6 locator pool in Cilium

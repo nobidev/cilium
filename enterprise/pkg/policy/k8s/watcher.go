@@ -32,8 +32,9 @@ import (
 )
 
 type policyWatcher struct {
-	log    *slog.Logger
-	config *option.DaemonConfig
+	log         *slog.Logger
+	config      *option.DaemonConfig
+	clusterName string
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups

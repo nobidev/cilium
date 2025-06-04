@@ -261,7 +261,7 @@ func main() {
 	log.Infof("Started gops server on addr %s", addr)
 
 	if *enablePprof {
-		pprof.Enable(*pprofAddress, *pprofPort)
+		pprof.Enable(logging.DefaultSlogLogger, *pprofAddress, *pprofPort)
 	}
 
 	cache = NewCache()
@@ -350,7 +350,7 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 	log.Debugf("real ipcache bpf read for %v", addr)
 	ipKey := ipcacheMap.NewKey(net.IP(addr.Unmap().AsSlice()), nil, 0)
 	// todo: Add IPCacheMap reload logic
-	val, err := ipcacheMap.IPCacheMap().Lookup(&ipKey)
+	val, err := ipcacheMap.IPCacheMap(nil).Lookup(&ipKey)
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +617,7 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 			log.Errorf("could not lookup security identity for ip %s: %v", ip, err)
 			return ipcache.Identity{}, false
 		}
-		//TODO: check if this assumption is correct
+		// TODO: check if this assumption is correct
 		// we assume that the identity exists if it's in the cache
 		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("security ID lookup in cache: %s", err))
 		return cachedID, true

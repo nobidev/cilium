@@ -18,6 +18,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	dpopt "github.com/cilium/cilium/pkg/datapath/option"
 	ipamopt "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
@@ -29,12 +30,14 @@ func TestConfigValidate(t *testing.T) {
 		cfg       Config
 		dcfg      *option.DaemonConfig
 		cmcfg     cecmcfg.Config
+		lbmode    string
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
 			name:      "mixed routing mode disabled",
 			cfg:       Config{FallbackRoutingMode: FallbackDisabled},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMENI, NodePortMode: option.NodePortModeHybrid},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMENI},
+			lbmode:    loadbalancer.LBModeHybrid,
 			assertion: assert.NoError,
 		},
 		{
@@ -46,25 +49,29 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name:      "mixed routing mode enabled, fallback native",
 			cfg:       Config{FallbackRoutingMode: FallbackNative},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes, NodePortMode: option.NodePortModeSNAT},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes},
+			lbmode:    loadbalancer.LBModeSNAT,
 			assertion: assert.Error,
 		},
 		{
 			name:      "mixed routing mode enabled, fallback tunnel",
 			cfg:       Config{FallbackRoutingMode: FallbackTunnel},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMClusterPool, NodePortMode: option.NodePortModeSNAT},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMClusterPool},
+			lbmode:    loadbalancer.LBModeSNAT,
 			assertion: assert.NoError,
 		},
 		{
 			name:      "mixed routing mode enabled, fallback tunnel, ENI mode",
 			cfg:       Config{FallbackRoutingMode: FallbackTunnel},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMENI, NodePortMode: option.NodePortModeSNAT},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMENI},
+			lbmode:    loadbalancer.LBModeSNAT,
 			assertion: assert.Error,
 		},
 		{
 			name:      "mixed routing mode enabled, fallback tunnel, DSR enabled",
 			cfg:       Config{FallbackRoutingMode: FallbackTunnel},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes, NodePortMode: option.NodePortModeDSR},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes},
+			lbmode:    loadbalancer.LBModeDSR,
 			assertion: assert.Error,
 		},
 		{
@@ -87,8 +94,12 @@ func TestConfigValidate(t *testing.T) {
 			if tt.dcfg.DatapathMode == "" {
 				tt.dcfg.DatapathMode = dpopt.DatapathModeVeth
 			}
+			lbcfg := loadbalancer.DefaultConfig
+			if tt.lbmode != "" {
+				lbcfg.LBMode = tt.lbmode
+			}
 
-			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.cmcfg, &fakecni.FakeCNIConfigManager{}))
+			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.cmcfg, &fakecni.FakeCNIConfigManager{}, lbcfg))
 		})
 	}
 }

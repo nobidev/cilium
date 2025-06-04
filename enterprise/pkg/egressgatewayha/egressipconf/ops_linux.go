@@ -47,7 +47,7 @@ const (
 	RulePriorityEgressGatewayIPAM = 30
 )
 
-func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.EgressIPEntry) error {
+func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, entry *tables.EgressIPEntry) error {
 	if !entry.Addr.IsValid() {
 		return fmt.Errorf("egress IP %s is not valid", entry.Addr)
 	}
@@ -170,7 +170,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.Egr
 	return nil
 }
 
-func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.EgressIPEntry) error {
+func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revision, entry *tables.EgressIPEntry) error {
 	iface, err := safenetlink.LinkByName(entry.Interface)
 	if err != nil {
 		return fmt.Errorf("failed to get device %s by name: %w", entry.Interface, err)

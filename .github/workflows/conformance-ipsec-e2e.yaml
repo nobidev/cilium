@@ -147,7 +147,6 @@ jobs:
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-24.04'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
@@ -162,6 +161,11 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          EXTRA_CLI_FLAGS=()
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
                                       --collect-sysdump-on-failure \
                                       --sysdump-hubble-flows-count=1000000 \
@@ -169,7 +173,8 @@ jobs:
                                       --log-code-owners \
                                       --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
                                       --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-                                      --flush-ct"
+                                      --flush-ct \
+                                      ${EXTRA_CLI_FLAGS[*]}"
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -185,6 +190,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}

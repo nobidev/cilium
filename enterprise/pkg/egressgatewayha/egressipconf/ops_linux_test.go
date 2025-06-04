@@ -79,7 +79,7 @@ func TestOps(t *testing.T) {
 	}
 
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, entry)
+		return ops.Update(context.Background(), nil, 0, entry)
 	})
 	require.NoError(t, err, "expected no error from initial update")
 
@@ -141,7 +141,7 @@ func TestOps(t *testing.T) {
 
 	// Further Update() with the same entry should not do anything
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, entry)
+		return ops.Update(context.Background(), nil, 0, entry)
 	})
 	require.NoError(t, err, "expected no error from second update")
 
@@ -156,7 +156,7 @@ func TestOps(t *testing.T) {
 	}
 
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, updEntry)
+		return ops.Update(context.Background(), nil, 0, updEntry)
 	})
 	require.NoError(t, err, "expected no error from initial update")
 
@@ -193,7 +193,7 @@ func TestOps(t *testing.T) {
 
 	// Non-existing devices return an error
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, &tables.EgressIPEntry{
+		return ops.Update(context.Background(), nil, 0, &tables.EgressIPEntry{
 			Addr:      egressIP,
 			Interface: "non-existent",
 		})
@@ -202,7 +202,7 @@ func TestOps(t *testing.T) {
 
 	// Delete()
 	err = ns.Do(func() error {
-		return ops.Delete(context.Background(), nil, &tables.EgressIPEntry{
+		return ops.Delete(context.Background(), nil, 0, &tables.EgressIPEntry{
 			Addr:         egressIP,
 			Interface:    ifName,
 			Destinations: updDests,
@@ -267,7 +267,7 @@ func TestOps(t *testing.T) {
 
 	// Further Delete() should not do anything
 	err = ns.Do(func() error {
-		return ops.Delete(context.Background(), nil, &tables.EgressIPEntry{
+		return ops.Delete(context.Background(), nil, 0, &tables.EgressIPEntry{
 			Addr:         egressIP,
 			Interface:    ifName,
 			Destinations: updDests,
@@ -278,7 +278,7 @@ func TestOps(t *testing.T) {
 
 	// Non-existing devices return an error
 	err = ns.Do(func() error {
-		return ops.Delete(context.Background(), nil, &tables.EgressIPEntry{
+		return ops.Delete(context.Background(), nil, 0, &tables.EgressIPEntry{
 			Addr:      egressIP,
 			Interface: "non-existent",
 		})
@@ -338,7 +338,7 @@ func TestUpdateWithNextHop(t *testing.T) {
 	}
 
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, entry)
+		return ops.Update(context.Background(), nil, 0, entry)
 	})
 	require.NoError(t, err, "expected no error from initial update")
 
@@ -407,7 +407,7 @@ func TestUpdateWithNextHop(t *testing.T) {
 	updEntry.NextHop = updNextHop
 
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, updEntry)
+		return ops.Update(context.Background(), nil, 0, updEntry)
 	})
 	require.NoError(t, err, "expected no error from update")
 
@@ -447,7 +447,7 @@ func TestUpdateWithNextHop(t *testing.T) {
 	noGwEntry.NextHop = netip.Addr{}
 
 	err = ns.Do(func() error {
-		return ops.Update(context.Background(), nil, noGwEntry)
+		return ops.Update(context.Background(), nil, 0, noGwEntry)
 	})
 	require.NoError(t, err, "expected no error from update")
 
@@ -542,7 +542,7 @@ func TestPrune(t *testing.T) {
 	// call Update() to reconcile network config as specified in the entries
 	for _, entry := range entries {
 		err = ns.Do(func() error {
-			return ops.Update(context.Background(), nil, entry)
+			return ops.Update(context.Background(), nil, 0, entry)
 		})
 		require.NoError(t, err, "ops.Update")
 	}
@@ -606,7 +606,7 @@ func TestPrune(t *testing.T) {
 	// call again Update() to reconcile network config as specified in the entries
 	for _, entry := range entries {
 		err = ns.Do(func() error {
-			return ops.Update(context.Background(), nil, entry)
+			return ops.Update(context.Background(), nil, 0, entry)
 		})
 		require.NoError(t, err, "ops.Update")
 	}

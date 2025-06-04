@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -1286,16 +1285,6 @@ func (ct *ConnectivityTest) KillMulticastTestSender() []string {
 func (ct *ConnectivityTest) ForEachIPFamily(hasNetworkPolicies bool, do func(features.IPFamily)) {
 	ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
 
-	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
-	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
-	// and https://github.com/cilium/cilium/issues/23910).
-	if f, ok := ct.Feature(features.EndpointRoutes); ok &&
-		f.Enabled && hasNetworkPolicies &&
-		versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion) {
-
-		ipFams = []features.IPFamily{features.IPFamilyV4}
-	}
-
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
@@ -1334,4 +1323,13 @@ func (ct *ConnectivityTest) IsSocketLBFull() bool {
 		return !socketLBHostnsOnly
 	}
 	return false
+}
+
+func (ct *ConnectivityTest) GetPodHostIPByFamily(pod Pod, ipFam features.IPFamily) (string, error) {
+	for _, addr := range pod.Pod.Status.HostIPs {
+		if features.GetIPFamily(addr.IP) == ipFam {
+			return addr.IP, nil
+		}
+	}
+	return "", fmt.Errorf("pod doesn't have HostIP of family %s", ipFam)
 }

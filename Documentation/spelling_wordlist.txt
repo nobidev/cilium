@@ -100,6 +100,7 @@ O'Reilly
 PaaS
 Palantir
 Pepelnjak
+Perfdash
 Pfaff
 PodCIDR
 Polytechnique
@@ -125,6 +126,7 @@ Telco
 Terraform
 Tierney
 Timescape
+ToR
 Triagers
 Twilio
 Uncompress
@@ -377,6 +379,7 @@ goroutine
 goroutines
 grafana
 graphviz
+gsutil
 gve
 hairpinned
 hardcode
@@ -464,6 +467,7 @@ json
 k8sServiceHost
 k8sServiceLookupConfigMapName
 k8sServiceLookupNamespace
+kOps
 kTLS
 kafka
 kallsyms

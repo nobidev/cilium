@@ -46,7 +46,7 @@ func TestValidateFeaturesYAMLFlags(t *testing.T) {
 
 	mockAgentCmd := &cobra.Command{}
 	dh := hive.New(daemonCmd.Agent)
-	daemonCmd.InitGlobalFlags(mockAgentCmd, dh.Viper())
+	daemonCmd.InitGlobalFlags(log, mockAgentCmd, dh.Viper())
 	dh.RegisterFlags(mockAgentCmd.Flags())
 
 	mockOperatorCmd := &cobra.Command{}

@@ -44,6 +44,7 @@ import (
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -136,6 +137,7 @@ func TestScript(t *testing.T) {
 				cell.Config(lb.TestConfig{}),
 				maglev.Cell,
 				node.LocalNodeStoreCell,
+				metrics.Cell,
 
 				cell.Provide(
 					func(cfg lb.TestConfig) *lb.TestConfig { return &cfg },

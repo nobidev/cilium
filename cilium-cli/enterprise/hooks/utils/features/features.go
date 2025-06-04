@@ -167,7 +167,7 @@ func extractFromRemoteConfigMap(ctx context.Context, ct *check.ConnectivityTest)
 		return fmt.Errorf("remote ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 
-	ct.Features[RemoteClusterTunnel], ct.Features[RemoteClusterTunnelPort] = features.ExtractTunnelFeatureFromVersionedConfigMap(ct.CiliumVersion, cm)
+	ct.Features[RemoteClusterTunnel], ct.Features[RemoteClusterTunnelPort] = features.ExtractTunnelFeatureFromConfigMap(cm)
 	ct.Features[MixedRoutingMode] = features.Status{Enabled: ct.Features[features.Tunnel].Enabled != ct.Features[RemoteClusterTunnel].Enabled}
 
 	// PhantomServices must be enabled in both clusters to be considered enabled.

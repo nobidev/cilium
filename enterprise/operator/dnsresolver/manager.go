@@ -14,11 +14,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
 	"github.com/cilium/cilium/pkg/controller"
@@ -28,13 +28,14 @@ import (
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // manager is responsible for handling IsovalentFQDNGroup events. It will spin
 // up resolvers and reconcilers to handle each instance of an
 // IsovalentFQDNGroup.
 type manager struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	shutdowner hive.Shutdowner
 
@@ -109,10 +110,12 @@ func (mgr *manager) run(ctx context.Context) error {
 		}
 
 		if err != nil {
-			mgr.logger.WithFields(logrus.Fields{
-				"fqdnGroup": event.Object.Name,
-				"eventType": event.Kind,
-			}).WithError(err).Warning("Error while handling IsovalentFQDNGroup event, will retry")
+			mgr.logger.Warn(
+				"Error while handling IsovalentFQDNGroup event, will retry",
+				logfields.FromFQDNGroup, event.Object.Name,
+				logfields.EventType, event.Kind,
+				logfields.Error, err,
+			)
 		}
 
 		event.Done(err)
@@ -142,8 +145,9 @@ func (mgr *manager) onUpdate(ctx context.Context, obj *v1alpha1.IsovalentFQDNGro
 	defer func() { mgr.metrics.FQDNGroupReconcilers.Set(float64(len(mgr.reconcilers))) }()
 
 	fqdnGroup := obj.Name
-	mgr.logger.WithField("fqdnGroup", fqdnGroup).Debug(
+	mgr.logger.Debug(
 		"resyncing streams and restarting cidr group reconciler",
+		logfields.FromFQDNGroup, fqdnGroup,
 	)
 
 	fqdns := toStrings(obj.Spec.FQDNs)
@@ -183,8 +187,9 @@ func (mgr *manager) onDelete(ctx context.Context, obj *v1alpha1.IsovalentFQDNGro
 	defer func() { mgr.metrics.FQDNGroupReconcilers.Set(float64(len(mgr.reconcilers))) }()
 
 	fqdnGroup := obj.Name
-	mgr.logger.WithField("fqdnGroup", fqdnGroup).Debug(
+	mgr.logger.Debug(
 		"deleting streams and cidr group reconciler",
+		logfields.FromFQDNGroup, fqdnGroup,
 	)
 
 	if reconciler, ok := mgr.reconcilers[fqdnGroup]; ok {
@@ -226,10 +231,11 @@ func (mgr *manager) syncResolvers(fqdnGroup string, fqdns []string) error {
 	newFQDNs, staleFQDNs := mgr.cache.diff(newStatus)
 
 	// start a reconciler for each new fqdn to resolve
-	mgr.logger.WithFields(logrus.Fields{
-		"fqdnGroup":    fqdnGroup,
-		"newResolvers": newFQDNs,
-	}).Debug("starting new fqdn resolvers after FQDNGroup event")
+	mgr.logger.Debug(
+		"starting new fqdn resolvers after FQDNGroup event",
+		logfields.FromFQDNGroup, fqdnGroup,
+		logfields.NewResolvers, newFQDNs,
+	)
 
 	for _, fqdn := range newFQDNs {
 		resolver := newResolver(mgr.logger, fqdn, fqdnGroup, mgr.dnsClient, mgr.minInterval, mgr.store)
@@ -241,10 +247,11 @@ func (mgr *manager) syncResolvers(fqdnGroup string, fqdns []string) error {
 
 	// stop any stale resolver
 	if len(staleFQDNs) > 0 {
-		mgr.logger.WithFields(logrus.Fields{
-			"fqdnGroup":      fqdnGroup,
-			"staleResolvers": staleFQDNs,
-		}).Debug("stopping stale fqdn resolvers after FQDNGroup event")
+		mgr.logger.Debug(
+			"stopping stale fqdn resolvers after FQDNGroup event",
+			logfields.FromFQDNGroup, fqdnGroup,
+			logfields.StaleResolvers, staleFQDNs,
+		)
 	}
 
 	for _, fqdn := range staleFQDNs {

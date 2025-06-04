@@ -35,7 +35,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -48,6 +50,7 @@ func TestScript(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	version.Force(k8sTestutils.DefaultVersion)
+	nodeTypes.SetName("testnode")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
@@ -66,6 +69,7 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+				metrics.Cell,
 
 				lbcell.Cell,
 

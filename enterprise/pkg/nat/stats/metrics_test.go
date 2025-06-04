@@ -46,7 +46,7 @@ func TestTopkMetrics(t *testing.T) {
 		cell.Provide(newTables, newTopkMetrics),
 		cell.Provide(func(jg job.Registry, rwt statedb.RWTable[stats.NatMapStats]) (job.Group, metricsActions,
 			stats.Config, statedb.Table[stats.NatMapStats]) {
-			return jg.NewGroup(nil), ms, stats.Config{
+			return jg.NewGroup(nil, hivetest.Lifecycle(t)), ms, stats.Config{
 				NatMapStatKStoredEntries: 5,
 				NATMapStatInterval:       time.Duration(0),
 			}, rwt

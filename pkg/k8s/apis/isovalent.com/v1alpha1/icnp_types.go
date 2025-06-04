@@ -77,7 +77,7 @@ type IsovalentClusterwideNetworkPolicyList struct {
 
 // Parse parses an IsovalentClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
-func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
+func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentClusterwideNetworkPolicy must have name")
 	}
@@ -95,7 +95,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rule
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
 		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, "", name, uid)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -104,7 +104,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger) (api.Rule
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy specs: %s", err))
 
 			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(logger, "", name, uid)
+			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
 			retRules = append(retRules, cr)
 		}
 	}

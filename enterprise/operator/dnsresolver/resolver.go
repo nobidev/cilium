@@ -13,11 +13,11 @@ package dnsresolver
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/netip"
 	"time"
 
 	"github.com/cilium/workerpool"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
 	"github.com/cilium/cilium/pkg/backoff"
@@ -27,7 +27,7 @@ import (
 // resolver encapsulates a dns client and periodically resolves the given fqdn,
 // send the ips from the dns response to the store.
 type resolver struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	fqdn string
 
@@ -41,7 +41,7 @@ type resolver struct {
 }
 
 func newResolver(
-	logger logrus.FieldLogger,
+	logger *slog.Logger,
 	fqdn string,
 	fqdnGroup string,
 	client dnsclient.Resolver,
@@ -49,17 +49,18 @@ func newResolver(
 	store store,
 ) *resolver {
 	return &resolver{
-		logger: logger.WithFields(logrus.Fields{
-			"fqdn":          fqdn,
-			"fromFQDNGroup": fqdnGroup,
-		}),
+		logger: logger.With(
+			logfields.FQDN, fqdn,
+			logfields.FromFQDNGroup, fqdnGroup,
+		),
 		fqdn:    fqdn,
 		client:  client,
 		minWait: minWait,
 		expBackoff: backoff.Exponential{
-			Min:  minWait,
-			Max:  5 * time.Minute,
-			Name: "fqdn-resolver-" + fqdn,
+			Logger: logger,
+			Min:    minWait,
+			Max:    5 * time.Minute,
+			Name:   "fqdn-resolver-" + fqdn,
 		},
 		store: store,
 		wp:    workerpool.New(1),
@@ -112,8 +113,11 @@ func (r *resolver) resolve(ctx context.Context) error {
 			}
 
 			attempts++
-			r.logger.WithField(logfields.Interval, r.expBackoff.Duration(attempts)).WithError(err).
-				Warning("DNS resolution failed for IsovalentFQDNGroup, retrying after backoff interval")
+			r.logger.Warn(
+				"DNS resolution failed for IsovalentFQDNGroup, retrying after backoff interval",
+				logfields.Interval, r.expBackoff.Duration(attempts),
+				logfields.Error, err,
+			)
 
 			r.expBackoff.Wait(ctx)
 			if errors.Is(ctx.Err(), context.Canceled) {

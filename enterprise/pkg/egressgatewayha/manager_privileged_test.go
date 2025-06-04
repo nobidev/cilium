@@ -73,7 +73,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
-	policyMapV2 := egressmapha.CreatePrivatePolicyMapV2(lc, egressmapha.DefaultPolicyConfig)
+	policyMapV2 := egressmapha.CreatePrivatePolicyMapV2(lc, nil, egressmapha.DefaultPolicyConfig)
 	ctMap := egressmapha.CreatePrivateCtMap(lc, log)
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{

@@ -24,9 +24,8 @@ import (
 // with the new set of node addresses assigned for NodePort use.
 func registerServiceReconciler(p serviceReconcilerParams) {
 	sr := serviceReconciler(p)
-	g := p.Jobs.NewGroup(p.Health)
+	g := p.Jobs.NewGroup(p.Health, p.Lifecycle)
 	g.Add(job.OneShot("service-reconciler", sr.reconcileLoop))
-	p.Lifecycle.Append(g)
 }
 
 type syncNodePort interface {
@@ -57,6 +56,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 	// Use exponential backoff for retries. Keep small minimum time for fast tests,
 	// but backoff with aggressive factor.
 	backoff := backoff.Exponential{
+		Logger: sr.Logger,
 		Min:    10 * time.Millisecond,
 		Max:    30 * time.Second,
 		Factor: 8,

@@ -24,9 +24,7 @@
 #include "stubs.h"
 #include "trace.h"
 
-DECLARE_CONFIG(__u32, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
-#define IPV4_MASQUERADE CONFIG(nat_ipv4_masquerade)
-
+DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 
 enum  nat_dir {
@@ -107,8 +105,8 @@ struct ipv4_nat_entry {
 
 struct ipv4_nat_target {
 	__be32 addr;
-	const __u16 min_port; /* host endianness */
-	const __u16 max_port; /* host endianness */
+	__u16 min_port; /* host endianness */
+	__u16 max_port; /* host endianness */
 	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
@@ -638,14 +636,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	/* To prevent aliasing with masqueraded connections,
-	 * we need to track all host connections that use IPV4_MASQUERADE.
+	 * we need to track all host connections that use config
+	 * nat_ipv4_masquerade.
 	 *
 	 * This either reserves the source port (so that it's not used
 	 * for masquerading), or port-SNATs the host connection (if the sport
 	 * is already in use for a masqueraded connection).
 	 */
-	if (tuple->saddr == IPV4_MASQUERADE) {
-		target->addr = IPV4_MASQUERADE;
+	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		target->needs_ct = true;
 
 		return NAT_NEEDED;
@@ -761,7 +760,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	if (local_ep) {
-		target->addr = IPV4_MASQUERADE;
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		return NAT_NEEDED;
 	}
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
@@ -880,7 +879,7 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fr
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    struct iphdr *ip4, fraginfo_t fraginfo,
-	    int off, const struct ipv4_nat_target *target,
+	    int off, struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
@@ -931,6 +930,10 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			tuple->dport = 0;
 			tuple->sport = icmphdr.un.echo.id;
 			port_off = offsetof(struct icmphdr, un.echo.id);
+			/* Don't clamp the ID field: */
+			target->min_port = 0;
+			target->max_port = UINT16_MAX;
+
 			break;
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
@@ -1173,8 +1176,8 @@ struct ipv6_nat_entry {
 
 struct ipv6_nat_target {
 	union v6addr addr;
-	const __u16 min_port; /* host endianness */
-	const __u16 max_port; /* host endianness */
+	__u16 min_port; /* host endianness */
+	__u16 max_port; /* host endianness */
 	bool from_local_endpoint;
 	bool needs_ct;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
@@ -1716,6 +1719,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
+	__u8 type;
 	int ret;
 
 	/* According to the RFC 5508, any networking equipment that is
@@ -1755,7 +1759,23 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMPV6:
-		return DROP_UNKNOWN_ICMP6_CODE;
+		if (icmp6_load_type(ctx, icmpoff, &type) < 0)
+			return DROP_INVALID;
+
+		switch (type) {
+		case ICMPV6_ECHO_REQUEST:
+			return NAT_PUNT_TO_STACK;
+		case ICMPV6_ECHO_REPLY:
+			port_off = offsetof(struct icmp6hdr, icmp6_dataun.u_echo.identifier);
+			break;
+		default:
+			return DROP_UNKNOWN_ICMP6_CODE;
+		}
+
+		if (ctx_load_bytes(ctx, icmpoff + port_off,
+				   &tuple.sport, sizeof(tuple.sport)) < 0)
+			return DROP_INVALID;
+		break;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
@@ -1807,7 +1827,7 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fr
 static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	    struct ipv6hdr *ip6, fraginfo_t fraginfo,
-	    int off, const struct ipv6_nat_target *target,
+	    int off, struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
@@ -1858,11 +1878,28 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			tuple->sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			port_off = offsetof(struct icmp6hdr,
 					    icmp6_dataun.u_echo.identifier);
+			/* Don't clamp the ID field: */
+			target->min_port = 0;
+			target->max_port = UINT16_MAX;
+
 			break;
 		case ICMPV6_DEST_UNREACH:
 			if (icmp6hdr.icmp6_code > ICMPV6_REJECT_ROUTE)
 				return DROP_UNKNOWN_ICMP6_CODE;
 
+			goto nat_icmp_v6;
+		case ICMPV6_PKT_TOOBIG:
+			goto nat_icmp_v6;
+		case ICMPV6_TIME_EXCEED:
+			switch (icmp6hdr.icmp6_code) {
+			case ICMPV6_EXC_HOPLIMIT:
+			case ICMPV6_EXC_FRAGTIME:
+				break;
+			default:
+				return DROP_UNKNOWN_ICMP6_CODE;
+			}
+
+nat_icmp_v6:
 			return snat_v6_nat_handle_icmp_error(ctx, off, true);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
