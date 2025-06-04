@@ -35,7 +35,6 @@ var (
 			Labels: map[string]string{
 				"bgp": "dummy_label",
 			},
-			ResourceVersion: "1234",
 		},
 		Spec: v1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slimv1.LabelSelector{
@@ -189,7 +188,6 @@ var (
 			Labels: map[string]string{
 				"bgp": "dummy_label_1",
 			},
-			ResourceVersion: "2345",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
 			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
@@ -218,7 +216,6 @@ var (
 			Labels: map[string]string{
 				"bgp": "advert-1",
 			},
-			ResourceVersion: "3456",
 		},
 		Spec: v1.IsovalentBGPAdvertisementSpec{
 			Advertisements: []v1.BGPAdvertisement{
@@ -261,7 +258,6 @@ var (
 			Labels: map[string]string{
 				"bgp": "advert-2",
 			},
-			ResourceVersion: "4567",
 		},
 		Spec: v1.IsovalentBGPAdvertisementSpec{
 			Advertisements: []v1.BGPAdvertisement{
@@ -308,7 +304,6 @@ var (
 			Labels: map[string]string{
 				"bgp": "advert-3",
 			},
-			ResourceVersion: "5678",
 		},
 		Spec: v1.IsovalentBGPAdvertisementSpec{
 			Advertisements: []v1.BGPAdvertisement{
@@ -410,14 +405,11 @@ func Test_Mapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
-			f, watcherReady := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: true})
+			f := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: true})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
 			defer f.hive.Stop(tlog, ctx)
-
-			// blocking till all watchers are ready
-			watcherReady()
 
 			// insert enterprise objects
 			upsertIsoBGPCC(req, ctx, f, tt.isoClusterConfig)
@@ -443,9 +435,15 @@ func Test_Mapping(t *testing.T) {
 					return
 				}
 
+				isoClusterConfig, err := f.isoClusterClient.Get(ctx, tt.isoClusterConfig.Name, meta_v1.GetOptions{})
+				if err != nil {
+					assert.NoError(c, err)
+					return
+				}
+
 				assert.Equal(c, tt.expectedOSSClusterConfig.Name, ossClusterConfig.Name)
 				assert.Equal(c, tt.expectedOSSClusterConfig.Labels, ossClusterConfig.Labels)
-				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoClusterConfig.ResourceVersion}, ossClusterConfig.Annotations)
+				assert.Equal(c, map[string]string{ownerVersionAnnotation: isoClusterConfig.ResourceVersion}, ossClusterConfig.Annotations)
 				assert.True(c, tt.expectedOSSClusterConfig.Spec.DeepEqual(&ossClusterConfig.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 
@@ -466,9 +464,15 @@ func Test_Mapping(t *testing.T) {
 					return
 				}
 
+				isoPeerConfig, err := f.isoPeerConfClient.Get(ctx, tt.isoPeerConfig.Name, meta_v1.GetOptions{})
+				if err != nil {
+					assert.NoError(c, err)
+					return
+				}
+
 				assert.Equal(c, tt.expectedOSSPeerConfig.Name, ossPeerConfig.Name)
 				assert.Equal(c, tt.expectedOSSPeerConfig.Labels, ossPeerConfig.Labels)
-				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoPeerConfig.ResourceVersion}, ossPeerConfig.Annotations)
+				assert.Equal(c, map[string]string{ownerVersionAnnotation: isoPeerConfig.ResourceVersion}, ossPeerConfig.Annotations)
 				assert.True(c, tt.expectedOSSPeerConfig.Spec.DeepEqual(&ossPeerConfig.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 
@@ -489,9 +493,14 @@ func Test_Mapping(t *testing.T) {
 					return
 				}
 
+				isoAdvert, err := f.isoAdvertClient.Get(ctx, tt.isoAdvert.Name, meta_v1.GetOptions{})
+				if !assert.NoError(c, err) {
+					return
+				}
+
 				assert.Equal(c, tt.expectedOSSAdvert.Name, ossAdvert.Name)
 				assert.Equal(c, tt.expectedOSSAdvert.Labels, ossAdvert.Labels)
-				assert.Equal(c, map[string]string{ownerVersionAnnotation: tt.isoAdvert.ResourceVersion}, ossAdvert.Annotations)
+				assert.Equal(c, map[string]string{ownerVersionAnnotation: isoAdvert.ResourceVersion}, ossAdvert.Annotations)
 				assert.True(c, tt.expectedOSSAdvert.Spec.DeepEqual(&ossAdvert.Spec))
 			}, TestTimeout, 50*time.Millisecond)
 

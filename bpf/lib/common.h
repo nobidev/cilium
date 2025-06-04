@@ -82,6 +82,11 @@ enum {
 
 typedef __u64 mac_t;
 
+union v4addr {
+	__be32 be32;
+	__u8 addr[4];
+};
+
 union v6addr {
 	struct {
 		__u32 p1;
@@ -403,6 +408,8 @@ struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
 	__u32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
+	__u32 reserved2; /* for even more future extension */
 };
 
 struct srv6_vrf_key4 {
@@ -807,11 +814,13 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
+#define IPPROTO_ANY	0	/* For service lookup with ANY L4 protocol */
+
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };
@@ -871,7 +880,7 @@ struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };

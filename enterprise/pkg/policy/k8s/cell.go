@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	isovalent_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -89,6 +90,9 @@ type PolicyWatcherParams struct {
 
 	IsovalentNetworkPolicies            resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy]
 	IsovalentClusterwideNetworkPolicies resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy]
+
+	ClusterInfo             cmtypes.ClusterInfo
+	ClusterMeshPolicyConfig cmtypes.PolicyConfig
 }
 
 func startK8sPolicyWatcher(params PolicyWatcherParams) {
@@ -103,6 +107,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	p := &policyWatcher{
 		log:                                 params.Logger,
 		config:                              params.Config,
+		clusterName:                         cmtypes.LocalClusterNameForPolicies(params.ClusterMeshPolicyConfig, params.ClusterInfo.Name),
 		policyImporter:                      params.PolicyImporter,
 		k8sResourceSynced:                   params.K8sResourceSynced,
 		k8sAPIGroups:                        params.K8sAPIGroups,

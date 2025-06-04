@@ -44,7 +44,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	var (
 		up paramUpgrader
 		cs client.Clientset
-		jg job.Group
 	)
 
 	ossNode := &v2.CiliumBGPNodeConfig{
@@ -110,8 +109,8 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			func() store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig] {
 				return store.InitMockStore([]*v1.IsovalentBGPNodeConfig{ceeNode})
 			},
-			func(r job.Registry, health cell.Health) job.Group {
-				return r.NewGroup(health)
+			func(r job.Registry, lc cell.Lifecycle, health cell.Health) job.Group {
+				return r.NewGroup(health, lc)
 			},
 			// enterprise bgp is enabled
 			func() config.Config {
@@ -136,7 +135,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		cell.Invoke(func(u paramUpgrader, c client.Clientset, j job.Group) {
 			up = u
 			cs = c
-			jg = j
 		}),
 	)
 
@@ -145,9 +143,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	t.Cleanup(func() {
 		h.Stop(slog.Default(), context.Background())
 	})
-
-	// start jobs in the group
-	jg.Start(context.Background())
 
 	// insert a node
 	_, err = cs.CiliumV2().CiliumNodes().Create(

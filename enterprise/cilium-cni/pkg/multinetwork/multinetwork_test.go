@@ -28,9 +28,11 @@ import (
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
+const subsys = "subsys"
+
 func Test_DefaultNetwork(t *testing.T) {
 	cniParams := cmd.ConfigurationParams{
-		Log:  logging.DefaultLogger.WithField("subsys", "multinetwork-cni-test"),
+		Log:  logging.DefaultSlogLogger.With(subsys, "multinetwork-cni-test"),
 		Conf: &models.DaemonConfigurationStatus{},
 		Args: &skel.CmdArgs{
 			ContainerID: "container1234",
@@ -119,7 +121,7 @@ func mustParseIP(s string) *net.IP {
 
 func Test_ThreeAttachments(t *testing.T) {
 	cniParams := cmd.ConfigurationParams{
-		Log: logging.DefaultLogger.WithField("subsys", "multinetwork-cni-test"),
+		Log: logging.DefaultSlogLogger.With(subsys, "multinetwork-cni-test"),
 		Conf: &models.DaemonConfigurationStatus{
 			RouteMTU: 1456,
 		},

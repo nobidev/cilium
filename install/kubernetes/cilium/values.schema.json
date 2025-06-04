@@ -1467,6 +1467,9 @@
         "maxConnectedClusters": {
           "type": "integer"
         },
+        "policyDefaultLocalCluster": {
+          "type": "boolean"
+        },
         "useAPIServer": {
           "type": "boolean"
         }
@@ -1735,9 +1738,6 @@
       "type": "boolean"
     },
     "enableNonDefaultDenyPolicies": {
-      "type": "boolean"
-    },
-    "enableRuntimeDeviceDetection": {
       "type": "boolean"
     },
     "enableXTSocketFallback": {
@@ -2636,14 +2636,6 @@
       },
       "type": "object"
     },
-    "externalIPs": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "extraArgs": {
       "items": {},
       "type": "array"
@@ -2760,14 +2752,6 @@
       "type": "integer"
     },
     "hostFirewall": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "hostPort": {
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -3774,6 +3758,14 @@
                 },
                 "runAsUser": {
                   "type": "integer"
+                },
+                "seccompProfile": {
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"
@@ -4674,6 +4666,11 @@
                   "type": "object"
                 },
                 "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    }
+                  },
                   "type": "object"
                 }
               },
@@ -4729,6 +4726,11 @@
                   "type": "object"
                 },
                 "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    }
+                  },
                   "type": "object"
                 },
                 "server": {
@@ -5611,6 +5613,9 @@
         },
         "securityContext": {
           "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            },
             "capabilities": {
               "properties": {
                 "add": {
@@ -5878,6 +5883,16 @@
           "type": "object"
         },
         "podSecurityContext": {
+          "properties": {
+            "seccompProfile": {
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "pprof": {
@@ -5962,6 +5977,26 @@
           "type": "boolean"
         },
         "securityContext": {
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            },
+            "capabilities": {
+              "properties": {
+                "drop": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "setNodeNetworkStatus": {
@@ -6050,6 +6085,14 @@
     "podSecurityContext": {
       "properties": {
         "appArmorProfile": {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "seccompProfile": {
           "properties": {
             "type": {
               "type": "string"
@@ -6230,6 +6273,11 @@
           "type": "object"
         },
         "securityContext": {
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            }
+          },
           "type": "object"
         },
         "terminationGracePeriodSeconds": {
@@ -6456,6 +6504,9 @@
     },
     "securityContext": {
       "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean"
+        },
         "capabilities": {
           "properties": {
             "applySysctlOverwrites": {

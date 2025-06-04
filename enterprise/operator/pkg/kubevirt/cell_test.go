@@ -288,7 +288,7 @@ func Test_vmReconcilerOps_Update(t *testing.T) {
 		},
 		Status: reconciler.StatusPending(),
 	}
-	err := r.Update(context.TODO(), db.ReadTxn(), vm)
+	err := r.Update(context.TODO(), db.ReadTxn(), 0, vm)
 	require.NoError(t, err)
 
 	// Check that source pod annotation has been removed
@@ -303,7 +303,7 @@ func Test_vmReconcilerOps_Update(t *testing.T) {
 
 	// Switch primary pod
 	vm.PrimaryPod = targetPodKey
-	err = r.Update(context.TODO(), db.ReadTxn(), vm)
+	err = r.Update(context.TODO(), db.ReadTxn(), 0, vm)
 	require.NoError(t, err)
 
 	// Check that source pod annotation has been added

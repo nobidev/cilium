@@ -147,12 +147,15 @@ func TestScript(t *testing.T) {
 			cell.Provide(
 				tables.NewDeviceTable,
 				tables.NewNeighborTable,
+				tables.NewRouteTable,
 				bfdtypes.NewBFDPeersTable,
 
+				statedb.RWTable[*tables.Route].ToTable,
 				statedb.RWTable[*tables.Device].ToTable,
 				statedb.RWTable[*tables.Neighbor].ToTable,
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
 			),
+			cell.Invoke(statedb.RegisterTable[*tables.Route]),
 			cell.Invoke(statedb.RegisterTable[*tables.Device]),
 			cell.Invoke(statedb.RegisterTable[*tables.Neighbor]),
 			cell.Invoke(statedb.RegisterTable[*bfdtypes.BFDPeerStatus]),

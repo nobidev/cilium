@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -67,6 +68,7 @@ func createPolicyMapV2FromDaemonConfig(in struct {
 	Lifecycle cell.Lifecycle
 	*option.DaemonConfig
 	PolicyConfig
+	MetricsRegistry *metrics.Registry
 }) (out struct {
 	cell.Out
 
@@ -81,18 +83,18 @@ func createPolicyMapV2FromDaemonConfig(in struct {
 		return
 	}
 
-	out.MapOut = bpf.NewMapOut(PolicyMapV2(createPolicyMapV2(in.Lifecycle, in.PolicyConfig, ebpf.PinByName)))
+	out.MapOut = bpf.NewMapOut(PolicyMapV2(createPolicyMapV2(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
 	return
 }
 
 // CreatePrivatePolicyMap creates an unpinned policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMapV2(lc cell.Lifecycle, cfg PolicyConfig) PolicyMapV2 {
-	return createPolicyMapV2(lc, cfg, ebpf.PinNone)
+func CreatePrivatePolicyMapV2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) PolicyMapV2 {
+	return createPolicyMapV2(lc, registry, cfg, ebpf.PinNone)
 }
 
-func createPolicyMapV2(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMapV2 {
+func createPolicyMapV2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *policyMapV2 {
 	m := bpf.NewMap(
 		PolicyMapNameV2,
 		ebpf.LPMTrie,
@@ -100,7 +102,7 @@ func createPolicyMapV2(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType
 		&EgressPolicyV2Val4{},
 		cfg.EgressGatewayHAPolicyMapMax,
 		0,
-	).WithPressureMetric()
+	).WithPressureMetric(registry)
 
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {

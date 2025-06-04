@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:37f7b378a29ceb4c551b1b5582e27747b855bbfaa73fa11914fe0df028dc581f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:f64ff79725d0070955b368a4ef8dc729bd8f3d8667823904adcb299fe58fc3da","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -467,7 +467,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.3","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -932,6 +932,10 @@
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
+     - Control whether policy rules assume by default the local cluster if not explicitly selected
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool
@@ -1164,10 +1168,6 @@
      - Enable Non-Default-Deny policies
      - bool
      - ``false``
-   * - :spelling:ignore:`enableRuntimeDeviceDetection`
-     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
-     - bool
-     - ``true``
    * - :spelling:ignore:`enableXTSocketFallback`
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool
@@ -1487,7 +1487,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:770ae69b0332237c2a90d87d91109e75434abf0ca1ec9f3982a28daee469d4b8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.3-1746785339-971577e505e5640c1642b4167205cfeaf4647ed1","useDigest":true}``
+     - ``{"digest":"sha256:bb777f92ca5580ccf2c7ad5778d79243f3a0dea56e23fbfd33d1971730475bd6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.3-1748849296-e9b4aad09a90149a1732e291831091da9763b710","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1712,10 +1712,6 @@
      - Enable use of TLS/SSL for connectivity to etcd.
      - bool
      - ``false``
-   * - :spelling:ignore:`externalIPs.enabled`
-     - Enable ExternalIPs service support.
-     - bool
-     - ``false``
    * - :spelling:ignore:`extraArgs`
      - Additional agent container arguments.
      - list
@@ -1826,10 +1822,6 @@
      - ``{"enabled":false}``
    * - :spelling:ignore:`hostFirewall.enabled`
      - Enables the enforcement of host policies in the eBPF datapath.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hostPort.enabled`
-     - Enable hostPort service support.
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.annotations`
@@ -2279,7 +2271,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
@@ -2655,7 +2647,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -2687,7 +2679,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -3319,7 +3311,7 @@
    * - :spelling:ignore:`nodeinit.securityContext`
      - Security context to be added to nodeinit pods.
      - object
-     - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
    * - :spelling:ignore:`nodeinit.startup`
      - startup offers way to customize startup nodeinit script (pre and post position)
      - object
@@ -3427,7 +3419,7 @@
    * - :spelling:ignore:`operator.podSecurityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`operator.pprof.address`
      - Configure pprof listen address for cilium-operator
      - string
@@ -3499,7 +3491,7 @@
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`operator.setNodeNetworkStatus`
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
@@ -3547,7 +3539,7 @@
    * - :spelling:ignore:`podSecurityContext`
      - Security Context for cilium-agent pods.
      - object
-     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+     - ``{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`podSecurityContext.appArmorProfile`
      - AppArmorProfile options for the ``cilium-agent`` and init containers
      - object
@@ -3651,7 +3643,7 @@
    * - :spelling:ignore:`preflight.securityContext`
      - Security context to be added to preflight pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`preflight.terminationGracePeriodSeconds`
      - Configure termination grace period for preflight Deployment and DaemonSet.
      - int
@@ -3772,6 +3764,10 @@
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object
      - ``{}``
+   * - :spelling:ignore:`securityContext.allowPrivilegeEscalation`
+     - disable privilege escalation
+     - bool
+     - ``false``
    * - :spelling:ignore:`securityContext.capabilities.applySysctlOverwrites`
      - capabilities for the ``apply-sysctl-overwrites`` init container
      - list

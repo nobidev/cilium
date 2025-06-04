@@ -204,13 +204,11 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
+	f := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
 	defer f.hive.Stop(tlog, ctx)
-
-	watchersReady()
 
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {
@@ -514,13 +512,11 @@ func TestClusterConfigConditions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
+			f := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
 			defer f.hive.Stop(tlog, ctx)
-
-			watchersReady()
 
 			// Setup resources
 			upsertNode(req, ctx, f, &node)
@@ -743,13 +739,11 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
+			f := newFixture(t, ctx, require.New(t), fixtureConfig{enableStatusReport: true})
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
 			defer f.hive.Stop(tlog, ctx)
-
-			watchersReady()
 
 			// Setup resources
 			for _, node := range nodes {
@@ -835,7 +829,7 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 		cancel()
 	})
 
-	f, ready := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: false})
+	f := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: false})
 
 	logger := hivetest.Logger(t)
 
@@ -843,8 +837,6 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	t.Cleanup(func() {
 		f.hive.Stop(logger, ctx)
 	})
-
-	ready()
 
 	clusterConfig := &v1.IsovalentBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{

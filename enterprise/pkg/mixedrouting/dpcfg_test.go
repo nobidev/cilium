@@ -21,6 +21,7 @@ import (
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 
 	cemrcfg "github.com/cilium/cilium/enterprise/pkg/mixedrouting/config"
@@ -93,13 +94,15 @@ func TestDatapathConfigProvider(t *testing.T) {
 					datapathConfigProvider,
 					func() cemrcfg.Config { return tt.cfg },
 					func() *option.DaemonConfig { return tt.dcfg },
+					func() loadbalancer.Config { return loadbalancer.DefaultConfig },
 				),
 
 				cell.Invoke(func(in struct {
 					cell.In
 					Tunnel           tunnel.Config
 					NodeExtraDefines []dpcfgdef.Map `group:"header-node-defines"`
-				}) {
+				},
+				) {
 					outProto = in.Tunnel.EncapProtocol()
 					for _, ned := range in.NodeExtraDefines {
 						outDef.Merge(ned)

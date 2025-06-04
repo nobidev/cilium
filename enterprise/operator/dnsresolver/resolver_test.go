@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/cilium/hive/hivetest"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
@@ -77,7 +77,7 @@ func TestResolver(t *testing.T) {
 	store := &mockStore{setFn}
 
 	// create a test logger
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	resolver := newResolver(logger, "cilium.io", "test-group", client, time.Second, store)
 
@@ -141,7 +141,7 @@ func TestResolverNonExistentDomain(t *testing.T) {
 	store := &mockStore{setFn}
 
 	// create a test logger
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	resolver := newResolver(logger, "cilium.io", "test-group", client, time.Second, store)
 
@@ -200,7 +200,7 @@ func TestResolverQueryError(t *testing.T) {
 	store := &mockStore{setFn}
 
 	// create a test logger
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	resolver := newResolver(logger, "cilium.io", "test-group", client, time.Second, store)
 

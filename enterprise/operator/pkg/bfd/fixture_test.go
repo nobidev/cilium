@@ -12,22 +12,17 @@ package bfd
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/watch"
-	k8sTesting "k8s.io/client-go/testing"
 
 	bgpv2config "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	client_ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	client_isovalentv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
@@ -52,63 +47,15 @@ type fixture struct {
 	bfdNodeConfigOverrideClient client_isovalentv1alpha1.IsovalentBFDNodeConfigOverrideInterface
 }
 
-func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) (*fixture, func()) {
-	type watchSync struct {
-		once    sync.Once
-		watchCh chan struct{}
-	}
-
-	var resourceWatch = map[string]*watchSync{
-		ciliumv2.CNPluralName:                             {watchCh: make(chan struct{})},
-		v1.IsovalentBGPClusterConfigPluralName:            {watchCh: make(chan struct{})},
-		v1.IsovalentBGPPeerConfigPluralName:               {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBFDNodeConfigPluralName:         {watchCh: make(chan struct{})},
-		v1alpha1.IsovalentBFDNodeConfigOverridePluralName: {watchCh: make(chan struct{})},
-	}
-
+func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fixture {
 	f := &fixture{}
 	f.fakeClientSet, _ = k8sclient.NewFakeClientset(hivetest.Logger(t))
-
-	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
-		w := action.(k8sTesting.WatchAction)
-		gvr := w.GetResource()
-		ns := w.GetNamespace()
-		watchTracker, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
-		if err != nil {
-			return false, nil, err
-		}
-		watchSync, exists := resourceWatch[w.GetResource().Resource]
-		if !exists {
-			return false, watchTracker, nil
-		}
-
-		watchSync.once.Do(func() { close(watchSync.watchCh) })
-		return true, watchTracker, nil
-	}
-
-	watcherReadyFn := func() {
-		var group sync.WaitGroup
-		for res, w := range resourceWatch {
-			group.Add(1)
-			go func(res string, w *watchSync) {
-				defer group.Done()
-				select {
-				case <-w.watchCh:
-				case <-ctx.Done():
-					req.Failf("init failed", "%s watcher not initialized", res)
-				}
-			}(res, w)
-		}
-		group.Wait()
-	}
 
 	f.ciliumNodeClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumNodes()
 	f.bgpClusterConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPClusterConfigs()
 	f.bgpPeerConfigClient = f.fakeClientSet.IsovalentV1().IsovalentBGPPeerConfigs()
 	f.bfdNodeConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBFDNodeConfigs()
 	f.bfdNodeConfigOverrideClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentBFDNodeConfigOverrides()
-
-	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
 
 	f.hive = hive.New(
 		Cell,
@@ -137,5 +84,5 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) (*fi
 
 	hive.AddConfigOverride(f.hive, func(cfg *types.BFDConfig) { cfg.BFDEnabled = true })
 
-	return f, watcherReadyFn
+	return f
 }

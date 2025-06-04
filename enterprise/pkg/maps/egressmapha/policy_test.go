@@ -30,7 +30,7 @@ func TestPolicyMap(t *testing.T) {
 	bpf.CheckOrMountFS(log, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
-	egressPolicyMap := createPolicyMapV2(hivetest.Lifecycle(t), DefaultPolicyConfig, ebpf.PinNone)
+	egressPolicyMap := createPolicyMapV2(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
 
 	sourceIP1 := netip.MustParseAddr("1.1.1.1")
 	sourceIP2 := netip.MustParseAddr("1.1.1.2")

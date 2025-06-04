@@ -208,6 +208,10 @@ func (i *IngressPolicy) GetRev() uint64 {
 	return i.rev
 }
 
+func (i *IngressPolicy) GetListenerProxyPort(listener string) uint16 {
+	return 0
+}
+
 var _ policy.PolicyOwner = (*ingressPolicyOwner)(nil)
 
 type ingressPolicyOwner struct {

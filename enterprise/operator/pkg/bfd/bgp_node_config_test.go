@@ -856,14 +856,12 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t))
+	f := newFixture(t, ctx, require.New(t))
 
 	log := hivetest.Logger(t)
 	err := f.hive.Start(log, ctx)
 	defer f.hive.Stop(log, ctx)
 	require.NoError(t, err)
-
-	watchersReady()
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {

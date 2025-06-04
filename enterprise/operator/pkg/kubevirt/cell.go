@@ -342,7 +342,7 @@ func registerReconciler(cfg Config, p reconciler.Params, ops *vmReconcilerOps, v
 		// clone
 		func(vm *KubeVirtVM) *KubeVirtVM {
 			// shallow copy
-			var vm2 = *vm
+			vm2 := *vm
 			return &vm2
 		},
 		// setStatus
@@ -374,7 +374,7 @@ func newVmReconcilerOps(cfg Config, log *slog.Logger, clientset k8sClient.Client
 }
 
 // Update implements reconciler.Operations[*KubeVirtVM]
-func (v *vmReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, vm *KubeVirtVM) error {
+func (v *vmReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, vm *KubeVirtVM) error {
 	v.log.Info("Reconciling pod annotations for KubeVirt VM",
 		logfieldPrimaryPod, vm.PrimaryPod,
 		logfieldVM, vm.VMName)
@@ -428,7 +428,7 @@ func (v *vmReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, vm *K
 }
 
 // Delete implements reconciler.Operations[*KubeVirtVM]
-func (v *vmReconcilerOps) Delete(ctx context.Context, txn statedb.ReadTxn, vm *KubeVirtVM) error {
+func (v *vmReconcilerOps) Delete(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, vm *KubeVirtVM) error {
 	return nil // nothing to do if all VM pods have been deleted
 }
 

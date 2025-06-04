@@ -53,8 +53,14 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 
 	// Use a custom lifecycle to start the reconciler so we can delay it starts until tables are initialized.
 	rlc := &cell.DefaultLifecycle{}
+	started := make(chan struct{})
 	p.Lifecycle.Append(cell.Hook{
 		OnStop: func(ctx cell.HookContext) error {
+			// Since starting happens asynchronously, wait for it to be done before trying to stop.
+			select {
+			case <-ctx.Done():
+			case <-started:
+			}
 			return rlc.Stop(p.Log, ctx)
 		},
 	})
@@ -87,6 +93,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 
 	g.Add(
 		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
+			defer close(started)
 			// We give a short grace period for initializers to finish populating the initial contents
 			// of the tables to avoid scaling down load-balancing due to e.g. seeing services before
 			// the endpoint slices.
@@ -278,7 +285,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -627,7 +634,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 }
 
 // Update implements reconciler.Operations.
-func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
 	}
@@ -732,9 +739,16 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
+
+	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode)
+	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
+		forwardingMode = svc.ForwardingMode
+	}
+
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
+		SvcFwdModeDSR:    forwardingMode == loadbalancer.SVCForwardingModeDSR,
 		SvcExtLocal:      svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
@@ -856,6 +870,14 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
+	if activeCount == 0 {
+		// If there are no active backends we can use the terminating backends.
+		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
+		activeCount = terminatingCount
+	} else {
+		inactiveCount += terminatingCount
+	}
+
 	// Update Maglev
 	if ops.useMaglev(fe) {
 		ops.log.Debug("Update Maglev", logfields.FrontendID, feID)
@@ -919,7 +941,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
 		logfields.Address, fe.Address,
 		logfields.Count, backendCount)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -930,7 +952,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			logfields.ID, feID,
 			logfields.Count, backendCount,
 			logfields.Previous, numPreviousBackends)
-		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+terminatingCount+inactiveCount); err != nil {
+		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
 			return fmt.Errorf("cleanup service slots: %w", err)
 		}
 	}
@@ -1002,17 +1024,10 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *loadbalancer.Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *loadbalancer.Frontend, activeBackends, inactiveBackends int) error {
+	svcVal.SetCount(activeBackends)
+	svcVal.SetQCount(inactiveBackends)
 	svcKey.SetBackendSlot(0)
-	if activeBackends == 0 {
-		// If there are no active backends we can use the terminating backends.
-		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
-		svcVal.SetCount(terminatingBackends)
-		svcVal.SetQCount(inactiveBackends)
-	} else {
-		svcVal.SetCount(activeBackends)
-		svcVal.SetQCount(terminatingBackends + inactiveBackends)
-	}
 	svcVal.SetBackendID(0)
 	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
 

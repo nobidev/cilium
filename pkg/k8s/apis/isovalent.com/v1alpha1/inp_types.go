@@ -247,7 +247,7 @@ func (r *IsovalentNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName str
 
 // Parse parses an IsovalentNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
+func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentNetworkPolicy must have name")
 	}
@@ -264,7 +264,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 			Specs:      r.Specs,
 			Status:     r.Status,
 		}
-		return icnp.Parse(logger)
+		return icnp.Parse(logger, clusterName)
 	}
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
@@ -285,7 +285,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 		if err := r.Spec.SanitizeOrder(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy spec: %s", err))
 		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
+		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -297,7 +297,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger) (api.Rules, error) {
 			if err := rule.SanitizeOrder(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(logger, namespace, name, uid)
+			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
 			retRules = append(retRules, cr)
 		}
 	}
@@ -312,8 +312,8 @@ func (r *IsovalentNetworkPolicyRule) SanitizeOrder() error {
 	return nil
 }
 
-func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, namespace, name string, uid types.UID) *api.Rule {
-	cr := k8sCiliumUtils.ParseToCiliumRule(logger, namespace, name, uid, &r.Rule)
+func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, clusterName, namespace, name string, uid types.UID) *api.Rule {
+	cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, &r.Rule)
 	// TODO: uncomment in ft/main-ce/ordered-policy, check for order ≥ 0 for INP (but not ICNP)
 	// cr.OrderCEEOnly = r.Spec.Order
 	return cr

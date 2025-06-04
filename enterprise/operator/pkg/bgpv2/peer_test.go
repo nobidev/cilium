@@ -98,14 +98,12 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: true})
+			f := newFixture(t, ctx, req, fixtureConfig{enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
 				f.hive.Stop(testLogger, ctx)
 			})
-
-			ready()
 
 			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Create(
 				ctx, tt.peerConfig, meta_v1.CreateOptions{},
@@ -215,14 +213,12 @@ func TestMissingBFDProfileCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newFixture(t, ctx, req, fixtureConfig{enableBFD: tt.enableBFD, enableStatusReport: true})
+			f := newFixture(t, ctx, req, fixtureConfig{enableBFD: tt.enableBFD, enableStatusReport: true})
 
 			f.hive.Start(testLogger, ctx)
 			t.Cleanup(func() {
 				f.hive.Stop(testLogger, ctx)
 			})
-
-			ready()
 
 			_, err := f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPPeerConfigs().Create(
 				ctx,
@@ -263,7 +259,7 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 		cancel()
 	})
 
-	f, ready := newFixture(t, ctx, req, fixtureConfig{enableBFD: true, enableStatusReport: false})
+	f := newFixture(t, ctx, req, fixtureConfig{enableBFD: true, enableStatusReport: false})
 
 	logger := hivetest.Logger(t)
 
@@ -271,8 +267,6 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 	t.Cleanup(func() {
 		f.hive.Stop(logger, ctx)
 	})
-
-	ready()
 
 	peerConfig := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{

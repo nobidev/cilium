@@ -18,6 +18,8 @@ import (
 
 	"github.com/cilium/cilium/enterprise/cilium-cni/pkg/multinetwork"
 	_ "github.com/cilium/cilium/enterprise/fips"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/plugins/cilium-cni/cmd"
 )
@@ -27,7 +29,8 @@ func init() {
 }
 
 func main() {
-	c := cmd.NewCmd(cmd.WithEPConfigurator(multinetwork.NewEndpointConfigurator()))
+	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
+	c := cmd.NewCmd(logger, cmd.WithEPConfigurator(multinetwork.NewEndpointConfigurator()))
 	skel.PluginMain(c.Add,
 		c.Check,
 		c.Del,

@@ -11,10 +11,10 @@
 package dnsresolver
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
@@ -62,7 +62,7 @@ var defaultConfig = Config{
 type resolverManagerParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	LC         cell.Lifecycle
 	Shutdowner hive.Shutdowner
