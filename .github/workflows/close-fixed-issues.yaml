@@ -1,0 +1,41 @@
+---
+# A reusable workflow designed to be called from the context of a specific
+# branch whenever a PR is merged. It closes the issues that are mentioned in the
+# PR description using the standard 'Fixes #xyz' syntax. Github does not close
+# issues for PRs against branches that are not the default, hence this workflow.
+name: Close fixed issues for PRs to enterprise branches
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        required: true
+        type: string
+        description: "The number of the PR which adresses the issues."
+      pr-body:
+        required: true
+        type: string
+        description: "The PR description containing the 'Fixes #xyz' line."
+      remove-label:
+        required: false
+        type: string
+        description: "A label to remove from the issue to be closed."
+
+jobs:
+  closer:
+    name: Close issues mentioned by PR
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write  # Closing the issue
+    steps:
+      - name: Close issues mentioned by PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${{ inputs.pr-body }}" | grep -Eio "(fix|clos|resolv)(e|ed|es)?:? +(https://github.com/${GITHUB_REPOSITORY}/issues/|#)[0-9]+" | grep -Eo '[0-9]+' | while read -r issue; do
+            if [ "${{ inputs.remove-label }}" != ""]]; then
+              echo "Removing label ${{ inputs.remove-label }} from issue #${issue}."
+              gh issue edit ${issue} --repo "${GITHUB_REPOSITORY}" --remove-label "${{ inputs.remove-label }}"
+            fi
+            echo "Closing issue #${issue} as completed in #${{ inputs.pr-number }}."
+            gh issue close ${issue} --repo "${GITHUB_REPOSITORY}" --reason "completed" --comment "Done in #${{ inputs.pr-number }}"
+          done || true
