@@ -3963,6 +3963,25 @@
               },
               "type": "object"
             },
+            "clustermesh": {
+              "properties": {
+                "primary": {
+                  "properties": {
+                    "createNamespace": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "integer"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
             "enabled": {
               "type": "boolean"
             },

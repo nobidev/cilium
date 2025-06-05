@@ -6,6 +6,10 @@
     .Values.hubble.timescape.metrics.clickhouse.enabled
     (and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled)
   )
+  (or
+    (not .Values.hubble.timescape.clustermesh.primary.id)
+    (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+  )
 }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

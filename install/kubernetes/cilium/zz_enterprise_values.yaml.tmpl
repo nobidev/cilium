@@ -129,6 +129,21 @@ hubble:
   # -- Enables support for integrated Hubble Timescape.
   timescape:
     enabled: false
+    # -- Experimental support for using Hubble Timescape with clustermesh.
+    # If enabled, all flow log will be sent to the `primary` Timescape instance.
+    clustermesh:
+      primary:
+        # The cluster ID of the cluster running the primary Hubble Timescape
+        # instance. All flows will be sent to that cluster.
+        # If the id is 0, the Timescape clustermesh feature is disabled.
+        id: 0
+        # The namespace in which the primary Timescape instance is running.
+        # Only relevant if Cilium is not installed into the same namespace on
+        # every cluster.
+        namespace: ""
+        # Whether to create the namespace the primary Timescape instance is
+        # running in.
+        createNamespace: false
     persistence:
       # -- Enables persistent storage for Hubble Timescape using a PVC. If
       # disabled, timescape will run on an ephemeral disk and all flows will be

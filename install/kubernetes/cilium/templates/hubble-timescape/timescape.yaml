@@ -18,21 +18,37 @@ app.kubernetes.io/component: hubble-timescape
 {{- end }}
 
 {{ if .Values.hubble.timescape.enabled }}
+
+{{- if and
+  .Values.hubble.timescape.clustermesh.primary.namespace
+  .Values.hubble.timescape.clustermesh.primary.createNamespace
+  (not (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id)))
+}}
 ---
 apiVersion: v1
-kind: ServiceAccount
+kind: Namespace
 metadata:
-  name: "hubble-timescape"
-  namespace: {{ include "cilium.namespace" . }}
-  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
+  name: {{ .Values.hubble.timescape.clustermesh.primary.namespace }}
+{{- end }}
 ---
 # Service exposing the Timescape server and ingester push API
 apiVersion: v1
 kind: Service
 metadata:
   name: hubble-timescape
+  {{- if .Values.hubble.timescape.clustermesh.primary.namespace }}
+  namespace: {{ .Values.hubble.timescape.clustermesh.primary.namespace }}
+  {{- else }}
   namespace: {{ include "cilium.namespace" . }}
+  {{- end }}
   labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
+  {{- if .Values.hubble.timescape.clustermesh.primary.id }}
+  annotations:
+    service.cilium.io/global: "true"
+    {{- if not (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id)) }}
+    service.cilium.io/shared: "false"
+    {{- end }}
+  {{- end }}
 spec:
   type: ClusterIP
   ports:
@@ -72,6 +88,17 @@ spec:
     k8s-app: hubble-timescape
     app.kubernetes.io/name: hubble-timescape
     app.kubernetes.io/part-of: cilium
+{{- if or
+  (not .Values.hubble.timescape.clustermesh.primary.id)
+  (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "hubble-timescape"
+  namespace: {{ include "cilium.namespace" . }}
+  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
 ---
 # Required for the StatefulSet
 apiVersion: v1
@@ -636,6 +663,7 @@ spec:
                 port:
                   name: ui
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

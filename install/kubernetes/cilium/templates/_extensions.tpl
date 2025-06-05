@@ -87,6 +87,10 @@ Allow packagers to add extra configuration to certgen.
 {{- define "certgen.config.extra" -}}
 {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
 {{- $certValidityStr := printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
+    {{- if or
+      (not .Values.hubble.timescape.clustermesh.primary.id)
+      (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+    }}
     - name: hubble-timescape-server-certs
       namespace: {{ include "cilium.namespace" . }}
       commonName: "hubble-timescape"
@@ -109,6 +113,7 @@ Allow packagers to add extra configuration to certgen.
       - server auth
       - client auth # needed for grpc health probe
       validity: {{ $certValidityStr }}
+    {{- end }}
     - name: hubble-timescape-client-certs
       namespace: {{ include "cilium.namespace" . }}
       commonName: "hubble-timescape-client"
