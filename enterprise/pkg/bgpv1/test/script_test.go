@@ -54,13 +54,18 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
+	k8sVersion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -90,6 +95,7 @@ const (
 func TestScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
+	k8sVersion.Force(k8sTestutils.DefaultVersion)
 
 	// set test environment variables
 	envVars := []string{"PATH=" + os.Getenv("PATH")}
@@ -99,11 +105,9 @@ func TestScript(t *testing.T) {
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var (
-			err           error
-			bgpMgr        agent.BGPRouterManager
-			fakeClientSet *client.FakeClientset
-			egwMgrMock    *egwManagerMock
-			svcHcMgrMock  *serviceHealthCheckManagerMock
+			err        error
+			bgpMgr     agent.BGPRouterManager
+			egwMgrMock *egwManagerMock
 		)
 
 		// parse the shebang arguments in the script
@@ -130,7 +134,12 @@ func TestScript(t *testing.T) {
 		h := ciliumhive.New(
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
+			daemonk8s.TablesCell,
 			metrics.Cell,
+			lbcell.Cell,
+			maglev.Cell,
+			cell.Provide(source.NewSources),
+			cell.Config(loadbalancer.TestConfig{}),
 
 			// OSS BGP cell
 			bgpv1.Cell,
@@ -148,24 +157,23 @@ func TestScript(t *testing.T) {
 				tables.NewDeviceTable,
 				tables.NewNeighborTable,
 				tables.NewRouteTable,
+				tables.NewNodeAddressTable,
 				bfdtypes.NewBFDPeersTable,
 
 				statedb.RWTable[*tables.Route].ToTable,
 				statedb.RWTable[*tables.Device].ToTable,
 				statedb.RWTable[*tables.Neighbor].ToTable,
+				statedb.RWTable[tables.NodeAddress].ToTable,
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
 			),
 			cell.Invoke(statedb.RegisterTable[*tables.Route]),
 			cell.Invoke(statedb.RegisterTable[*tables.Device]),
 			cell.Invoke(statedb.RegisterTable[*tables.Neighbor]),
+			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			cell.Invoke(statedb.RegisterTable[*bfdtypes.BFDPeerStatus]),
 			cell.Provide(func(sig *signaler.BGPCPSignaler) egressgatewayha.EgressIPsProvider {
 				egwMgrMock = newEGWManagerMock(sig)
 				return egwMgrMock
-			}),
-			cell.Provide(func() service.ServiceHealthCheckManager {
-				svcHcMgrMock = newServiceHealthCheckManagerMock()
-				return svcHcMgrMock
 			}),
 
 			// SRv6 dependencies
@@ -191,6 +199,10 @@ func TestScript(t *testing.T) {
 					BGPSecretsNamespace:       testSecretsNamespace,
 					BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
 					IPAM:                      *useIPAM,
+					KubeProxyReplacement:      option.KubeProxyReplacementTrue,
+					EnableNodePort:            true,
+					EnableIPv4:                true,
+					EnableIPv6:                true,
 					EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
 						EnableEnterpriseBGPControlPlane: true,
 						EnableBFD:                       true,
@@ -212,9 +224,13 @@ func TestScript(t *testing.T) {
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				bgpMgr = m
 			}),
-			cell.Invoke(func(cs *client.FakeClientset) {
-				fakeClientSet = cs
-			}),
+
+			cell.Provide(
+				func() *egwManagerMock {
+					return egwMgrMock
+				},
+				BGPTestScriptCmds,
+			),
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true
@@ -240,7 +256,6 @@ func TestScript(t *testing.T) {
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(commands.BGPScriptCmds(bgpMgr)))
-		maps.Insert(cmds, maps.All(BGPTestScriptCmds(fakeClientSet, egwMgrMock, svcHcMgrMock)))
 
 		return &script.Engine{
 			Cmds: cmds,

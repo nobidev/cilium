@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,16 +27,16 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 )
 
 // BGPTestScriptCmds are special purpose script commands for BGP Control Plane tests.
-func BGPTestScriptCmds(clientSet *client.FakeClientset, egwMgr *egwManagerMock, svcHcMgrMock *serviceHealthCheckManagerMock) map[string]script.Cmd {
-	return map[string]script.Cmd{
-		"bgptest/sync-oss-resources":  SyncOSSResourcesCommand(clientSet),
-		"bgptest/upsert-egw-policy":   UpsertEGWPolicyCommand(egwMgr),
-		"bgptest/update-svc-backends": UpdateSvcBackendsCommand(svcHcMgrMock),
-	}
+func BGPTestScriptCmds(clientSet *client.FakeClientset, writer *writer.Writer, egwMgr *egwManagerMock) hive.ScriptCmdsOut {
+	return hive.NewScriptCmds(map[string]script.Cmd{
+		"bgptest/sync-oss-resources": SyncOSSResourcesCommand(clientSet),
+		"bgptest/upsert-egw-policy":  UpsertEGWPolicyCommand(egwMgr),
+		"bgptest/set-backend-health": SetBackendHealthCommand(writer),
+	})
 }
 
 // UpsertEGWPolicyCommand upserts mocked Egress Gateway Policy data for the test.
@@ -87,55 +88,43 @@ func UpsertEGWPolicyCommand(egwMgr *egwManagerMock) script.Cmd {
 	)
 }
 
-// UpdateSvcBackendsCommand updates backend count for the provided service in the test.
-func UpdateSvcBackendsCommand(svcHcMgrMock *serviceHealthCheckManagerMock) script.Cmd {
+func SetBackendHealthCommand(writer *writer.Writer) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
-			Summary: "Update service backend count in the test",
-			Args:    "namespace/name frontend-addr backend-count",
+			Summary: "Set the number of healthy backends for given frontend",
+			Args:    "frontend-addr backend-count",
 			Detail: []string{
-				"Updates service backend count in the mock service health check manager.",
+				"Look up the frontend and iterate over its backends setting the first",
+				"<backend-count> as healthy and rest as unhealthy.",
 				"",
-				"'namespace/name' is the namespace and the name of the service.",
 				"'frontend-addr' is the  frontend address of the service in the L3n4Addr format, e.g. '172.16.1.1:80/TCP'.",
 				"'backend-count' is the number of healthy backends that should be reported by the mock service health check manager.",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 3 {
-				return nil, fmt.Errorf("invalid command format, should be: 'bgptest/update-svc-backends namespace/name frontend backends'")
-			}
-			upd := service.HealthUpdateSvcInfo{
-				SvcType: lb.SVCTypeLoadBalancer,
-			}
-			// namespace/name
-			svcNameParts := strings.Split(args[0], "/")
-			if len(svcNameParts) < 2 {
-				return nil, fmt.Errorf("invalid service name format: %s", args[0])
-			}
-			upd.Name = lb.ServiceName{
-				Namespace: svcNameParts[0],
-				Name:      svcNameParts[1],
-			}
-			// frontend-addr
-			addr := &lb.L3n4Addr{}
-			err := addr.ParseFromString(args[1])
+			var addr lb.L3n4Addr
+			err := addr.ParseFromString(args[0])
 			if err != nil {
-				return nil, fmt.Errorf("invalid frontend address: %s", args[1])
+				return nil, fmt.Errorf("invalid frontend address: %s", args[0])
 			}
-			upd.Addr = *addr
-			// backend-count
-			backendCount, err := strconv.Atoi(args[2])
+			backendCount, err := strconv.Atoi(args[1])
 			if err != nil {
-				return nil, fmt.Errorf("invalid backend count: %s", args[2])
+				return nil, fmt.Errorf("invalid backend count: %s", args[1])
 			}
-			for i := 0; i < backendCount; i++ {
-				upd.ActiveBackends = append(upd.ActiveBackends, lb.LegacyBackend{
-					ID: lb.BackendID(i),
-				})
+
+			txn := writer.WriteTxn()
+
+			fe, _, found := writer.Frontends().Get(txn, lb.FrontendByAddress(addr))
+			if !found {
+				return nil, fmt.Errorf("frontend %s not found", addr.StringWithProtocol())
 			}
-			s.Logf("Updating service backends: %+v", upd)
-			svcHcMgrMock.svcHealthUpdate(upd)
+
+			for be := range fe.Backends {
+				writer.UpdateBackendHealth(txn, fe.ServiceName, be.Address, backendCount > 0)
+				backendCount--
+			}
+
+			txn.Commit()
 			return nil, nil
 		},
 	)

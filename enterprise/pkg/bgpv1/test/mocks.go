@@ -11,7 +11,6 @@
 package test
 
 import (
-	"context"
 	"net/netip"
 
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -19,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 // egwManagerMock is a mock implementation of EGWIPsProvider ( EGWManager ). This is
@@ -61,23 +59,4 @@ func (e *egwManagerMock) AdvertisedEgressIPs(policySelector *slimv1.LabelSelecto
 	}
 
 	return result, nil
-}
-
-type serviceHealthCheckManagerMock struct {
-	callback service.HealthUpdateCallback
-}
-
-func newServiceHealthCheckManagerMock() *serviceHealthCheckManagerMock {
-	return &serviceHealthCheckManagerMock{}
-}
-
-func (h *serviceHealthCheckManagerMock) svcHealthUpdate(svcInfo service.HealthUpdateSvcInfo) {
-	h.callback(svcInfo)
-}
-
-// Subscribe allows subscribing to service health check related events.
-// The subscriber will receive updates on the callback as long as the passed
-// context is not done.
-func (h *serviceHealthCheckManagerMock) Subscribe(ctx context.Context, callback service.HealthUpdateCallback) {
-	h.callback = callback
 }

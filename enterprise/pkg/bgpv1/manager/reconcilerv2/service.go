@@ -20,6 +20,8 @@ import (
 	"strconv"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,7 +42,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 	"github.com/cilium/cilium/pkg/lock"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
@@ -61,6 +62,7 @@ type ServiceReconciler struct {
 	logger  logrus.FieldLogger
 	sLogger *slog.Logger
 
+	jobs         job.Group
 	cfg          Config
 	signaler     *signaler.BGPCPSignaler
 	upgrader     paramUpgrader
@@ -70,8 +72,8 @@ type ServiceReconciler struct {
 	metadata     map[string]ServiceReconcilerMetadata
 
 	// service health-checker
-	healthChecker          service.ServiceHealthCheckManager
-	healthCheckerCtxCancel context.CancelFunc
+	db        *statedb.DB
+	frontends statedb.Table[*loadbalancer.Frontend]
 
 	// internal service health state
 	svcHealth        map[k8s.ServiceID]svcFrontendHealthMap // local cache of service health metadata
@@ -88,22 +90,24 @@ type ServiceReconcilerIn struct {
 	cell.In
 	Lifecycle cell.Lifecycle
 
-	Cfg                Config
-	BGPConfig          config.Config
-	Logger             logrus.FieldLogger // TODO: migrate to slog
-	SLogger            *slog.Logger
-	Signaler           *signaler.BGPCPSignaler
-	Upgrader           paramUpgrader
-	PeerAdvert         *IsovalentAdvertisement
-	SvcDiffStore       store.DiffStore[*slim_corev1.Service]
-	EPDiffStore        store.DiffStore[*k8s.Endpoints]
-	HealthCheckManager service.ServiceHealthCheckManager
+	JobGroup     job.Group
+	DB           *statedb.DB
+	Frontends    statedb.Table[*loadbalancer.Frontend]
+	Cfg          Config
+	BGPConfig    config.Config
+	Logger       logrus.FieldLogger // TODO: migrate to slog
+	SLogger      *slog.Logger
+	Signaler     *signaler.BGPCPSignaler
+	Upgrader     paramUpgrader
+	PeerAdvert   *IsovalentAdvertisement
+	SvcDiffStore store.DiffStore[*slim_corev1.Service]
+	EPDiffStore  store.DiffStore[*k8s.Endpoints]
 }
 
 // svcFrontendHealth keeps health information about a service frontend, as received from the service health-checker
 type svcFrontendHealth struct {
-	frontendAddr   loadbalancer.L3n4Addr        // frontend address (one service can have multiple frontend addresses)
-	activeBackends []loadbalancer.LegacyBackend // current list of active (healthy) backends of the frontend
+	frontendAddr        loadbalancer.L3n4Addr // frontend address (one service can have multiple frontend addresses)
+	activeBackendsCount int
 }
 
 // svcFrontendHealthMap is a map of service frontend health information keyed by the frontend address
@@ -126,7 +130,9 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		sLogger:          in.SLogger.With(bgptypes.ReconcilerLogField, "Service"),
 		cfg:              in.Cfg,
 		signaler:         in.Signaler,
-		healthChecker:    in.HealthCheckManager,
+		db:               in.DB,
+		frontends:        in.Frontends,
+		jobs:             in.JobGroup,
 		upgrader:         in.Upgrader,
 		peerAdvert:       in.PeerAdvert,
 		svcDiffStore:     in.SvcDiffStore,
@@ -135,7 +141,14 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		svcHealth:        make(map[k8s.ServiceID]svcFrontendHealthMap),
 		svcHealthChanged: make(map[string]map[k8s.ServiceID]struct{}),
 	}
-	in.Lifecycle.Append(r)
+
+	// start observing frontends for backend health changes.
+	if r.cfg.SvcHealthCheckingEnabled && r.jobs != nil {
+		r.jobs.Add(job.Observer[statedb.Change[*loadbalancer.Frontend]](
+			"service-health",
+			r.frontendChanged,
+			statedb.Observable[*loadbalancer.Frontend](r.db, r.frontends)))
+	}
 
 	return ServiceReconcilerOut{
 		Reconciler: r,
@@ -148,35 +161,6 @@ func (r *ServiceReconciler) Name() string {
 
 func (r *ServiceReconciler) Priority() int {
 	return ServiceReconcilerPriority
-}
-
-// Start is a hive lifecycle hook called when running the hive.
-func (r *ServiceReconciler) Start(ctx cell.HookContext) error {
-	r.mutex.Lock()
-
-	// subscribe to service health-checker updates
-	if r.cfg.SvcHealthCheckingEnabled && r.healthChecker != nil {
-		// create a new context that will be valid for the whole controller lifetime
-		var healthCheckerCtx context.Context
-		healthCheckerCtx, r.healthCheckerCtxCancel = context.WithCancel(context.Background())
-		r.mutex.Unlock()
-		r.healthChecker.Subscribe(healthCheckerCtx, r.ServiceHealthUpdate)
-	} else {
-		r.mutex.Unlock()
-	}
-	return nil
-}
-
-// Stop is a hive lifecycle hook called when stopping the hive.
-func (r *ServiceReconciler) Stop(ctx cell.HookContext) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	// unsubscribe from service health-checker
-	if r.cfg.SvcHealthCheckingEnabled && r.healthCheckerCtxCancel != nil {
-		r.healthCheckerCtxCancel()
-	}
-	return nil
 }
 
 // Init is called when a new BGP instance is being initialized.
@@ -226,53 +210,79 @@ func (r *ServiceReconciler) setMetadata(i *EnterpriseBGPInstance, metadata Servi
 }
 
 // ServiceHealthUpdate is called by the service health-checker upon changes in service health based on backend health-checking.
-func (r *ServiceReconciler) ServiceHealthUpdate(svcInfo service.HealthUpdateSvcInfo) {
+func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.Change[*loadbalancer.Frontend]) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if !r.cfg.SvcHealthCheckingEnabled {
-		return // health-checker integration is disabled, nothing to do
+	fe := change.Object
+
+	if fe.Type != loadbalancer.SVCTypeLoadBalancer || fe.ServiceName.Name == "" {
+		return nil // ignore updates for non-LB svcFrontendsHealth and unknown services
 	}
-	if svcInfo.SvcType != loadbalancer.SVCTypeLoadBalancer || svcInfo.Name.Name == "" {
-		return // ignore updates for non-LB svcFrontendsHealth and unknown services
-	}
-	if svcInfo.Addr.Scope != loadbalancer.ScopeExternal {
+	if fe.Address.Scope != loadbalancer.ScopeExternal {
 		// We are only interested in updates with external address lookup scope.
 		// In case of ExternalTraficPolicy == local, these contain only local endpoints, otherwise they contain all endpoints.
-		return
+		return nil
 	}
 
-	svcID := k8s.ServiceID{Name: svcInfo.Name.Name, Namespace: svcInfo.Name.Namespace, Cluster: svcInfo.Name.Cluster}
-
-	r.logger.WithFields(logrus.Fields{
-		types.ServiceIDLogField:      svcID,
-		types.ServiceAddressLogField: svcInfo.Addr,
-		types.BackendCountLogField:   len(svcInfo.ActiveBackends),
-	}).Debug("Service health update")
+	svcID := k8s.ServiceID{
+		Name:      fe.ServiceName.Name,
+		Namespace: fe.ServiceName.Namespace,
+		Cluster:   fe.ServiceName.Cluster,
+	}
 
 	svcFrontendsHealth, found := r.svcHealth[svcID]
-	if !found {
-		svcFrontendsHealth = make(svcFrontendHealthMap)
-		r.svcHealth[svcID] = svcFrontendsHealth
-	}
-
-	frontendHealth := svcFrontendsHealth[svcInfo.Addr]
-	if frontendHealth == nil {
-		frontendHealth = &svcFrontendHealth{
-			frontendAddr: svcInfo.Addr,
+	if change.Deleted {
+		r.logger.WithFields(logrus.Fields{
+			types.ServiceIDLogField:      svcID,
+			types.ServiceAddressLogField: fe.Address,
+		}).Debug("Service health update: frontend deleted")
+		if found {
+			// Due to the service node selector annotation we cannot just delete the frontend health,
+			// but rather just need to give it zero backends.
+			if frontendHealth := svcFrontendsHealth[fe.Address]; frontendHealth != nil {
+				frontendHealth.activeBackendsCount = 0
+			}
 		}
-		svcFrontendsHealth[svcInfo.Addr] = frontendHealth
-	}
+	} else {
+		if !found {
+			svcFrontendsHealth = make(svcFrontendHealthMap)
+			r.svcHealth[svcID] = svcFrontendsHealth
+		}
 
-	// update cache of active backends
-	frontendHealth.activeBackends = svcInfo.ActiveBackends
+		backendsCount := 0
+		for be := range fe.Backends {
+			if !be.Unhealthy && be.State == loadbalancer.BackendStateActive {
+				backendsCount++
+			}
+		}
+
+		r.logger.WithFields(logrus.Fields{
+			types.ServiceIDLogField:      svcID,
+			types.ServiceAddressLogField: fe.Address,
+			types.BackendCountLogField:   backendsCount,
+		}).Debug("Service health update")
+
+		frontendHealth := svcFrontendsHealth[fe.Address]
+		if frontendHealth == nil {
+			frontendHealth = &svcFrontendHealth{
+				frontendAddr: fe.Address,
+			}
+			svcFrontendsHealth[fe.Address] = frontendHealth
+		}
+
+		// update cache of active backends
+		frontendHealth.activeBackendsCount = backendsCount
+	}
 
 	// mark the service for reconciliation
 	for _, instanceMap := range r.svcHealthChanged {
 		instanceMap[svcID] = struct{}{}
 	}
+
 	// trigger a reconciliation
 	r.signaler.Event(struct{}{})
+	return nil
 }
 
 // Reconcile mirrors the OSS reconciler's Reconcile() code path but calls enterprise-specific reconcileServices().
@@ -736,7 +746,7 @@ func (r *ServiceReconciler) svcFrontendHealthy(svc *slim_corev1.Service, fronten
 		}
 		// if for any frontend we do not have enough backends, we declare the service as not healthy
 		// (e.g. in case of two service ports: one healthy and one unhealthy, the service is considered unhealthy)
-		if len(fe.activeBackends) < threshold {
+		if fe.activeBackendsCount < threshold {
 			return false
 		}
 	}
