@@ -532,6 +532,8 @@ func (s *bfdSession) handleIncomingControlPacket(pkt *ControlPacket) {
 	sessionStateChanged := false
 	// tracks whether status change notification should be sent
 	notifyStatusChange := false
+	// tracks old remote's state
+	oldRemote := s.remote
 
 	// keep remote state for informational purposes
 	s.remote.diagnostic = types.BFDDiagnostic(pkt.Diagnostic)
@@ -552,6 +554,10 @@ func (s *bfdSession) handleIncomingControlPacket(pkt *ControlPacket) {
 
 	// Set bfd.RemoteMinRxInterval to the value of Required Min RX Interval.
 	s.remote.requiredMinRxInterval = uint32(pkt.RequiredMinRxInterval)
+
+	if s.remote != oldRemote {
+		notifyStatusChange = true // notify status change upon remote's state changes
+	}
 
 	// If a Poll Sequence is being transmitted by the local system and
 	// the Final (F) bit in the received packet is set, the Poll Sequence

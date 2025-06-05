@@ -151,7 +151,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateInit)
-	assertStateTransition(t, f.statusCh, types.BFDStateInit)
+	assertEventualState(t, f.statusCh, types.BFDStateInit, types.BFDDiagnosticNoDiagnostic)
 	require.EqualValues(t, types.BFDDiagnosticNoDiagnostic, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -195,7 +195,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateAdminDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateDown)
-	assertStateTransition(t, f.statusCh, types.BFDStateDown)
+	assertEventualState(t, f.statusCh, types.BFDStateDown, types.BFDDiagnosticNeighborSignaledSessionDown)
 	require.EqualValues(t, types.BFDDiagnosticNeighborSignaledSessionDown, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -212,7 +212,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateInit)
-	assertStateTransition(t, f.statusCh, types.BFDStateInit)
+	assertEventualState(t, f.statusCh, types.BFDStateInit, types.BFDDiagnosticNoDiagnostic)
 	require.EqualValues(t, types.BFDDiagnosticNoDiagnostic, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -248,7 +248,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 
 	// L: Up (R: none-timeout) -> Down
 	outPkt = waitEgressPacketWithState(t, f.session, nil, layers.BFDStateDown)
-	assertStateTransition(t, f.statusCh, types.BFDStateDown)
+	assertEventualState(t, f.statusCh, types.BFDStateDown, types.BFDDiagnosticControlDetectionTimeExpired)
 	require.EqualValues(t, types.BFDDiagnosticControlDetectionTimeExpired, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -275,7 +275,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateDown)
-	assertStateTransition(t, f.statusCh, types.BFDStateDown)
+	assertEventualState(t, f.statusCh, types.BFDStateDown, types.BFDDiagnosticNeighborSignaledSessionDown)
 	require.EqualValues(t, types.BFDDiagnosticNeighborSignaledSessionDown, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -295,7 +295,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateAdminDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateDown)
-	assertStateTransition(t, f.statusCh, types.BFDStateDown)
+	assertEventualState(t, f.statusCh, types.BFDStateDown, types.BFDDiagnosticNeighborSignaledSessionDown)
 	require.EqualValues(t, types.BFDDiagnosticNeighborSignaledSessionDown, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -312,7 +312,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateDown)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateInit)
-	assertStateTransition(t, f.statusCh, types.BFDStateInit)
+	assertEventualState(t, f.statusCh, types.BFDStateInit, types.BFDDiagnosticNoDiagnostic)
 	require.EqualValues(t, types.BFDDiagnosticNoDiagnostic, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, slowDesiredMinTxInterval, outPkt.DesiredMinTxInterval)
@@ -322,7 +322,7 @@ func Test_BFDSessionStateMachine(t *testing.T) {
 	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateUp)
 	f.session.inPacketsCh <- inPkt
 	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateUp)
-	assertStateTransition(t, f.statusCh, types.BFDStateUp)
+	assertEventualState(t, f.statusCh, types.BFDStateUp, types.BFDDiagnosticNoDiagnostic)
 	require.EqualValues(t, types.BFDDiagnosticNoDiagnostic, outPkt.Diagnostic)
 	require.EqualValues(t, f.localDiscriminator, outPkt.MyDiscriminator)
 	require.EqualValues(t, f.sessionCfg.TransmitInterval/time.Microsecond, outPkt.DesiredMinTxInterval)
@@ -460,7 +460,7 @@ func Test_BFDSessionUpdate(t *testing.T) {
 	f.session.Lock()
 	require.EqualValues(t, inPkt.DesiredMinTxInterval, f.session.remote.desiredMinTxInterval)
 	require.EqualValues(t, inPkt.RequiredMinRxInterval, f.session.remote.requiredMinRxInterval)
-	require.EqualValues(t, inPkt.DetectMultiplier, f.session.remote.detectMultiplier)
+	require.EqualValues(t, inPkt.MyDiscriminator, f.session.remote.discriminator)
 	f.session.Unlock()
 
 	// Remote continues in Poll sequence -> send Final
@@ -489,6 +489,15 @@ func Test_BFDSessionUpdate(t *testing.T) {
 	require.EqualValues(t, inPkt.DesiredMinTxInterval, f.session.remote.desiredMinTxInterval)
 	require.EqualValues(t, inPkt.RequiredMinRxInterval, f.session.remote.requiredMinRxInterval)
 	require.EqualValues(t, inPkt.DetectMultiplier, f.session.remote.detectMultiplier)
+	f.session.Unlock()
+
+	// Remote changes RequiredMinEchoRxInterval - update in remote state
+	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateUp)
+	inPkt.RequiredMinEchoRxInterval = 10000
+	f.session.inPacketsCh <- inPkt
+	waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateUp)
+	f.session.Lock()
+	require.EqualValues(t, inPkt.RequiredMinEchoRxInterval, f.session.remote.requiredMinEchoRxInterval)
 	f.session.Unlock()
 
 	// Session update from our side -> send Poll
