@@ -580,11 +580,11 @@ func (r *bfdReconciler) updatePeer(peer *peerConfig) error {
 
 		// connection-related config change, we need to re-create the peer
 		logger.Debug("Re-creating BFD peer")
-		err := r.BFDServer.DeletePeer(existing)
+		err := r.deletePeer(r.configuredPeers[peer.key()])
 		if err != nil {
 			return fmt.Errorf("error deleting BFD peer: %w", err)
 		}
-		err = r.BFDServer.AddPeer(desired)
+		err = r.addPeer(peer)
 		if err != nil {
 			return fmt.Errorf("error creating BFD peer: %w", err)
 		}

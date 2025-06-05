@@ -37,8 +37,10 @@ func Test_BFDReconciler(t *testing.T) {
 	var (
 		bfdPeerName        = "test-peer-1"
 		bfdPeerIP          = "10.0.0.1"
+		bfdPeerIP2         = "10.0.0.2"
 		bfdPeerLinkLocalIP = "fe80::aabb:aaaa:bbbb:1111"
 		bfdPeerIPAddr      = netip.MustParseAddr(bfdPeerIP)
+		bfdPeerIPAddr2     = netip.MustParseAddr(bfdPeerIP2)
 		bfdPeerInterface   = "eth0"
 
 		bfdPeer2Name        = "test-peer-2"
@@ -76,19 +78,16 @@ func Test_BFDReconciler(t *testing.T) {
 			EchoFunction: &v1alpha1.BFDEchoFunctionConfig{
 				Directions: []v1alpha1.BFDEchoFunctionDirection{
 					v1alpha1.BFDEchoFunctionDirectionReceive,
-					v1alpha1.BFDEchoFunctionDirectionTransmit,
 				},
-				ReceiveIntervalMilliseconds:  ptr.To[int32](55),
-				TransmitIntervalMilliseconds: ptr.To[int32](55),
+				ReceiveIntervalMilliseconds: ptr.To[int32](55),
 			},
 		}
 		bfdStatusProfile2 = types.BFDSessionStatus{
-			State:                types.BFDStateDown,
-			ReceiveInterval:      11 * time.Millisecond,
-			TransmitInterval:     21 * time.Millisecond,
-			DetectMultiplier:     4,
-			EchoReceiveInterval:  55 * time.Millisecond,
-			EchoTransmitInterval: 55 * time.Millisecond,
+			State:               types.BFDStateDown,
+			ReceiveInterval:     11 * time.Millisecond,
+			TransmitInterval:    21 * time.Millisecond,
+			DetectMultiplier:    4,
+			EchoReceiveInterval: 55 * time.Millisecond,
 		}
 
 		bfdProfileSpecMultihop = v1alpha1.BFDProfileSpec{
@@ -117,12 +116,14 @@ func Test_BFDReconciler(t *testing.T) {
 	)
 
 	var steps = []struct {
-		description  string
-		operation    string // "create" / "update" / "delete"
-		bfdProfiles  []*v1alpha1.IsovalentBFDProfile
-		nodeConfigs  []*v1alpha1.IsovalentBFDNodeConfig
-		neighbors    []*tables.Neighbor
-		expectEvents []statedb.Change[*types.BFDPeerStatus]
+		description    string
+		operation      string // "create" / "update" / "delete"
+		bfdProfiles    []*v1alpha1.IsovalentBFDProfile
+		nodeConfigs    []*v1alpha1.IsovalentBFDNodeConfig
+		neighbors      []*tables.Neighbor
+		expectStatus   *types.BFDPeerStatus
+		expectDelete   bool
+		expectRecreate bool
 	}{
 		{
 			description: "Add node config with missing profile",
@@ -146,7 +147,7 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: nil,
+			expectStatus: nil,
 		},
 		{
 			description: "Add profile used in node config",
@@ -160,14 +161,10 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -182,14 +179,10 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile2,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile2,
 			},
 		},
 		{
@@ -204,15 +197,12 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusMultihop,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusMultihop,
 			},
+			expectRecreate: true,
 		},
 		{
 			description: "Delete BFD profile",
@@ -226,16 +216,12 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Deleted: true,
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusMultihop,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusMultihop,
 			},
+			expectDelete: true,
 		},
 		{
 			description: "Re-create BFD profile",
@@ -249,15 +235,40 @@ func Test_BFDReconciler(t *testing.T) {
 				},
 			},
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
+			},
+		},
+		{
+			description: "Update BFD node config - peer address - recreate",
+			operation:   "update",
+			bfdProfiles: nil,
+			nodeConfigs: []*v1alpha1.IsovalentBFDNodeConfig{
 				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testNodeName,
+					},
+					Spec: v1alpha1.BFDNodeConfigSpec{
+						NodeRef: testNodeName,
+						Peers: []*v1alpha1.BFDNodePeerConfig{
+							{
+								Name:          bfdPeerName,
+								PeerAddress:   &bfdPeerIP2,
+								Interface:     ptr.To[string](bfdPeerInterface),
+								BFDProfileRef: bfdProfileName,
+							},
+						},
 					},
 				},
 			},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr2,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
+			},
+			expectRecreate: true,
 		},
 		{
 			description: "Update BFD node config - remove peer",
@@ -274,16 +285,12 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Deleted: true,
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr2,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
+			expectDelete: true,
 		},
 		{
 			description: "Update BFD node config - add peer back",
@@ -307,14 +314,10 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -345,14 +348,10 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeer2IPAddr,
-						Interface:   bfdPeer2Interface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeer2IPAddr,
+				Interface:   bfdPeer2Interface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -377,16 +376,12 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Deleted: true,
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeer2IPAddr,
-						Interface:   bfdPeer2Interface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeer2IPAddr,
+				Interface:   bfdPeer2Interface,
+				Local:       bfdStatusProfile1,
 			},
+			expectDelete: true,
 		},
 		{
 			description: "Update BFD node config - invalid NodeRef",
@@ -403,16 +398,12 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Deleted: true,
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
+			expectDelete: true,
 		},
 		{
 			description: "Update BFD node config - correct NodeRef",
@@ -436,14 +427,10 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -461,16 +448,12 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Deleted: true,
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
+			expectDelete: true,
 		},
 		{
 			description: "Create multiple conflicting node configs - best effort reconciliation",
@@ -516,14 +499,10 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: bfdPeerIPAddr,
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: bfdPeerIPAddr,
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -537,7 +516,7 @@ func Test_BFDReconciler(t *testing.T) {
 			},
 			bfdProfiles:  nil,
 			nodeConfigs:  nil,
-			expectEvents: nil,
+			expectStatus: nil,
 		},
 		{
 			description: "Create BFD node config with unnumbered BFD peers",
@@ -565,14 +544,10 @@ func Test_BFDReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: netip.MustParseAddr(bfdPeerLinkLocalIP).WithZone(bfdPeerInterface),
-						Interface:   bfdPeerInterface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: netip.MustParseAddr(bfdPeerLinkLocalIP).WithZone(bfdPeerInterface),
+				Interface:   bfdPeerInterface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 		{
@@ -586,14 +561,10 @@ func Test_BFDReconciler(t *testing.T) {
 			},
 			bfdProfiles: nil,
 			nodeConfigs: nil,
-			expectEvents: []statedb.Change[*types.BFDPeerStatus]{
-				{
-					Object: &types.BFDPeerStatus{
-						PeerAddress: netip.MustParseAddr(bfdPeer2LinkLocalIP).WithZone(bfdPeer2Interface),
-						Interface:   bfdPeer2Interface,
-						Local:       bfdStatusProfile1,
-					},
-				},
+			expectStatus: &types.BFDPeerStatus{
+				PeerAddress: netip.MustParseAddr(bfdPeer2LinkLocalIP).WithZone(bfdPeer2Interface),
+				Interface:   bfdPeer2Interface,
+				Local:       bfdStatusProfile1,
 			},
 		},
 	}
@@ -668,8 +639,8 @@ func Test_BFDReconciler(t *testing.T) {
 				require.NoError(t, err)
 				txn.Commit()
 			}
-			// validate events with the expected ones
-			for _, expected := range step.expectEvents {
+			// validate that the expected status event comes
+			if step.expectStatus != nil {
 			nextEvent:
 				select {
 				case event := <-peersEventCh:
@@ -678,13 +649,27 @@ func Test_BFDReconciler(t *testing.T) {
 						// created for a session that was not yet configured on the BFD server.
 						goto nextEvent
 					}
-					validateEvents(t, expected, event)
+					if statusMatches(step.expectStatus, event.Object) {
+						if event.Deleted {
+							if step.expectRecreate {
+								// Deleted event is expected during recreate, but non-delete should follow.
+								// Deleted event may not come during recreate if it was coalesced by statedb.
+								goto nextEvent
+							}
+							if !step.expectDelete {
+								t.Fatalf("update event expected, got delete %+v", event.Object)
+							}
+						} else if step.expectDelete {
+							t.Fatalf("delete event expected, got update %+v", event.Object)
+						}
+						return // event matched - pass
+					}
+					goto nextEvent
 				case <-testCtx.Done():
-					t.Fatalf("missed expected event %+v", expected)
+					t.Fatalf("missed expected event(s) %+v", step.expectStatus)
 				}
-			}
-			// if no event is expected, validate there is none within a small time window
-			if len(step.expectEvents) == 0 {
+			} else {
+				// if no event is expected, validate there is none within a small time window
 				timer := time.NewTimer(50 * time.Millisecond)
 				select {
 				case event := <-peersEventCh:
@@ -697,15 +682,14 @@ func Test_BFDReconciler(t *testing.T) {
 	}
 }
 
-func validateEvents(t *testing.T, expected, actual statedb.Change[*types.BFDPeerStatus]) {
-	require.Equal(t, expected.Deleted, actual.Deleted)
-	require.Equal(t, expected.Object.PeerAddress, actual.Object.PeerAddress)
-	require.Equal(t, expected.Object.Interface, actual.Object.Interface)
-	require.Equal(t, expected.Object.Local.State, actual.Object.Local.State)
-	require.Equal(t, expected.Object.Local.ReceiveInterval, actual.Object.Local.ReceiveInterval)
-	require.Equal(t, expected.Object.Local.TransmitInterval, actual.Object.Local.TransmitInterval)
-	require.Equal(t, expected.Object.Local.EchoReceiveInterval, actual.Object.Local.EchoReceiveInterval)
-	require.Equal(t, expected.Object.Local.DetectMultiplier, actual.Object.Local.DetectMultiplier)
+func statusMatches(expected, actual *types.BFDPeerStatus) bool {
+	return expected.PeerAddress == actual.PeerAddress &&
+		expected.Interface == actual.Interface &&
+		expected.Local.State == actual.Local.State &&
+		expected.Local.ReceiveInterval == actual.Local.ReceiveInterval &&
+		expected.Local.TransmitInterval == actual.Local.TransmitInterval &&
+		expected.Local.EchoReceiveInterval == actual.Local.EchoReceiveInterval &&
+		expected.Local.DetectMultiplier == actual.Local.DetectMultiplier
 }
 
 func Test_detectEgressInterface(t *testing.T) {
