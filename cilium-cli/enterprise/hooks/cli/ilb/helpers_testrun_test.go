@@ -2,28 +2,55 @@ package ilb
 
 import (
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func Test_testsToExecute(t *testing.T) {
+	// Override global var for testing
+	Tests = []func(t T){
+		TestRequestedVIP,
+		TestSharedVIP,
+		TestBGPHealthCheck,
+		TestBGPHealthCheckSubset,
+		TestHTTPAndT2HealthChecks,
+		TestHTTP2,
+		TestHTTPPath,
+		TestHTTPRoutes,
+	}
+
 	testCases := []struct {
-		flagRun []string
+		flagRun       []string
+		expectedTests []string
 	}{
 		{
 			flagRun: []string{},
+			expectedTests: []string{
+				"TestRequestedVIP",
+				"TestSharedVIP",
+				"TestBGPHealthCheck",
+				"TestBGPHealthCheckSubset",
+				"TestHTTPAndT2HealthChecks",
+				"TestHTTP2",
+				"TestHTTPPath",
+				"TestHTTPRoutes",
+			},
 		},
 		{
 			flagRun: []string{
 				"TestRequestedVIP",
-				"!TestLabelBasedBackend",
-				"!^TestTCPProxyT1Only$",
-				"!TestTCPProxyAuto$",
-				"!^TestUDPProxyT1Only",
-				"!TestUDPProxyAuto$",
-				"^TestTCPProxyT1T2$",
+				"!TestSharedVIP",
+				"!^TestBGPHealthCheck",
+				"!^TestBGPHealthCheckSubset$",
+				"^TestHTTP",
+			},
+			expectedTests: []string{
+				"TestRequestedVIP",
+				"TestHTTPAndT2HealthChecks",
+				"TestHTTP2",
+				"TestHTTPPath",
+				"TestHTTPRoutes",
 			},
 		},
 	}
@@ -31,36 +58,12 @@ func Test_testsToExecute(t *testing.T) {
 	for _, tt := range testCases {
 		FlagRun = tt.flagRun
 		// function to test
-		actual, err := NewLBTestRun(t.Context()).testsToExecute(t.Context())
+		actualTests, err := NewLBTestRun(t.Context()).testsToExecute(t.Context())
 
 		require.NoError(t, err)
-
-		// if no flags provided we should have all the tests
-		if len(tt.flagRun) == 0 {
-			require.Len(t, actual, len(Tests))
-			continue
-		}
-
-		for _, expectedRegexp := range tt.flagRun {
-			expected := removeRegexpChars(expectedRegexp)
-
-			// check that test has been filetered out
-			if strings.HasPrefix(expectedRegexp, "!") {
-				for _, actualTest := range actual {
-					require.NotEqual(t, expected, actualTest.Name())
-				}
-				continue
-			}
-
-			// check that test presents
-			found := false
-			for _, actualTest := range actual {
-				if actualTest.Name() == expected {
-					found = true
-					break
-				}
-			}
-			require.True(t, found)
+		require.Len(t, actualTests, len(tt.expectedTests))
+		for i := range actualTests {
+			require.Equal(t, tt.expectedTests[i], actualTests[i].Name())
 		}
 	}
 }
@@ -98,8 +101,4 @@ func Test_runAndSkipRegexps(t *testing.T) {
 		require.Equal(t, tt.runExpected, runActual)
 		require.Equal(t, tt.skipExpected, skipActual)
 	}
-}
-
-func removeRegexpChars(s string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimSuffix(s, "$"), "^"), "!")
 }
