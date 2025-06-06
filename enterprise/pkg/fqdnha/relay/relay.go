@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -37,17 +38,15 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdnha/relay")
-
 type FQDNProxyAgentServer struct {
 	pb.UnimplementedFQDNProxyAgentServer
 
+	log    *slog.Logger
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -71,6 +70,7 @@ type FQDNProxyAgentServer struct {
 type params struct {
 	cell.In
 
+	Logger            *slog.Logger
 	DaemonPromise     promise.Promise[*cmd.Daemon]
 	RestorerPromise   promise.Promise[endpointstate.Restorer]
 	IPCacheGetter     IPCacheGetter
@@ -97,8 +97,10 @@ func (s *FQDNProxyAgentServer) ProvideMappings(stream pb.FQDNProxyAgent_ProvideM
 			return err
 		}
 
-		addr := net.IP(mapping.IP)
-		log.Debugf("%s -> %s", mapping.FQDN, addr.String())
+		s.log.Debug("Mapped address",
+			logfields.FQDN, mapping.FQDN,
+			logfields.IPAddr, net.IP(mapping.IP).String(),
+		)
 	}
 }
 
@@ -154,19 +156,19 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 
 	serverAddrPort, err := netip.ParseAddrPort(notification.ServerAddr)
 	if err != nil {
-		log.Errorf("Failed to parse server address and port: %s", err)
+		s.log.Error("Failed to parse server address and port", logfields.Error, err)
 		return &pb.Empty{}, err
 	}
 
 	endpoint, err := s.endpointManager.Lookup(strconv.Itoa(int(notification.Endpoint.ID)))
 	if err != nil {
-		log.WithField("Endpoint ID", notification.Endpoint.ID).Errorf("Failed to retrieve endpoint")
+		s.log.Error("Failed to retrieve endpoint", logfields.EndpointID, notification.Endpoint.ID)
 	}
 
 	dnsMsg := &dns.Msg{}
 	err = dnsMsg.Unpack(notification.Msg)
 	if err != nil {
-		log.Errorf("Failed to unpack DNS message: %s", err)
+		s.log.Error("Failed to unpack DNS message", logfields.Error, err)
 		return &pb.Empty{}, err
 	}
 
@@ -183,7 +185,7 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 }
 
 func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
-	log.Info("Streaming proxy status to the external DNS proxy...")
+	s.log.Info("Streaming proxy status to the external DNS proxy...")
 	// Writing to the same gRPC stream from multiple goroutines is not safe.
 	stream := &exclusiveStream{
 		ServerStreamingServer: serverStream,
@@ -194,7 +196,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream 
 		Enum: &ipVer,
 	})
 	if err != nil {
-		log.WithError(err).Infoln("Failed to send ipcache version to proxy.")
+		s.log.Info("Failed to send ipcache version to proxy.", logfields.Error, err)
 		return fmt.Errorf("failed to send ipcache version: %w", err)
 	}
 
@@ -208,7 +210,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream 
 
 	err = eg.Wait()
 	if err != nil {
-		log.WithError(err).Infof("ProxyStatus stream ended.")
+		s.log.Info("ProxyStatus stream ended.", logfields.Error, err)
 	}
 	return nil
 }
@@ -266,7 +268,7 @@ func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
 			err = fmt.Errorf("unknown identity change type: %+v", ic)
 		}
 		if err != nil {
-			log.WithError(err).Error("Failed to send policy notification to external DNS cache")
+			s.log.Error("Failed to send policy notification to external DNS cache", logfields.Error, err)
 			cancel(err)
 		}
 	}, func(err error) {
@@ -289,13 +291,13 @@ func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
 	selUpdates, err := s.selectors.Changes(wtx)
 	defer wtx.Abort()
 	if err != nil {
-		log.WithError(err).Infoln("BUG: failed to subscribe to the selector table.")
+		s.log.Info("BUG: failed to subscribe to the selector table.", logfields.Error, err)
 		return err
 	}
 	rtx := wtx.Commit()
 	// Stream what FQDNSelectors are known so far, then send a bookmark.
 	it, _ := selUpdates.Next(rtx)
-	if err := sendSelectorBatch(stream, it); err != nil {
+	if err := s.sendSelectorBatch(stream, it); err != nil {
 		return err
 	}
 	err = stream.Send(&pb.ProxyStatus{
@@ -310,7 +312,7 @@ func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
 	for {
 		rtx := s.db.ReadTxn()
 		it, selWatch := selUpdates.Next(rtx)
-		if err := sendSelectorBatch(stream, it); err != nil {
+		if err := s.sendSelectorBatch(stream, it); err != nil {
 			return err
 		}
 
@@ -322,7 +324,7 @@ func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
 	}
 }
 
-func sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSelector], statedb.Revision]) (err error) {
+func (s *FQDNProxyAgentServer) sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSelector], statedb.Revision]) (err error) {
 	for change := range it {
 		t := pb.UpdateType_UPDATETYPE_UPSERT
 		if change.Deleted {
@@ -338,7 +340,7 @@ func sendSelectorBatch(stream statusStream, it iter.Seq2[statedb.Change[FQDNSele
 			},
 		})
 		if err != nil {
-			log.WithError(err).Infoln("Failed to send FQDN selector update to proxy.")
+			s.log.Info("Failed to send FQDN selector update to proxy.", logfields.Error, err)
 			return fmt.Errorf("failed to send fqdn selector update: %w", err)
 		}
 	}
@@ -376,25 +378,25 @@ func (s *FQDNProxyAgentServer) SubscribeFQDNRules(stream grpc.BidiStreamingServe
 	changeIter, err := s.configTable.Changes(wtxn)
 	wtxn.Commit()
 	if err != nil {
-		log.WithError(err).Error("BUG: failed to watch for ProxyConfig changes")
+		s.log.Error("BUG: failed to watch for ProxyConfig changes", logfields.Error, err)
 		return err
 	}
 
-	log.Info("SubscribeFQDNRules() stream beginning.")
+	s.log.Info("SubscribeFQDNRules() stream beginning.")
 
 	for {
 		changes, watch := changeIter.Next(s.db.ReadTxn())
 		for change, rev := range changes {
 			msg := change.Object.ToMsg(change.Deleted)
-			log.WithField(logfields.EndpointID, msg.EndpointID).Debug("SubscribeFQDNRules(): forwarding update")
+			s.log.Debug("SubscribeFQDNRules(): forwarding update", logfields.EndpointID, msg.EndpointID)
 			if err := stream.Send(msg); err != nil {
 				// only Info level, as client may have restarted.
-				log.WithError(err).Info("SubscribeFQDNRules(): failed to forward update")
+				s.log.Info("SubscribeFQDNRules(): failed to forward update", logfields.Error, err)
 				return err
 			}
 			// Wait for agent to ack rules.
 			if _, err := stream.Recv(); err != nil {
-				log.WithError(err).Info("SubscribeFQDNRules(): failed to receive response")
+				s.log.Info("SubscribeFQDNRules(): failed to receive response", logfields.Error, err)
 				return err
 			}
 			at.Ack(rev)
@@ -417,6 +419,7 @@ func NewFQDNProxyAgentServer(
 		return nil
 	}
 	s := &FQDNProxyAgentServer{
+		log:             p.Logger,
 		daemonPromise:   p.DaemonPromise,
 		restorerPromise: p.RestorerPromise,
 		ipCacheGetter:   p.IPCacheGetter,
@@ -449,24 +452,24 @@ func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
 	os.Remove(socket)
 	lis, err := net.Listen("unix", socket)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		s.log.Error("failed to listen", logfields.Error, err)
 		return err
 	}
 	var opts []grpc.ServerOption
 	s.grpcServer = grpc.NewServer(opts...)
 	pb.RegisterFQDNProxyAgentServer(s.grpcServer, s)
 
-	log.Info("Starting FQDN relay gRPC server")
+	s.log.Info("Starting FQDN relay gRPC server")
 	go func() {
 		if err := s.grpcServer.Serve(lis); err != nil {
-			log.WithError(err).Error("Cannot start FQDN relay gRPC server")
+			s.log.Error("Cannot start FQDN relay gRPC server", logfields.Error, err)
 		}
 	}()
 	return nil
 }
 
 func (s *FQDNProxyAgentServer) Stop(ctx cell.HookContext) error {
-	log.Info("Stopping FQDN relay gRPC server")
+	s.log.Info("Stopping FQDN relay gRPC server")
 	s.grpcServer.Stop()
 	s.cancel()
 	return nil
