@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
@@ -35,7 +36,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -69,6 +70,8 @@ import (
 const (
 	metricsNamespace = "isovalent"
 )
+
+var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
 
 var (
 	debug                         = flag.Bool("debug", false, "")
@@ -169,31 +172,31 @@ func init() {
 	var err error
 	if LogWarningTrigger, err = trigger.NewTrigger(trigger.Parameters{
 		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(log.Warning),
+		TriggerFunc: logTriggerFunc(slog.LevelWarn),
 		Name:        "ProxyLogWarning",
 	}); err != nil {
-		log.WithError(err).Error("failed to create proxylogwarning trigger")
+		panic(err) // unreachable
 	}
 	if LogDebugTrigger, err = trigger.NewTrigger(trigger.Parameters{
 		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(log.Debug),
+		TriggerFunc: logTriggerFunc(slog.LevelDebug),
 		Name:        "DebugLog",
 	}); err != nil {
-		log.WithError(err).Error("failed to create debuglog trigger")
+		panic(err) // unreachable
 	}
 	if LogInfoTrigger, err = trigger.NewTrigger(trigger.Parameters{
 		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(log.Info),
+		TriggerFunc: logTriggerFunc(slog.LevelInfo),
 		Name:        "InfoLog",
 	}); err != nil {
-		log.WithError(err).Error("failed to create infolog trigger")
+		panic(err) // unreachable
 	}
 }
 
-func logTriggerFunc(log func(args ...interface{})) func([]string) {
+func logTriggerFunc(level slog.Level) func([]string) {
 	return func(msgs []string) {
 		for _, msg := range msgs {
-			log(msg)
+			log.Log(context.Background(), level, msg)
 		}
 	}
 }
@@ -205,10 +208,10 @@ func main() {
 	log.Info(" ___|_| |_|_ _ _____")
 	log.Info("|  _| | | | | |     |")
 	log.Info("|___|_|_|_|___|_|_|_|")
-	log.Infof("Cilium DNS Proxy %s", version.Version)
+	log.Info("Cilium DNS Proxy", logfields.Version, version.Version)
 
 	if debug != nil && *debug {
-		log.Logger.SetLevel(logrus.DebugLevel)
+		logging.SetSlogLevel(slog.LevelDebug)
 		log.Debug("enabling debug logging")
 	}
 
@@ -239,9 +242,7 @@ func main() {
 	if val, ok := os.LookupEnv("CILIUM_DNSPROXY_SOCKET_LINGER_TIMEOUT"); ok {
 		linger, err := strconv.Atoi(val)
 		if err != nil {
-			log.WithField("env", "CILIUM_DNSPROXY_SOCKET_LINGER_TIMEOUT").
-				WithError(err).
-				Fatal("Invalid value for configuration option")
+			logging.Fatal(log, "Invalid value for configuration option", logfields.Error, err)
 		}
 		*DNSProxySocketLingerTimeout = linger
 	}
@@ -255,10 +256,13 @@ func main() {
 		Addr:                   addr,
 		ReuseSocketAddrAndPort: true,
 	}); err != nil {
-		log.Fatalf("Cannot start gops server on addr %s: %v", addr, err)
+		log.Error("Cannot start gops server on addr",
+			logfields.Address, addr,
+			logfields.Error, err,
+		)
 	}
 	defer gops.Close()
-	log.Infof("Started gops server on addr %s", addr)
+	log.Info("Started gops server ", logfields.Address, addr)
 
 	if *enablePprof {
 		pprof.Enable(logging.DefaultSlogLogger, *pprofAddress, *pprofPort)
@@ -274,14 +278,14 @@ func main() {
 	DNSNotificationQueue = make(chan *pb.DNSNotification, *DNSNotificationChannelSize)
 	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
 	if err != nil {
-		log.WithError(err).Fatal("failed to create grpc client to talk to agent")
+		logging.Fatal(log, "failed to create grpc client to talk to agent", logfields.Error, err)
 	}
 	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)})
 
 	go manageDNSNotificationQueue()
 	log.Info("starting cilium dns proxy server")
 	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, *FQDNRegexCompileLRUSize); err != nil {
-		log.WithError(err).Fatal("failed to start DNS proxy: failed to init regex LRU cache")
+		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
 		Address:                "",
@@ -298,12 +302,12 @@ func main() {
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
-			log.Errorf("Proxy stream error: %s", err)
+			log.Error("Proxy stream error", logfields.Error, err)
 		}
 	}()
 
 	proxy = dnsproxy.NewDNSProxy(
-		logging.DefaultSlogLogger,
+		log,
 		dnsProxyConfig,
 		LookupEndpointIDByIP,
 		proxyCtx.LookupSecIDByIP,
@@ -313,13 +317,13 @@ func main() {
 
 	// TODO: Refactor upstream proxy.SetRejectReply function to return an error to
 	// avoid duplicating deny response validation code.
+	const attrCode = "code"
 	switch strings.ToLower(*ToFQDNSRejectResponseCode) {
 	case strings.ToLower(option.FQDNProxyDenyWithNameError), strings.ToLower(option.FQDNProxyDenyWithRefused):
-		log.WithField("code", *ToFQDNSRejectResponseCode).
-			Debug("setting to fqdn ns reject response code")
+		log.Debug("setting to fqdn ns reject response code", attrCode, *ToFQDNSRejectResponseCode)
 		proxy.SetRejectReply(*ToFQDNSRejectResponseCode)
 	default:
-		log.WithField("code", *ToFQDNSRejectResponseCode).Fatalf("invalid fqdn reject response code, must be one of %v", option.FQDNRejectOptions)
+		logging.Fatal(log, "invalid fqdn reject response code", attrCode, *ToFQDNSRejectResponseCode)
 	}
 
 	watcher = newRulesWatcher(proxy)
@@ -331,7 +335,7 @@ func main() {
 	log.Info("Got endpoint configurations, opening sockets.")
 	err = proxy.Listen()
 	if err != nil {
-		log.Fatalf("Failed to start dns proxy: %v", err)
+		logging.Fatal(log, "Failed to start dns proxy", logfields.Error, err)
 	}
 	log.Info("started dns proxy")
 
@@ -347,7 +351,7 @@ type ipCacheLookup interface {
 type bpfIPC struct{}
 
 func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
-	log.Debugf("real ipcache bpf read for %v", addr)
+	log.Debug("real ipcache bpf read for", logfields.Address, addr)
 	ipKey := ipcacheMap.NewKey(net.IP(addr.Unmap().AsSlice()), nil, 0)
 	// todo: Add IPCacheMap reload logic
 	val, err := ipcacheMap.IPCacheMap(nil).Lookup(&ipKey)
@@ -418,7 +422,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				pc.ipCacheV1 = true
 				pc.rwLock.Unlock()
 			} else {
-				log.WithField("msg", agentProxyStatus).Infoln("got message")
+				log.Info("got message", logfields.Message, agentProxyStatus)
 			}
 		}
 	}
@@ -445,7 +449,7 @@ func manageDNSNotificationQueue() {
 			return nil
 		})
 		if err != nil {
-			log.WithError(err).Error("Error queueing DNS notification")
+			log.Error("Error queueing DNS notification", logfields.Error, err)
 		}
 	}
 }
@@ -464,10 +468,10 @@ func sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
 			// If the endpoint no longer exists, there's no point in sending this mapping.
 			var errDNSRequestNoEndpoint dnsproxy.ErrDNSRequestNoEndpoint
 			if strings.Contains(err.Error(), errDNSRequestNoEndpoint.Error()) {
-				log.WithFields(logrus.Fields{
-					"error": err,
-					"addr":  msg.EpIPPort,
-				}).Debug("Dropping DNS notification since the endpoint no longer exists")
+				log.Debug("Dropping DNS notification since the endpoint no longer exists",
+					logfields.Error, err,
+					logfields.Address, msg.EpIPPort,
+				)
 				return
 			}
 
@@ -482,11 +486,11 @@ func sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
 }
 
 func exposeMetrics() {
-	log.WithField("port", *prometheusPort).Info("Enabling Prometheus metrics")
+	log.Info("Enabling Prometheus metrics", logfields.Port, *prometheusPort)
 	http.Handle("/metrics", promhttp.Handler())
 	err := http.ListenAndServe(fmt.Sprintf(":%d", *prometheusPort), nil)
 	if err != nil {
-		log.WithError(err).Error("Failed to enable Prometheus metrics")
+		log.Error("Failed to enable Prometheus metrics", logfields.Error, err)
 	}
 }
 
@@ -536,7 +540,9 @@ func updateAgentReachability(err error) *status.Status {
 		return sts
 	}
 	if agentReachable.Swap(false) {
-		log.Infof("Agent connectivity lost: %v: %q", sts.Code().String(), sts.Message())
+		log.Info("Agent connectivity lost",
+			logfields.Code, sts.Code().String(),
+			logfields.Error, sts.Message())
 	}
 
 	return sts
@@ -614,7 +620,9 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		cachedID, ok := cache.identityByIP[ip]
 		cache.lock.RUnlock()
 		if !ok {
-			log.Errorf("could not lookup security identity for ip %s: %v", ip, err)
+			log.Error("could not lookup security identity for ip",
+				logfields.IPAddr, ip,
+				logfields.Error, err)
 			return ipcache.Identity{}, false
 		}
 		// TODO: check if this assumption is correct
@@ -645,7 +653,9 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 		cachedIPs, ok := cache.ipBySecID[nid]
 		cache.lock.RUnlock()
 		if !ok {
-			log.Errorf("could not lookup ips for id %v: %v", nid, err)
+			log.Error("could not lookup ips for id",
+				logfields.Identity, nid,
+				logfields.Error, err)
 			return nil
 		}
 
@@ -696,7 +706,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	if ep == nil {
 		metricError = metricErrorNoEP
 		endMetric()
-		log.Errorf("Endpoint is nil")
+		log.Error("Endpoint is nil")
 		return errors.New("Endpoint not found")
 	}
 
@@ -711,7 +721,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	if err != nil {
 		metricError = metricErrorPacking
 		endMetric()
-		log.Errorf("Could not pack dns msg: %s", err)
+		log.Error("Could not pack dns msg", logfields.Error, err)
 		return err
 	}
 
@@ -736,7 +746,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 
 	if err != nil {
 		if status == nil {
-			log.WithError(err).Warning("BUG: Unexpected non-status error during DNS notification to agent")
+			log.Warn("BUG: Unexpected non-status error during DNS notification to agent", logfields.Error, err)
 		} else if *exposePrometheusMetrics {
 			metricError = status.Code().String()
 			ProxyUpdateErrors.WithLabelValues(metricError).Inc()

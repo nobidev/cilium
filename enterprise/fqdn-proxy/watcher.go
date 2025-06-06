@@ -19,7 +19,6 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -80,7 +79,7 @@ func (rw *rulesWatcher) doWatchRules() {
 			<-rw.agentConnected    // wait to see if the agent is connected
 		} else if err != nil {
 			if !rw.muteErrors {
-				log.WithError(err).Infof("SubscribeFQDNRules() request failed")
+				log.Info("SubscribeFQDNRules() request failed", logfields.Error, err)
 				rw.muteErrors = true // unset on successful connect
 			}
 			time.Sleep(500 * time.Millisecond) // connection failed, pause then retry
@@ -114,7 +113,10 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 
 		err = rw.updateAllowed(rule)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Endpoint, rule.EndpointID).Error("Failed to apply invalid rule to proxy")
+			log.Error("Failed to apply invalid rule to proxy",
+				logfields.Error, err,
+				logfields.EndpointID, rule.EndpointID,
+			)
 		}
 		err = rulesStream.Send(&pb.Empty{}) // ack the rule
 		if err != nil {
@@ -147,7 +149,8 @@ func (rw *rulesWatcher) runServer(proxy *dnsproxy.DNSProxy) {
 	os.Remove(socket)
 	lis, err := net.Listen("unix", socket)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Error("failed to listen", logfields.Error, err)
+		os.Exit(1)
 	}
 	var opts []grpc.ServerOption
 	rw.grpcServer = grpc.NewServer(opts...)
@@ -167,7 +170,9 @@ func (rw *rulesWatcher) stopServer() {
 func (rw *rulesWatcher) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
 	err := rw.updateAllowed(rules)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Endpoint, rules.EndpointID).Error("Failed to apply invalid rule to proxy")
+		log.Error("Failed to apply invalid rule to proxy",
+			logfields.Error, err,
+			logfields.Endpoint, rules.EndpointID)
 	}
 	return &pb.Empty{}, err
 }
@@ -193,12 +198,12 @@ func (rw *rulesWatcher) updateAllowed(rules *pb.FQDNRules) error {
 		portProto = restore.MakeV2PortProto(uint16(rules.DestPort), u8proto.U8proto(rules.DestProto))
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.Endpoint: rules.EndpointID,
-		logfields.Port:     portProto.Port(),
-		logfields.Protocol: portProto.Protocol(),
-		logfields.Count:    len(rules.Rules.SelectorRegexMapping),
-	}).Info("Updating rules for endpoint")
+	log.Info("Updating rules for endpoint",
+		logfields.Endpoint, rules.EndpointID,
+		logfields.Port, portProto.Port(),
+		logfields.Protocol, portProto.Protocol(),
+		logfields.Count, len(rules.Rules.SelectorRegexMapping),
+	)
 
 	cachedSelectorREEntry := make(dnsproxy.CachedSelectorREEntry)
 
