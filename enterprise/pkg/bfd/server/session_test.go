@@ -71,21 +71,21 @@ func newTestFixture(t *testing.T, echoEnabled bool) *testFixture {
 	}
 
 	f.controlConn = &fakeClientConn{
-		outPkt: make(chan *ControlPacket, 10),
+		outPkt: make(chan *ControlPacket, 20),
 	}
 	f.echoConn = &fakeClientConn{
-		outPkt: make(chan *ControlPacket, 10),
+		outPkt: make(chan *ControlPacket, 20),
 	}
 	f.sessionCfg = &types.BFDPeerConfig{
-		ReceiveInterval:  10 * time.Millisecond,
-		TransmitInterval: 11 * time.Millisecond,
+		ReceiveInterval:  20 * time.Millisecond,
+		TransmitInterval: 21 * time.Millisecond,
 		DetectMultiplier: 3,
 	}
 	if echoEnabled {
-		f.sessionCfg.EchoReceiveInterval = 15 * time.Millisecond
-		f.sessionCfg.EchoTransmitInterval = 16 * time.Millisecond
+		f.sessionCfg.EchoReceiveInterval = 30 * time.Millisecond
+		f.sessionCfg.EchoTransmitInterval = 31 * time.Millisecond
 	}
-	f.statusCh = make(chan types.BFDPeerStatus, 10)
+	f.statusCh = make(chan types.BFDPeerStatus, 20)
 
 	s, err := newBFDSession(logger, f.sessionCfg, f.controlConn, f.echoConn, f.localDiscriminator, f.statusCh)
 	require.NoError(t, err)
