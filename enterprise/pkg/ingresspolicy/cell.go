@@ -13,7 +13,6 @@ package ingresspolicy
 import (
 	"context"
 	"log/slog"
-	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -21,13 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-const (
-	k8sAPIGroupCiliumEnvoyConfigV2 = "cilium/v2::CiliumEnvoyConfig"
 )
 
 // Cell provides support for the CEC Ingress Policy
@@ -47,9 +41,6 @@ type reconcilerParams struct {
 	JobGroup  job.Group
 	Health    cell.Health
 
-	K8sResourceSynced *synced.Resources
-	K8sAPIGroups      *synced.APIGroups
-
 	Config       types.CECPolicyConfig
 	CECResources resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 
@@ -58,11 +49,6 @@ type reconcilerParams struct {
 
 type cecReconciler struct {
 	logger *slog.Logger
-
-	k8sResourceSynced *synced.Resources
-	k8sAPIGroups      *synced.APIGroups
-
-	cecSynced atomic.Bool
 
 	ingressPolicyManager Updater
 }
@@ -75,28 +61,13 @@ func registerCECK8sReconciler(params reconcilerParams) {
 
 	reconciler := newCECReconciler(params)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	reconciler.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumEnvoyConfigV2, func() bool {
-		return reconciler.cecSynced.Load()
-	})
 	params.JobGroup.Add(job.Observer("cec-resource-events", reconciler.handleCECEvent, params.CECResources))
 }
 
 func newCECReconciler(params reconcilerParams) *cecReconciler {
 	return &cecReconciler{
 		logger:               params.Logger,
-		k8sResourceSynced:    params.K8sResourceSynced,
-		k8sAPIGroups:         params.K8sAPIGroups,
 		ingressPolicyManager: params.IngressPolicyManager,
-	}
-}
-
-func (r *cecReconciler) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
-	if r.k8sResourceSynced != nil && r.k8sAPIGroups != nil {
-		r.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, syncFn, resource)
-		r.k8sAPIGroups.AddAPI(resource)
 	}
 }
 
@@ -111,7 +82,6 @@ func (r *cecReconciler) handleCECEvent(ctx context.Context, event resource.Event
 	switch event.Kind {
 	case resource.Sync:
 		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
-		r.cecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
 		err = r.ingressPolicyManager.EnsureIngressPolicy(ctx, resource.NewKey(event.Object), event.Object.Labels)

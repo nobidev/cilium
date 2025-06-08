@@ -174,6 +174,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: svc1
+  namespace: test
   labels:
     bgp: advertise
 spec:
@@ -210,6 +211,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: svc2
+  namespace: test
   labels:
     bgp: advertise
 spec:
@@ -246,6 +248,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: svc3
+  namespace: test
   labels:
     bgp: advertise
 spec:
@@ -278,18 +281,26 @@ status:
     - ip: fd00:cc:dd::3
 
 -- endpoints.yaml --
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
-  name: svc3
-subsets:
+  labels:
+    kubernetes.io/service-name: svc3
+  name: svc3-eps
+  namespace: test
+addressType: IPv4
+endpoints:
 - addresses:
-  - ip: 10.244.1.20
-    nodeName: test-node
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
+  - 10.244.1.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
 
 -- gobgp-routes-aggregated-ipv4-1.expected --
 Prefix            NextHop       Attrs

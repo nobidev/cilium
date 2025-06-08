@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +41,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
 var (
@@ -242,7 +242,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 	type backendUpdate struct {
 		svcName        loadbalancer.ServiceName
 		frontend       loadbalancer.L3n4Addr
-		activeBackends []loadbalancer.LegacyBackend
+		activeBackends []loadbalancer.BackendParams
 	}
 
 	var table = []struct {
@@ -286,7 +286,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -309,23 +309,23 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name:             "advertise the service after multiple backend updates",
 			upsertedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates: []backendUpdate{
-				// first no backends
+				// first no healthy backends
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive, Unhealthy: true}}, // unhealthy
 				},
 				// frontend not matching the service - unrelated
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}},
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}},
 				},
 				// finally with healthy backends
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}, {ID: 2}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -352,13 +352,13 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				// frontend not matching the service - unrelated
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       fakeV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}, {ID: 2}},
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -383,7 +383,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -410,13 +410,13 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}, {ID: 2}},
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
 				},
 				// then no active backends
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -440,7 +440,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -459,7 +459,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
 					},
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 				{
 					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
@@ -467,7 +467,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
 					},
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -495,7 +495,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
 					},
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
 					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
@@ -503,7 +503,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
 					},
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -527,12 +527,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -561,12 +561,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -593,12 +593,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{}, // unhealthy
+					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -624,7 +624,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}, {ID: 2}}, // 2 backends - healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // 2 backends - healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -649,7 +649,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // 1 backend - unhealthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // 1 backend - unhealthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -673,7 +673,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				{
 					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
 					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.LegacyBackend{{ID: 1}}, // healthy
+					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
@@ -747,13 +747,33 @@ func Test_ServiceHealthChecker(t *testing.T) {
 
 			// update active backends
 			for _, upd := range tt.backendUpdates {
-				svcInfo := service.HealthUpdateSvcInfo{
-					Name:           upd.svcName,
-					Addr:           upd.frontend,
-					SvcType:        loadbalancer.SVCTypeLoadBalancer,
-					ActiveBackends: upd.activeBackends,
+				fe := &loadbalancer.Frontend{
+					FrontendParams: loadbalancer.FrontendParams{
+						ServiceName: upd.svcName,
+						Address:     upd.frontend,
+						Type:        loadbalancer.SVCTypeLoadBalancer,
+					},
+					Backends: func(yield func(loadbalancer.BackendParams, uint64) bool) {
+						for _, be := range upd.activeBackends {
+							if !yield(be, 0) {
+								break
+							}
+						}
+					},
+					ID:         0,
+					RedirectTo: nil,
+					Service: &loadbalancer.Service{
+						Name: upd.svcName,
+					},
 				}
-				ceeReconciler.ServiceHealthUpdate(svcInfo)
+				ceeReconciler.frontendChanged(
+					context.TODO(),
+					statedb.Change[*loadbalancer.Frontend]{
+						Object:   fe,
+						Revision: 0,
+						Deleted:  false,
+					},
+				)
 			}
 
 			err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{

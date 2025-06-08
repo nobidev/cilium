@@ -13,8 +13,9 @@ gobgp/add-peer fd00::aa:aa:aa:102 65001
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
 bgptest/sync-oss-resources
 
-# Configure a service
-k8s/add service.yaml
+# Configure a service and endpoints
+k8s/add service.yaml endpoints.yaml endpoints-ipv6.yaml
+db/cmp frontends frontends.table
 
 # Wait for peering to be established
 gobgp/wait-state fd00::aa:aa:aa:102 ESTABLISHED
@@ -29,8 +30,8 @@ gobgp/routes -o routes.actual ipv6 unicast
 
 
 # Update service backend counts - 1 healthy backend for each frontend
-bgptest/update-svc-backends test/svc1 172.16.1.1:80/TCP 1
-bgptest/update-svc-backends test/svc1 [fd00:aa:bb::1]:80/TCP 1
+bgptest/set-backend-health 172.16.1.1:80/TCP 1
+bgptest/set-backend-health [fd00:aa:bb::1]:80/TCP 1
 
 # Validate IPv4 service VIP is advertised
 gobgp/routes -o routes.actual ipv4 unicast
@@ -40,9 +41,8 @@ gobgp/routes -o routes.actual ipv4 unicast
 gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-ipv6.expected routes.actual
 
-
 # Update service backend counts - no healthy backend for IPv4 frontend
-bgptest/update-svc-backends test/svc1 172.16.1.1:80/TCP 0
+bgptest/set-backend-health 172.16.1.1:80/TCP 0
 
 # Validate IPv4 service VIP is withdrawn
 gobgp/routes -o routes.actual ipv4 unicast
@@ -64,10 +64,9 @@ gobgp/routes -o routes.actual ipv4 unicast
 gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-ipv6-empty.expected routes.actual
 
-
 # Update service backend counts - 3 healthy backends for each frontend
-bgptest/update-svc-backends test/svc1 172.16.1.1:80/TCP 3
-bgptest/update-svc-backends test/svc1 [fd00:aa:bb::1]:80/TCP 3
+bgptest/set-backend-health 172.16.1.1:80/TCP 3
+bgptest/set-backend-health [fd00:aa:bb::1]:80/TCP 3
 
 # Validate IPv4 service VIP is advertised
 gobgp/routes -o routes.actual ipv4 unicast
@@ -78,6 +77,13 @@ gobgp/routes -o routes.actual ipv6 unicast
 * cmp gobgp-routes-ipv6.expected routes.actual
 
 #####
+
+-- frontends.table --
+Address                        Type           ServiceName Status  Backends
+10.96.50.104:80/TCP            ClusterIP      test/svc1   Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP
+172.16.1.1:80/TCP              LoadBalancer   test/svc1   Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP
+[2001:db8:fd00::7ebc]:80/TCP   ClusterIP      test/svc1   Done    [2001::1]:80/TCP, [2001::2]:80/TCP, [2001::3]:80/TCP
+[fd00:aa:bb::1]:80/TCP         LoadBalancer   test/svc1   Done    [2001::1]:80/TCP, [2001::2]:80/TCP, [2001::3]:80/TCP
 
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
@@ -222,6 +228,54 @@ status:
     ingress:
     - ip: 172.16.1.1
     - ip: fd00:aa:bb::1
+
+-- endpoints.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: svc1
+  name: svc1-eps
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpoints-ipv6.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: svc1
+  name: svc1-eps-ipv6
+  namespace: test
+addressType: IPv6
+endpoints:
+- addresses:
+  - 2001::1
+  - 2001::2
+  - 2001::3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
 
 -- gobgp-routes-ipv4.expected --
 Prefix          NextHop              Attrs
