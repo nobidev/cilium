@@ -12,11 +12,11 @@ package reconcilerv2
 
 import (
 	"errors"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
@@ -54,7 +54,7 @@ type AdvertisementIn struct {
 	cell.In
 
 	Group           job.Group
-	Logger          logrus.FieldLogger
+	Logger          *slog.Logger
 	Config          config.Config
 	PeerConfigStore store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	AdvertStore     store.BGPCPResourceStore[*v1.IsovalentBGPAdvertisement]
@@ -62,7 +62,7 @@ type AdvertisementIn struct {
 }
 
 type IsovalentAdvertisement struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// we want to trigger BGP reconciliation if there is a change detected in any
 	// of these resources, so we use BGPCPResourceStore for them
@@ -73,7 +73,7 @@ type IsovalentAdvertisement struct {
 
 func newIsovalentAdvertisement(p AdvertisementIn) *IsovalentAdvertisement {
 	pa := &IsovalentAdvertisement{
-		logger:      p.Logger.WithField(types.ReconcilerLogField, "Advertisement"),
+		logger:      p.Logger.With(types.ReconcilerLogField, "Advertisement"),
 		peerConfigs: p.PeerConfigStore,
 		adverts:     p.AdvertStore,
 		vrfs:        p.VRFConfigStore,
@@ -98,9 +98,9 @@ func newIsovalentAdvertisement(p AdvertisementIn) *IsovalentAdvertisement {
 // Linear scan [ Advertisements ] - O(k) ( number of advertisements - 3-4 types, which is again filtered)
 func (p *IsovalentAdvertisement) GetConfiguredPeerAdvertisements(conf *v1.IsovalentBGPNodeInstance, selectAdvertTypes ...v1.IsovalentBGPAdvertType) (PeerAdvertisements, error) {
 	result := make(PeerAdvertisements)
-	l := p.logger.WithField(types.InstanceLogField, conf.Name)
+	l := p.logger.With(types.InstanceLogField, conf.Name)
 	for _, peer := range conf.Peers {
-		lp := l.WithField(types.PeerLogField, peer.Name)
+		lp := l.With(types.PeerLogField, peer.Name)
 
 		if peer.PeerConfigRef == nil {
 			lp.Debug("Peer config ref not set, skipping advertisement check")
@@ -110,7 +110,7 @@ func (p *IsovalentAdvertisement) GetConfiguredPeerAdvertisements(conf *v1.Isoval
 		peerConfig, exist, err := p.peerConfigs.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
-				lp.Errorf("BUG: Peer config store is not initialized")
+				lp.Error("BUG: Peer config store is not initialized")
 			}
 			return nil, err
 		}
@@ -196,10 +196,10 @@ func (p *IsovalentAdvertisement) familySelectedAdvertisements(family v2.CiliumBG
 
 func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.IsovalentBGPNodeInstance, selectAdvertTypes ...v1.IsovalentBGPAdvertType) (VRFAdvertisements, error) {
 	result := make(VRFAdvertisements)
-	l := p.logger.WithField(types.InstanceLogField, conf.Name)
+	l := p.logger.With(types.InstanceLogField, conf.Name)
 
 	for _, vrf := range conf.VRFs {
-		lv := l.WithField(entTypes.VRFLogField, vrf.VRFRef)
+		lv := l.With(entTypes.VRFLogField, vrf.VRFRef)
 
 		if vrf.ConfigRef == nil {
 			lv.Debug("VRF config ref not set, skipping advertisement check")

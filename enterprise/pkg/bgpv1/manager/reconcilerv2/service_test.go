@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -41,10 +41,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-)
-
-var (
-	svcTestLogger = logrus.WithField("unit_test", "reconcilerv2_service")
 )
 
 func Test_ServiceHealthChecker(t *testing.T) {
@@ -688,7 +684,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		},
 	}
 
-	logrus.SetLevel(logrus.DebugLevel)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	var (
 		testBGPInstance = instance.NewFakeBGPInstance()
@@ -711,8 +707,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			EnableLegacySRv6Responder:   false,
 		},
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    svcTestLogger,
-		SLogger:   hivetest.Logger(t),
+		Logger:    logger,
 		Upgrader:  newUpgraderMock(instanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
@@ -1716,8 +1711,6 @@ var (
 
 // Test_ServiceLBReconciler tests reconciliation of service of type load-balancer
 func Test_ServiceLBReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name             string
 		peerConfigs      []*v1.IsovalentBGPPeerConfig
@@ -2047,6 +2040,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			var (
 				testBGPInstance = instance.NewFakeBGPInstance()
@@ -2065,8 +2059,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    svcTestLogger,
-				SLogger:   hivetest.Logger(t),
+				Logger:    logger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
@@ -2123,8 +2116,6 @@ func Test_ServiceLBReconciler(t *testing.T) {
 
 // Test_ServiceExternalIPReconciler tests reconciliation of cluster service with external IP
 func Test_ServiceExternalIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name             string
 		peerConfigs      []*v1.IsovalentBGPPeerConfig
@@ -2430,6 +2421,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			var (
 				testBGPInstance = instance.NewFakeBGPInstance()
@@ -2448,8 +2440,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    svcTestLogger,
-				SLogger:   hivetest.Logger(t),
+				Logger:    logger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
@@ -2506,8 +2497,6 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 
 // Test_ServiceClusterIPReconciler tests reconciliation of cluster service
 func Test_ServiceClusterIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name             string
 		peerConfigs      []*v1.IsovalentBGPPeerConfig
@@ -2813,6 +2802,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			var (
 				testBGPInstance = instance.NewFakeBGPInstance()
@@ -2831,8 +2821,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				Lifecycle: &cell.DefaultLifecycle{},
 				Cfg:       defaultConfig,
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    svcTestLogger,
-				SLogger:   hivetest.Logger(t),
+				Logger:    logger,
 				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
@@ -2889,8 +2878,6 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 
 // Test_ServiceAndAdvertisementModifications is a step test, in which each step modifies the advertisement or service parameters.
 func Test_ServiceAndAdvertisementModifications(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	steps := []struct {
 		name             string
 		upsertAdverts    []*v1.IsovalentBGPAdvertisement
@@ -3272,6 +3259,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	}
 
 	req := require.New(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	var (
 		testBGPInstance = instance.NewFakeBGPInstance()
@@ -3290,8 +3278,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       defaultConfig,
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    svcTestLogger,
-		SLogger:   hivetest.Logger(t),
+		Logger:    logger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
@@ -3348,8 +3335,6 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 }
 
 func Test_ServiceVIPSharing(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	steps := []struct {
 		name             string
 		upsertAdverts    []*v1.IsovalentBGPAdvertisement
@@ -3611,6 +3596,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	}
 
 	req := require.New(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
 	var (
 		testBGPInstance = instance.NewFakeBGPInstance()
 		ceeBGPInstance  = &EnterpriseBGPInstance{
@@ -3628,8 +3615,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       defaultConfig,
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    svcTestLogger,
-		SLogger:   hivetest.Logger(t),
+		Logger:    logger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
@@ -3682,8 +3668,6 @@ func Test_ServiceVIPSharing(t *testing.T) {
 }
 
 func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	steps := []struct {
 		name             string
 		peers            []v1.IsovalentBGPNodePeer
@@ -3937,6 +3921,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 	}
 
 	req := require.New(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
 	var (
 		testBGPInstance = instance.NewFakeBGPInstance()
 		ceeBGPInstance  = &EnterpriseBGPInstance{
@@ -3954,8 +3940,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg:       defaultConfig,
 		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    svcTestLogger,
-		SLogger:   hivetest.Logger(t),
+		Logger:    logger,
 		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,

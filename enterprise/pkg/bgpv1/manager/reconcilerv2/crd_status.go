@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/lthibault/jitterbug/v2"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +43,7 @@ import (
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -55,7 +56,7 @@ const (
 type StatusReconciler struct {
 	lock.Mutex
 
-	Logger              logrus.FieldLogger
+	Logger              *slog.Logger
 	ClientSet           k8s_client.Clientset
 	LocalNodeStore      *node.LocalNodeStore
 	db                  *statedb.DB
@@ -74,7 +75,7 @@ type StatusReconcilerIn struct {
 	BGPConfig           config.Config
 	Job                 job.Group
 	ClientSet           k8s_client.Clientset
-	Logger              logrus.FieldLogger
+	Logger              *slog.Logger
 	LocalNodeStore      *node.LocalNodeStore
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
@@ -97,7 +98,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	}
 
 	r := &StatusReconciler{
-		Logger:              in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
+		Logger:              in.Logger.With(types.ReconcilerLogField, "CRD_Status"),
 		LocalNodeStore:      in.LocalNodeStore,
 		ClientSet:           in.ClientSet,
 		db:                  in.DB,
@@ -155,7 +156,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 				// Error will be logged once 10 retries fails consecutively, so we do not flood the logs with errors on each retry.
 				err := r.reconcileWithRetry(ctx, health)
 				if err != nil {
-					r.Logger.WithError(err).Error("Failed to update IsovalentBGPNodeConfig status after retries")
+					r.Logger.Error("Failed to update IsovalentBGPNodeConfig status after retries", logfields.Error, err)
 				}
 
 			case <-ctx.Done():
@@ -172,7 +173,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 
 		for range ch {
 			if err := r.updateErrorConditions(); err != nil {
-				r.Logger.WithError(err).Error("Failed to update error conditions")
+				r.Logger.Error("Failed to update error conditions", logfields.Error, err)
 			}
 		}
 		return nil
@@ -205,9 +206,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.St
 	current := r.desiredStatus.DeepCopy()
 
 	if params.UpdatedInstance != nil {
-		r.Logger.WithFields(logrus.Fields{
-			types.InstanceLogField: params.UpdatedInstance.Config.Name,
-		}).Debug("Reconciling CRD status")
+		r.Logger.Debug("Reconciling CRD status", types.InstanceLogField, params.UpdatedInstance.Config.Name)
 
 		// get updated status for the instance
 		instanceStatus, err := r.getInstanceStatus(ctx, params.UpdatedInstance)
@@ -229,9 +228,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.St
 	}
 
 	if params.DeletedInstance != "" {
-		r.Logger.WithFields(logrus.Fields{
-			types.InstanceLogField: params.DeletedInstance,
-		}).Debug("Deleting instance from CRD status")
+		r.Logger.Debug("Deleting instance from CRD status", types.InstanceLogField, params.DeletedInstance)
 
 		// remove instance from status
 		for idx, instance := range current.BGPInstances {
@@ -262,7 +259,7 @@ func (r *StatusReconciler) updateErrorConditions() error {
 
 	if !exists {
 		// BGPNodeConfig object not found, there is nowhere to update the status.
-		r.Logger.Debugf("BGP node config with name %s not found", r.nodeName)
+		r.Logger.Debug("BGP node config for the node not found", logfields.NodeName, r.nodeName)
 		return nil
 	}
 
@@ -391,7 +388,7 @@ func (r *StatusReconciler) reconcileWithRetry(ctx context.Context, health cell.H
 	retryFn := func(ctx context.Context) (bool, error) {
 		err := r.reconcileCRDStatus(ctx)
 		if err != nil {
-			r.Logger.WithError(err).Debug("Failed to update IsovalentBGPNodeConfig status")
+			r.Logger.Debug("Failed to update IsovalentBGPNodeConfig status", logfields.Error, err)
 			health.Degraded("Failed to update IsovalentBGPNodeConfig status", err)
 			return false, nil
 		}
@@ -448,7 +445,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 
 	r.runningStatus = statusCpy
 	r.conditionsUpdated = false // reset conditions updated flag
-	r.Logger.WithField(types.BGPNodeConfigLogField, r.nodeName).Debug("Updated resource status")
+	r.Logger.Debug("Updated resource status", types.BGPNodeConfigLogField, r.nodeName)
 	return nil
 }
 

@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -31,14 +30,14 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type PodCIDRVRFReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
+	Logger       *slog.Logger
 	Group        job.Group
 	DaemonConfig *option.DaemonConfig
 	Config       config.Config
@@ -55,8 +54,7 @@ type PodCIDRVRFReconcilerOut struct {
 }
 
 type PodCIDRVRFReconciler struct {
-	Logger      logrus.FieldLogger
-	SLogger     *slog.Logger
+	Logger      *slog.Logger
 	Adverts     *IsovalentAdvertisement
 	Upgrader    paramUpgrader
 	SRv6Paths   *srv6Paths
@@ -81,8 +79,7 @@ func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut 
 	}
 
 	pr := &PodCIDRVRFReconciler{
-		Logger:      in.Logger.WithField(types.ReconcilerLogField, "PodCIDRVRF"),
-		SLogger:     in.SLogger.With(types.ReconcilerLogField, "PodCIDRVRF"),
+		Logger:      in.Logger.With(types.ReconcilerLogField, "PodCIDRVRF"),
 		Adverts:     in.Adverts,
 		Upgrader:    in.Upgrader,
 		SRv6Paths:   in.SRv6Paths,
@@ -121,11 +118,11 @@ func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 	iParams, err := r.Upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.Logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.Logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		if errors.Is(err, NotInitializedErr) {
-			r.Logger.Debugf("Initialization is not done, skipping %s reconciliation", r.Name())
+			r.Logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -172,7 +169,7 @@ func (r *PodCIDRVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.VRFAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.SLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.Logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: allVRFsPodCIDRAFPaths,
@@ -222,7 +219,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 		// get isoVRF resource
 		_, exists = r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: bgpVRF.VRFRef})
 		if !exists {
-			r.Logger.WithField(entTypes.VRFLogField, bgpVRF.VRFRef).Warn("VRF not found in SRv6 Manager")
+			r.Logger.Warn("VRF not found in SRv6 Manager", entTypes.VRFLogField, bgpVRF.VRFRef)
 			continue
 		}
 
@@ -240,7 +237,10 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 				if prefix.Addr().Is4() && family.Afi == types.AfiIPv4 {
 					path, pathKey, err := r.SRv6Paths.GetSRv6VPNPath(prefix, bgpVRF)
 					if err != nil {
-						r.Logger.WithError(err).WithField("prefix", prefix).Error("failed to get SRv6 paths for prefix")
+						r.Logger.Error("failed to get SRv6 paths for prefix",
+							logfields.Prefix, prefix,
+							logfields.Error, err,
+						)
 						continue
 					}
 					path.Family = family
@@ -250,7 +250,10 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 				if prefix.Addr().Is6() && family.Afi == types.AfiIPv6 {
 					path, pathKey, err := r.SRv6Paths.GetSRv6VPNPath(prefix, bgpVRF)
 					if err != nil {
-						r.Logger.WithError(err).WithField("prefix", prefix).Error("failed to get SRv6 paths for prefix")
+						r.Logger.Error("failed to get SRv6 paths for prefix",
+							logfields.Prefix, prefix,
+							logfields.Error, err,
+						)
 						continue
 					}
 					path.Family = family

@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -39,8 +38,7 @@ type VPNRoutePolicyReconcilerOut struct {
 type VPNRoutePolicyReconcilerIn struct {
 	cell.In
 
-	Logger          logrus.FieldLogger // TODO: migrate to slog
-	SLogger         *slog.Logger
+	Logger          *slog.Logger
 	Config          config.Config
 	Upgrader        paramUpgrader
 	PeerConfigStore resource.Resource[*v1.IsovalentBGPPeerConfig]
@@ -52,8 +50,7 @@ type VPNRoutePolicyReconcilerIn struct {
 //   - export route policy per peer allowing VPNv4 routes from loc-rib to adj-out.
 type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
-	logger          logrus.FieldLogger
-	sLogger         *slog.Logger
+	logger          *slog.Logger
 	upgrader        paramUpgrader
 	peerConfigStore resource.Store[*v1.IsovalentBGPPeerConfig]
 	metadata        map[string]VPNRoutePolicyMetadata
@@ -70,8 +67,7 @@ func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyRe
 
 	rp := &VPNRoutePolicyReconciler{
 		metadata: make(map[string]VPNRoutePolicyMetadata),
-		logger:   in.Logger.WithField(types.ReconcilerLogField, "VPNRoutePolicy"),
-		sLogger:  in.SLogger.With(types.ReconcilerLogField, "VPNRoutePolicy"),
+		logger:   in.Logger.With(types.ReconcilerLogField, "VPNRoutePolicy"),
 		upgrader: in.Upgrader,
 	}
 
@@ -130,7 +126,7 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -142,7 +138,7 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 	}
 
 	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-		Logger:          r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredPolicies,
@@ -170,7 +166,7 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 
 		// get the peer config
 		if peer.PeerConfigRef == nil {
-			r.logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config reference not set, skipping peer for import policy inspection")
+			r.logger.Debug("Peer config reference not set, skipping peer for import policy inspection", types.PeerLogField, peer.Name)
 			continue
 		}
 
@@ -180,7 +176,7 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 		}
 
 		if !exists {
-			r.logger.WithField(types.PeerLogField, peer.Name).Debug("Peer config not found, skipping peer for import policy inspection")
+			r.logger.Debug("Peer config not found, skipping peer for import policy inspection", types.PeerLogField, peer.Name)
 			continue
 		}
 

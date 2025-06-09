@@ -13,11 +13,11 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -72,7 +72,7 @@ type paramUpgrader interface {
 type reconcilerParamsUpgraderIn struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	BGPConfig          config.Config
 	BGPNodeConfigStore store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig] // BGPCPResourceStore triggers BGP CP reconciliation upon IsovalentBGPNodeConfig events
 	LocalNodeRes       daemon_k8s.LocalCiliumNodeResource

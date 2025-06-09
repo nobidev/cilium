@@ -18,8 +18,8 @@ import (
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,9 +119,6 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 					StatusReportEnabled: true,
 				}
 			},
-			func() logrus.FieldLogger {
-				return logrus.WithField("test", "upgrader")
-			},
 		),
 
 		cell.Provide(func(lc cell.Lifecycle, c client.Clientset) daemon_k8s.LocalCiliumNodeResource {
@@ -138,10 +135,11 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		}),
 	)
 
-	err := h.Start(slog.Default(), context.Background())
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	err := h.Start(logger, context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		h.Stop(slog.Default(), context.Background())
+		h.Stop(logger, context.Background())
 	})
 
 	// insert a node

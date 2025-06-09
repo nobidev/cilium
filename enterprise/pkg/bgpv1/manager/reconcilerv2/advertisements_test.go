@@ -11,9 +11,10 @@
 package reconcilerv2
 
 import (
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -24,10 +25,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
-var (
-	advertTestLogger = logrus.WithField("unit_test", "advertisement")
 )
 
 var (
@@ -103,8 +100,6 @@ var (
 )
 
 func TestPeerAdvertisements(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name                string
 		peerConfig          *v1.IsovalentBGPPeerConfig
@@ -187,7 +182,7 @@ func TestPeerAdvertisements(t *testing.T) {
 			req := require.New(t)
 
 			isoAdvert := &IsovalentAdvertisement{
-				logger:      advertTestLogger,
+				logger:      hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				peerConfigs: store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig](),
 				adverts:     store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement](),
 			}
@@ -208,8 +203,6 @@ func TestPeerAdvertisements(t *testing.T) {
 }
 
 func TestVRFAdvertisements(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name               string
 		vrfConfig          *v1alpha1.IsovalentBGPVRFConfig
@@ -289,7 +282,7 @@ func TestVRFAdvertisements(t *testing.T) {
 			req := require.New(t)
 
 			isoAdvert := &IsovalentAdvertisement{
-				logger:  advertTestLogger,
+				logger:  hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				adverts: store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement](),
 				vrfs:    store.NewMockBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig](),
 			}

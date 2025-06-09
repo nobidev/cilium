@@ -20,7 +20,6 @@ import (
 	"slices"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -46,8 +45,7 @@ import (
 type ServiceVRFReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
+	Logger       *slog.Logger
 	Config       config.Config
 	DaemonConfig *option.DaemonConfig
 	Adverts      *IsovalentAdvertisement
@@ -65,8 +63,7 @@ type ServiceVRFReconcilerOut struct {
 }
 
 type ServiceVRFReconciler struct {
-	logger       logrus.FieldLogger
-	sLogger      *slog.Logger
+	logger       *slog.Logger
 	adverts      *IsovalentAdvertisement
 	svcDiffStore store.DiffStore[*slim_corev1.Service]
 	epDiffStore  store.DiffStore[*k8s.Endpoints]
@@ -83,8 +80,7 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 
 	return ServiceVRFReconcilerOut{
 		Reconciler: &ServiceVRFReconciler{
-			logger:       in.Logger.WithField(types.ReconcilerLogField, "ServiceVRF"),
-			sLogger:      in.SLogger.With(types.ReconcilerLogField, "ServiceVRF"),
+			logger:       in.Logger.With(types.ReconcilerLogField, "ServiceVRF"),
 			adverts:      in.Adverts,
 			svcDiffStore: in.SvcDiffStore,
 			epDiffStore:  in.EPDiffStore,
@@ -166,11 +162,11 @@ func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		if errors.Is(err, NotInitializedErr) {
-			r.logger.Debug("Initialization is not done, skipping service VRF reconciliation")
+			r.logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -315,7 +311,7 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	}
 
 	updatedSvcPaths, err := reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger: r.sLogger.With(
+		Logger: r.logger.With(
 			types.InstanceLogField, p.DesiredConfig.Name,
 			entTypes.VRFLogField, vrfName,
 		),
@@ -673,7 +669,7 @@ func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1.IsovalentBGPNo
 	for _, bgpVRF := range bgpConfig.VRFs {
 		vrfInfo, exists := r.srv6Manager.GetVRFByName(k8stypes.NamespacedName{Name: bgpVRF.VRFRef})
 		if !exists {
-			r.logger.Debug("VRF %s not found in SRv6 Manager", bgpVRF.VRFRef)
+			r.logger.Debug("VRF not found in SRv6 Manager", entTypes.VRFLogField, bgpVRF.VRFRef)
 			continue
 		}
 		desiredVRFSIDInfo[bgpVRF.VRFRef] = vrfInfo.SIDInfo

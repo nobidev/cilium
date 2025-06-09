@@ -17,28 +17,30 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/netip"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	ceetypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type legacyImportVPNRouteReconciler struct {
-	Logger      logrus.FieldLogger
+	Logger      *slog.Logger
 	Clientset   client.Clientset
 	Upgrader    paramUpgrader
 	SRv6Manager SRv6Manager
@@ -47,7 +49,7 @@ type legacyImportVPNRouteReconciler struct {
 type legacyImportVPNRouteReconcilerIn struct {
 	cell.In
 
-	Logger           logrus.FieldLogger
+	Logger           *slog.Logger
 	Clientset        client.Clientset
 	Config           config.Config
 	EnterpriseConfig Config
@@ -61,7 +63,7 @@ func newLegacyImportVPNRouteReconciler(in legacyImportVPNRouteReconcilerIn) *leg
 		return nil
 	}
 	return &legacyImportVPNRouteReconciler{
-		Logger:      in.Logger.WithField(types.ReconcilerLogField, "ImportVPNRoute"),
+		Logger:      in.Logger.With(types.ReconcilerLogField, "ImportVPNRoute"),
 		Clientset:   in.Clientset,
 		Upgrader:    in.Upgrader,
 		SRv6Manager: in.SRv6Manager,
@@ -80,15 +82,15 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 	iParams, err := r.Upgrader.upgradeState(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.Logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.Logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		if errors.Is(err, NotInitializedErr) {
-			r.Logger.Debugf("Initialization is not done, skipping %s reconciliation", r.Name())
+			r.Logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
 		if errors.Is(err, UpdateConfigNotSetErr) {
-			r.Logger.Debugf("Instance config not yet set, skipping %s reconciliation", r.Name())
+			r.Logger.Debug("Instance config not yet set, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -109,17 +111,13 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 	}
 
 	var (
-		l = r.Logger.WithFields(
-			logrus.Fields{
-				types.InstanceLogField: iParams.DesiredConfig.Name,
-			},
-		)
+		l        = r.Logger.With(types.InstanceLogField, iParams.DesiredConfig.Name)
 		toCreate []*srv6.EgressPolicy
 		toRemove []*srv6.EgressPolicy
 	)
 
 	curPolicies := r.SRv6Manager.GetEgressPolicies()
-	r.Logger.WithField("count", len(curPolicies)).Debug("Discovered current egress policies")
+	r.Logger.Debug("Discovered current egress policies", logfields.Count, len(curPolicies))
 
 	newPolicies, err := r.mapSRv6PathsToEgressPolicy(ctx, l, iParams.UpdatedInstance.Router, iParams.DesiredConfig.VRFs)
 	if err != nil {
@@ -192,8 +190,8 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 			toRemove = append(toRemove, m.p)
 		}
 	}
-	l.WithField("count", len(toCreate)).Debug("Number of SRv6 egress policies to create.")
-	l.WithField("count", len(toRemove)).Debug("Number of SRv6 egress policies to remove.")
+	l.Debug("Number of SRv6 egress policies to create.", logfields.Count, len(toCreate))
+	l.Debug("Number of SRv6 egress policies to remove.", logfields.Count, len(toRemove))
 
 	clientSet := r.Clientset.IsovalentV1alpha1().IsovalentSRv6EgressPolicies()
 
@@ -235,12 +233,12 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 				DestinationSID:   p.SID.IP().String(),
 			},
 		}
-		l.WithField("policy", egressPol).Debug("Writing egress policy to Kubernetes")
+		l.Debug("Writing egress policy to Kubernetes", logfields.Object, egressPol)
 		res, err := clientSet.Create(ctx, egressPol, metav1.CreateOptions{})
 		if err != nil && !k8sErrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to write egress policy to Kubernetes: %w", err)
 		}
-		l.WithField("policy", res).Debug("Resulting egress policy")
+		l.Debug("Resulting egress policy", logfields.Object, res)
 	}
 
 	for _, p := range toRemove {
@@ -249,7 +247,7 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 			return fmt.Errorf("failed to create EgressPolicy name: %w", err)
 		}
 
-		l.WithField("policy", p).Debug("Removing egress policy from Kubernetes")
+		l.Debug("Removing egress policy from Kubernetes", logfields.Object, p)
 		err := clientSet.Delete(ctx, name, metav1.DeleteOptions{})
 		if err != nil && !k8sErrors.IsNotFound(err) {
 			return fmt.Errorf("failed to remove egress policy: %w", err)
@@ -259,7 +257,7 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 	return nil
 }
 
-func (r *legacyImportVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.Context, l logrus.FieldLogger, bgpRouter types.Router, vrfs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
+func (r *legacyImportVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.Context, l *slog.Logger, bgpRouter types.Router, vrfs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
 	l.Debug("Mapping SRv6 VRFs to SRv6 egress policies.")
 
 	var policies []*srv6.EgressPolicy
@@ -275,7 +273,7 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.
 		return nil, fmt.Errorf("failed to list VPNv4 paths: %w", err)
 	}
 
-	l.WithField("count", len(resp.Routes)).Debug("Discovered learned VPNv4 routes.")
+	l.Debug("Discovered learned VPNv4 routes.", logfields.Count, len(resp.Routes))
 
 	for _, route := range resp.Routes {
 		for _, p := range route.Paths {
@@ -289,12 +287,12 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathsToEgressPolicy(ctx context.
 		}
 	}
 
-	l.WithField("count", len(policies)).Debug("Mapped VPNv4 paths to egress policies")
+	l.Debug("Mapped VPNv4 paths to egress policies", logfields.Count, len(policies))
 
 	return policies, nil
 }
 
-func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.FieldLogger, attrs []bgp.PathAttributeInterface, bgpVRFs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
+func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l *slog.Logger, attrs []bgp.PathAttributeInterface, bgpVRFs []v1.IsovalentBGPNodeVRF) ([]*srv6.EgressPolicy, error) {
 	var (
 		// require extended communities for route target.
 		extCommunities *bgp.PathAttributeExtendedCommunities
@@ -341,13 +339,13 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.Fiel
 		switch v := val.(type) {
 		case *bgp.FourOctetAsSpecificExtended:
 			if v.SubType == bgp.EC_SUBTYPE_ROUTE_TARGET {
-				l.WithField("routeTarget", RT).Debug("Discovered route target in Two-Octect AS Specific Ext Community")
+				l.Debug("Discovered route target in Two-Octect AS Specific Ext Community", ceetypes.RouteTargetLogField, RT)
 				RT = fmt.Sprintf("%d:%d", v.AS, v.LocalAdmin)
 			}
 		case *bgp.TwoOctetAsSpecificExtended:
 			if v.SubType == bgp.EC_SUBTYPE_ROUTE_TARGET {
 				RT = fmt.Sprintf("%d:%d", v.AS, v.LocalAdmin)
-				l.WithField("routeTarget", RT).Debug("Discovered route target in Two-Octect AS Specific Ext Community")
+				l.Debug("Discovered route target in Two-Octect AS Specific Ext Community", ceetypes.RouteTargetLogField, RT)
 			}
 		}
 	}
@@ -452,12 +450,15 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.Fiel
 		for _, configuredRT := range bgpVRF.ImportRTs {
 			// Path should match one of the configured import route targets.
 			if configuredRT == RT {
-				l.Debugf("Matched vrf %s route target with discovered route target %v", bgpVRF.VRFRef, RT)
+				l.Debug("Matched vrf route target with discovered route targe",
+					ceetypes.VRFLogField, bgpVRF.VRFRef,
+					ceetypes.RouteTargetLogField, RT,
+				)
 
 				// find IsovalentVRF instance corresponding to matched vrf
 				vrf, exists := r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: bgpVRF.VRFRef})
 				if !exists {
-					l.Debugf("VRF %s does not exist in SRv6 Manager", bgpVRF.VRFRef)
+					l.Debug("VRF does not exist in SRv6 Manager", ceetypes.VRFLogField, bgpVRF.VRFRef)
 					continue
 				}
 
@@ -467,7 +468,7 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.Fiel
 					SID:      destinationSID,
 				}
 				policies = append(policies, policy)
-				l.WithField("policy", policy).Debug("Mapped VPNv4 route to policy.")
+				l.Debug("Mapped VPNv4 route to policy.", logfields.Object, policy)
 			}
 		}
 	}
@@ -482,7 +483,7 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l logrus.Fiel
 // When the TranspositionLengh field in the SRv6SIDSubStructureSubSubTLV is greater then 0
 // the SRv6 SID must be obtained by transposing a variable bit range from the MPLS label
 // within the VPNv4 NLRI. The bit ranges are provided by fields within the SRv6SIDSubStructureSubSubTLV.
-func transposeSID(l logrus.FieldLogger, label uint32, infoTLV *bgp.SRv6InformationSubTLV, structTLV *bgp.SRv6SIDStructureSubSubTLV) ([]byte, error) {
+func transposeSID(l *slog.Logger, label uint32, infoTLV *bgp.SRv6InformationSubTLV, structTLV *bgp.SRv6SIDStructureSubSubTLV) ([]byte, error) {
 	// must shift label by twelve, not sure if this is something with frr or not.
 	label = label << 12
 
@@ -490,13 +491,13 @@ func transposeSID(l logrus.FieldLogger, label uint32, infoTLV *bgp.SRv6Informati
 	le := structTLV.TranspositionLength  // length in bits of transposition
 	sid := infoTLV.SID
 
-	l.WithFields(logrus.Fields{
-		"label":       fmt.Sprintf("%x", label),
-		"offset":      off,
-		"length":      le,
-		"originalSid": fmt.Sprintf("%x", sid),
-		"startByte":   off / 8,
-	}).Debug("Starting SID transposition")
+	l.Debug("Starting SID transposition",
+		logfields.Label, fmt.Sprintf("%x", label),
+		ceetypes.OffsetLogField, off,
+		ceetypes.LengthLogField, le,
+		ceetypes.OriginalSIDLogField, fmt.Sprintf("%x", sid),
+		ceetypes.StartByteLogField, off/8,
+	)
 	for le > 0 {
 		var (
 			// current byte index to tranpose
@@ -513,33 +514,33 @@ func transposeSID(l logrus.FieldLogger, label uint32, infoTLV *bgp.SRv6Informati
 			label <<= n
 			off = off + n
 			le = le - n
-			l.WithFields(logrus.Fields{
-				"label":          fmt.Sprintf("%x", label),
-				"nextOffset":     off,
-				"length":         le,
-				"copiedN":        n,
-				"byteI":          fmt.Sprintf("%x", byteI),
-				"bitI":           fmt.Sprintf("%x", bitI),
-				"mask":           fmt.Sprintf("%x", mask),
-				"transposedByte": fmt.Sprintf("%x", sid[byteI]),
-			}).Debug("Transposed bits")
+			l.Debug("Transposed bits",
+				logfields.Label, fmt.Sprintf("%x", label),
+				ceetypes.NextOffsetLogField, off,
+				ceetypes.LengthLogField, le,
+				ceetypes.CopiedNLogField, n,
+				ceetypes.ByteILogField, fmt.Sprintf("%x", byteI),
+				ceetypes.BitILogField, fmt.Sprintf("%x", bitI),
+				ceetypes.MaskLogField, fmt.Sprintf("%x", mask),
+				ceetypes.TransposedByteLogField, fmt.Sprintf("%x", sid[byteI]),
+			)
 			continue
 		}
 		// deal with a final bit difference.
 		mask := ^byte(0) >> le
 		sid[byteI] = ((sid[byteI] & mask) | byte(label>>(32-le))) << (8 - le)
-		l.WithFields(logrus.Fields{
-			"label":          fmt.Sprintf("%x", label),
-			"nextOffset":     off,
-			"length":         le,
-			"copiedN":        n,
-			"byteI":          fmt.Sprintf("%x", byteI),
-			"bitI":           fmt.Sprintf("%x", bitI),
-			"mask":           fmt.Sprintf("%x", mask),
-			"transposedByte": fmt.Sprintf("%x", sid[byteI]),
-		}).Debug("Transposed bits")
+		l.Debug("Transposed bits",
+			logfields.Label, fmt.Sprintf("%x", label),
+			ceetypes.NextOffsetLogField, off,
+			ceetypes.LengthLogField, le,
+			ceetypes.CopiedNLogField, n,
+			ceetypes.ByteILogField, fmt.Sprintf("%x", byteI),
+			ceetypes.BitILogField, fmt.Sprintf("%x", bitI),
+			ceetypes.MaskLogField, fmt.Sprintf("%x", mask),
+			ceetypes.TransposedByteLogField, fmt.Sprintf("%x", sid[byteI]),
+		)
 	}
-	l.Debugf("Transposed SID %x", sid)
+	l.Debug("Transposed SID", ceetypes.SIDLogField, sid)
 	return sid, nil
 }
 

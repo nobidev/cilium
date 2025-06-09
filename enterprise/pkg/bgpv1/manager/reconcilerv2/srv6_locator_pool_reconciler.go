@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
@@ -45,8 +44,7 @@ type srv6LocatorPoolReconcilerIn struct {
 	cell.In
 
 	JobGroup     job.Group
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
+	Logger       *slog.Logger
 	Signaler     *signaler.BGPCPSignaler
 	DaemonConfig *option.DaemonConfig
 	BGPConfig    config.Config
@@ -66,8 +64,7 @@ type srv6LocatorPoolReconcilerOut struct {
 
 type LocatorPoolReconciler struct {
 	initialized atomic.Bool
-	logger      logrus.FieldLogger
-	sLogger     *slog.Logger
+	logger      *slog.Logger
 
 	upgrader   paramUpgrader
 	peerAdvert *IsovalentAdvertisement
@@ -89,8 +86,7 @@ func NewSRv6LocatorPoolReconciler(params srv6LocatorPoolReconcilerIn) srv6Locato
 	}
 
 	r := &LocatorPoolReconciler{
-		logger:        params.Logger.WithField(types.ReconcilerLogField, "LocatorPool"),
-		sLogger:       params.SLogger.With(types.ReconcilerLogField, "LocatorPool"),
+		logger:        params.Logger.With(types.ReconcilerLogField, "LocatorPool"),
 		sidAllocators: make(map[string]sidmanager.SIDAllocator),
 		upgrader:      params.Upgrader,
 		peerAdvert:    params.PeerAdvert,
@@ -185,7 +181,7 @@ func (r *LocatorPoolReconciler) Reconcile(ctx context.Context, p reconcilerv2.Re
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -222,7 +218,7 @@ func (r *LocatorPoolReconciler) reconcilePaths(ctx context.Context, params Enter
 	}
 
 	metadata.AFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.sLogger.With(types.InstanceLogField, params.DesiredConfig.Name),
+		Logger:                 r.logger.With(types.InstanceLogField, params.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 params.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredAFPaths,
@@ -255,7 +251,7 @@ func (r *LocatorPoolReconciler) reconcileRoutePolicies(ctx context.Context, para
 		}
 
 		updatedRoutePolicies, rErr := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-			Logger: r.sLogger.With(
+			Logger: r.logger.With(
 				types.InstanceLogField, params.DesiredConfig.Name,
 				entTypes.LocatorPoolLogField, key,
 			),
@@ -286,16 +282,16 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
-				r.logger.WithFields(logrus.Fields{
-					types.FamilyLogField:     agentFamily.Afi,
-					types.AdvertTypeLogField: v1.BGPSRv6LocatorPoolAdvert,
-				}).Warning("Invalid address family for this advertisement type, skipping")
+				r.logger.Warn("Invalid address family for this advertisement type, skipping",
+					types.FamilyLogField, agentFamily.Afi,
+					types.AdvertTypeLogField, v1.BGPSRv6LocatorPoolAdvert,
+				)
 				continue
 			}
 			for _, advert := range familyAdverts {
 				// sanity check
 				if advert.AdvertisementType != v1.BGPSRv6LocatorPoolAdvert {
-					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
+					r.logger.Error("BUG: unexpected advertisement type", types.AdvertTypeLogField, advert.AdvertisementType)
 					continue
 				}
 				if advert.Selector == nil {
@@ -351,16 +347,16 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(desiredFamilyAdverts Pee
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
-				r.logger.WithFields(logrus.Fields{
-					types.FamilyLogField:     agentFamily.Afi,
-					types.AdvertTypeLogField: v1.BGPSRv6LocatorPoolAdvert,
-				}).Warning("Invalid address family for this advertisement type, skipping")
+				r.logger.Warn("Invalid address family for this advertisement type, skipping",
+					types.FamilyLogField, agentFamily.Afi,
+					types.AdvertTypeLogField, v1.BGPSRv6LocatorPoolAdvert,
+				)
 				continue
 			}
 			for _, advert := range familyAdverts {
 				// sanity check
 				if advert.AdvertisementType != v1.BGPSRv6LocatorPoolAdvert {
-					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
+					r.logger.Error("BUG: unexpected advertisement type", types.AdvertTypeLogField, advert.AdvertisementType)
 					continue
 				}
 				if advert.Selector == nil {

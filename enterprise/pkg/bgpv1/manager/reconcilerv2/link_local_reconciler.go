@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/YutaroHayakawa/go-ra"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -33,13 +33,14 @@ import (
 	osstypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type LinkLocalReconcilerIn struct {
 	cell.In
 	JobGroup job.Group
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 
 	Config    Config
 	BGPConfig config.Config
@@ -59,7 +60,7 @@ type LinkLocalReconcilerOut struct {
 }
 
 type LinkLocalReconciler struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	config   Config
 	signaler *signaler.BGPCPSignaler
@@ -88,10 +89,9 @@ func NewLinkLocalReconciler(params LinkLocalReconcilerIn) LinkLocalReconcilerOut
 	if !params.BGPConfig.Enabled {
 		return LinkLocalReconcilerOut{}
 	}
-	logger := params.Logger.WithField(osstypes.ReconcilerLogField, "LinkLocal")
 
 	r := &LinkLocalReconciler{
-		logger:        logger,
+		logger:        params.Logger.With(osstypes.ReconcilerLogField, "LinkLocal"),
 		config:        params.Config,
 		signaler:      params.Signaler,
 		upgrader:      params.Upgrader,
@@ -151,8 +151,10 @@ func (r *LinkLocalReconciler) Cleanup(i *instance.BGPInstance) {
 			metadata.raEnabledInterfaces = nil
 			err := r.reconcileRAInterfaces(ctx, i, &metadata)
 			if err != nil {
-				r.logger.WithField(osstypes.InstanceLogField, i.Name).WithError(err).
-					Warning("Error by disabling RA interfaces during instance cleanup")
+				r.logger.Warn("Error by disabling RA interfaces during instance cleanup",
+					osstypes.InstanceLogField, i.Name,
+					logfields.Error, err,
+				)
 			}
 			cancelTimeout()
 		}
@@ -164,11 +166,11 @@ func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.R
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		if errors.Is(err, NotInitializedErr) {
-			r.logger.Debugf("Initialization is not done, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -234,13 +236,16 @@ func (r *LinkLocalReconciler) getUnnumberedInterfaces(nodeInstance *v1.Isovalent
 // updateUnnumberedPeerAddresses sets the peer address in BGPNodeInstance's DesiredConfig for unnumbered peers.
 // PeerAddress is then referenced from various other reconcilers.
 func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseReconcileParams, oParams ossreconcilerv2.ReconcileParams, metadata *LinkLocalReconcilerMetadata) error {
-	l := r.logger.WithField(osstypes.InstanceLogField, iParams.DesiredConfig.Name)
+	l := r.logger.With(osstypes.InstanceLogField, iParams.DesiredConfig.Name)
 	txn := r.db.ReadTxn()
 
 	for i, peer := range iParams.DesiredConfig.Peers {
 		if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADUnnumbered && peer.AutoDiscovery.Unnumbered != nil {
 			peerInterface := peer.AutoDiscovery.Unnumbered.Interface
-			peerLog := l.WithFields(logrus.Fields{osstypes.PeerLogField: peer.Name, types.InterfaceLogField: peerInterface})
+			peerLog := l.With(
+				osstypes.PeerLogField, peer.Name,
+				types.InterfaceLogField, peerInterface,
+			)
 
 			peerAddress, found, err := utils.GetIPv6LinkLocalNeighborAddress(r.deviceTable, r.neighborTable, txn, peerInterface)
 			if err != nil {
@@ -248,7 +253,7 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 				// As these are related to the host's state rather than the BGP CP, just emit a warning and skip
 				// this peer. Whenever this situation is recovered on the host, we get a new reconcile thanks
 				// to watching the host's neighbor table.
-				peerLog.WithError(err).Warning("Failed to get link local address for the peer")
+				peerLog.Warn("Failed to get link local address for the peer", logfields.Error, err)
 				continue
 			}
 			if !found {
@@ -266,7 +271,7 @@ func (r *LinkLocalReconciler) updateUnnumberedPeerAddresses(iParams EnterpriseRe
 					continue
 				}
 			}
-			peerLog.Debugf("Setting peer address to %s", peerAddress)
+			peerLog.Debug("Setting peer address", osstypes.PeerLogField, peerAddress)
 
 			// update address in the cache
 			metadata.linkLocalNeighbors[peerInterface] = peerAddress
@@ -309,7 +314,7 @@ func (r *LinkLocalReconciler) reconcileRAInterfaces(ctx context.Context, i *inst
 		return nil // no need to reconfigure anything
 	}
 
-	r.logger.Debugf("Configuring RA interfaces: %v", desiredRAInterfaces.UnsortedList())
+	r.logger.Debug("Configuring RA interfaces", logfields.Interface, desiredRAInterfaces.UnsortedList())
 
 	raInterfaces := make([]*ra.InterfaceConfig, 0, len(desiredRAInterfaces))
 	for _, interfaceName := range desiredRAInterfaces.UnsortedList() {
@@ -341,11 +346,11 @@ func (r *LinkLocalReconciler) processStateDBNeighborEvents(ctx context.Context) 
 		}
 		neighbor := ev.Object
 		if neighbor.IPAddr.Is6() && neighbor.IPAddr.IsLinkLocalUnicast() {
-			r.logger.WithFields(logrus.Fields{
-				types.LinkIndexLogField: neighbor.LinkIndex,
-				osstypes.PeerLogField:   neighbor.IPAddr,
-				"deleted":               ev.Deleted,
-			}).Debug("Link-local neighbor update, triggering BGP reconciliation")
+			r.logger.Debug("Link-local neighbor update, triggering BGP reconciliation",
+				types.LinkIndexLogField, neighbor.LinkIndex,
+				osstypes.PeerLogField, neighbor.IPAddr,
+				types.IsDeletedLogField, ev.Deleted,
+			)
 			r.signaler.Event(struct{}{})
 		}
 	}

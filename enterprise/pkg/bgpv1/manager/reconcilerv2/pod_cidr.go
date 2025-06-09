@@ -18,7 +18,6 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -39,16 +38,14 @@ type PodCIDRReconcilerIn struct {
 	cell.In
 
 	BGPConfig    config.Config
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
+	Logger       *slog.Logger
 	PeerAdvert   *IsovalentAdvertisement
 	DaemonConfig *option.DaemonConfig
 	Upgrader     paramUpgrader
 }
 
 type PodCIDRReconciler struct {
-	logger     logrus.FieldLogger
-	sLogger    *slog.Logger
+	logger     *slog.Logger
 	upgrader   paramUpgrader
 	peerAdvert *IsovalentAdvertisement
 	metadata   map[string]PodCIDRReconcilerMetadata
@@ -72,8 +69,7 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 	}
 	return PodCIDRReconcilerOut{
 		Reconciler: &PodCIDRReconciler{
-			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
-			sLogger:    params.SLogger.With(types.ReconcilerLogField, "PodCIDR"),
+			logger:     params.Logger.With(types.ReconcilerLogField, "PodCIDR"),
 			peerAdvert: params.PeerAdvert,
 			upgrader:   params.Upgrader,
 			metadata:   make(map[string]PodCIDRReconcilerMetadata),
@@ -118,7 +114,7 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconcilerv2.Recon
 	p, err := r.upgrader.upgrade(_p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -156,7 +152,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p EnterpriseReco
 
 	// reconcile family advertisements
 	updatedAFPaths, err := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
-		Logger:       r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:       r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
 		Router:       p.BGPInstance.Router,
 		DesiredPaths: desiredFamilyAdverts,
@@ -179,7 +175,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Enterp
 
 	// reconcile route policies
 	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-		Logger:          r.sLogger.With(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,

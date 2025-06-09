@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -657,6 +658,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			mockPeerConfigStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
 			mockAdvertStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
@@ -677,7 +679,6 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 
 			reconciler := LocatorPoolReconciler{
 				logger:           logger,
-				sLogger:          hivetest.Logger(t),
 				upgrader:         newUpgraderMock(testInstanceConfig),
 				locatorPoolStore: mockLocatorPoolStore,
 				sidAllocators:    allocators,

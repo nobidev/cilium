@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -32,12 +32,13 @@ import (
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type BFDStateReconcilerIn struct {
 	cell.In
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 
 	BGPConfig config.Config
@@ -59,7 +60,7 @@ type BFDStateReconcilerOut struct {
 // BFDStateReconciler reconciles BFD peers' state into BGP router state - if a BFD peer
 // that was configured via BGP goes down, it hard-resets the BGP peering.
 type BFDStateReconciler struct {
-	log         logrus.FieldLogger
+	log         *slog.Logger
 	initialized atomic.Bool
 
 	signaler *signaler.BGPCPSignaler
@@ -86,7 +87,7 @@ func NewBFDStateReconciler(p BFDStateReconcilerIn) BFDStateReconcilerOut {
 		signaler:      p.Signaler,
 		upgrader:      p.Upgrader,
 		metadata:      make(map[string]BFDStateReconcilerMetadata),
-		log:           p.Logger.WithField(bgptypes.ReconcilerLogField, "BFDState"),
+		log:           p.Logger.With(bgptypes.ReconcilerLogField, "BFDState"),
 	}
 
 	p.JobGroup.Add(
@@ -134,12 +135,12 @@ func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.Recon
 	params, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.log.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.log.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
 	}
-	logger := r.log.WithField(bgptypes.LocalASNLogField, params.DesiredConfig.LocalASN)
+	logger := r.log.With(bgptypes.InstanceLogField, params.DesiredConfig.Name)
 	if !r.initialized.Load() {
 		logger.Debug("BFD state reconciler not yet initialized, reconciliation skipped")
 		return nil
@@ -163,7 +164,7 @@ func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.Recon
 	iter := r.bfdPeersTable.LowerBound(txn, statedb.ByRevision[*types.BFDPeerStatus](startRev))
 	for peer, rev := range iter {
 		metadata.lastRevision = rev
-		peerLogger := logger.WithField(bgptypes.PeerLogField, peer.PeerAddress)
+		peerLogger := logger.With(bgptypes.PeerLogField, peer.PeerAddress)
 
 		if !configuredBFDPeers.Has(peer.PeerAddress) {
 			// this BFD peer is not configured for this router instance, skip
@@ -207,7 +208,7 @@ func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.Recon
 				AdminCommunication: "BFD session down",
 			})
 			if resetErr != nil {
-				peerLogger.WithError(err).Error("Error resetting BGP peer")
+				peerLogger.Error("Error resetting BGP peer", logfields.Error, resetErr)
 				err = errors.Join(err, resetErr)
 			}
 		}
@@ -242,8 +243,10 @@ func (r *BFDStateReconciler) getConfiguredBFDPeers(ni *v1.IsovalentBGPNodeInstan
 		}
 		peerAddr, err := netip.ParseAddr(*peer.PeerAddress)
 		if err != nil {
-			r.log.WithField(bgptypes.PeerLogField, peer.PeerAddress).WithError(err).
-				Warn("Error parsing BGP peer address, skipping the peer")
+			r.log.Warn("Error parsing BGP peer address, skipping the peer",
+				bgptypes.PeerLogField, peer.PeerAddress,
+				logfields.Error, err,
+			)
 			continue
 		}
 		if peer.PeerConfigRef == nil || peer.PeerConfigRef.Name == "" {
@@ -251,8 +254,10 @@ func (r *BFDStateReconciler) getConfiguredBFDPeers(ni *v1.IsovalentBGPNodeInstan
 		}
 		peerConfig, exists, err := r.bgpPeerConfigStore.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
-			r.log.WithField(bgptypes.PeerLogField, peer.PeerAddress).WithError(err).
-				Warn("Error getting BGP peer config, skipping the peer")
+			r.log.Warn("Error getting BGP peer config, skipping the peer",
+				bgptypes.PeerLogField, peer.PeerAddress,
+				logfields.Error, err,
+			)
 		}
 		if !exists {
 			continue
@@ -280,8 +285,10 @@ func (r *BFDStateReconciler) processStateDBEvents(ctx context.Context) error {
 		if !ev.Deleted {
 			// trigger reconcile if the state went to Up or Down. We don't really care about other state changes.
 			if (state == types.BFDStateDown || state == types.BFDStateUp) && (!prevStateKnown || prevState != state) {
-				r.log.WithFields(logrus.Fields{types.PeerAddressField: peerAddr, types.SessionStateField: state}).
-					Debug("BFD peer state changed, triggering BGP reconciliation")
+				r.log.Debug("BFD peer state changed, triggering BGP reconciliation",
+					types.PeerAddressField, peerAddr,
+					types.SessionStateField, state,
+				)
 				r.signaler.Event(struct{}{})
 			}
 			prevPeerState[peerAddr] = state

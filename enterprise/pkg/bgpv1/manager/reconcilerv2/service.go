@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -43,6 +42,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -58,9 +58,8 @@ const (
 // (thanks to the same reconciler name and higher priority).
 // The Enterprise reconciler calls the OSS reconciler's methods on various places to avoid code duplication.
 type ServiceReconciler struct {
-	mutex   lock.Mutex
-	logger  logrus.FieldLogger
-	sLogger *slog.Logger
+	mutex  lock.Mutex
+	logger *slog.Logger
 
 	jobs         job.Group
 	cfg          Config
@@ -95,8 +94,7 @@ type ServiceReconcilerIn struct {
 	Frontends    statedb.Table[*loadbalancer.Frontend]
 	Cfg          Config
 	BGPConfig    config.Config
-	Logger       logrus.FieldLogger // TODO: migrate to slog
-	SLogger      *slog.Logger
+	Logger       *slog.Logger
 	Signaler     *signaler.BGPCPSignaler
 	Upgrader     paramUpgrader
 	PeerAdvert   *IsovalentAdvertisement
@@ -126,8 +124,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	}
 
 	r := &ServiceReconciler{
-		logger:           in.Logger.WithField(bgptypes.ReconcilerLogField, "Service"),
-		sLogger:          in.SLogger.With(bgptypes.ReconcilerLogField, "Service"),
+		logger:           in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
 		cfg:              in.Cfg,
 		signaler:         in.Signaler,
 		db:               in.DB,
@@ -233,10 +230,10 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 
 	svcFrontendsHealth, found := r.svcHealth[svcID]
 	if change.Deleted {
-		r.logger.WithFields(logrus.Fields{
-			types.ServiceIDLogField:      svcID,
-			types.ServiceAddressLogField: fe.Address,
-		}).Debug("Service health update: frontend deleted")
+		r.logger.Debug("Service health update: frontend deleted",
+			types.ServiceIDLogField, svcID,
+			types.ServiceAddressLogField, fe.Address,
+		)
 		if found {
 			// Due to the service node selector annotation we cannot just delete the frontend health,
 			// but rather just need to give it zero backends.
@@ -257,11 +254,11 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 			}
 		}
 
-		r.logger.WithFields(logrus.Fields{
-			types.ServiceIDLogField:      svcID,
-			types.ServiceAddressLogField: fe.Address,
-			types.BackendCountLogField:   backendsCount,
-		}).Debug("Service health update")
+		r.logger.Debug("Service health update",
+			types.ServiceIDLogField, svcID,
+			types.ServiceAddressLogField, fe.Address,
+			types.BackendCountLogField, backendsCount,
+		)
 
 		frontendHealth := svcFrontendsHealth[fe.Address]
 		if frontendHealth == nil {
@@ -293,7 +290,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -395,10 +392,10 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p EnterpriseR
 			return err
 		}
 	}
-	r.logger.WithFields(logrus.Fields{
-		types.ToReconcileLogField: len(toReconcile),
-		types.ToWithdrawLogField:  len(toWithdraw),
-	}).Debug("Reconciling services")
+	r.logger.Debug("Reconciling services",
+		types.ToReconcileLogField, len(toReconcile),
+		types.ToWithdrawLogField, len(toWithdraw),
+	)
 
 	// get desired service route policies
 	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(desiredPeerAdverts, toReconcile, toWithdraw, ls)
@@ -450,7 +447,7 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p EnterpriseReco
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.ServicePaths, err = ossreconcilerv2.ReconcileResourceAFPaths(ossreconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.sLogger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.logger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredSvcPaths,
@@ -475,7 +472,9 @@ func (r *ServiceReconciler) healthModifiedServices(p EnterpriseReconcileParams) 
 	for svcID := range r.svcHealthChanged[p.BGPInstance.Name] {
 		svc, exists, err := r.getSvcByID(svcID)
 		if err != nil {
-			r.logger.WithError(err).WithField(types.ServiceIDLogField, svcID).Warn("Could not retrieve service, skipping its reconciliation")
+			r.logger.Warn("Could not retrieve service, skipping its reconciliation",
+				types.ServiceIDLogField, svcID,
+				logfields.Error, err)
 			continue
 		}
 		if !exists {
@@ -884,7 +883,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Ent
 		}
 
 		updatedSvcRoutePolicies, rErr := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
-			Logger:          r.sLogger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
+			Logger:          r.logger.With(bgptypes.InstanceLogField, p.DesiredConfig.Name),
 			Ctx:             ctx,
 			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredSvcRoutePolicies,
@@ -1247,10 +1246,10 @@ func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip
 	if advert.Service.AggregationLengthIPv4 != nil && addr.Is4() {
 		// guard against invalid prefix length
 		if *advert.Service.AggregationLengthIPv4 > 31 || *advert.Service.AggregationLengthIPv4 < 1 {
-			r.logger.WithFields(logrus.Fields{
-				types.ServiceIDLogField: svc.Name,
-				"prefix_length":         *advert.Service.AggregationLengthIPv4,
-			}).Warn("Invalid aggregation length for IPv4 address, using /32 prefix length")
+			r.logger.Warn("Invalid aggregation length for IPv4 address, using /32 prefix length",
+				types.ServiceIDLogField, svc.Name,
+				types.PrefixLengthLogField, *advert.Service.AggregationLengthIPv4,
+			)
 			return prefixLen
 		}
 		prefixLen = int(*advert.Service.AggregationLengthIPv4)
@@ -1259,10 +1258,10 @@ func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip
 	if advert.Service.AggregationLengthIPv6 != nil && addr.Is6() {
 		// guard against invalid prefix length
 		if *advert.Service.AggregationLengthIPv6 > 127 || *advert.Service.AggregationLengthIPv6 < 1 {
-			r.logger.WithFields(logrus.Fields{
-				types.ServiceIDLogField: svc.Name,
-				"prefix_length":         *advert.Service.AggregationLengthIPv6,
-			}).Warn("Invalid aggregation length for IPv6 address, using /128 prefix length")
+			r.logger.Warn("Invalid aggregation length for IPv6 address, using /128 prefix length",
+				types.ServiceIDLogField, svc.Name,
+				types.PrefixLengthLogField, *advert.Service.AggregationLengthIPv6,
+			)
 			return prefixLen
 		}
 		prefixLen = int(*advert.Service.AggregationLengthIPv6)

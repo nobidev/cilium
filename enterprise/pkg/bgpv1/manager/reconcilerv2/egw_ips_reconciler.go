@@ -18,7 +18,6 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
@@ -29,14 +28,14 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type EGWIPsReconcilerIn struct {
 	cell.In
 
-	Logger         logrus.FieldLogger // TODO: migrate to slog
-	SLogger        *slog.Logger
+	Logger         *slog.Logger
 	BGPConfig      config.Config
 	DaemonConfig   *option.DaemonConfig
 	EGWIPsProvider egressgatewayha.EgressIPsProvider
@@ -57,8 +56,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 
 	return EGWIPsReconcilerOut{
 		Reconciler: &EgressGatewayIPsReconciler{
-			logger:         params.Logger.WithField(types.ReconcilerLogField, "EgressGatewayIP"),
-			sLogger:        params.SLogger.With(types.ReconcilerLogField, "EgressGatewayIP"),
+			logger:         params.Logger.With(types.ReconcilerLogField, "EgressGatewayIP"),
 			egwIPsProvider: params.EGWIPsProvider,
 			upgrader:       params.Upgrader,
 			peerAdvert:     params.PeerAdvert,
@@ -68,8 +66,7 @@ func NewEgressGatewayIPsReconciler(params EGWIPsReconcilerIn) EGWIPsReconcilerOu
 }
 
 type EgressGatewayIPsReconciler struct {
-	logger         logrus.FieldLogger
-	sLogger        *slog.Logger
+	logger         *slog.Logger
 	egwIPsProvider egressgatewayha.EgressIPsProvider
 	upgrader       paramUpgrader
 	peerAdvert     *IsovalentAdvertisement
@@ -110,7 +107,7 @@ func (r *EgressGatewayIPsReconciler) Reconcile(ctx context.Context, p reconciler
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, EntNodeConfigNotFoundErr) {
-			r.logger.Debugf("Enterprise node config not found yet, skipping %s reconciliation", r.Name())
+			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
 		return err
@@ -146,7 +143,7 @@ func (r *EgressGatewayIPsReconciler) reconcilePaths(ctx context.Context, params 
 	}
 
 	metadata.EGWAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
-		Logger:                 r.sLogger.With(types.InstanceLogField, params.DesiredConfig.Name),
+		Logger:                 r.logger.With(types.InstanceLogField, params.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 params.BGPInstance.Router,
 		DesiredResourceAFPaths: egwAFPaths,
@@ -179,7 +176,7 @@ func (r *EgressGatewayIPsReconciler) reconcileRoutePolicies(ctx context.Context,
 		}
 
 		updatedRoutePolicies, rErr := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
-			Logger: r.sLogger.With(
+			Logger: r.logger.With(
 				types.InstanceLogField, params.DesiredConfig.Name,
 				entTypes.EgressGatewayLogField, key,
 			),
@@ -214,13 +211,13 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 			for _, advert := range familyAdverts {
 				// sanity check
 				if advert.AdvertisementType != v1.BGPEGWAdvert {
-					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
+					r.logger.Error("BUG: unexpected advertisement type", types.AdvertTypeLogField, advert.AdvertisementType)
 					continue
 				}
 
 				egwPolicyResult, err := r.egwIPsProvider.AdvertisedEgressIPs(advert.Selector)
 				if err != nil {
-					r.logger.WithError(err).Error("failed to get egress gateway IPs")
+					r.logger.Error("failed to get egress gateway IPs", logfields.Error, err)
 					continue
 				}
 
@@ -240,7 +237,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 							reconcilerv2.AddPathToAFPathsMap(desiredEGWAFPaths, agentFamily, path, path.NLRI.String())
 
 						default:
-							r.logger.WithField("IP", egwIP.String()).Error("invalid egress gateway IP")
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP.String())
 							continue
 						}
 					}
@@ -279,13 +276,13 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 			for _, advert := range familyAdverts {
 				// sanity check
 				if advert.AdvertisementType != v1.BGPEGWAdvert {
-					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
+					r.logger.Error("BUG: unexpected advertisement type", types.AdvertTypeLogField, advert.AdvertisementType)
 					continue
 				}
 
 				egwPolicyResult, err := r.egwIPsProvider.AdvertisedEgressIPs(advert.Selector)
 				if err != nil {
-					r.logger.WithError(err).Error("failed to get egress gateway IPs")
+					r.logger.Error("failed to get egress gateway IPs", logfields.Error, err)
 					continue
 				}
 
@@ -308,7 +305,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 							})
 
 						default:
-							r.logger.WithField("IP", egwIP.String()).Error("invalid egress gateway IP")
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP.String())
 							continue
 						}
 					}

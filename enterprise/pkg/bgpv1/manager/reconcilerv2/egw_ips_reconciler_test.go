@@ -12,11 +12,11 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -30,10 +30,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
-var (
-	logger = logrus.WithField("unit_test", "reconcilerv2_egw")
 )
 
 var (
@@ -233,8 +229,6 @@ var (
 )
 
 func TestEgressGatewayAdvertisements(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name                    string
 		advertisement           *v1.IsovalentBGPAdvertisement
@@ -523,13 +517,13 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			mockPeerConfigStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
 			mockAdvertStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 
 			reconciler := EgressGatewayIPsReconciler{
 				logger:         logger,
-				sLogger:        hivetest.Logger(t),
 				egwIPsProvider: newEGWManagerMock(tt.testEGWPolicies),
 				upgrader:       newUpgraderMock(tt.testBGPInstanceConfig),
 				peerAdvert: &IsovalentAdvertisement{

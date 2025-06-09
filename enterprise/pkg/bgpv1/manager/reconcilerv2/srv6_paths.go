@@ -13,12 +13,12 @@ package reconcilerv2
 import (
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -35,14 +35,14 @@ type SRv6Manager interface {
 
 type srv6PathsIn struct {
 	cell.In
-	Logger       logrus.FieldLogger
+	Logger       *slog.Logger
 	SRv6Manager  *srv6.Manager
 	DaemonConfig *option.DaemonConfig
 	Config       config.Config
 }
 
 type srv6Paths struct {
-	Logger      logrus.FieldLogger
+	Logger      *slog.Logger
 	SRv6Manager SRv6Manager
 }
 
@@ -52,7 +52,7 @@ func newSRv6Paths(in srv6PathsIn) *srv6Paths {
 	}
 
 	return &srv6Paths{
-		Logger:      in.Logger.WithField("component", "srv6_paths"),
+		Logger:      in.Logger.With(types.ReconcilerLogField, "srv6_paths"),
 		SRv6Manager: in.SRv6Manager,
 	}
 }

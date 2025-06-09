@@ -12,10 +12,10 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -164,8 +164,7 @@ var (
 // the desired BGP neighbors given a CiliumBGPVirtualRouter configuration.
 func TestNeighborReconciler(t *testing.T) {
 	req := require.New(t)
-
-	logrus.SetLevel(logrus.DebugLevel)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	table := []struct {
 		name         string
@@ -247,14 +246,14 @@ func TestNeighborReconciler(t *testing.T) {
 				},
 			}
 
-			testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), logger, "test-instance", srvParams)
 			req.NoError(err)
 
 			t.Cleanup(func() {
 				testInstance.Router.Stop()
 			})
 
-			params, nodeConfig := setupNeighbors(tt.neighbors)
+			params, nodeConfig := setupNeighbors(logger, tt.neighbors)
 
 			// setup initial neighbors
 			neighborReconciler := NewNeighborReconciler(params).Reconciler
@@ -278,7 +277,7 @@ func TestNeighborReconciler(t *testing.T) {
 
 			// update neighbors
 
-			params, _ = setupNeighbors(tt.newNeighbors)
+			params, _ = setupNeighbors(logger, tt.newNeighbors)
 			neighborReconciler.(*NeighborReconciler).PeerConfig = params.PeerConfig
 			neighborReconciler.(*NeighborReconciler).SecretStore = params.SecretStore
 			neighborReconciler.(*NeighborReconciler).upgrader = params.Upgrader
@@ -301,7 +300,7 @@ func TestNeighborReconciler(t *testing.T) {
 	}
 }
 
-func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v1.IsovalentBGPNodeInstance) {
+func setupNeighbors(logger *slog.Logger, peers []PeerData) (NeighborReconcilerIn, *v1.IsovalentBGPNodeInstance) {
 	// Desired BGP Node config
 	nodeConfig := &v1.IsovalentBGPNodeInstance{
 		Name: "bgp-node",
@@ -342,7 +341,7 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v1.IsovalentBGPNod
 
 	return NeighborReconcilerIn{
 		BGPConfig:   config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:      logrus.WithField("unit_test", "neighbors"),
+		Logger:      logger,
 		SecretStore: secretStore,
 		PeerConfig:  peerConfigStore,
 		DaemonConfig: &option.DaemonConfig{

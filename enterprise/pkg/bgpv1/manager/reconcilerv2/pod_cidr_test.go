@@ -12,11 +12,11 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -575,16 +575,14 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		},
 	}
 
-	logger := logrus.WithField("unit_test", "reconcilerv2_podcidr")
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			out := NewPodCIDRReconciler(PodCIDRReconcilerIn{
 				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
 				Logger:    logger,
-				SLogger:   hivetest.Logger(t),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
 					peerConfigs: store.InitMockStore(tt.peerConfig),

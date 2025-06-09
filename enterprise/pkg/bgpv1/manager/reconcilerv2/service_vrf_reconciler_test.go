@@ -12,12 +12,12 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -39,10 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
-var (
-	svcVRFTestLogger = logrus.WithField("unit_test", "reconcilerv2_serviceVRF")
 )
 
 type afSimplePathsMap map[bgptypes.Family][]string // list of nlris
@@ -317,8 +313,6 @@ var (
 )
 
 func TestServiceVRFFullReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	vrf1RD, err := bgp.ParseRouteDistinguisher("65001:1")
 	if err != nil {
 		t.Fatalf("failed to parse RD: %v", err)
@@ -629,6 +623,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			// IsovalentAdvertisement mock
 			vrfConfigMockStore := store.NewMockBGPCPResourceStore[*v1alpha1.IsovalentBGPVRFConfig]()
@@ -640,7 +635,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				advertMockStore.Upsert(advert)
 			}
 			isoAdverts := &IsovalentAdvertisement{
-				logger:  svcVRFTestLogger,
+				logger:  logger,
 				adverts: advertMockStore,
 				vrfs:    vrfConfigMockStore,
 			}
@@ -662,14 +657,13 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			})
 
 			svcVRFReconciler := &ServiceVRFReconciler{
-				logger:       svcVRFTestLogger,
-				sLogger:      hivetest.Logger(t),
+				logger:       logger,
 				adverts:      isoAdverts,
 				svcDiffStore: svcStore,
 				epDiffStore:  epStore,
 				upgrader:     newUpgraderMock(tt.bgpNodeInstance),
 				srv6Paths: &srv6Paths{
-					Logger:      svcVRFTestLogger,
+					Logger:      logger,
 					SRv6Manager: srv6Manager,
 				},
 				srv6Manager: srv6Manager,
@@ -705,8 +699,6 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 }
 
 func TestServiceVRFPartialReconcile(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	vrf1RD, err := bgp.ParseRouteDistinguisher("65001:1")
 	if err != nil {
 		t.Fatalf("failed to parse RD: %v", err)
@@ -1021,9 +1013,10 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			isoAdverts := &IsovalentAdvertisement{
-				logger:  svcVRFTestLogger,
+				logger:  logger,
 				adverts: store.InitMockStore[*v1.IsovalentBGPAdvertisement]([]*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert}),
 				vrfs:    store.InitMockStore[*v1alpha1.IsovalentBGPVRFConfig]([]*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config}),
 			}
@@ -1045,14 +1038,13 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			})
 
 			svcVRFReconciler := &ServiceVRFReconciler{
-				logger:       svcVRFTestLogger,
-				sLogger:      hivetest.Logger(t),
+				logger:       logger,
 				adverts:      isoAdverts,
 				svcDiffStore: svcStore,
 				epDiffStore:  epStore,
 				upgrader:     newUpgraderMock(testBGPNodeInstance),
 				srv6Paths: &srv6Paths{
-					Logger:      svcVRFTestLogger,
+					Logger:      logger,
 					SRv6Manager: srv6Manager,
 				},
 				srv6Manager: srv6Manager,

@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"sync"
 	"testing"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -38,7 +38,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -161,8 +160,6 @@ func (r *bfdFakeRouter) ResetNeighbor(ctx context.Context, rr bgptypes.ResetNeig
 }
 
 func TestBFDStateReconciler(t *testing.T) {
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	var (
 		peer1Addr = netip.MustParseAddr("10.0.0.1")
 		peer2Addr = netip.MustParseAddr("10.0.0.2")
@@ -536,7 +533,7 @@ func TestBFDStateReconciler(t *testing.T) {
 	f, waitWatchersReady := newBFDTestFixture(t, testCtx, nodeInstance)
 
 	// start the test hive
-	log := hivetest.Logger(t)
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	err := f.hive.Start(log, context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() {

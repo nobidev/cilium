@@ -12,10 +12,10 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -101,10 +101,6 @@ var (
 )
 
 func TestVPNRoutePolicy(t *testing.T) {
-	logger = logrus.WithField("unit_test", "reconcilerv2_vpn_route_policy_test")
-
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name        string
 		preRPs      reconcilerv2.RoutePolicyMap
@@ -212,8 +208,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 			}
 
 			reconciler := &VPNRoutePolicyReconciler{
-				logger:          logger,
-				sLogger:         hivetest.Logger(t),
+				logger:          hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				peerConfigStore: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
 				metadata:        make(map[string]VPNRoutePolicyMetadata),
 				upgrader:        newUpgraderMock(iNodeInstance),

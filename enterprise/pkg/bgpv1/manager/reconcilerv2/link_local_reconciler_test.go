@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 	"time"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
@@ -102,8 +101,6 @@ func newLinkLocalTestFixture() *linkLocalTestFixture {
 }
 
 func TestLinkLocalReconciler(t *testing.T) {
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	instance := &instance.BGPInstance{
 		Name: "test-instance",
 	}
@@ -329,7 +326,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 	f := newLinkLocalTestFixture()
 
 	// start the test hive
-	log := hivetest.Logger(t)
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	err := f.hive.Start(log, context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -406,8 +403,6 @@ func TestLinkLocalReconciler(t *testing.T) {
 }
 
 func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	var table = []struct {
 		name                 string
 		nodeInstance         *v1.IsovalentBGPNodeInstance
@@ -567,7 +562,7 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 	f := newLinkLocalTestFixture()
 
 	// start the test hive
-	log := hivetest.Logger(t)
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	err := f.hive.Start(log, context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() {

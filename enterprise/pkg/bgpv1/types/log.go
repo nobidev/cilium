@@ -20,6 +20,12 @@ const (
 	// VRFLogField is used as key for VRF in the log field.
 	VRFLogField = "vrf"
 
+	// RouteTargetLogField is used as key for route target in the log field.
+	RouteTargetLogField = "route_target"
+
+	// SIDLogField  is used as key for SID in the log field.
+	SIDLogField = "sid"
+
 	// ServiceIDLogField is used as a key for service ID in the log field.
 	ServiceIDLogField = "service_id"
 
@@ -40,4 +46,22 @@ const (
 
 	// LinkIndexLogField is used as key for link index in the log field.
 	LinkIndexLogField = "link_index"
+
+	// PrefixLengthLogField is used as key for prefix length in the log field.
+	PrefixLengthLogField = "prefix_length"
+
+	// IsDeletedLogField is used as key for deleted flag in the log field.
+	IsDeletedLogField = "is_deleted"
+
+	// transpose SID related  log fields
+	OffsetLogField         = "offset"
+	NextOffsetLogField     = "next_offset"
+	LengthLogField         = "length"
+	OriginalSIDLogField    = "original_sid"
+	StartByteLogField      = "start_byte"
+	CopiedNLogField        = "copied_n"
+	ByteILogField          = "byte_i"
+	BitILogField           = "bit_i"
+	MaskLogField           = "mask"
+	TransposedByteLogField = "transposed_byte"
 )
