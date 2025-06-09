@@ -232,7 +232,7 @@ func newAggregatorFromDynamicConfig(config *FlowLogConfig, logger *slog.Logger) 
 		config.Aggregations,
 		config.AggregationStateChangeFilter,
 		config.AggregationIgnoreSourcePort,
-		config.AggregationTTL,
+		config.AggregationTtl,
 		config.AggregationRenewTTL,
 	)
 	if err != nil {
@@ -299,16 +299,8 @@ func (c *dynamicConfigFile) ToFlowLogConfigs() []*FlowLogConfig {
 	var configs []*FlowLogConfig
 	for _, fl := range c.FlowLogs {
 		config := &FlowLogConfig{
-			FlowLogConfig:                fl.FlowLogConfig,
-			FileRotationInterval:         defaultConfig.FileRotationInterval,
-			FormatVersion:                defaultConfig.FormatVersion,
-			RateLimit:                    defaultConfig.RateLimit,
-			NodeName:                     defaultConfig.NodeName,
-			Aggregations:                 defaultConfig.Aggregations,
-			AggregationIgnoreSourcePort:  defaultConfig.AggregationIgnoreSourcePort,
-			AggregationRenewTTL:          defaultConfig.AggregationRenewTTL,
-			AggregationStateChangeFilter: defaultConfig.AggregationStateChangeFilter,
-			AggregationTTL:               defaultConfig.AggregationTtl,
+			FlowLogConfig: fl.FlowLogConfig,
+			config:        defaultConfig,
 		}
 
 		if fl.FileRotationInterval != nil {
@@ -336,7 +328,7 @@ func (c *dynamicConfigFile) ToFlowLogConfigs() []*FlowLogConfig {
 			config.AggregationStateChangeFilter = fl.AggregationStateChangeFilter
 		}
 		if fl.AggregationTTL != nil {
-			config.AggregationTTL = time.Duration(*fl.AggregationTTL)
+			config.AggregationTtl = time.Duration(*fl.AggregationTTL)
 		}
 
 		configs = append(configs, config)
@@ -349,16 +341,7 @@ var _ exporter.ExporterConfig = (*FlowLogConfig)(nil)
 // FlowLogConfig represents configuration of single dynamic exporter.
 type FlowLogConfig struct {
 	exporter.FlowLogConfig
-
-	FileRotationInterval         time.Duration
-	FormatVersion                string
-	RateLimit                    int
-	NodeName                     string
-	Aggregations                 []string
-	AggregationIgnoreSourcePort  bool
-	AggregationRenewTTL          bool
-	AggregationStateChangeFilter []string
-	AggregationTTL               time.Duration
+	config
 }
 
 // Equal implements the ExporterConfig interface.
@@ -398,7 +381,7 @@ func (f *FlowLogConfig) equals(other *FlowLogConfig) bool {
 	if f.AggregationRenewTTL != other.AggregationRenewTTL {
 		return false
 	}
-	if f.AggregationTTL != other.AggregationTTL {
+	if f.AggregationTtl != other.AggregationTtl {
 		return false
 	}
 
