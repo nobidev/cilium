@@ -41,12 +41,8 @@ func newRateLimiterFromStaticConfig(conf config, logger *slog.Logger) (*enterpri
 	return &enterpriseRateLimiter{ratelimiter: ratelimiter}, nil
 }
 
-func newRateLimiterFromDynamicConfig(conf *EnterpriseFlowLogConfig, logger *slog.Logger) (*enterpriseRateLimiter, error) {
-	rateLimit := -1
-	if conf.RateLimit != nil {
-		rateLimit = *conf.RateLimit
-	}
-	ratelimiter, err := NewRateLimiter(rateLimit, rateLimitInterval, conf.NodeName, logger)
+func newRateLimiterFromDynamicConfig(conf *FlowLogConfig, logger *slog.Logger) (*enterpriseRateLimiter, error) {
+	ratelimiter, err := NewRateLimiter(conf.RateLimit, rateLimitInterval, conf.NodeName, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dynamic flow export rate limiter: %w", err)
 	}

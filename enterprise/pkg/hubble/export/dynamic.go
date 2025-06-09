@@ -48,18 +48,19 @@ func (e *exporterConfigParser) Parse(r io.Reader) (map[string]exporter.ExporterC
 	if _, err := buf.ReadFrom(r); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
-	var config EnterpriseDynamicExportersConfig
+	var config dynamicConfigFile
 	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal yaml config: %w", err)
 	}
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
-	configs := make(map[string]exporter.ExporterConfig, len(config.FlowLogs))
-	for _, fl := range config.FlowLogs {
-		configs[fl.Name] = fl
+	configs := config.ToFlowLogConfigs()
+	exporterConfigs := make(map[string]exporter.ExporterConfig, len(configs))
+	for _, fl := range configs {
+		exporterConfigs[fl.Name] = fl
 	}
-	return configs, nil
+	return exporterConfigs, nil
 }
 
 var _ exporter.ExporterFactory = (*exporterFactory)(nil)
@@ -72,7 +73,7 @@ type exporterFactory struct {
 
 // Create implements ExporterFactory.
 func (f *exporterFactory) Create(config exporter.ExporterConfig) (exporter.FlowLogExporter, error) {
-	if config, ok := config.(*EnterpriseFlowLogConfig); ok {
+	if config, ok := config.(*FlowLogConfig); ok {
 		return f.create(config)
 	}
 	return nil, fmt.Errorf("invalid config type %T (%+v)", config, config)
@@ -84,7 +85,7 @@ func (f *exporterFactory) Create(config exporter.ExporterConfig) (exporter.FlowL
 // name cardinality.
 // There is an ongoing effort in hive to support closing health reporters of jobs:
 // https://github.com/cilium/hive/pull/20
-func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.FlowLogExporter, error) {
+func (f *exporterFactory) create(config *FlowLogConfig) (exporter.FlowLogExporter, error) {
 	f.logger.Debug("Creating new managed exporter",
 		logfields.ExporterName, config.Name,
 		logfields.Config, fmt.Sprintf("%+v", config),
@@ -149,7 +150,7 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 	}
 
 	// setup rate-limiting
-	if config.RateLimit != nil && *config.RateLimit >= 0 {
+	if config.RateLimit >= 0 {
 		ratelimiter, err := newRateLimiterFromDynamicConfig(config, f.logger)
 		if err != nil {
 			// non-fatal failure, log and continue
@@ -183,7 +184,7 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 
 	// setup file rotation
 	fileRotateJobCancel := func() {}
-	if config.FileRotationInterval != nil && *config.FileRotationInterval != 0 {
+	if config.FileRotationInterval != 0 {
 		f.logger.Info("Periodically rotating JSON export file",
 			logfields.FilePath, config.FlowLogConfig.FilePath,
 			logfields.Interval, config.FileRotationInterval,
@@ -193,7 +194,7 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 		scopedGroup().Add(job.OneShot(jobName, func(ctx context.Context, health cell.Health) error {
 			ctx, cancel := context.WithCancel(ctx)
 			fileRotateJobCancel = cancel
-			ticker := time.NewTicker(time.Duration(*config.FileRotationInterval))
+			ticker := time.NewTicker(config.FileRotationInterval)
 			for {
 				select {
 				case <-ctx.Done():
@@ -226,16 +227,12 @@ func (f *exporterFactory) create(config *EnterpriseFlowLogConfig) (exporter.Flow
 	return wrapperExporter, nil
 }
 
-func newAggregatorFromDynamicConfig(config *EnterpriseFlowLogConfig, logger *slog.Logger) (*aggregation.EnterpriseAggregator, error) {
-	aggregationTTL := time.Duration(0)
-	if config.AggregationTTL != nil {
-		aggregationTTL = time.Duration(*config.AggregationTTL)
-	}
+func newAggregatorFromDynamicConfig(config *FlowLogConfig, logger *slog.Logger) (*aggregation.EnterpriseAggregator, error) {
 	aggFilter, err := aggregator.NewAggregation(
 		config.Aggregations,
 		config.AggregationStateChangeFilter,
 		config.AggregationIgnoreSourcePort,
-		aggregationTTL,
+		config.AggregationTTL,
 		config.AggregationRenewTTL,
 	)
 	if err != nil {
@@ -244,86 +241,146 @@ func newAggregatorFromDynamicConfig(config *EnterpriseFlowLogConfig, logger *slo
 	return aggregation.NewEnterpriseAggregator(aggFilter, logger)
 }
 
-type EnterpriseDynamicExportersConfig struct {
-	FlowLogs []*EnterpriseFlowLogConfig `json:"flowLogs,omitempty" yaml:"flowLogs,omitempty"`
-}
-
-func (c *EnterpriseDynamicExportersConfig) Validate() error {
-	flowlogNames := make(map[string]interface{})
-	flowlogPaths := make(map[string]interface{})
-
-	var errs error
-
-	for i := range c.FlowLogs {
-		if c.FlowLogs[i] == nil {
-			errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d", i))
-			continue
-		}
-		name := c.FlowLogs[i].FlowLogConfig.Name
-		if name == "" {
-			errs = errors.Join(errs, fmt.Errorf("name is required"))
-		} else {
-			if _, ok := flowlogNames[name]; ok {
-				errs = errors.Join(errs, fmt.Errorf("duplicated flowlog name %s", name))
-			}
-			flowlogNames[name] = struct{}{}
-		}
-
-		filePath := c.FlowLogs[i].FlowLogConfig.FilePath
-		if filePath == "" {
-			errs = errors.Join(errs, fmt.Errorf("filePath is required"))
-		} else {
-			if _, ok := flowlogPaths[filePath]; ok {
-				errs = errors.Join(errs, fmt.Errorf("duplicated flowlog path %s", filePath))
-			}
-			flowlogPaths[filePath] = struct{}{}
-		}
-	}
-
-	return errs
-}
-
-var _ exporter.ExporterConfig = (*EnterpriseFlowLogConfig)(nil)
-
-// EnterpriseFlowLogConfig represents configuration of single dynamic exporter.
-type EnterpriseFlowLogConfig struct {
+type flowLogConfig struct {
 	exporter.FlowLogConfig
 
 	FileRotationInterval         *Duration `json:"fileRotationInterval,omitempty" yaml:"fileRotationInterval,omitempty"`
-	FormatVersion                string    `json:"formatVersion,omitempty" yaml:"formatVersion,omitempty"`
+	FormatVersion                *string   `json:"formatVersion,omitempty" yaml:"formatVersion,omitempty"`
 	RateLimit                    *int      `json:"rateLimit,omitempty" yaml:"rateLimit,omitempty"`
-	NodeName                     string    `json:"nodeName,omitempty" yaml:"nodeName,omitempty"`
+	NodeName                     *string   `json:"nodeName,omitempty" yaml:"nodeName,omitempty"`
 	Aggregations                 []string  `json:"aggregation,omitempty" yaml:"aggregation,omitempty"`
-	AggregationIgnoreSourcePort  bool      `json:"aggregationIgnoreSourcePort,omitempty" yaml:"aggregationIgnoreSourcePort,omitempty"`
-	AggregationRenewTTL          bool      `json:"aggregationRenewTTL,omitempty" yaml:"aggregationRenewTTL,omitempty"`
+	AggregationIgnoreSourcePort  *bool     `json:"aggregationIgnoreSourcePort,omitempty" yaml:"aggregationIgnoreSourcePort,omitempty"`
+	AggregationRenewTTL          *bool     `json:"aggregationRenewTTL,omitempty" yaml:"aggregationRenewTTL,omitempty"`
 	AggregationStateChangeFilter []string  `json:"aggregationStateFilter,omitempty" yaml:"aggregationStateFilter,omitempty"`
 	AggregationTTL               *Duration `json:"aggregationTTL,omitempty" yaml:"aggregationTTL,omitempty"`
 }
 
+type dynamicConfigFile struct {
+	FlowLogs []*flowLogConfig `json:"flowLogs,omitempty" yaml:"flowLogs,omitempty"`
+}
+
+func (c *dynamicConfigFile) Validate() error {
+	flowlogNames := make(map[string]any)
+	flowlogPaths := make(map[string]any)
+
+	var errs error
+	for i, fl := range c.FlowLogs {
+		if fl == nil {
+			errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d: empty config", i))
+			continue
+		}
+
+		name := fl.FlowLogConfig.Name
+		if name == "" {
+			errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d: name is required", i))
+		} else {
+			if _, ok := flowlogNames[name]; ok {
+				errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d: duplicated flowlog name %s", i, name))
+			}
+			flowlogNames[name] = struct{}{}
+		}
+
+		filePath := fl.FlowLogConfig.FilePath
+		if filePath == "" {
+			errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d: filePath is required", i))
+		} else {
+			if _, ok := flowlogPaths[filePath]; ok {
+				errs = errors.Join(errs, fmt.Errorf("invalid flowlog at index %d: duplicated flowlog path %s", i, filePath))
+			}
+			flowlogPaths[filePath] = struct{}{}
+		}
+	}
+	return errs
+}
+
+// ToFlowLogConfigs converts the file representation of the dynamic config to a slice of
+// FlowLogConfig, taking care of setting default values as needed.
+func (c *dynamicConfigFile) ToFlowLogConfigs() []*FlowLogConfig {
+	var configs []*FlowLogConfig
+	for _, fl := range c.FlowLogs {
+		config := &FlowLogConfig{
+			FlowLogConfig:                fl.FlowLogConfig,
+			FileRotationInterval:         defaultConfig.FileRotationInterval,
+			FormatVersion:                defaultConfig.FormatVersion,
+			RateLimit:                    defaultConfig.RateLimit,
+			NodeName:                     defaultConfig.NodeName,
+			Aggregations:                 defaultConfig.Aggregations,
+			AggregationIgnoreSourcePort:  defaultConfig.AggregationIgnoreSourcePort,
+			AggregationRenewTTL:          defaultConfig.AggregationRenewTTL,
+			AggregationStateChangeFilter: defaultConfig.AggregationStateChangeFilter,
+			AggregationTTL:               defaultConfig.AggregationTtl,
+		}
+
+		if fl.FileRotationInterval != nil {
+			config.FileRotationInterval = time.Duration(*fl.FileRotationInterval)
+		}
+		if fl.FormatVersion != nil {
+			config.FormatVersion = *fl.FormatVersion
+		}
+		if fl.RateLimit != nil {
+			config.RateLimit = *fl.RateLimit
+		}
+		if fl.RateLimit != nil {
+			config.NodeName = *fl.NodeName
+		}
+		if fl.Aggregations != nil {
+			config.Aggregations = fl.Aggregations
+		}
+		if fl.AggregationIgnoreSourcePort != nil {
+			config.AggregationIgnoreSourcePort = *fl.AggregationIgnoreSourcePort
+		}
+		if fl.AggregationRenewTTL != nil {
+			config.AggregationRenewTTL = *fl.AggregationRenewTTL
+		}
+		if fl.AggregationStateChangeFilter != nil {
+			config.AggregationStateChangeFilter = fl.AggregationStateChangeFilter
+		}
+		if fl.AggregationTTL != nil {
+			config.AggregationTTL = time.Duration(*fl.AggregationTTL)
+		}
+
+		configs = append(configs, config)
+	}
+	return configs
+}
+
+var _ exporter.ExporterConfig = (*FlowLogConfig)(nil)
+
+// FlowLogConfig represents configuration of single dynamic exporter.
+type FlowLogConfig struct {
+	exporter.FlowLogConfig
+
+	FileRotationInterval         time.Duration
+	FormatVersion                string
+	RateLimit                    int
+	NodeName                     string
+	Aggregations                 []string
+	AggregationIgnoreSourcePort  bool
+	AggregationRenewTTL          bool
+	AggregationStateChangeFilter []string
+	AggregationTTL               time.Duration
+}
+
 // Equal implements the ExporterConfig interface.
-func (f *EnterpriseFlowLogConfig) Equal(other interface{}) bool {
-	if other, ok := other.(*EnterpriseFlowLogConfig); ok {
+func (f *FlowLogConfig) Equal(other any) bool {
+	if other, ok := other.(*FlowLogConfig); ok {
 		return f.equals(other)
 	}
 	return false
 }
 
-func (f *EnterpriseFlowLogConfig) equals(other *EnterpriseFlowLogConfig) bool {
+func (f *FlowLogConfig) equals(other *FlowLogConfig) bool {
 	if !f.FlowLogConfig.Equal(&other.FlowLogConfig) {
 		return false
 	}
 
-	if f.FileRotationInterval == nil && other.FileRotationInterval != nil ||
-		f.FileRotationInterval != nil && other.FileRotationInterval == nil ||
-		f.FileRotationInterval != nil && other.FileRotationInterval != nil && *f.FileRotationInterval != *other.FileRotationInterval {
+	if f.FileRotationInterval != other.FileRotationInterval {
 		return false
 	}
 	if f.FormatVersion != other.FormatVersion {
 		return false
 	}
-	if f.RateLimit == nil && other.RateLimit != nil ||
-		f.RateLimit != nil && other.RateLimit == nil ||
-		f.RateLimit != nil && other.RateLimit != nil && *f.RateLimit != *other.RateLimit {
+	if f.RateLimit != other.RateLimit {
 		return false
 	}
 	if f.NodeName != other.NodeName {
@@ -341,9 +398,7 @@ func (f *EnterpriseFlowLogConfig) equals(other *EnterpriseFlowLogConfig) bool {
 	if f.AggregationRenewTTL != other.AggregationRenewTTL {
 		return false
 	}
-	if f.AggregationTTL == nil && other.AggregationTTL != nil ||
-		f.AggregationTTL != nil && other.AggregationTTL == nil ||
-		f.AggregationTTL != nil && other.AggregationTTL != nil && *f.AggregationTTL != *other.AggregationTTL {
+	if f.AggregationTTL != other.AggregationTTL {
 		return false
 	}
 
@@ -376,7 +431,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
+	var v any
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}

@@ -37,7 +37,7 @@ func newJsonEncoderFromStaticConfig(conf config, writer io.Writer) *enterpriseJs
 	}
 }
 
-func newJsonEncoderFromDynamicConfig(conf *EnterpriseFlowLogConfig, writer io.Writer) *enterpriseJsonEncoder {
+func newJsonEncoderFromDynamicConfig(conf *FlowLogConfig, writer io.Writer) *enterpriseJsonEncoder {
 	return &enterpriseJsonEncoder{
 		enc:                json.NewEncoder(writer),
 		useFormatVersionV1: conf.FormatVersion == formatVersionV1,

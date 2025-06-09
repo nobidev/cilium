@@ -22,77 +22,77 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 )
 
-func TestCompareEnterpriseFlowLogConfig(t *testing.T) {
+func TestFlowLogConfigEqual(t *testing.T) {
 	cases := []struct {
 		name          string
-		currentConfig *EnterpriseFlowLogConfig
-		newConfig     *EnterpriseFlowLogConfig
+		currentConfig *FlowLogConfig
+		newConfig     *FlowLogConfig
 		expectEqual   bool
 	}{
 		{
 			name:          "should equal for same FileRotationInterval",
-			currentConfig: &EnterpriseFlowLogConfig{FileRotationInterval: durationPtr(time.Second)},
-			newConfig:     &EnterpriseFlowLogConfig{FileRotationInterval: durationPtr(time.Second)},
+			currentConfig: &FlowLogConfig{FileRotationInterval: time.Second},
+			newConfig:     &FlowLogConfig{FileRotationInterval: time.Second},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same FormatVersion",
-			currentConfig: &EnterpriseFlowLogConfig{FormatVersion: formatVersionV1},
-			newConfig:     &EnterpriseFlowLogConfig{FormatVersion: formatVersionV1},
+			currentConfig: &FlowLogConfig{FormatVersion: formatVersionV1},
+			newConfig:     &FlowLogConfig{FormatVersion: formatVersionV1},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same RateLimit",
-			currentConfig: &EnterpriseFlowLogConfig{RateLimit: intPtr(10)},
-			newConfig:     &EnterpriseFlowLogConfig{RateLimit: intPtr(10)},
+			currentConfig: &FlowLogConfig{RateLimit: 10},
+			newConfig:     &FlowLogConfig{RateLimit: 10},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same RateNodeNameLimit",
-			currentConfig: &EnterpriseFlowLogConfig{NodeName: "my-node"},
-			newConfig:     &EnterpriseFlowLogConfig{NodeName: "my-node"},
+			currentConfig: &FlowLogConfig{NodeName: "my-node"},
+			newConfig:     &FlowLogConfig{NodeName: "my-node"},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same Aggregations",
-			currentConfig: &EnterpriseFlowLogConfig{Aggregations: []string{"identity"}},
-			newConfig:     &EnterpriseFlowLogConfig{Aggregations: []string{"identity"}},
+			currentConfig: &FlowLogConfig{Aggregations: []string{"identity"}},
+			newConfig:     &FlowLogConfig{Aggregations: []string{"identity"}},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same AggregationIgnoreSourcePort",
-			currentConfig: &EnterpriseFlowLogConfig{AggregationIgnoreSourcePort: true},
-			newConfig:     &EnterpriseFlowLogConfig{AggregationIgnoreSourcePort: true},
+			currentConfig: &FlowLogConfig{AggregationIgnoreSourcePort: true},
+			newConfig:     &FlowLogConfig{AggregationIgnoreSourcePort: true},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same AggregationRenewTTL",
-			currentConfig: &EnterpriseFlowLogConfig{AggregationRenewTTL: true},
-			newConfig:     &EnterpriseFlowLogConfig{AggregationRenewTTL: true},
+			currentConfig: &FlowLogConfig{AggregationRenewTTL: true},
+			newConfig:     &FlowLogConfig{AggregationRenewTTL: true},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same AggregationStateChangeFilter",
-			currentConfig: &EnterpriseFlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
-			newConfig:     &EnterpriseFlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
+			currentConfig: &FlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
+			newConfig:     &FlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
 			expectEqual:   true,
 		},
 		{
 			name:          "should equal for same AggregationTTL",
-			currentConfig: &EnterpriseFlowLogConfig{AggregationTTL: durationPtr(time.Second)},
-			newConfig:     &EnterpriseFlowLogConfig{AggregationTTL: durationPtr(time.Second)},
+			currentConfig: &FlowLogConfig{AggregationTTL: time.Second},
+			newConfig:     &FlowLogConfig{AggregationTTL: time.Second},
 			expectEqual:   true,
 		},
 		{
 			name:          "should not equal if Aggregations same length",
-			currentConfig: &EnterpriseFlowLogConfig{Aggregations: []string{"identity"}},
-			newConfig:     &EnterpriseFlowLogConfig{Aggregations: []string{"connection"}},
+			currentConfig: &FlowLogConfig{Aggregations: []string{"identity"}},
+			newConfig:     &FlowLogConfig{Aggregations: []string{"connection"}},
 			expectEqual:   false,
 		},
 		{
 			name:          "should not equal if AggregationStateChangeFilter same length",
-			currentConfig: &EnterpriseFlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
-			newConfig:     &EnterpriseFlowLogConfig{AggregationStateChangeFilter: []string{"established", "close"}},
+			currentConfig: &FlowLogConfig{AggregationStateChangeFilter: []string{"new", "error"}},
+			newConfig:     &FlowLogConfig{AggregationStateChangeFilter: []string{"established", "close"}},
 			expectEqual:   false,
 		},
 	}
@@ -105,7 +105,7 @@ func TestCompareEnterpriseFlowLogConfig(t *testing.T) {
 	}
 }
 
-func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
+func TestExporterConfigParser(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  string
@@ -116,6 +116,66 @@ func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
 			name:   "empty",
 			config: "",
 			want:   map[string]exporter.ExporterConfig{},
+		},
+		{
+			name: "default values",
+			config: `
+                flowLogs:
+                  - name: all
+                    filePath: /var/run/cilium/hubble/hubble.log
+            `,
+			want: map[string]exporter.ExporterConfig{
+				"all": &FlowLogConfig{
+					// exporter.FlowLogConfig already has tests, no need to re-test parsing here
+					FlowLogConfig: exporter.FlowLogConfig{
+						Name:           "all",
+						FilePath:       "/var/run/cilium/hubble/hubble.log",
+						FileMaxSizeMB:  0,
+						FileMaxBackups: 0,
+						FileCompress:   false,
+					},
+					FileRotationInterval:         0,
+					FormatVersion:                "v1",
+					NodeName:                     "",
+					RateLimit:                    -1,
+					Aggregations:                 []string{},
+					AggregationIgnoreSourcePort:  true,
+					AggregationRenewTTL:          true,
+					AggregationStateChangeFilter: []string{"new", "error", "closed"},
+					AggregationTTL:               30 * time.Second,
+				},
+			},
+		},
+		{
+			name: "empty arrays",
+			config: `
+                flowLogs:
+                  - name: all
+                    filePath: /var/run/cilium/hubble/hubble.log
+                    aggregation: []
+                    aggregationStateFilter: []
+            `,
+			want: map[string]exporter.ExporterConfig{
+				"all": &FlowLogConfig{
+					// exporter.FlowLogConfig already has tests, no need to re-test parsing here
+					FlowLogConfig: exporter.FlowLogConfig{
+						Name:           "all",
+						FilePath:       "/var/run/cilium/hubble/hubble.log",
+						FileMaxSizeMB:  0,
+						FileMaxBackups: 0,
+						FileCompress:   false,
+					},
+					FileRotationInterval:         0,
+					FormatVersion:                "v1",
+					NodeName:                     "",
+					RateLimit:                    -1,
+					Aggregations:                 []string{},
+					AggregationIgnoreSourcePort:  true,
+					AggregationRenewTTL:          true,
+					AggregationStateChangeFilter: []string{},
+					AggregationTTL:               30 * time.Second,
+				},
+			},
 		},
 		{
 			name: "complete",
@@ -132,15 +192,15 @@ func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
                     rateLimit: 10
                     aggregation:
                       - identity
-                    aggregationIgnoreSourcePort: true
-                    aggregationRenewTTL: true
+                    aggregationIgnoreSourcePort: false
+                    aggregationRenewTTL: false
                     aggregationStateFilter:
                       - new
                       - error
-                    aggregationTTL: 30s
+                    aggregationTTL: 60s
             `,
 			want: map[string]exporter.ExporterConfig{
-				"all": &EnterpriseFlowLogConfig{
+				"all": &FlowLogConfig{
 					// exporter.FlowLogConfig already has tests, no need to re-test parsing here
 					FlowLogConfig: exporter.FlowLogConfig{
 						Name:           "all",
@@ -149,15 +209,15 @@ func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
 						FileMaxBackups: 5,
 						FileCompress:   true,
 					},
-					FileRotationInterval:         durationPtr(time.Minute),
+					FileRotationInterval:         time.Minute,
 					FormatVersion:                "",
 					NodeName:                     "my-node",
-					RateLimit:                    intPtr(10),
+					RateLimit:                    10,
 					Aggregations:                 []string{"identity"},
-					AggregationIgnoreSourcePort:  true,
-					AggregationRenewTTL:          true,
+					AggregationIgnoreSourcePort:  false,
+					AggregationRenewTTL:          false,
 					AggregationStateChangeFilter: []string{"new", "error"},
-					AggregationTTL:               durationPtr(30 * time.Second),
+					AggregationTTL:               60 * time.Second,
 				},
 			},
 		},
@@ -200,7 +260,7 @@ func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
 	configParser := exporterConfigParser{logger: slog.Default()}
 
 	for i, test := range tests {
-		t.Run(fmt.Sprintf("%d. %s", i, t.Name()), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d. %s", i, test.name), func(t *testing.T) {
 			got, err := configParser.Parse(strings.NewReader(test.config))
 			if test.wantErr {
 				assert.Error(t, err)
@@ -211,13 +271,4 @@ func TestParseEnterpriseDynamicExportersConfig(t *testing.T) {
 			}
 		})
 	}
-}
-
-func durationPtr(d time.Duration) *Duration {
-	dd := Duration(d)
-	return &dd
-}
-
-func intPtr(i int) *int {
-	return &i
 }
