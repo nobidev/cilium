@@ -15,13 +15,13 @@ import (
 	"errors"
 	"maps"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -108,9 +108,7 @@ func (m *BGPResourceMapper) mapClusterConfig(ctx context.Context, entClusterConf
 		}
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"cluster config": entClusterConfig.GetName(),
-	}).Debug("OSS BGP Cluster Config updated")
+	m.logger.Debug("OSS BGP Cluster Config updated", logfields.Name, entClusterConfig.GetName())
 
 	return nil
 }
@@ -164,9 +162,7 @@ func (m *BGPResourceMapper) mapPeerConfig(ctx context.Context, entPeerConfig *v1
 		}
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"peer config": entPeerConfig.GetName(),
-	}).Debug("OSS BGP Peer Config updated")
+	m.logger.Debug("OSS BGP Peer Config updated", logfields.Name, entPeerConfig.GetName())
 
 	return nil
 }
@@ -220,9 +216,7 @@ func (m *BGPResourceMapper) mapAdvertisement(ctx context.Context, entAdvertiseme
 		}
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"advertisement": entAdvertisement.GetName(),
-	}).Debug("OSS BGP Advertisement updated")
+	m.logger.Debug("OSS BGP Advertisement updated", logfields.Name, entAdvertisement.GetName())
 
 	return nil
 }
@@ -276,9 +270,7 @@ func (m *BGPResourceMapper) mapNodeConfigOverride(ctx context.Context, entNodeCo
 		}
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"node config override": entNodeConfigOverride.GetName(),
-	}).Debug("OSS BGP Node Config Override updated")
+	m.logger.Debug("OSS BGP Node Config Override updated", logfields.Name, entNodeConfigOverride.GetName())
 
 	return nil
 }

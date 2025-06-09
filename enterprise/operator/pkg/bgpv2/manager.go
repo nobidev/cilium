@@ -14,10 +14,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,7 +41,7 @@ var (
 )
 
 type BGPResourceMapper struct {
-	logger    logrus.FieldLogger
+	logger    *slog.Logger
 	jobs      job.Group
 	signal    *signaler.BGPCPSignaler
 	clientSet client.Clientset
@@ -76,7 +76,7 @@ type BGPResourceMapper struct {
 type BGPResourceManagerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Jobs      job.Group
 	Config    config.Config
 	Signal    *signaler.BGPCPSignaler
@@ -172,7 +172,7 @@ func (m *BGPResourceMapper) Run(ctx context.Context) {
 		case <-m.signal.Sig:
 			err := m.reconcileWithRetry(ctx)
 			if err != nil {
-				m.logger.WithError(err).Error("BGP reconciliation failed")
+				m.logger.Error("BGP reconciliation failed", logfields.Error, err)
 			} else {
 				m.logger.Debug("BGP reconciliation successful")
 			}
@@ -199,10 +199,10 @@ func (m *BGPResourceMapper) reconcileWithRetry(ctx context.Context) error {
 		if err != nil {
 			if isRetryableError(err) && attempts%5 != 0 {
 				// for retryable error print warning only every 5th attempt
-				m.logger.WithField(logfields.Error, TrimError(err, maxErrorLen)).Debug("Transient BGP reconciliation error")
+				m.logger.Debug("Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
 			} else {
 				// log warning, continue retry
-				m.logger.WithField(logfields.Error, TrimError(err, maxErrorLen)).Warn("BGP reconciliation error")
+				m.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
 			}
 			return false, nil
 		}
