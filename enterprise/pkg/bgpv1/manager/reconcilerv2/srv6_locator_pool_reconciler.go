@@ -282,10 +282,6 @@ func (r *LocatorPoolReconciler) getDesiredPaths(desiredFamilyAdverts PeerAdverti
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
-				r.logger.Warn("Invalid address family for this advertisement type, skipping",
-					types.FamilyLogField, agentFamily.Afi,
-					types.AdvertTypeLogField, v1.BGPSRv6LocatorPoolAdvert,
-				)
 				continue
 			}
 			for _, advert := range familyAdverts {
@@ -347,10 +343,6 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(desiredFamilyAdverts Pee
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			if agentFamily.Afi != types.AfiIPv6 {
-				r.logger.Warn("Invalid address family for this advertisement type, skipping",
-					types.FamilyLogField, agentFamily.Afi,
-					types.AdvertTypeLogField, v1.BGPSRv6LocatorPoolAdvert,
-				)
 				continue
 			}
 			for _, advert := range familyAdverts {

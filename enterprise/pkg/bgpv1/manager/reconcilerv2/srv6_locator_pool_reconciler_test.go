@@ -85,6 +85,18 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 							},
 						},
 					},
+					// Unrelated address family. Make sure it doesn't produce any error.
+					{
+						CiliumBGPFamily: v2.CiliumBGPFamily{
+							Afi:  "ipv4",
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: map[string]string{
+								"advertise": "bgp",
+							},
+						},
+					},
 				},
 			},
 		},
