@@ -88,6 +88,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".image.digest = \"${digest}\""
+yq_replace ".image.useDigest = true"
 # preflight
 echo "Process preflight"
 yq_get ".preflight.image.repository"
@@ -99,6 +100,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".preflight.image.digest = \"${digest}\""
+yq_replace ".preflight.image.useDigest = true"
 # hubble relay
 echo "Process hubble relay"
 yq_get ".hubble.relay.image.repository"
@@ -110,6 +112,7 @@ get_digest "${img}" "${tag}"
 echo "digest: ${digest}"
 digest=${get_digest_result}
 yq_replace ".hubble.relay.image.digest = \"${digest}\""
+yq_replace ".hubble.relay.image.useDigest = true"
 # clustermesh
 echo "Process clustermesh"
 yq_get ".clustermesh.apiserver.image.repository"
@@ -121,6 +124,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".clustermesh.apiserver.image.digest = \"${digest}\""
+yq_replace ".clustermesh.apiserver.image.useDigest = true"
 # startup-script
 echo "Process startup-script"
 yq_get ".nodeinit.image.repository"
@@ -132,6 +136,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".nodeinit.image.digest = \"${digest}\""
+yq_replace ".nodeinit.image.useDigest = true"
 # certgen
 echo "Process certgen"
 yq_get ".certgen.image.repository"
@@ -143,6 +148,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".certgen.image.digest = \"${digest}\""
+yq_replace ".certgen.image.useDigest = true"
 # envoy
 echo "Process envoy"
 yq_get ".envoy.image.repository"
@@ -154,6 +160,7 @@ get_digest "${img}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".envoy.image.digest = \"${digest}\""
+yq_replace ".envoy.image.useDigest = true"
 # operator
 echo "Process operator"
 yq_get ".operator.image.repository"
@@ -167,6 +174,7 @@ get_digest "${img}-generic${op_suffix}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".operator.image.genericDigest = \"${digest}\""
+yq_replace ".operator.image.useDigest = true"
 cp ${tmp_file} ${values_file}
 
 echo "values.yaml updated"
