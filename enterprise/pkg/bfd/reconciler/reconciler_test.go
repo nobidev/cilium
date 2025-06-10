@@ -12,6 +12,7 @@ package reconciler
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 	"time"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
@@ -35,8 +34,6 @@ const (
 )
 
 func Test_BFDReconciler(t *testing.T) {
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	var (
 		bfdPeerName        = "test-peer-1"
 		bfdPeerIP          = "10.0.0.1"
@@ -609,7 +606,7 @@ func Test_BFDReconciler(t *testing.T) {
 	f, waitWatchersReady := newTestFixture(t, testCtx)
 
 	// start the test hive
-	log := hivetest.Logger(t)
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	err := f.hive.Start(log, context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() {

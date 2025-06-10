@@ -11,12 +11,13 @@
 package server
 
 import (
+	"log/slog"
 	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/gopacket/layers"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -62,8 +63,7 @@ func newTestFixture(t *testing.T, echoEnabled bool) *testFixture {
 	slowDesiredMinTxInterval = uint32(50 * time.Millisecond / time.Microsecond)  // 50ms to speed up the tests
 	slowRequiredMinRxInterval = uint32(30 * time.Millisecond / time.Microsecond) // 30ms to speed up the tests
 
-	logger := log.StandardLogger()
-	logger.SetLevel(log.DebugLevel)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	f := &testFixture{
 		localDiscriminator:  12345,

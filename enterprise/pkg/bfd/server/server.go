@@ -14,12 +14,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net"
 	"net/netip"
 
 	"github.com/cilium/stream"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -74,7 +74,7 @@ type addrInterface struct {
 
 // BFDServer manages multiple BFD peers of a system.
 type BFDServer struct {
-	logger log.FieldLogger
+	logger *slog.Logger
 
 	// listeners mapped by the listen address + port + interface
 	listeners   map[addrPortInterface]*bfdListener
@@ -99,7 +99,7 @@ type BFDServer struct {
 
 // NewBFDServer creates a new BFD server.
 // It does not start any listeners until a peer is added.
-func NewBFDServer(logger log.FieldLogger) *BFDServer {
+func NewBFDServer(logger *slog.Logger) *BFDServer {
 	statusUpdateCh := make(chan types.BFDPeerStatus, sessionStatusUpdateChannelSize)
 	mcast, mcastConnect := stream.ToMulticast(stream.FromChannel(statusUpdateCh))
 
@@ -135,10 +135,10 @@ func (s *BFDServer) AddPeer(cfg *types.BFDPeerConfig) error {
 		return err
 	}
 
-	l := s.logger.WithFields(log.Fields{
-		types.PeerAddressField:   cfg.PeerAddress,
-		types.InterfaceNameField: cfg.Interface,
-	})
+	l := s.logger.With(
+		types.PeerAddressField, cfg.PeerAddress,
+		types.InterfaceNameField, cfg.Interface,
+	)
 	l.Debug("Adding BFD peer")
 
 	peerAddrIf := addrInterface{Addr: cfg.PeerAddress, ifName: cfg.Interface}
@@ -196,10 +196,10 @@ func (s *BFDServer) UpdatePeer(cfg *types.BFDPeerConfig) error {
 		return err
 	}
 
-	s.logger.WithFields(log.Fields{
-		types.PeerAddressField:   cfg.PeerAddress,
-		types.InterfaceNameField: cfg.Interface,
-	}).Debug("Updating BFD peer")
+	s.logger.Debug("Updating BFD peer",
+		types.PeerAddressField, cfg.PeerAddress,
+		types.InterfaceNameField, cfg.Interface,
+	)
 
 	peerAddrIf := addrInterface{Addr: cfg.PeerAddress, ifName: cfg.Interface}
 	session, exists := s.sessionsByPeerAddrIf[peerAddrIf]
@@ -216,10 +216,10 @@ func (s *BFDServer) DeletePeer(cfg *types.BFDPeerConfig) error {
 	s.sessionsMu.Lock()
 	defer s.sessionsMu.Unlock()
 
-	s.logger.WithFields(log.Fields{
-		types.PeerAddressField:   cfg.PeerAddress,
-		types.InterfaceNameField: cfg.Interface,
-	}).Debug("Deleting BFD peer")
+	s.logger.Debug("Deleting BFD peer",
+		types.PeerAddressField, cfg.PeerAddress,
+		types.InterfaceNameField, cfg.Interface,
+	)
 
 	peerAddrIf := addrInterface{Addr: cfg.PeerAddress, ifName: cfg.Interface}
 	session, exists := s.sessionsByPeerAddrIf[peerAddrIf]
@@ -358,11 +358,11 @@ func (s *BFDServer) createClientConnection(cfg *types.BFDPeerConfig) (conn *bfdC
 				return
 			}
 		}
-		s.logger.WithFields(log.Fields{
-			types.LocalAddressField:  localAddr,
-			types.RemoteAddressField: remoteAddr,
-			types.InterfaceNameField: cfg.Interface,
-		}).Debug("Created BFD Control client connection")
+		s.logger.Debug("Created BFD Control client connection",
+			types.LocalAddressField, localAddr,
+			types.RemoteAddressField, remoteAddr,
+			types.InterfaceNameField, cfg.Interface,
+		)
 		return // connected using the allocated source port
 	}
 }
@@ -401,12 +401,12 @@ func (s *BFDServer) createEchoClientConnection(cfg *types.BFDPeerConfig) (conn *
 	localAddr := netip.AddrPortFrom(srcIP, echoServerPort)
 	remoteAddr := netip.AddrPortFrom(dstIP, echoServerPort)
 
-	s.logger.WithFields(log.Fields{
-		types.LocalAddressField:  localAddr,
-		types.RemoteAddressField: remoteAddr,
-		types.PeerAddressField:   cfg.PeerAddress,
-		types.InterfaceNameField: cfg.Interface,
-	}).Debug("Creating BFD Echo client connection")
+	s.logger.Debug("Creating BFD Echo client connection",
+		types.LocalAddressField, localAddr,
+		types.RemoteAddressField, remoteAddr,
+		types.PeerAddressField, cfg.PeerAddress,
+		types.InterfaceNameField, cfg.Interface,
+	)
 
 	return createEchoClientConnection(localAddr, remoteAddr, cfg.PeerAddress, cfg.Interface)
 }
@@ -635,8 +635,10 @@ func (s *BFDServer) deliverControlPacket(pkt *ControlPacket, session *bfdSession
 	select {
 	case session.inPacketsCh <- pkt:
 	default:
-		s.logger.WithField(types.DiscriminatorField, session.local.discriminator).Warn(
-			"BFD session's packet channel full, dropping incoming BFD packet. Consider using higher ReceiveInterval.")
+		s.logger.Warn(
+			"BFD session's packet channel full, dropping incoming BFD packet. Consider using higher ReceiveInterval.",
+			types.DiscriminatorField, session.local.discriminator,
+		)
 	}
 }
 
@@ -646,7 +648,9 @@ func (s *BFDServer) deliverEchoPacket(pkt *ControlPacket, session *bfdSession) {
 	select {
 	case session.inEchoPacketsCh <- pkt:
 	default:
-		s.logger.WithField(types.DiscriminatorField, session.local.discriminator).Warn(
-			"BFD session's Echo packet channel full, dropping incoming Echo packet. Consider using higher EchoReceiveInterval.")
+		s.logger.Warn(
+			"BFD session's Echo packet channel full, dropping incoming Echo packet. Consider using higher EchoReceiveInterval.",
+			types.DiscriminatorField, session.local.discriminator,
+		)
 	}
 }

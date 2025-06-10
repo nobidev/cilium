@@ -13,18 +13,18 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // bfdListener represents a BFD server listener with a specific
 // listener address, port and (optionally) network interface.
 type bfdListener struct {
-	logger log.FieldLogger
+	logger *slog.Logger
 
 	connection bfdServerConnection
 	pktCh      chan<- *receivedPacket
@@ -45,12 +45,12 @@ type receivedPacket struct {
 }
 
 // newBFDListener creates a new BFD server listener with underlying network connection.
-func newBFDListener(l log.FieldLogger, pktCh chan<- *receivedPacket, listenAddrPort netip.AddrPort, ifName string, minTTL int) (*bfdListener, error) {
+func newBFDListener(l *slog.Logger, pktCh chan<- *receivedPacket, listenAddrPort netip.AddrPort, ifName string, minTTL int) (*bfdListener, error) {
 
-	logger := l.WithFields(log.Fields{
-		types.ListenAddressField: listenAddrPort,
-		types.InterfaceNameField: ifName,
-	})
+	logger := l.With(
+		types.ListenAddressField, listenAddrPort,
+		types.InterfaceNameField, ifName,
+	)
 	logger.Info("Starting BFD listener")
 
 	// create a new server connection
@@ -90,7 +90,7 @@ func (l *bfdListener) listen() {
 				l.logger.Info("BFD listener connection closed")
 				break
 			}
-			l.logger.WithError(err).Error("BFD listener read error")
+			l.logger.Error("BFD listener read error", logfields.Error, err)
 			continue // continue reading next packets
 		}
 		if !pkt.isValid() {
@@ -108,7 +108,7 @@ func (l *bfdListener) listen() {
 
 // updateMinTTL updates minimum TTL value on a listener connection.
 func (l *bfdListener) updateMinTTL(minTTL int) error {
-	l.logger.WithField(types.MinimumTTLField, minTTL).Info("Updating minimum TTL on BFD listener")
+	l.logger.Info("Updating minimum TTL on BFD listener", types.MinimumTTLField, minTTL)
 	err := l.connection.UpdateMinTTL(minTTL)
 	if err != nil {
 		return fmt.Errorf("error updating minimum TTL: %w", err)

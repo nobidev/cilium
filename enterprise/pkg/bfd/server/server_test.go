@@ -12,13 +12,14 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -44,8 +45,7 @@ var (
 func Test_BFDServer(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	logger := log.StandardLogger()
-	logger.SetLevel(log.DebugLevel)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	err := setupLinks()
 	t.Cleanup(func() {
@@ -285,7 +285,7 @@ func Test_BFDServer(t *testing.T) {
 			})
 
 			// Start server 1
-			s1 := NewBFDServer(log.StandardLogger())
+			s1 := NewBFDServer(logger)
 			go s1.Run(testCtx)
 			ch1 := stream.ToChannel[types.BFDPeerStatus](context.Background(), s1)
 
@@ -297,7 +297,7 @@ func Test_BFDServer(t *testing.T) {
 			}
 
 			// Start server 2
-			s2 := NewBFDServer(log.StandardLogger())
+			s2 := NewBFDServer(logger)
 			go s2.Run(testCtx)
 			ch2 := stream.ToChannel[types.BFDPeerStatus](context.Background(), s2)
 

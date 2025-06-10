@@ -11,8 +11,9 @@
 package server
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 )
@@ -22,7 +23,7 @@ var Cell = cell.Module(
 	"BFD server",
 
 	cell.Provide(
-		func(cfg types.BFDConfig, l logrus.FieldLogger) types.BFDServer {
+		func(cfg types.BFDConfig, l *slog.Logger) types.BFDServer {
 			if !cfg.BFDEnabled {
 				return nil
 			}

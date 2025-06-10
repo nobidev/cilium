@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
@@ -25,7 +26,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -47,7 +48,7 @@ const (
 type bfdReconcilerParams struct {
 	cell.In
 
-	Logger         logrus.FieldLogger
+	Logger         *slog.Logger
 	JobGroup       job.Group
 	Cfg            types.BFDConfig
 	LocalNodeStore *node.LocalNodeStore
@@ -95,13 +96,13 @@ func (p *peerConfig) key() string {
 	return p.nodeConfigName + "-" + p.peerName
 }
 
-// logFields returns log fields populated with the peerConfig configuration.
-func (p *peerConfig) logFields() logrus.Fields {
-	return logrus.Fields{
-		types.PeerNameField:       p.peerName,
-		types.NodeConfigNameField: p.nodeConfigName,
-		types.PeerAddressField:    p.config.PeerAddress,
-	}
+// logger returns logger annotated with the peerConfig log fields.
+func (p *peerConfig) logger(l *slog.Logger) *slog.Logger {
+	return l.With(
+		types.PeerNameField, p.peerName,
+		types.NodeConfigNameField, p.nodeConfigName,
+		types.PeerAddressField, p.config.PeerAddress,
+	)
 }
 
 func newBFDReconciler(p bfdReconcilerParams) *bfdReconciler {
@@ -221,7 +222,7 @@ func (r *bfdReconciler) run(ctx context.Context) {
 		case <-r.reconcileCh:
 			err := r.reconcile(ctx)
 			if err != nil {
-				r.Logger.WithError(err).Error("Failed to reconcile BFD config")
+				r.Logger.Error("Failed to reconcile BFD config", logfields.Error, err)
 			}
 		}
 	}
@@ -264,8 +265,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	for _, peer := range toAdd {
 		err := r.addPeer(peer)
 		if err != nil {
-			r.Logger.WithError(err).WithFields(peer.logFields()).
-				Error("Failed to add BFD peer, BFD peer configuration may be inconsistent")
+			peer.logger(r.Logger).Error("Failed to add BFD peer, BFD peer configuration may be inconsistent", logfields.Error, err)
 			reconcileErr = errors.Join(reconcileErr, err)
 			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
@@ -275,8 +275,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	for _, peer := range toUpdate {
 		err := r.updatePeer(peer)
 		if err != nil {
-			r.Logger.WithError(err).WithFields(peer.logFields()).
-				Error("Failed to update BFD peer, BFD peer configuration may be inconsistent")
+			peer.logger(r.Logger).Error("Failed to update BFD peer, BFD peer configuration may be inconsistent", logfields.Error, err)
 			reconcileErr = errors.Join(reconcileErr, err)
 			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
@@ -286,8 +285,7 @@ func (r *bfdReconciler) reconcile(ctx context.Context) error {
 	for _, peer := range toDelete {
 		err := r.deletePeer(peer)
 		if err != nil {
-			r.Logger.WithError(err).WithFields(peer.logFields()).
-				Error("Failed to delete BFD peer, BFD peer configuration may be inconsistent")
+			peer.logger(r.Logger).Error("Failed to delete BFD peer, BFD peer configuration may be inconsistent", logfields.Error, err)
 			reconcileErr = errors.Join(reconcileErr, err)
 			r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.peerName).Inc()
 		} else {
@@ -322,8 +320,10 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 			for _, peer := range nc.Spec.Peers {
 				profile, exists, err := r.bfdProfileStore.GetByKey(resource.Key{Name: peer.BFDProfileRef})
 				if err != nil {
-					r.Logger.WithError(err).WithField(types.ProfileNameField, peer.BFDProfileRef).
-						Error("Failed to retrieve BFD profile, skipping peer reconciliation")
+					r.Logger.Error("Failed to retrieve BFD profile, skipping peer reconciliation",
+						types.ProfileNameField, peer.BFDProfileRef,
+						logfields.Error, err,
+					)
 					reconcileErr = errors.Join(reconcileErr, err)
 					r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.Name).Inc()
 					continue
@@ -333,8 +333,10 @@ func (r *bfdReconciler) getDesiredPeerConfigs() (map[string]*peerConfig, error) 
 				}
 				cfg, err := r.getDesiredBFDPeerConfig(txn, peer, profile)
 				if err != nil {
-					r.Logger.WithError(err).WithField(types.PeerNameField, peer.Name).
-						Error("Failed to generate desired BFD peer config, skipping peer reconciliation")
+					r.Logger.Error("Failed to generate desired BFD peer config, skipping peer reconciliation",
+						types.PeerNameField, peer.Name,
+						logfields.Error, err,
+					)
 					reconcileErr = errors.Join(reconcileErr, err)
 					r.Metrics.ReconcileErrorsTotal.WithLabelValues(peer.Name).Inc()
 					continue
@@ -452,10 +454,10 @@ func (r *bfdReconciler) getDesiredBFDPeerConfig(txn statedb.ReadTxn, peer *v1alp
 		if err != nil {
 			return nil, fmt.Errorf("could not auto-detect egress interface for peer %v: %w", cfg.PeerAddress, err)
 		}
-		r.Logger.WithFields(logrus.Fields{
-			types.PeerAddressField:   peer.PeerAddress,
-			types.InterfaceNameField: cfg.Interface,
-		}).Debug("Auto-detected egress interface for the peer")
+		r.Logger.Debug("Auto-detected egress interface for the peer",
+			types.PeerAddressField, peer.PeerAddress,
+			types.InterfaceNameField, cfg.Interface,
+		)
 	}
 	return cfg, nil
 }
@@ -472,10 +474,11 @@ func (r *bfdReconciler) getUnnumberedPeerAddr(txn statedb.ReadTxn, peer *v1alpha
 		// As these are related to the host's state rather than the BFD reconciler, just emit a warning and skip
 		// this peer. Whenever this situation is recovered on the host, we get a new reconcile thanks
 		// to watching the host's neighbor table.
-		r.Logger.WithFields(logrus.Fields{
-			types.PeerNameField:      peer.Name,
-			types.InterfaceNameField: *peer.Interface,
-		}).WithError(err).Warning("Failed to get link-local address of the peer")
+		r.Logger.Warn("Failed to get link-local address of the peer",
+			types.PeerNameField, peer.Name,
+			types.InterfaceNameField, *peer.Interface,
+			logfields.Error, err,
+		)
 		return netip.Addr{}, false, nil
 	}
 
@@ -489,10 +492,10 @@ func (r *bfdReconciler) getUnnumberedPeerAddr(txn statedb.ReadTxn, peer *v1alpha
 		peerAddrStr, found = r.llNeighborsCache[*peer.Interface]
 		if !found {
 			// The LL address is not in the neighbor table nor in the cache - we skip this peer.
-			r.Logger.WithFields(logrus.Fields{
-				types.PeerNameField:      peer.Name,
-				types.InterfaceNameField: *peer.Interface,
-			}).Debug("Link-local address for the peer not found")
+			r.Logger.Debug("Link-local address for the peer not found",
+				types.PeerNameField, peer.Name,
+				types.InterfaceNameField, *peer.Interface,
+			)
 			return netip.Addr{}, false, nil
 		}
 	}
@@ -505,11 +508,11 @@ func (r *bfdReconciler) getUnnumberedPeerAddr(txn statedb.ReadTxn, peer *v1alpha
 	// update address in the cache
 	r.llNeighborsCache[*peer.Interface] = peerAddrStr
 
-	r.Logger.WithFields(logrus.Fields{
-		types.PeerNameField:      peer.Name,
-		types.PeerAddressField:   peerAddrStr,
-		types.InterfaceNameField: *peer.Interface,
-	}).Debug("Using auto-detected link-local peer address")
+	r.Logger.Debug("Using auto-detected link-local peer address",
+		types.PeerNameField, peer.Name,
+		types.PeerAddressField, peerAddrStr,
+		types.InterfaceNameField, *peer.Interface,
+	)
 
 	return peerAddr, true, nil
 }
@@ -529,7 +532,7 @@ func (r *bfdReconciler) sortedPeerConfigValues(cfgMap map[string]*peerConfig) []
 // addPeer adds a new BFD peer on the BFD server.
 // Also creates its entry in statedb, so that can be updated in handlePeerStatusUpdate.
 func (r *bfdReconciler) addPeer(peer *peerConfig) error {
-	logger := r.Logger.WithFields(peer.logFields())
+	logger := peer.logger(r.Logger)
 	logger.Debug("Adding BFD peer")
 
 	// create a statedb entry first, to not miss the first event
@@ -550,7 +553,7 @@ func (r *bfdReconciler) addPeer(peer *peerConfig) error {
 			// cleanup just created statedb entry
 			delErr := r.deletePeerStateDBObj(peer.config)
 			if delErr != nil {
-				logger.WithError(delErr).Warn("Failed deleting statedb entry for the peer, stale entry may be left in it.")
+				logger.Warn("Failed deleting statedb entry for the peer, stale entry may be left in it.", logfields.Error, delErr)
 			}
 		}
 		return fmt.Errorf("error creating BFD peer: %w", err)
@@ -560,7 +563,7 @@ func (r *bfdReconciler) addPeer(peer *peerConfig) error {
 
 // updatePeer updates a BFD peer on the BFD server.
 func (r *bfdReconciler) updatePeer(peer *peerConfig) error {
-	logger := r.Logger.WithFields(peer.logFields())
+	logger := peer.logger(r.Logger)
 	desired := peer.config
 	existing := r.configuredPeers[peer.key()].config
 
@@ -603,7 +606,7 @@ func (r *bfdReconciler) updatePeer(peer *peerConfig) error {
 // deletePeer deletes a BFD peer from the BFD server.
 // Also removes its entry from statedb, so that handlePeerStatusUpdate can not update it anymore.
 func (r *bfdReconciler) deletePeer(peer *peerConfig) error {
-	r.Logger.WithFields(peer.logFields()).Debug("Deleting BFD peer")
+	peer.logger(r.Logger).Debug("Deleting BFD peer")
 
 	err := r.BFDServer.DeletePeer(peer.config)
 	if err != nil {
@@ -661,12 +664,12 @@ func (r *bfdReconciler) deletePeerStateDBObj(cfg *types.BFDPeerConfig) error {
 
 // handlePeerStatusUpdate handles BFD peer status updates coming from the BFD server.
 func (r *bfdReconciler) handlePeerStatusUpdate(peer *types.BFDPeerStatus) {
-	logger := r.Logger.WithFields(logrus.Fields{
-		types.PeerAddressField:   peer.PeerAddress,
-		types.InterfaceNameField: peer.Interface,
-		types.DiscriminatorField: peer.Local.Discriminator,
-		types.SessionStateField:  peer.Local.State,
-	})
+	logger := r.Logger.With(
+		types.PeerAddressField, peer.PeerAddress,
+		types.InterfaceNameField, peer.Interface,
+		types.DiscriminatorField, peer.Local.Discriminator,
+		types.SessionStateField, peer.Local.State,
+	)
 	logger.Debug("BFD status update")
 
 	// Update the peer status in statedb, but only if its statedb entry exists,
@@ -674,7 +677,7 @@ func (r *bfdReconciler) handlePeerStatusUpdate(peer *types.BFDPeerStatus) {
 	txn := r.DB.WriteTxn(r.BFDPeersTable)
 	_, exists, err := r.BFDPeersTable.Insert(txn, peer)
 	if err != nil {
-		logger.WithError(err).Error("Error updating BFD peer's statedb entry, statedb state may be outdated")
+		logger.Error("Error updating BFD peer's statedb entry, statedb state may be outdated", logfields.Error, err)
 		txn.Abort()
 		return
 	}

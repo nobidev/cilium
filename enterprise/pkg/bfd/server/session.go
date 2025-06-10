@@ -12,15 +12,16 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"net/netip"
 
 	"github.com/google/gopacket/layers"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -58,7 +59,7 @@ var (
 // while holding the internal state in the state variables as defined in RFC 5880, section 6.8.1.
 type bfdSession struct {
 	lock.Mutex
-	logger log.FieldLogger
+	logger *slog.Logger
 
 	// stopChan is used to stop the main session processing goroutine
 	stopChan chan struct{}
@@ -249,7 +250,7 @@ type bfdRemoteState struct {
 }
 
 // newBFDSession creates a new BFD session with provided configuration.
-func newBFDSession(logger log.FieldLogger, cfg *types.BFDPeerConfig, conn, echoConn bfdClientConnection, localDiscr uint32, statusUpdateCh chan types.BFDPeerStatus) (*bfdSession, error) {
+func newBFDSession(logger *slog.Logger, cfg *types.BFDPeerConfig, conn, echoConn bfdClientConnection, localDiscr uint32, statusUpdateCh chan types.BFDPeerStatus) (*bfdSession, error) {
 	if cfg.PeerAddress.IsUnspecified() {
 		return nil, fmt.Errorf("PeerAddress not specified")
 	}
@@ -264,10 +265,10 @@ func newBFDSession(logger log.FieldLogger, cfg *types.BFDPeerConfig, conn, echoC
 	}
 
 	s := &bfdSession{
-		logger: logger.WithFields(log.Fields{
-			types.PeerAddressField:   cfg.PeerAddress,
-			types.DiscriminatorField: localDiscr,
-		}),
+		logger: logger.With(
+			types.PeerAddressField, cfg.PeerAddress,
+			types.DiscriminatorField, localDiscr,
+		),
 		peerAddress:      cfg.PeerAddress,
 		networkInterface: cfg.Interface,
 		outConn:          conn,
@@ -489,22 +490,22 @@ loop:
 		case <-s.transmitTimer.C:
 			err := s.sendPeriodicControlPacket()
 			if err != nil {
-				s.logger.WithError(err).Error("Error by sending BFD Control packet")
+				s.logger.Error("Error by sending BFD Control packet", logfields.Error, err)
 			}
 		case <-s.echoTransmitTimer.C:
 			err := s.sendPeriodicEchoPacket()
 			if err != nil {
-				s.logger.WithError(err).Error("Error by sending BFD Echo packet")
+				s.logger.Error("Error by sending BFD Echo packet", logfields.Error, err)
 			}
 		case <-s.curDetectionTimer.C:
 			err := s.handleDetectionTimerExpiration()
 			if err != nil {
-				s.logger.WithError(err).Error("Error by handling BFD detection timer expiration")
+				s.logger.Error("Error by handling BFD detection timer expiration", logfields.Error, err)
 			}
 		case <-s.curEchoDetectionTimer.C:
 			err := s.handleEchoDetectionTimerExpiration()
 			if err != nil {
-				s.logger.WithError(err).Error("Error by handling BFD Echo detection timer expiration")
+				s.logger.Error("Error by handling BFD Echo detection timer expiration", logfields.Error, err)
 			}
 		case <-s.stopChan:
 			break loop
@@ -754,7 +755,7 @@ func (s *bfdSession) sendPeriodicControlPacket() error {
 	err := s.outConn.Write(pkt)
 	if err != nil {
 		// the peer may be already down, just log this
-		s.logger.WithError(err).Debug("Error by writing to BFD connection")
+		s.logger.Debug("Error by writing to BFD connection", logfields.Error, err)
 	}
 
 	return nil
@@ -782,7 +783,7 @@ func (s *bfdSession) sendPeriodicEchoPacket() error {
 	err := s.outEchoConn.Write(pkt)
 	if err != nil {
 		// the peer may be already down, just log this
-		s.logger.WithError(err).Debug("Error by writing to BFD Echo connection")
+		s.logger.Debug("Error by writing to BFD Echo connection", logfields.Error, err)
 	}
 
 	// set a timer for the next packet
@@ -824,7 +825,7 @@ func (s *bfdSession) handleDetectionTimerExpiration() error {
 		s.notifyStatusChange()
 		if err := s.sendStateUpdatePacket(); err != nil {
 			// peer most likely down, just log this
-			s.logger.WithError(err).Debug("Error sending state update to BFD peer")
+			s.logger.Debug("Error sending state update to BFD peer", logfields.Error, err)
 		}
 	}
 
@@ -859,7 +860,7 @@ func (s *bfdSession) handleEchoDetectionTimerExpiration() error {
 		s.notifyStatusChange()
 		if err := s.sendStateUpdatePacket(); err != nil {
 			// peer most likely down, just log this
-			s.logger.WithError(err).Debug("Error sending state update to BFD peer")
+			s.logger.Debug("Error sending state update to BFD peer", logfields.Error, err)
 		}
 	}
 
@@ -1048,7 +1049,7 @@ func (s *bfdSession) sendFinalPacket() error {
 	err := s.outConn.Write(newPkt)
 	if err != nil {
 		// the peer may be already down, just log this
-		s.logger.WithError(err).Debug("Error by writing to BFD connection")
+		s.logger.Debug("Error by writing to BFD connection", logfields.Error, err)
 	}
 
 	return nil
@@ -1066,7 +1067,7 @@ func (s *bfdSession) sendStateUpdatePacket() error {
 	err := s.outConn.Write(newPkt)
 	if err != nil {
 		// the peer may be already down, just log this
-		s.logger.WithError(err).Debug("Error by writing to BFD connection")
+		s.logger.Debug("Error by writing to BFD connection", logfields.Error, err)
 	}
 
 	return nil
@@ -1172,7 +1173,7 @@ func (s *bfdSession) notifyStatusChange() {
 		},
 	}
 
-	s.logger.WithField(types.SessionStateField, update.Local.State).Debug("Generating session status update event")
+	s.logger.Debug("Generating session status update event", types.SessionStateField, update.Local.State)
 
 	// send the status update, but don't ever block if the event readers are too slow.
 	// If that happens, warn and drop the oldest event.
