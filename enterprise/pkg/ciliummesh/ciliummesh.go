@@ -13,10 +13,10 @@ package ciliummesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
@@ -45,7 +45,7 @@ type CiliumMeshController struct {
 	clusterName string
 
 	// logger is the internal logger of this Controller
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// resource is a Resource[T] IsovalentMeshEndpoint (IME).
 	resource IsovalentMeshEndpointResource
@@ -70,7 +70,7 @@ type CiliumMeshController struct {
 type ciliumMeshParams struct {
 	cell.In
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 
 	DaemonCfg *option.DaemonConfig
@@ -136,10 +136,12 @@ func (cmm *CiliumMeshController) run(ctx context.Context) {
 			ep := ev.Object
 
 			if err := cmm.delMeshEndpoint(ep); err != nil {
-				cmm.logger.WithFields(logrus.Fields{
-					logfields.Object:       ep.ObjectMeta.Name,
-					logfields.K8sNamespace: ep.ObjectMeta.Namespace,
-				}).WithError(err).Warn("failed to delete IsovalentMeshEndpoint")
+				cmm.logger.Warn(
+					"failed to delete IsovalentMeshEndpoint",
+					logfields.Error, err,
+					logfields.Object, ep.ObjectMeta.Name,
+					logfields.K8sNamespace, ep.ObjectMeta.Namespace,
+				)
 				ev.Done(err)
 				continue
 			}
@@ -159,10 +161,11 @@ func (cmm *CiliumMeshController) run(ctx context.Context) {
 				cmm.meshEndpoints[objName] = struct{}{}
 			}
 			// TODO we don't handle endpoint updates
-			cmm.logger.WithFields(logrus.Fields{
-				logfields.Object:       ep.ObjectMeta.Name,
-				logfields.K8sNamespace: ep.ObjectMeta.Namespace,
-			}).Info("ignoring IsovalentMeshEndpoint update event (NYI)")
+			cmm.logger.Info(
+				"ignoring IsovalentMeshEndpoint update event (NYI)",
+				logfields.Object, ep.ObjectMeta.Name,
+				logfields.K8sNamespace, ep.ObjectMeta.Namespace,
+			)
 		}
 		ev.Done(nil)
 	}
@@ -171,13 +174,19 @@ func (cmm *CiliumMeshController) run(ctx context.Context) {
 func populatePolicyMetaMap(cmm *CiliumMeshController, ep *endpoint.Endpoint) error {
 	policyMap, err := ep.GetPolicyMap()
 	if err != nil {
-		cmm.logger.WithError(err).Warn("failed to get ep.policyMap")
+		cmm.logger.Warn(
+			"failed to get ep.policyMap",
+			logfields.Error, err,
+		)
 		return err
 	}
 
 	err = cmm.ciliumMeshPolicyMap.WriteEndpoint(ep.IPv4, policyMap)
 	if err != nil {
-		cmm.logger.WithError(err).Warn("failed to write to the ciliummeshpolicymap")
+		cmm.logger.Warn(
+			"failed to write to the ciliummeshpolicymap",
+			logfields.Error, err,
+		)
 		return err
 	}
 
