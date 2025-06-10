@@ -17,7 +17,6 @@ import (
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -45,8 +44,7 @@ type ciliumMeshPolicyParams struct {
 	Config Config
 
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
-	Slog      *slog.Logger
+	Logger    *slog.Logger
 }
 
 type CiliumMeshPolicyWriter interface {
@@ -113,7 +111,7 @@ func newCiliumMeshPolicyParams(p ciliumMeshPolicyParams) (out struct {
 		return
 	}
 
-	out.MapOut = bpf.NewMapOut(CiliumMeshPolicyWriter(createWithName(p.Lifecycle, p.Slog, MapName)))
+	out.MapOut = bpf.NewMapOut(CiliumMeshPolicyWriter(createWithName(p.Lifecycle, p.Logger, MapName)))
 
 	return
 }
