@@ -14,12 +14,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,7 +56,7 @@ type addrMapType map[netip.Addr]struct{}
 type MulticastManagerParams struct {
 	cell.In
 
-	Logger                 logrus.FieldLogger
+	Logger                 *slog.Logger
 	LC                     cell.Lifecycle
 	JobGroup               job.Group
 	Clientset              k8sClient.Clientset
@@ -72,7 +72,7 @@ type MulticastManagerParams struct {
 }
 
 type MulticastManager struct {
-	Logger         logrus.FieldLogger
+	Logger         *slog.Logger
 	LC             cell.Lifecycle
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
@@ -254,7 +254,7 @@ func (m *MulticastManager) Run(ctx context.Context) {
 		case <-m.reconcileCh:
 			err := m.reconcile(ctx)
 			if err != nil {
-				m.Logger.WithError(err).Error("Failed to reconcile multicast groups")
+				m.Logger.Error("Failed to reconcile multicast groups", logfields.Error, err)
 			}
 
 		case e, ok := <-endpointEvents:
@@ -263,7 +263,7 @@ func (m *MulticastManager) Run(ctx context.Context) {
 			}
 			err := m.updateEndpoint(e)
 			if err != nil {
-				m.Logger.WithError(err).Error("Failed to update endpoints")
+				m.Logger.Error("Failed to update endpoints", logfields.Error, err)
 			}
 			e.Done(err)
 		}
@@ -303,7 +303,9 @@ loop:
 
 				if v4addr.Is4() {
 					m.nodeEndpoints[namespacedName][v4addr] = struct{}{}
-					m.Logger.WithField("IP", v4addr).Debug("Adding endpoint IP to multicast manager")
+					m.Logger.Debug("Adding endpoint IP to multicast manager",
+						logfields.IPAddr, v4addr,
+					)
 				}
 			}
 		}
@@ -341,7 +343,9 @@ func (m *MulticastManager) updateEndpoint(e resource.Event[*k8sTypes.CiliumEndpo
 
 			if v4addr.Is4() {
 				m.nodeEndpoints[namespacedName][v4addr] = struct{}{}
-				m.Logger.WithField("IP", v4addr).Debug("Adding endpoint IP to multicast manager")
+				m.Logger.Debug("Adding endpoint IP to multicast manager",
+					logfields.IPAddr, v4addr,
+				)
 			}
 		}
 
@@ -361,14 +365,18 @@ func (m *MulticastManager) updateEndpoint(e resource.Event[*k8sTypes.CiliumEndpo
 
 			if !found {
 				delete(m.nodeEndpoints[namespacedName], prevIP)
-				m.Logger.WithField("IP", prevIP).Debug("Removing endpoint IP from multicast manager")
+				m.Logger.Debug("Removing endpoint IP from multicast manager",
+					logfields.IPAddr, prevIP,
+				)
 			}
 		}
 
 	case resource.Delete:
 		// log deleted endpoints
 		for addr := range m.nodeEndpoints[namespacedName] {
-			m.Logger.WithField("IP", addr).Debug("Removing endpoint IP from multicast manager")
+			m.Logger.Debug("Removing endpoint IP from multicast manager",
+				logfields.IPAddr, addr,
+			)
 		}
 
 		delete(m.nodeEndpoints, namespacedName)
@@ -454,9 +462,9 @@ func (m *MulticastManager) reconcileGroupsInBPF(fromBPF, fromK8s addrMapType) (e
 			return err
 		}
 
-		m.Logger.WithFields(logrus.Fields{
-			groupAddrField: groupAddr,
-		}).Info("Multicast group added")
+		m.Logger.Info("Multicast group added",
+			groupAddrField, groupAddr,
+		)
 	}
 
 	for _, groupAddr := range toDelete {
@@ -465,9 +473,9 @@ func (m *MulticastManager) reconcileGroupsInBPF(fromBPF, fromK8s addrMapType) (e
 			return err
 		}
 
-		m.Logger.WithFields(logrus.Fields{
-			groupAddrField: groupAddr,
-		}).Info("Multicast group deleted")
+		m.Logger.Info("Multicast group deleted",
+			groupAddrField, groupAddr,
+		)
 	}
 
 	return nil
@@ -484,7 +492,10 @@ func (m *MulticastManager) reconcileRemoteSubscribers(k8Groups addrMapType) erro
 		fromBPF, err := m.getRemoteSubscribersFromBPF(groupAddr)
 		if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 			// error case if group does not exist in BPF, we ignore that group.
-			m.Logger.WithError(err).WithField(groupAddrField, groupAddr).Warn("Group not found in BPF map")
+			m.Logger.Warn("Group not found in BPF map",
+				groupAddrField, groupAddr,
+				logfields.Error, err,
+			)
 			continue
 		}
 		if err != nil {
@@ -536,10 +547,10 @@ func (m *MulticastManager) reconcileRemoteSubscribersInBPF(groupAddr netip.Addr,
 			return err
 		}
 
-		m.Logger.WithFields(logrus.Fields{
-			groupAddrField: groupAddr,
-			remoteSubField: addr,
-		}).Info("Remote subscriber added")
+		m.Logger.Info("Remote subscriber added",
+			groupAddrField, groupAddr,
+			remoteSubField, addr,
+		)
 	}
 
 	for _, addr := range toDelete {
@@ -548,10 +559,10 @@ func (m *MulticastManager) reconcileRemoteSubscribersInBPF(groupAddr netip.Addr,
 			return err
 		}
 
-		m.Logger.WithFields(logrus.Fields{
-			groupAddrField: groupAddr,
-			remoteSubField: addr,
-		}).Info("Remote subscriber deleted")
+		m.Logger.Info("Remote subscriber deleted",
+			groupAddrField, groupAddr,
+			remoteSubField, addr,
+		)
 	}
 
 	return nil
@@ -588,10 +599,10 @@ func (m *MulticastManager) updateNodeStatus(ctx context.Context) (err error) {
 		// update node status
 		currentNode.Status = newStatus
 		_, err = m.MulticastNodeClient.UpdateStatus(ctx, currentNode, metav1.UpdateOptions{})
-		m.Logger.WithFields(logrus.Fields{
-			logfields.NodeName:  m.nodeName,
-			logfields.K8sNodeIP: m.nodeIP,
-		}).Info("Updating IsovalentMulticastNode")
+		m.Logger.Info("Updating IsovalentMulticastNode",
+			logfields.NodeName, m.nodeName,
+			logfields.K8sNodeIP, m.nodeIP,
+		)
 
 	default:
 		// create new node object
@@ -602,10 +613,10 @@ func (m *MulticastManager) updateNodeStatus(ctx context.Context) (err error) {
 			return nil
 		}
 
-		m.Logger.WithFields(logrus.Fields{
-			logfields.NodeName:  m.nodeName,
-			logfields.K8sNodeIP: m.nodeIP,
-		}).Info("Creating IsovalentMulticastNode")
+		m.Logger.Info("Creating IsovalentMulticastNode",
+			logfields.NodeName, m.nodeName,
+			logfields.K8sNodeIP, m.nodeIP,
+		)
 	}
 
 	return err
@@ -831,10 +842,10 @@ func (m *MulticastManager) removeStaleLocalSubscribers() error {
 				if err != nil {
 					return err
 				}
-				m.Logger.WithFields(logrus.Fields{
-					groupAddrField: groupAddr,
-					localSubField:  subAddr,
-				}).Info("Local subscriber deleted")
+				m.Logger.Info("Local subscriber deleted",
+					groupAddrField, groupAddr,
+					localSubField, subAddr,
+				)
 			}
 		}
 	}
