@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"time"
@@ -22,7 +23,8 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // ErrNonExistentDomain is the error returned in case of a NXDOMAIN response
@@ -49,14 +51,14 @@ type params struct {
 
 	Cfg Config
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
 	Metrics *Metrics
 }
 
 type client struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	client  *dns.Client
 	addrs   []string
@@ -139,11 +141,12 @@ func (c *client) query(ctx context.Context, fqdn string, ipv6 bool) ([]netip.Add
 	} else {
 		queryType = "A"
 	}
-	c.logger.WithFields(logrus.Fields{
-		"fqdn":      fqdn,
-		"queryType": queryType,
-		"response":  response,
-	}).Debug("Received DNS query response")
+	c.logger.Debug(
+		"Received DNS query response",
+		logfields.FQDN, fqdn,
+		logfields.Type, queryType,
+		logfields.Response, response,
+	)
 
 	var (
 		ips  []net.IP
@@ -159,7 +162,9 @@ func (c *client) query(ctx context.Context, fqdn string, ipv6 bool) ([]netip.Add
 	for _, addr := range ips {
 		netIP, ok := netipx.FromStdIP(addr)
 		if !ok {
-			c.logger.WithField("addr", addr).Warning("Failed to process IP from DNS response, omitting IP from DNS response.")
+			c.logger.Warn("Failed to process IP from DNS response, omitting IP from DNS response.",
+				logfields.Addresses, addr,
+			)
 			continue
 		}
 		netIPs = append(netIPs, netIP)
