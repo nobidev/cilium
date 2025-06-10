@@ -19,10 +19,14 @@ import (
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func (lpm *LocatorPoolManager) handleNodeEvent(ctx context.Context, event resource.Event[*slimv1.Node]) {
-	lpm.logger.Debugf("node event %s: %s", event.Kind, event.Key)
+	lpm.logger.Debug("node event",
+		logfields.Kind, event.Kind,
+		logfields.Key, event.Key,
+	)
 
 	var err error
 	switch event.Kind {
@@ -30,14 +34,18 @@ func (lpm *LocatorPoolManager) handleNodeEvent(ctx context.Context, event resour
 		err = lpm.addNode(ctx, event.Object.Name)
 		if err != nil {
 			err = fmt.Errorf("failed to upsert: %w", err)
-			lpm.logger.WithError(err).Error("failed to upsert node")
+			lpm.logger.Error("failed to upsert node",
+				logfields.Error, err,
+			)
 		}
 
 	case resource.Delete:
 		err = lpm.deleteNode(ctx, event.Object.Name)
 		if err != nil {
 			err = fmt.Errorf("failed to delete: %w", err)
-			lpm.logger.WithError(err).Error("failed to delete node")
+			lpm.logger.Error("failed to delete node",
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -49,7 +57,7 @@ func (lpm *LocatorPoolManager) addNode(ctx context.Context, nodeRef string) erro
 		return nil
 	}
 
-	lpm.logger.Infof("adding node %s", nodeRef)
+	lpm.logger.Info("adding node", logfields.Node, nodeRef)
 	lpm.nodeAllocations[nodeRef] = make(allocations)
 
 	return lpm.updateNodeAllocations(ctx, nodeRef)
@@ -66,18 +74,24 @@ func (lpm *LocatorPoolManager) updateNodeAllocations(ctx context.Context, nodeRe
 		loc, err := p.AllocateNext()
 		if err != nil {
 			// log error and continue with other pools
-			lpm.logger.Errorf("pool.AllocateNext: %w", err)
+			lpm.logger.Error("pool.AllocateNext", logfields.Error, err)
 			continue
 		}
 		lpm.nodeAllocations[nodeRef][p.GetName()] = loc
-		lpm.logger.Debugf("allocating locator %s from pool %s to node %s", loc.Prefix, p.GetName(), nodeRef)
+		lpm.logger.Debug("allocating locator from pool to node",
+			logfields.Name, loc.Prefix,
+			logfields.PoolName, p.GetName(),
+			logfields.Node, nodeRef,
+		)
 	}
 
 	return lpm.upsertSIDManager(ctx, nodeRef)
 }
 
 func (lpm *LocatorPoolManager) deleteNode(ctx context.Context, nodeRef string) error {
-	lpm.logger.Infof("deleting node %s", nodeRef)
+	lpm.logger.Info("deleting node",
+		logfields.Node, nodeRef,
+	)
 
 	// clean up local resources - idempotent
 	n, exists := lpm.nodeAllocations[nodeRef]
@@ -97,7 +111,10 @@ func (lpm *LocatorPoolManager) deleteNode(ctx context.Context, nodeRef string) e
 }
 
 func (lpm *LocatorPoolManager) handlePoolEvent(ctx context.Context, event resource.Event[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool]) {
-	lpm.logger.Infof("pool event %s: %s", event.Kind, event.Key)
+	lpm.logger.Info("pool event",
+		logfields.Kind, event.Kind,
+		logfields.Key, event.Key,
+	)
 
 	var err error
 	switch event.Kind {
@@ -105,14 +122,18 @@ func (lpm *LocatorPoolManager) handlePoolEvent(ctx context.Context, event resour
 		err = lpm.addPool(ctx, event.Object)
 		if err != nil {
 			err = fmt.Errorf("failed to upsert: %w", err)
-			lpm.logger.WithError(err).Error("failed to upsert locator pool")
+			lpm.logger.Error("failed to upsert locator pool",
+				logfields.Error, err,
+			)
 		}
 
 	case resource.Delete:
 		err = lpm.deletePool(ctx, event.Object)
 		if err != nil {
 			err = fmt.Errorf("failed to delete: %w", err)
-			lpm.logger.WithError(err).Error("failed to delete locator pool")
+			lpm.logger.Error("failed to delete locator pool",
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -150,7 +171,11 @@ func (lpm *LocatorPoolManager) addPool(ctx context.Context, pool *isovalent_api_
 			return fmt.Errorf("pool.AllocateNext: %w", err)
 		}
 		lpm.nodeAllocations[nodeRef][pool.Name] = loc
-		lpm.logger.Debugf("allocating locator %s from pool %s to node %s", loc.Prefix, pool.Name, nodeRef)
+		lpm.logger.Debug("allocating locator from pool to node",
+			logfields.Name, loc.Prefix,
+			logfields.PoolName, pool.Name,
+			logfields.Node, nodeRef,
+		)
 	}
 
 	// update pool

@@ -15,8 +15,8 @@ import (
 	"fmt"
 
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -60,10 +60,11 @@ func (lpm *LocatorPoolManager) createSIDManager(ctx context.Context, nodeRef str
 	}
 	pools := lpm.populateAPISIDManager(sm)
 
-	lpm.logger.WithFields(logrus.Fields{
-		"node":  nodeRef,
-		"pools": pools,
-	}).Info("creating SRv6SIDManager resource")
+	lpm.logger.Info(
+		"creating SRv6SIDManager resource",
+		logfields.Node, nodeRef,
+		logfields.PoolSpec, pools,
+	)
 
 	_, err := lpm.srv6SIDManagerClient.Create(ctx, sm, metav1.CreateOptions{})
 	if err != nil {
@@ -77,10 +78,11 @@ func (lpm *LocatorPoolManager) createSIDManager(ctx context.Context, nodeRef str
 func (lpm *LocatorPoolManager) updateSIDManager(ctx context.Context, sm *isovalent_api_v1alpha1.IsovalentSRv6SIDManager) error {
 	pools := lpm.populateAPISIDManager(sm)
 
-	lpm.logger.WithFields(logrus.Fields{
-		"node":  sm.Name,
-		"pools": pools,
-	}).Info("updating SRv6SIDManager resource")
+	lpm.logger.Info(
+		"updating SRv6SIDManager resource",
+		logfields.Node, sm.Name,
+		logfields.PoolSpec, pools,
+	)
 
 	_, err := lpm.srv6SIDManagerClient.Update(ctx, sm, metav1.UpdateOptions{})
 	if err != nil {
@@ -101,9 +103,10 @@ func (lpm *LocatorPoolManager) deleteSIDManager(ctx context.Context, nodeRef str
 		return fmt.Errorf("failed to get SRv6 SID Manager resource: %w", err)
 	}
 
-	lpm.logger.WithFields(logrus.Fields{
-		"node": nodeRef,
-	}).Info("deleting SRv6 SID Manager resource")
+	lpm.logger.Info(
+		"deleting SRv6 SID Manager resource",
+		logfields.Node, nodeRef,
+	)
 
 	err = lpm.srv6SIDManagerClient.Delete(ctx, nodeRef, metav1.DeleteOptions{})
 	if err != nil {

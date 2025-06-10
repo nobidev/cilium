@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // resync works as following
@@ -35,7 +36,10 @@ import (
 func (lpm *LocatorPoolManager) resync(ctx context.Context) {
 nodeEventLoop:
 	for event := range lpm.nodeEvents {
-		lpm.logger.Infof("Resync: node event %s %s", event.Kind, event.Key)
+		lpm.logger.Info("Resync: node event",
+			logfields.Kind, event.Kind,
+			logfields.Key, event.Key,
+		)
 
 		switch event.Kind {
 		case resource.Sync:
@@ -54,11 +58,16 @@ nodeEventLoop:
 
 poolEventLoop:
 	for event := range lpm.poolEvents {
-		lpm.logger.Infof("Resync: pool event %s %s", event.Kind, event.Key)
+		lpm.logger.Info("Resync: node event",
+			logfields.Kind, event.Kind,
+			logfields.Key, event.Key,
+		)
 
 		sidManagerStore, err := lpm.srv6SIDManagerResource.Store(ctx)
 		if err != nil {
-			lpm.logger.Errorf("failed to get SRv6SIDManagers from store: %w", err)
+			lpm.logger.Error("failed to get SRv6SIDManagers from store",
+				logfields.Error, err,
+			)
 			event.Done(err)
 			continue
 		}
@@ -73,7 +82,9 @@ poolEventLoop:
 		case resource.Upsert:
 			err = lpm.createPoolAndSyncNodeIDs(event.Object, sidManagers)
 			if err != nil {
-				lpm.logger.Errorf("failed to reallocate pool: %w", err)
+				lpm.logger.Error("failed to reallocate pool",
+					logfields.Error, err,
+				)
 			}
 		case resource.Delete:
 			lpm.deletePoolState(event.Object)
@@ -109,7 +120,11 @@ func (lpm *LocatorPoolManager) createPoolAndSyncNodeIDs(pool *isovalent_api_v1al
 				err := lpm.syncPoolWithAPI(p, sidManager.Name, allocations.Locators[0])
 				if err != nil {
 					// on failure to sync, we log error and continue. Failed pools will get new allocations at end of resync.
-					lpm.logger.Warnf("failed to sync state SID Manager %s pool %s: %w", sidManager.Name, pool.Name, err)
+					lpm.logger.Warn("failed to sync state SID Manager",
+						logfields.Name, sidManager.Name,
+						logfields.PoolName, pool.Name,
+						logfields.Error, err,
+					)
 				}
 				break
 			}
@@ -136,7 +151,11 @@ func (lpm *LocatorPoolManager) syncPoolWithAPI(p LocatorPool, nodeRef string, no
 	}
 
 	lpm.nodeAllocations[nodeRef][p.GetName()] = nodeLoc
-	lpm.logger.Debugf("re-allocating locator %s from pool %s to node %s", nodeLoc.Prefix, p.GetName(), nodeRef)
+	lpm.logger.Debug("re-allocating locator from pool to node",
+		logfields.Name, nodeLoc.Prefix,
+		logfields.PoolName, p.GetName(),
+		logfields.Node, nodeRef,
+	)
 
 	return nil
 }
@@ -203,7 +222,10 @@ func (lpm *LocatorPoolManager) syncSIDManagers(ctx context.Context, sidManagers 
 		err := lpm.addNode(ctx, node)
 		if err != nil {
 			// log error and continue
-			lpm.logger.Errorf("failed to add node %s: %w", node, err)
+			lpm.logger.Error("failed to add node",
+				logfields.Node, node,
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -211,7 +233,10 @@ func (lpm *LocatorPoolManager) syncSIDManagers(ctx context.Context, sidManagers 
 		err := lpm.deleteNode(ctx, node)
 		if err != nil {
 			// log error and continue
-			lpm.logger.Errorf("failed to add node %s: %w", node, err)
+			lpm.logger.Error("failed to delete node",
+				logfields.Node, node,
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -220,7 +245,10 @@ func (lpm *LocatorPoolManager) syncSIDManagers(ctx context.Context, sidManagers 
 		err := lpm.updateNodeAllocations(ctx, nodeRef)
 		if err != nil {
 			// log error and continue
-			lpm.logger.Errorf("failed to update node %s: %w", nodeRef, err)
+			lpm.logger.Error("failed to update node",
+				logfields.Node, nodeRef,
+				logfields.Error, err,
+			)
 		}
 	}
 }

@@ -12,11 +12,11 @@ package locatorpool
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -40,7 +40,7 @@ type LocatorPoolManagerParams struct {
 
 	Cfg Config
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 
 	Clientset k8sClient.Clientset
@@ -56,7 +56,7 @@ type allocations map[string]*LocatorInfo
 // LocatorPoolManager is responsible for managing SRv6 Locator Pools
 type LocatorPoolManager struct {
 	cfg    Config
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// resource to be modified
 	srv6SIDManagerClient isovalent_client_v1alpha1.IsovalentSRv6SIDManagerInterface

@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -84,7 +83,6 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fixture {
-	logrus.SetLevel(logrus.DebugLevel)
 	f := &fixture{}
 
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
