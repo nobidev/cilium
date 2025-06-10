@@ -12,6 +12,7 @@ package egressgatewayha
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
@@ -142,7 +144,7 @@ type gwEgressIPConfig struct {
 
 // ParseIEGP takes a IsovalentEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
-func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
+func ParseIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
 	var dstCidrList []netip.Prefix
 	var excludedCIDRs []netip.Prefix
@@ -282,7 +284,10 @@ func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 		for _, gwIP := range policyGroupStatus.ActiveGatewayIPs {
 			activeGatewayIP, err := netip.ParseAddr(gwIP)
 			if err != nil {
-				log.WithError(err).Error("Cannot parse active gateway IP")
+				logger.Error(
+					"Cannot parse active gateway IP",
+					logfields.Error, err,
+				)
 				continue
 			}
 
@@ -293,7 +298,10 @@ func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 			for _, gwIP := range gwIPs {
 				ip, err := netip.ParseAddr(gwIP)
 				if err != nil {
-					log.WithError(err).Error("Cannot parse AZ active gateway IP")
+					logger.Error(
+						"Cannot parse AZ active gateway IP",
+						logfields.Error, err,
+					)
 					continue
 				}
 
@@ -304,7 +312,10 @@ func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 		for _, gwIP := range policyGroupStatus.HealthyGatewayIPs {
 			healthyGatewayIP, err := netip.ParseAddr(gwIP)
 			if err != nil {
-				log.WithError(err).Error("Cannot parse healthy gateway IP")
+				logger.Error(
+					"Cannot parse healthy gateway IP",
+					logfields.Error, err,
+				)
 				continue
 			}
 
@@ -314,13 +325,19 @@ func ParseIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
 		for gwIP, egressIP := range policyGroupStatus.EgressIPByGatewayIP {
 			gwAddr, err := netip.ParseAddr(gwIP)
 			if err != nil {
-				log.WithError(err).Error("Cannot parse gateway IP")
+				logger.Error(
+					"Cannot parse gateway IP",
+					logfields.Error, err,
+				)
 				continue
 			}
 
 			egressAddr, err := netip.ParseAddr(egressIP)
 			if err != nil {
-				log.WithError(err).Error("Cannot parse allocated egress IP")
+				logger.Error(
+					"Cannot parse allocated egress IP",
+					logfields.Error, err,
+				)
 				continue
 			}
 

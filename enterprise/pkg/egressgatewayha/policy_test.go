@@ -14,6 +14,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -382,10 +383,11 @@ func TestAllocateEgressIPsForGroup(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			pool, err := newPool(tc.cidrs...)
 			require.NoErrorf(t, err, "unexpected error while creating pool for CIDRs %v", tc.cidrs)
 
-			allocs, err := allocateEgressIPsForGroup(pool, tc.gatewaysByAZ, tc.prevAllocs, tc.healthyGatewayIPs)
+			allocs, err := allocateEgressIPsForGroup(logger, pool, tc.gatewaysByAZ, tc.prevAllocs, tc.healthyGatewayIPs)
 			if !tc.expectedError {
 				require.NoErrorf(t, err, "unexpected error while allocating egress IPs")
 			} else {

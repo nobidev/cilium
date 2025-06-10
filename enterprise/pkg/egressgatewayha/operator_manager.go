@@ -5,6 +5,7 @@ package egressgatewayha
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"sort"
 	"strings"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +56,8 @@ func (def OperatorConfig) Flags(flags *pflag.FlagSet) {
 type OperatorParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Config       OperatorConfig
 	DaemonConfig *option.DaemonConfig
 
@@ -75,6 +77,8 @@ type OperatorParams struct {
 
 type OperatorManager struct {
 	lock.Mutex
+
+	logger *slog.Logger
 
 	// manager health status reporter
 	health cell.Health
@@ -161,6 +165,7 @@ func NewEgressGatewayOperatorManager(p OperatorParams) (out struct {
 
 func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 	operatorManager := &OperatorManager{
+		logger:               p.Logger,
 		health:               p.Health,
 		clientset:            p.Clientset,
 		policies:             p.Policies,
@@ -185,7 +190,7 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 				MinInterval: p.Config.EgressGatewayHAReconciliationTriggerInterval,
 				TriggerFunc: func(reasons []string) {
 					reason := strings.Join(reasons, ", ")
-					log.WithField(logfields.Reason, reason).Debug("reconciliation triggered")
+					p.Logger.Debug("reconciliation triggered", logfields.Reason, reason)
 
 					operatorManager.Lock()
 					defer operatorManager.Unlock()
@@ -336,14 +341,14 @@ func (operatorManager *OperatorManager) handlePolicyEvent(event resource.Event[*
 // onAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
 func (operatorManager *OperatorManager) onAddEgressPolicy(policy *Policy) error {
-	logger := log.WithFields(logrus.Fields{
-		logfields.IsovalentEgressGatewayPolicyName: policy.ObjectMeta.Name,
-		logfields.K8sUID: policy.ObjectMeta.UID,
-	})
+	logger := operatorManager.logger.With(
+		logfields.IsovalentEgressGatewayPolicyName, policy.ObjectMeta.Name,
+		logfields.K8sUID, policy.ObjectMeta.UID,
+	)
 
-	config, err := ParseIEGP(policy)
+	config, err := ParseIEGP(logger, policy)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to parse IsovalentEgressGatewayPolicy")
+		logger.Warn("Failed to parse IsovalentEgressGatewayPolicy", logfields.Error, err)
 		return err
 	}
 
@@ -385,11 +390,14 @@ func (operatorManager *OperatorManager) onDeleteEgressPolicy(policy *Policy) {
 	tx := operatorManager.db.WriteTxn(operatorManager.policyConfigsTable)
 	defer tx.Abort()
 
-	logger := log.WithField(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
+	logger := operatorManager.logger.With(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
 
 	delete(operatorManager.policyCache, configID)
 	if prev, _, err := operatorManager.policyConfigsTable.Delete(tx, &PolicyConfig{id: configID}); err != nil {
-		log.WithError(err).WithField("id", configID.String()).Error("failed to upsert policyConfig")
+		logger.Error("failed to upsert policyConfig",
+			logfields.Error, err,
+			logfields.ID, configID,
+		)
 		tx.Abort()
 	} else if prev == nil {
 		logger.Warn("Can't delete IsovalentEgressGatewayPolicy: policy not found")
@@ -606,7 +614,10 @@ func (operatorManager *OperatorManager) updateEgressCIDRConflicts(tx statedb.Rea
 func (operatorManager *OperatorManager) updateHealthProbe(probeModeByNode map[string]healthcheck.ProbeMode) {
 	for nodeName, probeMode := range probeModeByNode {
 		if operatorManager.healthchecker.SetProber(operatorManager.gatewayNodeDataStore[nodeName], probeMode) {
-			log.WithField(logfields.NodeName, nodeName).Debugf("health probe mode changed to %s", probeMode)
+			operatorManager.logger.Debug("health probe mode changed",
+				logfields.NodeName, nodeName,
+				logfields.Mode, probeMode,
+			)
 
 			if n, found := operatorManager.k8sNodeDataStore[nodeName]; found {
 				probeMethodChanged.Emit(&slim_corev1.Node{

@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	core_v1 "k8s.io/api/core/v1"
@@ -46,8 +45,8 @@ type AgentPolicyConfig struct {
 
 // parseAgentIEGP parses IEGP from k8s resource and initializes agent specific
 // policy config fields for us in agent manager.
-func parseAgentIEGP(iegp *v1.IsovalentEgressGatewayPolicy) (*AgentPolicyConfig, error) {
-	config, err := ParseIEGP(iegp)
+func parseAgentIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*AgentPolicyConfig, error) {
+	config, err := ParseIEGP(logger, iegp)
 	if err != nil {
 		return nil, err
 	}
@@ -140,13 +139,13 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 	localNode, err := manager.localNodeStore.Get(context.TODO())
 	if err != nil {
-		log.Error("Failed to get local node store")
+		manager.logger.Error("Failed to get local node store")
 		return
 	}
 
 	localNodeK8sAddr, ok := netipx.FromStdIP(localNode.GetK8sNodeIP())
 	if !ok {
-		log.Error("Failed to parse local node IP")
+		manager.logger.Error("Failed to parse local node IP")
 		return
 	}
 
@@ -182,18 +181,20 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		}
 		gwc.healthyGatewayIPs = append(gwc.healthyGatewayIPs, groupStatus.healthyGatewayIPs...)
 
-		logger := log.WithFields(logrus.Fields{
-			logfields.IsovalentEgressGatewayPolicyName: config.id,
-			logfields.Interface:                        gc.iface,
-			logfields.EgressIP:                         gc.egressIP,
-		})
+		logger := manager.logger.With(
+			logfields.IsovalentEgressGatewayPolicyName, config.id,
+			logfields.Interface, gc.iface,
+			logfields.EgressIP, gc.egressIP,
+		)
 
 		if localNodeMatchesGatewayIP {
 			// If localNodeConfiguredAsGateway is already set it means that another
 			// egress group for the same policy has already selected it as gateway. In
 			// this case don't regenerate a new gatewayConfig and return an error
 			if gwc.localNodeConfiguredAsGateway {
-				logger.WithError(err).Error("Local node selected by multiple egress gateway groups from the same policy")
+				logger.Error("Local node selected by multiple egress gateway groups from the same policy",
+					logfields.Error, err,
+				)
 				continue
 			}
 
@@ -208,7 +209,9 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 					iface, err = route.NodeDeviceWithDefaultRoute(manager.logger, true, false)
 				}
 				if err != nil {
-					logger.WithError(err).Error("Failed to find interface while updating node egress IP config")
+					logger.Error("Failed to find interface while updating node egress IP config",
+						logfields.Error, err,
+					)
 					continue
 				}
 
@@ -218,7 +221,9 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				gwc.egressIfindex = uint32(iface.Attrs().Index)
 				gwc.egressIP = egressIP
 			} else if err := gwc.deriveFromGroupConfig(manager.logger, &gc); err != nil {
-				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				logger.Error("Failed to derive policy gateway configuration",
+					logfields.Error, err,
+				)
 				continue
 			}
 
@@ -231,12 +236,13 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	nextEgressIPs := sets.New(egressIPs...)
 	curEgressIPs := manager.egressConfigsByPolicy[config.id]
 	toDel := curEgressIPs.Difference(nextEgressIPs)
-	updateEgressIPsConfig(manager.db, manager.egressIPTable, nextEgressIPs, toDel, config.dstCIDRs)
+	updateEgressIPsConfig(manager.logger, manager.db, manager.egressIPTable, nextEgressIPs, toDel, config.dstCIDRs)
 	manager.egressConfigsByPolicy[config.id] = nextEgressIPs
 
 }
 
 func updateEgressIPsConfig(
+	logger *slog.Logger,
 	db *statedb.DB,
 	table statedb.RWTable[*tables.EgressIPEntry],
 	toUpsert, toDel sets.Set[gwEgressIPConfig],
@@ -260,9 +266,10 @@ func updateEgressIPsConfig(
 		}
 		nextHop, err := egressipconf.NextHopFromDefaultRoute(config.iface)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Interface: config.iface,
-			}).Warning("Failed to find next hop to use for egress gateway IPAM route, connectivity to external endpoints might be broken for all SNATed traffic through the interface.")
+			logger.Warn("Failed to find next hop to use for egress gateway IPAM route, connectivity to external endpoints might be broken for all SNATed traffic through the interface.",
+				logfields.Error, err,
+				logfields.Interface, config.iface,
+			)
 			continue
 		}
 		nextHops[config.iface] = nextHop
@@ -359,23 +366,25 @@ func (gwc *gatewayConfig) gatewayConfigForEndpoint(manager *Manager, endpoint *e
 
 	endpointNode, ok := manager.nodesByIP[endpoint.nodeIP.String()]
 	if !ok {
-		log.WithFields(logrus.Fields{
-			logfields.EndpointID: endpoint.id,
-			logfields.K8sNodeIP:  endpoint.nodeIP.String(),
-		}).Error("cannot find endpoint's node")
+		manager.logger.Error(
+			"cannot find endpoint's node",
+			logfields.EndpointID, endpoint.id,
+			logfields.K8sNodeIP, endpoint.nodeIP,
+		)
 
-		//fallback to the non AZ-aware list of gateway IPs
+		// fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP, egressIfindex
 	}
 
 	az, ok := endpointNode.Labels[core_v1.LabelTopologyZone]
 	if !ok {
-		log.WithFields(logrus.Fields{
-			logfields.EndpointID: endpoint.id,
-			logfields.K8sNodeIP:  endpoint.nodeIP.String(),
-		}).Errorf("missing node's AZ label")
+		manager.logger.Error(
+			"missing node's AZ label",
+			logfields.EndpointID, endpoint.id,
+			logfields.K8sNodeIP, endpoint.nodeIP,
+		)
 
-		//fallback to the non AZ-aware list of gateway IPs
+		// fallback to the non AZ-aware list of gateway IPs
 		return gwc.activeGatewayIPs, egressIP, egressIfindex
 	}
 

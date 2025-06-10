@@ -6,6 +6,7 @@ package healthcheck
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -18,15 +19,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway-ha")
 )
 
 const (
@@ -134,6 +130,7 @@ const (
 )
 
 type icmpProber struct {
+	logger  *slog.Logger
 	ip      string
 	timeout time.Duration
 }
@@ -142,7 +139,7 @@ func (i *icmpProber) runHealthcheckProbe() bool {
 	result := false
 	pinger, err := probing.NewPinger(i.ip)
 	if err != nil {
-		log.WithError(err).Error("Failed to create pinger")
+		i.logger.Error("Failed to create pinger", logfields.Error, err)
 		return false
 	}
 
@@ -162,7 +159,10 @@ func (i *icmpProber) runHealthcheckProbe() bool {
 	pinger.SetPrivileged(true)
 	err = pinger.Run()
 	if err != nil {
-		log.WithError(err).Errorf("Failed to run pinger for IP %s", i.ip)
+		i.logger.Error("Failed to run pinger for IP",
+			logfields.IPAddr, i.ip,
+			logfields.Error, err,
+		)
 		return false
 	}
 
@@ -185,6 +185,8 @@ type nodeStatus struct {
 }
 
 type healthchecker struct {
+	logger *slog.Logger
+
 	lock.RWMutex
 
 	Config
@@ -195,8 +197,9 @@ type healthchecker struct {
 }
 
 // NewHealthchecker returns a new Healthchecker
-func NewHealthchecker(config Config) Healthchecker {
+func NewHealthchecker(logger *slog.Logger, config Config) Healthchecker {
 	return &healthchecker{
+		logger:   logger,
 		Config:   config,
 		nodes:    make(map[string]nodeTypes.Node),
 		statuses: make(map[string]*nodeStatus),
@@ -272,6 +275,7 @@ func (h *healthchecker) createProber(node nodeTypes.Node, mode ProbeMode) health
 		return h.createHttpProber(node)
 	case ICMP:
 		return &icmpProber{
+			logger:  h.logger,
 			ip:      node.GetNodeIP(false).String(),
 			timeout: h.EgressGatewayHAHealthcheckTimeout,
 		}
@@ -296,7 +300,7 @@ func (h *healthchecker) probeTimestampIsFresh(probeTimestamp time.Time) bool {
 func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool, probeMode ProbeMode) {
 	var (
 		tickerCh = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
-		logger   = log.WithField(logfields.NodeName, node.Name)
+		logger   = h.logger.With(logfields.NodeName, node.Name)
 	)
 
 	logger.Info("Starting health check for node")
@@ -371,8 +375,7 @@ func (h *healthchecker) getProber(node nodeTypes.Node) healthProber {
 
 // Caller must hold h.RwMutex
 func (h *healthchecker) stopNodeHealthcheck(node nodeTypes.Node) {
-	log.WithField(logfields.NodeName, node.Name).
-		Info("Stopping health check for node")
+	h.logger.Info("Stopping health check for node", logfields.NodeName, node.Name)
 
 	h.statuses[node.Name].healthcheckerTickerCh.Stop()
 	delete(h.statuses, node.Name)

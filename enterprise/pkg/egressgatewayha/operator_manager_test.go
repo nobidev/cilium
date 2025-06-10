@@ -73,6 +73,7 @@ func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTes
 
 	hr, _ := cell.NewSimpleHealth()
 	k.manager = newEgressGatewayOperatorManager(OperatorParams{
+		Logger:        hivetest.Logger(t),
 		Config:        OperatorConfig{1 * time.Millisecond},
 		Health:        hr,
 		Clientset:     k.fakeSet,
@@ -1916,6 +1917,7 @@ func TestEgressCIDRConflictsDetection(t *testing.T) {
 				cell.Provide(newOperatorTables),
 				cell.Invoke(func(db *statedb.DB, pt statedb.RWTable[*PolicyConfig]) {
 					manager := OperatorManager{
+						logger:             hivetest.Logger(t),
 						db:                 db,
 						policyConfigsTable: pt,
 					}
@@ -1930,7 +1932,7 @@ func TestEgressCIDRConflictsDetection(t *testing.T) {
 							},
 						}
 
-						policyCfg, err := ParseIEGP(&policy)
+						policyCfg, err := ParseIEGP(hivetest.Logger(t), &policy)
 						if err != nil {
 							t.Fatalf("failed to parse policy %d: %s", i, err)
 						}

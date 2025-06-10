@@ -11,7 +11,7 @@
 package healthcheck
 
 import (
-	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -153,14 +152,6 @@ func TestHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
 func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Healthchecker, net.IP) {
 	t.Helper()
 
-	// silence the health checker log for the test
-	prev := log
-	log = logrus.NewEntry(logrus.New())
-	log.Logger.SetOutput(io.Discard)
-	t.Cleanup(func() {
-		log = prev
-	})
-
 	port := 0
 	addr := net.IPv4zero
 	if handler != nil {
@@ -179,7 +170,7 @@ func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Hea
 	}
 
 	// create a new healthchecker
-	hc := NewHealthchecker(Config{
+	hc := NewHealthchecker(slog.New(slog.DiscardHandler), Config{
 		EgressGatewayHAHealthcheckTimeout: hcTimeout,
 		ClusterHealthPort:                 port,
 	})

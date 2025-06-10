@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,7 +48,6 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
@@ -63,7 +61,6 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway-ha")
 	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
 	// map to indicate no gateway was found for the given policy
 	GatewayNotFoundIPv4 = netip.MustParseAddr("0.0.0.0")
@@ -329,6 +326,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 
 	if p.Config.EnableEgressGatewayHASocketTermination {
 		manager.socketsActions = &socketsManager{
+			logger: p.Logger,
 			health: p.Health.NewScope("sockets-manager"),
 		}
 	}
@@ -338,7 +336,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		MinInterval: p.Config.EgressGatewayHAReconciliationTriggerInterval,
 		TriggerFunc: func(reasons []string) {
 			reason := strings.Join(reasons, ", ")
-			log.WithField(logfields.Reason, reason).Debug("reconciliation triggered")
+			manager.logger.Debug("reconciliation triggered", logfields.Reason, reason)
 
 			manager.Lock()
 			defer manager.Unlock()
@@ -496,19 +494,19 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 // onAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
 func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
-	logger := log.WithFields(logrus.Fields{
-		logfields.IsovalentEgressGatewayPolicyName: policy.Name,
-		logfields.K8sUID: policy.UID,
-	})
+	logger := manager.logger.With(
+		logfields.IsovalentEgressGatewayPolicyName, policy.Name,
+		logfields.K8sUID, policy.UID,
+	)
 
 	if policy.Status.ObservedGeneration != policy.GetGeneration() {
 		logger.Debug("Received policy whose GroupStatuses has not yet been updated by the operator, ignoring it")
 		return nil
 	}
 
-	config, err := parseAgentIEGP(policy)
+	config, err := parseAgentIEGP(logger, policy)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to parse IsovalentEgressGatewayPolicy")
+		logger.Warn("Failed to parse IsovalentEgressGatewayPolicy", logfields.Error, err)
 		return err
 	}
 
@@ -538,7 +536,7 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
+	logger := manager.logger.With(logfields.IsovalentEgressGatewayPolicyName, configID.Name)
 
 	if manager.policyConfigs[configID] == nil {
 		logger.Warn("Can't delete IsovalentEgressGatewayPolicy: policy not found")
@@ -560,26 +558,28 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: endpoint.Name,
-		logfields.K8sNamespace:    endpoint.Namespace,
-		logfields.K8sUID:          endpoint.UID,
-	})
+	logger := manager.logger.With(
+		logfields.K8sEndpointName, endpoint.Name,
+		logfields.K8sNamespace, endpoint.Namespace,
+		logfields.K8sUID, endpoint.UID,
+	)
 
 	if endpoint.Identity == nil {
-		logger.Warning("Endpoint is missing identity metadata, skipping update to egress policy.")
+		logger.Warn("Endpoint is missing identity metadata, skipping update to egress policy.")
 		return nil
 	}
 
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		logger.WithError(err).
-			Warning("Failed to get identity labels for endpoint")
+		logger.Warn("Failed to get identity labels for endpoint",
+			logfields.Error, err,
+		)
 		return err
 	}
 
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		logger.WithError(err).
-			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
+		logger.Warn("Failed to get valid endpoint metadata, skipping update to egress policy.",
+			logfields.Error, err,
+		)
 		return nil
 	}
 
@@ -601,11 +601,11 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: endpoint.Name,
-		logfields.K8sNamespace:    endpoint.Namespace,
-		logfields.K8sUID:          endpoint.UID,
-	})
+	logger := manager.logger.With(
+		logfields.K8sEndpointName, endpoint.Name,
+		logfields.K8sNamespace, endpoint.Namespace,
+		logfields.K8sUID, endpoint.UID,
+	)
 
 	logger.Debug("Deleted CiliumEndpoint")
 	delete(manager.epDataStore, endpoint.UID)
@@ -703,10 +703,12 @@ func (manager *Manager) removePolicyEgressIPs(egressIPs sets.Set[gwEgressIPConfi
 			continue
 		}
 		if _, _, err := manager.egressIPTable.Delete(txn, obj); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.EgressIP:  egressIP.addr,
-				logfields.Interface: egressIP.iface,
-			}).WithError(err).Error("Failed to delete entry from egress-ips stateDB table")
+			manager.logger.Error(
+				"Failed to delete entry from egress-ips stateDB table",
+				logfields.Error, err,
+				logfields.EgressIP, egressIP.addr,
+				logfields.Interface, egressIP.iface,
+			)
 		}
 	}
 
@@ -777,21 +779,24 @@ func (manager *Manager) updateEgressRulesV2() {
 			}
 
 			if err := egressmapha.ApplyEgressPolicyV2(manager.policyMapV2, endpointIP, dstCIDR, egressIP, activeGatewayIPs, egressIfindex); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.SourceIP:        endpointIP,
-					logfields.DestinationCIDR: dstCIDR.String(),
-					logfields.EgressIP:        egressIP,
-					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-					logfields.LinkIndex:       egressIfindex,
-				}).Error("Error applying egress gateway policy")
-			} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					logfields.SourceIP:        endpointIP,
-					logfields.DestinationCIDR: dstCIDR.String(),
-					logfields.EgressIP:        egressIP,
-					logfields.GatewayIPs:      joinStringers(activeGatewayIPs, ","),
-					logfields.LinkIndex:       egressIfindex,
-				}).Debug("Egress gateway policy applied")
+				manager.logger.Error(
+					"Error applying egress gateway policy",
+					logfields.Error, err,
+					logfields.SourceIP, endpointIP,
+					logfields.DestinationCIDR, dstCIDR,
+					logfields.EgressIP, egressIP,
+					logfields.GatewayIPs, joinStringers(activeGatewayIPs, ","),
+					logfields.LinkIndex, egressIfindex,
+				)
+			} else if manager.logger.Enabled(context.Background(), slog.LevelDebug) {
+				manager.logger.Debug(
+					"Egress gateway policy applied",
+					logfields.SourceIP, endpointIP,
+					logfields.DestinationCIDR, dstCIDR,
+					logfields.EgressIP, egressIP,
+					logfields.GatewayIPs, joinStringers(activeGatewayIPs, ","),
+					logfields.LinkIndex, egressIfindex,
+				)
 			}
 		}
 	}
@@ -803,15 +808,19 @@ func (manager *Manager) updateEgressRulesV2() {
 	// Remove all the entries still marked as stale.
 	for policyKey := range stale {
 		if err := egressmapha.RemoveEgressPolicyV2(manager.policyMapV2, policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SourceIP:        policyKey.GetSourceIP(),
-				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			}).Error("Error removing egress gateway policy")
-		} else if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				logfields.SourceIP:        policyKey.GetSourceIP(),
-				logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-			}).Debug("Egress gateway policy removed")
+			manager.logger.Error(
+				"Error removing egress gateway policy",
+				logfields.Error, err,
+				logfields.SourceIP, policyKey.GetSourceIP(),
+				logfields.DestinationCIDR, policyKey.GetDestCIDR(),
+			)
+		} else if manager.logger.Enabled(context.Background(), slog.LevelDebug) {
+			manager.logger.Debug(
+				"Egress gateway policy removed",
+				logfields.Error, err,
+				logfields.SourceIP, policyKey.GetSourceIP(),
+				logfields.DestinationCIDR, policyKey.GetDestCIDR(),
+			)
 		}
 	}
 }
@@ -840,7 +849,7 @@ func (manager *Manager) removeExpiredCtEntries() error {
 	policyMatchesCtEntry := func(policy *AgentPolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
 		gatewayIP, ok := netipx.FromStdIP(ctVal.Gateway.IP())
 		if !ok {
-			log.Error("Cannot parse CT entry's gateway IP while removing expired entries")
+			manager.logger.Error("Cannot parse CT entry's gateway IP while removing expired entries")
 			return false
 		}
 
@@ -893,13 +902,14 @@ func (manager *Manager) removeExpiredCtEntries() error {
 				// If no healthy gateway addr was found in matching policies for ctKey we can attempt to
 				// terminate the client connection.
 				// Note: In this case foundMatchingPolicy is implied to be true.
-				log.WithFields(logrus.Fields{
-					"sourceIP":   ctKey.SourceAddr,
-					"sourcePort": ctKey.SourcePort,
-					"destIP":     ctKey.DestAddr,
-					"destPort":   ctKey.DestPort,
-					"gatewayIP":  ctVal.Gateway,
-				}).Debug("tracked socket connection with unavailable gateway to be closed")
+				manager.logger.Debug(
+					"tracked socket connection with unavailable gateway to be closed",
+					logfields.SourceIP, ctKey.SourceAddr,
+					logfields.SourcePort, ctKey.SourcePort,
+					logfields.DestinationIP, ctKey.DestAddr,
+					logfields.DestinationPort, ctKey.DestPort,
+					logfields.GatewayIP, ctVal.Gateway,
+				)
 				toClose.Insert(anonymizeCtKey(ctKey))
 			}
 		}
@@ -917,17 +927,18 @@ func (manager *Manager) removeExpiredCtEntries() error {
 
 		h := manager.health.NewScope("socket-termination")
 		if err != nil {
-			log.WithError(err).Error("failed to close sockets to unavailable gateways")
+			manager.logger.Error("failed to close sockets to unavailable gateways", logfields.Error, err)
 			h.Degraded("failed to close sockets to unavailable gateways", err)
 		} else {
 			h.OK("closed sockets to expired gateways")
 		}
 		if stats.deleted+stats.failed+stats.skipped > 0 {
-			log.WithFields(logrus.Fields{
-				"deleted": stats.deleted,
-				"failed":  stats.failed,
-				"skipped": stats.skipped,
-			}).Info("closed sockets to expired gateways")
+			manager.logger.Info(
+				"closed sockets to expired gateways",
+				logfields.Deleted, stats.deleted,
+				logfields.Failed, stats.failed,
+				logfields.Skipped, stats.skipped,
+			)
 		}
 	}
 
@@ -940,14 +951,14 @@ func (manager *Manager) removeExpiredCtEntries() error {
 	// Therefore, we prefer to remove ctmap entries following socket terminations to allow for
 	// this to happen.
 	for ctKey, ctVal := range toDelete {
-		logger := log.WithFields(logrus.Fields{
+		logger := manager.logger.With(
 			// TODO log the whole ctKey
-			logfields.SourceIP:  ctKey.SourceAddr.IP(),
-			logfields.GatewayIP: ctVal.Gateway.IP(),
-		})
+			logfields.SourceIP, ctKey.SourceAddr.IP(),
+			logfields.GatewayIP, ctVal.Gateway.IP(),
+		)
 
 		if err := manager.ctMap.Delete(&ctKey); err != nil {
-			logger.WithError(err).Error("Error removing egress gateway CT entry")
+			logger.Error("Error removing egress gateway CT entry", logfields.Error, err)
 		} else {
 			logger.Debug("Egress gateway CT entry removed")
 		}
@@ -962,7 +973,7 @@ func (manager *Manager) finishInitializer(initializer func(txn statedb.WriteTxn)
 	// This works around a StateDB bug (see https://github.com/cilium/statedb/pull/47)
 	// where the reconciler does not fire on an empty (but initialized) table.
 	if initialized, _ := manager.egressIPTable.Initialized(manager.db.ReadTxn()); initialized {
-		log.Debug("Pruning IPAM related rules and routes")
+		manager.logger.Debug("Pruning IPAM related rules and routes")
 		manager.egressIPReconciler.Prune()
 	}
 }
@@ -1018,9 +1029,11 @@ func (manager *Manager) reconcileLocked() {
 		// Therefore, for the sake of resiliency, it is acceptable for EGW to continue reconciling gatewayConfigs
 		// even if the rp_filter setting are failing.
 		if err := manager.relaxRPFilter(); err != nil {
-			log.WithError(err).Error("Error relaxing rp_filter for gateway interfaces. "+
-				"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. ",
-				"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ")
+			manager.logger.Error("Error relaxing rp_filter for gateway interfaces. "+
+				"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. "+
+				"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ",
+				logfields.Error, err,
+			)
 		}
 	}
 

@@ -88,4 +88,10 @@ const (
 	NewResolvers = "newResolvers"
 
 	StaleResolvers = "staleResolvers"
+
+	SourcePort = "sourcePort"
+
+	DestinationPort = "destinationPort"
+
+	MissingEgressInterfaces = "missingEgressInterfaces"
 )

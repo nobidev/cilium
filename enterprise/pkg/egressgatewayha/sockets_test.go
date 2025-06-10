@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -138,6 +139,7 @@ func Test_socketsManager(t *testing.T) {
 
 	h, _ := cell.NewSimpleHealth()
 	m := &socketsManager{
+		logger: hivetest.Logger(t),
 		health: h,
 	}
 

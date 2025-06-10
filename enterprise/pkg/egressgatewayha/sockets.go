@@ -20,12 +20,12 @@ import (
 	"path"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ciliumnetns "github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/tuple"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -60,6 +60,7 @@ type socketsActions interface {
 // socketManager is a component used by the Agent manager to manage client sockets
 // for gw connections.
 type socketsManager struct {
+	logger *slog.Logger
 	health cell.Health
 }
 
@@ -70,7 +71,7 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 		return stats, nil
 	}
 
-	logger := log.WithField("path", netNSDir)
+	logger := m.logger.With(logfields.Path, netNSDir)
 	var errs error
 
 	_, err := os.Stat(netNSDir)
@@ -83,15 +84,18 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 
 	return stats, fs.WalkDir(os.DirFS(netNSDir), ".", func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
-			logger.WithError(err).
-				Errorf("error while walking network namespaces dir")
+			logger.Error("error while walking network namespaces dir",
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, err)
 			return nil
 		}
 
 		fi, err := d.Info()
 		if err != nil {
-			logger.WithError(err).Error("unexpected: could not retrieve netns file info")
+			logger.Error("unexpected: could not retrieve netns file info",
+				logfields.Error, err,
+			)
 			return nil
 		}
 
@@ -104,10 +108,13 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 		if d.Name() == "." {
 			return nil
 		}
-		logger = logger.WithField("netnsName", nsName)
+		logger = m.logger.With(
+			logfields.NetNSName, nsName,
+			logfields.Path, netNSDir,
+		)
 		nsFile, err := ciliumnetns.OpenPinned(path.Join(netNSDir, nsName))
 		if err != nil {
-			logger.WithError(err).Errorf("could not open netns file to iterate sockets")
+			logger.Error("could not open netns file to iterate sockets", logfields.Error, err)
 			return nil
 		}
 
@@ -116,26 +123,28 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 		iterateProto := func(proto uint8) {
 			u8p, err := u8proto.FromNumber(proto)
 			if err != nil {
-				log.WithError(err).Error("BUG: unexpected protocol used to iterate ns sockets (will skip)")
+				logger.Error("BUG: unexpected protocol used to iterate ns sockets (will skip)", logfields.Error, err)
 				return
 			}
-			logger = logger.WithField("proto", u8p.String())
+			logger = logger.With(logfields.Protocol, u8p)
 			logger.Debug("searching for protocol sockets to close")
 
 			nsFile.Do(func() error {
 				sockets.Iterate(proto, unix.AF_INET, stateFilter, func(sock *netlink.Socket, err error) error {
 					if err != nil {
-						logger.WithError(err).Error("failed to receive valid socket data, live socket may " +
-							"be missed for egwha socket termination resulting in hanging tcp connections.")
+						logger.Error("failed to receive valid socket data, live socket may "+
+							"be missed for egwha socket termination resulting in hanging tcp connections.",
+							logfields.Error, err,
+						)
 						return nil // still continue iteration to attempt next.
 					}
 
-					logger := logger.WithFields(logrus.Fields{
-						"sourceIP":   sock.ID.Source,
-						"sourcePort": sock.ID.SourcePort,
-						"dstIP":      sock.ID.Destination,
-						"dstPort":    sock.ID.DestinationPort,
-					})
+					logger := logger.With(
+						logfields.SourceIP, sock.ID.Source,
+						logfields.SourcePort, sock.ID.SourcePort,
+						logfields.DstIP, sock.ID.Destination,
+						logfields.DstPort, sock.ID.DestinationPort,
+					)
 					sourceAddr := toAddr4(sock.ID.Source)
 					destAddr := toAddr4(sock.ID.Destination)
 					if sourceAddr == nil || destAddr == nil {
@@ -159,9 +168,9 @@ func (m *socketsManager) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socket
 						// This does not count towards stats.
 						if errors.Is(err, unix.ENOENT) {
 							stats.skipped++
-							logger.WithError(err).Debug("failed to close socket as it was presumably already in TCP_CLOSE state")
+							logger.Debug("failed to close socket as it was presumably already in TCP_CLOSE state", logfields.Error, err)
 						} else {
-							logger.WithError(err).Error("failed to destroy socket")
+							logger.Error("failed to destroy socket", logfields.Error, err)
 							stats.failed++
 							return nil
 						}

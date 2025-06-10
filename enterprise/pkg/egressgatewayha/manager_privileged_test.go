@@ -118,6 +118,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	health, _ := cell.NewSimpleHealth()
 
 	manager, err := newEgressGatewayManager(Params{
+		Logger:    hivetest.Logger(t),
 		Lifecycle: lc,
 		Config: Config{
 			EgressGatewayHAReconciliationTriggerInterval: time.Millisecond,
@@ -631,8 +632,10 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 		egressGroups:     []egressGroupParams{{iface: testInterface1}},
 	}
 
+	logger := hivetest.Logger(t)
+
 	iegp, _ := newIEGP(&policy)
-	_, err := ParseIEGP(iegp)
+	_, err := ParseIEGP(logger, iegp)
 	require.Error(t, err)
 
 	// catch nil DestinationCIDR field
@@ -643,7 +646,7 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 
 	iegp, _ = newIEGP(&policy)
 	iegp.Spec.DestinationCIDRs = nil
-	_, err = ParseIEGP(iegp)
+	_, err = ParseIEGP(logger, iegp)
 	require.Error(t, err)
 	// must specify at least one DestinationCIDR
 	policy = policyParams{
@@ -652,7 +655,7 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 	}
 
 	iegp, _ = newIEGP(&policy)
-	_, err = ParseIEGP(iegp)
+	_, err = ParseIEGP(logger, iegp)
 	require.Error(t, err)
 
 	// catch nil EgressGateway field
@@ -664,7 +667,7 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 
 	iegp, _ = newIEGP(&policy)
 	iegp.Spec.EgressGroups = nil
-	_, err = ParseIEGP(iegp)
+	_, err = ParseIEGP(logger, iegp)
 	require.Error(t, err)
 
 	// must specify some sort of endpoint selector
@@ -677,7 +680,7 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 	iegp, _ = newIEGP(&policy)
 	iegp.Spec.Selectors[0].NamespaceSelector = nil
 	iegp.Spec.Selectors[0].PodSelector = nil
-	_, err = ParseIEGP(iegp)
+	_, err = ParseIEGP(logger, iegp)
 	require.Error(t, err)
 
 	// can't specify both egress iface and IP
@@ -688,7 +691,7 @@ func TestEgressGatewayIEGPParser(t *testing.T) {
 	}
 
 	iegp, _ = newIEGP(&policy)
-	_, err = ParseIEGP(iegp)
+	_, err = ParseIEGP(logger, iegp)
 	require.Error(t, err)
 }
 

@@ -16,20 +16,19 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"math/rand/v2"
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/statedb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/statedb"
 
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -161,10 +160,11 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 
 		nodeIP, ok := netipx.FromStdIP(node.GetK8sNodeIP())
 		if !ok {
-			log.WithFields(logrus.Fields{
-				logfields.NodeName: node.Name,
-				logfields.NodeIPv4: node.GetK8sNodeIP().String()}).
-				Warn("Failed to convert NodeIP, skipping this node.")
+			operatorManager.logger.Warn(
+				"Failed to convert NodeIP, skipping this node.",
+				logfields.NodeName, node.Name,
+				logfields.NodeIPv4, node.GetK8sNodeIP(),
+			)
 			continue
 		}
 
@@ -183,8 +183,10 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 			if nodeAZ, ok := node.Labels[core_v1.LabelTopologyZone]; ok {
 				availableHealthyGatewayIPsByAZ[nodeAZ] = append(availableHealthyGatewayIPsByAZ[nodeAZ], nodeIP)
 			} else {
-				log.WithField(logfields.NodeName, node.Name).
-					Warnf("AZ affinity is enabled but node is missing %s label. Node will be ignored", core_v1.LabelTopologyZone)
+				operatorManager.logger.Warn(
+					fmt.Sprintf("AZ affinity is enabled but node is missing %s label. Node will be ignored", core_v1.LabelTopologyZone),
+					logfields.NodeName, node.Name,
+				)
 			}
 		}
 	}
@@ -473,7 +475,7 @@ func (config *PolicyConfig) allocateEgressIPs(operatorManager *OperatorManager, 
 			activeGWs[affinityZoneNoZone] = groupStatuses[i].activeGatewayIPs
 		}
 
-		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(egressPool, activeGWs, prevEgressIPs, groupStatuses[i].healthyGatewayIPs)
+		groupStatuses[i].egressIPByGatewayIP, err = allocateEgressIPsForGroup(operatorManager.logger, egressPool, activeGWs, prevEgressIPs, groupStatuses[i].healthyGatewayIPs)
 		if err != nil {
 			operatorManager.health.Degraded(fmt.Sprintf("unable to fulfill allocations for policy %s", config.id), err)
 			return groupStatuses, conditionsForFailure(config.generation, []meta_v1.Condition{
@@ -561,7 +563,7 @@ func getInactiveHealthyGateways(activeGatewayIPsByAZ map[string][]netip.Addr, he
 	return inActiveHealthyGateways
 }
 
-func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string][]netip.Addr, prevEgressIPs map[netip.Addr]netip.Addr, healthyGatewayIPs []netip.Addr) (map[netip.Addr]netip.Addr, error) {
+func allocateEgressIPsForGroup(logger *slog.Logger, egressPool *pool, activeGatewayIPsByAZ map[string][]netip.Addr, prevEgressIPs map[netip.Addr]netip.Addr, healthyGatewayIPs []netip.Addr) (map[netip.Addr]netip.Addr, error) {
 	// First, retain the egress IPs of gateways that are healthy but not currently active.
 	// Releasing these IPs could disrupt existing connections that still depend on them.
 	egressIPsOfInactiveGateways := make(map[netip.Addr]netip.Addr)
@@ -572,10 +574,12 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 				egressIPsOfInactiveGateways[inActiveHealthyGateway] = egressIP
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				logfields.EgressIP:  egressIP,
-				logfields.GatewayIP: inActiveHealthyGateway,
-			}).WithError(err).Debug("Unable to reserve previously allocated egress IP for in-active gateway")
+			logger.Debug(
+				"Unable to reserve previously allocated egress IP for in-active gateway",
+				logfields.EgressIP, egressIP,
+				logfields.GatewayIP, inActiveHealthyGateway,
+				logfields.Error, err,
+			)
 		}
 	}
 
@@ -598,10 +602,12 @@ func allocateEgressIPsForGroup(egressPool *pool, activeGatewayIPsByAZ map[string
 				}
 				// in case of failure, just log the error from the allocation attempt
 				// and go ahead with a further attempt using a fresh egress IP
-				log.WithFields(logrus.Fields{
-					logfields.EgressIP:  egressIP,
-					logfields.GatewayIP: gatewayIP,
-				}).WithError(err).Debug("Unable to reserve egress IP assigned to gateway IP in previous version of the policy")
+				logger.Debug(
+					"Unable to reserve egress IP assigned to gateway IP in previous version of the policy",
+					logfields.EgressIP, egressIP,
+					logfields.GatewayIP, gatewayIP,
+					logfields.Error, err,
+				)
 			}
 			newActiveGatewayIPsByAZ[az] = append(newActiveGatewayIPsByAZ[az], gatewayIP)
 		}
@@ -825,9 +831,10 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	// status of the corresponding IEGP k8s resource
 	iegp, ok := operatorManager.policyCache[config.id]
 	if !ok {
-		log.WithFields(logrus.Fields{
-			logfields.IsovalentEgressGatewayPolicyName: config.id.Name,
-		}).Error("Cannot find cached policy, group statuses will not be updated")
+		operatorManager.logger.Error(
+			"Cannot find cached policy, group statuses will not be updated",
+			logfields.IsovalentEgressGatewayPolicyName, config.id.Name,
+		)
 
 		return nil
 	}
@@ -843,33 +850,37 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		return nil
 	}
 
-	logger := log.WithField(logfields.IsovalentEgressGatewayPolicyName, config.id.Name)
-	logger.Debugf("Updating policy status: %+v", newIEGP.Status)
+	logger := operatorManager.logger.With(logfields.IsovalentEgressGatewayPolicyName, config.id.Name)
+	logger.Debug("Updating policy", logfields.Status, newIEGP.Status)
 
 	updatedIEGP, err := operatorManager.clientset.IsovalentV1().IsovalentEgressGatewayPolicies().
 		UpdateStatus(context.TODO(), newIEGP, meta_v1.UpdateOptions{})
 	if err != nil {
-		logger.WithField(logfields.K8sGeneration, newIEGP.Status.ObservedGeneration).
-			WithError(err).
-			Warn("Cannot update IsovalentEgressGatewayPolicy status, retrying")
+		logger.Warn("Cannot update IsovalentEgressGatewayPolicy status, retrying",
+			logfields.K8sGeneration, newIEGP.Status.ObservedGeneration,
+			logfields.Error, err,
+		)
 
 		return err
 	}
 	// Now we've updated the IsovalentEgressGatewayPolicy, we need to update our local cache. The UpdateStatus
 	// method on the Kubernetes client object helpfully returned the updated iegp. So we can just write that back to
 	// the cache. By definition, if that call did not error, it's the most up-to-date version of the object.
-	updatedPolicyConfig, err := ParseIEGP(updatedIEGP)
+	updatedPolicyConfig, err := ParseIEGP(logger, updatedIEGP)
 	if err != nil {
 		// This is a super-strange case where we've written an updated object that we then cannot parse.
-		logger.WithField(logfields.K8sGeneration, updatedIEGP.Status.ObservedGeneration).
-			WithError(err).
-			Warn("Failed to parse IsovalentEgressGatewayPolicy after update")
+		logger.Warn("Failed to parse IsovalentEgressGatewayPolicy after update",
+			logfields.K8sGeneration, updatedIEGP.Status.ObservedGeneration,
+			logfields.Error, err,
+		)
 		return err
 	}
 	operatorManager.policyCache[config.id] = updatedIEGP
 	_, err = operatorManager.upsertPolicyConfig(tx, updatedPolicyConfig)
 	if err != nil {
-		log.WithError(err).Error("failed to upsert policy config")
+		logger.Error("failed to upsert policy config",
+			logfields.Error, err,
+		)
 		return err
 	}
 

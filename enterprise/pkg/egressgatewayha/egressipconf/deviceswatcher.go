@@ -13,21 +13,22 @@ package egressipconf
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	enterpriseTables "github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func newDevicesWatcher(
-	logger logrus.FieldLogger,
+	logger *slog.Logger,
 	health cell.Health,
 	jg job.Group,
 	db *statedb.DB,
@@ -45,9 +46,11 @@ func newDevicesWatcher(
 		for {
 			ifaces := deletedEgressIfaces(devices, db, egressIPsTbl)
 			if len(ifaces) > 0 {
-				logger.WithField("missingEgressInterfaces", ifaces).Warn("Egress interfaces in use by Egress Gateway IPAM have been removed." +
-					"This can disrupt connectivity for traffic affected by egress gateway policies and relying on the IPAM feature." +
-					"Please fix the network node configuration or update IsovalentEgressGatewayPolicy to select valid egress interfaces.")
+				logger.Warn("Egress interfaces in use by Egress Gateway IPAM have been removed."+
+					"This can disrupt connectivity for traffic affected by egress gateway policies and relying on the IPAM feature."+
+					"Please fix the network node configuration or update IsovalentEgressGatewayPolicy to select valid egress interfaces.",
+					logfields.MissingEgressInterfaces, ifaces,
+				)
 				health.Degraded(
 					"Egress interfaces in use by Egress Gateway IPAM have been removed",
 					fmt.Errorf("egress interfaces [%s] in use by egress-gateway IPAM have been removed", strings.Join(ifaces, ",")),
