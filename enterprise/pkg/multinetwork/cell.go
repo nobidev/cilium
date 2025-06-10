@@ -5,6 +5,7 @@ package multinetwork
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -70,6 +71,8 @@ func isovalentPodNetworkResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 type managerParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle cell.Lifecycle
 	Config    Config
 
@@ -88,6 +91,7 @@ func newMultiNetworkManager(params managerParams) *Manager {
 	}
 
 	manager := &Manager{
+		logger:       params.Logger,
 		config:       params.Config,
 		daemonConfig: params.DaemonConfig,
 		sysctl:       params.Sysctl,

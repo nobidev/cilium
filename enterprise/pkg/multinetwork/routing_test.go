@@ -4,6 +4,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -254,7 +255,7 @@ func Test_extractNodeIPsforNetworks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractNodeIPsforNetworks(tt.args.networks, tt.args.nodeIPv4, tt.args.nodeIPv6)
+			got := extractNodeIPsforNetworks(hivetest.Logger(t), tt.args.networks, tt.args.nodeIPv4, tt.args.nodeIPv6)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("extractNodeIPsforNetworks (-want +got):\n%s", diff)
 			}
@@ -483,7 +484,7 @@ func Test_extractDirectNodeRoutes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotRoutes := extractDirectNodeRoutes(tt.args.networks, tt.args.node)
+			gotRoutes := extractDirectNodeRoutes(hivetest.Logger(t), tt.args.networks, tt.args.node)
 			if diff := cmp.Diff(gotRoutes, tt.wantRoutes); diff != "" {
 				t.Errorf("extractDirectNodeRoutes (-want +got):\n%s", diff)
 			}

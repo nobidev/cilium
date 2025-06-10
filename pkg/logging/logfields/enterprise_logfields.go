@@ -89,6 +89,8 @@ const (
 
 	StaleResolvers = "staleResolvers"
 
+	Network = "network"
+
 	SourcePort = "sourcePort"
 
 	DestinationPort = "destinationPort"

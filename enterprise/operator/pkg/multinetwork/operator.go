@@ -13,16 +13,17 @@ package multinetwork
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -48,7 +49,7 @@ type operatorParams struct {
 
 	Config config
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 
 	Clientset k8sClient.Clientset
@@ -56,7 +57,7 @@ type operatorParams struct {
 
 type Operator struct {
 	config config
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	podNetworkClient isovalent_client_v1alpha1.IsovalentPodNetworkInterface
 }
@@ -95,7 +96,7 @@ func (o *Operator) Run(ctx context.Context, health cell.Health) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	scopedLog := o.logger.WithField("networkName", "default")
+	scopedLog := o.logger.With(logfields.Network, "default")
 	scopedLog.Info("Creating IsovalentPodNetwork resource")
 	_, err := o.podNetworkClient.Create(ctx, defaultNetwork, metav1.CreateOptions{})
 	if err != nil {

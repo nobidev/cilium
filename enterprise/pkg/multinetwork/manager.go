@@ -6,6 +6,7 @@ package multinetwork
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -20,14 +21,12 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
-	log             = logging.DefaultLogger.WithField(logfields.LogSubsys, "multi-network")
 	controllerGroup = controller.NewGroup("multi-network")
 )
 
@@ -83,6 +82,7 @@ type daemonConfig interface {
 // plugin and contains an implementation of the multi-networking-aware auto direct
 // node routes logic.
 type Manager struct {
+	logger       *slog.Logger
 	config       Config
 	daemonConfig daemonConfig
 	sysctl       sysctl.Sysctl
@@ -205,6 +205,7 @@ func (m *Manager) GetNetworksForPod(ctx context.Context, podNamespace, podName s
 func (m *Manager) startRoutingController(ctx context.Context) {
 	// remoteNodeRouteManager is responsible for managing multi-network auto direct node routes
 	remoteNodes := &remoteNodeRouteManager{
+		logger:       m.logger,
 		networkStore: m.networkStore,
 		mutex:        lock.Mutex{},
 		nodes:        make(map[string]*remoteNode),
@@ -222,8 +223,9 @@ func (m *Manager) startRoutingController(ctx context.Context) {
 		},
 		func(err error) {
 			if err != nil {
-				log.WithError(err).
-					Error("CiliumNode watcher unexpectedly stopped. Multi-network aware direct node routes will not be updated anymore.")
+				m.logger.Error("CiliumNode watcher unexpectedly stopped. Multi-network aware direct node routes will not be updated anymore.",
+					logfields.Error, err,
+				)
 			}
 		},
 	)
@@ -250,6 +252,7 @@ func (m *Manager) startLocalIPCollector(ctx context.Context) {
 	// localNetworkIPCollector auto-detects local node IPs and provides them to
 	// nodeDiscovery
 	localIP := &localNetworkIPCollector{
+		logger:              m.logger,
 		daemonConfig:        m.daemonConfig,
 		localNodeStore:      m.localNodeStore,
 		networkStore:        m.networkStore,

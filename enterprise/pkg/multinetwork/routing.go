@@ -6,12 +6,12 @@ package multinetwork
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -92,26 +92,28 @@ func extractNetwork(addressType addressing.AddressType) (networkName string, ok 
 // will now add those secondary node IPs into the IPCache with the `remote-node`
 // identity.
 type localNetworkIPCollector struct {
-	daemonConfig   daemonConfig
+	logger       *slog.Logger
+	daemonConfig daemonConfig
+
 	localNodeStore *node.LocalNodeStore
 
-	networkStore resource.Store[*iso_v1alpha1.IsovalentPodNetwork]
-
+	networkStore        resource.Store[*iso_v1alpha1.IsovalentPodNetwork]
 	mutex               lock.Mutex // protects nodeIPByNetworkName
 	nodeIPByNetworkName map[string]nodeIPPair
 }
 
 // collectLocalNodeIPs collects all local node IP addresses from the given interfaces and IP family.
-func collectLocalNodeIPs(ifaces []netlink.Link, family int) deviceToIPMap {
+func collectLocalNodeIPs(logger *slog.Logger, ifaces []netlink.Link, family int) deviceToIPMap {
 	nodeIPs := make(deviceToIPMap, len(ifaces))
 	for _, iface := range ifaces {
-		scopedLog := log.WithField(logfields.Interface, iface.Attrs().Name)
+		scopedLog := logger.With(logfields.Interface, iface.Attrs().Name)
 
 		addrs, err := safenetlink.AddrList(iface, family)
 		if err != nil {
 			scopedLog.
-				WithError(err).
-				Warn("Failed to list addresses on interface. Local node IPs on this interface will be ignored.")
+				Warn("Failed to list addresses on interface. Local node IPs on this interface will be ignored.",
+					logfields.Error, err,
+				)
 			continue
 		}
 
@@ -127,7 +129,7 @@ func collectLocalNodeIPs(ifaces []netlink.Link, family int) deviceToIPMap {
 // It does this by matching the network routes to the local node IP addresses. The
 // first matching IP address is used for each network.
 // It returns a map of network name to node IP pair.
-func extractNodeIPsforNetworks(networks []*iso_v1alpha1.IsovalentPodNetwork, nodeIPv4, nodeIPv6 deviceToIPMap) map[string]nodeIPPair {
+func extractNodeIPsforNetworks(logger *slog.Logger, networks []*iso_v1alpha1.IsovalentPodNetwork, nodeIPv4, nodeIPv6 deviceToIPMap) map[string]nodeIPPair {
 	nodeIPByNetworkName := make(map[string]nodeIPPair, len(networks))
 
 	// ensure deterministic iteration order
@@ -146,12 +148,11 @@ func extractNodeIPsforNetworks(networks []*iso_v1alpha1.IsovalentPodNetwork, nod
 		for _, route := range network.Spec.Routes {
 			_, networkPrefix, err := net.ParseCIDR(string(route.Destination))
 			if err != nil {
-				log.
-					WithFields(logrus.Fields{
-						"network":     networkName,
-						"destination": route.Destination,
-					}).
-					Warn("Invalid network route destination. Node IP for this network may not be populated")
+				logger.Warn(
+					"Invalid network route destination. Node IP for this network may not be populated",
+					logfields.Network, networkName,
+					logfields.Destination, route.Destination,
+				)
 				continue
 			}
 
@@ -195,14 +196,14 @@ func (m *localNetworkIPCollector) updateNodeIPAddresses(sysctl sysctl.Sysctl) er
 
 	var nodeIPv4, nodeIPv6 deviceToIPMap
 	if m.daemonConfig.IPv4Enabled() {
-		nodeIPv4 = collectLocalNodeIPs(ifaces, netlink.FAMILY_V4)
+		nodeIPv4 = collectLocalNodeIPs(m.logger, ifaces, netlink.FAMILY_V4)
 	}
 	if m.daemonConfig.IPv6Enabled() {
-		nodeIPv6 = collectLocalNodeIPs(ifaces, netlink.FAMILY_V6)
+		nodeIPv6 = collectLocalNodeIPs(m.logger, ifaces, netlink.FAMILY_V6)
 	}
 
 	networks := m.networkStore.List()
-	nodeIPByNetworkName := extractNodeIPsforNetworks(networks, nodeIPv4, nodeIPv6)
+	nodeIPByNetworkName := extractNodeIPsforNetworks(m.logger, networks, nodeIPv4, nodeIPv6)
 
 	m.mutex.Lock()
 	equal := maps.EqualFunc(m.nodeIPByNetworkName, nodeIPByNetworkName, nodeIPPair.Equal)
@@ -239,7 +240,7 @@ func (m *localNetworkIPCollector) updateNodeIPAddresses(sysctl sysctl.Sysctl) er
 	// where the reverse path will use a different interface.
 	for dev := range devices {
 		if err = connector.DisableRpFilter(sysctl, dev); err != nil {
-			log.WithError(err).Warning("failed to set rp_filter")
+			m.logger.Warn("failed to set rp_filter", logfields.Error, err)
 		}
 	}
 
@@ -282,10 +283,11 @@ type remoteNode struct {
 // version only subscribes to CiliumNode updates, which means clustermesh is
 // not supported at the moment.
 type remoteNodeRouteManager struct {
-	networkStore resource.Store[*iso_v1alpha1.IsovalentPodNetwork]
+	logger *slog.Logger
 
-	mutex lock.Mutex
-	nodes map[string]*remoteNode
+	networkStore resource.Store[*iso_v1alpha1.IsovalentPodNetwork]
+	mutex        lock.Mutex
+	nodes        map[string]*remoteNode
 }
 
 // getNetworkForIPAMPool extracts the network name for the given IPAM pool name
@@ -358,17 +360,17 @@ func createDirectNodeRoute(podCIDR string, nodeIPv4, nodeIPv6 net.IP) (*netlink.
 // It does this by matching the node's IPAM pools to the networks and then
 // creating a direct node route for each CIDR in the pool. The route's gateway
 // will be the node IP for the network of the IPAM pool.
-func extractDirectNodeRoutes(networks []*iso_v1alpha1.IsovalentPodNetwork, node *v2.CiliumNode) (routes []*netlink.Route) {
+func extractDirectNodeRoutes(logger *slog.Logger, networks []*iso_v1alpha1.IsovalentPodNetwork, node *v2.CiliumNode) (routes []*netlink.Route) {
 	if node == nil {
 		return nil // return empty slice if node was deleted
 	}
 
 	n := nodeTypes.ParseCiliumNode(node)
 	for _, pool := range node.Spec.IPAM.Pools.Allocated {
-		scopedLog := log.WithFields(logrus.Fields{
-			"pool": pool.Pool,
-			"node": node.Name,
-		})
+		scopedLog := logger.With(
+			logfields.PoolName, pool.Pool,
+			logfields.Node, node.Name,
+		)
 
 		poolNetwork, ok := getNetworkForIPAMPool(networks, pool.Pool)
 		if !ok {
@@ -381,9 +383,10 @@ func extractDirectNodeRoutes(networks []*iso_v1alpha1.IsovalentPodNetwork, node 
 			route, err := createDirectNodeRoute(string(cidr), nodeIPv4, nodeIPv6)
 			if err != nil {
 				scopedLog.
-					WithField(logfields.CIDR, cidr).
-					WithError(err).
-					Warn("unable to create direct node route, skipping")
+					Warn("unable to create direct node route, skipping",
+						logfields.CIDR, cidr,
+						logfields.Error, err,
+					)
 				continue
 			}
 
@@ -391,8 +394,9 @@ func extractDirectNodeRoutes(networks []*iso_v1alpha1.IsovalentPodNetwork, node 
 			// announced its IP address for the pool's network yet
 			if route.Gw == nil {
 				scopedLog.
-					WithField(logfields.CIDR, cidr).
-					Debug("no matching node IP found for pod CIDR, skipping")
+					Debug("no matching node IP found for pod CIDR, skipping",
+						logfields.CIDR, cidr,
+					)
 				continue
 			}
 
@@ -438,34 +442,37 @@ func (m *remoteNodeRouteManager) resyncNodes(ctx context.Context) error {
 // the ones in oldRoutes to ensure they were not accidentally removed.
 func (m *remoteNodeRouteManager) updateRoutesForNodeLocked(nodeName string, newNode *v2.CiliumNode, oldRoutes []*netlink.Route) {
 	networks := m.networkStore.List()
-	newRoutes := extractDirectNodeRoutes(networks, newNode)
+	newRoutes := extractDirectNodeRoutes(m.logger, networks, newNode)
 	removedRoutes := extractRemovedRoutes(oldRoutes, newRoutes)
 
 	// Remove all obsolete routes
 	for _, removedRoute := range removedRoutes {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Route:    removedRoute,
-			logfields.NodeName: nodeName,
-		})
+		scopedLog := m.logger.With(
+			logfields.Route, removedRoute,
+			logfields.NodeName, nodeName,
+		)
 
 		scopedLog.Debug("removing direct route")
 		if err := netlink.RouteDel(removedRoute); err != nil {
-			scopedLog.WithError(err).Warn("Failed to remove node route")
+			scopedLog.Warn("Failed to remove node route",
+				logfields.Error, err,
+			)
 		}
 	}
 
 	// Upsert all valid routes. This includes all existing and newly added routes
 	for _, upsertRoute := range newRoutes {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Route:    upsertRoute,
-			logfields.NodeName: nodeName,
-		})
+		scopedLog := m.logger.With(
+			logfields.Route, upsertRoute,
+			logfields.NodeName, nodeName,
+		)
 
 		scopedLog.Debug("upserting direct route")
 		if err := netlink.RouteReplace(upsertRoute); err != nil {
 			scopedLog.
-				WithError(err).
-				Warn("Failed to install route for node, traffic to that node will be disrupted")
+				Warn("Failed to install route for node, traffic to that node will be disrupted",
+					logfields.Error, err,
+				)
 		}
 	}
 
