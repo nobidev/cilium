@@ -13,9 +13,9 @@ package stats
 import (
 	"context"
 	"iter"
+	"log/slog"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/nat/stats"
@@ -32,8 +32,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "nat-topk-stats")
 
 // Metrics provides metrics for top-k nat stats.
 type Metrics struct {
@@ -96,6 +94,7 @@ type topkMetrics struct {
 
 type params struct {
 	cell.In
+	Logger         *slog.Logger
 	DB             *statedb.DB
 	Stats          statedb.Table[stats.NatMapStats]
 	Metrics        metricsActions
@@ -130,8 +129,9 @@ func newTopkMetrics(p params) *topkMetrics {
 				tx := m.db.ReadTxn()
 				iter := m.statsTable.All(tx)
 				if err := m.update(iter); err != nil {
-					log.WithError(err).Error("could not populate initial topk nat metrics." +
-						" This may result in out of date or incorrect metrics")
+					p.Logger.Error("could not populate initial topk nat metrics."+
+						" This may result in out of date or incorrect metrics",
+						logfields.Error, err)
 				}
 
 				// nat-stats table is updated periodically using a timer (default: 30s).
@@ -146,12 +146,13 @@ func newTopkMetrics(p params) *topkMetrics {
 					case <-watch:
 						limiter.Wait(ctx)
 						if err := m.update(iter); err != nil {
-							log.WithError(err).Error("Could not update topk nat metrics." +
-								" This may result in out of date or incorrect metrics")
+							p.Logger.Error("Could not update topk nat metrics."+
+								" This may result in out of date or incorrect metrics",
+								logfields.Error, err)
 							h.Degraded("failed update topk nat stats", err)
 						} else {
 							h.OK("update of topk nat stats successful")
-							log.Debug("completed topk metrics update")
+							p.Logger.Debug("completed topk metrics update")
 						}
 					case <-ctx.Done():
 						return
