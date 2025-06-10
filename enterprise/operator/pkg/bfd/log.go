@@ -25,4 +25,7 @@ const (
 
 	// NodeConfigNameField is the log field key used for BFD node config CRD object.
 	NodeConfigNameField = "node_config_name"
+
+	// ProfileNameField is the log field key used for BFD profile CRD object.
+	ProfileNameField = "bfd_profile_name"
 )

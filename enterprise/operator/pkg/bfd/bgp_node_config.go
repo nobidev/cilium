@@ -18,7 +18,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -118,11 +117,12 @@ func (r *bfdReconciler) getDesiredBFDPeers(bgpCC *v1.IsovalentBGPClusterConfig) 
 				if existing, exists := peersMap[key]; exists {
 					// BFD peer with this address+interface already exists for this BGPClusterConfig, skip
 					if existing.bfdProfile != *peerConfig.Spec.BFDProfileRef {
-						r.Logger.WithFields(logrus.Fields{
-							BGPClusterConfigField: bgpCC.Name,
-							PeerAddressField:      ptr.Deref(p.PeerAddress, ""),
-							PeerInterfaceField:    peerInterface,
-						}).Warnf("Same BFD peer configured with different BFD profiles, '%s' will be used", existing.bfdProfile)
+						r.Logger.Warn("Same BFD peer configured with different BFD profiles, existing profile will be used",
+							BGPClusterConfigField, bgpCC.Name,
+							PeerAddressField, ptr.Deref(p.PeerAddress, ""),
+							PeerInterfaceField, peerInterface,
+							ProfileNameField, existing.bfdProfile,
+						)
 					}
 					continue
 				}
@@ -226,11 +226,11 @@ func (r *bfdReconciler) reconcileBFDNodeConfig(ctx context.Context, bgpCC *v1.Is
 		return fmt.Errorf("failed to retrieve BFD node config: %w", err)
 	}
 
-	logger := r.Logger.WithFields(logrus.Fields{
-		BGPClusterConfigField: bgpCC.Name,
-		NodeConfigNameField:   desired.Name,
-		NodeNameField:         node.Name,
-	})
+	logger := r.Logger.With(
+		BGPClusterConfigField, bgpCC.Name,
+		NodeConfigNameField, desired.Name,
+		NodeNameField, node.Name,
+	)
 
 	switch {
 	case exists && existing.Spec.DeepEqual(&desired.Spec):
@@ -278,11 +278,11 @@ func (r *bfdReconciler) deleteStaleBFDNodeConfigs(ctx context.Context, expectedN
 		if expectedNodesSet.Has(nodeConfig.Spec.NodeRef) || !isOwner(nodeConfig.GetOwnerReferences(), bgpCCName) {
 			continue // expected node or not managed by us, skip
 		}
-		r.Logger.WithFields(logrus.Fields{
-			BGPClusterConfigField: bgpCCName,
-			NodeConfigNameField:   nodeConfig.Name,
-			NodeNameField:         nodeConfig.Name,
-		}).Debug("Deleting stale BFD nodeConfig config")
+		r.Logger.Debug("Deleting stale BFD nodeConfig config",
+			BGPClusterConfigField, bgpCCName,
+			NodeConfigNameField, nodeConfig.Name,
+			NodeNameField, nodeConfig.Name,
+		)
 
 		dErr := r.bfdNodeConfigClient.Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{})
 		if dErr != nil && k8s_errors.IsNotFound(dErr) {

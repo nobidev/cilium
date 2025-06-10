@@ -13,10 +13,10 @@ package bfd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	bgpv2config "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -27,6 +27,7 @@ import (
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -52,7 +53,7 @@ type bfdReconcilerParams struct {
 	BGPCfg  bgpv2config.Config
 	Metrics *OperatorMetrics
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	JobGroup  job.Group
 	Clientset k8sclient.Clientset
 
@@ -182,7 +183,7 @@ func (r *bfdReconciler) run(ctx context.Context, health cell.Health) (err error)
 			}
 			err := r.reconcileWithRetry(ctx, health)
 			if err != nil {
-				r.Logger.WithError(err).Error("BFD reconciliation failed")
+				r.Logger.Error("BFD reconciliation failed", logfields.Error, err)
 			} else {
 				r.Logger.Debug("BFD reconciliation successful")
 			}
@@ -204,7 +205,7 @@ func (r *bfdReconciler) reconcileWithRetry(ctx context.Context, health cell.Heal
 
 		if err != nil {
 			// log error, continue retry
-			r.Logger.WithError(trimError(err, maxErrorLen)).Warn("BFD reconciliation error")
+			r.Logger.Warn("BFD reconciliation error", logfields.Error, trimError(err, maxErrorLen))
 			health.Degraded("BFD reconciliation error", err)
 			return false, nil
 		}
