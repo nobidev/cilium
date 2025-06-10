@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -103,7 +104,7 @@ type Event struct {
 
 type sidManager struct {
 	// Logger
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// PoolName => sidAllocatorSyncer mapping. We currently assume only one
 	// locator allocated from one pool.
@@ -134,7 +135,7 @@ type sidManager struct {
 type sidManagerParams struct {
 	cell.In
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	Group    job.Group
 	Cs       client.Clientset
 	Dc       *option.DaemonConfig
@@ -480,9 +481,13 @@ func (m *sidManager) restoreAllocations(ctx context.Context, r *v1alpha1.Isovale
 		}
 	}
 
-	m.logger.Infof("Finish restoring existing SID allocations (restored: %d, stale: %d, error: %d)", restoredSIDs, staleSIDs, errorSIDs)
+	m.logger.Info("Finish restoring existing SID allocations",
+		logfields.Restored, restoredSIDs,
+		logfields.Stale, staleSIDs,
+		logfields.Error, errorSIDs,
+	)
 	if errs != nil {
-		m.logger.WithError(errs).Warn("Error occurred while restoring")
+		m.logger.Warn("Error occurred while restoring", logfields.Error, errs)
 	}
 }
 
@@ -526,11 +531,11 @@ func (m *sidManager) runStatusReconciler(ctx context.Context, health cell.Health
 			if err := m.reconcileStatus(ctx); err != nil {
 				// Generate warning only for the first retry. Otherwise, it's too noisy.
 				if !retrying {
-					m.logger.WithError(err).Warn("State synchronization failed. Retrying with backoff.")
+					m.logger.Warn("State synchronization failed. Retrying with backoff.", logfields.Error, err)
 					retrying = true
 				} else {
 					// This is for debugging
-					m.logger.WithError(err).Warn("State synchronization failed. Retrying with backoff.")
+					m.logger.Warn("State synchronization failed. Retrying with backoff.", logfields.Error, err)
 				}
 				m.Sync()
 			} else {

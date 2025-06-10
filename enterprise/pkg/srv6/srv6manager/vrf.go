@@ -14,12 +14,11 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -55,9 +54,9 @@ type VRF struct {
 // if a provided endpoint matches a rule a srv6map.VRFKey will be created for
 // each of the endpoint's IPv6 addresses and appended to the returned slice.
 func (m *Manager) getVRFKeysFromMatchingEndpoint(vrf *VRF) []srv6map.VRFKey {
-	logger := m.logger.WithFields(logrus.Fields{
-		logfields.VRF: vrf.id,
-	})
+	logger := m.logger.With(
+		logfields.VRF, vrf.id,
+	)
 	keys := []srv6map.VRFKey{}
 	for _, rule := range vrf.rules {
 		for _, endpoint := range m.cepStore.List() {
@@ -66,14 +65,19 @@ func (m *Manager) getVRFKeysFromMatchingEndpoint(vrf *VRF) []srv6map.VRFKey {
 			// We could use endpoint.Identity.Labels right away, but that would require parsing them,
 			// - so we retrieve them from the identityCache.IdentityAllocator instead (getIdentityLabels).
 			if endpoint.Identity == nil {
-				logger.WithFields(logrus.Fields{logfields.K8sEndpointName: endpoint.Name, logfields.K8sNamespace: endpoint.Namespace}).
-					Warning("Endpoint does not have an identity, skipping from VRF matching")
+				logger.Warn("Endpoint does not have an identity, skipping from VRF matching",
+					logfields.K8sEndpointName, endpoint.Name,
+					logfields.K8sNamespace, endpoint.Namespace,
+				)
 				continue
 			}
 			labels, err := m.getIdentityLabels(uint32(endpoint.Identity.ID))
 			if err != nil {
-				logger.WithFields(logrus.Fields{logfields.K8sEndpointName: endpoint.Name, logfields.K8sNamespace: endpoint.Namespace}).
-					WithError(err).Warning("Could not get endpoint identity labels, skipping from VRF matching")
+				logger.Warn("Could not get endpoint identity labels, skipping from VRF matching",
+					logfields.K8sEndpointName, endpoint.Name,
+					logfields.K8sNamespace, endpoint.Namespace,
+					logfields.Error, err,
+				)
 				continue
 			}
 			if !rule.selectsEndpoint(labels.K8sStringMap()) {

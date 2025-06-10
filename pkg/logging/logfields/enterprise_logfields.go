@@ -96,4 +96,14 @@ const (
 	DestinationPort = "destinationPort"
 
 	MissingEgressInterfaces = "missingEgressInterfaces"
+
+	Stale = "stale"
+
+	Component = "component"
+
+	ToCreate = "toCreate"
+
+	ToUpdate = "toUpdate"
+
+	ToRemove = "toRemove"
 )
