@@ -12,10 +12,10 @@ package ciliummesh
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -25,7 +25,7 @@ type CiliumMeshManagerParams struct {
 
 	Cfg Config
 
-	Logger   logrus.FieldLogger
+	Logger   *slog.Logger
 	JobGroup job.Group
 
 	Clientset k8sClient.Clientset
@@ -34,7 +34,7 @@ type CiliumMeshManagerParams struct {
 // CiliumMeshManager is responsible for managing Cilium Mesh feature
 type CiliumMeshManager struct {
 	cfg       Config
-	logger    logrus.FieldLogger
+	logger    *slog.Logger
 	clientSet k8sClient.Clientset
 }
 
