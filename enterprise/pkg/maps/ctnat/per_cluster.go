@@ -13,9 +13,9 @@ package ctnat
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -42,7 +42,7 @@ type perClusterParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 
 	Config       cecmcfg.Config
 	DaemonConfig *option.DaemonConfig
@@ -63,10 +63,11 @@ func newPerCluster(p perClusterParams) (PerCluster, ctmapgc.PerClusterCTMapsRetr
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			if p.Config.EnableClusterAwareAddressing {
-				p.Logger.WithFields(logrus.Fields{
-					logfields.IPv4: p.DaemonConfig.IPv4Enabled(),
-					logfields.IPv6: p.DaemonConfig.IPv6Enabled(),
-				}).Info("Initializing per-cluster CT/NAT maps")
+				p.Logger.Info(
+					"Initializing per-cluster CT/NAT maps",
+					logfields.IPv4, p.DaemonConfig.IPv4Enabled(),
+					logfields.IPv6, p.DaemonConfig.IPv6Enabled(),
+				)
 
 				if err := maps.openOrCreate(); err != nil {
 					return fmt.Errorf("failed to initialize per-cluster CT/NAT maps: %w", err)
@@ -100,13 +101,13 @@ func newPerCluster(p perClusterParams) (PerCluster, ctmapgc.PerClusterCTMapsRetr
 	return &maps, maps.ct.GetAllClusterCTMaps
 }
 
-func cleanupPerCluster(log logrus.FieldLogger, ipv4, ipv6 bool) {
+func cleanupPerCluster(log *slog.Logger, ipv4, ipv6 bool) {
 	if err := ctmap.CleanupPerClusterCTMaps(ipv4, ipv6); err != nil {
-		log.WithError(err).Warning("Failed to cleanup per-cluster CT maps")
+		log.Warn("Failed to cleanup per-cluster CT maps", logfields.Error, err)
 	}
 
 	if err := nat.CleanupPerClusterNATMaps(ipv4, ipv6); err != nil {
-		log.WithError(err).Warning("Failed to cleanup per-cluster NAT maps")
+		log.Warn("Failed to cleanup per-cluster NAT maps", logfields.Error, err)
 	}
 }
 

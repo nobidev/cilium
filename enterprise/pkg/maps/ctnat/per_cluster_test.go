@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
@@ -127,7 +126,7 @@ func TestPerClusterMapsLifecycle(t *testing.T) {
 
 			maps, _ := newPerCluster(perClusterParams{
 				Lifecycle:    hivetest.Lifecycle(t),
-				Logger:       logging.DefaultLogger,
+				Logger:       hivetest.Logger(t),
 				Config:       tt.cfg,
 				DaemonConfig: tt.dcfg,
 			})
