@@ -140,6 +140,9 @@ func TestScript(t *testing.T) {
 			maglev.Cell,
 			cell.Provide(source.NewSources),
 			cell.Config(loadbalancer.TestConfig{}),
+			cell.Provide(
+				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
+			),
 
 			// OSS BGP cell
 			bgpv1.Cell,
