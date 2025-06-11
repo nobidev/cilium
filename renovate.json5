@@ -178,11 +178,11 @@
       groupName: 'base-images',
       matchFileNames: [
         'enterprise/**',
-        '.github/workflows/enterprise-build-image*',
+        '.github/workflows/enterprise-build-image**',
       ],
       matchPackageNames: [
-        'registry.redhat.io/ubi9*',
-        'quay.io/isovalent-dev*',
+        'registry.redhat.io/ubi9**',
+        'quay.io/isovalent-dev**',
         'quay.io/cilium/certgen',
         'docker.io/library/golang',
         'quay.io/cilium/image-tester',
