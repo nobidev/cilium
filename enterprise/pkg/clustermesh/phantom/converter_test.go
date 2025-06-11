@@ -8,17 +8,96 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package k8s
+package phantom
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh/store"
+	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
+
+func TestPhantomServiceConverter(t *testing.T) {
+	tests := []struct {
+		name     string
+		svc      slim_corev1.Service
+		expected store.ClusterService
+	}{
+		{
+			name: "Phantom service",
+			svc: slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Annotations: map[string]string{"service.isovalent.com/phantom": "true"},
+				},
+				Spec: slim_corev1.ServiceSpec{
+					ClusterIP: "127.0.0.1",
+					Type:      slim_corev1.ServiceTypeLoadBalancer,
+					Ports: []slim_corev1.ServicePort{
+						{Name: "http", Protocol: slim_corev1.ProtocolTCP, Port: 1234},
+					},
+				},
+				Status: slim_corev1.ServiceStatus{
+					LoadBalancer: slim_corev1.LoadBalancerStatus{
+						Ingress: []slim_corev1.LoadBalancerIngress{
+							{IP: "192.168.0.1"},
+							{IP: "192.168.0.3"},
+						},
+					},
+				},
+			},
+			expected: store.ClusterService{
+				Shared: true,
+				Frontends: map[string]store.PortConfiguration{
+					"192.168.0.1": {
+						"http": &loadbalancer.L4Addr{
+							Protocol: "TCP",
+							Port:     1234,
+						},
+					},
+					"192.168.0.3": {
+						"http": &loadbalancer.L4Addr{
+							Protocol: "TCP",
+							Port:     1234,
+						},
+					},
+				},
+				Backends:  map[string]store.PortConfiguration{},
+				Hostnames: map[string]string{},
+				Labels:    map[string]string{},
+				Selector:  map[string]string{},
+			},
+		},
+		{
+			name: "Non-phantom service",
+			svc: slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Annotations: map[string]string{"service.isovalent.com/phantom": "false"},
+				},
+			},
+			expected: store.ClusterService{},
+		},
+	}
+
+	conv := phantomServiceConverter{watchers.DefaultClusterServiceConverter{}}
+	getEndpoints := func(ns, name string) []*k8s.Endpoints {
+		return nil
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, _ := conv.Convert(&tt.svc, getEndpoints)
+			require.Equal(t, &tt.expected, out)
+		})
+	}
+}
 
 func TestGetAnnotationPhantom(t *testing.T) {
 	tests := []struct {
