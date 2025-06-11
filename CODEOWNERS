@@ -847,6 +847,7 @@ Makefile* @cilium/build
 /enterprise/cilium-dbg/ @isovalent/cli
 /enterprise/cilium-dbg/cmd/*bpf_*egress* @isovalent/egress-gateway
 /enterprise/cilium-dbg/cmd/*bfd_* @isovalent/traffic-engineering
+/enterprise/clustermesh-apiserver/ @isovalent/clustermesh
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
 /enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer

@@ -11,6 +11,7 @@ cmdref_dir="${script_dir}/cmdref"
 generators=(
     "enterprise/cilium-dbg/cilium-dbg cmdref"
     "enterprise/daemon/cilium-agent cmdref"
+    "enterprise/clustermesh-apiserver/clustermesh-apiserver cmdref"
     "enterprise/operator/cilium-operator cmdref"
     "enterprise/operator/cilium-operator-aws cmdref"
     "enterprise/operator/cilium-operator-azure cmdref"
