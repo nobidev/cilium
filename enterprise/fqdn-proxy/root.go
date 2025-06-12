@@ -11,6 +11,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
@@ -22,6 +24,7 @@ var (
 		"fqdnha-proxy",
 		"Cilium FQDN-HA Proxy",
 
+		cell.Config(defaultConfig),
 		cell.Invoke(runDNSProxy),
 	)
 
@@ -30,6 +33,8 @@ var (
 	)
 )
 
-func runDNSProxy(jg job.Group) {
-	jg.Add(job.OneShot("fqdnha-proxy", run, job.WithShutdown()))
+func runDNSProxy(jg job.Group, config Config) {
+	jg.Add(job.OneShot("fqdnha-proxy", func(ctx context.Context, health cell.Health) error {
+		return run(ctx, health, config)
+	}, job.WithShutdown()))
 }

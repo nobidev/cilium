@@ -11,6 +11,7 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func main() {
@@ -30,6 +32,14 @@ func main() {
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 			return Hive.Run(logger)
+		},
+		PreRun: func(cmd *cobra.Command, args []string) {
+			if Hive.Viper().GetBool("debug") {
+				logging.SetSlogLevel(slog.LevelDebug)
+			}
+			option.Config.SetupLogging(Hive.Viper(), "external-dns-proxy")
+			option.Config.Populate(log, Hive.Viper())
+			option.LogRegisteredSlogOptions(Hive.Viper(), log)
 		},
 	}
 

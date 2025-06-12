@@ -13,14 +13,11 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
-	"os"
-	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -42,7 +39,6 @@ import (
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -53,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/source"
@@ -70,27 +65,6 @@ const (
 var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
 
 var (
-	debug                         = flag.Bool("debug", false, "")
-	enableOfflineMode             = flag.Bool("enable-offline-mode", false, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
-	gopsPort                      = flag.Int("gops-port", 8910, "Port for gops server to listen on")
-	enablePprof                   = flag.Bool("pprof", false, "Enable serving the pprof debugging API")
-	pprofPort                     = flag.Int("pprof-port", 8920, "Port that the pprof listens on")
-	pprofAddress                  = flag.String("pprof-address", "localhost", "Address that pprof listens on")
-	enableIPV6                    = flag.Bool("enable-ipv6", true, "")
-	enableIPV4                    = flag.Bool("enable-ipv4", true, "")
-	enableDNSCompression          = flag.Bool("enable-dns-compression", true, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
-	exposePrometheusMetrics       = flag.Bool("expose-metrics", false, "")
-	prometheusPort                = flag.Int("prometheus-port", 9967, "")
-	DNSNotificationSendWorkers    = flag.Int("dns-notification-retry-workers", 128, "")
-	DNSNotificationChannelSize    = flag.Int("dns-notification-channel-size", 16384, "This is the number of DNS messages that will generate a notification in Cilium Agent after it restarts. All DNS messages above this limit will be handled by proxy, but not generate notification after Cilium Agent restarts.")
-	concurrencyLimit              = flag.Int("concurrency-limit", 0, "concurrency limit for dns proxy (0 for infinite)")
-	concurrencyGracePeriod        = flag.Duration("concurrency-processing-grace-period", 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
-	FQDNRegexCompileLRUSize       = flag.Int("fqdn-regex-compile-lru-size", 1024, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
-	ToFQDNSRejectResponseCode     = flag.String("tofqdns-dns-reject-response-code", "refused", "DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default \"refused\")")
-	DNSProxyEnableTransparentMode = flag.Bool("dnsproxy-enable-transparent-mode", false, "")
-	DNSProxySocketLingerTimeout   = flag.Int("dnsproxy-socket-linger-timeout", defaults.DNSProxySocketLingerTimeout, "Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server."+
-		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background")
-
 	proxy     *dnsproxy.DNSProxy
 	clientPtr atomic.Pointer[fqdnAgentClient]
 	client    = clientPtr.Load
@@ -197,57 +171,16 @@ func logTriggerFunc(level slog.Level) func([]string) {
 	}
 }
 
-func run(ctx context.Context, health cell.Health) error {
-	flag.Parse()
-
+func run(ctx context.Context, health cell.Health, cfg Config) error {
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
 	log.Info("|  _| | | | | |     |")
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Info("Cilium DNS Proxy", logfields.Version, version.Version)
 
-	if debug != nil && *debug {
-		logging.SetSlogLevel(slog.LevelDebug)
-		log.Debug("enabling debug logging")
-	}
+	log.Info("loaded config options", logfields.Config, cfg)
 
-	// emulate viper's env var parsing
-	if val, ok := os.LookupEnv("CILIUM_ENABLE_IPV4"); ok {
-		if val == "true" {
-			*enableIPV4 = true
-		} else if val == "false" {
-			*enableIPV4 = false
-		}
-	}
-	if val, ok := os.LookupEnv("CILIUM_ENABLE_IPV6"); ok {
-		if val == "true" {
-			*enableIPV6 = true
-		} else if val == "false" {
-			*enableIPV6 = false
-		}
-	}
-
-	if val, ok := os.LookupEnv("CILIUM_DNSPROXY_ENABLE_TRANSPARENT_MODE"); ok {
-		if val == "true" {
-			*DNSProxyEnableTransparentMode = true
-		} else if val == "false" {
-			*DNSProxyEnableTransparentMode = false
-		}
-	}
-
-	if val, ok := os.LookupEnv("CILIUM_DNSPROXY_SOCKET_LINGER_TIMEOUT"); ok {
-		linger, err := strconv.Atoi(val)
-		if err != nil {
-			logging.Fatal(log, "Invalid value for configuration option", logfields.Error, err)
-		}
-		*DNSProxySocketLingerTimeout = linger
-	}
-
-	option.Config.EnableIPv4 = *enableIPV4
-	option.Config.EnableIPv6 = *enableIPV6
-	option.Config.DNSProxyEnableTransparentMode = *DNSProxyEnableTransparentMode
-
-	addr := fmt.Sprintf("127.0.0.1:%d", *gopsPort)
+	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
 	if err := gops.Listen(gops.Options{
 		Addr:                   addr,
 		ReuseSocketAddrAndPort: true,
@@ -260,42 +193,39 @@ func run(ctx context.Context, health cell.Health) error {
 	defer gops.Close()
 	log.Info("Started gops server ", logfields.Address, addr)
 
-	if *enablePprof {
-		pprof.Enable(logging.DefaultSlogLogger, *pprofAddress, *pprofPort)
+	if cfg.EnablePprof {
+		pprof.Enable(logging.DefaultSlogLogger, cfg.PprofAddress, int(cfg.PprofPort))
 	}
 
 	cache = NewCache()
 
-	if *exposePrometheusMetrics {
-		go exposeMetrics()
-		Version.WithLabelValues(version.GetCiliumVersion().Version)
-	}
+	go exposeMetrics(cfg)
 
-	DNSNotificationQueue = make(chan *pb.DNSNotification, *DNSNotificationChannelSize)
+	DNSNotificationQueue = make(chan *pb.DNSNotification, cfg.DNSNotificationChannelSize)
 	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
 	if err != nil {
 		logging.Fatal(log, "failed to create grpc client to talk to agent", logfields.Error, err)
 	}
 	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)})
 
-	go manageDNSNotificationQueue()
+	go manageDNSNotificationQueue(cfg.DNSNotificationSendWorkers)
 	log.Info("starting cilium dns proxy server")
-	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, *FQDNRegexCompileLRUSize); err != nil {
+	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
 		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
 		Logger:                 log.WithGroup("dns-proxy"),
 		Address:                "",
-		IPv4:                   *enableIPV4,
-		IPv6:                   *enableIPV6,
-		EnableDNSCompression:   *enableDNSCompression,
+		IPv4:                   cfg.EnableIPV4,
+		IPv6:                   cfg.EnableIPV6,
+		EnableDNSCompression:   cfg.EnableDNSCompression,
 		MaxRestoreDNSIPs:       0,
-		ConcurrencyLimit:       *concurrencyLimit,
-		ConcurrencyGracePeriod: *concurrencyGracePeriod,
-		RejectReply:            *ToFQDNSRejectResponseCode,
+		ConcurrencyLimit:       int(cfg.ConcurrencyLimit),
+		ConcurrencyGracePeriod: cfg.ConcurrencyGracePeriod,
+		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext()
+	proxyCtx := newProxyContext(cfg)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -350,6 +280,7 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 }
 
 type proxyContext struct {
+	cfg       Config
 	rwLock    *lock.RWMutex
 	ipc       ipCacheLookup
 	clientPtr *atomic.Pointer[fqdnAgentClient]
@@ -357,16 +288,17 @@ type proxyContext struct {
 	ipCacheV1 bool
 }
 
-func newProxyContext() *proxyContext {
+func newProxyContext(cfg Config) *proxyContext {
 	return &proxyContext{
 		ipc:       &bpfIPC{},
 		rwLock:    &lock.RWMutex{},
 		clientPtr: &clientPtr,
+		cfg:       cfg,
 	}
 }
 
 func (pc *proxyContext) establishAgentProxyStream() error {
-	if !(*enableOfflineMode) {
+	if !(pc.cfg.EnableOfflineMode) {
 		log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
 		return nil
 	}
@@ -413,7 +345,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 }
 
 func (pc *proxyContext) supportsIPCacheV1() bool {
-	if !(*enableOfflineMode) {
+	if !(pc.cfg.EnableOfflineMode) {
 		return false
 	}
 	pc.rwLock.RLock()
@@ -421,13 +353,11 @@ func (pc *proxyContext) supportsIPCacheV1() bool {
 	return pc.ipCacheV1
 }
 
-func manageDNSNotificationQueue() {
-	wp := workerpool.New(*DNSNotificationSendWorkers)
+func manageDNSNotificationQueue(workers uint) {
+	wp := workerpool.New(int(workers))
 	for msg := range DNSNotificationQueue {
 		msg := msg
-		if *exposePrometheusMetrics {
-			ProxyUpdateQueueLen.Dec()
-		}
+		ProxyUpdateQueueLen.Dec()
 		err := wp.Submit("", func(ctx context.Context) error {
 			sendDNSNotification(ctx, msg)
 			return nil
@@ -469,10 +399,15 @@ func sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
 	}
 }
 
-func exposeMetrics() {
-	log.Info("Enabling Prometheus metrics", logfields.Port, *prometheusPort)
+func exposeMetrics(cfg Config) {
+	if !cfg.ExposePrometheusMetrics {
+		return
+	}
+
+	Version.WithLabelValues(version.GetCiliumVersion().Version)
+	log.Info("Enabling Prometheus metrics", logfields.Port, cfg.PrometheusPort)
 	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(fmt.Sprintf(":%d", *prometheusPort), nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.PrometheusPort), nil)
 	if err != nil {
 		log.Error("Failed to enable Prometheus metrics", logfields.Error, err)
 	}
@@ -663,14 +598,12 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	stat.ProcessingTime.Start()
 	metricError := metricErrorAllow
 	endMetric := func() {
-		if *exposePrometheusMetrics {
-			success := metricError == metricErrorAllow
-			stat.ProcessingTime.End(success)
-			UpstreamTime.WithLabelValues(metricError).Observe(
-				stat.UpstreamTime.Total().Seconds())
-			ProcessingTime.WithLabelValues(metricError).Observe(
-				stat.ProcessingTime.Total().Seconds())
-		}
+		success := metricError == metricErrorAllow
+		stat.ProcessingTime.End(success)
+		UpstreamTime.WithLabelValues(metricError).Observe(
+			stat.UpstreamTime.Total().Seconds())
+		ProcessingTime.WithLabelValues(metricError).Observe(
+			stat.ProcessingTime.Total().Seconds())
 	}
 	switch {
 	case stat.IsTimeout():
@@ -683,9 +616,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 		break
 	}
 
-	if *exposePrometheusMetrics {
-		PolicyTotal.WithLabelValues("received").Inc()
-	}
+	PolicyTotal.WithLabelValues("received").Inc()
 
 	if ep == nil {
 		metricError = metricErrorNoEP
@@ -731,7 +662,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	if err != nil {
 		if status == nil {
 			log.Warn("BUG: Unexpected non-status error during DNS notification to agent", logfields.Error, err)
-		} else if *exposePrometheusMetrics {
+		} else {
 			metricError = status.Code().String()
 			ProxyUpdateErrors.WithLabelValues(metricError).Inc()
 		}
@@ -741,14 +672,10 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 		// handle the message.
 		select {
 		case DNSNotificationQueue <- notification:
-			if *exposePrometheusMetrics {
-				ProxyUpdateQueueLen.Inc()
-			}
+			ProxyUpdateQueueLen.Inc()
 		default:
-			if *exposePrometheusMetrics {
-				metricError = metricErrorOverflow
-				ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
-			}
+			metricError = metricErrorOverflow
+			ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
 			LogWarningTrigger.TriggerWithReason("Cilium agent is down and notification channel is full. Skipping notification.")
 		}
 	}
@@ -756,9 +683,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	// Release the DNS response back to the user application. If Cilium
 	// previously plumbed the policy for this IP / Name, then the app will
 	// successfully connect, regardless of whether Cilium is down or not.
-	if *exposePrometheusMetrics {
-		PolicyTotal.WithLabelValues("forwarded").Inc()
-	}
+	PolicyTotal.WithLabelValues("forwarded").Inc()
 	if msg.Response && msg.Rcode == dns.RcodeSuccess {
 		endMetric()
 	}

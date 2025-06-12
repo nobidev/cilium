@@ -350,7 +350,6 @@ func TestLookupSecIDByIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cache = NewCache()
-			*enableOfflineMode = !tt.disableOfflineMode
 			ipIDMap := make(map[netip.Addr]*pb.Identity)
 			ipEndpointMap := make(map[netip.Addr]*ipcacheMap.RemoteEndpointInfo)
 			for _, ipID := range tt.ipIdentities {
@@ -371,7 +370,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 				ipEndpointMap: ipEndpointMap,
 			}
 
-			pc := newTestProxyContext(fIPC, client)
+			pc := newTestProxyContext(fIPC, client, !tt.disableOfflineMode)
 			pc.establishAgentProxyStream()
 			secID, exists := pc.LookupSecIDByIP(tt.lookupAddr)
 			if tt.exists != exists {
@@ -538,10 +537,11 @@ func (fa *fakeAgent) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStrea
 	})
 }
 
-func newTestProxyContext(ipc ipCacheLookup, client pb.FQDNProxyAgentClient) *proxyContext {
+func newTestProxyContext(ipc ipCacheLookup, client pb.FQDNProxyAgentClient, enableOfflineMode bool) *proxyContext {
 	clientPtr := atomic.Pointer[fqdnAgentClient]{}
 	clientPtr.Swap(&fqdnAgentClient{client})
 	return &proxyContext{
+		cfg:       Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
 		rwLock:    &lock.RWMutex{},
 		ipc:       ipc,
 		clientPtr: &clientPtr,
