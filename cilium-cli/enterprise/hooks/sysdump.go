@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -883,6 +884,11 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 		addEnterpriseEncryptionPolicySysdumpTasks(collector)
 	}
 
+	kind := collector.Client.AutodetectFlavor(context.Background()).Kind
+	if kind == k8s.KindOpenShift {
+		collector.AddTasks([]sysdump.Task{collectOpenShiftMustGather(collector)})
+	}
+
 	return nil
 }
 
@@ -1014,6 +1020,40 @@ func collectIsovalentV1OrV1Alpha1Resource(collector *sysdump.Collector, kind, na
 			}
 			if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", name), v); err != nil {
 				return fmt.Errorf("failed to collect %s: %w", kind, err)
+			}
+			return nil
+		},
+	}
+}
+
+// collects 'oc adm must-gather' output
+func collectOpenShiftMustGather(collector *sysdump.Collector) sysdump.Task {
+	command := "bash"
+	args := []string{"-c", "oc adm must-gather --dest-dir='oc-adm-mustgather' && zip -r oc-adm-mustgather.zip oc-adm-mustgather"}
+	outputFile := "oc-adm-must-gather"
+	extraFile := "oc-adm-must-gather.zip"
+
+	return sysdump.Task{
+		Description: "Collecting 'oc adm must-gather' data (OpenShift only)",
+		Quick:       false,
+		Task: func(ctx context.Context) error {
+			cmd := exec.CommandContext(ctx, command, args...)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to execute '%s': %w, check if `oc` and `zip` binaries are installed", command+" "+strings.Join(args, " "), err)
+			}
+			if err := collector.WriteString(outputFile, string(output)); err != nil {
+				return fmt.Errorf("failed to write shell command output to sysdump: %w", err)
+			}
+
+			if extraFile != "" {
+				extra, err := os.ReadFile(extraFile)
+				if err != nil {
+					return fmt.Errorf("failed to read extra file %s: %w", extraFile, err)
+				}
+				if err := collector.WriteString(extraFile, string(extra)); err != nil {
+					return fmt.Errorf("failed to write extra file %s to sysdump: %w", extraFile, err)
+				}
 			}
 			return nil
 		},
