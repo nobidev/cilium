@@ -11,33 +11,25 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
-	"github.com/spf13/cobra"
-
-	"github.com/cilium/cilium/pkg/cmdref"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/hive"
 )
 
-func main() {
-	binaryName := filepath.Base(os.Args[0])
+var (
+	FQDNProxy = cell.Module(
+		"fqdnha-proxy",
+		"Cilium FQDN-HA Proxy",
 
-	cmd := &cobra.Command{
-		Use:   binaryName,
-		Short: "Run " + binaryName,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
-			return Hive.Run(logger)
-		},
-	}
-
-	Hive.RegisterFlags(cmd.Flags())
-	cmd.AddCommand(
-		cmdref.NewCmd(cmd),
-		Hive.Command(),
+		cell.Invoke(runDNSProxy),
 	)
 
-	cmd.Execute()
+	Hive = hive.New(
+		FQDNProxy,
+	)
+)
+
+func runDNSProxy(jg job.Group) {
+	jg.Add(job.OneShot("fqdnha-proxy", run, job.WithShutdown()))
 }
