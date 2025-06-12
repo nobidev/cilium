@@ -16,7 +16,10 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 var (
@@ -25,6 +28,9 @@ var (
 		"Cilium FQDN-HA Proxy",
 
 		cell.Config(defaultConfig),
+
+		gops.Cell(defaults.EnableGops, DefaultGopsPort),
+		pprof.Cell(pprofConfig),
 		cell.Invoke(runDNSProxy),
 	)
 

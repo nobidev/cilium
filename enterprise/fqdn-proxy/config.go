@@ -14,16 +14,13 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type Config struct {
 	Debug                         bool          `mapstructure:"debug"`
 	EnableOfflineMode             bool          `mapstructure:"enable-offline-mode"`
-	GopsPort                      uint16        `mapstructure:"gops-port"`
-	EnablePprof                   bool          `mapstructure:"pprof"`
-	PprofPort                     uint16        `mapstructure:"pprof-port"`
-	PprofAddress                  string        `mapstructure:"pprof-address"`
 	EnableIPV6                    bool          `mapstructure:"enable-ipv6"`
 	EnableIPV4                    bool          `mapstructure:"enable-ipv4"`
 	EnableDNSCompression          bool          `mapstructure:"tofqdns-enable-dns-compression"`
@@ -42,10 +39,6 @@ type Config struct {
 var defaultConfig = Config{
 	Debug:                         false,
 	EnableOfflineMode:             false,
-	GopsPort:                      8910,
-	EnablePprof:                   false,
-	PprofPort:                     8920,
-	PprofAddress:                  "localhost",
 	EnableIPV4:                    true,
 	EnableIPV6:                    true,
 	EnableDNSCompression:          true,
@@ -61,13 +54,17 @@ var defaultConfig = Config{
 	DNSProxySocketLingerTimeout:   defaults.DNSProxySocketLingerTimeout,
 }
 
+const DefaultGopsPort = 8910
+
+var pprofConfig = pprof.Config{
+	Pprof:        false,
+	PprofAddress: "localhost",
+	PprofPort:    8920,
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("debug", def.Debug, "Enable debugging mode")
 	flags.Bool("enable-offline-mode", def.EnableOfflineMode, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
-	flags.Uint16("gops-port", def.GopsPort, "Port for gops server to listen on")
-	flags.Bool("pprof", def.EnablePprof, "Enable serving the pprof debugging API")
-	flags.Uint16("pprof-port", def.PprofPort, "Port that the pprof listens on")
-	flags.String("pprof-address", def.PprofAddress, "Address that pprof listens on")
 	flags.Bool("enable-ipv6", def.EnableIPV6, "")
 	flags.Bool("enable-ipv4", def.EnableIPV4, "")
 	flags.Bool("tofqdns-enable-dns-compression", def.EnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")

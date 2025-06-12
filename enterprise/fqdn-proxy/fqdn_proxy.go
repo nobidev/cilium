@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
-	gops "github.com/google/gops/agent"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -50,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -179,23 +177,6 @@ func run(ctx context.Context, health cell.Health, cfg Config) error {
 	log.Info("Cilium DNS Proxy", logfields.Version, version.Version)
 
 	log.Info("loaded config options", logfields.Config, cfg)
-
-	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
-	if err := gops.Listen(gops.Options{
-		Addr:                   addr,
-		ReuseSocketAddrAndPort: true,
-	}); err != nil {
-		log.Error("Cannot start gops server on addr",
-			logfields.Address, addr,
-			logfields.Error, err,
-		)
-	}
-	defer gops.Close()
-	log.Info("Started gops server ", logfields.Address, addr)
-
-	if cfg.EnablePprof {
-		pprof.Enable(logging.DefaultSlogLogger, cfg.PprofAddress, int(cfg.PprofPort))
-	}
 
 	cache = NewCache()
 
