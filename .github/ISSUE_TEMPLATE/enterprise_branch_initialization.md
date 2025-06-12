@@ -54,7 +54,7 @@ base/target branch of a PR for GitHub to consider it. Workflows which are not in
 OSS thus need to be forward ported from the last stable enterprise branch.
 Here's a likely not exhaustive list of what needs to come with:
 
-- [ ] `close-fixed-issues.yaml`: You need to change the `branches` in the `on`
+- [ ] `enterprise-close-fixed-issues.yaml`: You need to change the `branches` in the `on`
       section to match the new branch name.
 
 ## GitHub infrastructure

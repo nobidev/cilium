@@ -675,6 +675,9 @@ Makefile* @cilium/build
 # Isovalent Teams
 # +++++++++++++++
 #
+# - @isovalent/backporters
+#   Responsible for maintaining tools, workflows and processes for managing
+#   backports.
 # - @isovalent/cilium-mesh
 #   Responsible for maintaining the enterprise-specific Cilium Mesh feature
 # - @isovalent/cli:
@@ -777,6 +780,7 @@ Makefile* @cilium/build
 /.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
 /.github/workflows/enterprise-build-cilium-cli-release-image.yaml @isovalent/cli
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
+/.github/workflows/enterprise-close-fixed-issues.yaml @isovalent/backporters
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
 /.github/workflows/enterprise-container-scan.yaml @isovalent/security
 /.github/workflows/enterprise-*egress-gateway*.yaml @isovalent/egress-gateway
