@@ -611,7 +611,8 @@
         "mapDynamicSizeRatio": {
           "type": [
             "null",
-            "number"
+            "number",
+            "string"
           ]
         },
         "masquerade": {
@@ -1497,6 +1498,9 @@
           "type": "string"
         },
         "confPath": {
+          "type": "string"
+        },
+        "configMap": {
           "type": "string"
         },
         "configMapKey": {

@@ -250,7 +250,7 @@ func TestNeighborReconciler(t *testing.T) {
 			req.NoError(err)
 
 			t.Cleanup(func() {
-				testInstance.Router.Stop()
+				testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 			})
 
 			params, nodeConfig := setupNeighbors(logger, tt.neighbors)

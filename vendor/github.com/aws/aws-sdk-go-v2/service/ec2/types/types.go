@@ -155,6 +155,40 @@ type ActiveInstance struct {
 	noSmithyDocumentSerde
 }
 
+// Contains information about the current security configuration of an active VPN
+// tunnel.
+type ActiveVpnTunnelStatus struct {
+
+	// The version of the Internet Key Exchange (IKE) protocol being used.
+	IkeVersion *string
+
+	// The Diffie-Hellman group number being used in Phase 1 IKE negotiations.
+	Phase1DHGroup *int32
+
+	// The encryption algorithm negotiated in Phase 1 IKE negotiations.
+	Phase1EncryptionAlgorithm *string
+
+	// The integrity algorithm negotiated in Phase 1 IKE negotiations.
+	Phase1IntegrityAlgorithm *string
+
+	// The Diffie-Hellman group number being used in Phase 2 IKE negotiations.
+	Phase2DHGroup *int32
+
+	// The encryption algorithm negotiated in Phase 2 IKE negotiations.
+	Phase2EncryptionAlgorithm *string
+
+	// The integrity algorithm negotiated in Phase 2 IKE negotiations.
+	Phase2IntegrityAlgorithm *string
+
+	// The current provisioning status of the VPN tunnel.
+	ProvisioningStatus VpnTunnelProvisioningStatus
+
+	// The reason for the current provisioning status.
+	ProvisioningStatusReason *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a principal.
 type AddedPrincipal struct {
 
@@ -328,6 +362,9 @@ type Address struct {
 	//
 	// The only option supported today is alb .
 	ServiceManaged ServiceManaged
+
+	// The ID of the subnet where the IP address is allocated.
+	SubnetId *string
 
 	// Any tags assigned to the Elastic IP address.
 	Tags []Tag
@@ -3401,6 +3438,38 @@ type DeleteQueuedReservedInstancesError struct {
 
 	// The error message.
 	Message *string
+
+	noSmithyDocumentSerde
+}
+
+// The snapshot ID and its deletion result code.
+type DeleteSnapshotReturnCode struct {
+
+	// The result code from the snapshot deletion attempt. Possible values:
+	//
+	//   - success - The snapshot was successfully deleted.
+	//
+	//   - skipped - The snapshot was not deleted because it's associated with other
+	//   AMIs.
+	//
+	//   - missing-permissions - The snapshot was not deleted because the role lacks
+	//   DeleteSnapshot permissions. For more information, see [How Amazon EBS works with IAM].
+	//
+	//   - internal-error - The snapshot was not deleted due to a server error.
+	//
+	//   - client-error - The snapshot was not deleted due to a client configuration
+	//   error.
+	//
+	// For details about an error, check the DeleteSnapshot event in the CloudTrail
+	// event history. For more information, see [View event history]in the Amazon Web Services CloudTrail
+	// User Guide.
+	//
+	// [View event history]: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/tutorial-event-history.html
+	// [How Amazon EBS works with IAM]: https://docs.aws.amazon.com/ebs/latest/userguide/security_iam_service-with-iam.html
+	ReturnCode SnapshotReturnCodes
+
+	// The ID of the snapshot.
+	SnapshotId *string
 
 	noSmithyDocumentSerde
 }
@@ -6572,10 +6641,10 @@ type Image struct {
 	// Any block device mapping entries.
 	BlockDeviceMappings []BlockDeviceMapping
 
-	// The boot mode of the image. For more information, see [Boot modes] in the Amazon EC2 User
+	// The boot mode of the image. For more information, see [Instance launch behavior with Amazon EC2 boot modes] in the Amazon EC2 User
 	// Guide.
 	//
-	// [Boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
+	// [Instance launch behavior with Amazon EC2 boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
 	BootMode BootModeValues
 
 	// The date and time the image was created.
@@ -6680,19 +6749,19 @@ type Image struct {
 	//
 	// The ID only appears if the AMI was created using CreateImage, CopyImage, or CreateRestoreImageTask. The ID does not
 	// appear if the AMI was created using any other API. For some older AMIs, the ID
-	// might not be available. For more information, see [Identify the source AMI used to create a new AMI]in the Amazon EC2 User Guide.
+	// might not be available. For more information, see [Identify the source AMI used to create a new Amazon EC2 AMI]in the Amazon EC2 User Guide.
 	//
-	// [Identify the source AMI used to create a new AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
+	// [Identify the source AMI used to create a new Amazon EC2 AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
 	SourceImageId *string
 
 	// The Region of the source AMI.
 	//
 	// The Region only appears if the AMI was created using CreateImage, CopyImage, or CreateRestoreImageTask. The Region does
 	// not appear if the AMI was created using any other API. For some older AMIs, the
-	// Region might not be available. For more information, see [Identify the source AMI used to create a new AMI]in the Amazon EC2 User
+	// Region might not be available. For more information, see [Identify the source AMI used to create a new Amazon EC2 AMI]in the Amazon EC2 User
 	// Guide.
 	//
-	// [Identify the source AMI used to create a new AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
+	// [Identify the source AMI used to create a new Amazon EC2 AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
 	SourceImageRegion *string
 
 	// The ID of the instance that the AMI was created from if the AMI was created
@@ -7989,7 +8058,7 @@ type InstanceNetworkInterface struct {
 
 	// The type of network interface.
 	//
-	// Valid values: interface | efa | efa-only | trunk
+	// Valid values: interface | efa | efa-only | evs | trunk
 	InterfaceType *string
 
 	// The IPv4 delegated prefixes that are assigned to the network interface.
@@ -13665,6 +13734,9 @@ type NetworkInsightsPath struct {
 
 // Describes a network interface.
 type NetworkInterface struct {
+
+	// The subnets associated with this network interface.
+	AssociatedSubnets []string
 
 	// The association information for an Elastic IP address (IPv4) associated with
 	// the network interface.
@@ -19363,6 +19435,12 @@ type Subnet struct {
 	PrivateDnsNameOptionsOnLaunch *PrivateDnsNameOptionsOnLaunch
 
 	// The current state of the subnet.
+	//
+	//   - failed : The underlying infrastructure to support the subnet failed to
+	//   provision as expected.
+	//
+	//   - failed-insufficient-capacity : The underlying infrastructure to support the
+	//   subnet failed to provision due to a shortage of EC2 instance capacity.
 	State SubnetState
 
 	// The Amazon Resource Name (ARN) of the subnet.
@@ -19373,6 +19451,13 @@ type Subnet struct {
 
 	// Any tags assigned to the subnet.
 	Tags []Tag
+
+	// Indicates if this is a subnet used with Amazon Elastic VMware Service (EVS).
+	// Possible values are Elastic VMware Service or no value. For more information
+	// about Amazon EVS, see [Amazon Elastic VMware Service API Reference].
+	//
+	// [Amazon Elastic VMware Service API Reference]: https://docs.aws.amazon.com/evs/latest/APIReference/Welcome.html
+	Type *string
 
 	// The ID of the VPC the subnet is in.
 	VpcId *string
@@ -22740,6 +22825,10 @@ type VpnConnection struct {
 
 	// The VPN connection options.
 	Options *VpnConnectionOptions
+
+	// The Amazon Resource Name (ARN) of the Secrets Manager secret storing the
+	// pre-shared key(s) for the VPN connection.
+	PreSharedKeyArn *string
 
 	// The static routes associated with the VPN connection.
 	Routes []VpnStaticRoute

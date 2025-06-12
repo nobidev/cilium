@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -76,12 +77,12 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
+	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -150,11 +151,11 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.Config.BPFMapEventBuffersValidator = option.Validator(func(val string) (string, error) {
 		vals := strings.Split(val, "=")
 		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>,<max_size>,<ttl>" got %q`, val)
+			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>_<max_size>_<ttl>" got %q`, val)
 		}
 		_, err := option.ParseEventBufferTupleString(vals[1])
 		if err != nil {
-			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>,<max_size>,<ttl>" got %q`, val)
+			return "", err
 		}
 		return "", nil
 	})
@@ -522,6 +523,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.EnableNodePort)
 
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
+	flags.MarkDeprecated(option.EnableSVCSourceRangeCheck, fmt.Sprintf("The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling %s.", option.KubeProxyReplacement))
 	option.BindEnv(vp, option.EnableSVCSourceRangeCheck)
 
 	flags.String(option.AddressScopeMax, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
@@ -853,7 +855,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.LocalRouterIPv6, "", "Link-local IPv6 used for Cilium's router devices")
 	option.BindEnv(vp, option.LocalRouterIPv6)
 
-	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "Configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
+	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "Configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache_v2=enabled_1024_1h)")
 	flags.MarkHidden(option.BPFMapEventBuffers)
 
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
@@ -962,6 +964,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.NodeLabels)
 
 	flags.Bool(option.EnableInternalTrafficPolicy, defaults.EnableInternalTrafficPolicy, "Enable internal traffic policy")
+	flags.MarkDeprecated(option.EnableInternalTrafficPolicy, "The flag will be removed in v1.19. The feature will be unconditionally enabled by default.")
 	option.BindEnv(vp, option.EnableInternalTrafficPolicy)
 
 	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
@@ -1025,7 +1028,7 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 	option.Config.Populate(logging.DefaultSlogLogger, vp)
 
 	// add hooks after setting up metrics in the option.Config
-	logging.AddHooks(metrics.NewLoggingHook())
+	logging.AddHandlers(metrics.NewLoggingHook())
 
 	time.MaxInternalTimerDelay = vp.GetDuration(option.MaxInternalTimerDelay)
 }
@@ -1492,6 +1495,7 @@ type daemonParams struct {
 	MonitorAgent        monitorAgent.Agent
 	ServiceManager      service.ServiceManager
 	DB                  *statedb.DB
+	Namespaces          statedb.Table[agentK8s.Namespace]
 	Routes              statedb.Table[*datapathTables.Route]
 	Devices             statedb.Table[*datapathTables.Device]
 	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
@@ -1519,6 +1523,7 @@ type daemonParams struct {
 	MaglevConfig        maglev.Config
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
+	DNSNameManager      namemanager.NameManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1705,7 +1710,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 				return
 			}
 		}
-		params.DNSProxy.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(
 			logging.DefaultSlogLogger,

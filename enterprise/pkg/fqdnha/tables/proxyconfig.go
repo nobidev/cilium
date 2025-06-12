@@ -42,9 +42,9 @@ type ProxyConfig struct {
 	SelectorIdentitiesMapping map[string][]uint32
 }
 
-func NewProxyConfigTable(cfg config.Config, db *statedb.DB) (statedb.RWTable[*ProxyConfig], error) {
+func NewProxyConfigTable(cfg config.Config, db *statedb.DB) (statedb.RWTable[*ProxyConfig], statedb.Table[*ProxyConfig], error) {
 	if !cfg.EnableExternalDNSProxy {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	tbl, err := statedb.NewTable(
@@ -52,9 +52,9 @@ func NewProxyConfigTable(cfg config.Config, db *statedb.DB) (statedb.RWTable[*Pr
 		epPortIndex,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return tbl, db.RegisterTable(tbl)
+	return tbl, tbl.ToTable(), db.RegisterTable(tbl)
 }
 
 var (

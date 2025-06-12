@@ -293,7 +293,7 @@ func (a *StructuredSIDAllocator) Allocate(addr netip.Addr, owner string, metadat
 		return nil, fmt.Errorf("failed to decode SID: %w", err)
 	}
 
-	if allocated, err := a.allocator.Allocate(f); !allocated && err == nil {
+	if allocated := a.allocator.Allocate(f); !allocated {
 		return nil, fmt.Errorf("SID %s is not available", addr.String())
 	}
 
@@ -321,8 +321,8 @@ func (a *StructuredSIDAllocator) AllocateNext(owner string, metadata string, beh
 		return nil, fmt.Errorf("behavior type and behavior are mismatched")
 	}
 
-	f, allocated, err := a.allocator.AllocateNext()
-	if f == 0 && !allocated && err == nil {
+	f, allocated := a.allocator.AllocateNext()
+	if f == 0 && !allocated {
 		return nil, fmt.Errorf("no more allocatable SID left")
 	}
 

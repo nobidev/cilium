@@ -79,7 +79,7 @@ func newPool(conf poolConfig) (LocatorPool, error) {
 	}
 
 	// pre-allocate first ID, this is to avoid using ID 0 for node ID
-	_, _ = p.allocator.Allocate(0)
+	_ = p.allocator.Allocate(0)
 	return p, nil
 }
 
@@ -224,7 +224,7 @@ func (p *pool) Allocate(nodeLocator *LocatorInfo) error {
 		return nil
 	}
 
-	ok, _ := p.allocator.Allocate(nodeID)
+	ok := p.allocator.Allocate(nodeID)
 	if !ok {
 		return ErrLocatorAllocation
 	}
@@ -232,9 +232,9 @@ func (p *pool) Allocate(nodeLocator *LocatorInfo) error {
 }
 
 func (p *pool) AllocateNext() (*LocatorInfo, error) {
-	nodeID, ok, err := p.allocator.AllocateNext()
-	if err != nil || !ok {
-		return nil, fmt.Errorf("%w: %w", ErrLocatorPoolExhausted, err)
+	nodeID, ok := p.allocator.AllocateNext()
+	if !ok {
+		return nil, ErrLocatorPoolExhausted
 	}
 
 	loc, err := types.NewLocator(p.encodeNodeID(uint16(nodeID)))

@@ -126,6 +126,8 @@ var (
 		"extraEnv[1].value":      "'true'",
 		"extraEnv[2].name":       "CILIUM_INVALID_METRIC_VALUE_DETECTOR",
 		"extraEnv[2].value":      "'true'",
+		"extraEnv[3].name":       "CILIUM_SLOG_DUP_ATTR_DETECTOR",
+		"extraEnv[3].value":      "'true'",
 
 		// We need CNP node status to know when a policy is being enforced
 		"ipv4NativeRoutingCIDR": IPv4NativeRoutingCIDR,
@@ -1192,6 +1194,13 @@ func (kub *Kubectl) GetLoadBalancerIP(namespace string, service string, timeout 
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	return kub.Exec(
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
+}
+
+// LogsPrevious returns a CmdRes with containing the resulting metadata from the
+// execution of `kubectl logs -p <pod> -n <namespace>`.
+func (kub *Kubectl) LogsPrevious(namespace string, pod string) *CmdRes {
+	return kub.Exec(
+		fmt.Sprintf("%s -n %s logs -p %s", KubectlCmd, namespace, pod))
 }
 
 // MonitorStart runs cilium-dbg monitor in the background and returns the command

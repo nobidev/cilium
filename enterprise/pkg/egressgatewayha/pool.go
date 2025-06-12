@@ -110,10 +110,7 @@ func newCIDRRange(prefix netip.Prefix) (*cidrRange, error) {
 }
 
 func (r *cidrRange) allocate(addr netip.Addr) error {
-	allocated, err := r.alloc.Allocate(offset(r.base, addr))
-	if err != nil {
-		return fmt.Errorf("error while reserving addr %s in cidr %s: %w", addr, r.prefix, err)
-	}
+	allocated := r.alloc.Allocate(offset(r.base, addr))
 	if !allocated {
 		return fmt.Errorf("addr %s is already reserved in cidr %s", addr, r.prefix)
 	}
@@ -122,10 +119,7 @@ func (r *cidrRange) allocate(addr netip.Addr) error {
 }
 
 func (r *cidrRange) allocateNext() (netip.Addr, error) {
-	os, ok, err := r.alloc.AllocateNext()
-	if err != nil {
-		return netip.Addr{}, err
-	}
+	os, ok := r.alloc.AllocateNext()
 	if !ok {
 		return netip.Addr{}, fmt.Errorf("cidr %s is full", r.prefix)
 	}

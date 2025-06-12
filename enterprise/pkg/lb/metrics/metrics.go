@@ -21,10 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -62,6 +62,8 @@ type lbMetricsCollector struct {
 	lbPacketsDesc           *prometheus.Desc
 	lbOpenConnectionsDesc   *prometheus.Desc
 	lbHealthcheckStatusDesc *prometheus.Desc
+
+	lbmaps lbmaps.LBMaps
 
 	logger *slog.Logger
 }
@@ -101,6 +103,8 @@ func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
 			"Healthcheck status for a given service and backend tuple",
 			[]string{"service", "backend"}, nil,
 		),
+
+		lbmaps: params.LBMaps,
 
 		logger: params.Logger,
 	}
@@ -191,15 +195,22 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	mc.lbOpenConnections = 0
 
 	// Iterate the backend map to collect a list of all backends
-	backends := map[loadbalancer.BackendID]*lbmap.Backend4ValueV3{}
+	backends := map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3{}
 
-	backendsCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		backendKey := key.(*lbmap.Backend4KeyV3)
-		backendVal := value.(*lbmap.Backend4ValueV3).ToHost().(*lbmap.Backend4ValueV3)
+	backendsCallback := func(key lbmaps.BackendKey, value lbmaps.BackendValue) {
+		backendKey, ok := key.(*lbmaps.Backend4KeyV3)
+		if !ok {
+			return
+		}
+		backendVal, ok := value.(*lbmaps.Backend4ValueV3)
+		if !ok {
+			return
+		}
+		backendVal = backendVal.ToHost().(*lbmaps.Backend4ValueV3)
 
 		backends[backendKey.ID] = backendVal
 	}
-	if err := lbmap.Backend4MapV3.DumpWithCallback(backendsCallback); err != nil {
+	if err := mc.lbmaps.DumpBackend(backendsCallback); err != nil {
 		mc.logger.Error("Cannot dump backend map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
@@ -207,9 +218,16 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	// Iterate the service map to collect the health status of all LB services
 	mc.lbHealthcheckStatus = make(map[string]map[string]bool)
 
-	serviceCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		serviceKey := key.(*lbmap.Service4Key).ToHost().(*lbmap.Service4Key)
-		serviceVal := value.(*lbmap.Service4Value)
+	serviceCallback := func(key lbmaps.ServiceKey, value lbmaps.ServiceValue) {
+		serviceKey, ok := key.(*lbmaps.Service4Key)
+		if !ok {
+			return
+		}
+		serviceKey = serviceKey.ToHost().(*lbmaps.Service4Key)
+		serviceVal, ok := value.(*lbmaps.Service4Value)
+		if !ok {
+			return
+		}
 
 		frontendAddr := formatFrontendAddr(serviceKey.Address.String(), serviceKey.Port, u8proto.U8proto(serviceKey.Proto).String())
 
@@ -238,7 +256,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		serviceBackends[serviceBackend.Address.String()] = serviceVal.GetFlags() == 0
 		mc.lbHealthcheckStatus[frontendFullName] = serviceBackends
 	}
-	if err := lbmap.Service4MapV2.DumpWithCallback(serviceCallback); err != nil {
+	if err := mc.lbmaps.DumpService(serviceCallback); err != nil {
 		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
