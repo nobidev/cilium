@@ -185,7 +185,6 @@ jobs:
             --privileged=true \
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} \
                 cilium-agent \
-                --feature-gates-minimum-maturity=Alpha \
                 --enable-bpf-masquerade=true \
                 --enable-endpoint-health-checking=false \
                 --enable-health-check-nodeport=false \
@@ -205,6 +204,9 @@ jobs:
                 --mesh-auth-enabled=false \
                 --routing-mode=native \
                 --enable-ipv4-standalone-egress-gateway=true \
+                --enable-egress-gateway-ha-socket-termination=false \
+                --enable-phantom-services=false \
+                --enable-non-default-deny-policies=false \
                 --standalone-egress-gateway-interface=eth1 \
                 --devices=eth0,eth1 \
                 --direct-routing-device=eth0
