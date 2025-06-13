@@ -288,14 +288,15 @@ func main() {
 		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
+		Logger:                 log.WithGroup("dns-proxy"),
 		Address:                "",
-		Port:                   10001,
 		IPv4:                   *enableIPV4,
 		IPv6:                   *enableIPV6,
 		EnableDNSCompression:   *enableDNSCompression,
 		MaxRestoreDNSIPs:       0,
 		ConcurrencyLimit:       *concurrencyLimit,
 		ConcurrencyGracePeriod: *concurrencyGracePeriod,
+		RejectReply:            *ToFQDNSRejectResponseCode,
 	}
 
 	proxyCtx := newProxyContext()
@@ -307,24 +308,11 @@ func main() {
 	}()
 
 	proxy = dnsproxy.NewDNSProxy(
-		log,
 		dnsProxyConfig,
+		proxyCtx,
 		LookupEndpointIDByIP,
-		proxyCtx.LookupSecIDByIP,
-		LookupIPsBySecID,
 		NotifyOnDNSMsg,
 	)
-
-	// TODO: Refactor upstream proxy.SetRejectReply function to return an error to
-	// avoid duplicating deny response validation code.
-	const attrCode = "code"
-	switch strings.ToLower(*ToFQDNSRejectResponseCode) {
-	case strings.ToLower(option.FQDNProxyDenyWithNameError), strings.ToLower(option.FQDNProxyDenyWithRefused):
-		log.Debug("setting to fqdn ns reject response code", attrCode, *ToFQDNSRejectResponseCode)
-		proxy.SetRejectReply(*ToFQDNSRejectResponseCode)
-	default:
-		logging.Fatal(log, "invalid fqdn reject response code", attrCode, *ToFQDNSRejectResponseCode)
-	}
 
 	watcher = newRulesWatcher(proxy)
 	gotRules := watcher.watchRules()
@@ -333,7 +321,7 @@ func main() {
 	<-gotRules
 
 	log.Info("Got endpoint configurations, opening sockets.")
-	err = proxy.Listen()
+	err = proxy.Listen(10001)
 	if err != nil {
 		logging.Fatal(log, "Failed to start dns proxy", logfields.Error, err)
 	}
@@ -642,9 +630,9 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 	return identity, true
 }
 
-// LookupIPsBySecID wraps logic to lookup an IPs by security ID from the
+// LookupByIdentity wraps logic to lookup an IPs by security ID from the
 // ipcache.
-func LookupIPsBySecID(nid identity.NumericIdentity) []string {
+func (*proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
 	ips, err := client().LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
 	updateAgentReachability(err)
 

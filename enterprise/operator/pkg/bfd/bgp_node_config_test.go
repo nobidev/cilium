@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,13 +25,10 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func Test_ReconcileBGPNodeConfig(t *testing.T) {
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	var (
 		node1Name   = "node-1"
 		node2Name   = "node-2"

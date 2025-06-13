@@ -572,10 +572,12 @@ func renderTemplates(ct *check.ConnectivityTest) (map[string]string, error) {
 	for key, temp := range templates {
 		val, err := template.Render(temp, struct {
 			check.Parameters
-			ClusterName string
+			ClusterNameLocal  string
+			ClusterNameRemote string
 		}{
-			Parameters:  ct.Params(),
-			ClusterName: ct.ClusterName,
+			Parameters:        ct.Params(),
+			ClusterNameLocal:  ct.ClusterNameLocal,
+			ClusterNameRemote: ct.ClusterNameRemote,
 		})
 		if err != nil {
 			return nil, err

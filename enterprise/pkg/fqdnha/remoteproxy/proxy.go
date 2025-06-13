@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/proxy"
-	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 
 	fqdnpb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -84,10 +83,6 @@ type Params struct {
 func NewRemoteFQDNProxy(p Params) (*RemoteFQDNProxy, error) {
 	if !p.Cfg.EnableExternalDNSProxy {
 		return nil, nil
-	}
-	err := p.L7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, 10001, false)
-	if err != nil {
-		return nil, fmt.Errorf("can't set proxy port: %w", err)
 	}
 
 	rp := &RemoteFQDNProxy{

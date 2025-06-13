@@ -97,7 +97,7 @@ func TestConnectionLifecycle(t *testing.T) {
 		goleak.VerifyNone(t)
 	})
 
-	tbl, err := tables.NewProxyConfigTable(cfg, db)
+	tbl, _, err := tables.NewProxyConfigTable(cfg, db)
 	require.NoError(t, err)
 
 	remoteProxy := RemoteFQDNProxy{

@@ -119,7 +119,7 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 
 type PortAllocator interface {
 	AllocateCRDProxyPort(name string) (uint16, error)
-	AckProxyPort(ctx context.Context, name string) error
+	AckProxyPortWithReference(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
 
@@ -458,7 +458,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 					resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 				}
 				if newResources {
-					resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error { return r.portAllocator.AckProxyPort(ctx, listenerName) }
+					resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error { return r.portAllocator.AckProxyPortWithReference(ctx, listenerName) }
 				} else {
 					resources.PortAllocationCallbacks[listenerName] = func(_ context.Context) error { return r.portAllocator.ReleaseProxyPort(listenerName) }
 				}

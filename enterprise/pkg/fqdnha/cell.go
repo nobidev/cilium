@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/relay"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/remoteproxy"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
 
@@ -29,7 +30,11 @@ var Cell = cell.Module(
 	"enterprise-fqdn-ha-proxy",
 	"FQDN HA proxy",
 
+	cell.Provide(tables.NewProxyConfigTable),
+
 	cell.Provide(doubleproxy.NewDoubleProxy),
+	cell.DecorateAll(doubleproxy.DecorateDNSProxy),
+
 	cell.Provide(relay.NewFQDNProxyAgentServer),
 	cell.Provide(remoteproxy.NewRemoteFQDNProxy),
 
