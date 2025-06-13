@@ -33,7 +33,7 @@ func (in *IsovalentMeshEndpoint) GetHostIP() string {
 	// At the moment we will set the HostIP as the host that contains the
 	// IsovalentMeshEndpoint even though it's not this host that is actually
 	// running the VM behind the IsovalentMeshEndpoint.
-	// slogloggercheck: Cannot change interface as this needs to match with Pod.GetHostIP().
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	return node.GetIPv4(logging.DefaultSlogLogger).String()
 }
 

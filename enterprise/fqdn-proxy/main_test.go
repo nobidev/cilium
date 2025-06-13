@@ -16,11 +16,18 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/time"
 
 	"google.golang.org/grpc"
 )
+
+func init() {
+	// slogloggercheck: initialize the log variable for tests
+	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
+}
 
 // Each test should be ~fast, but time is a weird soup in CI.
 var testTimeout = time.Second * 5

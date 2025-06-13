@@ -17,12 +17,12 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-
-	"github.com/spf13/cobra"
 )
 
 const (

@@ -72,7 +72,7 @@ const (
 )
 
 // slogloggercheck: root logger for fqdn-proxy
-var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
+var log *slog.Logger
 
 var (
 	debug                         = flag.Bool("debug", false, "")
@@ -205,6 +205,14 @@ func logTriggerFunc(level slog.Level) func([]string) {
 func main() {
 	flag.Parse()
 
+	if err := logging.SetupLogging(nil, map[string]string{}, "external-dns-proxy", debug != nil && *debug); err != nil {
+		// slogloggercheck: log fatal errors using the default logger before it's initialized.
+		logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
+	}
+
+	// slogloggercheck: it has been properly initialized now.
+	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
+
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
 	log.Info("|  _| | | | | |     |")
@@ -212,7 +220,6 @@ func main() {
 	log.Info("Cilium DNS Proxy", logfields.Version, version.Version)
 
 	if debug != nil && *debug {
-		logging.SetSlogLevel(slog.LevelDebug)
 		log.Debug("enabling debug logging")
 	}
 
