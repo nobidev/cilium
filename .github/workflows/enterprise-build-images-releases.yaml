@@ -13,13 +13,58 @@ permissions:
   id-token: write
 
 jobs:
-  # Envoy needs a special treatment as it is used for building the Cilium agent
-  # and although it is a 1-1 copy of OSS, its version is changed at release time.
-  build-and-push-envoy:
+  build-and-push-external-images:
     timeout-minutes: 45
-    name: Build and push cilium-envoy image
+    name: Build and push external images
     environment: release
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - component: CERTGEN
+            image-name: certgen-ubi
+            docker-context: enterprise/images/certgen
+            dockerfile: enterprise/images/certgen/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.5@sha256:839f16991579b023d4452eadd0efa925e438f8b73063afe4f75bdc6cf7a09b12
+            build-from-source: false
+
+          - component: CILIUM_NODEINIT
+            image-name: startup-script-ubi
+            docker-context: enterprise/images/startup-script
+            dockerfile: enterprise/images/startup-script/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9-minimal:9.5@sha256:a50731d3397a4ee28583f1699842183d4d24fadcc565c4688487af9ee4e13a44
+            build-from-source: false
+
+          - component: CILIUM_ENVOY
+            image-name: cilium-envoy-ubi
+            docker-context: enterprise/images/cilium-envoy
+            dockerfile: enterprise/images/cilium-envoy/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9-minimal:9.5@sha256:a50731d3397a4ee28583f1699842183d4d24fadcc565c4688487af9ee4e13a44
+            build-from-source: false
+
+          - component: HUBBLE_UI_BACKEND
+            image-name: hubble-ui-backend-ubi
+            docker-context: hubble-ui-backend/backend
+            dockerfile: hubble-ui-backend/backend/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9-minimal:9.5@sha256:a50731d3397a4ee28583f1699842183d4d24fadcc565c4688487af9ee4e13a44
+            build-from-source: true
+            source-repo: isovalent/hubble-ui-enterprise
+            directory: hubble-ui-backend
+
+          - component: HUBBLE_UI_FRONTEND
+            image-name: hubble-ui-frontend-ubi
+            docker-context: hubble-ui-frontend
+            dockerfile: hubble-ui-frontend/Dockerfile
+            # TODO: Renovate won't help here if the tag is pinning a single version
+            # renovate: datasource=docker
+            base-image: quay.io/isovalent-dev/nginx-unprivileged-ubi:1742895604-0227bb1@sha256:e17eebe7edd734e14bbc20ef60ca13dcc1fa5e4c36d1f2ebb4073b7a4156f319
+            build-from-source: true
+            source-repo: isovalent/hubble-ui-enterprise
+            directory: hubble-ui-frontend
 
     steps:
       - name: Checkout code
@@ -32,22 +77,30 @@ jobs:
       - name: Get and check version
         id: version
         run: |
-          version=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_VERSION | awk -F '=' '{print $2}')
-          echo "version=${version}" >> $GITHUB_OUTPUT
-          echo "upstream_repo=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-          echo "upstream_digest=$(cat install/kubernetes/Makefile.values | grep CILIUM_ENVOY_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-          if docker manifest inspect quay.io/isovalent/cilium-envoy-ubi:${version} >/dev/null; then
-            echo "exist=true" >> $GITHUB_OUTPUT
+          tag=${GITHUB_REF##*/}
+          echo version=$tag >> $GITHUB_OUTPUT
+          upstream_version=$(cat install/kubernetes/Makefile.values | grep ${{ matrix.component }}_VERSION | awk -F '=' '{print $2}')
+          echo "upstream_version=${upstream_version}" >> $GITHUB_OUTPUT
+          echo "upstream_repo=$(cat install/kubernetes/Makefile.values | grep ${{ matrix.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          echo "upstream_digest=$(cat install/kubernetes/Makefile.values | grep ${{ matrix.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          # Don't build if the image reference does not exist in Makefile.values
+          # This is a workaround as etcd-operator, for instance, should not be part of the matrix in the -trigger workflow for newer releases
+          if [[ -z "${upstream_version}" ]]; then
+             echo "No version available for ${{ matrix.component }} in install/kubernetes/Makefile.values. Build skipped."
+             echo "rebuild=false" >> $GITHUB_OUTPUT
+          elif docker manifest inspect quay.io/isovalent/${{ matrix.image-name }}:${version} >/dev/null; then
+            echo "Image already exists! Build skipped."
+            echo "rebuild=false" >> $GITHUB_OUTPUT
           else
-            echo "exist=false" >> $GITHUB_OUTPUT
+            echo "rebuild=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up Docker Buildx
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - name: Login to quay.io
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: quay.io
@@ -55,74 +108,99 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
 
       - name: Login to registry.redhat.io for pulling UBI images
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: registry.redhat.io
           username: ${{ secrets.REDHAT_USERNAME_CI }}
           password: ${{ secrets.REDHAT_PASSWORD_CI }}
 
-      - name: Build and push cilium-envoy image
-        if: ${{ steps.version.outputs.exist == 'false' }}
+      - name: Get GitHub Token [read-only]
+        if: ${{ matrix.build-from-source == true }}
+        id: gh-ro-token
+        uses: getsentry/action-github-app-token@d4b5da6c5e37703f8c3b3e43abb5705b46e159cc # v3.0.0
+        with:
+          app_id: ${{ secrets.ISOVALENT_READONLY_GH_APP_ID }}
+          private_key: ${{ secrets.ISOVALENT_READONLY_GH_APP_PEM }}
+
+      - name: Checkout source repo
+        if: ${{ matrix.build-from-source == true }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ matrix.source-repo }}
+          token: ${{ steps.gh-ro-token.outputs.token }}
+          persist-credentials: false
+          path: ${{ matrix.directory }}
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Checkout source version
+        if: ${{ matrix.build-from-source == true }}
+        working-directory: ${{ matrix.directory }}
+        run: |
+            git checkout ${{ steps.version.outputs.upstream_version }}
+
+      - name: Build and push ${{ matrix.component }} image
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         with:
-          context: enterprise/images/cilium-envoy
-          file: enterprise/images/cilium-envoy/Dockerfile
+          context: ${{ matrix.docker-context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+            quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
           build-args: |
             # renovate: datasource=docker
-            BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal:9.5-1742914212@sha256:ac61c96b93894b9169221e87718733354dd3765dd4a62b275893c7ff0d876869
-            UPSTREAM_VERSION=${{ steps.version.outputs.version }}
-            UPSTREAM_IMAGE=${{ steps.version.outputs.upstream_repo }}:${{ steps.version.outputs.version }}@${{ steps.version.outputs.upstream_digest }}
+            BASE_IMAGE=${{ matrix.base-image }}
+            UPSTREAM_VERSION=${{ steps.version.outputs.upstream_version }}
+            UPSTREAM_IMAGE=${{ steps.version.outputs.upstream_repo }}:${{ steps.version.outputs.upstream_version }}@${{ steps.version.outputs.upstream_digest }}
             VERSION=${{ steps.version.outputs.version }}
 
-      - name: Release cilium-envoy digest
+      - name: Release ${{ matrix.component }} digest
         id: docker_digest
         shell: bash
         run: |
-          digest=$(images/scripts/get-image-digest.sh quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }})
+          digest=$(images/scripts/get-image-digest.sh quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }})
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
 
       - name: Sign Container Images
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         run: |
-          cosign sign -y quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
+          cosign sign -y quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
         with:
-          artifact-name: sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json
-          output-file: ./sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json
-          image: quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+          artifact-name: sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
+          output-file: ./sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
+          image: quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
           upload-release-assets: false
 
       - name: Attach SBOM attestation to container image
-        if: ${{ steps.version.outputs.exist == 'false' }}
+        if: ${{ steps.version.outputs.rebuild == 'true' }}
         run: |
-          cosign attest -r -y --predicate sbom_cilium-envoy_ubi_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}
+          cosign attest -r -y --predicate sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
 
       - name: Image Release Digest
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "### cilium-envoy" > image-digest/cilium-envoy.txt
-          echo "" >> image-digest/cilium-envoy.txt
-          echo "\`quay.io/isovalent/cilium-envoy-ubi:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/cilium-envoy.txt
-          echo "" >> image-digest/cilium-envoy.txt
+          echo "### ${{ matrix.image-name }}" > image-digest/${{ matrix.image-name }}.txt
+          echo "" >> image-digest/${{ matrix.image-name }}.txt
+          echo "\`quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/${{ matrix.image-name }}.txt
+          echo "" >> image-digest/${{ matrix.image-name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: image-digest cilium-envoy-ubi
+          name: image-digest ${{ matrix.image-name }}
           path: image-digest
 
   build-and-push:
@@ -130,7 +208,8 @@ jobs:
     name: Build and Push Images
     environment: release
     runs-on: ubuntu-24.04
-    needs: build-and-push-envoy
+    # This needs to happen sequentially as the cilium-envoy image is used for building the image of the Cilium agent
+    needs: build-and-push-external-images
     strategy:
       matrix:
         include:
@@ -363,6 +442,9 @@ jobs:
       - name: OLM Bundle Build and Push
         working-directory: ./enterprise/olm
         env:
+          CL_TAG: "${{ steps.tag.outputs.tag }}"
+          CL_REGISTRY: "quay.io/${{ env.QUAY_ORGANIZATION }}"
+          CL_IS_CI: false
           VERSION: "${{ steps.tag.outputs.tag }}"
           IMG: "${{ steps.tag.outputs.image_tag }}"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
@@ -478,7 +560,7 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: [build-and-push-envoy, build-and-push, build-and-push-clife]
+    needs: [build-and-push-external-images, build-and-push, build-and-push-clife]
 
     steps:
       - name: Prepare image digests download
