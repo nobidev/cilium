@@ -12,27 +12,20 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
-	"strings"
 	"sync/atomic"
 
-	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/workerpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	_ "github.com/cilium/cilium/enterprise/fips"
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -63,15 +56,7 @@ const (
 var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
 
 var (
-	proxy     *dnsproxy.DNSProxy
-	clientPtr atomic.Pointer[fqdnAgentClient]
-	client    = clientPtr.Load
-	cache     AgentDataCache
-	watcher   *rulesWatcher
-
-	DNSNotificationQueue             chan *pb.DNSNotification
-	DNSNotificationSendRetryInterval = 10 * time.Second
-	DNSNotificationSendTimeout       = 5 * time.Second
+	watcher *rulesWatcher
 
 	// Metrics
 	defaultSummaryObjectives = map[float64]float64{
@@ -129,13 +114,6 @@ var (
 	LogDebugTrigger     *trigger.Trigger
 )
 
-// Encapsulates the FQDNProxyAgentClient behavior but provides
-// a concrete type to allow correct usage of atomic.Swap for
-// client resets.
-type fqdnAgentClient struct {
-	pb.FQDNProxyAgentClient
-}
-
 func init() {
 	var err error
 	if LogWarningTrigger, err = trigger.NewTrigger(trigger.Parameters{
@@ -169,27 +147,28 @@ func logTriggerFunc(level slog.Level) func([]string) {
 	}
 }
 
-func run(ctx context.Context, health cell.Health, cfg Config) error {
+type runParams struct {
+	cell.In
+
+	Health cell.Health
+	Cfg    Config
+
+	Client   *fqdnAgentClient
+	Notifier *notifier
+}
+
+func run(ctx context.Context, params runParams) error {
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
 	log.Info("|  _| | | | | |     |")
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Info("Cilium DNS Proxy", logfields.Version, version.Version)
 
-	log.Info("loaded config options", logfields.Config, cfg)
-
-	cache = NewCache()
+	log.Info("loaded config options", logfields.Config, params.Cfg)
+	cfg := params.Cfg
 
 	go exposeMetrics(cfg)
 
-	DNSNotificationQueue = make(chan *pb.DNSNotification, cfg.DNSNotificationChannelSize)
-	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
-	if err != nil {
-		logging.Fatal(log, "failed to create grpc client to talk to agent", logfields.Error, err)
-	}
-	clientPtr.Swap(&fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)})
-
-	go manageDNSNotificationQueue(cfg.DNSNotificationSendWorkers)
 	log.Info("starting cilium dns proxy server")
 	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
 		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
@@ -206,7 +185,7 @@ func run(ctx context.Context, health cell.Health, cfg Config) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(cfg)
+	proxyCtx := newProxyContext(cfg, params.Client)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -214,26 +193,26 @@ func run(ctx context.Context, health cell.Health, cfg Config) error {
 		}
 	}()
 
-	proxy = dnsproxy.NewDNSProxy(
+	proxy := dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
 		proxyCtx,
-		LookupEndpointIDByIP,
-		NotifyOnDNSMsg,
+		proxyCtx.LookupEndpointIDByIP,
+		params.Notifier.NotifyOnDNSMsg,
 	)
 
-	watcher = newRulesWatcher(proxy)
+	watcher = newRulesWatcher(proxy, params.Client)
 	gotRules := watcher.watchRules()
 
 	log.Info("Waiting for agent to provide endpoint configurations...")
 	<-gotRules
 
 	log.Info("Got endpoint configurations, opening sockets.")
-	err = proxy.Listen(10001)
+	err := proxy.Listen(10001)
 	if err != nil {
 		return fmt.Errorf("failed to start DNS proxy: %w", err)
 	}
 	log.Info("started dns proxy")
-	health.OK("started dns proxy")
+	params.Health.OK("started dns proxy")
 
 	<-ctx.Done()
 	return nil
@@ -261,20 +240,22 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 }
 
 type proxyContext struct {
-	cfg       Config
-	rwLock    *lock.RWMutex
-	ipc       ipCacheLookup
-	clientPtr *atomic.Pointer[fqdnAgentClient]
+	cfg    Config
+	rwLock *lock.RWMutex
+	ipc    ipCacheLookup
+	client *fqdnAgentClient
+	cache  AgentDataCache
 
 	ipCacheV1 bool
 }
 
-func newProxyContext(cfg Config) *proxyContext {
+func newProxyContext(cfg Config, client *fqdnAgentClient) *proxyContext {
 	return &proxyContext{
-		ipc:       &bpfIPC{},
-		rwLock:    &lock.RWMutex{},
-		clientPtr: &clientPtr,
-		cfg:       cfg,
+		ipc:    &bpfIPC{},
+		rwLock: &lock.RWMutex{},
+		client: client,
+		cfg:    cfg,
+		cache:  NewCache(),
 	}
 }
 
@@ -293,7 +274,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 	// streams status (rather than just returning on one update)
 	// this stub works fine.
 	for {
-		ps, err = pc.clientPtr.Load().SubscribeProxyStatuses(context.Background(), &pb.Empty{})
+		ps, err = pc.client.SubscribeProxyStatuses(context.Background(), &pb.Empty{})
 		if err != nil {
 			sts, ok := status.FromError(err)
 			// This agent does not support proxy status.
@@ -334,52 +315,6 @@ func (pc *proxyContext) supportsIPCacheV1() bool {
 	return pc.ipCacheV1
 }
 
-func manageDNSNotificationQueue(workers uint) {
-	wp := workerpool.New(int(workers))
-	for msg := range DNSNotificationQueue {
-		msg := msg
-		ProxyUpdateQueueLen.Dec()
-		err := wp.Submit("", func(ctx context.Context) error {
-			sendDNSNotification(ctx, msg)
-			return nil
-		})
-		if err != nil {
-			log.Error("Error queueing DNS notification", logfields.Error, err)
-		}
-	}
-}
-
-func sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
-	for {
-		// We are purposefully not backing off exponentially because we want to
-		// constantly retry to reach the Agent in case it is down in order to
-		// not artificially delay DNS msgs.
-		requestCtx, cancel := context.WithTimeout(ctx, DNSNotificationSendTimeout)
-		_, err := client().NotifyOnDNSMessage(requestCtx, msg)
-		cancel()
-		updateAgentReachability(err)
-
-		if err != nil {
-			// If the endpoint no longer exists, there's no point in sending this mapping.
-			var errDNSRequestNoEndpoint dnsproxy.ErrDNSRequestNoEndpoint
-			if strings.Contains(err.Error(), errDNSRequestNoEndpoint.Error()) {
-				log.Debug("Dropping DNS notification since the endpoint no longer exists",
-					logfields.Error, err,
-					logfields.Address, msg.EpIPPort,
-				)
-				return
-			}
-
-			time.Sleep(DNSNotificationSendRetryInterval)
-			continue
-		}
-
-		LogDebugTrigger.TriggerWithReason("Queued DNS Notification was successful")
-
-		return
-	}
-}
-
 func exposeMetrics(cfg Config) {
 	if !cfg.ExposePrometheusMetrics {
 		return
@@ -392,37 +327,6 @@ func exposeMetrics(cfg Config) {
 	if err != nil {
 		log.Error("Failed to enable Prometheus metrics", logfields.Error, err)
 	}
-}
-
-// createClient creates a gRPC client tuned for communication over unix domain sockets, i.e. with
-// much more aggressive timeouts than would be suitable for network communication. Note that client
-// creation does _not_ perform I/O, hence successful creation of the client does not imply
-// connectivity.
-func createClient(address string) (grpc.ClientConnInterface, error) {
-	// Override the default backoff config to specify a much shorter base and max delay, since
-	// there's no network, no concern of overwhelming a server with many clients nor other problems
-	// gRPC tries to be robust against.
-	backoff := backoff.Config{
-		BaseDelay:  time.Millisecond * 50,
-		Multiplier: backoff.DefaultConfig.Multiplier,
-		Jitter:     backoff.DefaultConfig.Jitter,
-		MaxDelay:   time.Second * 5,
-	}
-
-	return grpc.NewClient(address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithIdleTimeout(time.Duration(0)),
-		grpc.WithConnectParams(grpc.ConnectParams{
-			Backoff: backoff,
-			// The MinConnectTimeout comes into play when there is a listener on the unix domain
-			// socket, but no server handles incoming connections. This directly impacts DNS tail
-			// latency in the worst case, so we're fairly aggressive. After this expires without a
-			// successful connection, RPCs fail with "use of closed connection" when started in
-			// TRANSIENT_FAILURE, but each still cause an attempt to reestablish a connection after
-			// the backoff has been waited for (which we also make much more aggressive).
-			MinConnectTimeout: time.Millisecond * 500,
-		}),
-	)
 }
 
 // Tracks whether the agent was reachable the last time we tried a RPC. Serves to avoid logging
@@ -449,7 +353,7 @@ func updateAgentReachability(err error) *status.Status {
 }
 
 // LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
-func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+func (pc *proxyContext) LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 	// Make sure to send IPv4 addresses as [4]byte instead of [16]byte over gRPC, so they aren't
 	// mistakenly treated as IPv6-mapped IPv4 addresses anywhere in the Cilium agent.
 	var bs []byte
@@ -461,13 +365,13 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 		bs = ip.AsSlice()
 	}
 
-	ep, err := client().LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: bs})
+	ep, err := pc.client.LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: bs})
 	updateAgentReachability(err)
 
 	if err != nil {
-		cache.lock.RLock()
-		endpoint, ok := cache.endpointByIP[ip]
-		cache.lock.RUnlock()
+		pc.cache.lock.RLock()
+		endpoint, ok := pc.cache.endpointByIP[ip]
+		pc.cache.lock.RUnlock()
 		if !ok {
 			return nil, false, fmt.Errorf("could not lookup endpoint for ip %s: %w", ip, err)
 		}
@@ -482,9 +386,9 @@ func LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 		K8sNamespace: ep.Namespace,
 		K8sPodName:   ep.PodName,
 	}
-	cache.lock.Lock()
-	cache.endpointByIP[ip] = endpoint
-	cache.lock.Unlock()
+	pc.cache.lock.Lock()
+	pc.cache.endpointByIP[ip] = endpoint
+	pc.cache.lock.Unlock()
 	return endpoint, false, nil
 }
 
@@ -508,7 +412,7 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		}
 	} else {
 		var ident *pb.Identity
-		ident, err = pc.clientPtr.Load().LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+		ident, err = pc.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
 		updateAgentReachability(err)
 		if err == nil {
 			id = identity.NumericIdentity(ident.ID)
@@ -516,9 +420,9 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		}
 	}
 	if err != nil {
-		cache.lock.RLock()
-		cachedID, ok := cache.identityByIP[ip]
-		cache.lock.RUnlock()
+		pc.cache.lock.RLock()
+		cachedID, ok := pc.cache.identityByIP[ip]
+		pc.cache.lock.RUnlock()
 		if !ok {
 			log.Error("could not lookup security identity for ip",
 				logfields.IPAddr, ip,
@@ -535,23 +439,23 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		Source: src,
 	}
 
-	cache.lock.Lock()
-	cache.identityByIP[ip] = identity
-	cache.lock.Unlock()
+	pc.cache.lock.Lock()
+	pc.cache.identityByIP[ip] = identity
+	pc.cache.lock.Unlock()
 
 	return identity, true
 }
 
 // LookupByIdentity wraps logic to lookup an IPs by security ID from the
 // ipcache.
-func (*proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
-	ips, err := client().LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
+func (pc *proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
+	ips, err := pc.client.LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
 	updateAgentReachability(err)
 
 	if err != nil {
-		cache.lock.RLock()
-		cachedIPs, ok := cache.ipBySecID[nid]
-		cache.lock.RUnlock()
+		pc.cache.lock.RLock()
+		cachedIPs, ok := pc.cache.ipBySecID[nid]
+		pc.cache.lock.RUnlock()
 		if !ok {
 			log.Error("could not lookup ips for id",
 				logfields.Identity, nid,
@@ -568,108 +472,10 @@ func (*proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
 		result = append(result, net.IP(ip).String())
 	}
 
-	cache.lock.Lock()
-	cache.ipBySecID[nid] = result
-	cache.lock.Unlock()
+	pc.cache.lock.Lock()
+	pc.cache.ipBySecID[nid] = result
+	pc.cache.lock.Unlock()
 	return result
-}
-
-// NotifyOnDNSMsghandles propagating DNS response data
-func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, agentAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-	stat.ProcessingTime.Start()
-	metricError := metricErrorAllow
-	endMetric := func() {
-		success := metricError == metricErrorAllow
-		stat.ProcessingTime.End(success)
-		UpstreamTime.WithLabelValues(metricError).Observe(
-			stat.UpstreamTime.Total().Seconds())
-		ProcessingTime.WithLabelValues(metricError).Observe(
-			stat.ProcessingTime.Total().Seconds())
-	}
-	switch {
-	case stat.IsTimeout():
-		metricError = metricErrorTimeout
-		endMetric()
-		return nil
-	case stat.Err != nil:
-		metricError = metricErrorProxy
-	case allowed, !allowed:
-		break
-	}
-
-	PolicyTotal.WithLabelValues("received").Inc()
-
-	if ep == nil {
-		metricError = metricErrorNoEP
-		endMetric()
-		log.Error("Endpoint is nil")
-		return errors.New("Endpoint not found")
-	}
-
-	endpoint := &pb.Endpoint{
-		ID:        uint32(ep.ID),
-		Identity:  uint32(ep.SecurityIdentity.ID),
-		Namespace: ep.K8sNamespace,
-		PodName:   ep.K8sPodName,
-	}
-
-	dnsMsg, err := msg.Pack()
-	if err != nil {
-		metricError = metricErrorPacking
-		endMetric()
-		log.Error("Could not pack dns msg", logfields.Error, err)
-		return err
-	}
-
-	notification := &pb.DNSNotification{
-		Time:       timestamppb.New(lookupTime),
-		Endpoint:   endpoint,
-		EpIPPort:   epIPPort,
-		ServerAddr: agentAddr.String(),
-		Msg:        dnsMsg,
-		Protocol:   protocol,
-		Allowed:    allowed,
-		ServerID:   uint32(serverID),
-	}
-
-	// First, try a synchronous policy set up via cilium-agent. If this is
-	// successful, we can return and let the DNS socket code handle another
-	// request/response.
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(DNSNotificationSendTimeout))
-	defer cancel()
-	_, err = client().NotifyOnDNSMessage(ctx, notification)
-	status := updateAgentReachability(err)
-
-	if err != nil {
-		if status == nil {
-			log.Warn("BUG: Unexpected non-status error during DNS notification to agent", logfields.Error, err)
-		} else {
-			metricError = status.Code().String()
-			ProxyUpdateErrors.WithLabelValues(metricError).Inc()
-		}
-
-		// Cilium-agent is down or unable to successfully plumb the policy
-		// right now, so queue this DNSNotification until cilium is able to
-		// handle the message.
-		select {
-		case DNSNotificationQueue <- notification:
-			ProxyUpdateQueueLen.Inc()
-		default:
-			metricError = metricErrorOverflow
-			ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
-			LogWarningTrigger.TriggerWithReason("Cilium agent is down and notification channel is full. Skipping notification.")
-		}
-	}
-
-	// Release the DNS response back to the user application. If Cilium
-	// previously plumbed the policy for this IP / Name, then the app will
-	// successfully connect, regardless of whether Cilium is down or not.
-	PolicyTotal.WithLabelValues("forwarded").Inc()
-	if msg.Response && msg.Rcode == dns.RcodeSuccess {
-		endMetric()
-	}
-	stat.ProcessingTime.End(true)
-	return nil
 }
 
 var _ policy.CachedSelector = &SimpleSelector{}

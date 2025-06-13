@@ -38,6 +38,7 @@ type rulesWatcher struct {
 	grpcServer *grpc.Server
 
 	proxy          *dnsproxy.DNSProxy
+	client         *fqdnAgentClient
 	agentConnected chan struct{}
 
 	// Closed when first set of rules is received, indicating it's safe
@@ -48,9 +49,10 @@ type rulesWatcher struct {
 	muteErrors bool // if true, don't log subsequent reconnects
 }
 
-func newRulesWatcher(proxy *dnsproxy.DNSProxy) *rulesWatcher {
+func newRulesWatcher(proxy *dnsproxy.DNSProxy, client *fqdnAgentClient) *rulesWatcher {
 	rw := &rulesWatcher{
 		proxy:          proxy,
+		client:         client,
 		agentConnected: make(chan struct{}),
 		rulesReceived:  make(chan struct{}),
 	}
@@ -93,7 +95,7 @@ func (rw *rulesWatcher) doWatchRules() {
 // It then watches the stream, applying changes to the proxy. Blocks
 // until disconnected -- error is never nil.
 func (rw *rulesWatcher) trySubscribeRules() error {
-	rulesStream, err := client().SubscribeFQDNRules(context.Background())
+	rulesStream, err := rw.client.SubscribeFQDNRules(context.Background())
 	if err != nil {
 		return fmt.Errorf("SubscribeFQDNRules failed: %w", err)
 	}

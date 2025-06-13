@@ -29,6 +29,9 @@ var (
 
 		cell.Config(defaultConfig),
 
+		cell.Provide(newAgentClient),
+		cell.Provide(newNotifier),
+
 		gops.Cell(defaults.EnableGops, DefaultGopsPort),
 		pprof.Cell(pprofConfig),
 		cell.Invoke(runDNSProxy),
@@ -39,8 +42,8 @@ var (
 	)
 )
 
-func runDNSProxy(jg job.Group, config Config) {
+func runDNSProxy(jg job.Group, params runParams) {
 	jg.Add(job.OneShot("fqdnha-proxy", func(ctx context.Context, health cell.Health) error {
-		return run(ctx, health, config)
+		return run(ctx, params)
 	}, job.WithShutdown()))
 }

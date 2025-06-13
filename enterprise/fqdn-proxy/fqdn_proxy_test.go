@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"testing"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -349,7 +348,6 @@ func TestLookupSecIDByIP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache = NewCache()
 			ipIDMap := make(map[netip.Addr]*pb.Identity)
 			ipEndpointMap := make(map[netip.Addr]*ipcacheMap.RemoteEndpointInfo)
 			for _, ipID := range tt.ipIdentities {
@@ -538,13 +536,12 @@ func (fa *fakeAgent) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStrea
 }
 
 func newTestProxyContext(ipc ipCacheLookup, client pb.FQDNProxyAgentClient, enableOfflineMode bool) *proxyContext {
-	clientPtr := atomic.Pointer[fqdnAgentClient]{}
-	clientPtr.Swap(&fqdnAgentClient{client})
 	return &proxyContext{
-		cfg:       Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
-		rwLock:    &lock.RWMutex{},
-		ipc:       ipc,
-		clientPtr: &clientPtr,
+		cfg:    Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
+		rwLock: &lock.RWMutex{},
+		ipc:    ipc,
+		client: &fqdnAgentClient{client},
+		cache:  NewCache(),
 	}
 }
 
