@@ -1,9 +1,16 @@
 self-hosted-runner:
   labels:
+    - "self-hosted"
     - "ubuntu-24.04-arm64"
     - "vsphere"
     - "ubuntu-latest-4cores-16gb"
     - "ubuntu-22.04-arm64"
+    - "splendid-metal-arm64"
+    - "ubuntu-2404"
+    - "ubuntu-2404-metal"
+    - "ubuntu-2404-4cores-16gb"
+    - "ubuntu-2404-64-cores-256gb"
+    - "extra-small"
 # Configuration for file paths. The keys are glob patterns to match to file
 # paths relative to the repository root. The values are the configurations for
 # the file paths. Note that the path separator is always '/'.
