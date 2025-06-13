@@ -94,8 +94,12 @@ echo "digest: ${digest}"
 related_imgs+="{\"name\": \"RELATED_IMAGE_CLUSTERMESH-APISERVER\",\"value\":\"${registry}/clustermesh-apiserver${suffix}:${tag}@${digest}\"},"
 # startup-script
 echo "Process startup-script"
-yq_get ".nodeinit.image.tag"
-startup_tag=${yq_get_result}
+if [ "${is_ci}" == "true" ]; then
+  yq_get ".nodeinit.image.tag"
+  startup_tag=${yq_get_result}
+else
+  startup_tag=${tag}
+fi
 echo "get digest: quay.io/${registry}/startup-script${suffix} ${startup_tag}" 
 get_digest "quay.io/${registry}/startup-script${suffix}" "${startup_tag}"
 digest=${get_digest_result}
@@ -103,8 +107,12 @@ echo "digest: ${digest}"
 related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"quay.io/${registry}/startup-script${suffix}:${startup_tag}@${digest}\"},"
 # certgen
 echo "Process certgen"
-yq_get ".certgen.image.tag"
-certgen_tag=${yq_get_result}
+if [ "${is_ci}" == "true" ]; then
+  yq_get ".certgen.image.tag"
+  certgen_tag=${yq_get_result}
+else
+  certgen_tag=${tag}
+fi
 echo "get digest: quay.io/${registry}/certgen${suffix} ${certgen_tag}" 
 get_digest "quay.io/${registry}/certgen${suffix}" "${certgen_tag}"
 digest=${get_digest_result}
@@ -112,8 +120,12 @@ echo "digest: ${digest}"
 related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"quay.io/${registry}/certgen${suffix}:${certgen_tag}@${digest}\"},"
 # envoy
 echo "Process envoy"
-yq_get ".envoy.image.tag"
-envoy_tag=${yq_get_result}
+if [ "${is_ci}" == "true" ]; then
+  yq_get ".envoy.image.tag"
+  envoy_tag=${yq_get_result}
+else
+  envoy_tag=${tag}
+fi
 echo "get digest: quay.io/${registry}/cilium-envoy${suffix} ${envoy_tag}" 
 get_digest "quay.io/${registry}/cilium-envoy${suffix}" "${envoy_tag}"
 digest=${get_digest_result}

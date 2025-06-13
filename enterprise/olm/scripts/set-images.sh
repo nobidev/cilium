@@ -65,6 +65,11 @@ yq_replace ".preflight.image.tag = \"${tag}\""
 yq_replace ".operator.image.tag = \"${tag}\""
 yq_replace ".hubble.relay.image.tag = \"${tag}\""
 yq_replace ".clustermesh.apiserver.image.tag = \"${tag}\""
+if [ "${is_ci}" != "true" ]; then
+  yq_replace ".nodeinit.image.tag = \"${tag}\""
+  yq_replace ".certgen.image.tag = \"${tag}\""
+  yq_replace ".envoy.image.tag = \"${tag}\""
+fi
 # Set the image repositories
 yq_replace ".image.repository = \"${registry}/cilium${suffix}\""
 yq_replace ".preflight.image.repository = \"${registry}/cilium${suffix}\""
@@ -79,8 +84,6 @@ yq_replace ".operator.image.suffix = \"${suffix}\""
 echo "Process cilium agent"
 yq_get ".image.repository"
 img=${yq_get_result}
-yq_get ".image.tag"
-tag=${yq_get_result}
 echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
@@ -91,8 +94,6 @@ yq_replace ".image.useDigest = true"
 echo "Process preflight"
 yq_get ".preflight.image.repository"
 img=${yq_get_result}
-yq_get ".preflight.image.tag"
-tag=${yq_get_result}
 echo "get digest: ${img} ${tag}"
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
@@ -104,8 +105,6 @@ echo "Process hubble relay"
 yq_get ".hubble.relay.image.repository"
 img=${yq_get_result}
 echo "get digest: ${img} ${tag}" 
-yq_get ".hubble.relay.image.tag"
-tag=${yq_get_result}
 get_digest "${img}" "${tag}"
 echo "digest: ${digest}"
 digest=${get_digest_result}
@@ -115,8 +114,6 @@ yq_replace ".hubble.relay.image.useDigest = true"
 echo "Process clustermesh"
 yq_get ".clustermesh.apiserver.image.repository"
 img=${yq_get_result}
-yq_get ".clustermesh.apiserver.image.tag"
-tag=${yq_get_result}
 echo "get digest: ${img} ${tag}" 
 get_digest "${img}" "${tag}"
 digest=${get_digest_result}
@@ -128,9 +125,9 @@ echo "Process startup-script"
 yq_get ".nodeinit.image.repository"
 img=${yq_get_result}
 yq_get ".nodeinit.image.tag"
-tag=${yq_get_result}
-echo "get digest: ${img} ${tag}" 
-get_digest "${img}" "${tag}"
+startup_tag=${yq_get_result}
+echo "get digest: ${img} ${startup_tag}"
+get_digest "${img}" "${startup_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".nodeinit.image.digest = \"${digest}\""
@@ -140,9 +137,9 @@ echo "Process certgen"
 yq_get ".certgen.image.repository"
 img=${yq_get_result}
 yq_get ".certgen.image.tag"
-tag=${yq_get_result}
-echo "get digest: ${img} ${tag}" 
-get_digest "${img}" "${tag}"
+certgen_tag=${yq_get_result}
+echo "get digest: ${img} ${certgen_tag}"
+get_digest "${img}" "${certgen_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".certgen.image.digest = \"${digest}\""
@@ -151,10 +148,11 @@ yq_replace ".certgen.image.useDigest = true"
 echo "Process envoy"
 yq_get ".envoy.image.repository"
 img=${yq_get_result}
+echo "Process envoy"
 yq_get ".envoy.image.tag"
-tag=${yq_get_result}
-echo "get digest: ${img} ${tag}" 
-get_digest "${img}" "${tag}"
+envoy_tag=${yq_get_result}
+echo "get digest: ${img} ${envoy_tag}"
+get_digest "${img}" "${envoy_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".envoy.image.digest = \"${digest}\""
@@ -163,8 +161,6 @@ yq_replace ".envoy.image.useDigest = true"
 echo "Process operator"
 yq_get ".operator.image.repository"
 img=${yq_get_result}
-yq_get ".operator.image.tag"
-tag=${yq_get_result}
 yq_get ".operator.image.suffix"
 op_suffix=${yq_get_result}
 echo "get digest: ${img}-generic${op_suffix} ${tag}" 
