@@ -24,13 +24,11 @@ values_file="${root_dir}/enterprise/olm/manifests/values.yaml"
 registry="${CL_REGISTRY:-quay.io/isovalent-dev}"
 is_ci="${CL_IS_CI:-true}"
 echo "is_ci: ${is_ci}"
-in_tree_suffix="${CL_SUFFIX:--ubi}"
-out_tree_suffix="${CL_SUFFIX:--ubi}"
-echo "out_tree_suffix: ${out_tree_suffix}"
+suffix="${CL_SUFFIX:--ubi}"
 if [ "${is_ci}" == "true" ]; then
-  in_tree_suffix="${in_tree_suffix}-ci"
+  suffix="${suffix}-ci"
 fi
-echo "in_tree_suffix: ${in_tree_suffix}"
+echo "suffix: ${suffix}"
 if [ -z "${CL_TAG+x}" ] ; then
   echo "Using the commit id of the head as tag, set CL_TAG to the desired value otherwise"
   tag="$(git rev-parse HEAD)"
@@ -66,75 +64,75 @@ function get_digest {
 related_imgs="["
 # cilium agent
 echo "Process cilium agent"
-echo "get digest: ${registry}/cilium${in_tree_suffix} ${tag}" 
-get_digest "${registry}/cilium${in_tree_suffix}" "${tag}"
+echo "get digest: ${registry}/cilium${suffix} ${tag}" 
+get_digest "${registry}/cilium${suffix}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_AGENT\",\"value\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_AGENT\",\"value\":\"${registry}/cilium${suffix}:${tag}@${digest}\"},"
 # preflight
 echo "Preflight does not need to be added to relatedImages as long as it is the same image as Cilium agent."
 echo "opm does not accept the same image being referenced multiple times."
 # echo "Process preflight"
-# echo "get digest: ${registry}/cilium${in_tree_suffix} ${tag}"
-# get_digest "${registry}/cilium${in_tree_suffix}" "${tag}"
+# echo "get digest: ${registry}/cilium${suffix} ${tag}"
+# get_digest "${registry}/cilium${suffix}" "${tag}"
 # digest=${get_digest_result}
 # echo "digest: ${digest}"
-# related_imgs+="{\"name\": \"RELATED_IMAGE_PREFLIGHT\",\"value\":\"${registry}/cilium${in_tree_suffix}:${tag}@${digest}\"},"
+# related_imgs+="{\"name\": \"RELATED_IMAGE_PREFLIGHT\",\"value\":\"${registry}/cilium${suffix}:${tag}@${digest}\"},"
 # hubble relay
 echo "Process hubble relay"
-echo "get digest: ${registry}/hubble-relay${in_tree_suffix} ${tag}" 
-get_digest "${registry}/hubble-relay${in_tree_suffix}" "${tag}"
+echo "get digest: ${registry}/hubble-relay${suffix} ${tag}" 
+get_digest "${registry}/hubble-relay${suffix}" "${tag}"
 echo "digest: ${digest}"
 digest=${get_digest_result}
-related_imgs+="{\"name\": \"RELATED_IMAGE_HUBBLE-RELAY\",\"value\":\"${registry}/hubble-relay${in_tree_suffix}:${tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_HUBBLE-RELAY\",\"value\":\"${registry}/hubble-relay${suffix}:${tag}@${digest}\"},"
 # clustermesh
 echo "Process clustermesh"
-echo "get digest: ${registry}/clustermesh-apiserver${in_tree_suffix} ${tag}" 
-get_digest "${registry}/clustermesh-apiserver${in_tree_suffix}" "${tag}"
+echo "get digest: ${registry}/clustermesh-apiserver${suffix} ${tag}" 
+get_digest "${registry}/clustermesh-apiserver${suffix}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CLUSTERMESH-APISERVER\",\"value\":\"${registry}/clustermesh-apiserver${in_tree_suffix}:${tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CLUSTERMESH-APISERVER\",\"value\":\"${registry}/clustermesh-apiserver${suffix}:${tag}@${digest}\"},"
 # startup-script
 echo "Process startup-script"
 yq_get ".nodeinit.image.tag"
 startup_tag=${yq_get_result}
-echo "get digest: quay.io/isovalent/startup-script${out_tree_suffix} ${startup_tag}" 
-get_digest "quay.io/isovalent/startup-script${out_tree_suffix}" "${startup_tag}"
+echo "get digest: quay.io/${registry}/startup-script${suffix} ${startup_tag}" 
+get_digest "quay.io/${registry}/startup-script${suffix}" "${startup_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"quay.io/isovalent/startup-script${out_tree_suffix}:${startup_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"quay.io/${registry}/startup-script${suffix}:${startup_tag}@${digest}\"},"
 # certgen
 echo "Process certgen"
 yq_get ".certgen.image.tag"
 certgen_tag=${yq_get_result}
-echo "get digest: quay.io/isovalent/certgen${out_tree_suffix} ${certgen_tag}" 
-get_digest "quay.io/isovalent/certgen${out_tree_suffix}" "${certgen_tag}"
+echo "get digest: quay.io/${registry}/certgen${suffix} ${certgen_tag}" 
+get_digest "quay.io/${registry}/certgen${suffix}" "${certgen_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"quay.io/isovalent/certgen${out_tree_suffix}:${certgen_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"quay.io/${registry}/certgen${suffix}:${certgen_tag}@${digest}\"},"
 # envoy
 echo "Process envoy"
 yq_get ".envoy.image.tag"
 envoy_tag=${yq_get_result}
-echo "get digest: quay.io/isovalent/cilium-envoy${out_tree_suffix} ${envoy_tag}" 
-get_digest "quay.io/isovalent/cilium-envoy${out_tree_suffix}" "${envoy_tag}"
+echo "get digest: quay.io/${registry}/cilium-envoy${suffix} ${envoy_tag}" 
+get_digest "quay.io/${registry}/cilium-envoy${suffix}" "${envoy_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"quay.io/isovalent/cilium-envoy${out_tree_suffix}:${envoy_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"quay.io/${registry}/cilium-envoy${suffix}:${envoy_tag}@${digest}\"},"
 # operator
 echo "Process operator"
-echo "get digest: ${registry}/operator-generic${in_tree_suffix} ${tag}" 
-get_digest "${registry}/operator-generic${in_tree_suffix}" "${tag}"
+echo "get digest: ${registry}/operator-generic${suffix} ${tag}" 
+get_digest "${registry}/operator-generic${suffix}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-OPERATOR\",\"value\":\"${registry}/operator-generic${in_tree_suffix}:${tag}@${digest}\"}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-OPERATOR\",\"value\":\"${registry}/operator-generic${suffix}:${tag}@${digest}\"}"
 # clife
 echo "Process clife"
-echo "get digest: ${registry}/clife${in_tree_suffix} ${tag}"
+echo "get digest: ${registry}/clife${suffix} ${tag}"
 get_digest "${registry}/clife" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CLIFE\",\"value\":\"${registry}/clife${in_tree_suffix}:${tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CLIFE\",\"value\":\"${registry}/clife${suffix}:${tag}@${digest}\"},"
 
 related_imgs+="]"
 # the deployment is the second document in the manifest file

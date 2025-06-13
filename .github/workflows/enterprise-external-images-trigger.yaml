@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - component: CERTGEN
-            image-name: certgen-ubi
+            image-name: certgen-ubi-ci
             docker-context: enterprise/images/certgen
             dockerfile: enterprise/images/certgen/Dockerfile
             # renovate: datasource=docker
@@ -36,7 +36,7 @@ jobs:
             build-from-source: false
 
           - component: CILIUM_NODEINIT
-            image-name: startup-script-ubi
+            image-name: startup-script-ubi-ci
             docker-context: enterprise/images/startup-script
             dockerfile: enterprise/images/startup-script/Dockerfile
             # renovate: datasource=docker
@@ -44,7 +44,7 @@ jobs:
             build-from-source: false
 
           - component: CILIUM_ENVOY
-            image-name: cilium-envoy-ubi
+            image-name: cilium-envoy-ubi-ci
             docker-context: enterprise/images/cilium-envoy
             dockerfile: enterprise/images/cilium-envoy/Dockerfile
             # renovate: datasource=docker
@@ -52,7 +52,7 @@ jobs:
             build-from-source: false
 
           - component: HUBBLE_UI_BACKEND
-            image-name: hubble-ui-backend-ubi
+            image-name: hubble-ui-backend-ubi-ci
             docker-context: hubble-ui-backend/backend
             dockerfile: hubble-ui-backend/backend/Dockerfile
             # renovate: datasource=docker
@@ -62,7 +62,7 @@ jobs:
             source-path: hubble-ui-backend
 
           - component: HUBBLE_UI_FRONTEND
-            image-name: hubble-ui-frontend-ubi
+            image-name: hubble-ui-frontend-ubi-ci
             docker-context: hubble-ui-frontend
             dockerfile: hubble-ui-frontend/Dockerfile
             # renovate: datasource=docker
@@ -72,7 +72,7 @@ jobs:
             source-path: hubble-ui-frontend
 
           - component: CILIUM_ETCD_OPERATOR
-            image-name: cilium-etcd-operator-ubi
+            image-name: cilium-etcd-operator-ubi-ci
             docker-context: cilium-etcd-operator
             dockerfile: enterprise/images/cilium-etcd-operator/Dockerfile
             # renovate: datasource=docker

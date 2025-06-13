@@ -63,7 +63,7 @@ jobs:
              echo "No version available for ${{ inputs.component }} in install/kubernetes/Makefile.values. Build skipped."
              echo "rebuild=false" >> $GITHUB_OUTPUT
           # Don't rebuild if the image already exists
-          elif docker manifest inspect quay.io/isovalent/${{ inputs.image-name }}:${version}; then
+          elif docker manifest inspect quay.io/isovalent-dev/${{ inputs.image-name }}:${version}; then
             echo "Image already exist!"
             echo "rebuild=false" >> $GITHUB_OUTPUT
           else
@@ -74,7 +74,6 @@ jobs:
     needs: [ check-changes ]
     if: ${{ needs.check-changes.outputs.rebuild == 'true' }}
     name: Build and push image
-    environment: release
     runs-on: ubuntu-24.04
 
     steps:
@@ -92,8 +91,8 @@ jobs:
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Login to registry.redhat.io for pulling images
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -135,8 +134,12 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
+          # The purpose of the second tag is to ensure that the image can be pulled by digest
+          # even if there is a race condition with another run building and pushing the image with
+          # the same primary tag.
           tags: |
-            quay.io/isovalent/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}
+            quay.io/isovalent-dev/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}
+            quay.io/isovalent-dev/${{ inputs.image-name }}:${{ github.run_id }}
           build-args: |
             BASE_IMAGE=${{ inputs.base-image }}
             UPSTREAM_VERSION=${{ needs.check-changes.outputs.version }}
@@ -149,7 +152,7 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ inputs.image-name }}" > image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
-          echo "\`quay.io/isovalent/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
+          echo "\`quay.io/isovalent-dev/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
 
       - name: Upload artifact digests runtime
