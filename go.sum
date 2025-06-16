@@ -449,6 +449,8 @@ github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2 h1:i2fYnDurfLlJH
 github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6 h1:OV+faAvpYGaoBrm2nEx1MCp5xRHIvlVRKBq3o9nmsrA=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6/go.mod h1:r5ppO5qsH+CLp5hcc5pHvytUlOgcI0vuAwpywt6y/Eg=
+github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59 h1:C6L8ldmTG66ZLR6TwRk2HYi2QBiURXjIE6I37ggCKm8=
+github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59/go.mod h1:OkHYSN678FJjFDRPW2++mmW9qrOuUcuwGse+VFhL4pQ=
 github.com/jeremywohl/flatten v1.0.1 h1:LrsxmB3hfwJuE+ptGOijix1PIfOoKLJ3Uee/mzbgtrs=
 github.com/jeremywohl/flatten v1.0.1/go.mod h1:4AmD/VxjWcI5SRB0n6szE2A6s2fsNHDLO0nAlMHgfLQ=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=

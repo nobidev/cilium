@@ -1097,6 +1097,9 @@ github.com/int128/listener
 # github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2
 ## explicit; go 1.12
 github.com/ishidawataru/sctp
+# github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59
+## explicit; go 1.24
+github.com/isovalent/ipa/system_status/v1alpha
 # github.com/jeremywohl/flatten v1.0.1
 ## explicit
 github.com/jeremywohl/flatten
