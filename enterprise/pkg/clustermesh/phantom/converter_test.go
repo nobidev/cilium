@@ -30,11 +30,14 @@ func TestPhantomServiceConverter(t *testing.T) {
 		name     string
 		svc      slim_corev1.Service
 		expected store.ClusterService
+		deleted  bool
 	}{
 		{
 			name: "Phantom service",
 			svc: slim_corev1.Service{
 				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        "foo",
+					Namespace:   "bar",
 					Annotations: map[string]string{"service.isovalent.com/phantom": "true"},
 				},
 				Spec: slim_corev1.ServiceSpec{
@@ -49,12 +52,16 @@ func TestPhantomServiceConverter(t *testing.T) {
 						Ingress: []slim_corev1.LoadBalancerIngress{
 							{IP: "192.168.0.1"},
 							{IP: "192.168.0.3"},
+							{Hostname: "foo.bar.local"},
 						},
 					},
 				},
 			},
 			expected: store.ClusterService{
-				Shared: true,
+				Name:            "foo",
+				Namespace:       "bar",
+				Shared:          true,
+				IncludeExternal: false,
 				Frontends: map[string]store.PortConfiguration{
 					"192.168.0.1": {
 						"http": &loadbalancer.L4Addr{
@@ -76,13 +83,46 @@ func TestPhantomServiceConverter(t *testing.T) {
 			},
 		},
 		{
+			name: "Headless phantom",
+			svc: slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        "foo",
+					Namespace:   "bar",
+					Annotations: map[string]string{"service.isovalent.com/phantom": "true"},
+				},
+				Spec: slim_corev1.ServiceSpec{
+					ClusterIP: "127.0.0.1",
+					Type:      slim_corev1.ServiceTypeLoadBalancer,
+					Ports: []slim_corev1.ServicePort{
+						{Name: "http", Protocol: slim_corev1.ProtocolTCP, Port: 1234},
+					},
+				},
+				Status: slim_corev1.ServiceStatus{
+					LoadBalancer: slim_corev1.LoadBalancerStatus{
+						Ingress: []slim_corev1.LoadBalancerIngress{},
+					},
+				},
+			},
+			expected: store.ClusterService{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			deleted: true,
+		},
+		{
 			name: "Non-phantom service",
 			svc: slim_corev1.Service{
 				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        "foo",
+					Namespace:   "bar",
 					Annotations: map[string]string{"service.isovalent.com/phantom": "false"},
 				},
 			},
-			expected: store.ClusterService{},
+			expected: store.ClusterService{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			deleted: true,
 		},
 	}
 
@@ -93,8 +133,9 @@ func TestPhantomServiceConverter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, _ := conv.Convert(&tt.svc, getEndpoints)
+			out, toUpsert := conv.Convert(&tt.svc, getEndpoints)
 			require.Equal(t, &tt.expected, out)
+			require.Equal(t, tt.deleted, !toUpsert)
 		})
 	}
 }

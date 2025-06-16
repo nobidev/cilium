@@ -26,7 +26,7 @@ var (
 		common.Cell,
 		clustermesh.Cell,
 
-		// Override service converter to pre-rocess phantom services before
+		// Override service converter to pre-process phantom services before
 		// k8s-to-kvstore synchronization.
 		phantom.Cell,
 	)

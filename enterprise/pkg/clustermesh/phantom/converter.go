@@ -13,6 +13,7 @@ package phantom
 import (
 	"strings"
 
+	enterprise_annotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
@@ -39,30 +40,23 @@ func (c *phantomServiceConverter) Convert(svc *slim_corev1.Service, getEndpoints
 	svc = svc.DeepCopy()
 	svc.Annotations[annotation.SharedService] = "true"
 	svc.Annotations[annotation.GlobalService] = "true"
+
+	// Replace ClusterIPs with the LoadBalancer IPs
+	svc.Spec.ClusterIP = ""
+	svc.Spec.ClusterIPs = make([]string, 0, len(svc.Status.LoadBalancer.Ingress))
+	for _, entry := range svc.Status.LoadBalancer.Ingress {
+		if entry.IP != "" {
+			svc.Spec.ClusterIPs = append(svc.Spec.ClusterIPs, entry.IP)
+		}
+	}
+	if len(svc.Spec.ClusterIPs) > 0 {
+		svc.Spec.ClusterIP = svc.Spec.ClusterIPs[0]
+	} else {
+		return c.orig.ForDeletion(svc), false
+	}
+
 	out, toUpsert = c.orig.Convert(svc, getEndpoints)
-	if !toUpsert {
-		return
-	}
 	out.IncludeExternal = false
-	out.Shared = true
-
-	if len(out.Frontends) > 0 {
-		// All frontends share the same port configuration, so just grab the first one.
-		var portConfig store.PortConfiguration
-		for _, pc := range out.Frontends {
-			portConfig = pc
-			break
-		}
-
-		// In case of phantom services, we configure the LoadBalancerIPs to be the
-		// service frontends, since they must be unique across clusters
-		// (this does not hold true for ClusterIPs in case ServiceCIDRs overlap).
-		clear(out.Frontends)
-		for _, entry := range svc.Status.LoadBalancer.Ingress {
-			out.Frontends[entry.IP] = portConfig
-		}
-	}
-
 	return
 }
 
@@ -79,7 +73,7 @@ func getAnnotationPhantom(svc *slim_corev1.Service) bool {
 		return false
 	}
 
-	if value, ok := annotation.Get(svc, k8s.PhantomServiceKey); ok {
+	if value, ok := annotation.Get(svc, enterprise_annotation.PhantomServiceKey); ok {
 		return strings.ToLower(value) == "true"
 	}
 

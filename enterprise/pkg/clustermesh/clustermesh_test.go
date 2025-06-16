@@ -46,6 +46,7 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: newClusterIDManager(hivetest.Logger(t), cinfo, maps),
 
+		ServiceMerger:         &ceServiceMerger{},
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 
@@ -126,6 +127,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: idsMgr,
 
+		ServiceMerger:         &ceServiceMerger{},
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 

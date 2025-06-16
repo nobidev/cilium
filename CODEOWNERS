@@ -898,7 +898,6 @@ Makefile* @cilium/build
 /enterprise/pkg/mixedrouting/ @isovalent/clustermesh
 /enterprise/pkg/policy/ @isovalent/policy-identity-networking
 /enterprise/pkg/service/healthchecker/ @isovalent/isovalent-loadbalancer
-/enterprise/pkg/service/healthcheckerv2/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/nat/ @isovalent/egress-gateway
 /enterprise/test/srv6/ @isovalent/traffic-engineering
@@ -948,9 +947,6 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
-/pkg/k8s/enterprise_overlapping_podcidr* @isovalent/clustermesh
-/pkg/k8s/enterprise_phantom* @isovalent/clustermesh
-/pkg/k8s/enterprise_service_merger* @isovalent/clustermesh
 /pkg/k8s/synced/enterprise_* @isovalent/sig-k8s
 /pkg/logging/logfields/enterprise_* @isovalent/cilium-agent
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli

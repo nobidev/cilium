@@ -77,6 +77,8 @@ kind: CiliumEnvoyConfig
 metadata:
   name: envoy-lb-listener
   namespace: test
+  labels:
+    foo: bar
 spec:
   services:
     - name: echo
@@ -113,7 +115,9 @@ spec:
       }
     ]
   },
-  "Labels": null,
+  "Labels": {
+    "foo": "bar"
+  },
   "SelectsLocalNode": true,
   "Listeners": [
     {

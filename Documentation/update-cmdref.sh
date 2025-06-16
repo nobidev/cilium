@@ -21,7 +21,6 @@ generators=(
     "bugtool/cilium-bugtool cmdref"
     "cilium-cli/cilium cmdref"
     "cilium-health/cilium-health cmdref"
-    "clustermesh-apiserver/clustermesh-apiserver cmdref"
 )
 
 for g in "${generators[@]}" ; do
