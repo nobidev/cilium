@@ -6,7 +6,6 @@ package clustermesh_test
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log/slog"
 	"maps"
 	"os"
@@ -28,6 +27,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -37,8 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -86,7 +85,7 @@ func TestScript(t *testing.T) {
 		configDir := t.TempDir()
 
 		h := hive.New(
-			client.FakeClientCell,
+			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			lbcell.Cell,
@@ -124,9 +123,6 @@ func TestScript(t *testing.T) {
 				func() clustermesh.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
 				},
-				func() k8s.ServiceCache {
-					return nil
-				},
 				func(log *slog.Logger) nodemanager.NodeManager {
 					return dummyNodeManager{log}
 				},
@@ -136,13 +132,22 @@ func TestScript(t *testing.T) {
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
-			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdsOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
-				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
+				return client, uhive.NewScriptCmds(kvstore.Commands(client))
 			}),
 
-			cell.Invoke(func(client kvstore.BackendOperations) {
+			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {
+				// All clusters share the same underlying client.
+				return func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+					errch := make(chan error)
+					close(errch)
+					return client, errch
+				}
+			}),
+
+			cell.Invoke(func(client kvstore.Client) {
 				clusterConfig := []byte("endpoints:\n- in-memory\n")
 				config1 := path.Join(configDir, "cluster1")
 				require.NoError(t, os.WriteFile(config1, clusterConfig, 0644), "Failed to write config file for cluster1")
@@ -167,7 +172,6 @@ func TestScript(t *testing.T) {
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
-		flags.Set("enable-experimental-lb", "true")
 		flags.Set("clustermesh-config", configDir)
 
 		// Parse the shebang arguments in the script.
@@ -241,16 +245,6 @@ func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
 	panic("unimplemented")
 }
 
-// StartNeighborRefresh implements manager.NodeManager.
-func (d dummyNodeManager) StartNeighborRefresh(nh types.NodeNeighbors) {
-	panic("unimplemented")
-}
-
-// StartNodeNeighborLinkUpdater implements manager.NodeManager.
-func (d dummyNodeManager) StartNodeNeighborLinkUpdater(nh types.NodeNeighbors) {
-	panic("unimplemented")
-}
-
 // Subscribe implements manager.NodeManager.
 func (d dummyNodeManager) Subscribe(types.NodeHandler) {
 	panic("unimplemented")
@@ -280,73 +274,3 @@ func (d dummyRemoteIdentityWatcher) WatchRemoteIdentities(remoteName string, rem
 }
 
 var _ clustermesh.RemoteIdentityWatcher = dummyRemoteIdentityWatcher{}
-
-type kvstoreCommands struct {
-	client kvstore.BackendOperations
-}
-
-func (e kvstoreCommands) cmds() map[string]script.Cmd {
-	return map[string]script.Cmd{
-		"kvstore/update": e.update(),
-		"kvstore/delete": e.delete(),
-		"kvstore/list":   e.list(),
-	}
-}
-
-func (e kvstoreCommands) update() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "update kvstore key-value",
-			Args:    "key value-file",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 2 {
-				return nil, fmt.Errorf("%w: expected key and value file", script.ErrUsage)
-			}
-			b, err := os.ReadFile(s.Path(args[1]))
-			if err != nil {
-				return nil, err
-			}
-
-			return nil, e.client.Update(s.Context(), args[0], b, false)
-		},
-	)
-}
-
-func (e kvstoreCommands) delete() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "delete kvstore key-value",
-			Args:    "key",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 1 {
-				return nil, fmt.Errorf("%w: expected key", script.ErrUsage)
-			}
-			return nil, e.client.Delete(s.Context(), args[0])
-		},
-	)
-}
-
-func (e kvstoreCommands) list() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "list kvstore key-value pairs",
-			Args:    "(prefix)",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			prefix := ""
-			if len(args) > 0 {
-				prefix = args[0]
-			}
-			kvs, err := e.client.ListPrefix(s.Context(), prefix)
-			if err != nil {
-				return nil, err
-			}
-			for k, v := range kvs {
-				s.Logf("%s: %s\n", k, v.Data)
-			}
-			return nil, nil
-		},
-	)
-}

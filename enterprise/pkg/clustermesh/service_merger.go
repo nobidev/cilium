@@ -18,11 +18,9 @@ import (
 	cm "github.com/cilium/cilium/pkg/clustermesh"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -35,14 +33,8 @@ type ceServiceMerger struct {
 	writer *writer.Writer
 }
 
-func injectCEServiceMerger(log *slog.Logger, sc k8s.ServiceCache, clustermesh *cm.ClusterMesh, lbcfg loadbalancer.Config, cmcfg cmcfg.Config, writer *writer.Writer) {
+func injectCEServiceMerger(log *slog.Logger, clustermesh *cm.ClusterMesh, lbcfg loadbalancer.Config, cmcfg cmcfg.Config, writer *writer.Writer) {
 	if clustermesh == nil {
-		return
-	}
-
-	if !lbcfg.EnableExperimentalLB {
-		sm := k8s.NewCEServiceMerger(log, sc, cmcfg)
-		cm.InjectCEServiceMerger(clustermesh, sm)
 		return
 	}
 
@@ -55,7 +47,7 @@ func injectCEServiceMerger(log *slog.Logger, sc k8s.ServiceCache, clustermesh *c
 }
 
 // MergeExternalServiceUpdate merges the update of a cluster service.
-func (sm *ceServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *ceServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService) {
 	if sm.cmcfg.EnableClusterAwareAddressing {
 		service = annotateBackendsWithID(*service)
 	}
@@ -113,7 +105,7 @@ func (sm *ceServiceMerger) MergeExternalServiceUpdate(service *serviceStore.Clus
 }
 
 // MergeExternalServiceDelete merges the deletion of a cluster service.
-func (sm *ceServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sm *ceServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
 

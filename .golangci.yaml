@@ -153,6 +153,9 @@ linters:
       - linters:
           - goheader
         path: "enterprise((/|_).+)?\\.go$"
+      - linters:
+          - exhaustruct
+        path: .*_test\.go
     paths:
       - third_party$
       - builtin$

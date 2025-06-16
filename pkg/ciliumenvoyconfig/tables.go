@@ -30,6 +30,7 @@ type CEC struct {
 	Name k8sTypes.NamespacedName
 	Spec *ciliumv2.CiliumEnvoyConfigSpec
 
+	Labels           map[string]string
 	Selector         labels.Selector `json:"-" yaml:"-"`
 	SelectsLocalNode bool
 	Listeners        part.Map[string, uint16]

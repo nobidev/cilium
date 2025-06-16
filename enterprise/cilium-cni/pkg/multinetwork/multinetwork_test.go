@@ -18,12 +18,13 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/api/v1/models"
 	enterpriseModels "github.com/cilium/cilium/enterprise/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/plugins/cilium-cni/cmd"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -31,8 +32,9 @@ import (
 const subsys = "subsys"
 
 func Test_DefaultNetwork(t *testing.T) {
+	log := hivetest.Logger(t)
 	cniParams := cmd.ConfigurationParams{
-		Log:  logging.DefaultSlogLogger.With(subsys, "multinetwork-cni-test"),
+		Log:  log.With(subsys, "multinetwork-cni-test"),
 		Conf: &models.DaemonConfigurationStatus{},
 		Args: &skel.CmdArgs{
 			ContainerID: "container1234",
@@ -120,8 +122,9 @@ func mustParseIP(s string) *net.IP {
 }
 
 func Test_ThreeAttachments(t *testing.T) {
+	log := hivetest.Logger(t)
 	cniParams := cmd.ConfigurationParams{
-		Log: logging.DefaultSlogLogger.With(subsys, "multinetwork-cni-test"),
+		Log: log.With(subsys, "multinetwork-cni-test"),
 		Conf: &models.DaemonConfigurationStatus{
 			RouteMTU: 1456,
 		},

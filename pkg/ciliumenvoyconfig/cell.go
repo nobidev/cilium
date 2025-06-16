@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -21,6 +22,7 @@ var (
 		"CiliumEnvoyConfig handling",
 
 		cell.Config(CECConfig{}),
+		cell.Config(types.CECPolicyConfig{}),
 
 		// Bridge the external dependencies to the internal APIs. In tests
 		// mocks are used for these.
@@ -41,7 +43,7 @@ var (
 	controllerCells = cell.Group(
 		cell.Invoke(
 			registerCECController,
-			registerCachesSyncedJob,
+			registerRegenerationWait,
 		),
 		metrics.Metric(newMetrics),
 	)
@@ -49,10 +51,12 @@ var (
 	tableCells = cell.Group(
 		cell.ProvidePrivate(
 			NewCECTable,
-			statedb.RWTable[*CEC].ToTable,
 			NewEnvoyResourcesTable,
 			newNodeLabels,
 			cecListerWatchers,
+		),
+		cell.Provide(
+			statedb.RWTable[*CEC].ToTable,
 		),
 		cell.Invoke(
 			registerCECK8sReflector,

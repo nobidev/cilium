@@ -21,17 +21,18 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	isovalent_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -63,10 +64,6 @@ type PolicyManager interface {
 	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
-type serviceCache interface {
-	ForEachService(func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool)
-}
-
 type ipc interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
@@ -84,7 +81,10 @@ type PolicyWatcherParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	ServiceCache   k8s.ServiceCache
+	DB       *statedb.DB
+	Services statedb.Table[*loadbalancer.Service]
+	Backends statedb.Table[*loadbalancer.Backend]
+
 	IPCache        *ipcache.IPCache
 	PolicyImporter policycell.PolicyImporter
 
@@ -111,7 +111,9 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		policyImporter:                      params.PolicyImporter,
 		k8sResourceSynced:                   params.K8sResourceSynced,
 		k8sAPIGroups:                        params.K8sAPIGroups,
-		svcCache:                            params.ServiceCache,
+		db:                                  params.DB,
+		services:                            params.Services,
+		backends:                            params.Backends,
 		ipCache:                             params.IPCache,
 		isovalentNetworkPolicies:            params.IsovalentNetworkPolicies,
 		isovalentClusterwideNetworkPolicies: params.IsovalentClusterwideNetworkPolicies,
@@ -119,12 +121,12 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		inpCache: make(map[resource.Key]*types.SlimINP),
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
-		inpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		inpByServiceID:     make(map[loadbalancer.ServiceName]map[resource.Key]struct{}),
 	}
 
 	// Service notifications are not used if CNPs/CCNPs are disabled.
 	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
-		p.svcCacheNotifications = serviceNotificationsQueue(ctx, params.ServiceCache.Notifications())
+		p.serviceEvents = serviceEventStream(params.DB, params.Services, params.Backends)
 	}
 
 	params.Lifecycle.Append(cell.Hook{

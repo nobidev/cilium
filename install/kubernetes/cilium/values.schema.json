@@ -5346,9 +5346,6 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "refreshPeriod": {
-          "type": "string"
         }
       },
       "type": "object"
@@ -5393,9 +5390,6 @@
       "properties": {
         "acceleration": {
           "type": "string"
-        },
-        "experimental": {
-          "type": "boolean"
         },
         "l7": {
           "properties": {

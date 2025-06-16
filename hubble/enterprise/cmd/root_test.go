@@ -16,6 +16,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/hubble/cmd/observe"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 //go:embed aggregation_flags.txt
@@ -28,7 +29,8 @@ func init() {
 	// Override the client so that it always returns an IOReaderObserver with no flows.
 	observe.GetHubbleClientFunc = func(_ context.Context, _ *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 		cleanup = func() error { return nil }
-		return observe.NewIOReaderObserver(new(bytes.Buffer)), cleanup, nil
+		// slogloggercheck: cannot use hivetest.Logger from init()
+		return observe.NewIOReaderObserver(logging.DefaultSlogLogger, new(bytes.Buffer)), cleanup, nil
 	}
 }
 

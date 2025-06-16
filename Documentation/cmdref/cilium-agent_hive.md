@@ -80,6 +80,7 @@ cilium-agent hive [flags]
       --enable-ipv6-big-tcp                                            Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-l2-neigh-discovery                                      Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
       --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP
       --enable-monitor                                                 Enable the monitor unix domain socket server (default true)
       --enable-multi-network                                           Enable support for multiple pod networks
@@ -95,8 +96,6 @@ cilium-agent hive [flags]
       --endpoint-regen-interval duration                               Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --envoy-access-log-buffer-size uint                              Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                             Envoy base ID
-      --envoy-config-policy-mode string                                Enable a dedicated identity for each CiliumEnvoyConfig instead of using the global reserved:ingress identity (default "global")
-      --envoy-config-policy-regen-interval duration                    Ingress Policy Regeneration Interval (default 30s)
       --envoy-config-retry-interval duration                           Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                                  Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)
       --envoy-default-log-level string                                 Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.
@@ -181,6 +180,8 @@ cilium-agent hive [flags]
       --hubble-tls-cert-file string                                    Path to the public key file for the Hubble server. The file must contain PEM encoded data.
       --hubble-tls-client-ca-files strings                             Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --hubble-tls-key-file string                                     Path to the private key file for the Hubble server. The file must contain PEM encoded data.
+      --identity-allocation-sync-interval duration                     Periodic synchronization interval of the allocated identities (default 5m0s)
+      --identity-allocation-timeout duration                           Timeout for identity allocation operations (default 2m0s)
       --identity-management-mode string                                Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ignore-flags-drift-checker strings                             Ignores specified flags during drift checking
       --ingress-secrets-namespace string                               IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
@@ -195,6 +196,10 @@ cilium-agent hive [flags]
       --k8s-kubeconfig-path string                                     Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                                  Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kube-proxy-replacement-healthz-bind-address string             The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
+      --kvstore string                                                 Key-value store type
+      --kvstore-lease-ttl duration                                     Time-to-live for the KVstore lease. (default 15m0s)
+      --kvstore-max-consecutive-quorum-errors uint                     Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
+      --kvstore-opt stringToString                                     Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous arp messages
       --lb-state-file string                                           Synchronize load-balancing state from the specified file
       --loadbalancer-envoy-health-state-sync-enabled                   Enables LB health state sync between K8s node and the node-local Envoy proxy

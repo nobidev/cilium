@@ -16,9 +16,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig/types"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -41,14 +43,20 @@ type reconcilerParams struct {
 	JobGroup  job.Group
 	Health    cell.Health
 
-	Config       types.CECPolicyConfig
-	CECResources resource.Resource[*ciliumv2.CiliumEnvoyConfig]
+	Config            types.CECPolicyConfig
+	DB                *statedb.DB
+	CECs              statedb.Table[*ciliumenvoyconfig.CEC]
+	RegenerationFence regeneration.Fence
 
 	IngressPolicyManager Updater
 }
 
 type cecReconciler struct {
 	logger *slog.Logger
+	db     *statedb.DB
+	cecs   statedb.Table[*ciliumenvoyconfig.CEC]
+
+	initDone chan struct{}
 
 	ingressPolicyManager Updater
 }
@@ -59,37 +67,87 @@ func registerCECK8sReconciler(params reconcilerParams) {
 		return
 	}
 
-	reconciler := newCECReconciler(params)
+	initDone := make(chan struct{})
 
-	params.JobGroup.Add(job.Observer("cec-resource-events", reconciler.handleCECEvent, params.CECResources))
-}
+	params.RegenerationFence.Add("ingresspolicy", func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-initDone:
+			return nil
+		}
+	})
 
-func newCECReconciler(params reconcilerParams) *cecReconciler {
-	return &cecReconciler{
+	reconciler := &cecReconciler{
 		logger:               params.Logger,
 		ingressPolicyManager: params.IngressPolicyManager,
+		initDone:             initDone,
+		db:                   params.DB,
+		cecs:                 params.CECs,
 	}
+
+	params.JobGroup.Add(job.OneShot(
+		"process-cecs",
+		reconciler.process,
+	))
 }
 
-func (r *cecReconciler) handleCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumEnvoyConfig]) error {
-	scopedLogger := r.logger.With(
-		logfields.K8sNamespace, event.Key.Namespace,
-		logfields.CiliumEnvoyConfigName, event.Key.Name,
-	)
-
-	var err error
-
-	switch event.Kind {
-	case resource.Sync:
-		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
-	case resource.Upsert:
-		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
-		err = r.ingressPolicyManager.EnsureIngressPolicy(ctx, resource.NewKey(event.Object), event.Object.Labels)
-	case resource.Delete:
-		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
-		err = r.ingressPolicyManager.DeleteIngressPolicy(ctx, resource.NewKey(event.Object), event.Object.Labels)
+func (r *cecReconciler) process(ctx context.Context, health cell.Health) error {
+	wtxn := r.db.WriteTxn(r.cecs)
+	changeIter, err := r.cecs.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return err
 	}
 
-	event.Done(err)
-	return err
+	for {
+		txn := r.db.ReadTxn()
+		changes, watch := changeIter.Next(txn)
+		for change := range changes {
+			cec := change.Object
+			if cec.Name.Namespace == "" {
+				// Ignore clusterwide configurations.
+				continue
+			}
+
+			key := resource.Key{
+				Name:      cec.Name.Name,
+				Namespace: cec.Name.Namespace,
+			}
+
+			scopedLogger := r.logger.With(
+				logfields.K8sNamespace, cec.Name.Namespace,
+				logfields.CiliumEnvoyConfigName, cec.Name.Name,
+			)
+
+			var err error
+			if !change.Deleted {
+				scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
+				err = r.ingressPolicyManager.EnsureIngressPolicy(ctx, key, cec.Labels)
+			} else {
+				scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
+				err = r.ingressPolicyManager.DeleteIngressPolicy(ctx, key, cec.Labels)
+			}
+			if err != nil {
+				scopedLogger.Error("Failed to update ingress policies on CiliumEnvoyConfig change",
+					logfields.Error, err,
+				)
+			}
+		}
+
+		if r.initDone != nil {
+			if ok, _ := r.cecs.Initialized(txn); ok {
+				// All initial CECs processed, unblock endpoint restoration.
+				close(r.initDone)
+				r.initDone = nil
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+
+		}
+	}
 }

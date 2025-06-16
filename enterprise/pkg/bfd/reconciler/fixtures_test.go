@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -67,7 +67,7 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 		}),
 
 		cell.Provide(
-			k8sclient.NewFakeClientset,
+			k8sfake.NewFakeClientset,
 		),
 
 		cell.Provide(func() *node.LocalNodeStore {
@@ -100,7 +100,7 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 			f.neighborTable = table
 		}),
 
-		cell.Invoke(func(clientset *k8sclient.FakeClientset) {
+		cell.Invoke(func(clientset *k8sfake.FakeClientset) {
 			f.ncClient = clientset.IsovalentV1alpha1().IsovalentBFDNodeConfigs()
 			f.profileClient = clientset.IsovalentV1alpha1().IsovalentBFDProfiles()
 

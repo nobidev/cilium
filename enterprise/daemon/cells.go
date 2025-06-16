@@ -38,7 +38,6 @@ import (
 	policyK8s "github.com/cilium/cilium/enterprise/pkg/policy/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/service/healthchecker"
-	"github.com/cilium/cilium/enterprise/pkg/service/healthcheckerv2"
 	srv6dataplane "github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
@@ -94,8 +93,6 @@ var (
 		fqdnha.Cell,
 
 		healthchecker.Cell,
-
-		healthcheckerv2.Cell,
 
 		// stats cell adds CE specific metrics, such as the top-k nat stats metric
 		// that depends on the OSS maps/nat/stats.Cell.

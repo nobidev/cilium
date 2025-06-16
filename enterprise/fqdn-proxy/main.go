@@ -71,6 +71,7 @@ const (
 	metricsNamespace = "isovalent"
 )
 
+// slogloggercheck: root logger for fqdn-proxy
 var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
 
 var (
@@ -265,7 +266,7 @@ func main() {
 	log.Info("Started gops server ", logfields.Address, addr)
 
 	if *enablePprof {
-		pprof.Enable(logging.DefaultSlogLogger, *pprofAddress, *pprofPort)
+		pprof.Enable(log, *pprofAddress, *pprofPort)
 	}
 
 	cache = NewCache()
@@ -284,7 +285,7 @@ func main() {
 
 	go manageDNSNotificationQueue()
 	log.Info("starting cilium dns proxy server")
-	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, *FQDNRegexCompileLRUSize); err != nil {
+	if err := re.InitRegexCompileLRU(log, *FQDNRegexCompileLRUSize); err != nil {
 		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{

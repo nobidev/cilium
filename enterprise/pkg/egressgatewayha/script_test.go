@@ -29,7 +29,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -48,7 +48,7 @@ func TestOperatorScripts(t *testing.T) {
 			h := hive.New(
 				OperatorCell,
 				PolicyCell,
-				client.FakeClientCell,
+				k8sFake.FakeClientCell(),
 				operatorK8s.ResourcesCell,
 				cell.Provide(func() healthcheck.Healthchecker {
 					return &mockHealthChecker{}

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -47,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
@@ -67,7 +65,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -75,9 +72,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
-	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -194,12 +189,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(vp, option.AnnotateK8sNode)
-
-	flags.Duration(option.ARPPingRefreshPeriod, defaults.ARPBaseReachableTime, "Period for remote node ARP entry refresh (set 0 to disable)")
-	option.BindEnv(vp, option.ARPPingRefreshPeriod)
-
-	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
-	option.BindEnv(vp, option.EnableL2NeighDiscovery)
 
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(vp, option.AutoCreateCiliumNodeResource)
@@ -436,6 +425,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
 	option.BindEnv(vp, option.IdentityChangeGracePeriod)
 
+	flags.Duration(option.CiliumIdentityMaxJitter, defaults.CiliumIdentityMaxJitter, "Maximum jitter time to begin processing CiliumIdentity updates")
+	option.BindEnv(vp, option.CiliumIdentityMaxJitter)
+
 	flags.Duration(option.IdentityRestoreGracePeriod, defaults.IdentityRestoreGracePeriodK8s, "Time to wait before releasing unused restored CIDR identities during agent restart")
 	option.BindEnv(vp, option.IdentityRestoreGracePeriod)
 
@@ -472,31 +464,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
 	option.BindEnv(vp, option.K8sRequireIPv6PodCIDRName)
 
-	flags.Uint(option.K8sServiceCacheSize, defaults.K8sServiceCacheSize, "Cilium service cache size for kubernetes")
-	option.BindEnv(vp, option.K8sServiceCacheSize)
-	flags.MarkHidden(option.K8sServiceCacheSize)
-
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
 	option.BindEnv(vp, option.KeepConfig)
-
-	flags.String(option.KVStore, "", "Key-value store type")
-	option.BindEnv(vp, option.KVStore)
-
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	option.BindEnv(vp, option.KVstoreLeaseTTL)
-
-	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure")
-	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
-
-	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
-	option.BindEnv(vp, option.KVstorePeriodicSync)
-
-	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
-	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
-
-	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(vp, option.KVStoreOpt)
 
 	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout after last K8s event for synchronizing k8s resources before exiting")
 	flags.MarkHidden(option.K8sSyncTimeoutName)
@@ -638,7 +607,11 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.EnableIPMasqAgent)
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
+	flags.MarkDeprecated(option.EnableIPv4EgressGateway, "Use --enable-egress-gateway instead")
 	option.BindEnv(vp, option.EnableIPv4EgressGateway)
+
+	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway")
+	option.BindEnv(vp, option.EnableEgressGateway)
 
 	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
 	option.BindEnv(vp, option.EnableEnvoyConfig)
@@ -860,6 +833,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
+	flags.MarkDeprecated(option.EgressMultiHomeIPRuleCompat, "The feature will be removed in v1.19")
 	option.BindEnv(vp, option.EgressMultiHomeIPRuleCompat)
 
 	flags.Bool(option.InstallUplinkRoutesForDelegatedIPAM, false,
@@ -1021,10 +995,11 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 		ctmap.SizeofCtKey6Global+ctmap.SizeofCtEntry,
 		nat.SizeofNatKey6+nat.SizeofNatEntry6,
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
-		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
+		lbmaps.SizeofSockRevNat6Key+lbmaps.SizeofSockRevNat6Value)
 
 	option.Config.SetupLogging(vp, "cilium-agent")
 
+	// slogloggercheck: using default logger for configuration initialization
 	option.Config.Populate(logging.DefaultSlogLogger, vp)
 
 	// add hooks after setting up metrics in the option.Config
@@ -1074,7 +1049,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	logger.Info(fmt.Sprintf("Cilium %s", version.Version))
 
 	if option.Config.LogSystemLoadConfig {
-		loadinfo.StartBackgroundLogger(logging.DefaultSlogLogger)
+		loadinfo.StartBackgroundLogger(logger)
 	}
 
 	if option.Config.PreAllocateMaps {
@@ -1190,8 +1165,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	bpf.CheckOrMountFS(logging.DefaultSlogLogger, option.Config.BPFRoot)
-	cgroups.CheckOrMountCgrpFS(logging.DefaultSlogLogger, option.Config.CGroupRoot)
+	bpf.CheckOrMountFS(logger, option.Config.BPFRoot)
+	cgroups.CheckOrMountCgrpFS(logger, option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
@@ -1222,7 +1197,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		logging.Fatal(logger, "Either IPv4 or IPv6 addressing must be enabled")
 	}
-	if err := labelsfilter.ParseLabelPrefixCfg(logging.DefaultSlogLogger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+	if err := labelsfilter.ParseLabelPrefixCfg(logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
 		logging.Fatal(logger, "Unable to parse Label prefix configuration", logfields.Error, err)
 	}
 
@@ -1339,7 +1314,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.IPAM == ipamOption.IPAMAzure {
 		option.Config.EgressMultiHomeIPRuleCompat = true
-		logger.Info(
+		logger.Debug(
 			fmt.Sprintf("Auto-set %q to `true` because the Azure datapath has not been migrated over to a new scheme. "+
 				"A future version of Cilium will support a newer Azure datapath. "+
 				"Connectivity is not affected.",
@@ -1398,47 +1373,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 }
 
-func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
-	goopts := &kvstore.ExtraOptions{
-		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
-	}
-
-	cg := controller.NewGroup("kvstore-locks-gc")
-	controller.NewManager().UpdateController("kvstore-locks-gc",
-		controller.ControllerParams{
-			Group: cg,
-			DoFunc: func(ctx context.Context) error {
-				kvstore.RunLockGC(logging.DefaultSlogLogger)
-				return nil
-			},
-			RunInterval: defaults.KVStoreStaleLockTimeout,
-			Context:     d.ctx,
-		},
-	)
-
-	// If K8s is enabled we can do the service translation automagically by
-	// looking at services from k8s and retrieve the service IP from that.
-	// This makes cilium to not depend on kube dns to interact with etcd
-	if d.clientset.IsEnabled() {
-		log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
-		goopts.DialOption = []grpc.DialOption{
-			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
-		}
-	}
-
-	if err := kvstore.Setup(context.TODO(), logging.DefaultSlogLogger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
-		addr := option.Config.KVStoreOpt[addrkey]
-
-		logging.Fatal(d.logger,
-			"Unable to setup kvstore",
-			logfields.Error, err,
-			logfields.KVStore, option.Config.KVStore,
-			logfields.Address, addr,
-		)
-	}
-}
-
 // daemonCell wraps the existing implementation of the cilium-agent that has
 // not yet been converted into a cell. Provides *Daemon as a Promise that is
 // resolved once daemon has been started to facilitate conversion into modules.
@@ -1466,18 +1400,17 @@ type daemonParams struct {
 	Health              cell.Health
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
+	KVStoreClient       kvstore.Client
 	WGAgent             *wireguard.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner
 	Resources           agentK8s.Resources
 	K8sWatcher          *watchers.K8sWatcher
-	K8sSvcCache         k8s.ServiceCache
 	CacheStatus         k8sSynced.CacheStatus
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeManager         nodeManager.NodeManager
 	NodeHandler         datapath.NodeHandler
-	NodeNeighbors       datapath.NodeNeighbors
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
@@ -1493,7 +1426,6 @@ type daemonParams struct {
 	CiliumHealth        health.CiliumHealthManager
 	ClusterMesh         *clustermesh.ClusterMesh
 	MonitorAgent        monitorAgent.Agent
-	ServiceManager      service.ServiceManager
 	DB                  *statedb.DB
 	Namespaces          statedb.Table[agentK8s.Namespace]
 	Routes              statedb.Table[*datapathTables.Route]
@@ -1504,8 +1436,7 @@ type daemonParams struct {
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
 	CTNATMapGC          ctmap.GCRunner
-	IPIdentityWatcher   *ipcache.IPIdentityWatcher
-	IPIdentitySyncer    *ipcache.IPIdentitySynchronizer
+	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
 	EndpointRegenerator *endpoint.Regenerator
 	ClusterInfo         cmtypes.ClusterInfo
 	TunnelConfig        tunnel.Config
@@ -1515,11 +1446,9 @@ type daemonParams struct {
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	ServiceResolver     *dial.ServiceResolver
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
-	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
@@ -1656,10 +1585,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// we have discovered all remote IP addresses, to prevent triggering
 			// the collection of stale AllowedIPs entries too early, leading to
 			// the disruption of otherwise valid long running connections.
-			if option.Config.KVStore != "" {
-				if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
-					return
-				}
+			if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
+				return
 			}
 
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
@@ -1695,7 +1622,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		ipmasqAgent, err := ipmasq.NewIPMasqAgent(logging.DefaultSlogLogger, d.metricsRegistry, option.Config.IPMasqAgentConfigPath)
+		ipmasqAgent, err := ipmasq.NewIPMasqAgent(d.logger, d.metricsRegistry, option.Config.IPMasqAgentConfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}
@@ -1712,7 +1639,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 
 		ms := maps.NewMapSweeper(
-			logging.DefaultSlogLogger,
+			d.logger,
 			&EndpointMapManager{
 				logger:          d.logger,
 				EndpointManager: d.endpointManager,
@@ -1733,7 +1660,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		migrated, failed := linuxrouting.NewMigrator(
-			logging.DefaultSlogLogger,
+			d.logger,
 			&eni.InterfaceDB{Clientset: params.Clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
@@ -1766,22 +1693,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 		d.logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
-	}
-
-	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(params.NodeNeighbors)
-
-	if !params.NodeNeighbors.NodeNeighDiscoveryEnabled() {
-		// Remove all non-GC'ed neighbor entries that might have previously set
-		// by a Cilium instance.
-		params.NodeNeighbors.NodeCleanNeighbors(false)
-	} else {
-		// If we came from an agent upgrade, migrate entries.
-		params.NodeNeighbors.NodeCleanNeighbors(true)
-		// Start periodical refresh of the neighbor table from the agent if needed.
-		if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-			d.nodeDiscovery.Manager.StartNeighborRefresh(params.NodeNeighbors)
-		}
 	}
 
 	d.logger.Info(

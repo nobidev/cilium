@@ -11,11 +11,9 @@
 package k8s
 
 import (
-	"net"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/clustermesh/store"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
@@ -31,27 +29,6 @@ const (
 	PhantomServiceKey = CEServicePrefix + "/phantom"
 )
 
-// PhantomServiceMutator mutates the svcInfo in order to make the service
-// reachable in remote clusters, if it is marked to be of type phantom.
-func PhantomServiceMutator(svc *slim_corev1.Service, svcInfo *Service) {
-	if !getAnnotationPhantom(svc) {
-		return
-	}
-
-	svcInfo.IncludeExternal = false
-	svcInfo.Shared = true
-
-	// In case of phantom services, we configure the LoadBalancerIPs to be the
-	// service frontends, since they must be unique across clusters
-	// (this does not hold true for ClusterIPs in case ServiceCIDRs overlap).
-	svcInfo.FrontendIPs = make([]net.IP, 0)
-	for _, entry := range svc.Status.LoadBalancer.Ingress {
-		if ip := net.ParseIP(entry.IP); ip != nil {
-			svcInfo.FrontendIPs = append(svcInfo.FrontendIPs, ip)
-		}
-	}
-}
-
 func getAnnotationPhantom(svc *slim_corev1.Service) bool {
 	// Cannot be a phantom service if it's already declared as global, or it is not of type LB.
 	if annotation.GetAnnotationIncludeExternal(svc) || svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
@@ -63,8 +40,4 @@ func getAnnotationPhantom(svc *slim_corev1.Service) bool {
 	}
 
 	return false
-}
-
-func isPhantomService(s *store.ClusterService) bool {
-	return !s.IncludeExternal && s.Shared
 }

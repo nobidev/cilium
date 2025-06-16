@@ -90,6 +90,7 @@ runs:
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --helm-set=enterprise.featureGate.strict=false \
             --helm-set='enterprise.featureGate.minimumMaturity=Alpha' \
+            --helm-set=l2NeighDiscovery.enabled=true \
             --set='${{ inputs.misc }}'"
 
           if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then

@@ -41,6 +41,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slimMetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
@@ -316,7 +317,7 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 				},
 				NewSRv6Manager,
 				node.NewLocalNodeStore,
-				client.NewFakeClientset,
+				k8sfake.NewFakeClientset,
 				newIsovalentVRFResource,
 				signaler.NewBGPCPSignaler,
 				k8s.CiliumSlimEndpointResource,
@@ -331,7 +332,7 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 
 			// This is a workaround for https://github.com/cilium/cilium/pull/31010. We should
 			// have the same issue here. Notice that we need to do it per resource.
-			func(fcs *client.FakeClientset) {
+			func(fcs *k8sfake.FakeClientset) {
 				requiredResources := map[string]chan struct{}{
 					"isovalentsrv6egresspolicies": make(chan struct{}),
 					"ciliumendpoints":             make(chan struct{}),

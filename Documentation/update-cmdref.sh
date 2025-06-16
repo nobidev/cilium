@@ -11,14 +11,16 @@ cmdref_dir="${script_dir}/cmdref"
 generators=(
     "enterprise/cilium-dbg/cilium-dbg cmdref"
     "enterprise/daemon/cilium-agent cmdref"
-    "bugtool/cilium-bugtool cmdref"
-    "cilium-health/cilium-health cmdref"
-    "clustermesh-apiserver/clustermesh-apiserver cmdref"
     "enterprise/operator/cilium-operator cmdref"
     "enterprise/operator/cilium-operator-aws cmdref"
     "enterprise/operator/cilium-operator-azure cmdref"
     "enterprise/operator/cilium-operator-generic cmdref"
     "enterprise/operator/cilium-operator-alibabacloud cmdref"
+
+    "bugtool/cilium-bugtool cmdref"
+    "cilium-cli/cilium cmdref"
+    "cilium-health/cilium-health cmdref"
+    "clustermesh-apiserver/clustermesh-apiserver cmdref"
 )
 
 for g in "${generators[@]}" ; do

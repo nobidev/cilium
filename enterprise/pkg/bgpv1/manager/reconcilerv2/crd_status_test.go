@@ -31,6 +31,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	k8s_fake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -45,14 +46,14 @@ type crdStatusFixture struct {
 	reconciler      *StatusReconciler
 	db              *statedb.DB
 	reconcileErrTbl statedb.RWTable[*tables.BGPReconcileError]
-	fakeClientSet   *k8s_client.FakeClientset
+	fakeClientSet   *k8s_fake.FakeClientset
 	bgpnClient      clientv1.IsovalentBGPNodeConfigInterface
 	bgpncMockStore  *store.MockBGPCPResourceStore[*v1.IsovalentBGPNodeConfig]
 }
 
 func newCRDStatusFixture(l *slog.Logger) *crdStatusFixture {
 	f := &crdStatusFixture{}
-	f.fakeClientSet, _ = k8s_client.NewFakeClientset(l)
+	f.fakeClientSet, _ = k8s_fake.NewFakeClientset(l)
 	f.bgpnClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPNodeConfigs()
 
 	f.hive = hive.New(cell.Module("test", "test",
@@ -318,7 +319,7 @@ func TestDisableStatusReport(t *testing.T) {
 					StatusReportEnabled: false,
 				}
 			},
-			k8s_client.NewFakeClientset,
+			k8s_fake.NewFakeClientset,
 		),
 		cell.Provide(func() *node.LocalNodeStore {
 			return node.NewTestLocalNodeStore(node.LocalNode{

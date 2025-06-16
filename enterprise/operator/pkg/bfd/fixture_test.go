@@ -27,6 +27,7 @@ import (
 	client_ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	client_isovalentv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	client_isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/time"
@@ -38,7 +39,7 @@ var (
 
 type fixture struct {
 	hive          *hive.Hive
-	fakeClientSet *k8sclient.FakeClientset
+	fakeClientSet *k8sfake.FakeClientset
 
 	ciliumNodeClient            client_ciliumv2.CiliumNodeInterface
 	bgpClusterConfigClient      client_isovalentv1.IsovalentBGPClusterConfigInterface
@@ -49,7 +50,7 @@ type fixture struct {
 
 func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fixture {
 	f := &fixture{}
-	f.fakeClientSet, _ = k8sclient.NewFakeClientset(hivetest.Logger(t))
+	f.fakeClientSet, _ = k8sfake.NewFakeClientset(hivetest.Logger(t))
 
 	f.ciliumNodeClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumNodes()
 	f.bgpClusterConfigClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1().IsovalentBGPClusterConfigs()

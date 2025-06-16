@@ -35,7 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
@@ -43,7 +44,7 @@ import (
 func TestReconcileParamsUpgrader(t *testing.T) {
 	var (
 		up paramUpgrader
-		cs client.Clientset
+		cs k8sclient.Clientset
 	)
 
 	ossNode := &v2.CiliumBGPNodeConfig{
@@ -101,7 +102,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		job.Cell,
 		cell.Provide(
 			newReconcileParamsUpgrader,
-			client.NewFakeClientset,
+			k8sfake.NewFakeClientset,
 			k8s.CiliumBGPNodeConfigResource,
 			k8s.IsovalentBGPNodeConfigResource,
 			signaler.NewBGPCPSignaler,
@@ -121,7 +122,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			},
 		),
 
-		cell.Provide(func(lc cell.Lifecycle, c client.Clientset) daemon_k8s.LocalCiliumNodeResource {
+		cell.Provide(func(lc cell.Lifecycle, c k8sclient.Clientset) daemon_k8s.LocalCiliumNodeResource {
 			return resource.New[*v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
@@ -129,7 +130,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			)
 		}),
 
-		cell.Invoke(func(u paramUpgrader, c client.Clientset, j job.Group) {
+		cell.Invoke(func(u paramUpgrader, c k8sclient.Clientset, j job.Group) {
 			up = u
 			cs = c
 		}),

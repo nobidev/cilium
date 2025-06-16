@@ -35,6 +35,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
@@ -57,7 +58,7 @@ type fixture struct {
 	req              *require.Assertions
 	hive             *hive.Hive
 	manager          *MulticastManager
-	fakeClientSet    *k8sClient.FakeClientset
+	fakeClientSet    *k8sFake.FakeClientset
 	mcastGroupClient isovalent_client_v1alpha1.IsovalentMulticastGroupInterface
 	mcastNodeClient  isovalent_client_v1alpha1.IsovalentMulticastNodeInterface
 	endpointClient   client_v2.CiliumEndpointInterface
@@ -85,7 +86,7 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, init
 		}
 	}
 
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
+	f.fakeClientSet, _ = k8sFake.NewFakeClientset(hivetest.Logger(t))
 	f.mcastGroupClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastGroups()
 	f.mcastNodeClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentMulticastNodes()
 	f.endpointClient = f.fakeClientSet.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)
