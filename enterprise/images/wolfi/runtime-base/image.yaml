@@ -4,7 +4,7 @@ contents:
   repositories:
     - https://packages.wolfi.dev/os
   packages:
-    - gops=0.3.28-r17
+    - gops=0.3.28-r18
     - grep=3.12-r0 #Needed by the mount-bpf-fs init container
     - jq=1.7.1-r5 #Needed for cilium connectivity test to work
     - mount=2.41-r41 #Needed by the mount-bpf-fs init container
@@ -19,9 +19,9 @@ contents:
     - kmod=34.1-r0
     - gcc-11=11.5.0-r4 # for some header files
     - shadow=4.17.3-r31 # Needed for groupadd
-    - curl=8.13.0-r0  # temporary, for getting prometheus metrics in CI
+    - curl=8.14.1-r2  # temporary, for getting prometheus metrics in CI
     - openssl=3.5.0-r2
-    - cni-plugins-loopback=1.7.1-r0
+    - cni-plugins-loopback=1.7.1-r1
 archs:
   - x86_64
   - arm64
