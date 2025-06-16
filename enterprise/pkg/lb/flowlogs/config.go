@@ -36,7 +36,7 @@ type Config struct {
 
 var defaultConfig = Config{
 	LoadbalancerFlowLogsEnabled:                     false,
-	LoadbalancerFlowLogsMapSize:                     32 << 20,
+	LoadbalancerFlowLogsMapSize:                     200000,
 	LoadbalancerFlowLogsReportFrequency:             10,
 	LoadbalancerFlowLogsGcFrequency:                 60,
 	LoadbalancerFlowLogsReaderQueueSize:             1024,
@@ -69,8 +69,14 @@ func (c *Config) GarbageCollectorFrequencyDuration() time.Duration {
 //
 
 const (
-	v4MapName = "cilium_lb_flow_log_rb_v4"
-	v6MapName = "cilium_lb_flow_log_rb_v6"
+	tableSelectorName = "cilium_fl_table_in_use"
+	errorsMapName     = "cilium_fl_errors"
+	flv4Map1Name      = "cilium_fl_v4_1"
+	flv4Map2Name      = "cilium_fl_v4_2"
+	flv6Map1Name      = "cilium_fl_v6_1"
+	flv6Map2Name      = "cilium_fl_v6_2"
+	fll2Map1Name      = "cilium_fl_l2_1"
+	fll2Map2Name      = "cilium_fl_l2_2"
 )
 
 func datapathConfigProvider(config Config) dpcfgdef.NodeFnOut {
@@ -78,9 +84,18 @@ func datapathConfigProvider(config Config) dpcfgdef.NodeFnOut {
 		output := make(dpcfgdef.Map)
 		if config.LoadbalancerFlowLogsEnabled {
 			output["LB_FLOW_LOGS_ENABLED"] = "1"
-			output["CILIUM_LB_FLOW_LOG_RB_V6_MAP"] = v6MapName
-			output["CILIUM_LB_FLOW_LOG_RB_V4_MAP"] = v4MapName
-			output["CILIUM_LB_FLOW_LOG_RB_MAP_SIZE"] = fmt.Sprintf("%d", config.LoadbalancerFlowLogsMapSize)
+
+			output["CILIUM_LB_FLOW_LOG_TABLE_MAP"] = tableSelectorName
+			output["CILIUM_LB_FLOW_LOG_ERRORS_MAP"] = errorsMapName
+
+			output["CILIUM_LB_FLOW_LOG_V4_1_MAP"] = flv4Map1Name
+			output["CILIUM_LB_FLOW_LOG_V4_2_MAP"] = flv4Map2Name
+			output["CILIUM_LB_FLOW_LOG_V6_1_MAP"] = flv6Map1Name
+			output["CILIUM_LB_FLOW_LOG_V6_2_MAP"] = flv6Map2Name
+			output["CILIUM_LB_FLOW_LOG_L2_1_MAP"] = fll2Map1Name
+			output["CILIUM_LB_FLOW_LOG_L2_2_MAP"] = fll2Map2Name
+
+			output["CILIUM_LB_FLOW_LOG_MAP_SIZE"] = fmt.Sprintf("%d", config.LoadbalancerFlowLogsMapSize)
 		}
 		return output, nil
 	})

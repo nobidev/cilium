@@ -11,12 +11,11 @@
 package lbflowlogs
 
 import (
-	"encoding/binary"
-
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"log/slog"
 	"net"
+
+	"log/slog"
 )
 
 var _ FlowLogSender = &flowLogStdoutSender{}
@@ -39,36 +38,69 @@ func (r *flowLogStdoutSender) Name() string {
 	return "stdout"
 }
 
-func (r *flowLogStdoutSender) SendFlowLogs(flowLogs FlowLogTable) error {
-	for flkey, flentry := range flowLogs {
-		bytes := []byte(flkey)
-		ifindex := int(binary.NativeEndian.Uint32(bytes[ifindexStart : ifindexStart+ifindexSize]))
-		srcIP := net.IP(bytes[saddrStart : saddrStart+saddrSize])
-		dstIP := net.IP(bytes[daddrStart : daddrStart+daddrSize])
-		srcPort := binary.BigEndian.Uint16(bytes[sportStart : sportStart+sportSize])
-		dstPort := binary.BigEndian.Uint16(bytes[dportStart : dportStart+dportSize])
-		protocol := bytes[nexthdrStart]
+func (r *flowLogStdoutSender) SendFlowLogs(flowLogsV4 FlowLogTableV4, flowLogsV6 FlowLogTableV6, flowLogsL2 FlowLogTableL2) error {
 
-		packetsTotal := flentry.Packets
-		bytesTotal := flentry.Bytes
-
-		ifName, err := InterfaceByIndex(ifindex)
+	for flkey, flentry := range flowLogsV4 {
+		ifName, err := InterfaceByIndex(int(flkey.Ifindex))
 		if err != nil {
 			r.logger.Error("InterfaceByIndex",
 				logfields.Error, err,
-				logfields.LinkIndex, ifindex)
+				logfields.LinkIndex, flkey.Ifindex)
 			ifName = "<unknown>"
 		}
-
-		r.logger.Info("Received flow log entry",
+		r.logger.Info("Received v4 flow log entry",
 			logfields.Interface, ifName,
-			logfields.SrcIP, srcIP,
-			logfields.SrcPort, srcPort,
-			logfields.DstIP, dstIP,
-			logfields.DstPort, dstPort,
-			logfields.Protocol, protocol,
-			logfields.PacketsTotal, packetsTotal,
-			logfields.BytesTotal, bytesTotal,
+			logfields.SrcIP, uint32ToIP(flkey.SrcAddr),
+			logfields.SrcPort, ntohs(flkey.SrcPort),
+			logfields.DstIP, uint32ToIP(flkey.DstAddr),
+			logfields.DstPort, ntohs(flkey.DstPort),
+			logfields.Protocol, flkey.Nexthdr,
+			logfields.PacketsTotal, flentry.Packets,
+			logfields.BytesTotal, flentry.Bytes,
+			logfields.StartTime, flentry.firstTs,
+			logfields.EndTime, flentry.ts,
+		)
+	}
+
+	for flkey, flentry := range flowLogsV6 {
+		ifName, err := InterfaceByIndex(int(flkey.Ifindex))
+		if err != nil {
+			r.logger.Error("InterfaceByIndex",
+				logfields.Error, err,
+				logfields.LinkIndex, flkey.Ifindex)
+			ifName = "<unknown>"
+		}
+		r.logger.Info("Received v6 flow log entry",
+			logfields.Interface, ifName,
+			logfields.SrcIP, net.IP(flkey.SrcAddr[:]),
+			logfields.SrcPort, ntohs(flkey.SrcPort),
+			logfields.DstIP, net.IP(flkey.DstAddr[:]),
+			logfields.DstPort, ntohs(flkey.DstPort),
+			logfields.Protocol, flkey.Nexthdr,
+			logfields.PacketsTotal, flentry.Packets,
+			logfields.BytesTotal, flentry.Bytes,
+			logfields.StartTime, flentry.firstTs,
+			logfields.EndTime, flentry.ts,
+		)
+	}
+
+	for flkey, flentry := range flowLogsL2 {
+		ifName, err := InterfaceByIndex(int(flkey.Ifindex))
+		if err != nil {
+			r.logger.Error("InterfaceByIndex",
+				logfields.Error, err,
+				logfields.LinkIndex, flkey.Ifindex)
+			ifName = "<unknown>"
+		}
+		r.logger.Info("Received L2 flow log entry",
+			logfields.Interface, ifName,
+			logfields.MACAddr, net.HardwareAddr(flkey.SrcMac[:]),
+			logfields.MACAddr, net.HardwareAddr(flkey.DstMac[:]),
+			logfields.Protocol, ntohs(flkey.Type),
+			logfields.PacketsTotal, flentry.Packets,
+			logfields.BytesTotal, flentry.Bytes,
+			logfields.StartTime, flentry.firstTs,
+			logfields.EndTime, flentry.ts,
 		)
 	}
 

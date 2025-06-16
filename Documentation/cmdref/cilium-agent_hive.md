@@ -212,7 +212,7 @@ cilium-agent hive [flags]
       --loadbalancer-envoy-health-state-sync-interval duration         Interval for the periodic (fallback) LB health state sync between K8s node and the node-local Envoy proxy (default 1m0s)
       --loadbalancer-flow-logs-enabled                                 Enables LB Per-packet Flow Logs
       --loadbalancer-flow-logs-gc-frequency uint                       LB Garbage Collection Frequency (seconds) (default 60)
-      --loadbalancer-flow-logs-map-size uint32                         Select the size of the LB flow log ringbuffer map (default 33554432)
+      --loadbalancer-flow-logs-map-size uint32                         Select the size of the LB flow log ringbuffer map (default 200000)
       --loadbalancer-flow-logs-reader-queue-size uint                  LB flow log reader queue size (default 1024)
       --loadbalancer-flow-logs-report-frequency uint                   LB Report Frequency (seconds) (default 10)
       --loadbalancer-flow-logs-sender string                           Name of the sender where flow logs should be sent to (ipfix, stdout) (default "ipfix")

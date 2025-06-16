@@ -11,10 +11,11 @@
 package lbflowlogs
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"net"
+
+	"encoding/binary"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -23,10 +24,23 @@ import (
 	"github.com/vmware/go-ipfix/pkg/registry"
 )
 
-var ieFields = []string{
+var ieFieldsV4 = []string{
 	"interfaceName",
 	"sourceIPv4Address",
 	"destinationIPv4Address",
+	"sourceTransportPort",
+	"destinationTransportPort",
+	"protocolIdentifier",
+	"packetTotalCount",
+	"octetTotalCount",
+	"flowStartMilliseconds",
+	"flowEndMilliseconds",
+}
+
+var ieFieldsV6 = []string{
+	"interfaceName",
+	"sourceIPv6Address",
+	"destinationIPv6Address",
 	"sourceTransportPort",
 	"destinationTransportPort",
 	"protocolIdentifier",
@@ -50,65 +64,134 @@ func (r *flowLogIPFixSender) Name() string {
 	return "ipfix"
 }
 
-func (r *flowLogIPFixSender) SendFlowLogs(flowLogs FlowLogTable) error {
+func (r *flowLogIPFixSender) sendFlowLogsV4(flowLogs FlowLogTableV4) error {
 	exportingProcess, err := r.openConnectionToCollector()
 	if err != nil {
 		return fmt.Errorf("got error when connecting to ipfix collector: %w", err)
 	}
 	defer exportingProcess.CloseConnToCollector()
 
-	templateID, err := r.negotiateTemplate(exportingProcess)
+	templateID, err := r.negotiateTemplateV4(exportingProcess)
 	if err != nil {
 		return fmt.Errorf("got error when sending Template Set: %w", err)
 	}
 
-	return r.sendData(exportingProcess, templateID, flowLogs)
+	return r.sendDataV4(exportingProcess, templateID, flowLogs)
+}
+
+func (r *flowLogIPFixSender) sendFlowLogsV6(flowLogs FlowLogTableV6) error {
+	exportingProcess, err := r.openConnectionToCollector()
+	if err != nil {
+		return fmt.Errorf("got error when connecting to ipfix collector: %w", err)
+	}
+	defer exportingProcess.CloseConnToCollector()
+
+	templateID, err := r.negotiateTemplateV6(exportingProcess)
+	if err != nil {
+		return fmt.Errorf("got error when sending Template Set: %w", err)
+	}
+
+	return r.sendDataV6(exportingProcess, templateID, flowLogs)
+}
+
+func (r *flowLogIPFixSender) SendFlowLogs(flowLogsV4 FlowLogTableV4, flowLogsV6 FlowLogTableV6, flowLogsL2 FlowLogTableL2) error {
+	if err := r.sendFlowLogsV4(flowLogsV4); err != nil {
+		return err
+	}
+	if err := r.sendFlowLogsV6(flowLogsV6); err != nil {
+		return err
+	}
+	/*
+	 * L2 is actually non-standard, implement this if needed
+	 */
+	return nil
 }
 
 func (r *flowLogIPFixSender) loadRegistry() {
 	registry.LoadRegistry()
 }
 
-func (r *flowLogIPFixSender) populateDataRecordElements(flkey FlowLogKey, flentry FlowLogEntry) []entities.InfoElementWithValue {
-	bytes := []byte(flkey)
-	ifindex := int(binary.NativeEndian.Uint32(bytes[ifindexStart : ifindexStart+ifindexSize]))
-	srcIP := net.IP(bytes[saddrStart : saddrStart+saddrSize])
-	dstIP := net.IP(bytes[daddrStart : daddrStart+daddrSize])
-	srcPort := binary.BigEndian.Uint16(bytes[sportStart : sportStart+sportSize])
-	dstPort := binary.BigEndian.Uint16(bytes[dportStart : dportStart+dportSize])
-	protocol := bytes[nexthdrStart]
+func uint32ToIP(x uint32) net.IP {
+	b := make([]byte, 4)
+	binary.NativeEndian.PutUint32(b, x)
+	return net.IP(b)
+}
 
-	packetsTotal := flentry.Packets
-	bytesTotal := flentry.Bytes
+func ntohs(x uint16) uint16 {
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, x)
+	return binary.LittleEndian.Uint16(b)
+}
 
+func (r *flowLogIPFixSender) populateDataRecordElementsV4(flkey FlowLogKeyV4, flentry FlowLogEntry) []entities.InfoElementWithValue {
 	elements := make([]entities.InfoElementWithValue, 0)
-	for _, name := range ieFields {
+	for _, name := range ieFieldsV4 {
 		element, _ := registry.GetInfoElement(name, registry.IANAEnterpriseID)
 		var ie entities.InfoElementWithValue
 		switch name {
 		case "interfaceName":
-			ifName, err := InterfaceByIndex(ifindex)
+			ifName, err := InterfaceByIndex(int(flkey.Ifindex))
 			if err != nil {
 				r.logger.Error("InterfaceByIndex",
 					logfields.Error, err,
-					logfields.LinkIndex, ifindex)
+					logfields.LinkIndex, flkey.Ifindex)
 				ifName = "<unknown>"
 			}
 			ie = entities.NewStringInfoElement(element, ifName)
 		case "sourceIPv4Address":
-			ie = entities.NewIPAddressInfoElement(element, srcIP)
+			ie = entities.NewIPAddressInfoElement(element, uint32ToIP(flkey.SrcAddr))
 		case "destinationIPv4Address":
-			ie = entities.NewIPAddressInfoElement(element, dstIP)
+			ie = entities.NewIPAddressInfoElement(element, uint32ToIP(flkey.DstAddr))
 		case "sourceTransportPort":
-			ie = entities.NewUnsigned16InfoElement(element, srcPort)
+			ie = entities.NewUnsigned16InfoElement(element, flkey.SrcPort)
 		case "destinationTransportPort":
-			ie = entities.NewUnsigned16InfoElement(element, dstPort)
+			ie = entities.NewUnsigned16InfoElement(element, flkey.DstPort)
 		case "protocolIdentifier":
-			ie = entities.NewUnsigned8InfoElement(element, protocol)
+			ie = entities.NewUnsigned8InfoElement(element, flkey.Nexthdr)
 		case "packetTotalCount":
-			ie = entities.NewUnsigned64InfoElement(element, packetsTotal)
+			ie = entities.NewUnsigned64InfoElement(element, flentry.Packets)
 		case "octetTotalCount":
-			ie = entities.NewUnsigned64InfoElement(element, bytesTotal)
+			ie = entities.NewUnsigned64InfoElement(element, flentry.Bytes)
+		case "flowStartMilliseconds":
+			ie = entities.NewDateTimeMillisecondsInfoElement(element, uint64(flentry.firstTs.UnixMilli()))
+		case "flowEndMilliseconds":
+			ie = entities.NewDateTimeMillisecondsInfoElement(element, uint64(flentry.ts.UnixMilli()))
+
+		}
+		elements = append(elements, ie)
+	}
+	return elements
+}
+
+func (r *flowLogIPFixSender) populateDataRecordElementsV6(flkey FlowLogKeyV6, flentry FlowLogEntry) []entities.InfoElementWithValue {
+	elements := make([]entities.InfoElementWithValue, 0)
+	for _, name := range ieFieldsV6 {
+		element, _ := registry.GetInfoElement(name, registry.IANAEnterpriseID)
+		var ie entities.InfoElementWithValue
+		switch name {
+		case "interfaceName":
+			ifName, err := InterfaceByIndex(int(flkey.Ifindex))
+			if err != nil {
+				r.logger.Error("InterfaceByIndex",
+					logfields.Error, err,
+					logfields.LinkIndex, flkey.Ifindex)
+				ifName = "<unknown>"
+			}
+			ie = entities.NewStringInfoElement(element, ifName)
+		case "sourceIPv6Address":
+			ie = entities.NewIPAddressInfoElement(element, net.IP(flkey.SrcAddr[:]))
+		case "destinationIPv6Address":
+			ie = entities.NewIPAddressInfoElement(element, net.IP(flkey.DstAddr[:]))
+		case "sourceTransportPort":
+			ie = entities.NewUnsigned16InfoElement(element, flkey.SrcPort)
+		case "destinationTransportPort":
+			ie = entities.NewUnsigned16InfoElement(element, flkey.DstPort)
+		case "protocolIdentifier":
+			ie = entities.NewUnsigned8InfoElement(element, flkey.Nexthdr)
+		case "packetTotalCount":
+			ie = entities.NewUnsigned64InfoElement(element, flentry.Packets)
+		case "octetTotalCount":
+			ie = entities.NewUnsigned64InfoElement(element, flentry.Bytes)
 		case "flowStartMilliseconds":
 			ie = entities.NewDateTimeMillisecondsInfoElement(element, uint64(flentry.firstTs.UnixMilli()))
 		case "flowEndMilliseconds":
@@ -133,12 +216,12 @@ func (r *flowLogIPFixSender) openConnectionToCollector() (*exporter.ExportingPro
 	})
 }
 
-func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.ExportingProcess) (uint16, error) {
+func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.ExportingProcess, fields []string) (uint16, error) {
 	templateID := exportingProcess.NewTemplateID()
 	r.logger.Debug("Negotiate template", logfields.TemplateId, templateID)
 
 	ies := make([]*entities.InfoElement, 0)
-	for _, name := range ieFields {
+	for _, name := range fields {
 		ie, _ := registry.GetInfoElement(name, registry.IANAEnterpriseID)
 		ies = append(ies, ie)
 	}
@@ -157,13 +240,21 @@ func (r *flowLogIPFixSender) negotiateTemplate(exportingProcess *exporter.Export
 	return templateID, nil
 }
 
-func (r *flowLogIPFixSender) send(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTable, keys []FlowLogKey) (uint64, error) {
+func (r *flowLogIPFixSender) negotiateTemplateV4(exportingProcess *exporter.ExportingProcess) (uint16, error) {
+	return r.negotiateTemplate(exportingProcess, ieFieldsV4)
+}
+
+func (r *flowLogIPFixSender) negotiateTemplateV6(exportingProcess *exporter.ExportingProcess) (uint16, error) {
+	return r.negotiateTemplate(exportingProcess, ieFieldsV6)
+}
+
+func (r *flowLogIPFixSender) sendV4(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTableV4, keys []FlowLogKeyV4) (uint64, error) {
 	dataSet := entities.NewSet(false)
 	dataSet.PrepareSet(entities.Data, templateID)
 
 	for i := range keys {
 		key := keys[i]
-		dataSet.AddRecord(r.populateDataRecordElements(key, flowLogs[key]), templateID)
+		dataSet.AddRecord(r.populateDataRecordElementsV4(key, flowLogs[key]), templateID)
 	}
 
 	bytesWritten, err := exportingProcess.SendSet(dataSet)
@@ -174,12 +265,30 @@ func (r *flowLogIPFixSender) send(exportingProcess *exporter.ExportingProcess, t
 	return uint64(bytesWritten), nil
 }
 
-func (r *flowLogIPFixSender) sendData(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTable) error {
+func (r *flowLogIPFixSender) sendV6(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTableV6, keys []FlowLogKeyV6) (uint64, error) {
+	dataSet := entities.NewSet(false)
+	dataSet.PrepareSet(entities.Data, templateID)
+
+	for i := range keys {
+		key := keys[i]
+		dataSet.AddRecord(r.populateDataRecordElementsV6(key, flowLogs[key]), templateID)
+	}
+
+	bytesWritten, err := exportingProcess.SendSet(dataSet)
+	if err != nil {
+		return 0, fmt.Errorf("got error when sending Data Set: %w", err)
+	}
+
+	return uint64(bytesWritten), nil
+}
+
+func (r *flowLogIPFixSender) sendDataV4(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTableV4) error {
 	total := 0
 	totalBytesWritten := uint64(0)
+
 	// with this chunk length each message should fit inside a minimal possible UDP MTU
 	chunkLenMax := 10
-	keys := make([]FlowLogKey, chunkLenMax)
+	keys := make([]FlowLogKeyV4, chunkLenMax)
 
 	for key := range flowLogs {
 		i := (total % chunkLenMax)
@@ -188,7 +297,33 @@ func (r *flowLogIPFixSender) sendData(exportingProcess *exporter.ExportingProces
 		chunkLen := i + 1
 
 		if chunkLen == chunkLenMax || total == len(flowLogs) {
-			bytesWritten, err := r.send(exportingProcess, templateID, flowLogs, keys[:chunkLen])
+			bytesWritten, err := r.sendV4(exportingProcess, templateID, flowLogs, keys[:chunkLen])
+			if err != nil {
+				return err
+			}
+
+			totalBytesWritten += bytesWritten
+		}
+	}
+	r.logger.Info("Sent data", logfields.Bytes, totalBytesWritten)
+
+	return nil
+}
+
+func (r *flowLogIPFixSender) sendDataV6(exportingProcess *exporter.ExportingProcess, templateID uint16, flowLogs FlowLogTableV6) error {
+	total := 0
+	totalBytesWritten := uint64(0)
+	chunkLenMax := len(flowLogs) // this might be adjusted (to ~10? for now) if UDP is to be used, such that each message fits inside minimal possible UDP MTU
+	keys := make([]FlowLogKeyV6, chunkLenMax)
+
+	for key := range flowLogs {
+		i := (total % chunkLenMax)
+		keys[i] = key
+		total += 1
+		chunkLen := i + 1
+
+		if chunkLen == chunkLenMax || total == len(flowLogs) {
+			bytesWritten, err := r.sendV6(exportingProcess, templateID, flowLogs, keys[:chunkLen])
 			if err != nil {
 				return err
 			}

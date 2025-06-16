@@ -25,7 +25,6 @@ var Cell = cell.Module(
 	"Per-packet loadbalancer flow logs",
 
 	cell.Invoke(initializeFlowLogProcessor),
-	cell.ProvidePrivate(newFlowLogReader),
 	cell.ProvidePrivate(newFlowLogIPFixSender),
 	cell.ProvidePrivate(newFlowLogStdoutSender),
 	cell.Provide(newFlowLogMap),
@@ -38,7 +37,7 @@ type lbFlowLogProcessorParams struct {
 
 	Config   Config
 	Logger   *slog.Logger
-	Reader   *flowLogReader
+	Map      LBFlowLogMap
 	Senders  []FlowLogSender `group:"flowlog-senders"`
 	JobGroup job.Group
 }
@@ -70,37 +69,12 @@ func initializeFlowLogProcessor(p lbFlowLogProcessorParams) error {
 		reportFrequency: p.Config.ReportFrequencyDuration(),
 		gcFrequency:     p.Config.GarbageCollectorFrequencyDuration(),
 		sender:          sender,
-		reader:          p.Reader,
+		lbmap:           p.Map,
 	}
 
 	p.JobGroup.Add(job.OneShot("flowlog-processor", processor.startProcessing))
 
 	return nil
-}
-
-type lbFlowLogReaderParams struct {
-	cell.In
-
-	Config   Config
-	Logger   *slog.Logger
-	Map      LBFlowLogMap
-	JobGroup job.Group
-}
-
-func newFlowLogReader(p lbFlowLogReaderParams) *flowLogReader {
-	if !p.Config.LoadbalancerFlowLogsEnabled {
-		return nil
-	}
-
-	reader := &flowLogReader{
-		logger:      p.Logger,
-		flowLogMap:  p.Map,
-		entriesChan: make(chan *FlowLogEntry, p.Config.LoadbalancerFlowLogsReaderQueueSize),
-	}
-
-	p.JobGroup.Add(job.OneShot("flowlog-reader", reader.startReading))
-
-	return reader
 }
 
 type lbFlowLogIPFixSenderParams struct {
@@ -139,7 +113,10 @@ func newFlowLogMap(p lbFlowLogMapParams) (bpf.MapOut[LBFlowLogMap], error) {
 		return bpf.NewMapOut(LBFlowLogMap(nil)), nil
 	}
 
-	lbFlowLogMap := newLbFlowLogMap(p.Logger, p.Config, v4MapName)
+	lbFlowLogMap, err := newLbFlowLogMap(p.Config, p.Logger)
+	if err != nil {
+		return bpf.NewMapOut(LBFlowLogMap(nil)), err
+	}
 
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
