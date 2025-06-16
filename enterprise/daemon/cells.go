@@ -53,6 +53,9 @@ var (
 		ControlPlane,
 		Datapath,
 
+		// Self-diagnostics
+		agentDiagnostics,
+
 		// Feature gating to prevent use of unsupported features
 		features.AgentCell,
 	)

@@ -89,6 +89,9 @@ cilium-agent [flags]
   -D, --debug                                                          Enable debugging mode
       --debug-verbose strings                                          List of enabled verbose debug groups
       --devices strings                                                List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
+      --diagnostics-constants stringToString                           Constant overrides (default [])
+      --diagnostics-export-file string                                 File to which diagnostics events are appended to
+      --diagnostics-interval duration                                  Interval for evaluating diagnostic conditions (default 5m0s)
       --direct-routing-device string                                   Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --direct-routing-skip-unreachable                                Enable skipping L2 routes between nodes on different subnets
       --disable-endpoint-crd                                           Disable use of CiliumEndpoint CRD

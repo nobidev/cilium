@@ -43,6 +43,9 @@ cilium-agent hive [flags]
       --controller-group-metrics strings                               List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                      Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
       --devices strings                                                List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
+      --diagnostics-constants stringToString                           Constant overrides (default [])
+      --diagnostics-export-file string                                 File to which diagnostics events are appended to
+      --diagnostics-interval duration                                  Interval for evaluating diagnostic conditions (default 5m0s)
       --direct-routing-device string                                   Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-envoy-version-check                                    Do not perform Envoy version check
       --disable-iptables-feeder-rules strings                          Chains to ignore when installing feeder rules.
