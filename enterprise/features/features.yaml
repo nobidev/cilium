@@ -542,6 +542,15 @@ features:
     helm:
       clustermesh.maxConnectedClusters: 511
 
+  ClusterMeshMCSAPISupport:
+    maturity: Beta
+    description: |
+      Multi-Cluster Services API support
+    flags:
+      clustermesh-enable-mcs-api: true
+    helm:
+      clustermesh.enableMCSAPISupport: true
+
   CiliumEndpointSlice:
     maturity: Limited
     description: |
