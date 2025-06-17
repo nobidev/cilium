@@ -18,12 +18,17 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	grpcCodes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -36,19 +41,27 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func newAgentClient(log *slog.Logger) (*fqdnAgentClient, error) {
+func newAgentClient(log *slog.Logger, jg job.Group) (*fqdnAgentClient, error) {
 	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create grpc client to talk to agent: %w", err)
 	}
-	return &fqdnAgentClient{pb.NewFQDNProxyAgentClient(conn)}, nil
+	c := &fqdnAgentClient{
+		FQDNProxyAgentClient: pb.NewFQDNProxyAgentClient(conn),
+		conn:                 conn,
+		log:                  log,
+	}
+
+	jg.Add(job.OneShot("client-log-transition", c.logStateChanges))
+
+	return c, nil
 }
 
 // createClient creates a gRPC client tuned for communication over unix domain sockets, i.e. with
 // much more aggressive timeouts than would be suitable for network communication. Note that client
 // creation does _not_ perform I/O, hence successful creation of the client does not imply
 // connectivity.
-func createClient(address string) (grpc.ClientConnInterface, error) {
+func createClient(address string) (*grpc.ClientConn, error) {
 	// Override the default backoff config to specify a much shorter base and max delay, since
 	// there's no network, no concern of overwhelming a server with many clients nor other problems
 	// gRPC tries to be robust against.
@@ -75,9 +88,77 @@ func createClient(address string) (grpc.ClientConnInterface, error) {
 	)
 }
 
+func (c *fqdnAgentClient) logStateChanges(ctx context.Context, h cell.Health) error {
+	for ctx.Err() == nil {
+		state := c.conn.GetState()
+		if state != connectivity.Idle { // Idle is uninteresting.
+			c.log.Info("agent gRPC connection state changed", logfields.State, state)
+		}
+		if state == connectivity.Idle || state == connectivity.Ready {
+			h.OK("gRPC state: " + state.String())
+		} else {
+			h.Degraded("unhealthy gRPC connection state: "+state.String(), fmt.Errorf("") /*err is required*/)
+		}
+		c.conn.WaitForStateChange(ctx, state)
+	}
+	return ctx.Err()
+}
+
+// shouldLog evalues the given error, and returns true if it is not a gRPC error
+// and the connection is up.
+//
+// This is used to slience error log spam while the agent is down.
+func (c *fqdnAgentClient) shouldLog(err error) bool {
+	status, ok := grpcStatus.FromError(err)
+	if !ok || status.Code() == grpcCodes.OK || status.Code() == grpcCodes.Unknown {
+		return true // not a gRPC error
+	}
+	return c.conn.GetState() == connectivity.Ready
+}
+
 // fqdnAgentClient holds the gRPC connection and gRPC agent client interface.
 type fqdnAgentClient struct {
 	pb.FQDNProxyAgentClient
+	conn *grpc.ClientConn
+	log  *slog.Logger
+}
+
+// WaitMaybeConnected waits for the gRPC connection to succeed or ctx to expire.
+// Returns true if connected. Note: the connection may immediately go back down!
+// This is best-effort, and should only used for pausing a retry-loop for
+// a brief (~10 second) period of time.
+//
+// This is needed because gRPC dial failures do not backoff, instead
+// retrying almost instantly. Without this, the proxy needlessly burns CPU
+// while the agent is down.
+func (c *fqdnAgentClient) WaitMaybeConnected(ctx context.Context) bool {
+	for {
+		if ctx.Err() != nil {
+			return false
+		}
+
+		state := c.conn.GetState()
+		if state == connectivity.Ready {
+			return true
+		}
+		c.conn.WaitForStateChange(ctx, state)
+	}
+}
+
+// WaitMaybeReconnected waits for the gRPC connection to go down and back up.
+// Use this to detect agent restarts. Returns false if ctx closed.
+// Note: Due to details in the internal gRPC state machine (e.g. idle transitions),
+// this may return before an actual reconnect has happened. Thus, this is
+// best-effort.
+func (c *fqdnAgentClient) WaitMaybeReconnected(ctx context.Context) bool {
+	state := c.conn.GetState()
+	if state == connectivity.Ready {
+		c.conn.WaitForStateChange(ctx, connectivity.Ready)
+		if ctx.Err() != nil {
+			return false
+		}
+	}
+	return c.WaitMaybeConnected(ctx)
 }
 
 const DNSNotificationSendRetryInterval = 10 * time.Second
@@ -91,6 +172,9 @@ type notifier struct {
 	metrics *notifierMetrics
 	queue   chan *pb.DNSNotification
 	wg      sync.WaitGroup
+
+	// Just used to coalesce log lines
+	overflowed atomic.Bool
 }
 
 type notifierMetrics struct {
@@ -228,7 +312,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	if ep == nil {
 		metricError = metricErrorNoEP
 		endMetric()
-		log.Error("Endpoint is nil")
+		n.log.Error("Endpoint is nil")
 		return errors.New("Endpoint not found")
 	}
 
@@ -243,7 +327,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	if err != nil {
 		metricError = metricErrorPacking
 		endMetric()
-		log.Error("Could not pack dns msg", logfields.Error, err)
+		n.log.Error("Could not pack dns msg", logfields.Error, err)
 		return err
 	}
 
@@ -264,12 +348,12 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(DNSNotificationSendTimeout))
 	defer cancel()
 	_, err = n.client.NotifyOnDNSMessage(ctx, notification)
-	status := updateAgentReachability(err)
 
 	if err != nil {
-		if status == nil {
-			log.Warn("BUG: Unexpected non-status error during DNS notification to agent", logfields.Error, err)
-		} else {
+		if n.client.shouldLog(err) {
+			n.log.Error("NotifyOnDNSMsg request failed", logfields.Error, err)
+		}
+		if status, ok := grpcStatus.FromError(err); ok {
 			metricError = status.Code().String()
 			n.metrics.ProxyUpdateErrors.WithLabelValues(metricError).Inc()
 		}
@@ -279,10 +363,13 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 		// handle the message.
 		select {
 		case n.queue <- notification:
+			n.overflowed.Store(false)
 		default:
 			metricError = metricErrorOverflow
 			n.metrics.ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
-			LogWarningTrigger.TriggerWithReason("Cilium agent is down and notification channel is full. Skipping notification.")
+			if n.overflowed.CompareAndSwap(false, true) {
+				n.log.Warn("Cilium agent is down and notification channel is full. Skipping notification.")
+			}
 		}
 	}
 
@@ -302,27 +389,29 @@ func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotificat
 		// We are purposefully not backing off exponentially because we want to
 		// constantly retry to reach the Agent in case it is down in order to
 		// not artificially delay DNS msgs.
-		requestCtx, cancel := context.WithTimeout(ctx, DNSNotificationSendTimeout)
-		_, err := n.client.NotifyOnDNSMessage(requestCtx, msg)
-		cancel()
-		updateAgentReachability(err)
+		_, err := n.client.NotifyOnDNSMessage(ctx, msg)
 
 		if err != nil {
 			// If the endpoint no longer exists, there's no point in sending this mapping.
 			var errDNSRequestNoEndpoint dnsproxy.ErrDNSRequestNoEndpoint
 			if strings.Contains(err.Error(), errDNSRequestNoEndpoint.Error()) {
-				log.Debug("Dropping DNS notification since the endpoint no longer exists",
+				n.log.Debug("Dropping DNS notification since the endpoint no longer exists",
 					logfields.Error, err,
 					logfields.Address, msg.EpIPPort,
 				)
 				return
 			}
+			if n.client.shouldLog(err) {
+				n.log.Error("queued NotifyOnDNSMsg request failed", logfields.Error, err)
+			}
 
-			time.Sleep(DNSNotificationSendRetryInterval)
+			// sleep for max 10 seconds, but wake up sooner if the agent reconnects
+			sctx, cancel := context.WithTimeout(ctx, DNSNotificationSendRetryInterval)
+			n.client.WaitMaybeConnected(sctx)
+			cancel()
 			continue
 		}
-
-		LogDebugTrigger.TriggerWithReason("Queued DNS Notification was successful")
+		n.log.Debug("Successfully relayed queued DNS notification")
 
 		return
 	}

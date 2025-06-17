@@ -14,10 +14,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"regexp"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -28,18 +30,17 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type rulesWatcher struct {
 	pb.UnimplementedFQDNProxyServer
 
+	log        *slog.Logger
 	grpcServer *grpc.Server
 
-	proxy          *dnsproxy.DNSProxy
-	client         *fqdnAgentClient
-	agentConnected chan struct{}
+	proxy  *dnsproxy.DNSProxy
+	client *fqdnAgentClient
 
 	// Closed when first set of rules is received, indicating it's safe
 	// to open the socket.
@@ -49,12 +50,12 @@ type rulesWatcher struct {
 	muteErrors bool // if true, don't log subsequent reconnects
 }
 
-func newRulesWatcher(proxy *dnsproxy.DNSProxy, client *fqdnAgentClient) *rulesWatcher {
+func newRulesWatcher(log *slog.Logger, proxy *dnsproxy.DNSProxy, client *fqdnAgentClient) *rulesWatcher {
 	rw := &rulesWatcher{
-		proxy:          proxy,
-		client:         client,
-		agentConnected: make(chan struct{}),
-		rulesReceived:  make(chan struct{}),
+		log:           log,
+		proxy:         proxy,
+		client:        client,
+		rulesReceived: make(chan struct{}),
 	}
 	rw.onFirstRule = sync.OnceFunc(func() { close(rw.rulesReceived) })
 	return rw
@@ -76,15 +77,22 @@ func (rw *rulesWatcher) doWatchRules() {
 		// does the agent not support subscription? Fall back to local gRPC server,
 		// but retry if the agent restarts.
 		if isUnimplementedError(err) {
-			log.Info("Agent does not support SubscribeFQDNRules(), falling back to gRPC server.")
+			rw.log.Info("Agent does not support SubscribeFQDNRules(), falling back to gRPC server.")
 			rw.runServer(rw.proxy) // launches another goroutine
-			<-rw.agentConnected    // wait to see if the agent is connected
+			// every 5 minutes, retry
+
+			sctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+			rw.client.WaitMaybeReconnected(sctx) // Wait for agent to restart, then try again
+			cancel()
 		} else if err != nil {
-			if !rw.muteErrors {
-				log.Info("SubscribeFQDNRules() request failed", logfields.Error, err)
-				rw.muteErrors = true // unset on successful connect
+			if rw.client.shouldLog(err) {
+				rw.log.Info("SubscribeFQDNRules() request failed", logfields.Error, err)
 			}
-			time.Sleep(500 * time.Millisecond) // connection failed, pause then retry
+
+			// Sleep until connected or 0.5 seconds
+			sctx, cancel := context.WithTimeout(context.TODO(), 500*time.Millisecond)
+			rw.client.WaitMaybeConnected(sctx)
+			cancel()
 		}
 	}
 }
@@ -101,7 +109,7 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 	}
 
 	rw.muteErrors = false
-	log.Info("Established SubscribeFQDNRules stream")
+	rw.log.Info("Established SubscribeFQDNRules stream")
 
 	for {
 		rule, err := rulesStream.Recv()
@@ -115,7 +123,7 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 
 		err = rw.updateAllowed(rule)
 		if err != nil {
-			log.Error("Failed to apply invalid rule to proxy",
+			rw.log.Error("Failed to apply invalid rule to proxy",
 				logfields.Error, err,
 				logfields.EndpointID, rule.EndpointID,
 			)
@@ -124,21 +132,6 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 		if err != nil {
 			return fmt.Errorf("SubscribeFQDNRules stream send error: %w", err)
 		}
-	}
-}
-
-// notifyAgentConnected is called when the FQDN proxy notices
-// that we've connected to the agent.
-//
-// It is used to try and transition back to the modern SubscribeRules api
-func (rw *rulesWatcher) notifyAgentConnected() {
-	if rw == nil {
-		return
-	}
-
-	select {
-	case rw.agentConnected <- struct{}{}:
-	default:
 	}
 }
 
@@ -151,7 +144,7 @@ func (rw *rulesWatcher) runServer(proxy *dnsproxy.DNSProxy) {
 	os.Remove(socket)
 	lis, err := net.Listen("unix", socket)
 	if err != nil {
-		log.Error("failed to listen", logfields.Error, err)
+		rw.log.Error("failed to listen", logfields.Error, err)
 		os.Exit(1)
 	}
 	var opts []grpc.ServerOption
@@ -172,7 +165,7 @@ func (rw *rulesWatcher) stopServer() {
 func (rw *rulesWatcher) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
 	err := rw.updateAllowed(rules)
 	if err != nil {
-		log.Error("Failed to apply invalid rule to proxy",
+		rw.log.Error("Failed to apply invalid rule to proxy",
 			logfields.Error, err,
 			logfields.Endpoint, rules.EndpointID)
 	}
@@ -200,7 +193,7 @@ func (rw *rulesWatcher) updateAllowed(rules *pb.FQDNRules) error {
 		portProto = restore.MakeV2PortProto(uint16(rules.DestPort), u8proto.U8proto(rules.DestProto))
 	}
 
-	log.Info("Updating rules for endpoint",
+	rw.log.Info("Updating rules for endpoint",
 		logfields.Endpoint, rules.EndpointID,
 		logfields.Port, portProto.Port(),
 		logfields.Protocol, portProto.Protocol(),

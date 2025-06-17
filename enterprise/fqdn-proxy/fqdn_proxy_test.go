@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -15,18 +16,11 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/time"
 
 	"google.golang.org/grpc"
 )
-
-func init() {
-	// slogloggercheck: initialize the log variable for tests
-	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-dbg")
-}
 
 // Each test should be ~fast, but time is a weird soup in CI.
 var testTimeout = time.Second * 5
@@ -363,7 +357,11 @@ func TestLookupSecIDByIP(t *testing.T) {
 				t.Fatalf("failed to create the client: %v", err)
 			}
 
-			client := pb.NewFQDNProxyAgentClient(conn)
+			client := &fqdnAgentClient{
+				FQDNProxyAgentClient: pb.NewFQDNProxyAgentClient(conn),
+				conn:                 conn,
+			}
+
 			fIPC := &fakeIPCache{
 				ipEndpointMap: ipEndpointMap,
 			}
@@ -535,12 +533,13 @@ func (fa *fakeAgent) SubscribeProxyStatuses(_ *pb.Empty, stream grpc.ServerStrea
 	})
 }
 
-func newTestProxyContext(ipc ipCacheLookup, client pb.FQDNProxyAgentClient, enableOfflineMode bool) *proxyContext {
+func newTestProxyContext(ipc ipCacheLookup, client *fqdnAgentClient, enableOfflineMode bool) *proxyContext {
 	return &proxyContext{
+		log:    slog.Default(),
 		cfg:    Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
 		rwLock: &lock.RWMutex{},
 		ipc:    ipc,
-		client: &fqdnAgentClient{client},
+		client: client,
 		cache:  NewCache(),
 	}
 }

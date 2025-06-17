@@ -16,7 +16,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"google.golang.org/grpc"
@@ -34,71 +33,28 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/version"
 )
-
-// slogloggercheck: root logger for fqdn-proxy
-var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
-
-var (
-	watcher *rulesWatcher
-
-	LogInfoTrigger    *trigger.Trigger
-	LogWarningTrigger *trigger.Trigger
-	LogDebugTrigger   *trigger.Trigger
-)
-
-func init() {
-	var err error
-	if LogWarningTrigger, err = trigger.NewTrigger(trigger.Parameters{
-		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(slog.LevelWarn),
-		Name:        "ProxyLogWarning",
-	}); err != nil {
-		panic(err) // unreachable
-	}
-	if LogDebugTrigger, err = trigger.NewTrigger(trigger.Parameters{
-		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(slog.LevelDebug),
-		Name:        "DebugLog",
-	}); err != nil {
-		panic(err) // unreachable
-	}
-	if LogInfoTrigger, err = trigger.NewTrigger(trigger.Parameters{
-		MinInterval: time.Minute,
-		TriggerFunc: logTriggerFunc(slog.LevelInfo),
-		Name:        "InfoLog",
-	}); err != nil {
-		panic(err) // unreachable
-	}
-}
-
-func logTriggerFunc(level slog.Level) func([]string) {
-	return func(msgs []string) {
-		for _, msg := range msgs {
-			log.Log(context.Background(), level, msg)
-		}
-	}
-}
 
 type runParams struct {
 	cell.In
 
 	Health cell.Health
 	Cfg    Config
+	Log    *slog.Logger
 
 	Client   *fqdnAgentClient
 	Notifier *notifier
 }
 
 func run(ctx context.Context, params runParams) error {
+	log := params.Log
+
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
 	log.Info("|  _| | | | | |     |")
@@ -109,8 +65,8 @@ func run(ctx context.Context, params runParams) error {
 	cfg := params.Cfg
 
 	log.Info("starting cilium dns proxy server")
-	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
-		logging.Fatal(log, "failed to start DNS proxy: failed to init regex LRU cache", logfields.Error, err)
+	if err := re.InitRegexCompileLRU(log, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
+		return fmt.Errorf("failed to start DNS proxy: failed to init regex LRU cache: %w", err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
 		Logger:                 log.WithGroup("dns-proxy"),
@@ -124,7 +80,7 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(cfg, params.Client)
+	proxyCtx := newProxyContext(cfg, params.Client, log)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -139,7 +95,7 @@ func run(ctx context.Context, params runParams) error {
 		params.Notifier.NotifyOnDNSMsg,
 	)
 
-	watcher = newRulesWatcher(proxy, params.Client)
+	watcher := newRulesWatcher(log, proxy, params.Client)
 	gotRules := watcher.watchRules()
 
 	log.Info("Waiting for agent to provide endpoint configurations...")
@@ -154,6 +110,9 @@ func run(ctx context.Context, params runParams) error {
 	params.Health.OK("started dns proxy")
 
 	<-ctx.Done()
+	log.Info("Shutting proxy down...")
+	proxy.Cleanup()
+
 	return nil
 }
 
@@ -161,10 +120,12 @@ type ipCacheLookup interface {
 	lookup(netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error)
 }
 
-type bpfIPC struct{}
+type bpfIPC struct {
+	log *slog.Logger
+}
 
 func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
-	log.Debug("real ipcache bpf read for", logfields.Address, addr)
+	ipc.log.Debug("real ipcache bpf read for", logfields.Address, addr)
 	ipKey := ipcacheMap.NewKey(net.IP(addr.Unmap().AsSlice()), nil, 0)
 	// todo: Add IPCacheMap reload logic
 	val, err := ipcacheMap.IPCacheMap(nil).Lookup(&ipKey)
@@ -179,6 +140,7 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 }
 
 type proxyContext struct {
+	log    *slog.Logger
 	cfg    Config
 	rwLock *lock.RWMutex
 	ipc    ipCacheLookup
@@ -188,8 +150,9 @@ type proxyContext struct {
 	ipCacheV1 bool
 }
 
-func newProxyContext(cfg Config, client *fqdnAgentClient) *proxyContext {
+func newProxyContext(cfg Config, client *fqdnAgentClient, log *slog.Logger) *proxyContext {
 	return &proxyContext{
+		log:    log,
 		ipc:    &bpfIPC{},
 		rwLock: &lock.RWMutex{},
 		client: client,
@@ -200,10 +163,10 @@ func newProxyContext(cfg Config, client *fqdnAgentClient) *proxyContext {
 
 func (pc *proxyContext) establishAgentProxyStream() error {
 	if !(pc.cfg.EnableOfflineMode) {
-		log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
+		pc.log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
 		return nil
 	}
-	log.Info("Starting to stream proxy status from the agent...")
+	pc.log.Info("Starting to stream proxy status from the agent...")
 	var (
 		ps  grpc.ServerStreamingClient[pb.ProxyStatus]
 		err error
@@ -222,16 +185,14 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				time.Sleep(time.Minute)
 				continue
 			}
-			updateAgentReachability(err)
-			err = fmt.Errorf("error connecting to stream proxy status: %w", err)
+			err = fmt.Errorf("SubscribeProxyStatuses failed: %w", err)
 			return err
 		}
 
-		log.Info("The agent proxy status stream is established.")
+		pc.log.Info("The agent proxy status stream is established.")
 		for {
 			agentProxyStatus, err := ps.Recv()
 			if err != nil {
-				updateAgentReachability(err)
 				return fmt.Errorf("error receiving proxy status: %w", err)
 			}
 			if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
@@ -239,7 +200,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				pc.ipCacheV1 = true
 				pc.rwLock.Unlock()
 			} else {
-				log.Info("got message", logfields.Message, agentProxyStatus)
+				pc.log.Info("got message", logfields.Message, agentProxyStatus)
 			}
 		}
 	}
@@ -252,29 +213,6 @@ func (pc *proxyContext) supportsIPCacheV1() bool {
 	pc.rwLock.RLock()
 	defer pc.rwLock.RUnlock()
 	return pc.ipCacheV1
-}
-
-// Tracks whether the agent was reachable the last time we tried a RPC. Serves to avoid logging
-// excessively in the expected case of agent downtime (e.g. during upgrades).
-var agentReachable atomic.Bool
-
-func updateAgentReachability(err error) *status.Status {
-	sts, ok := status.FromError(err)
-	if !ok || sts.Code() == codes.OK || sts.Code() == codes.Unknown {
-		// Not a gRPC error indicating communication failure, assume agent communication worked.
-		if !agentReachable.Swap(true) {
-			log.Info("Agent connectivity established.")
-			watcher.notifyAgentConnected()
-		}
-		return sts
-	}
-	if agentReachable.Swap(false) {
-		log.Info("Agent connectivity lost",
-			logfields.Code, sts.Code().String(),
-			logfields.Error, sts.Message())
-	}
-
-	return sts
 }
 
 // LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
@@ -291,16 +229,19 @@ func (pc *proxyContext) LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint,
 	}
 
 	ep, err := pc.client.LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: bs})
-	updateAgentReachability(err)
-
 	if err != nil {
+		if pc.client.shouldLog(err) {
+			pc.log.Error("LookupEndpointIDByIP request failed", logfields.Error, err)
+		}
+
 		pc.cache.lock.RLock()
 		endpoint, ok := pc.cache.endpointByIP[ip]
 		pc.cache.lock.RUnlock()
 		if !ok {
+			pc.log.Error("LookupEndpointIDByIP: agent down and endpoint IP not in cache", logfields.IPAddr, ip)
 			return nil, false, fmt.Errorf("could not lookup endpoint for ip %s: %w", ip, err)
 		}
-		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("endpoint retrieved from cache: %s", err))
+		pc.log.Debug("LookupEndpointIDByIP: agent down, endpoint IP in cache", logfields.IPAddr, ip)
 		return endpoint, false, nil
 	}
 	endpoint := &endpoint.Endpoint{
@@ -338,25 +279,28 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 	} else {
 		var ident *pb.Identity
 		ident, err = pc.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
-		updateAgentReachability(err)
 		if err == nil {
 			id = identity.NumericIdentity(ident.ID)
 			src = source.Source(ident.Source)
 		}
 	}
 	if err != nil {
+		if pc.client.shouldLog(err) {
+			pc.log.Error("LookupSecIDByIP request failed", logfields.Error, err)
+		}
+
 		pc.cache.lock.RLock()
 		cachedID, ok := pc.cache.identityByIP[ip]
 		pc.cache.lock.RUnlock()
 		if !ok {
-			log.Error("could not lookup security identity for ip",
-				logfields.IPAddr, ip,
-				logfields.Error, err)
+			pc.log.Error("LookupSecIDByIP: agent down, IP not in cache", logfields.IPAddr, ip)
 			return ipcache.Identity{}, false
 		}
 		// TODO: check if this assumption is correct
 		// we assume that the identity exists if it's in the cache
-		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("security ID lookup in cache: %s", err))
+		pc.log.Debug("LookupSecIDByIP: agent down, IP in cache",
+			logfields.IPAddr, ip,
+			logfields.Identity, secID)
 		return cachedID, true
 	}
 	identity := ipcache.Identity{
@@ -375,20 +319,21 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 // ipcache.
 func (pc *proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
 	ips, err := pc.client.LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
-	updateAgentReachability(err)
 
 	if err != nil {
+		if pc.client.shouldLog(err) {
+			pc.log.Error("LookupByIdentity request failed", logfields.Error, err)
+		}
+
 		pc.cache.lock.RLock()
 		cachedIPs, ok := pc.cache.ipBySecID[nid]
 		pc.cache.lock.RUnlock()
 		if !ok {
-			log.Error("could not lookup ips for id",
-				logfields.Identity, nid,
-				logfields.Error, err)
+			pc.log.Error("LookupByIdentity: agent down, id not in cache", logfields.Identity, nid)
 			return nil
 		}
 
-		LogDebugTrigger.TriggerWithReason(fmt.Sprintf("IPs retrieved from cache: %s", err))
+		pc.log.Debug("LookupByIdentity: agent down, id in cache", logfields.Identity, nid)
 		return cachedIPs
 	}
 

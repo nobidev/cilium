@@ -11,7 +11,6 @@
 package main
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -30,14 +29,13 @@ func main() {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
-			return Hive.Run(logger)
+			// slogloggercheck: it has been initialized in the PreRun function.
+			return Hive.Run(logging.DefaultSlogLogger)
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
-			if Hive.Viper().GetBool("debug") {
-				logging.SetSlogLevel(slog.LevelDebug)
-			}
 			option.Config.SetupLogging(Hive.Viper(), "external-dns-proxy")
+			// slogloggercheck: it was initialized in SetupLogging
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 			option.Config.Populate(log, Hive.Viper())
 			option.LogRegisteredSlogOptions(Hive.Viper(), log)
 		},
