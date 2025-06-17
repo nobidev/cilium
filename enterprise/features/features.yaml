@@ -524,7 +524,7 @@ features:
       clustermesh.config.enabled: true
 
   ClusterMeshKVStoreMesh:
-    maturity: Limited
+    maturity: Stable
     description: |
       KVStoreMesh caches the information retrieves from the remote clusters in the local etcd instance
     # no flag since there is no corresponding entry in cilium-config

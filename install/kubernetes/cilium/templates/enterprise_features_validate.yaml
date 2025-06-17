@@ -52,16 +52,6 @@ WARNING: A Limited feature CiliumEndpointSlice was enabled, but it is not an app
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (and (eq "true" (print .clustermesh.apiserver.kvstoremesh.enabled)) (eq "true" (print .clustermesh.useAPIServer)) ) -}}
-  {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "ClusterMeshKVStoreMesh" .enterprise.featureGate.approved))) -}}
-    {{- if $strictFeatureGates -}}
-      {{- fail "\nLimited feature: ClusterMeshKVStoreMesh was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
-    {{- else -}}
-      {{ $fails = true }}
-WARNING: A Limited feature ClusterMeshKVStoreMesh was enabled, but it is not an approved feature.
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
 {{- if (eq "true" (print .enterprise.clustermesh.mixedRoutingMode.enabled))  -}}
   {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "ClusterMeshMixedRoutingMode" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
