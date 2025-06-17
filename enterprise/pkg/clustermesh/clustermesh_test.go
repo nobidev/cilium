@@ -33,10 +33,10 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 	testutils.IntegrationTest(t)
 	logger := hivetest.Logger(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	t.Cleanup(mgr.Close)
 
 	maps := cectnat.NewFakePerCluster(true, true)
@@ -46,6 +46,7 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: newClusterIDManager(hivetest.Logger(t), cinfo, maps),
 
+		ServiceMerger:         &ceServiceMerger{},
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 
@@ -63,17 +64,17 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 	cfg := cmtypes.CiliumClusterConfig{ID: 1}
 	ready := make(chan error, 1)
 	rc := cm.NewRemoteCluster("cluster1", nil)
-	rc.Run(ctx, kvstore.Client(), cfg, ready)
+	rc.Run(ctx, client, cfg, ready)
 	require.NoError(t, <-ready)
 
 	// Ensure that a cluster without config can't connect
 	ready = make(chan error, 1)
-	cm.NewRemoteCluster("cluster2", nil).Run(ctx, kvstore.Client(), cmtypes.CiliumClusterConfig{}, ready)
+	cm.NewRemoteCluster("cluster2", nil).Run(ctx, client, cmtypes.CiliumClusterConfig{}, ready)
 	require.ErrorContains(t, <-ready, "ClusterID 0 is reserved")
 
 	// Ensure that a cluster with the same ClusterID can't connect
 	ready = make(chan error, 1)
-	cm.NewRemoteCluster("cluster3", nil).Run(ctx, kvstore.Client(), cfg, ready)
+	cm.NewRemoteCluster("cluster3", nil).Run(ctx, client, cfg, ready)
 	require.ErrorContains(t, <-ready, "clusterID 1 is already used")
 
 	// Ensure that per-cluster maps are created for cluster1
@@ -83,7 +84,7 @@ func TestClusterMeshWithOverlappingPodCIDR(t *testing.T) {
 	// Reconnect cluster with changed ClusterID
 	newcfg := cmtypes.CiliumClusterConfig{ID: 255}
 	ready = make(chan error, 1)
-	rc.Run(ctx, kvstore.Client(), newcfg, ready)
+	rc.Run(ctx, client, newcfg, ready)
 	require.NoError(t, <-ready)
 
 	// Ensure the old per-cluster maps are deleted and new per-cluster maps are created
@@ -104,10 +105,10 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 	testutils.IntegrationTest(t)
 	logger := hivetest.Logger(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
-	<-mgr.InitIdentityAllocator(nil)
+	<-mgr.InitIdentityAllocator(nil, client)
 	t.Cleanup(mgr.Close)
 
 	maps := cectnat.NewFakePerCluster(true, true)
@@ -126,6 +127,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 		ClusterInfo:       cinfo,
 		ClusterIDsManager: idsMgr,
 
+		ServiceMerger:         &ceServiceMerger{},
 		RemoteIdentityWatcher: mgr,
 		StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
 
@@ -142,7 +144,7 @@ func TestClusterMeshWithOverlappingPodCIDRRestart(t *testing.T) {
 	// "Connect" a new cluster
 	cfg := cmtypes.CiliumClusterConfig{ID: 1}
 	ready := make(chan error, 1)
-	cm.NewRemoteCluster("cluster1", nil).Run(ctx, kvstore.Client(), cfg, ready)
+	cm.NewRemoteCluster("cluster1", nil).Run(ctx, client, cfg, ready)
 	require.NoError(t, <-ready)
 
 	// Trigger cleanup

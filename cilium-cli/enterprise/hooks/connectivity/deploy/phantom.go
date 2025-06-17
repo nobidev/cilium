@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/annotation"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -119,7 +119,7 @@ func newPhantomService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "echo-other-node-phantom",
-			Annotations: map[string]string{k8s.PhantomServiceKey: "true"},
+			Annotations: map[string]string{annotation.PhantomServiceKey: "true"},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,

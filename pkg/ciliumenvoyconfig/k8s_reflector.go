@@ -77,7 +77,7 @@ func registerCECK8sReflector(
 	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
 		return nil
 	}
-	if lws.cec == nil || !ecfg.EnableExperimentalLB {
+	if lws.cec == nil {
 		return nil
 	}
 
@@ -169,6 +169,7 @@ func registerCECK8sReflector(
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
 			},
+			Labels:           objMeta.Labels,
 			Selector:         selector,
 			SelectsLocalNode: selectsLocalNode,
 			ServicePorts:     servicePorts,

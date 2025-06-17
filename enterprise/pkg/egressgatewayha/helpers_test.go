@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -160,7 +160,7 @@ func (fr fakeResource[T]) Store(context.Context) (resource.Store[T], error) {
 	return nil, errors.New("not implemented")
 }
 
-func addPolicy(tb testing.TB, fakeSet *k8sClient.FakeClientset, policies fakeResource[*Policy], params *policyParams) {
+func addPolicy(tb testing.TB, fakeSet *k8sFake.FakeClientset, policies fakeResource[*Policy], params *policyParams) {
 	tb.Helper()
 
 	policy, _ := newIEGP(params)

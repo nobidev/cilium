@@ -25,7 +25,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	client "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 )

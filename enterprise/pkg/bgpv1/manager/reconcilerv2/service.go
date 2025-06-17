@@ -710,7 +710,7 @@ func (r *ServiceReconciler) svcFrontendHealthy(svc *slim_corev1.Service, fronten
 	}
 
 	// retrieve service health state
-	svcID := k8s.ParseServiceID(svc)
+	svcID := parseServiceID(svc)
 	feHealth, found := r.svcHealth[svcID]
 	if !found {
 		// if there is no health info for the service (yet), we assume it is healthy
@@ -1278,5 +1278,12 @@ func svcProtocolToLBL4Type(svcProto slim_corev1.Protocol) loadbalancer.L4Type {
 		return loadbalancer.SCTP
 	default:
 		return loadbalancer.TCP
+	}
+}
+
+func parseServiceID(svc *slim_corev1.Service) k8s.ServiceID {
+	return k8s.ServiceID{
+		Name:      svc.Name,
+		Namespace: svc.Namespace,
 	}
 }

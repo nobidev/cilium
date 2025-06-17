@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientV1Alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -177,7 +178,7 @@ func newHive(ctx context.Context, t *testing.T, invoke ...any) (*hive.Hive, func
 		"isovalentsrv6sidmanagers": {watchCh: make(chan any)},
 	}
 
-	fakeClientSet, _ := k8sclient.NewFakeClientset(hivetest.Logger(t))
+	fakeClientSet, _ := k8sfake.NewFakeClientset(hivetest.Logger(t))
 	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		w := action.(k8sTesting.WatchAction)
 		gvr := w.GetResource()

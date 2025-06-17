@@ -21,12 +21,15 @@ import (
 	"log/slog"
 	"sync/atomic"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	isovalent_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
@@ -39,10 +42,15 @@ type policyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyImporter        policycell.PolicyImporter
-	svcCache              serviceCache
-	svcCacheNotifications <-chan k8s.ServiceNotification
-	ipCache               ipc
+	policyImporter policycell.PolicyImporter
+
+	db       *statedb.DB
+	services statedb.Table[*loadbalancer.Service]
+	backends statedb.Table[*loadbalancer.Backend]
+
+	serviceEvents stream.Observable[serviceEvent]
+
+	ipCache ipc
 
 	// Number of outstanding requests still pending in the PolicyImporter
 	// This is only used during initial sync; we will increment these
@@ -62,7 +70,7 @@ type policyWatcher struct {
 
 	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
-	inpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+	inpByServiceID     map[loadbalancer.ServiceName]map[resource.Key]struct{}
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
@@ -96,7 +104,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 		var (
 			inpEvents     <-chan resource.Event[*isovalent_v1alpha1.IsovalentNetworkPolicy]
 			icnpEvents    <-chan resource.Event[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy]
-			serviceEvents <-chan k8s.ServiceNotification
+			serviceEvents <-chan serviceEvent
 		)
 		// copy the done-channels so we can nil them here and stop sending, without
 		// affecting the reader above
@@ -105,7 +113,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 
 		inpEvents = p.isovalentNetworkPolicies.Events(ctx)
 		icnpEvents = p.isovalentClusterwideNetworkPolicies.Events(ctx)
-		serviceEvents = p.svcCacheNotifications
+		if p.serviceEvents != nil {
+			serviceEvents = stream.ToChannel(ctx, p.serviceEvents)
+		}
 
 		for {
 			select {
@@ -186,11 +196,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 					serviceEvents = nil
 					break
 				}
-
-				switch event.Action {
-				case k8s.UpdateService, k8s.DeleteService:
-					p.onServiceEvent(event)
-				}
+				p.onServiceEvent(event)
 			}
 			if inpEvents == nil && icnpEvents == nil && serviceEvents == nil {
 				return

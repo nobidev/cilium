@@ -36,8 +36,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	clientv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -94,7 +94,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 				statedb.RWTable[*types.BFDPeerStatus].ToTable,
 
 				k8s.IsovalentBGPPeerConfigResource,
-				k8sclient.NewFakeClientset,
+				k8sfake.NewFakeClientset,
 			),
 
 			cell.Invoke(func(p BFDStateReconcilerIn) {
@@ -112,7 +112,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 				f.bfdPeersTable = table
 			}),
 
-			cell.Invoke(func(clientset *k8sclient.FakeClientset) {
+			cell.Invoke(func(clientset *k8sfake.FakeClientset) {
 				f.pcClient = clientset.IsovalentV1().IsovalentBGPPeerConfigs()
 				clientset.CiliumFakeClientset.PrependWatchReactor("*",
 					func(action k8stesting.Action) (handled bool, ret watch.Interface, err error) {

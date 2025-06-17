@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -50,7 +51,7 @@ func TestManagerSingleFQDNGroup(t *testing.T) {
 	var clientset k8sClient.Clientset
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sFakeClient.FakeClientCell(),
 		cell.Provide(func() dnsclient.Resolver {
 			return &mockClient{ipv4, ipv6}
 		}),
@@ -161,7 +162,7 @@ func TestManagerSingleFQDNGroupSameCIDRs(t *testing.T) {
 	var clientset k8sClient.Clientset
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sFakeClient.FakeClientCell(),
 		cell.Provide(func() dnsclient.Resolver {
 			return &mockClient{ipv4, ipv6}
 		}),
@@ -281,7 +282,7 @@ func TestManagerMultipleSets(t *testing.T) {
 	var cs k8sClient.Clientset
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sFakeClient.FakeClientCell(),
 		cell.Provide(func() dnsclient.Resolver {
 			return &mockClient{ipv4, ipv6}
 		}),
@@ -450,7 +451,7 @@ func TestManagerPeriodicResolver(t *testing.T) {
 	var clientset k8sClient.Clientset
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sFakeClient.FakeClientCell(),
 		cell.Provide(isovalentFQDNGroup),
 		cell.Provide(func() dnsclient.Resolver {
 			return &mockClient{ipv4, ipv6}

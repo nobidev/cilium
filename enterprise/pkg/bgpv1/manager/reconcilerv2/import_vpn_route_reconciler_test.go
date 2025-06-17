@@ -40,7 +40,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -188,7 +188,7 @@ func TestSRv6RouteImport(t *testing.T) {
 		"test module",
 		rib.Cell,
 		rib.NopDataPlaneCell,
-		client.FakeClientCell,
+		k8sfake.FakeClientCell(),
 		cell.Provide(
 			k8s.IsovalentVRFResource,
 			newImportVPNRouteReconciler,
@@ -279,7 +279,7 @@ func TestSRv6RouteImport(t *testing.T) {
 				router = rtr
 				reconciler = rec
 			},
-			func(cs *client.FakeClientset) {
+			func(cs *k8sfake.FakeClientset) {
 				_, err := cs.IsovalentV1alpha1().IsovalentVRFs().Create(
 					t.Context(),
 					&v1alpha1.IsovalentVRF{

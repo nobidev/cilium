@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -50,7 +50,7 @@ func TestReconciler(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	// create fake clientsets
-	cs, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+	cs, _ := k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 	clientset := cs.CiliumV2alpha1().CiliumCIDRGroups()
 
 	first, last := make(chan struct{}), make(chan struct{})

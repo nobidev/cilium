@@ -53,7 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	k8sVersion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -132,7 +132,7 @@ func TestScript(t *testing.T) {
 		}
 
 		h := ciliumhive.New(
-			client.FakeClientCell,
+			k8sfake.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			metrics.Cell,

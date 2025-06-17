@@ -37,6 +37,7 @@ import (
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
 	"github.com/cilium/cilium/pkg/allocator"
 	cm "github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -46,8 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -95,7 +95,7 @@ func TestScript(t *testing.T) {
 		configDir := t.TempDir()
 
 		h := hive.New(
-			client.FakeClientCell,
+			k8sfake.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
 			lbcell.Cell,
@@ -133,9 +133,6 @@ func TestScript(t *testing.T) {
 				func() cm.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
 				},
-				func() k8s.ServiceCache {
-					return nil
-				},
 				func(log *slog.Logger) nodemanager.NodeManager {
 					return dummyNodeManager{log}
 				},
@@ -145,7 +142,7 @@ func TestScript(t *testing.T) {
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
-			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdsOut) {
+			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				kvstore.SetupInMemory(db)
 				client := kvstore.SetupDummy(t, "in-memory")
 				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
@@ -155,7 +152,16 @@ func TestScript(t *testing.T) {
 				return cectnat.NewFakePerCluster(true, true)
 			}),
 
-			cell.Invoke(func(client kvstore.BackendOperations) {
+			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {
+				// All clusters share the same underlying client.
+				return func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+					errch := make(chan error)
+					close(errch)
+					return client, errch
+				}
+			}),
+
+			cell.Invoke(func(client kvstore.Client) {
 				clusterConfig := []byte("endpoints:\n- in-memory\n")
 				config1 := path.Join(configDir, "cluster1")
 				require.NoError(t, os.WriteFile(config1, clusterConfig, 0644), "Failed to write config file for cluster1")
@@ -181,7 +187,6 @@ func TestScript(t *testing.T) {
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
-		flags.Set("enable-experimental-lb", "true")
 		flags.Set("clustermesh-config", configDir)
 
 		// Parse the shebang arguments in the script.
@@ -259,16 +264,6 @@ func (d dummyNodeManager) NodeSync() {
 
 // NodeUpdated implements manager.NodeManager.
 func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// StartNeighborRefresh implements manager.NodeManager.
-func (d dummyNodeManager) StartNeighborRefresh(nh types.NodeNeighbors) {
-	panic("unimplemented")
-}
-
-// StartNodeNeighborLinkUpdater implements manager.NodeManager.
-func (d dummyNodeManager) StartNodeNeighborLinkUpdater(nh types.NodeNeighbors) {
 	panic("unimplemented")
 }
 

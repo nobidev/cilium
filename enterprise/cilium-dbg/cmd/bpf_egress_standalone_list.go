@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 type segwEntry struct {
@@ -38,7 +37,7 @@ var bpfEgressStandaloneListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress standalone list")
 
-		segwMap, err := egressmapha.OpenPinnedSEGWMap(logging.DefaultSlogLogger)
+		segwMap, err := egressmapha.OpenPinnedSEGWMap(log)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				Fatalf("Cannot find standalone egress gateway bpf map")

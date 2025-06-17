@@ -11,24 +11,34 @@
 package healthchecker
 
 import (
-	"log/slog"
-
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/service"
 )
 
-// Cell provides service health checker functionality.
+// Cell implements health checking for load-balancing backends.
+//
+// The implementation is divided into two parts:
+//  1. [controller] which interacts with the load-balancing control-plane
+//     and instructs what backends to health check via Table[healthCheck],
+//  2. [checker] which probes the backends defined by Table[healthCheck]
+//     and updates back.
 var Cell = cell.Module(
-	"service-health-checker",
-	"Service Health Checker",
+	"service-health-checker-v2",
+	"Service health checking",
 
-	//exhaustruct:ignore
-	cell.Config(Config{}),
-	cell.Provide(registerActiveHealthChecker),
+	cell.Config(defaultConfig),
+	cell.ProvidePrivate(
+		newHealthCheckTable,
+	),
+	cell.Invoke(
+		registerController,
+		registerChecker,
+	),
 )
+
+var defaultConfig = Config{
+	EnableActiveLbHealthChecking: false,
+}
 
 type Config struct {
 	EnableActiveLbHealthChecking bool
@@ -36,38 +46,4 @@ type Config struct {
 
 func (r Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-active-lb-health-checking", false, "Enable active health checking on loadbalancer services")
-}
-
-func registerActiveHealthChecker(
-	lifecycle cell.Lifecycle,
-	logger *slog.Logger,
-	cfg Config,
-	lbConfig lb.Config,
-) healthCheckerResult {
-	if !cfg.EnableActiveLbHealthChecking || lbConfig.EnableExperimentalLB {
-		return healthCheckerResult{}
-	}
-
-	activeHealthChecker := newHealthChecker(logger)
-
-	lifecycle.Append(cell.Hook{
-		OnStart: func(hookContext cell.HookContext) error {
-			go activeHealthChecker.run()
-			return nil
-		},
-		OnStop: func(cell.HookContext) error {
-			activeHealthChecker.Stop()
-			return nil
-		},
-	})
-
-	return healthCheckerResult{
-		HealthChecker: activeHealthChecker,
-	}
-}
-
-type healthCheckerResult struct {
-	cell.Out
-
-	HealthChecker service.HealthChecker `group:"healthCheckers"`
 }

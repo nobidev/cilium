@@ -29,6 +29,7 @@ func init() {
 }
 
 func main() {
+	// slogloggercheck: initialize the log variable for tests
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	c := cmd.NewCmd(logger, cmd.WithEPConfigurator(multinetwork.NewEndpointConfigurator()))
 	skel.PluginMain(c.Add,

@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -34,7 +34,7 @@ import (
 
 type EgressGatewayOperatorTestSuite struct {
 	manager           *OperatorManager
-	fakeSet           *k8sClient.FakeClientset
+	fakeSet           *k8sFake.FakeClientset
 	healthcheckerMock *healthcheckerMock
 
 	policies      fakeResource[*Policy]
@@ -44,7 +44,7 @@ type EgressGatewayOperatorTestSuite struct {
 
 func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTestSuite {
 	k := &EgressGatewayOperatorTestSuite{}
-	k.fakeSet = &k8sClient.FakeClientset{CiliumFakeClientset: cilium_fake.NewSimpleClientset()}
+	k.fakeSet = &k8sFake.FakeClientset{CiliumFakeClientset: cilium_fake.NewSimpleClientset()}
 	k.policies = make(fakeResource[*Policy])
 	k.nodeResources = make(fakeResource[*slim_corev1.Node])
 	k.ciliumNodes = make(fakeResource[*cilium_api_v2.CiliumNode])
@@ -211,7 +211,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusFromPolicy(tb te
 	assert.NoError(tb, err)
 }
 
-func tryAssertIegpGatewayStatus(fakeSet *k8sClient.FakeClientset, policy string, gs gatewayStatus) error {
+func tryAssertIegpGatewayStatus(fakeSet *k8sFake.FakeClientset, policy string, gs gatewayStatus) error {
 	iegp, err := fakeSet.CiliumFakeClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Get(context.TODO(), policy, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -254,7 +254,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpStatusConditionsFromPolicy(tb
 	assert.NoError(tb, err)
 }
 
-func tryAssertIegpStatusConditions(fakeSet *k8sClient.FakeClientset, policy string, conds []metav1.Condition) error {
+func tryAssertIegpStatusConditions(fakeSet *k8sFake.FakeClientset, policy string, conds []metav1.Condition) error {
 	iegp, err := fakeSet.CiliumFakeClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Get(context.TODO(), policy, metav1.GetOptions{})
 	if err != nil {
 		return err

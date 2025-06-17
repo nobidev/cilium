@@ -27,6 +27,7 @@ import (
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -76,7 +77,7 @@ type initialConfig struct {
 type fixture struct {
 	hive                 *hive.Hive
 	manager              *LocatorPoolManager
-	fakeClientSet        *k8sClient.FakeClientset
+	fakeClientSet        *k8sFake.FakeClientset
 	locatorPoolClient    isovalent_client_v1alpha1.IsovalentSRv6LocatorPoolInterface
 	srv6SIDManagerClient isovalent_client_v1alpha1.IsovalentSRv6SIDManagerInterface
 	nodeResClient        slim_core_v1_client.NodeInterface
@@ -85,7 +86,7 @@ type fixture struct {
 func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fixture {
 	f := &fixture{}
 
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
+	f.fakeClientSet, _ = k8sFake.NewFakeClientset(hivetest.Logger(t))
 	f.locatorPoolClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6LocatorPools()
 	f.srv6SIDManagerClient = f.fakeClientSet.CiliumFakeClientset.IsovalentV1alpha1().IsovalentSRv6SIDManagers()
 	f.nodeResClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Nodes()

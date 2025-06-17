@@ -76,4 +76,14 @@ const (
 	// to prevent "placeholder" services from being advertised. It is not
 	// intended to be used by users.
 	ServiceNoAdvertisement = ossannotation.ServicePrefix + "/no-advertisement"
+
+	// CEServicePrefix is the common prefix for service related annotations
+	// used for enterprise-only functionalities.
+	CEServicePrefix = "service.isovalent.com"
+
+	// PhantomServiceKey if set to true, marks a service (which must be of type
+	// LoadBalancer) to become a phantom service. It means that the corresponding
+	// LB IP address becomes reachable from the remote clusters, even if a service
+	// with the same namespace/name does not exist there.
+	PhantomServiceKey = CEServicePrefix + "/phantom"
 )
