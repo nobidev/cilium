@@ -15,14 +15,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"net/netip"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -48,70 +44,15 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-const (
-	metricsNamespace = "isovalent"
-)
-
 // slogloggercheck: root logger for fqdn-proxy
 var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "external-dns-proxy")
 
 var (
 	watcher *rulesWatcher
 
-	// Metrics
-	defaultSummaryObjectives = map[float64]float64{
-		0.5:  0.05,
-		0.9:  0.01,
-		0.99: 0.001,
-	}
-	ProxyUpdateErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name:      "update_errors_total",
-		Namespace: metricsNamespace,
-		Subsystem: "external_dns_proxy",
-		Help:      "Number of total cilium DNS notification errors during FQDN IP updates",
-	}, []string{"error"})
-	ProxyUpdateQueueLen = promauto.NewGauge(prometheus.GaugeOpts{
-		Name:      "update_queue_size",
-		Namespace: metricsNamespace,
-		Subsystem: "external_dns_proxy",
-		Help:      "Size of the queue for deferred DNS notifications to the cilium-agent",
-	})
-	ProcessingTime = promauto.NewSummaryVec(prometheus.SummaryOpts{
-		Name:       "processing_duration_seconds",
-		Namespace:  metricsNamespace,
-		Subsystem:  "external_dns_proxy",
-		Help:       "Seconds spent processing DNS transactions",
-		Objectives: defaultSummaryObjectives,
-	}, []string{"error"})
-	UpstreamTime = promauto.NewSummaryVec(prometheus.SummaryOpts{
-		Name:       "upstream_duration_seconds",
-		Namespace:  metricsNamespace,
-		Subsystem:  "external_dns_proxy",
-		Help:       "Seconds waited to get a reply from a upstream server",
-		Objectives: defaultSummaryObjectives,
-	}, []string{"error"})
-	PolicyTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name:      "policy_l7_total",
-		Namespace: metricsNamespace,
-		Subsystem: "external_dns_proxy",
-		Help:      "Number of total proxy requests handled",
-	}, []string{"rule"})
-	Version = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: metricsNamespace,
-		Name:      "version",
-		Help:      "FQDN Proxy version",
-	}, []string{"version"})
-
-	// Metrics labels
-	metricErrorTimeout  = "timeout"
-	metricErrorProxy    = "proxyErr"
-	metricErrorPacking  = "serialization failed"
-	metricErrorNoEP     = "noEndpoint"
-	metricErrorOverflow = "queueOverflow"
-	metricErrorAllow    = "allow"
-	LogInfoTrigger      *trigger.Trigger
-	LogWarningTrigger   *trigger.Trigger
-	LogDebugTrigger     *trigger.Trigger
+	LogInfoTrigger    *trigger.Trigger
+	LogWarningTrigger *trigger.Trigger
+	LogDebugTrigger   *trigger.Trigger
 )
 
 func init() {
@@ -166,8 +107,6 @@ func run(ctx context.Context, params runParams) error {
 
 	log.Info("loaded config options", logfields.Config, params.Cfg)
 	cfg := params.Cfg
-
-	go exposeMetrics(cfg)
 
 	log.Info("starting cilium dns proxy server")
 	if err := re.InitRegexCompileLRU(logging.DefaultSlogLogger, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
@@ -313,20 +252,6 @@ func (pc *proxyContext) supportsIPCacheV1() bool {
 	pc.rwLock.RLock()
 	defer pc.rwLock.RUnlock()
 	return pc.ipCacheV1
-}
-
-func exposeMetrics(cfg Config) {
-	if !cfg.ExposePrometheusMetrics {
-		return
-	}
-
-	Version.WithLabelValues(version.GetCiliumVersion().Version)
-	log.Info("Enabling Prometheus metrics", logfields.Port, cfg.PrometheusPort)
-	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.PrometheusPort), nil)
-	if err != nil {
-		log.Error("Failed to enable Prometheus metrics", logfields.Error, err)
-	}
 }
 
 // Tracks whether the agent was reachable the last time we tried a RPC. Serves to avoid logging

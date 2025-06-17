@@ -31,6 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -85,17 +87,27 @@ type notifier struct {
 	log *slog.Logger
 	cfg Config
 
-	client *fqdnAgentClient
-	queue  chan *pb.DNSNotification
-	wg     sync.WaitGroup
+	client  *fqdnAgentClient
+	metrics *notifierMetrics
+	queue   chan *pb.DNSNotification
+	wg      sync.WaitGroup
+}
+
+type notifierMetrics struct {
+	ProxyUpdateErrors   metric.Vec[metric.Counter]
+	ProcessingTime      metric.Vec[metric.Observer]
+	UpstreamTime        metric.Vec[metric.Observer]
+	PolicyTotal         metric.Vec[metric.Counter]
+	ProxyUpdateQueueLen metric.GaugeFunc
 }
 
 type notifierParams struct {
 	cell.In
 
-	Log *slog.Logger
-	Cfg Config
-	LC  cell.Lifecycle
+	Log      *slog.Logger
+	Cfg      Config
+	LC       cell.Lifecycle
+	Registry *metrics.Registry
 
 	Client *fqdnAgentClient
 }
@@ -108,9 +120,55 @@ func newNotifier(params notifierParams) *notifier {
 		client: params.Client,
 		queue:  make(chan *pb.DNSNotification, params.Cfg.DNSNotificationChannelSize),
 	}
+	n.metrics = makeNotifierMetrics(n, params.Registry)
 
 	params.LC.Append(n)
 	return n
+}
+
+func makeNotifierMetrics(n *notifier, reg *metrics.Registry) *notifierMetrics {
+	m := &notifierMetrics{
+		ProxyUpdateErrors: metric.NewCounterVec(metric.CounterOpts{
+			Name:      "update_errors_total",
+			Namespace: metricsNamespace,
+			Subsystem: "external_dns_proxy",
+			Help:      "Number of total cilium DNS notification errors during FQDN IP updates",
+		}, []string{"error"}),
+		ProcessingTime: metric.NewHistogramVec(metric.HistogramOpts{
+			Name:      "processing_duration_seconds",
+			Namespace: metricsNamespace,
+			Subsystem: "external_dns_proxy",
+			Help:      "Seconds spent processing DNS transactions",
+		}, []string{"error"}),
+		UpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
+			Name:      "upstream_duration_seconds",
+			Namespace: metricsNamespace,
+			Subsystem: "external_dns_proxy",
+			Help:      "Seconds waited to get a reply from a upstream server",
+		}, []string{"error"}),
+		PolicyTotal: metric.NewCounterVec(metric.CounterOpts{
+			Name:      "policy_l7_total",
+			Namespace: metricsNamespace,
+			Subsystem: "external_dns_proxy",
+			Help:      "Number of total proxy requests handled",
+		}, []string{"rule"}),
+		ProxyUpdateQueueLen: metric.NewGaugeFunc(metric.GaugeOpts{
+			Name:      "update_queue_size",
+			Namespace: metricsNamespace,
+			Subsystem: "external_dns_proxy",
+			Help:      "Size of the queue for deferred DNS notifications to the cilium-agent",
+		}, func() float64 {
+			return float64(len(n.queue))
+		}),
+	}
+
+	reg.Register(m.ProxyUpdateErrors)
+	reg.Register(m.ProcessingTime)
+	reg.Register(m.UpstreamTime)
+	reg.Register(m.PolicyTotal)
+	reg.Register(m.ProxyUpdateQueueLen)
+
+	return m
 }
 
 func (n *notifier) Start(ctx cell.HookContext) error {
@@ -132,6 +190,16 @@ func (n *notifier) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
+const (
+	// Metrics labels
+	metricErrorTimeout  = "timeout"
+	metricErrorProxy    = "proxyErr"
+	metricErrorPacking  = "serialization failed"
+	metricErrorNoEP     = "noEndpoint"
+	metricErrorOverflow = "queueOverflow"
+	metricErrorAllow    = "allow"
+)
+
 // NotifyOnDNSMsghandles propagating DNS response data
 func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, agentAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	stat.ProcessingTime.Start()
@@ -139,9 +207,9 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	endMetric := func() {
 		success := metricError == metricErrorAllow
 		stat.ProcessingTime.End(success)
-		UpstreamTime.WithLabelValues(metricError).Observe(
+		n.metrics.UpstreamTime.WithLabelValues(metricError).Observe(
 			stat.UpstreamTime.Total().Seconds())
-		ProcessingTime.WithLabelValues(metricError).Observe(
+		n.metrics.ProcessingTime.WithLabelValues(metricError).Observe(
 			stat.ProcessingTime.Total().Seconds())
 	}
 	switch {
@@ -155,7 +223,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 		break
 	}
 
-	PolicyTotal.WithLabelValues("received").Inc()
+	n.metrics.PolicyTotal.WithLabelValues("received").Inc()
 
 	if ep == nil {
 		metricError = metricErrorNoEP
@@ -203,7 +271,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 			log.Warn("BUG: Unexpected non-status error during DNS notification to agent", logfields.Error, err)
 		} else {
 			metricError = status.Code().String()
-			ProxyUpdateErrors.WithLabelValues(metricError).Inc()
+			n.metrics.ProxyUpdateErrors.WithLabelValues(metricError).Inc()
 		}
 
 		// Cilium-agent is down or unable to successfully plumb the policy
@@ -213,7 +281,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 		case n.queue <- notification:
 		default:
 			metricError = metricErrorOverflow
-			ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
+			n.metrics.ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
 			LogWarningTrigger.TriggerWithReason("Cilium agent is down and notification channel is full. Skipping notification.")
 		}
 	}
@@ -221,7 +289,7 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	// Release the DNS response back to the user application. If Cilium
 	// previously plumbed the policy for this IP / Name, then the app will
 	// successfully connect, regardless of whether Cilium is down or not.
-	PolicyTotal.WithLabelValues("forwarded").Inc()
+	n.metrics.PolicyTotal.WithLabelValues("forwarded").Inc()
 	if msg.Response && msg.Rcode == dns.RcodeSuccess {
 		endMetric()
 	}
