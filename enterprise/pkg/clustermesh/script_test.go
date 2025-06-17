@@ -11,10 +11,8 @@
 package clustermesh
 
 import (
-	"bytes"
 	"context"
 	"flag"
-	"fmt"
 	"log/slog"
 	"maps"
 	"os"
@@ -148,7 +146,7 @@ func TestScript(t *testing.T) {
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				client := kvstore.NewInMemoryClient(db, "__all__")
-				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
+				return client, uhive.NewScriptCmds(kvstore.Commands(client))
 			}),
 
 			cell.Provide(func() cectnat.PerCluster {
@@ -298,79 +296,3 @@ func (d dummyRemoteIdentityWatcher) WatchRemoteIdentities(remoteName string, rem
 }
 
 var _ cm.RemoteIdentityWatcher = dummyRemoteIdentityWatcher{}
-
-type kvstoreCommands struct {
-	client kvstore.BackendOperations
-}
-
-func (e kvstoreCommands) cmds() map[string]script.Cmd {
-	return map[string]script.Cmd{
-		"kvstore/update": e.update(),
-		"kvstore/delete": e.delete(),
-		"kvstore/list":   e.list(),
-	}
-}
-
-func (e kvstoreCommands) update() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "update kvstore key-value",
-			Args:    "key value-file",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 2 {
-				return nil, fmt.Errorf("%w: expected key and value file", script.ErrUsage)
-			}
-			b, err := os.ReadFile(s.Path(args[1]))
-			if err != nil {
-				return nil, err
-			}
-
-			// HACK: In order to reuse the OSS test files we'll need to inject "includeExternal": "true",
-			// at least until these files have been fixed up on OSS side.
-			if !bytes.Contains(b, []byte("includeExternal")) {
-				b = bytes.ReplaceAll(b, []byte(`"shared": true`), []byte(`"shared": true, "includeExternal": true`))
-			}
-
-			return nil, e.client.Update(s.Context(), args[0], b, false)
-		},
-	)
-}
-
-func (e kvstoreCommands) delete() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "delete kvstore key-value",
-			Args:    "key",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 1 {
-				return nil, fmt.Errorf("%w: expected key", script.ErrUsage)
-			}
-			return nil, e.client.Delete(s.Context(), args[0])
-		},
-	)
-}
-
-func (e kvstoreCommands) list() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "list kvstore key-value pairs",
-			Args:    "(prefix)",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			prefix := ""
-			if len(args) > 0 {
-				prefix = args[0]
-			}
-			kvs, err := e.client.ListPrefix(s.Context(), prefix)
-			if err != nil {
-				return nil, err
-			}
-			for k, v := range kvs {
-				s.Logf("%s: %s\n", k, v.Data)
-			}
-			return nil, nil
-		},
-	)
-}
