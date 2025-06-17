@@ -532,6 +532,16 @@ features:
       clustermesh.useAPIServer: true
       clustermesh.apiserver.kvstoremesh.enabled: true
 
+  ClusterMeshMaxConnectedClusters:
+    maturity: Beta
+    description: |
+      Increase the maximum number of clusters supported in a ClusterMesh, at the
+      cost of decreasing the maximum allocatable cluster-local identities.
+    flags:
+      max-connected-clusters: 511
+    helm:
+      clustermesh.maxConnectedClusters: 511
+
   CiliumEndpointSlice:
     maturity: Limited
     description: |
