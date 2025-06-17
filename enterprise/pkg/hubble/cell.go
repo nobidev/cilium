@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/connectionlog"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/export"
 )
 
@@ -23,4 +24,5 @@ var Cell = cell.Module(
 
 	aggregation.Cell,
 	export.Cell,
+	connectionlog.Cell,
 )

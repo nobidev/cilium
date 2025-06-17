@@ -1,0 +1,93 @@
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package graph.v1alpha;
+
+option go_package = "github.com/isovalent/ipa/graph/v1alpha";
+
+// An edge represents aggregatable properties of a given connection.
+message Edge {
+  // Type defines the type of the edge. An edge is at most one of these types
+  // but can also be undefined, in which case an edge is just a link without
+  // any property.
+  //
+  // Edge types MAY be associated with a ConnectionLog emitter. However, there
+  // is no imposed limitation of 1:1 mapping between edge types and emitters.
+  // If an emitter collects more relevant data, it MAY emit more than one
+  // ConnectionLog with different edge types.
+  oneof type {
+    EdgeTypeNetworkTelemetry network_telemetry = 1;
+    EdgeTypeRoutingTelemetry routing_telemetry = 2;
+    EdgeTypeL7Telemetry l7_telemetry = 3;
+  }
+}
+
+// EdgeTypeNetworkTelemetry provides telemetry information regarding a network
+// connection.
+message EdgeTypeNetworkTelemetry {
+  // network_transmit_packets_total is the number of packets transferred.
+  uint64 network_transmit_packets_total = 1;
+  // network_transmit_bytes_total is the number of bytes transferred.
+  uint64 network_transmit_bytes_total = 2;
+  // network_transmit_drop_total is the number of packets dropped during
+  // transmission.
+  uint64 network_transmit_drop_total = 3;
+  // network_receive_packets_total is the number of packets received.
+  uint64 network_receive_packets_total = 4;
+  // network_receive_bytes_total is the number of bytes received.
+  uint64 network_receive_bytes_total = 5;
+  // network_receive_drop_total is the number of packets that are received but
+  // discarded.
+  uint64 network_receive_drop_total = 6;
+}
+
+// EdgeTypeRoutingTelemetry provides telemetry information regarding routing
+// decisions.
+message EdgeTypeRoutingTelemetry {
+  // routing_forwarded_total is the number of network flows that have been
+  // forwarded to the next processing entity.
+  uint64 routing_forwarded_total = 1;
+  // routing_dropped_total is the number of network flows that have been
+  // dropped. Reasons for dropping data may be due to a malformed packet,
+  // rejection by a network policy, etc.
+  uint64 routing_dropped_total = 2;
+  // routing_error_total is the number of flows where an error occurred during
+  // processing.
+  uint64 routing_error_total = 3;
+  // routing_audit_total is the number of times a flow would have been dropped
+  // if a network policy that applies to it was enforced.
+  uint64 routing_audit_total = 4;
+  // routing_redirected_total is the number of flows which have been
+  // redirected, for instance to a local proxy.
+  uint64 routing_redirected_total = 5;
+  // routing_traced_total is the number of flows that have been observed at a
+  // trace point.
+  uint64 routing_traced_total = 6;
+  // routing_translated_total is the number of flows where are address has been
+  // translated.
+  uint64 routing_translated_total = 7;
+}
+
+// EdgeTypeL7Telemetry provides telemetry information regarding a network
+// connection at the application layer.
+message EdgeTypeL7Telemetry {
+  // http_requests_total is the number of HTTP requests that occurred during
+  // the selected time window. In conjunction with http_server_errors_total
+  // and http_client_errors_total, one can determine the error rate as a
+  // percent of requests that are failing from the total number of requests.
+  // One can also measure throughput in terms of HTTP requests per second.
+  uint64 http_requests_total = 1;
+  // http_server_errors_total is the number of HTTP server errors (5xx) that
+  // occurred during the selected time window.
+  uint64 http_server_errors_total = 2;
+  // http_client_errors_total is the number of HTTP client errors (4xx) that
+  // occurred during the selected time window.
+  uint64 http_client_errors_total = 3;
+}

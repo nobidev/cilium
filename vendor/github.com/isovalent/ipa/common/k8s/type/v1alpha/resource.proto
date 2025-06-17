@@ -1,0 +1,27 @@
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package common.k8s.type.v1alpha;
+
+option go_package = "github.com/isovalent/ipa/common/k8s/type/v1alpha";
+
+// ResourceKind represents the various Kubernetes resources types.
+enum ResourceKind {
+  RESOURCE_KIND_UNSPECIFIED = 0;
+  RESOURCE_KIND_WORKLOAD = 1;
+  RESOURCE_KIND_SERVICE = 2;
+  RESOURCE_KIND_CONFIG = 3;
+  RESOURCE_KIND_STORAGE = 4;
+  RESOURCE_KIND_AUTHENTICATION = 5;
+  RESOURCE_KIND_AUTHORIZATION = 6;
+  RESOURCE_KIND_POLICY = 7;
+  RESOURCE_KIND_EXTEND = 8;
+  RESOURCE_KIND_CLUSTER = 9;
+}

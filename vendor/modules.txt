@@ -1139,6 +1139,8 @@ github.com/ishidawataru/sctp
 github.com/isovalent/hubble-timescape/api/timescape/v1alpha
 # github.com/isovalent/ipa v1.18.0-pre.1
 ## explicit; go 1.24
+github.com/isovalent/ipa/common/k8s/type/v1alpha
+github.com/isovalent/ipa/graph/v1alpha
 github.com/isovalent/ipa/system_status/v1alpha
 # github.com/jeremywohl/flatten v1.0.1
 ## explicit

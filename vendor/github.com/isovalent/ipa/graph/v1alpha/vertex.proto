@@ -1,0 +1,90 @@
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package graph.v1alpha;
+
+import "common/k8s/type/v1alpha/resource.proto";
+import "common/k8s/type/v1alpha/service.proto";
+import "common/k8s/type/v1alpha/workload.proto";
+
+option go_package = "github.com/isovalent/ipa/graph/v1alpha";
+
+// A vertex represents a set of properties of a connection source or
+// destination.
+message Vertex {
+  // A vertex family is a groups of vertex properties related to a specific
+  // family.
+  oneof family {
+    VertexFamilyKubernetes kubernetes = 1;
+    VertexFamilyNetworkDevice network_device = 2;
+    VertexFamilyWorldEntity world_entity = 3;
+  }
+}
+
+// VertexFamilyKubernetes represent vertex properties that are related to a
+// Kubernetes context.
+message VertexFamilyKubernetes {
+  // UID is the unique in time and space value of the Kubernetes object.
+  string uid = 1;
+  // resource_kind defines the type of Kubernetes resource.
+  common.k8s.type.v1alpha.ResourceKind resource_kind = 2;
+  // resource_version is an opaque value that represents the internal version
+  // of the Kubernetes object.
+  string resource_version = 3;
+  // resource_name is the name of the Kubernetes object which is unique within
+  // a namespace.
+  string resource_name = 4;
+  // cluster_name is the name of the Kubernetes cluster.
+  string cluster_name = 5;
+  // namespace is the space within which each resource name is unique.
+  string namespace = 6;
+  // node_name is the name of the Kubernetes node.
+  string node_name = 7;
+  // pod_name is the name of the Kubernetes pod.
+  string pod_name = 8;
+  // container_name is the name of the container.
+  string container_name = 9;
+  // service_kind represents the type of the Kubernetes service.
+  common.k8s.type.v1alpha.ServiceKind service_kind = 10;
+  // workload_kind represents the type of the Kubernetes workload.
+  common.k8s.type.v1alpha.WorkloadKind workload_kind = 11;
+  // ip is a network address that can be associated with the Kubernetes
+  // resource and the connection.
+  string ip = 12;
+  // port is the network port associated with the ip address.
+  uint32 port = 13;
+  // application_model_uuid is a unique identifier that identifies the
+  // application model associated with the Kubernetes resource.
+  string application_model_uuid = 14;
+}
+
+// VertexFamilyNetworkDevice represents vertex properties that are related to a
+// network device.
+message VertexFamilyNetworkDevice {
+  // name is the name of the network device.
+  string name = 1;
+  // ip is a network address that can be associated with the network device and
+  // the connection.
+  string ip = 2;
+  // port is the network port associated with the ip address.
+  uint32 port = 3;
+}
+
+// VertexFamilyWorldEntity represents a broad set of network elements outside
+// of a specific network boundary.
+message VertexFamilyWorldEntity {
+  // dns_name is the DNS name that can be associated with the world entity.
+  string dns_name = 1;
+  // ip is a network address that can be associated with the world entity and
+  // the connection.
+  string ip = 2;
+  // port is the network port associated with the ip address.
+  uint32 port = 3;
+}
