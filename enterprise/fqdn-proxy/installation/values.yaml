@@ -61,8 +61,6 @@ tolerations:
   #   operator: "Equal|Exists"
   #   value: "value"
   #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
-dnsProxy:
-  dnsRejectResponseCode: "refused"
 
 # -- Affinity for cilium-dnsproxy.
 affinity:

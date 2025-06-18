@@ -68,7 +68,6 @@ spec:
       - command:
         - dnsproxy
         args:
-        - --tofqdns-dns-reject-response-code={{ .Values.dnsProxy.dnsRejectResponseCode }}
 {{- if .Values.debug }}
         - --debug
 {{- end }}
@@ -80,9 +79,6 @@ spec:
 {{- end }}
 {{- if .Values.metrics.port }}
         - --prometheus-port={{ .Values.metrics.port }}
-{{- end }}
-{{- if .Values.rpcOnly }}
-        - --rpc-ipc-only=true
 {{- end }}
 {{- with .Values.extraArgs }}
 {{- toYaml . | trim | nindent 8 }}
@@ -98,8 +94,12 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: CILIUM_CLUSTERMESH_CONFIG
-          value: /var/lib/cilium/clustermesh/
+        - name: CILIUM_DEBUG
+          valueFrom:
+            configMapKeyRef:
+              key: debug
+              name: cilium-config
+              optional: true
         - name: CILIUM_ENABLE_IPV4
           valueFrom:
             configMapKeyRef:
@@ -112,16 +112,22 @@ spec:
               key: enable-ipv6
               name: cilium-config
               optional: true
-        - name: CILIUM_CNI_CHAINING_MODE
+        - name: CILIUM_TOFQDNS_ENABLE_DNS_COMPRESSION
           valueFrom:
             configMapKeyRef:
-              key: cni-chaining-mode
+              key: tofqdns-enable-dns-compression
               name: cilium-config
               optional: true
-        - name: CILIUM_CUSTOM_CNI_CONF
+        - name: CILIUM_FQDN_REGEX_COMPILE_LRU_SIZE
           valueFrom:
             configMapKeyRef:
-              key: custom-cni-conf
+              key: fqdn-regex-compile-lru-size
+              name: cilium-config
+              optional: true
+        - name: CILIUM_TOFQDNS_DNS_REJECT_RESPONSE_CODE
+          valueFrom:
+            configMapKeyRef:
+              key: tofqdns-dns-reject-response-code
               name: cilium-config
               optional: true
         - name: CILIUM_DNSPROXY_ENABLE_TRANSPARENT_MODE
