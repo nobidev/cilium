@@ -12,3 +12,7 @@ spec:
   - fromEndpoints:
     - matchLabels:
         name: client
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
