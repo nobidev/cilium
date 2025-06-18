@@ -89,12 +89,12 @@ func NewRateLimiter(numEvents int, interval time.Duration, nodeName string, logg
 	r := &rateLimiter{
 		limiter:          rate.NewLimiter(getLimit(numEvents, interval), numEvents),
 		logger:           logger,
-		nodeName:         nodeTypes.GetName(), // TODO(tk): use nodeTypes.GetAbsoluteNodeName() once we switch to Cilium 1.10.
+		nodeName:         nodeName,
 		throttleInterval: interval,
 		curTime:          func() time.Time { return time.Now() },
 	}
-	if nodeName != "" {
-		r.nodeName = nodeName
+	if r.nodeName == "" {
+		r.nodeName = nodeTypes.GetAbsoluteNodeName()
 	}
 	return r, nil
 }
