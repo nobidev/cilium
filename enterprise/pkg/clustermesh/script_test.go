@@ -37,9 +37,9 @@ import (
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
 	"github.com/cilium/cilium/pkg/allocator"
 	cm "github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -50,6 +50,7 @@ import (
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -115,10 +116,13 @@ func TestScript(t *testing.T) {
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				source.NewSources,
 				func() *option.DaemonConfig {
-					// The LB control-plane still derives its configuration from DaemonConfig.
 					return &option.DaemonConfig{
-						EnableIPv4:           true,
-						EnableIPv6:           true,
+						EnableIPv4: true,
+						EnableIPv6: true,
+					}
+				},
+				func() kpr.KPRConfig {
+					return kpr.KPRConfig{
 						EnableNodePort:       true,
 						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
@@ -143,8 +147,7 @@ func TestScript(t *testing.T) {
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
-				kvstore.SetupInMemory(db)
-				client := kvstore.SetupDummy(t, "in-memory")
+				client := kvstore.NewInMemoryClient(db, "__all__")
 				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
 			}),
 
@@ -177,7 +180,7 @@ func TestScript(t *testing.T) {
 							MaxConnectedClusters: 255,
 						},
 					}
-					err := cmutils.SetClusterConfig(context.TODO(), name, config, client)
+					err := clustercfg.Set(context.TODO(), name, config, client)
 					require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 				}
 			}),

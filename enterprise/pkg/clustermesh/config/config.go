@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -47,7 +48,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnablePhantomServices, def.EnablePhantomServices, "Enable phantom services handling")
 }
 
-func (cfg Config) Validate(dcfg *option.DaemonConfig) error {
+func (cfg Config) Validate(dcfg *option.DaemonConfig, kprConfig kpr.KPRConfig) error {
 	if !cfg.EnableClusterAwareAddressing {
 		if cfg.EnableInterClusterSNAT {
 			return fmt.Errorf("%s depends on %s", EnableInterClusterSNAT, EnableClusterAwareAddressing)
@@ -62,7 +63,7 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig) error {
 
 	// We cannot rely on the EnableNodePort value only because it may be
 	// mutated depending on the KPR settings. Hence, check them both.
-	if dcfg.KubeProxyReplacement == option.KubeProxyReplacementFalse && !dcfg.EnableNodePort {
+	if kprConfig.KubeProxyReplacement == option.KubeProxyReplacementFalse && !kprConfig.EnableNodePort {
 		return fmt.Errorf("--%s depends on BPF NodePort", EnableClusterAwareAddressing)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -72,18 +73,24 @@ func (cl *clientImpl) Stop(cell.HookContext) error {
 	return nil
 }
 
+// commands returns the script commands suitable to be used in production environments.
+func (cl *clientImpl) commands() map[string]script.Cmd {
+	if !cl.IsEnabled() {
+		return nil
+	}
+
+	cmds := cmds{client: cl}
+	return map[string]script.Cmd{
+		"kvstore/list": cmds.list(),
+	}
+}
+
 // NewClient returns a new kvstore client based on the configuration
 func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string, opts map[string]string, options ExtraOptions) (BackendOperations, chan error) {
 	// Channel used to report immediate errors, module.newClient will
 	// create and return a different channel, caller doesn't need to know
 	errChan := make(chan error, 1)
 	defer close(errChan)
-
-	// If in-memory backend is registered (i.e. we're testing), use it regardless of the
-	// requested backend.
-	if _, found := registeredBackends[InMemoryModuleName]; found {
-		selectedBackend = InMemoryModuleName
-	}
 
 	module := getBackend(selectedBackend)
 	if module == nil {

@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -223,6 +224,10 @@ var (
 			heartbeat.Enabled,
 			heartbeat.Cell,
 
+			// Configures the cluster config key in the kvstore.
+			clustercfgcell.WithSyncedCanaries(false),
+			clustercfgcell.Cell,
+
 			bgpv2.Cell,
 			lbipam.Cell,
 			nodeipam.Cell,
@@ -284,6 +289,9 @@ var (
 				}
 			}),
 			operatorWatchers.ServiceSyncCell,
+
+			// Synchronizes K8s ServiceExports to KVStore
+			mcsapi.ServiceExportSyncCell,
 
 			// Cilium L7 LoadBalancing with Envoy.
 			ciliumenvoyconfig.Cell,
@@ -530,7 +538,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, factory store.Factory, cfgMCSAPI cmoperator.MCSAPIConfig, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                  ctx,
@@ -538,8 +546,6 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kv
 		clientset:            clientset,
 		kvstoreClient:        kvstoreClient,
 		resources:            resources,
-		storeFactory:         factory,
-		cfgMCSAPI:            cfgMCSAPI,
 		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
 		metrics:              metrics,
 		logger:               logger,
@@ -557,8 +563,6 @@ type legacyOnLeader struct {
 	kvstoreClient        kvstore.Client
 	wg                   sync.WaitGroup
 	resources            operatorK8s.Resources
-	storeFactory         store.Factory
-	cfgMCSAPI            cmoperator.MCSAPIConfig
 	cfgClusterMeshPolicy cmtypes.PolicyConfig
 	metrics              *UnmanagedPodsMetric
 
@@ -639,29 +643,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if legacy.kvstoreClient.IsEnabled() {
-		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			legacy.wg.Add(1)
-			go func() {
-				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
-					Logger:                  legacy.logger,
-					ClusterName:             option.Config.ClusterName,
-					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
-					Clientset:               legacy.clientset,
-					Backend:                 legacy.kvstoreClient,
-					ServiceExports:          legacy.resources.ServiceExports,
-					Services:                legacy.resources.Services,
-					StoreFactory:            legacy.storeFactory,
-					SyncCallback:            func(context.Context) {},
-				})
-				legacy.wg.Done()
-			}()
-		}
-
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
 			withKVStore = true
 		}
 
-		startKvstoreWatchdog(legacy.logger, legacy.kvstoreClient, legacy.cfgMCSAPI)
+		startKvstoreWatchdog(legacy.logger, legacy.kvstoreClient)
 	}
 
 	if legacy.clientset.IsEnabled() &&

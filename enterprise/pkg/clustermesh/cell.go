@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/option"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 )
@@ -50,9 +49,7 @@ var Cell = cell.Module(
 		injectCEServiceMerger,
 
 		// Validate the enterprise clustermesh configuration.
-		func(cfg cecmcfg.Config, dcfg *option.DaemonConfig) error {
-			return cfg.Validate(dcfg)
-		},
+		cecmcfg.Config.Validate,
 
 		// Register enterprise-only jobs, currently handling the garbage
 		// collection of stale per-cluster maps.

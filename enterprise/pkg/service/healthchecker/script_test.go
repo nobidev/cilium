@@ -39,6 +39,7 @@ import (
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -146,8 +147,12 @@ func TestScript(t *testing.T) {
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					func(cfg lb.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:           true,
-							EnableIPv6:           true,
+							EnableIPv4: true,
+							EnableIPv6: true,
+						}
+					},
+					func() kpr.KPRConfig {
+						return kpr.KPRConfig{
 							KubeProxyReplacement: option.KubeProxyReplacementTrue,
 							EnableNodePort:       true,
 						}

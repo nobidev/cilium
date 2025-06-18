@@ -56,6 +56,7 @@ import (
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	k8sVersion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -202,8 +203,6 @@ func TestScript(t *testing.T) {
 					BGPSecretsNamespace:       testSecretsNamespace,
 					BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
 					IPAM:                      *useIPAM,
-					KubeProxyReplacement:      option.KubeProxyReplacementTrue,
-					EnableNodePort:            true,
 					EnableIPv4:                true,
 					EnableIPv6:                true,
 					EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
@@ -213,7 +212,14 @@ func TestScript(t *testing.T) {
 					},
 				}
 				return option.Config
-			}),
+			},
+				func() kpr.KPRConfig {
+					return kpr.KPRConfig{
+						KubeProxyReplacement: option.KubeProxyReplacementTrue,
+						EnableNodePort:       true,
+					}
+				},
+			),
 
 			// Enterprise BFD config
 			cell.Config(bfdtypes.BFDConfig{

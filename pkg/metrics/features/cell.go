@@ -18,13 +18,14 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -45,7 +46,7 @@ var Cell = cell.Module(
 		func(m Metrics) featureMetrics {
 			return m
 		},
-		func(m Metrics) api.PolicyMetrics {
+		func(m Metrics) policytypes.PolicyMetrics {
 			return m
 		},
 		func(m Metrics) redirectpolicy.LRPMetrics {
@@ -83,6 +84,7 @@ type featuresParams struct {
 	Metrics       featureMetrics
 
 	LBConfig            loadbalancer.Config
+	KPRConfig           kpr.KPRConfig
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig

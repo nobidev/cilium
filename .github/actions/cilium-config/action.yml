@@ -91,6 +91,7 @@ runs:
             --helm-set=enterprise.featureGate.strict=false \
             --helm-set='enterprise.featureGate.minimumMaturity=Alpha' \
             --helm-set=l2NeighDiscovery.enabled=true \
+            --helm-set-string=encryption.ipsec.keyRotationDuration="1m" \
             --set='${{ inputs.misc }}'"
 
           if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
