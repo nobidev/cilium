@@ -174,22 +174,6 @@
       ],
     },
     {
-      // References to base images in Dockerfiles
-      groupName: 'base-images',
-      matchFileNames: [
-        'enterprise/**',
-        '.github/workflows/enterprise-build-image**',
-      ],
-      matchPackageNames: [
-        'registry.redhat.io/ubi9**',
-        'quay.io/isovalent-dev**',
-        'quay.io/cilium/certgen',
-        'docker.io/library/golang',
-        'quay.io/cilium/image-tester',
-        'quay.io/cilium/image-maker',
-      ],
-    },
-    {
       matchPackageNames: [
         'quay.io/cilium/kindest-node',
       ],
@@ -238,6 +222,22 @@
         'isovalent/hubble',
       ],
     },
+    {
+      // References to base images in Dockerfiles
+      groupName: 'base-images',
+      matchFileNames: [
+        'enterprise/**',
+        '.github/workflows/enterprise-build-image**',
+      ],
+      matchPackageNames: [
+        'registry.redhat.io/ubi9**',
+        'quay.io/isovalent-dev**',
+        'quay.io/cilium/certgen',
+        'docker.io/library/golang',
+        'quay.io/cilium/image-tester',
+        'quay.io/cilium/image-maker',
+      ],
+    }
   ],
   customManagers: [
     {
