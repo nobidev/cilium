@@ -100,11 +100,11 @@ if [ "${is_ci}" == "true" ]; then
 else
   startup_tag=${tag}
 fi
-echo "get digest: quay.io/${registry}/startup-script${suffix} ${startup_tag}" 
-get_digest "quay.io/${registry}/startup-script${suffix}" "${startup_tag}"
+echo "get digest: ${registry}/startup-script${suffix} ${startup_tag}" 
+get_digest "${registry}/startup-script${suffix}" "${startup_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"quay.io/${registry}/startup-script${suffix}:${startup_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_NODEINIT\",\"value\":\"${registry}/startup-script${suffix}:${startup_tag}@${digest}\"},"
 # certgen
 echo "Process certgen"
 if [ "${is_ci}" == "true" ]; then
@@ -113,11 +113,11 @@ if [ "${is_ci}" == "true" ]; then
 else
   certgen_tag=${tag}
 fi
-echo "get digest: quay.io/${registry}/certgen${suffix} ${certgen_tag}" 
-get_digest "quay.io/${registry}/certgen${suffix}" "${certgen_tag}"
+echo "get digest: ${registry}/certgen${suffix} ${certgen_tag}" 
+get_digest "${registry}/certgen${suffix}" "${certgen_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"quay.io/${registry}/certgen${suffix}:${certgen_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CERTGEN\",\"value\":\"${registry}/certgen${suffix}:${certgen_tag}@${digest}\"},"
 # envoy
 echo "Process envoy"
 if [ "${is_ci}" == "true" ]; then
@@ -126,11 +126,11 @@ if [ "${is_ci}" == "true" ]; then
 else
   envoy_tag=${tag}
 fi
-echo "get digest: quay.io/${registry}/cilium-envoy${suffix} ${envoy_tag}" 
-get_digest "quay.io/${registry}/cilium-envoy${suffix}" "${envoy_tag}"
+echo "get digest: ${registry}/cilium-envoy${suffix} ${envoy_tag}" 
+get_digest "${registry}/cilium-envoy${suffix}" "${envoy_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"quay.io/${registry}/cilium-envoy${suffix}:${envoy_tag}@${digest}\"},"
+related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"${registry}/cilium-envoy${suffix}:${envoy_tag}@${digest}\"},"
 # operator
 echo "Process operator"
 echo "get digest: ${registry}/operator-generic${suffix} ${tag}" 
