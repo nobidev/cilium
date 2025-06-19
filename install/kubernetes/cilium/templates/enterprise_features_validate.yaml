@@ -102,16 +102,6 @@ WARNING: A Limited feature ClusterMeshPhantomServices was enabled, but it is not
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if get .extraConfig "external-dns-proxy" -}}
-  {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "DNSProxyHA" .enterprise.featureGate.approved))) -}}
-    {{- if $strictFeatureGates -}}
-      {{- fail "\nLimited feature: DNSProxyHA was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}
-    {{- else -}}
-      {{ $fails = true }}
-WARNING: A Limited feature DNSProxyHA was enabled, but it is not an approved feature.
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
 {{- if (eq "true" (print .bandwidthManager.enabled))  -}}
   {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "DatapathBandwidthManager" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}

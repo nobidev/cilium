@@ -95,7 +95,7 @@ jobs:
             --version ${{ steps.vars.outputs.version }} \
             --set-string extraConfig.external-dns-proxy=true \
             --set=enterprise.featureGate.strict=true \
-            --set='enterprise.featureGate.approved={DNSProxyHA,DatapathIPModeDualStack}' \
+            --set='enterprise.featureGate.approved={DatapathIPModeDualStack}' \
             --set=ipv6.enabled=true
           kubectl rollout status -n kube-system ds/cilium --watch
 
