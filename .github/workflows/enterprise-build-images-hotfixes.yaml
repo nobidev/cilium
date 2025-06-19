@@ -26,7 +26,7 @@ jobs:
           - name: cilium
             dockerfile: ./enterprise/images/cilium/Dockerfile
             # renovate: datasource=docker
-            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:1baf8a52aab78cc74c4801f6c1a88a256185ab8b
+            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:ba0e5cfb4f891a448f27248616c16fbf5df330a4
             postfix: ubi
             image_name: cilium
 
