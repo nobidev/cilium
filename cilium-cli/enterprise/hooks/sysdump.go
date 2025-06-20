@@ -755,6 +755,66 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 			},
 		},
 		{
+			Description: "Collecting Tetragon NetworkPolicies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				gvr := schema.GroupVersionResource{
+					Group:    "cilium.io",
+					Resource: "tetragonnetworkpolicies",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon NetworkPolicies: %w", err)
+				}
+				if err := collector.WriteYAML("tetragon-enterprise-networkpolicies-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to write Tetragon NetworkPolicies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Tetragon NetworkPoliciesNamespaced",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				gvr := schema.GroupVersionResource{
+					Group:    "cilium.io",
+					Resource: "tetragonnetworkpoliciesnamespaced",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon NetworkPoliciesNamespaced: %w", err)
+				}
+				if err := collector.WriteYAML("tetragon-enterprise-networkpoliciesnamespaced-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to write Tetragon NetworkPoliciesNamespaced: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Tetragon AlertRules",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				gvr := schema.GroupVersionResource{
+					Group:    "cilium.io",
+					Resource: "alertrules",
+					Version:  "v1alpha1",
+				}
+				n := corev1.NamespaceAll
+				v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon AlertRules: %w", err)
+				}
+				if err := collector.WriteYAML("tetragon-enterprise-alertrules-<ts>.yaml", v); err != nil {
+					return fmt.Errorf("failed to write Tetragon AlertRules: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			CreatesSubtasks: true,
 			Description:     "Collecting all Custom Resource Definitions (CRDs)",
 			Quick:           true,
