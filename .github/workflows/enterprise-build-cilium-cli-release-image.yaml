@@ -22,6 +22,8 @@ jobs:
         include:
           - name: cilium-cli
             dockerfile: ./cilium-cli/enterprise/Dockerfile
+          - name: cilium-must-gather
+            dockerfile: ./cilium-cli/enterprise/Dockerfile-ubi
 
     steps:
       - name: Checkout main branch to access local actions
@@ -45,6 +47,13 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Login to registry.redhat.io for CI
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
 
       - name: Getting image tag
         id: tag
