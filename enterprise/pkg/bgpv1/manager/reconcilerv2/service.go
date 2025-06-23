@@ -637,7 +637,7 @@ func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert, v2.BGPExternalIPAddr))
 		if err != nil {
 			continue
 		}
@@ -671,7 +671,7 @@ func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert, v2.BGPClusterIPAddr))
 		if err != nil {
 			continue
 		}
@@ -703,7 +703,7 @@ func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[
 		if err != nil {
 			continue
 		}
-		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert))
+		prefix, err := addr.Prefix(r.getPrefixLength(svc, addr, advert, v2.BGPLoadBalancerIPAddr))
 		if err != nil {
 			continue
 		}
@@ -1065,12 +1065,19 @@ func (r *ServiceReconciler) diffID(instanceName string) string {
 	return fmt.Sprintf("%s-%s", r.Name(), instanceName)
 }
 
-func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v1.BGPAdvertisement) int {
+func (r *ServiceReconciler) getPrefixLength(svc *slim_corev1.Service, addr netip.Addr, advert v1.BGPAdvertisement, addrType v2.BGPServiceAddressType) int {
 	prefixLen := addr.BitLen()
 
-	// If eTP=Local or iTP=Local, we always use the full prefix length.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal || (svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
-		return prefixLen
+	if addrType == v2.BGPClusterIPAddr {
+		// for iTP=Local, we always use the full prefix length
+		if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+			return prefixLen
+		}
+	} else {
+		// for eTP=Local, we always use the full prefix length
+		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal {
+			return prefixLen
+		}
 	}
 
 	if advert.Service.AggregationLengthIPv4 != nil && addr.Is4() {

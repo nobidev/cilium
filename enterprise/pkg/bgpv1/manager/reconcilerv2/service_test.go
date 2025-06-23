@@ -1430,13 +1430,13 @@ var (
 		},
 	}
 
-	redExternalAndClusterSvcWithITP = func(svc *slim_corev1.Service, iTP slim_corev1.ServiceInternalTrafficPolicy) *slim_corev1.Service {
+	svcWithITP = func(svc *slim_corev1.Service, iTP slim_corev1.ServiceInternalTrafficPolicy) *slim_corev1.Service {
 		cp := svc.DeepCopy()
 		cp.Spec.InternalTrafficPolicy = &iTP
 		return cp
 	}
 
-	redExternalAndClusterSvcWithETP = func(svc *slim_corev1.Service, eTP slim_corev1.ServiceExternalTrafficPolicy) *slim_corev1.Service {
+	svcWithETP = func(svc *slim_corev1.Service, eTP slim_corev1.ServiceExternalTrafficPolicy) *slim_corev1.Service {
 		cp := svc.DeepCopy()
 		cp.Spec.ExternalTrafficPolicy = eTP
 		return cp
@@ -1920,9 +1920,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster)",
+			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster, iTP=Local)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			services:    []*slim_corev1.Service{svcWithITP(redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -1957,9 +1957,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Service (LB) with advertisement(LB) - eTP=Local - no prefix aggregation",
+			name:        "Service (LB) with advertisement(LB) - eTP=Local, iTP=Cluster - no prefix aggregation",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
+			services:    []*slim_corev1.Service{svcWithITP(redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal), slim_corev1.ServiceInternalTrafficPolicyCluster)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
@@ -2301,9 +2301,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Service (External) with prefix aggregation - eTP=Cluster",
+			name:        "Service (External) with prefix aggregation - eTP=Cluster, iTP=Local",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			services:    []*slim_corev1.Service{svcWithITP(redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2338,9 +2338,9 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:        "Service (External) with advertisement(External) - eTP=Local - no prefix aggregation",
+			name:        "Service (External) with advertisement(External) - eTP=Local, iTP=Cluster - no prefix aggregation",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
+			services:    []*slim_corev1.Service{svcWithITP(redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal), slim_corev1.ServiceInternalTrafficPolicyCluster)},
 			endpoints:   []*k8s.Endpoints{eps1Local},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
@@ -3090,8 +3090,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		{
 			name: "Update service (Cluster, External) traffic policy local",
 			upsertServices: []*slim_corev1.Service{
-				redExternalAndClusterSvcWithITP(
-					redExternalAndClusterSvcWithETP(redExternalAndClusterSvc, slim_corev1.ServiceExternalTrafficPolicyLocal),
+				svcWithITP(
+					svcWithETP(redExternalAndClusterSvc, slim_corev1.ServiceExternalTrafficPolicyLocal),
 					slim_corev1.ServiceInternalTrafficPolicyLocal),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
