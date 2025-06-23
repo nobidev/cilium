@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -75,6 +76,7 @@ func TestDatapathConfigProvider(t *testing.T) {
 					func() loadbalancer.Config {
 						return loadbalancer.DefaultConfig
 					},
+					func() kpr.KPRConfig { return kpr.KPRConfig{} },
 				),
 
 				cell.Invoke(func(in struct {

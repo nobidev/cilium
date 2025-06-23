@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -503,18 +504,30 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	EnableHealthCheckLoadBalancerIP        bool
+
+	// The following options will be removed in v1.19
+	EnableHostPort              bool
+	EnableSessionAffinity       bool
+	EnableSVCSourceRangeCheck   bool
+	EnableInternalTrafficPolicy bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
-func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
+func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalConfig {
 	return ExternalConfig{
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
+		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || kprCfg.EnableNodePort,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
-		EnableSocketLB:                         cfg.EnableSocketLB,
+		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
+		EnableHostPort:                         kprCfg.EnableHostPort,
+		EnableSessionAffinity:                  kprCfg.EnableSessionAffinity,
+		EnableSVCSourceRangeCheck:              kprCfg.EnableSVCSourceRangeCheck,
+		EnableInternalTrafficPolicy:            cfg.EnableInternalTrafficPolicy,
 	}
 }
 

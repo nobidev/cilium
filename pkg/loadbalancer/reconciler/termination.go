@@ -239,8 +239,10 @@ func terminateUDPConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n
 	// Iterate over all pod network namespaces, and terminate any stale connections.
 	if p.ExtConfig.EnableSocketLBPodConnectionTermination && !p.ExtConfig.BPFSocketLBHostnsOnly {
 		iter, errs := p.NetNSOps.all()
-		for name, ns := range iter {
-			destroy(name, ns)
+		if iter != nil {
+			for name, ns := range iter {
+				destroy(name, ns)
+			}
 		}
 		for err := range errs {
 			p.Log.Debug("Error opening netns, skipping",

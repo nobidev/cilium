@@ -302,6 +302,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/ @cilium/ci-structure
 /cilium-cli/connectivity/check/frr.go @cilium/sig-bgp
 /cilium-cli/connectivity/check/ipcache.go @cilium/ipcache
+/cilium-cli/connectivity/check/manifests/egress-gateway-policy.yaml @cilium/egress-gateway
 /cilium-cli/connectivity/check/metrics*.go @cilium/metrics
 /cilium-cli/connectivity/check/policy.go @cilium/sig-policy
 /cilium-cli/connectivity/builder/** @cilium/ci-structure
@@ -449,6 +450,7 @@ Makefile* @cilium/build
 /Documentation/yaml.config @cilium/docs-structure
 /examples/ @cilium/docs-structure
 /examples/hubble/ @cilium/sig-hubble
+/examples/kubernetes-egress-gateway/ @cilium/egress-gateway
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/sig-k8s
@@ -570,6 +572,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
+/pkg/kpr/ @cilium/sig-lb
 /pkg/kvstore/ @cilium/kvstore
 /pkg/kvstore/etcdinit @cilium/sig-clustermesh @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 type RedirectSuite struct {
@@ -63,7 +64,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager(logger)
-	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
+	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
@@ -288,8 +289,8 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
 	for k := range e.desiredPolicy.Entries() {
-		strLbls, _ := e.desiredPolicy.GetRuleLabels(k)
-		desiredLabels[k] = labels.LabelArrayListFromString(strLbls)
+		ruleMeta, _ := e.desiredPolicy.GetRuleMeta(k)
+		desiredLabels[k] = ruleMeta.LabelArray()
 	}
 	return desiredLabels
 }

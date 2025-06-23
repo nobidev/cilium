@@ -31,6 +31,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
@@ -60,25 +61,24 @@ func TestScript(t *testing.T) {
 	// Set the node name
 	nodeTypes.SetName("testnode")
 
-	var opts []hivetest.LogOption
-	if *debug {
-		opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
-		logging.SetLogLevelToDebug()
-	}
-	log := hivetest.Logger(t, opts...)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
+
+			var opts []hivetest.LogOption
+			if *debug {
+				opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
+				logging.SetLogLevelToDebug()
+			}
+			log := hivetest.Logger(t, opts...)
+
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
-
-				lbcell.Cell,
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -94,18 +94,27 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:           true,
-							EnableIPv6:           true,
-							KubeProxyReplacement: option.KubeProxyReplacementTrue,
-							EnableNodePort:       true,
+							EnableIPv4:                  true,
+							EnableIPv6:                  true,
+							EnableInternalTrafficPolicy: true,
+						}
+					},
+					func() kpr.KPRConfig {
+						return kpr.KPRConfig{
+							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
+							EnableNodePort:            true,
+							EnableHostPort:            true,
+							EnableSessionAffinity:     true,
+							EnableSVCSourceRangeCheck: true,
 						}
 					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
 					},
 				),
-
 				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
+
+				lbcell.Cell,
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)

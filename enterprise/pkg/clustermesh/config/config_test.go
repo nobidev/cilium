@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -23,6 +24,7 @@ func TestConfigValidate(t *testing.T) {
 		name      string
 		cfg       Config
 		dcfg      *option.DaemonConfig
+		kprCfg    kpr.KPRConfig
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
@@ -33,7 +35,9 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg: &option.DaemonConfig{
-				RoutingMode:          option.RoutingModeNative,
+				RoutingMode: option.RoutingModeNative,
+			},
+			kprCfg: kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementFalse,
 			},
 			assertion: assert.NoError,
@@ -46,6 +50,7 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 		{
@@ -56,6 +61,7 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{RoutingMode: option.RoutingModeNative},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 		{
@@ -65,7 +71,8 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg: &option.DaemonConfig{
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementTrue,
 				EnableNodePort:       false,
 			},
@@ -78,7 +85,8 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg: &option.DaemonConfig{
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementTrue,
 				EnableNodePort:       true,
 			},
@@ -91,7 +99,8 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg: &option.DaemonConfig{
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementFalse,
 				EnableNodePort:       false,
 			},
@@ -104,7 +113,8 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg: &option.DaemonConfig{
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
 				KubeProxyReplacement: option.KubeProxyReplacementFalse,
 				EnableNodePort:       true,
 			},
@@ -117,7 +127,9 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg:      &option.DaemonConfig{KubeProxyReplacement: option.KubeProxyReplacementTrue},
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
+				KubeProxyReplacement: option.KubeProxyReplacementTrue},
 			assertion: assert.NoError,
 		},
 		{
@@ -128,6 +140,7 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{EnableEndpointRoutes: true},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 		{
@@ -138,6 +151,7 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{EnableEndpointHealthChecking: true},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 		{
@@ -148,6 +162,7 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{EnableIPSec: true},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 		{
@@ -158,13 +173,14 @@ func TestConfigValidate(t *testing.T) {
 				EnablePhantomServices:        true,
 			},
 			dcfg:      &option.DaemonConfig{EnableWireguard: true},
+			kprCfg:    kpr.KPRConfig{},
 			assertion: assert.Error,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.assertion(t, tt.cfg.Validate(tt.dcfg))
+			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.kprCfg))
 		})
 	}
 }
