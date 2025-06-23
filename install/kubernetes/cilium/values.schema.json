@@ -1884,6 +1884,22 @@
             "enabled": {
               "type": "boolean"
             },
+            "nodeMaintenance": {
+              "properties": {
+                "gracefulShutdownCommunity": {
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "withdrawTime": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "routerAdvertisementInterval": {
               "type": "string"
             },

@@ -376,6 +376,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.bfd.enabled | bool | `false` | Enables Bidirectional Forwarding Detection (BFD) feature. |
 | enterprise.bgpControlPlane.enableServiceHealthChecking | bool | `false` | Enables BGP integration with service health-checking. |
 | enterprise.bgpControlPlane.enabled | bool | `false` | Enables enterprise BGP control plane |
+| enterprise.bgpControlPlane.nodeMaintenance.gracefulShutdownCommunity.enabled | bool | `false` | Enables sending of GRACEFUL_SHUTDOWN community when node is in maintenance mode (cordoned). |
+| enterprise.bgpControlPlane.nodeMaintenance.withdrawTime | string | `"0s"` | Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured. |
 | enterprise.bgpControlPlane.routerAdvertisementInterval | string | `"3s"` | Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled. |
 | enterprise.bgpControlPlane.routerIDAllocation.mode | string | `"default"` | BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address of the cilium_host interface. Possible values: - default: Use the default router-id allocation mode. |
 | enterprise.bgpControlPlane.secretsNamespace | object | `{"create":false,"name":"kube-system"}` | SecretsNamespace is the namespace which BGP support will retrieve secrets from. |

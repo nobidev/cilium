@@ -1304,6 +1304,14 @@
      - Enables enterprise BGP control plane
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.nodeMaintenance.gracefulShutdownCommunity.enabled`
+     - Enables sending of GRACEFUL_SHUTDOWN community when node is in maintenance mode (cordoned).
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.nodeMaintenance.withdrawTime`
+     - Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`enterprise.bgpControlPlane.routerAdvertisementInterval`
      - Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
      - string

@@ -14,6 +14,7 @@ cilium-agent hive [flags]
       --agent-labels strings                                           Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                        Interval at which the agent updates liveness time for the datapath (default 1s)
       --api-rate-limit string                                          API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
+      --bgp-maintenance-withdraw-time duration                         Withdraws BGP routes in configured time after the node goes into maintenance mode. Does not withdraw if 0.
       --bpf-lb-algorithm string                                        BPF load balancing algorithm ("random", "maglev") (default "random")
       --bpf-lb-algorithm-annotation                                    Enable service-level annotation for configuring BPF load balancing algorithm
       --bpf-lb-dsr-dispatch string                                     BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
@@ -56,6 +57,7 @@ cilium-agent hive [flags]
       --enable-bbr                                                     Enable BBR for the bandwidth manager
       --enable-bbr-hostns-only                                         Enable BBR only in the host network namespace.
       --enable-bfd                                                     Enables BFD subsystem
+      --enable-bgp-maintenance-graceful-shutdown-community             Enables sending GRACEFUL_SHUTDOWN BGP community when the node is in maintenance mode
       --enable-bgp-svc-health-checking                                 Enables BGP integration with service health-checking
       --enable-cilium-api-server-access strings                        List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-enterprise-api-server-access strings             List of cilium enterprise API APIs which are administratively enabled. Supports '*'. (default [*])

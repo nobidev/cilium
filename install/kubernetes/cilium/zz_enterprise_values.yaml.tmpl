@@ -79,6 +79,12 @@ enterprise:
       # It is recommended to enable status reporting in general, but if you have any issue
       # such as high API server load, you can disable it by setting this to false.
       enabled: true
+    nodeMaintenance:
+      gracefulShutdownCommunity:
+        # -- Enables sending of GRACEFUL_SHUTDOWN community when node is in maintenance mode (cordoned).
+        enabled: false
+      # -- Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured.
+      withdrawTime: 0s
 
   bfd:
     # -- Enables Bidirectional Forwarding Detection (BFD) feature.

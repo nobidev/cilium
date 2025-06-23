@@ -27,6 +27,8 @@ enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServ
 enable-statedb-neighbor-sync: "true"
 router-advertisement-interval: {{ .Values.enterprise.bgpControlPlane.routerAdvertisementInterval | quote }}
 bgp-router-id-allocation-mode: {{ .Values.enterprise.bgpControlPlane.routerIDAllocation.mode | quote }}
+enable-bgp-maintenance-graceful-shutdown-community: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.gracefulShutdownCommunity.enabled | default "false" | quote }}
+bgp-maintenance-withdraw-time: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.withdrawTime | default "0s" | quote }}
 {{- end }}
 
 # BFD subsystem

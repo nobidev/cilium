@@ -23,6 +23,7 @@ cilium-agent [flags]
       --api-rate-limit string                                          API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
       --auto-create-cilium-node-resource                               Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                                        Enable automatic L2 routing between nodes
+      --bgp-maintenance-withdraw-time duration                         Withdraws BGP routes in configured time after the node goes into maintenance mode. Does not withdraw if 0.
       --bgp-router-id-allocation-ip-pool string                        IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string                           BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
       --bpf-auth-map-max int                                           Maximum number of entries in auth map (default 524288)
@@ -115,6 +116,7 @@ cilium-agent [flags]
       --enable-bfd                                                     Enables BFD subsystem
       --enable-bgp-control-plane                                       Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                         Enable the BGP control plane status reporting (default true)
+      --enable-bgp-maintenance-graceful-shutdown-community             Enables sending GRACEFUL_SHUTDOWN BGP community when the node is in maintenance mode
       --enable-bgp-svc-health-checking                                 Enables BGP integration with service health-checking
       --enable-bpf-clock-probe                                         Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                          Masquerade packets from endpoints leaving the host with BPF instead of iptables
