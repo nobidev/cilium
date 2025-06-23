@@ -186,17 +186,6 @@ jobs:
             owner: U02T9JVUR0B # Hart
           },
           {
-            repo: motorola-solutions,
-            dir: ipsec,
-            umbrella: false,
-            oss: true,
-            region: us-west-2,
-            deploy: cute,
-            upgrade: stable,
-            ipsec: true,
-            owner: U050B1LKQP5 # Matt
-          },
-          {
             repo: bundesdruckerei,
             dir: .,
             umbrella: false,
