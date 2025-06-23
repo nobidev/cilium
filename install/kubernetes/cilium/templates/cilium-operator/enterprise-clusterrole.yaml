@@ -284,14 +284,6 @@ rules:
   # Update the auto-generated INPs and ICNPs status.
   - patch
   - update
-{{- if eq (lower (index .Values.extraConfig "enable-kubevirt-vm-migration" | default "false")) "true" }}
-- apiGroups:
-    - ""
-  resources:
-    - pods
-  verbs:
-    - patch
-{{- end }}
 {{- if .Values.enterprise.egressGatewayHA.enabled }}
 - apiGroups:
     - ""
