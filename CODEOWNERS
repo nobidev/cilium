@@ -867,7 +867,6 @@ Makefile* @cilium/build
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/ciliummesh @isovalent/cilium-mesh
-/enterprise/operator/pkg/kubevirt/ @isovalent/networking-framework
 /enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/operator/pkg/networkpolicy/ @isovalent/policy-identity-networking
@@ -885,7 +884,6 @@ Makefile* @cilium/build
 /enterprise/pkg/ingresspolicy/ @isovalent/service-mesh
 /enterprise/pkg/hubble/ @isovalent/hubble
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
-/enterprise/pkg/ipmigration/ @isovalent/networking-framework
 /enterprise/pkg/k8s/ @isovalent/sig-k8s
 /enterprise/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/flowlogs @isovalent/isovalent-loadbalancer
