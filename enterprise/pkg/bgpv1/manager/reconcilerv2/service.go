@@ -50,6 +50,9 @@ const (
 	// svcHealthAdvertiseThresholdDefault defines the default threshold in minimal number of healthy backends,
 	// when service routes will be advertised by the BGP Control Plane.
 	svcHealthAdvertiseThresholdDefault = 1
+
+	// gracefulShutdownCommunityValue is the community value of the GRACEFUL_SHUTDOWN BGP community
+	gracefulShutdownCommunityValue = "65535:0"
 )
 
 // ServiceReconciler is an enterprise version of the OSS ServiceReconciler,
@@ -77,6 +80,10 @@ type ServiceReconciler struct {
 	// internal service health state
 	svcHealth        map[k8s.ServiceID]svcFrontendHealthMap // local cache of service health metadata
 	svcHealthChanged map[string]map[k8s.ServiceID]struct{}  // instance-specific tracker of services with modified health since last reconciliation
+
+	// node status tracking
+	nodeStatusProvider NodeStatusProvider
+	nodeStatus         NodeStatus
 }
 
 type ServiceReconcilerOut struct {
@@ -100,6 +107,7 @@ type ServiceReconcilerIn struct {
 	PeerAdvert   *IsovalentAdvertisement
 	SvcDiffStore store.DiffStore[*slim_corev1.Service]
 	EPDiffStore  store.DiffStore[*k8s.Endpoints]
+	NSProvider   NodeStatusProvider
 }
 
 // svcFrontendHealth keeps health information about a service frontend, as received from the service health-checker
@@ -124,19 +132,20 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	}
 
 	r := &ServiceReconciler{
-		logger:           in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
-		cfg:              in.Cfg,
-		signaler:         in.Signaler,
-		db:               in.DB,
-		frontends:        in.Frontends,
-		jobs:             in.JobGroup,
-		upgrader:         in.Upgrader,
-		peerAdvert:       in.PeerAdvert,
-		svcDiffStore:     in.SvcDiffStore,
-		epDiffStore:      in.EPDiffStore,
-		metadata:         make(map[string]ServiceReconcilerMetadata),
-		svcHealth:        make(map[k8s.ServiceID]svcFrontendHealthMap),
-		svcHealthChanged: make(map[string]map[k8s.ServiceID]struct{}),
+		logger:             in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
+		cfg:                in.Cfg,
+		signaler:           in.Signaler,
+		db:                 in.DB,
+		frontends:          in.Frontends,
+		jobs:               in.JobGroup,
+		upgrader:           in.Upgrader,
+		nodeStatusProvider: in.NSProvider,
+		peerAdvert:         in.PeerAdvert,
+		svcDiffStore:       in.SvcDiffStore,
+		epDiffStore:        in.EPDiffStore,
+		metadata:           make(map[string]ServiceReconcilerMetadata),
+		svcHealth:          make(map[k8s.ServiceID]svcFrontendHealthMap),
+		svcHealthChanged:   make(map[string]map[k8s.ServiceID]struct{}),
 	}
 
 	// start observing frontends for backend health changes.
@@ -310,6 +319,15 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 
 	// must be done before reconciling paths and policies since it sets metadata with latest desiredPeerAdverts
 	reqFullReconcile := r.modifiedServiceAdvertisements(iParams, desiredPeerAdverts)
+
+	if r.cfg.MaintenanceGracefulShutdownEnabled || r.cfg.MaintenanceWithdrawTime > 0 {
+		// if node status changed, perform full reconcile
+		nodeStatus := r.nodeStatusProvider.GetNodeStatus()
+		if nodeStatus != r.nodeStatus {
+			r.nodeStatus = nodeStatus
+			reqFullReconcile = true
+		}
+	}
 
 	err = r.reconcileServices(ctx, iParams, desiredPeerAdverts, ls, reqFullReconcile)
 
@@ -522,6 +540,11 @@ func (r *ServiceReconciler) getDesiredPaths(desiredPeerAdverts PeerAdvertisement
 // getServiceAFPaths applies enterprise-specific filtering for paths that should be advertised for a service.
 func (r *ServiceReconciler) getServiceAFPaths(desiredPeerAdverts PeerAdvertisements,
 	svc *slim_corev1.Service, ls sets.Set[resource.Key]) (ossreconcilerv2.AFPathsMap, error) {
+
+	// do not advertise the service if node in maintenance mode with withdraw timeout expired
+	if r.nodeStatus == NodeMaintenanceTimeExpired {
+		return nil, nil
+	}
 
 	// the service with no-advertisement annotation should not be announced
 	if r.svcHasNoAdvertisementAnnotations(svc) {
@@ -806,8 +829,9 @@ func (r *ServiceReconciler) fullReconciliationServiceList(p EnterpriseReconcileP
 	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
 	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
 
-	// check for services which are no longer present
 	serviceAFPaths := r.getMetadata(p.BGPInstance).ServicePaths
+
+	// check for services which are no longer present
 	for svcKey := range serviceAFPaths {
 		_, exists, err := r.svcDiffStore.GetByKey(svcKey)
 		if err != nil {
@@ -1016,9 +1040,23 @@ func (r *ServiceReconciler) getServiceRoutePolicy(peer PeerID, family bgptypes.F
 		return nil, nil
 	}
 
+	attributes := advert.Attributes
+	if r.cfg.MaintenanceGracefulShutdownEnabled && r.nodeStatus != NodeReady {
+		// advertise with GRACEFUL_SHUTDOWN community
+		if advert.Attributes == nil {
+			attributes = &v2.BGPAttributes{}
+		} else {
+			attributes = advert.Attributes.DeepCopy()
+		}
+		if attributes.Communities == nil {
+			attributes.Communities = &v2.BGPCommunities{}
+		}
+		attributes.Communities.Standard = append(attributes.Communities.Standard, gracefulShutdownCommunityValue)
+	}
+
 	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, advertType))
 	policy, err := ossreconcilerv2.CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
-		Attributes: advert.Attributes,
+		Attributes: attributes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s route policy: %w", advertType, err)

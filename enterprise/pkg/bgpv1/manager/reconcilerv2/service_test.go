@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -702,13 +703,16 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		In:        cell.In{},
 		Lifecycle: &cell.DefaultLifecycle{},
 		Cfg: Config{
-			SvcHealthCheckingEnabled:    true,
-			RouterAdvertisementInterval: defaultConfig.RouterAdvertisementInterval,
-			EnableLegacySRv6Responder:   false,
+			SvcHealthCheckingEnabled:           true,
+			MaintenanceGracefulShutdownEnabled: false,
+			MaintenanceWithdrawTime:            0,
+			RouterAdvertisementInterval:        defaultConfig.RouterAdvertisementInterval,
+			EnableLegacySRv6Responder:          false,
 		},
-		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    logger,
-		Upgrader:  newUpgraderMock(instanceConfig),
+		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:     logger,
+		Upgrader:   newUpgraderMock(instanceConfig),
+		NSProvider: newMockNodeStatusProvider(),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
 			peerConfigs: mockPeerConfigStore,
@@ -2055,12 +2059,13 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			)
 
 			ceeParams := ServiceReconcilerIn{
-				In:        cell.In{},
-				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       defaultConfig,
-				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    logger,
-				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+				In:         cell.In{},
+				Lifecycle:  &cell.DefaultLifecycle{},
+				Cfg:        defaultConfig,
+				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+				Logger:     logger,
+				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+				NSProvider: newMockNodeStatusProvider(),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
 					peerConfigs: mockPeerConfigStore,
@@ -2436,12 +2441,13 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			)
 
 			ceeParams := ServiceReconcilerIn{
-				In:        cell.In{},
-				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       defaultConfig,
-				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    logger,
-				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+				In:         cell.In{},
+				Lifecycle:  &cell.DefaultLifecycle{},
+				Cfg:        defaultConfig,
+				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+				Logger:     logger,
+				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+				NSProvider: newMockNodeStatusProvider(),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
 					peerConfigs: mockPeerConfigStore,
@@ -2817,12 +2823,13 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			)
 
 			ceeParams := ServiceReconcilerIn{
-				In:        cell.In{},
-				Lifecycle: &cell.DefaultLifecycle{},
-				Cfg:       defaultConfig,
-				BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:    logger,
-				Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+				In:         cell.In{},
+				Lifecycle:  &cell.DefaultLifecycle{},
+				Cfg:        defaultConfig,
+				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+				Logger:     logger,
+				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+				NSProvider: newMockNodeStatusProvider(),
 				PeerAdvert: &IsovalentAdvertisement{
 					logger:      logger,
 					peerConfigs: mockPeerConfigStore,
@@ -3274,12 +3281,13 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	)
 
 	ceeParams := ServiceReconcilerIn{
-		In:        cell.In{},
-		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       defaultConfig,
-		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    logger,
-		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+		In:         cell.In{},
+		Lifecycle:  &cell.DefaultLifecycle{},
+		Cfg:        defaultConfig,
+		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:     logger,
+		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+		NSProvider: newMockNodeStatusProvider(),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
 			peerConfigs: mockPeerConfigStore,
@@ -3611,12 +3619,13 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	)
 
 	ceeParams := ServiceReconcilerIn{
-		In:        cell.In{},
-		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       defaultConfig,
-		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    logger,
-		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+		In:         cell.In{},
+		Lifecycle:  &cell.DefaultLifecycle{},
+		Cfg:        defaultConfig,
+		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:     logger,
+		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+		NSProvider: newMockNodeStatusProvider(),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
 			peerConfigs: mockPeerConfigStore,
@@ -3936,12 +3945,13 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 	)
 
 	ceeParams := ServiceReconcilerIn{
-		In:        cell.In{},
-		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg:       defaultConfig,
-		BGPConfig: config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:    logger,
-		Upgrader:  newUpgraderMock(testBGPInstanceConfig),
+		In:         cell.In{},
+		Lifecycle:  &cell.DefaultLifecycle{},
+		Cfg:        defaultConfig,
+		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:     logger,
+		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+		NSProvider: newMockNodeStatusProvider(),
 		PeerAdvert: &IsovalentAdvertisement{
 			logger:      logger,
 			peerConfigs: mockPeerConfigStore,
@@ -3982,6 +3992,323 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 		for _, ep := range tt.upsertEPs {
 			epDiffStore.Upsert(ep)
 		}
+
+		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+			BGPInstance: testBGPInstance,
+			CiliumNode:  testCiliumNodeConfig,
+		})
+		req.NoError(err)
+
+		// validate new metadata
+		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
+
+		// validate that advertised paths match expected metadata
+		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+	}
+}
+
+func Test_ServiceNodeMaintenance(t *testing.T) {
+	steps := []struct {
+		name             string
+		peers            []v1.IsovalentBGPNodePeer
+		upsertAdverts    []*v1.IsovalentBGPAdvertisement
+		upsertServices   []*slim_corev1.Service
+		nodeStatus       NodeStatus
+		expectedMetadata ServiceReconcilerMetadata
+	}{
+		{
+			name: "Add service and advertisement - advertise normally",
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("10.10.10.1"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-red",
+					},
+				},
+			},
+			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
+			upsertServices: []*slim_corev1.Service{redLBSvc},
+			nodeStatus:     NodeReady,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: &types.RoutePolicy{
+							Name: redPeer65001v4LBRPName,
+							Type: types.RoutePolicyTypeExport,
+							Statements: []*types.RoutePolicyStatement{
+								{
+									Conditions: types.RoutePolicyConditions{
+										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+											{
+												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+												PrefixLenMin: 32,
+												PrefixLenMax: 32,
+											},
+										},
+									},
+									Actions: types.RoutePolicyActions{
+										RouteAction:    types.RoutePolicyActionAccept,
+										AddCommunities: []string{"65535:65281"},
+									},
+								},
+							},
+						},
+					},
+				},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+			},
+		},
+		{
+			name: "Update node status - node maintenance, advertise GS community",
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("10.10.10.1"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-red",
+					},
+				},
+			},
+			upsertAdverts:  nil,
+			upsertServices: nil,
+			nodeStatus:     NodeMaintenance,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: &types.RoutePolicy{
+							Name: redPeer65001v4LBRPName,
+							Type: types.RoutePolicyTypeExport,
+							Statements: []*types.RoutePolicyStatement{
+								{
+									Conditions: types.RoutePolicyConditions{
+										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+											{
+												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+												PrefixLenMin: 32,
+												PrefixLenMax: 32,
+											},
+										},
+									},
+									Actions: types.RoutePolicyActions{
+										RouteAction:    types.RoutePolicyActionAccept,
+										AddCommunities: []string{"65535:65281", gracefulShutdownCommunityValue},
+									},
+								},
+							},
+						},
+					},
+				},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+			},
+		},
+		{
+			name: "Update node status - node maintenance timeout expired, withdraw",
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("10.10.10.1"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-red",
+					},
+				},
+			},
+			upsertAdverts:  nil,
+			upsertServices: nil,
+			nodeStatus:     NodeMaintenanceTimeExpired,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: &types.RoutePolicy{
+							Name: redPeer65001v4LBRPName,
+							Type: types.RoutePolicyTypeExport,
+							Statements: []*types.RoutePolicyStatement{
+								{
+									Conditions: types.RoutePolicyConditions{
+										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+											{
+												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+												PrefixLenMin: 32,
+												PrefixLenMax: 32,
+											},
+										},
+									},
+									Actions: types.RoutePolicyActions{
+										RouteAction:    types.RoutePolicyActionAccept,
+										AddCommunities: []string{"65535:65281", gracefulShutdownCommunityValue},
+									},
+								},
+							},
+						},
+					},
+				},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+			},
+		},
+		{
+			name: "Update node status - node ready, advertise again",
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("10.10.10.1"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-red",
+					},
+				},
+			},
+			upsertAdverts:  nil,
+			upsertServices: nil,
+			nodeStatus:     NodeReady,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: &types.RoutePolicy{
+							Name: redPeer65001v4LBRPName,
+							Type: types.RoutePolicyTypeExport,
+							Statements: []*types.RoutePolicyStatement{
+								{
+									Conditions: types.RoutePolicyConditions{
+										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+											{
+												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+												PrefixLenMin: 32,
+												PrefixLenMax: 32,
+											},
+										},
+									},
+									Actions: types.RoutePolicyActions{
+										RouteAction:    types.RoutePolicyActionAccept,
+										AddCommunities: []string{"65535:65281"},
+									},
+								},
+							},
+						},
+					},
+				},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+			},
+		},
+	}
+
+	req := require.New(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	var (
+		testBGPInstance = instance.NewFakeBGPInstance()
+		ceeBGPInstance  = &EnterpriseBGPInstance{
+			Name:   testBGPInstance.Name,
+			Router: testBGPInstance.Router,
+		}
+		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
+		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
+		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
+	)
+
+	nodeStatus := newMockNodeStatusProvider()
+
+	ceeParams := ServiceReconcilerIn{
+		In:        cell.In{},
+		Lifecycle: &cell.DefaultLifecycle{},
+		Cfg: Config{
+			MaintenanceGracefulShutdownEnabled: true,
+			MaintenanceWithdrawTime:            10 * time.Second,
+		},
+		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:     logger,
+		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
+		NSProvider: nodeStatus,
+		PeerAdvert: &IsovalentAdvertisement{
+			logger:      logger,
+			peerConfigs: mockPeerConfigStore,
+			adverts:     mockAdvertStore,
+		},
+		SvcDiffStore: svcDiffstore,
+		EPDiffStore:  epDiffStore,
+		Signaler:     signaler.NewBGPCPSignaler(),
+	}
+
+	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
+
+	mockPeerConfigStore.Upsert(redPeerConfig)
+
+	ceeReconciler.Init(testBGPInstance)
+	defer ceeReconciler.Cleanup(testBGPInstance)
+
+	for _, tt := range steps {
+		t.Logf("Running step - %s", tt.name)
+
+		// set peers in the node instance
+		nodeInstanceCopy := testBGPInstanceConfig.DeepCopy()
+		nodeInstanceCopy.Peers = tt.peers
+		ceeReconciler.upgrader = newUpgraderMock(nodeInstanceCopy)
+
+		for _, advert := range tt.upsertAdverts {
+			mockAdvertStore.Upsert(advert)
+		}
+
+		for _, svc := range tt.upsertServices {
+			svcDiffstore.Upsert(svc)
+		}
+
+		// set node status
+		nodeStatus.SetNodeStatus(tt.nodeStatus)
 
 		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 			BGPInstance: testBGPInstance,
