@@ -312,3 +312,21 @@ func (m *mockStateReconciler) loop(ctx context.Context, _ cell.Health) error {
 		}
 	}
 }
+
+type mockNodeStatusProvider struct {
+	nodeStatus NodeStatus
+}
+
+func newMockNodeStatusProvider() *mockNodeStatusProvider {
+	return &mockNodeStatusProvider{
+		nodeStatus: NodeReady,
+	}
+}
+
+func (m *mockNodeStatusProvider) SetNodeStatus(status NodeStatus) {
+	m.nodeStatus = status
+}
+
+func (m *mockNodeStatusProvider) GetNodeStatus() NodeStatus {
+	return m.nodeStatus
+}

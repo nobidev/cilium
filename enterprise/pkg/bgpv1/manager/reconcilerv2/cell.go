@@ -53,6 +53,7 @@ var ConfigReconcilers = cell.Group(
 		NewServiceVRFReconciler,
 		NewNeighborReconciler,
 		NewPodCIDRReconciler,
+		NewNodeStatusReconciler,
 	),
 
 	// state reconcilers
