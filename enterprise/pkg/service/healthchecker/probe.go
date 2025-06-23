@@ -335,8 +335,8 @@ func sendL7Probe(p probeParams) probeResult {
 		return getProbeData(err)
 	}
 
-	// consider status codes 200-399 as success
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusBadRequest {
+	// only consider status code 200 as success
+	if res.StatusCode != http.StatusOK {
 		err = fmt.Errorf("invalid status code: %d", res.StatusCode)
 		fields := append(logFields, slog.Any(logfields.Error, err))
 		p.logger.LogAttrs(context.Background(), slog.LevelDebug, "L7 health check failure", fields...)
