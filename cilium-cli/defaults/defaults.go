@@ -151,8 +151,7 @@ var (
 		"Unknown ICMPv6 code",
 		"Forbidden ICMPv6 message",
 		"No egress gateway found",
-		// Workaround https://github.com/isovalent/cilium/issues/7405:
-		"No Egress IP configured",
+		"No Egress IP configured", // enterprise: Work around https://github.com/isovalent/cilium/issues/7405:
 	}
 
 	ExpectedXFRMErrors = []string{
