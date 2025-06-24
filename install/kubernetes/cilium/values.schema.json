@@ -1967,6 +1967,24 @@
           },
           "type": "object"
         },
+        "diagnostics": {
+          "properties": {
+            "constants": {
+              "items": {},
+              "type": "array"
+            },
+            "exportFilePath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "interval": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "egressGatewayHA": {
           "properties": {
             "enabled": {

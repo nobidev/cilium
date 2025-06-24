@@ -124,6 +124,28 @@ enterprise:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
 
+  # -- Diagnostics
+  diagnostics:
+    # -- Path to the file to which diagnostics status updates are appended.
+    # For example "/var/run/cilium/hubble/status.log"
+    # If not set the diagnostics evaluation and exporting is disabled.
+    # @schema
+    # type: [null, string]
+    # @schema
+    exportFilePath: ~
+
+    # -- Evaluation interval
+    # @schema
+    # type: [string]
+    # @schema
+    interval: 5m
+
+    # -- Constants as a list of key-value pairs (e.g. "foo=1.2").
+    # @schema
+    # type: [array]
+    # @schema
+    constants: []
+
 serviceAccounts:
   hubbleK8sExporter:
     create: true

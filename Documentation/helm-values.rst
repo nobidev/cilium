@@ -1352,6 +1352,22 @@
      - Enable Phantom Services support
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.diagnostics`
+     - Diagnostics
+     - object
+     - ``{"constants":[],"exportFilePath":null,"interval":"5m"}``
+   * - :spelling:ignore:`enterprise.diagnostics.constants`
+     - Constants as a list of key-value pairs (e.g. "foo=1.2"). @schema type: [array] @schema
+     - list
+     - ``[]``
+   * - :spelling:ignore:`enterprise.diagnostics.exportFilePath`
+     - Path to the file to which diagnostics status updates are appended. For example "/var/run/cilium/hubble/status.log" If not set the diagnostics evaluation and exporting is disabled. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`enterprise.diagnostics.interval`
+     - Evaluation interval @schema type: [string] @schema
+     - string
+     - ``"5m"``
    * - :spelling:ignore:`enterprise.egressGatewayHA`
      - Enables egress gateway HA
      - object

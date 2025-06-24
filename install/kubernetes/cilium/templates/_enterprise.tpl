@@ -169,4 +169,8 @@ envoy-config-policy-mode: {{ .Values.envoyConfig.policy.mode | quote }}
 envoy-config-policy-regen-interval: {{ include "validateDuration" .Values.envoyConfig.policy.regenerationInterval | quote }}
 {{- end }}
 
+diagnostics-export-file: {{ .Values.enterprise.diagnostics.exportFilePath | quote }}
+diagnostics-interval: {{ .Values.enterprise.diagnostics.interval | quote }}
+diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | quote }}
+
 {{- end }}
