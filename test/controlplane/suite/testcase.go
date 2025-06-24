@@ -137,8 +137,6 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 
 	cpt.agentHandle.log = hivetest.Logger(cpt.t)
 
-	cpt.agentHandle.log = hivetest.Logger(cpt.t)
-
 	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
 
 	daemon, err := cpt.agentHandle.startCiliumAgent()
