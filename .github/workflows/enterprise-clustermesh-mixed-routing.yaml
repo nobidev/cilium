@@ -66,7 +66,7 @@ env:
 jobs:
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -75,7 +75,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -92,7 +92,7 @@ jobs:
   installation-and-connectivity:
     needs: [wait-for-images]
     name: Installation and Connectivity Test
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
+    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
@@ -629,7 +629,7 @@ jobs:
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.UBUNTU_2404_2CPU_8GB || 'ubuntu-24.04' }}
     needs: installation-and-connectivity
     steps:
       - name: Checkout context ref (trusted)
@@ -654,7 +654,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: installation-and-connectivity
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
