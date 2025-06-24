@@ -226,9 +226,9 @@ egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 }
 
 static __always_inline
-int egress_gw_standalone_map_update(struct __ctx_buff *ctx __maybe_unused,
-				    __be32 saddr __maybe_unused,
-				    __u32 src_sec_identity __maybe_unused)
+int cee_egress_gw_standalone_map_update(struct __ctx_buff *ctx __maybe_unused,
+					__be32 saddr __maybe_unused,
+					__u32 src_sec_identity __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
 	struct bpf_tunnel_key tunnel_key = {};

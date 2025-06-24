@@ -34,7 +34,7 @@ __id_for_file(const char *const header_name)
 {
 	int ret = __enterprise_source_file_name_to_id(header_name);
 
-	if (ret != 0)
+	if (ret != CTX_ACT_OK)
 		return ret;
 
 	/* @@ source files list begin */
