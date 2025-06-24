@@ -46,6 +46,8 @@ spec:
                   operator: In
                   values:
                     - linux
+      strategy:
+        type: Recreate
       securityContext:
         runAsNonRoot: true
         seccompProfile:
