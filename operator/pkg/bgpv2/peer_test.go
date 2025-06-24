@@ -5,7 +5,9 @@ package bgpv2
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -39,8 +43,50 @@ type peerConfigTestFixture struct {
 	healthTable statedb.Table[healthTypes.Status]
 }
 
-func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusReport bool) *peerConfigTestFixture {
+func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusReport bool) (*peerConfigTestFixture, func()) {
 	f := &peerConfigTestFixture{}
+
+	type watchSync struct {
+		once    sync.Once
+		watchCh chan any
+	}
+
+	rws := map[string]*watchSync{
+		"ciliumbgppeerconfigs": {watchCh: make(chan any)},
+	}
+
+	if enableStatusReport {
+		rws["secrets"] = &watchSync{watchCh: make(chan any)}
+	}
+
+	reactorFn := func(tracker k8sTesting.ObjectTracker) func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+			w := action.(k8sTesting.WatchAction)
+			gvr := w.GetResource()
+			ns := w.GetNamespace()
+			watch, err := tracker.Watch(gvr, ns)
+			if err != nil {
+				return false, nil, err
+			}
+			rw, ok := rws[w.GetResource().Resource]
+			if !ok {
+				return false, watch, nil
+			}
+			rw.once.Do(func() { close(rw.watchCh) })
+			return true, watch, nil
+		}
+	}
+
+	// make sure watchers are initialized before the test starts
+	watchersReadyFn := func() {
+		for name, rw := range rws {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, fmt.Sprintf("Context expired while waiting for %s", name))
+			case <-rw.watchCh:
+			}
+		}
+	}
 
 	hive := hive.New(
 		cell.Module("test", "test",
@@ -68,13 +114,21 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 					f.peerConfigResource = p
 					f.db = db
 					f.healthTable = h
+					f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor(
+						"*",
+						reactorFn(f.fakeClientSet.CiliumFakeClientset.Tracker()),
+					)
+					f.fakeClientSet.SlimFakeClientset.PrependWatchReactor(
+						"*",
+						reactorFn(f.fakeClientSet.SlimFakeClientset.Tracker()),
+					)
 				},
 			),
 		),
 	)
 	f.hive = hive
 
-	return f
+	return f, watchersReadyFn
 }
 
 func TestMissingAuthSecretCondition(t *testing.T) {
@@ -137,12 +191,14 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f := newPeerConfigTestFixture(t, ctx, true)
+			f, ready := newPeerConfigTestFixture(t, ctx, true)
 
 			f.hive.Start(slog.Default(), ctx)
 			t.Cleanup(func() {
 				f.hive.Stop(slog.Default(), ctx)
 			})
+
+			ready()
 
 			_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumBGPPeerConfigs().Create(
 				ctx, tt.peerConfig, meta_v1.CreateOptions{},
@@ -186,7 +242,7 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 		cancel()
 	})
 
-	f := newPeerConfigTestFixture(t, ctx, false)
+	f, ready := newPeerConfigTestFixture(t, ctx, false)
 
 	logger := hivetest.Logger(t)
 
@@ -194,6 +250,8 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 	t.Cleanup(func() {
 		f.hive.Stop(logger, ctx)
 	})
+
+	ready()
 
 	peerConfig := &v2.CiliumBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
