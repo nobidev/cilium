@@ -243,6 +243,8 @@ func TestScript(t *testing.T) {
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true
+			cfg.MaintenanceGracefulShutdownEnabled = true
+			cfg.MaintenanceWithdrawTime = 1 * time.Second
 		})
 		hive.AddConfigOverride(h, func(cfg *config.Config) {
 			cfg.Enabled = true
