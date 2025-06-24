@@ -36,6 +36,7 @@ var (
 
 		cell.Provide(newAgentClient),
 		cell.Provide(newNotifier),
+		cell.Provide(newRulesWatcher),
 
 		gops.Cell(defaults.EnableGops, DefaultGopsPort),
 		pprof.Cell(pprofConfig),

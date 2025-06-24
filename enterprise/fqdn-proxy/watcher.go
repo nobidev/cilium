@@ -19,8 +19,9 @@ import (
 	"os"
 	"regexp"
 	"sync"
-	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,58 +31,75 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// rulesWatcher provides the proxy with per-endpoint L7 DNS rules.
+// It does so by either using the SubscribeFQDNRules gRPC stream from v1.18+ agents,
+// or starting a gRPC server for pre-v1.18 agents to push rules to.
 type rulesWatcher struct {
 	pb.UnimplementedFQDNProxyServer
 
 	log        *slog.Logger
 	grpcServer *grpc.Server
 
-	proxy  *dnsproxy.DNSProxy
-	client *fqdnAgentClient
+	proxySet chan struct{}
+	proxy    *dnsproxy.DNSProxy
+	client   *fqdnAgentClient
 
 	// Closed when first set of rules is received, indicating it's safe
 	// to open the socket.
 	rulesReceived chan struct{}
 	onFirstRule   func()
-
-	muteErrors bool // if true, don't log subsequent reconnects
 }
 
-func newRulesWatcher(log *slog.Logger, proxy *dnsproxy.DNSProxy, client *fqdnAgentClient) *rulesWatcher {
+func newRulesWatcher(log *slog.Logger, client *fqdnAgentClient, jg job.Group) *rulesWatcher {
 	rw := &rulesWatcher{
 		log:           log,
-		proxy:         proxy,
 		client:        client,
 		rulesReceived: make(chan struct{}),
+		proxySet:      make(chan struct{}),
 	}
 	rw.onFirstRule = sync.OnceFunc(func() { close(rw.rulesReceived) })
-	return rw
 
+	jg.Add(job.OneShot("rules-watcher", rw.doWatchRules, job.WithShutdown()))
+
+	return rw
 }
 
-// watchRules plumbs the rule pipeline from the agent to the proxy.
+// waitForRules plumbs the rule pipeline from the agent to the proxy.
 // Rules are the set of allowed FQDNs a given endpoint is allowed to query.
-func (rw *rulesWatcher) watchRules() <-chan struct{} {
-	go rw.doWatchRules()
+//
+// proxy is a parameter to break a hive circular dependency.
+//
+// returns a channel that is closed when the first endpoint is received.
+func (rw *rulesWatcher) waitForRules(proxy *dnsproxy.DNSProxy) <-chan struct{} {
+	rw.proxy = proxy
+	close(rw.proxySet)
 	return rw.rulesReceived
 }
 
-func (rw *rulesWatcher) doWatchRules() {
-	for {
+func (rw *rulesWatcher) doWatchRules(ctx context.Context, _ cell.Health) error {
+	select {
+	case <-rw.proxySet:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	for ctx.Err() == nil {
 		// First things first: try the SubscribeRules method.
-		err := rw.trySubscribeRules()
+		err := rw.trySubscribeRules(ctx)
 
 		// does the agent not support subscription? Fall back to local gRPC server,
 		// but retry if the agent restarts.
 		if isUnimplementedError(err) {
-			rw.log.Info("Agent does not support SubscribeFQDNRules(), falling back to gRPC server.")
-			rw.runServer(rw.proxy) // launches another goroutine
-			// every 5 minutes, retry
+			if err := rw.runServer(); err != nil { // launches another goroutine
+				return err
+			}
 
-			sctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+			// every 5 minutes, retry subscription
+			sctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			rw.client.WaitMaybeReconnected(sctx) // Wait for agent to restart, then try again
 			cancel()
 		} else if err != nil {
@@ -95,6 +113,8 @@ func (rw *rulesWatcher) doWatchRules() {
 			cancel()
 		}
 	}
+	rw.stopServer()
+	return ctx.Err()
 }
 
 // trySubscribeRules connects to the remote agent's gRPC api, issuing
@@ -102,14 +122,14 @@ func (rw *rulesWatcher) doWatchRules() {
 //
 // It then watches the stream, applying changes to the proxy. Blocks
 // until disconnected -- error is never nil.
-func (rw *rulesWatcher) trySubscribeRules() error {
-	rulesStream, err := rw.client.SubscribeFQDNRules(context.Background())
+func (rw *rulesWatcher) trySubscribeRules(ctx context.Context) error {
+	rw.log.Info("Trying SubscribeFQDNRules()...")
+	rulesStream, err := rw.client.SubscribeFQDNRules(ctx)
 	if err != nil {
 		return fmt.Errorf("SubscribeFQDNRules failed: %w", err)
 	}
 
-	rw.muteErrors = false
-	rw.log.Info("Established SubscribeFQDNRules stream")
+	first := true
 
 	for {
 		rule, err := rulesStream.Recv()
@@ -117,8 +137,15 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 			return fmt.Errorf("SubscribeFQDNRules stream recv error: %w", err)
 		}
 
-		// It is safe to shut down the gRPC server now; we have a successful rule subscription
-		// noop if already stopped
+		// gRPC doesn't actually return meaningful errors until .Recv(), so we don't
+		// log until after the first response.
+		if first {
+			rw.log.Info("Established SubscribeFQDNRules stream")
+			first = false
+		}
+
+		// It is safe to shut down the gRPC server now; we have a successful rule subscription.
+		// noop if already stopped.
 		rw.stopServer()
 
 		err = rw.updateAllowed(rule)
@@ -139,20 +166,32 @@ func (rw *rulesWatcher) trySubscribeRules() error {
 // from the agent to the proxy.
 //
 // When running with newer agents, we do not start this server.
-func (rw *rulesWatcher) runServer(proxy *dnsproxy.DNSProxy) {
+func (rw *rulesWatcher) runServer() error {
+	// Because we periodically re-try to upgrade our connection to the agent,
+	// we may call this multiple times. Disregard if already serving.
+	if rw.grpcServer != nil {
+		return nil
+	}
+
 	socket := "/var/run/cilium/proxy.sock"
 	os.Remove(socket)
+	rw.log.Info("Agent does not support SubscribeFQDNRules(), starting local gRPC server",
+		logfields.Socket, socket)
+
 	lis, err := net.Listen("unix", socket)
 	if err != nil {
 		rw.log.Error("failed to listen", logfields.Error, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to open local gRPC server %s: %w", socket, err)
 	}
 	var opts []grpc.ServerOption
 	rw.grpcServer = grpc.NewServer(opts...)
 	pb.RegisterFQDNProxyServer(rw.grpcServer, rw)
-	go rw.grpcServer.Serve(lis)
+	go rw.grpcServer.Serve(lis) // this returns error, but can't actually fail
+	return nil
 }
 
+// stopServer idempotently stops the local gRPC server.
+// not thread safe, only to be called by the doWatchRules goroutine.
 func (rw *rulesWatcher) stopServer() {
 	if rw.grpcServer == nil {
 		return

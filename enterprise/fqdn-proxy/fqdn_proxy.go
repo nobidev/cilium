@@ -44,9 +44,10 @@ import (
 type runParams struct {
 	cell.In
 
-	Health cell.Health
-	Cfg    Config
-	Log    *slog.Logger
+	Health  cell.Health
+	Cfg     Config
+	Log     *slog.Logger
+	Watcher *rulesWatcher
 
 	Client   *fqdnAgentClient
 	Notifier *notifier
@@ -95,11 +96,15 @@ func run(ctx context.Context, params runParams) error {
 		params.Notifier.NotifyOnDNSMsg,
 	)
 
-	watcher := newRulesWatcher(log, proxy, params.Client)
-	gotRules := watcher.watchRules()
-
+	// wait for first L7 rules
+	gotRules := params.Watcher.waitForRules(proxy)
 	log.Info("Waiting for agent to provide endpoint configurations...")
-	<-gotRules
+	select {
+	case <-gotRules:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	time.Sleep(2 * time.Second) // grace period to get all endpoints from the agent
 
 	log.Info("Got endpoint configurations, opening sockets.")
 	err := proxy.Listen(10001)
