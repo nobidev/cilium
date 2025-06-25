@@ -51,7 +51,10 @@ jobs:
 
           REF="v${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
-          readarray workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml)
+          readarray workflows < <((
+            yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
+            yq '.tests[]' .github/ariane-scheduled.yaml
+          ) | sort -u)
           readarray enterprise_workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config-enterprise.yaml)
 
           for workflow in "${workflows[@]}" "${enterprise_workflows[@]}"; do
