@@ -29,6 +29,7 @@ import (
 	"github.com/vishvananda/netns"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -76,7 +77,7 @@ func Test_socketsManager(t *testing.T) {
 	require.NoError(t, netns.Set(newNs))
 
 	// Bring up loopback.
-	lo, err := netlink.LinkByName("lo")
+	lo, err := safenetlink.LinkByName("lo")
 	require.NoError(t, err)
 	require.NoError(t, netlink.LinkSetUp(lo))
 

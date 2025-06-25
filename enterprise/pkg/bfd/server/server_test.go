@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -366,7 +367,7 @@ func setupLinks() error {
 }
 
 func setupLinkIPs(name string, ips ...netip.Prefix) error {
-	l, err := netlink.LinkByName(name)
+	l, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return err
 	}

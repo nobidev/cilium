@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -59,7 +60,10 @@ func TestOps(t *testing.T) {
 		},
 	)
 	require.NoError(t, err, "LinkAdd")
-	link, err := nlh.LinkByName("dummy0")
+	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
+		return nlh.LinkByName("dummy0")
+	})
 	require.NoError(t, err, "LinkByName")
 	require.NoError(t, nlh.LinkSetUp(link))
 	ifIndex := link.Attrs().Index
@@ -84,7 +88,10 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "expected no error from initial update")
 
 	// Egress IP should have been added to device
-	nlAddrs, err := nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err := safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 
 	addrs := make([]netip.Addr, 0, len(nlAddrs))
@@ -95,47 +102,56 @@ func TestOps(t *testing.T) {
 	require.Containsf(t, addrs, egressIP, "egress IP %s not found in %s device", egressIP, ifName)
 
 	// Source-based routing rule should have been installed for Egress IP
-	rules, err := nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Src:      netipx.AddrIPNet(egressIP),
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err := safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Src:      netipx.AddrIPNet(egressIP),
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Lenf(t, rules, 1, "no rule found for egress IP %s", egressIP)
 
 	// Routes should have been installed for Egress IP
 	dst_1, dst_2 := prefixToIPNet(destinations[0]), prefixToIPNet(destinations[1])
 
-	routes, err := nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_1,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_1,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, destinations[0])
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_2,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_2,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, destinations[1])
 
@@ -163,31 +179,37 @@ func TestOps(t *testing.T) {
 	// Routes should have been installed for Egress IP
 	updDst_1, updDst_2 := prefixToIPNet(updDests[0]), prefixToIPNet(updDests[1])
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &updDst_1,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &updDst_1,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, updDests[0])
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &updDst_2,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &updDst_2,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s and dest %s", egressIP, updDests[1])
 
@@ -212,7 +234,10 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "expected no error from delete")
 
 	// Egress IP should have been removed from device
-	nlAddrs, err = nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 
 	addrs = make([]netip.Addr, 0, len(nlAddrs))
@@ -223,45 +248,54 @@ func TestOps(t *testing.T) {
 	require.NotContainsf(t, addrs, egressIP, "egress IP %s found in %s device after deletion", egressIP, ifName)
 
 	// Source-based routing rule should have been removed for Egress IP
-	rules, err = nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Src:      netipx.AddrIPNet(egressIP),
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Src:      netipx.AddrIPNet(egressIP),
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Emptyf(t, rules, "rule found for egress IP %s after deletion", egressIP)
 
 	// Routes should have been removed for Egress IP
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &updDst_1,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &updDst_1,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Emptyf(t, routes, "route found for egress IP %s and dest %s after deletion", egressIP, updDests[0])
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &updDst_2,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &updDst_2,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Emptyf(t, routes, "route found for egress IP %s and dest %s after deletion", egressIP, updDests[1])
 
@@ -312,7 +346,10 @@ func TestUpdateWithNextHop(t *testing.T) {
 		},
 	)
 	require.NoError(t, err, "LinkAdd")
-	link, err := nlh.LinkByName("dummy0")
+	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
+		return nlh.LinkByName("dummy0")
+	})
 	require.NoError(t, err, "LinkByName")
 	require.NoError(t, nlh.LinkSetUp(link))
 	// needed to avoid "network is unreachable" error when installing route with default gateway
@@ -343,7 +380,10 @@ func TestUpdateWithNextHop(t *testing.T) {
 	require.NoError(t, err, "expected no error from initial update")
 
 	// Egress IP should have been added to device
-	nlAddrs, err := nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err := safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 
 	addrs := make([]netip.Addr, 0, len(nlAddrs))
@@ -354,49 +394,58 @@ func TestUpdateWithNextHop(t *testing.T) {
 	require.Containsf(t, addrs, egressIP, "egress IP %s not found in %s device", egressIP, ifName)
 
 	// Source-based routing rule should have been installed for Egress IP
-	rules, err := nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Src:      netipx.AddrIPNet(egressIP),
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err := safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Src:      netipx.AddrIPNet(egressIP),
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_SRC|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Lenf(t, rules, 1, "no rule found for egress IP %s", egressIP)
 
 	// Routes should have been installed for Egress IP
 	dst_1, dst_2 := prefixToIPNet(destinations[0]), prefixToIPNet(destinations[1])
 
-	routes, err := nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_1,
-			Src:       egressIP.AsSlice(),
-			Gw:        nextHop.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_1,
+				Src:       egressIP.AsSlice(),
+				Gw:        nextHop.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[0], nextHop)
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_2,
-			Src:       egressIP.AsSlice(),
-			Gw:        nextHop.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_2,
+				Src:       egressIP.AsSlice(),
+				Gw:        nextHop.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], nextHop)
 
@@ -412,33 +461,39 @@ func TestUpdateWithNextHop(t *testing.T) {
 	require.NoError(t, err, "expected no error from update")
 
 	// Routes should have been installed for Egress IP
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_1,
-			Src:       egressIP.AsSlice(),
-			Gw:        updNextHop.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_1,
+				Src:       egressIP.AsSlice(),
+				Gw:        updNextHop.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[0], updNextHop)
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_2,
-			Src:       egressIP.AsSlice(),
-			Gw:        updNextHop.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_2,
+				Src:       egressIP.AsSlice(),
+				Gw:        updNextHop.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], updNextHop)
 
@@ -452,33 +507,39 @@ func TestUpdateWithNextHop(t *testing.T) {
 	require.NoError(t, err, "expected no error from update")
 
 	// Routes should have been installed for Egress IP
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_1,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_1,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s", egressIP, destinations[0])
 	gw1, _ := netipx.FromStdIP(routes[0].Gw)
 	require.False(t, gw1.IsValid(), "expected no next hop for route with egress IP %s dest %s, found %s", egressIP, destinations[0], routes[0].Gw)
 
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Dst:       &dst_2,
-			Src:       egressIP.AsSlice(),
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				Dst:       &dst_2,
+				Src:       egressIP.AsSlice(),
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_DST|netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Lenf(t, routes, 1, "no route found for egress IP %s dest %s and next hop %s", egressIP, destinations[1], updNextHop)
 	gw2, _ := netipx.FromStdIP(routes[0].Gw)
@@ -511,7 +572,10 @@ func TestPrune(t *testing.T) {
 		},
 	)
 	require.NoError(t, err, "LinkAdd")
-	link, err := nlh.LinkByName("dummy0")
+	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
+		return nlh.LinkByName("dummy0")
+	})
 	require.NoError(t, err, "LinkByName")
 	require.NoError(t, nlh.LinkSetUp(link))
 	ifName := link.Attrs().Name
@@ -563,7 +627,10 @@ func TestPrune(t *testing.T) {
 	require.NoError(t, err, "ops.Prune")
 
 	// egress IPs should have been left untouched
-	nlAddrs, err := nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err := safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 	addrs := make([]netip.Addr, 0, len(nlAddrs))
 	for _, nlAddr := range nlAddrs {
@@ -573,29 +640,35 @@ func TestPrune(t *testing.T) {
 	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
 
 	// only the rule for egressIP_1 should have been deleted
-	rules, err := nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err := safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Len(t, rules, 1)
 	require.Equal(t, netipx.AddrIPNet(egressIP_2), rules[0].Src)
 
 	// only routes for egressIP_1 should have been deleted
-	routes, err := nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Len(t, routes, 2)
 	require.Equal(t, net.IP(egressIP_2.AsSlice()), routes[0].Src)
@@ -627,7 +700,10 @@ func TestPrune(t *testing.T) {
 	require.NoError(t, err, "ops.Prune")
 
 	// egress IPs should have been left untouched
-	nlAddrs, err = nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 	addrs = make([]netip.Addr, 0, len(nlAddrs))
 	for _, nlAddr := range nlAddrs {
@@ -637,15 +713,18 @@ func TestPrune(t *testing.T) {
 	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
 
 	// only the rule for egressIP_2 should have been deleted
-	rules, err = nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Len(t, rules, 1)
 	require.Equal(t, netipx.AddrIPNet(egressIP_1), rules[0].Src)
@@ -657,15 +736,18 @@ func TestPrune(t *testing.T) {
 	// <egressIP_2, destination_2_2>
 	//
 	// should have been deleted
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Len(t, routes, 1)
 	require.Equal(t, net.IP(egressIP_1.AsSlice()), routes[0].Src)
@@ -678,7 +760,10 @@ func TestPrune(t *testing.T) {
 	require.NoError(t, err, "ops.Prune")
 
 	// egress IPs should have been left untouched
-	nlAddrs, err = nlh.AddrList(link, netlink.FAMILY_V4)
+	nlAddrs, err = safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
+		return nlh.AddrList(link, netlink.FAMILY_V4)
+	})
 	require.NoError(t, err, "netlink.AddrList")
 	addrs = make([]netip.Addr, 0, len(nlAddrs))
 	for _, nlAddr := range nlAddrs {
@@ -688,28 +773,34 @@ func TestPrune(t *testing.T) {
 	require.ElementsMatch(t, addrs, []netip.Addr{egressIP_1, egressIP_2})
 
 	// all rules should have been deleted
-	rules, err = nlh.RuleListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Rule{
-			Priority: RulePriorityEgressGatewayIPAM,
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	rules, err = safenetlink.WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
+		return nlh.RuleListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Rule{
+				Priority: RulePriorityEgressGatewayIPAM,
+				Table:    RouteTableEgressGatewayIPAM,
+				Protocol: linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_PRIORITY|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RuleListFiltered")
 	require.Empty(t, rules)
 
 	// all routes should have been deleted
-	routes, err = nlh.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			LinkIndex: ifIndex,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
+	routes, err = safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return nlh.RouteListFiltered(
+			netlink.FAMILY_V4,
+			&netlink.Route{
+				LinkIndex: ifIndex,
+				Table:     RouteTableEgressGatewayIPAM,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
 	require.NoError(t, err, "RouteListFiltered")
 	require.Empty(t, routes)
 }

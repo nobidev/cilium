@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	osstest "github.com/cilium/cilium/pkg/bgpv1/test"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -301,9 +302,9 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 		netlink.LinkDel(veth)
 	})
 
-	veth1, err := netlink.LinkByName(testLink1Name)
+	veth1, err := safenetlink.LinkByName(testLink1Name)
 	require.NoError(t, err)
-	veth2, err := netlink.LinkByName(testLink2Name)
+	veth2, err := safenetlink.LinkByName(testLink2Name)
 	require.NoError(t, err)
 
 	err = netlink.LinkSetUp(veth1)
@@ -311,14 +312,14 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 	err = netlink.LinkSetUp(veth2)
 	require.NoError(t, err)
 
-	addrs, err := netlink.AddrList(veth1, netlink.FAMILY_V6)
+	addrs, err := safenetlink.AddrList(veth1, netlink.FAMILY_V6)
 	require.NoError(t, err)
 	for _, addr := range addrs {
 		if addr.IP.IsLinkLocalUnicast() {
 			envVars = append(envVars, llAddr1EnvVar+"="+addr.IP.String())
 		}
 	}
-	addrs, err = netlink.AddrList(veth2, netlink.FAMILY_V6)
+	addrs, err = safenetlink.AddrList(veth2, netlink.FAMILY_V6)
 	require.NoError(t, err)
 	for _, addr := range addrs {
 		if addr.IP.IsLinkLocalUnicast() {
@@ -329,7 +330,7 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 }
 
 func setupTestPeeringIPs(t testing.TB, peeringIPs []string) {
-	l, err := netlink.LinkByName(testLink1Name)
+	l, err := safenetlink.LinkByName(testLink1Name)
 	require.NoError(t, err)
 	for _, ip := range peeringIPs {
 		ipAddr, err := netip.ParseAddr(ip)
