@@ -70,12 +70,14 @@ var (
 	}
 
 	teams = map[string]struct{}{
+		"@isovalent/backporters":                {},
 		"@isovalent/cilium-agent":               {},
 		"@isovalent/cilium-datapath":            {},
 		"@isovalent/cilium-mesh":                {},
 		"@isovalent/ci-structure":               {},
 		"@isovalent/cli":                        {},
 		"@isovalent/clustermesh":                {},
+		"@isovalent/cni":                        {},
 		"@isovalent/core-structure":             {},
 		"@isovalent/dns-proxy":                  {},
 		"@isovalent/egress-gateway":             {},
@@ -93,6 +95,7 @@ var (
 		"@isovalent/release-managers":           {},
 		"@isovalent/scalability-performance":    {},
 		"@isovalent/security":                   {},
+		"@isovalent/service-mesh":               {},
 		"@isovalent/sig-k8s":                    {},
 		"@isovalent/timescape":                  {},
 		"@isovalent/traffic-engineering":        {},
