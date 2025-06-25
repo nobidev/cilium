@@ -91,8 +91,12 @@ kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterpri
 kind-image-fast-enterprise-operator: CILIUM_BUILD_DIR=./enterprise
 kind-image-fast-enterprise-operator: kind-image-fast-operator ## Build cilium operator binary and copy it to all kind nodes.
 
+.PHONY: kind-image-fast-enterprise-clustermesh-apiserver
+kind-image-fast-enterprise-clustermesh-apiserver: CILIUM_BUILD_DIR=./enterprise
+kind-image-fast-enterprise-clustermesh-apiserver: kind-image-fast-clustermesh-apiserver ## Build clustermesh-apiserver binary and copy it to all kind nodes.
+
 .PHONY: kind-image-enterprise-fast
-kind-image-enterprise-fast: kind-image-fast-enterprise-agent kind-image-fast-enterprise-operator kind-image-fast-clustermesh-apiserver ## Build all binaries and copy them to kind nodes.
+kind-image-enterprise-fast: kind-image-fast-enterprise-agent kind-image-fast-enterprise-operator kind-image-fast-enterprise-clustermesh-apiserver ## Build all binaries and copy them to kind nodes.
 
 .PHONY: kind-egressgwha-install-cilium
 kind-egressgwha-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
