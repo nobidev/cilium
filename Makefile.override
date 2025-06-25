@@ -57,7 +57,7 @@ kind-loadbalancer: ## Create a kind cluster for LoadBalancer development.
 	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --xdp "" 4 "" "" "none" "ipv4"
 
 .PHONY: kind-image-fast-enterprise-agent
-kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterprise-agent build-hubble-cli build-bugtool ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
+kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterprise-cni build-enterprise-agent build-hubble-cli build-bugtool ## Build agent and node CLI binaries. Copy them and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -71,6 +71,10 @@ kind-image-fast-enterprise-agent: kind-ready build-enterprise-cli build-enterpri
 			docker exec -ti $${node_name} rm -rf "${dst}/cilium-dbg"; \
 			docker cp "./enterprise/cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
+			\
+			docker exec $${node_name} rm -f "/opt/cni/bin/cilium-cni"; \
+			docker cp "./enterprise/cilium-cni/cilium-cni" $${node_name}:"/opt/cni/bin"; \
+			docker exec $${node_name} chmod +x "/opt/cni/bin/cilium-cni"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./enterprise/daemon/cilium-agent" $${node_name}:"${dst}"; \
