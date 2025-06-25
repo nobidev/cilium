@@ -310,7 +310,13 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
 		}
 
-		gwc.egressIfindex = uint32(iface.Attrs().Index)
+		if iface.Type() == "dummy" {
+			// If the device is a dummy interface, ifindex-based BPF forwarding can't be used.
+			// In such cases, fallback to fib_lookup based selection.
+			gwc.egressIfindex = 0
+		} else {
+			gwc.egressIfindex = uint32(iface.Attrs().Index)
+		}
 
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
