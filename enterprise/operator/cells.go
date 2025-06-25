@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/enterprise/operator/pkg/srv6/locatorpool"
+	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
@@ -71,6 +72,7 @@ var (
 			networkpolicy.Cell,
 			networkpolicy.SecretSyncCell,
 
+			clustercfg.Cell,
 			phantom.Cell,
 		),
 	)

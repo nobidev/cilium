@@ -8,30 +8,17 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package clustermesh
+package clustercfg
 
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
-	"github.com/cilium/cilium/clustermesh-apiserver/common"
-	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
-	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
-var (
-	EnterpriseClusterMesh = cell.Module(
-		"enterprise-clustermesh",
-		"Cilium ClusterMesh Enterprise",
-
-		common.Cell,
-		clustermesh.Cell,
-
-		// Configure the enterprise-specific bits of the CiliumClusterConfig.
-		clustercfg.Cell,
-
-		// Override service converter to pre-process phantom services before
-		// k8s-to-kvstore synchronization.
-		phantom.Cell,
-	)
+// ClusterConfigDecorator configures the enterprise-specific bits of the CiliumClusterConfig.
+var Cell = cell.DecorateAll(
+	func(in cmtypes.CiliumClusterConfig) cmtypes.CiliumClusterConfig {
+		return in
+	},
 )

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -99,6 +100,8 @@ func TestScript(t *testing.T) {
 			clustercfgcell.WithSyncedCanaries(true),
 			clustercfgcell.Cell,
 			clustermesh.Synchronization,
+
+			clustercfg.Cell,
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
