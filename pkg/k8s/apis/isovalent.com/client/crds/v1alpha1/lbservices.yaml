@@ -161,8 +161,7 @@ spec:
                                       x-kubernetes-validations:
                                       - message: Either secretRef or httpURI must
                                           be specified
-                                        rule: (has(self.secretRef) && !has(self.httpURI))
-                                          || (!has(self.secretRef) && has(self.httpURI))
+                                        rule: (has(self.secretRef)?1:0)+(has(self.httpURI)?1:0)==1
                                     name:
                                       description: The name of the provider.
                                       type: string
@@ -182,8 +181,7 @@ spec:
                         type: object
                         x-kubernetes-validations:
                         - message: Exactly one authN/Z method can be specified
-                          rule: (has(self.basic) && !has(self.jwt)) || (!has(self.basic)
-                            && has(self.jwt))
+                          rule: (has(self.basic)?1:0)+(has(self.jwt)?1:0)==1
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTP connections.
@@ -350,8 +348,7 @@ spec:
                                   x-kubernetes-validations:
                                   - message: Exactly one path type (exact or prefix)
                                       must be specified
-                                    rule: (has(self.exact) || has(self.prefix)) &&
-                                      !(has(self.exact) && has(self.prefix))
+                                    rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                               type: object
                             persistentBackend:
                               description: |-
@@ -460,8 +457,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one hostname type (exact
                                             or suffix) must be specified
-                                          rule: (has(self.exact) || has(self.suffix))
-                                            && !(has(self.exact) && has(self.suffix))
+                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.
@@ -480,8 +476,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one path type (exact or
                                             prefix) must be specified
-                                          rule: (has(self.exact) || has(self.prefix))
-                                            && !(has(self.exact) && has(self.prefix))
+                                          rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -617,8 +612,7 @@ spec:
                                       x-kubernetes-validations:
                                       - message: Either secretRef or httpURI must
                                           be specified
-                                        rule: (has(self.secretRef) && !has(self.httpURI))
-                                          || (!has(self.secretRef) && has(self.httpURI))
+                                        rule: (has(self.secretRef)?1:0)+(has(self.httpURI)?1:0)==1
                                     name:
                                       description: The name of the provider.
                                       type: string
@@ -638,8 +632,7 @@ spec:
                         type: object
                         x-kubernetes-validations:
                         - message: Exactly one authN/Z method can be specified
-                          rule: (has(self.basic) && !has(self.jwt)) || (!has(self.basic)
-                            && has(self.jwt))
+                          rule: (has(self.basic)?1:0)+(has(self.jwt)?1:0)==1
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTPS connections.
@@ -806,8 +799,7 @@ spec:
                                   x-kubernetes-validations:
                                   - message: Exactly one path type (exact or prefix)
                                       must be specified
-                                    rule: (has(self.exact) || has(self.prefix)) &&
-                                      !(has(self.exact) && has(self.prefix))
+                                    rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                               type: object
                             persistentBackend:
                               description: |-
@@ -916,8 +908,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one hostname type (exact
                                             or suffix) must be specified
-                                          rule: (has(self.exact) || has(self.suffix))
-                                            && !(has(self.exact) && has(self.suffix))
+                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.
@@ -936,8 +927,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one path type (exact or
                                             prefix) must be specified
-                                          rule: (has(self.exact) || has(self.prefix))
-                                            && !(has(self.exact) && has(self.prefix))
+                                          rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1304,8 +1294,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one servername type (exact
                                             or suffix) must be specified
-                                          rule: (has(self.exact) || has(self.suffix))
-                                            && !(has(self.exact) && has(self.suffix))
+                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1463,8 +1452,7 @@ spec:
                                         x-kubernetes-validations:
                                         - message: Exactly one servername type (exact
                                             or suffix) must be specified
-                                          rule: (has(self.exact) || has(self.suffix))
-                                            && !(has(self.exact) && has(self.suffix))
+                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1804,18 +1792,7 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: Exactly one application must be specified
-                  rule: (has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
-                    || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
-                    || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
-                    || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy))
-                    || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && has(self.tcpProxy) && !has(self.udpProxy))
-                    || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough)
-                    && !has(self.tlsProxy) && !has(self.tcpProxy) && has(self.udpProxy))
+                  rule: (has(self.httpProxy)?1:0)+(has(self.httpsProxy)?1:0)+(has(self.tlsPassthrough)?1:0)+(has(self.tlsProxy)?1:0)+(has(self.tcpProxy)?1:0)+(has(self.udpProxy)?1:0)==1
               port:
                 description: The port that this service should listen on.
                 format: int32

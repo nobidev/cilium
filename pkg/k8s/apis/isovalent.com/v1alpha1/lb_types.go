@@ -82,7 +82,7 @@ type LBServiceProxyProtocolConfig struct {
 	PassthroughTLVs []LBProxyProtocolTLV `json:"passthroughTLVs,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && has(self.tlsProxy) && !has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && has(self.tcpProxy) && !has(self.udpProxy)) || (!has(self.httpProxy) && !has(self.httpsProxy) && !has(self.tlsPassthrough) && !has(self.tlsProxy) && !has(self.tcpProxy) && has(self.udpProxy))"
+// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy)?1:0)+(has(self.httpsProxy)?1:0)+(has(self.tlsPassthrough)?1:0)+(has(self.tlsProxy)?1:0)+(has(self.tcpProxy)?1:0)+(has(self.udpProxy)?1:0)==1"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
@@ -203,7 +203,7 @@ type LBServiceHTTPConfig struct {
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="(has(self.basic) && !has(self.jwt)) || (!has(self.basic) && has(self.jwt))"
+// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="(has(self.basic)?1:0)+(has(self.jwt)?1:0)==1"
 type LBServiceHTTPAuth struct {
 	// The basic authentication configuration.
 	//
@@ -288,7 +288,7 @@ type LBServiceHTTPJWTProvider struct {
 	JWKS LBServiceHTTPJWTAuthJWKS `json:"jwks"`
 }
 
-// +kubebuilder:validation:XValidation:message="Either secretRef or httpURI must be specified",rule="(has(self.secretRef) && !has(self.httpURI)) || (!has(self.secretRef) && has(self.httpURI))"
+// +kubebuilder:validation:XValidation:message="Either secretRef or httpURI must be specified",rule="(has(self.secretRef)?1:0)+(has(self.httpURI)?1:0)==1"
 type LBServiceHTTPJWTAuthJWKS struct {
 	// The reference to the k8s Secret contains JWKS. The Secret must be an
 	// Opaque Secret with "jwks" key and base64-encoded JWKS string as a
@@ -856,6 +856,7 @@ type LBServiceHTTPRouteRequestFilteringRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	HostName *LBServiceRequestFilteringRuleHTTPHostname `json:"hostName,omitempty"`
+
 	// Path-based matching. Only one of exact or suffix match can be specified.
 	//
 	// +kubebuilder:validation:Optional
@@ -873,7 +874,7 @@ type LBServiceRequestFilteringRuleSourceCIDR struct {
 	CIDR string `json:"cidr"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one hostname type (exact or suffix) must be specified",rule="(has(self.exact) || has(self.suffix)) && !(has(self.exact) && has(self.suffix))"
+// +kubebuilder:validation:XValidation:message="Exactly one hostname type (exact or suffix) must be specified",rule="(has(self.exact)?1:0)+(has(self.suffix)?1:0)==1"
 type LBServiceRequestFilteringRuleHTTPHostname struct {
 	// Exact matching. The hostname must be exactly the same as the value.
 	//
@@ -888,7 +889,7 @@ type LBServiceRequestFilteringRuleHTTPHostname struct {
 	Suffix *string `json:"suffix,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
+// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)==1"
 type LBServiceRequestFilteringRuleHTTPPath struct {
 	// Exact matching. The path must be exactly the same as the value.
 	//
@@ -925,7 +926,7 @@ type LBServiceHTTPRouteMatch struct {
 	Path *LBServiceHTTPPath `json:"path,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact) || has(self.prefix)) && !(has(self.exact) && has(self.prefix))"
+// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)==1"
 type LBServiceHTTPPath struct {
 	// Exact matching. The path must be exactly the same as the value.
 	//
@@ -1083,7 +1084,7 @@ type LBServiceTLSRouteRequestFilteringRule struct {
 	ServerName *LBServiceRequestFilteringRuleTLSServername `json:"serverName,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one servername type (exact or suffix) must be specified",rule="(has(self.exact) || has(self.suffix)) && !(has(self.exact) && has(self.suffix))"
+// +kubebuilder:validation:XValidation:message="Exactly one servername type (exact or suffix) must be specified",rule="(has(self.exact)?1:0)+(has(self.suffix)?1:0)==1"
 type LBServiceRequestFilteringRuleTLSServername struct {
 	// Exact matching. The servername must be exactly the same as the value.
 	//
@@ -1735,7 +1736,7 @@ const (
 	BackendStatusDraining BackendStatus = "Draining"
 )
 
-// +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))"
+// +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp)?1:0)+(has(self.http)?1:0)==1"
 type HealthCheck struct {
 	// The interval between health check probes.
 	//
@@ -1814,7 +1815,7 @@ type Loadbalancing struct {
 	Algorithm LoadbalancingAlgorithm `json:"algorithm"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one algorithm (RoundRobin, LeastRequest or ConsistentHashing) must be specified",rule="(has(self.roundRobin) || has(self.leastRequest) || has(self.consistentHashing)) && !(has(self.roundRobin) && has(self.leastRequest)) && !(has(self.roundRobin) && has(self.consistentHashing)) && !(has(self.leastRequest) && has(self.consistentHashing))"
+// +kubebuilder:validation:XValidation:message="Exactly one algorithm (RoundRobin, LeastRequest or ConsistentHashing) must be specified",rule="(has(self.roundRobin)?1:0)+(has(self.leastRequest)?1:0)+(has(self.consistentHashing)?1:0)==1"
 type LoadbalancingAlgorithm struct {
 	// The round robin algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
 	//

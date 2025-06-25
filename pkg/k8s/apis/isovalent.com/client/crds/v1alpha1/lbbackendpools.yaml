@@ -256,7 +256,7 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: Exactly one health check (HTTP or TCP) must be specified
-                  rule: (has(self.tcp) || has(self.http)) && !(has(self.tcp) && has(self.http))
+                  rule: (has(self.tcp)?1:0)+(has(self.http)?1:0)==1
               httpConfig:
                 description: The pool-wide HTTP configuration.
                 properties:
@@ -313,10 +313,7 @@ spec:
                     x-kubernetes-validations:
                     - message: Exactly one algorithm (RoundRobin, LeastRequest or
                         ConsistentHashing) must be specified
-                      rule: (has(self.roundRobin) || has(self.leastRequest) || has(self.consistentHashing))
-                        && !(has(self.roundRobin) && has(self.leastRequest)) && !(has(self.roundRobin)
-                        && has(self.consistentHashing)) && !(has(self.leastRequest)
-                        && has(self.consistentHashing))
+                      rule: (has(self.roundRobin)?1:0)+(has(self.leastRequest)?1:0)+(has(self.consistentHashing)?1:0)==1
                 required:
                 - algorithm
                 type: object
