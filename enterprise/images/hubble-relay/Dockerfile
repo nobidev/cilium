@@ -23,7 +23,9 @@ ARG VERSION=0.0.0
 LABEL version=${VERSION}
 
 USER 0:0
-RUN mkdir /home/gops && chown 65532:65532 /home/gops
+# Configure gops to use a temporary directory, to prevent permissionAdd commentMore actions
+# issues depending on the UID configured to run the entrypoint.
+COPY --chmod=777 --from=scratch / /home/gops
 ENV GOPS_CONFIG_DIR=/home/gops
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
