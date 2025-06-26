@@ -845,7 +845,7 @@ type LBServiceRateLimit struct {
 	TimePeriodSeconds uint `json:"timePeriodSeconds"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.hostName) || has(self.path))"
+// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.hostName) || has(self.path) || size(self.headers) > 0)"
 type LBServiceHTTPRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
@@ -861,6 +861,11 @@ type LBServiceHTTPRouteRequestFilteringRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Path *LBServiceRequestFilteringRuleHTTPPath `json:"path,omitempty"`
+
+	// Header-based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	Headers []*LBServiceRequestFilteringRuleHTTPHeader `json:"headers,omitempty"`
 }
 
 type LBServiceRequestFilteringRuleSourceCIDR struct {
@@ -902,6 +907,40 @@ type LBServiceRequestFilteringRuleHTTPPath struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
 	Prefix *string `json:"prefix,omitempty"`
+}
+
+type LBServiceRequestFilteringRuleHTTPHeader struct {
+	// Name of the header.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Value of the header.
+	//
+	// +kubebuilder:validation:Required
+	Value LBServiceRequestFilteringRuleHTTPHeaderValue `json:"value"`
+}
+
+// +kubebuilder:validation:XValidation:message="Exactly one path type (exact, prefix or regex) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1"
+type LBServiceRequestFilteringRuleHTTPHeaderValue struct {
+	// Exact matching. The value must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Exact *string `json:"exact,omitempty"`
+
+	// Prefix matching. The value must start with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Prefix *string `json:"prefix,omitempty"`
+
+	// Regex matching. The value must match the regex value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Regex *string `json:"regex,omitempty"`
 }
 
 type LBServiceHTTPRouteMatch struct {

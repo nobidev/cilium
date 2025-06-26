@@ -1060,10 +1060,37 @@ func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.L
 			}
 		}
 
+		headers := []*lbRouteRequestFilteringHTTPHeader{}
+		for _, h := range ir.Headers {
+			var v string
+			var vType filterHeaderTypeType
+
+			if h.Value.Exact != nil {
+				v = *h.Value.Exact
+				vType = filterHeaderTypeExact
+			} else if h.Value.Prefix != nil {
+				v = *h.Value.Prefix
+				vType = filterHeaderTypePrefix
+			} else if h.Value.Regex != nil {
+				v = *h.Value.Regex
+				vType = filterHeaderTypeRegex
+			}
+
+			headers = append(headers, &lbRouteRequestFilteringHTTPHeader{
+				name: h.Name,
+				value: lbRouteRequestFilteringHTTPHeaderValue{
+					value:     v,
+					valueType: vType,
+				},
+			})
+
+		}
+
 		rules = append(rules, lbRouteHTTPRequestFilteringRule{
 			sourceCIDR: sourceCIDR,
 			hostname:   hostname,
 			path:       path,
+			headers:    headers,
 		})
 	}
 

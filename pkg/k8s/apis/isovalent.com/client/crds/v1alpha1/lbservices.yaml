@@ -439,6 +439,44 @@ spec:
                                     The properties of each entry are logically ANDed.
                                   items:
                                     properties:
+                                      headers:
+                                        description: Header-based matching. Only one
+                                          of exact, suffix or regex match can be specified.
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Name of the header.
+                                              minLength: 1
+                                              type: string
+                                            value:
+                                              description: Value of the header.
+                                              properties:
+                                                exact:
+                                                  description: Exact matching. The
+                                                    value must be exactly the same
+                                                    as the value.
+                                                  minLength: 1
+                                                  type: string
+                                                prefix:
+                                                  description: Prefix matching. The
+                                                    value must start with the value.
+                                                  minLength: 1
+                                                  type: string
+                                                regex:
+                                                  description: Regex matching. The
+                                                    value must match the regex value.
+                                                  minLength: 1
+                                                  type: string
+                                              type: object
+                                              x-kubernetes-validations:
+                                              - message: Exactly one path type (exact,
+                                                  prefix or regex) must be specified
+                                                rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1
+                                          required:
+                                          - name
+                                          - value
+                                          type: object
+                                        type: array
                                       hostName:
                                         description: Host-based matching. Only one
                                           of exact or suffix match can be specified.
@@ -497,7 +535,8 @@ spec:
                                     x-kubernetes-validations:
                                     - message: At least one attribute must be configured
                                       rule: (has(self.sourceCIDR) || has(self.hostName)
-                                        || has(self.path))
+                                        || has(self.path) || size(self.headers) >
+                                        0)
                                   minItems: 1
                                   type: array
                               required:
@@ -890,6 +929,44 @@ spec:
                                     The properties of each entry are logically ANDed.
                                   items:
                                     properties:
+                                      headers:
+                                        description: Header-based matching. Only one
+                                          of exact, suffix or regex match can be specified.
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Name of the header.
+                                              minLength: 1
+                                              type: string
+                                            value:
+                                              description: Value of the header.
+                                              properties:
+                                                exact:
+                                                  description: Exact matching. The
+                                                    value must be exactly the same
+                                                    as the value.
+                                                  minLength: 1
+                                                  type: string
+                                                prefix:
+                                                  description: Prefix matching. The
+                                                    value must start with the value.
+                                                  minLength: 1
+                                                  type: string
+                                                regex:
+                                                  description: Regex matching. The
+                                                    value must match the regex value.
+                                                  minLength: 1
+                                                  type: string
+                                              type: object
+                                              x-kubernetes-validations:
+                                              - message: Exactly one path type (exact,
+                                                  prefix or regex) must be specified
+                                                rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1
+                                          required:
+                                          - name
+                                          - value
+                                          type: object
+                                        type: array
                                       hostName:
                                         description: Host-based matching. Only one
                                           of exact or suffix match can be specified.
@@ -948,7 +1025,8 @@ spec:
                                     x-kubernetes-validations:
                                     - message: At least one attribute must be configured
                                       rule: (has(self.sourceCIDR) || has(self.hostName)
-                                        || has(self.path))
+                                        || has(self.path) || size(self.headers) >
+                                        0)
                                   minItems: 1
                                   type: array
                               required:

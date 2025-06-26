@@ -31,5 +31,15 @@ spec:
             rules:
               - path:
                   exact: /admin
+                headers:
+                  - name: name1
+                    value:
+                      exact: exact-value
+                  - name: name2
+                    value:
+                      prefix: prefix-value
+                  - name: name3
+                    value:
+                      regex: regex-value
                 sourceCIDR:
                   cidr: 100.64.0.100/32

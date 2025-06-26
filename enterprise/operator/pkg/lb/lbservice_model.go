@@ -385,6 +385,7 @@ type lbRouteHTTPRequestFilteringRule struct {
 	sourceCIDR *lbRouteRequestFilteringSourceCIDR
 	hostname   *lbRouteRequestFilteringHostName
 	path       *lbRouteRequestFilteringHTTPPath
+	headers    []*lbRouteRequestFilteringHTTPHeader
 }
 
 type lbRouteRequestFilteringSourceCIDR struct {
@@ -414,6 +415,24 @@ type filterPathTypeType int
 const (
 	filterPathTypePrefix filterPathTypeType = iota
 	filterPathTypeExact
+)
+
+type lbRouteRequestFilteringHTTPHeader struct {
+	name  string
+	value lbRouteRequestFilteringHTTPHeaderValue
+}
+
+type lbRouteRequestFilteringHTTPHeaderValue struct {
+	value     string
+	valueType filterHeaderTypeType
+}
+
+type filterHeaderTypeType int
+
+const (
+	filterHeaderTypePrefix filterHeaderTypeType = iota
+	filterHeaderTypeExact
+	filterHeaderTypeRegex
 )
 
 type lbRouteTLSPassthrough struct {

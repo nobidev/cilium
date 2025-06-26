@@ -376,6 +376,78 @@ func withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(sourceCIDR st
 	}
 }
 
+func withHttpRequestFilteringAllowByExactHeader(headers map[string]string) httpApplicationRouteOption {
+	headerRules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{}
+
+	for k, v := range headers {
+		headerRules = append(headerRules, &isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{
+			Name: k,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeaderValue{
+				Exact: &v,
+			},
+		})
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
+				{
+					Headers: headerRules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpRequestFilteringAllowByPrefixHeader(headers map[string]string) httpApplicationRouteOption {
+	headerRules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{}
+
+	for k, v := range headers {
+		headerRules = append(headerRules, &isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{
+			Name: k,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeaderValue{
+				Prefix: &v,
+			},
+		})
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
+				{
+					Headers: headerRules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpRequestFilteringAllowByRegexHeader(headers map[string]string) httpApplicationRouteOption {
+	headerRules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{}
+
+	for k, v := range headers {
+		headerRules = append(headerRules, &isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader{
+			Name: k,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeaderValue{
+				Regex: &v,
+			},
+		})
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
+				{
+					Headers: headerRules,
+				},
+			},
+		}
+	}
+}
+
 func withHttpConnectionRateLimiting(limit uint, timePeriodSeconds uint) httpApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
 		o.RateLimits = &isovalentv1alpha1.LBServiceHTTPRateLimits{

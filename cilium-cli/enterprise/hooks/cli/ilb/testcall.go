@@ -14,5 +14,6 @@ type testCall struct {
 	clientNr int
 	hostName string
 	path     string
+	headers  map[string]string
 	blocked  bool
 }

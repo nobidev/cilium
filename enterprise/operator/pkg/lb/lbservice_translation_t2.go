@@ -2063,6 +2063,8 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 			andPermissions = append(andPermissions, r.toRBACPermissionHTTPPath(rr.path))
 		}
 
+		andPermissions = append(andPermissions, r.toRBACPermissionHTTPHeaders(rr.headers)...)
+
 		if len(andPermissions) > 0 {
 			permissions = append(permissions, r.toRBACPermissionAnd(andPermissions...))
 		}
@@ -2235,6 +2237,54 @@ func (r *lbServiceT2Translator) toRBACPermissionHTTPPath(httpPathRule *lbRouteRe
 		Rule: &envoy_config_rbac_v3.Permission_UrlPath{
 			UrlPath: &envoy_type_matcher_v3.PathMatcher{
 				Rule: pathMatcherPermRule,
+			},
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionHTTPHeaders(httpHeaderRules []*lbRouteRequestFilteringHTTPHeader) []*envoy_config_rbac_v3.Permission {
+	perms := []*envoy_config_rbac_v3.Permission{}
+
+	for _, rule := range httpHeaderRules {
+		perms = append(perms, r.toRBACPermissionHTTPHeader(rule))
+	}
+
+	return perms
+}
+
+func (r *lbServiceT2Translator) toRBACPermissionHTTPHeader(httpHeaderRule *lbRouteRequestFilteringHTTPHeader) *envoy_config_rbac_v3.Permission {
+	headerMatcher := &envoy_config_route_v3.HeaderMatcher_StringMatch{
+		StringMatch: &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: nil,
+			IgnoreCase:   false,
+		},
+	}
+
+	switch httpHeaderRule.value.valueType {
+	case filterHeaderTypeExact:
+		headerMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+			Exact: httpHeaderRule.value.value,
+		}
+	case filterHeaderTypePrefix:
+		headerMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
+			Prefix: httpHeaderRule.value.value,
+		}
+	case filterHeaderTypeRegex:
+		headerMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+			SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+				EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+				Regex:      httpHeaderRule.value.value,
+			},
+		}
+	}
+
+	return &envoy_config_rbac_v3.Permission{
+		Rule: &envoy_config_rbac_v3.Permission_Header{
+			Header: &envoy_config_route_v3.HeaderMatcher{
+				Name:                      httpHeaderRule.name,
+				HeaderMatchSpecifier:      headerMatcher,
+				InvertMatch:               false,
+				TreatMissingHeaderAsEmpty: false,
 			},
 		},
 	}

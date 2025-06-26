@@ -214,6 +214,157 @@ func TestHTTPSRequestFiltering(t T) {
 				},
 			},
 		},
+		{
+			desc: "allow-by-exact-headers",
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
+				return withHttpRequestFilteringAllowByExactHeader(map[string]string{
+					"test-name1": "test-value1",
+					"test-name2": "test-value2",
+				})
+			},
+			testCalls: []testCall{
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers:  map[string]string{},
+					blocked:  true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+					},
+					blocked: true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+						"test-name2": "test-value2",
+					},
+					blocked: false,
+				},
+			},
+		},
+		{
+			desc: "allow-by-prefix-headers",
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
+				return withHttpRequestFilteringAllowByPrefixHeader(map[string]string{
+					"test-name1": "test-value1",
+					"test-name2": "test-value2",
+				})
+			},
+			testCalls: []testCall{
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers:  map[string]string{},
+					blocked:  true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+					},
+					blocked: true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+						"test-name2": "test-value2",
+					},
+					blocked: false,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value111111",
+						"test-name2": "test-value222222",
+					},
+					blocked: false,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "1test-value1",
+						"test-name2": "2test-value2",
+					},
+					blocked: true,
+				},
+			},
+		},
+		{
+			desc: "allow-by-regex-headers",
+			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
+				return withHttpRequestFilteringAllowByRegexHeader(map[string]string{
+					"test-name1": ".*test-value1.*",
+					"test-name2": ".*test-value2.*",
+				})
+			},
+			testCalls: []testCall{
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers:  map[string]string{},
+					blocked:  true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+					},
+					blocked: true,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value1",
+						"test-name2": "test-value2",
+					},
+					blocked: false,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "test-value111111",
+						"test-name2": "test-value222222",
+					},
+					blocked: false,
+				},
+				{
+					clientNr: 0,
+					hostName: "secure.acme.io",
+					path:     "/",
+					headers: map[string]string{
+						"test-name1": "1test-value11",
+						"test-name2": "2test-value22",
+					},
+					blocked: false,
+				},
+			},
+		},
 	}
 	for _, tC := range testCases {
 		if skipIfOnSingleNode(">1 FRR clients are not supported") {
@@ -275,6 +426,9 @@ func TestHTTPSRequestFiltering(t T) {
 
 			for _, tt := range tC.testCalls {
 				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
+				for k, v := range tt.headers {
+					testCmd += fmt.Sprintf(" -H '%s:%s'", k, v)
+				}
 				t.Log("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
