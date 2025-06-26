@@ -272,7 +272,7 @@ func (e *endpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse) (stat
 			attachmentLabelName: labels.NewLabel(attachmentLabelName, e.networkName, labels.LabelSourceCNI),
 		}
 		const label = "label"
-		e.params.Log.Debug("adding label for non-default endpoint", label, lbls.String())
+		e.params.Log.Debug("adding label for non-default endpoint", label, lbls)
 	}
 
 	ep = &models.EndpointChangeRequest{

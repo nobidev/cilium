@@ -16,8 +16,8 @@ github.com/cilium/fake/flow v0.6.1 h1:qOVCy1WbKlrdoSmdweV5PmCrqcHmDui2INfT8DyUzS
 github.com/cilium/fake/flow v0.6.1/go.mod h1:Swb+fhIw8JDSCQtkgR2qDS29AbEycRVpJP4gCrZxPTQ=
 github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354 h1:4G9PC8nQw4pGW5wCMA0g8J8rK1l4C3owlceAOQggXzs=
 github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354/go.mod h1:pI2GJ1n3SLKIQVFrKF7W6A6gb6BQkZ+3Hp4PAEo5SuI=
-github.com/cilium/proxy v0.0.0-20250526114940-b80199397e8a h1:5pJ6eaVk/y1C8cBMpfUWMuHa+qTefq2jqcNf0et0mGk=
-github.com/cilium/proxy v0.0.0-20250526114940-b80199397e8a/go.mod h1:Bs5kHQ+FYHLrAkEaTQpbwblJIv6NfU2Tsuo+wCkN+9s=
+github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1 h1:SOOtIfQmW/pF1iW1I4hVUx1pvgX7Xh2E8jHv+itBXQ0=
+github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1/go.mod h1:Kwyyx+cC2H67Aj1sDuqBLvPn6TEmEJRPvULIrJ/kBRo=
 github.com/cilium/statedb v0.4.1 h1:G08cH+j7Mn1EDQkjZRbborP05oy3Z1dqZE1zHhHu9o8=
 github.com/cilium/statedb v0.4.1/go.mod h1:TWktbTQ5u2OdsQpvhianS3xjOYGEtYdJBq0lBEfatR0=
 github.com/cilium/stream v0.0.1 h1:82zuM/WwkLiac2Jg5FrzPxZHvIBbxXTi4VY7M+EYLs0=
@@ -160,8 +160,6 @@ github.com/sasha-s/go-deadlock v0.3.5 h1:tNCOEEDG6tBqrNDOX35j/7hL5FcFViG6awUGROb
 github.com/sasha-s/go-deadlock v0.3.5/go.mod h1:bugP6EGbdGYObIlx7pUZtWqlvo8k9H6vCBBsiChJQ5U=
 github.com/sergi/go-diff v1.3.1 h1:xkr+Oxo4BOQKmkn/B9eMK0g5Kg/983T9DqqPHwYqD+8=
 github.com/sergi/go-diff v1.3.1/go.mod h1:aMJSSKb2lpPvRNec0+w3fl7LP9IOFzdc9Pa4NFbPK1I=
-github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
-github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/sourcegraph/conc v0.3.0 h1:OQTbbt6P72L20UqAkXXuLOj79LfEanQ+YQFNpLA9ySo=
 github.com/sourcegraph/conc v0.3.0/go.mod h1:Sdozi7LEKbFPqYX2/J+iBAM6HpqSLTASQIKqDmF7Mt0=
 github.com/spf13/afero v1.14.0 h1:9tH6MapGnn/j0eb0yIXiLjERO8RB6xIVZRDCX7PtqWA=
