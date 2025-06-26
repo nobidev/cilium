@@ -72,6 +72,7 @@ var Tests = []func(t T){
 	TestUDPProxyAutoPersistentBackend,
 	TestLabelBasedBackend_T1T2,
 	TestLabelBasedBackend_T1Only,
+	TestNodeMaintenance_T1_T1T2_TCPProxy,
 	TestNodeMaintenance_T2_T1T2_TCPProxy,
 	TestNodeMaintenance_T2_T1T2_HTTP,
 }

@@ -30,7 +30,7 @@ func TestNodeMaintenance_T2_T1T2_HTTP(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	// label based backends are only supported in v1.18 and newer
+	// node maintenance is only supported in v1.18 and newer
 	minVersion := ">=1.18.0"
 	currentVersion := getCiliumVersion(t, k8sCli)
 	if !versioncheck.MustCompile(minVersion)(currentVersion) {
