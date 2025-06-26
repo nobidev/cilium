@@ -242,6 +242,7 @@ jobs:
              --helm-set=enterprise.loadbalancer.enabled=true \
              --helm-set=enterprise.bgpControlPlane.enabled=true \
              --helm-set=enterprise.bgpControlPlane.enableServiceHealthChecking=true \
+             --helm-set=enterprise.bgpControlPlane.nodeMaintenance.withdrawTime=1ms \
              --helm-set=enterprise.bfd.enabled=true \
              --helm-set=enterprise.featureGate.minimumMaturity=Alpha \
              --helm-set=debug.enabled=true \
