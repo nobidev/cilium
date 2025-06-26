@@ -1,4 +1,4 @@
-name: Mindfulness
+name: Enterprise Lint
 on:
   # Check mindfulness on each PR (when applicable per filter below)
   pull_request:
@@ -15,8 +15,8 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  meditate:
-    name: Compare with Upstream
+  lint:
+    name: Mindfulness
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

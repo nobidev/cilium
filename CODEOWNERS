@@ -797,7 +797,7 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-kind-integrated-timescape.yaml @isovalent/timescape
 /.github/workflows/enterprise-lb.yaml @isovalent/isovalent-loadbalancer
 /.github/workflows/enterprise-lb-dashboards.yaml @isovalent/isovalent-loadbalancer
-/.github/workflows/enterprise-meditation.yaml @isovalent/core-structure
+/.github/workflows/enterprise-lint.yaml @isovalent/core-structure
 /.github/workflows/enterprise-multi-network.yaml @isovalent/multi-network
 /.github/workflows/enterprise-multicast.yaml @isovalent/traffic-engineering
 /.github/workflows/enterprise-panda-scale.yaml @isovalent/scalability-performance
