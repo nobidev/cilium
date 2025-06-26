@@ -38,9 +38,9 @@ import (
 )
 
 const (
-	// use same ASN for Cilium & FRR -> IBGP
+	// use different ASN for Cilium & FRR -> eBGP
 	ciliumASN = 64512
-	frrASN    = 64512
+	frrASN    = 64513
 )
 
 type lbTestScenario struct {
