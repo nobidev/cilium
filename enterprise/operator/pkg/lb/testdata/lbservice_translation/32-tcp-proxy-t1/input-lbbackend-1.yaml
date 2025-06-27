@@ -11,9 +11,9 @@ spec:
       port: 8080
   healthCheck:
     intervalSeconds: 30
-    timeoutSeconds: 5
-    healthyThreshold: 1
-    unhealthyThreshold: 1
+    timeoutSeconds: 10
+    healthyThreshold: 2
+    unhealthyThreshold: 2
     http:
       host: lb
       path: /healthz

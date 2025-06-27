@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -128,26 +129,34 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[string]string {
 	annotations := map[string]string{}
 
-	if !model.isTCPProxyT1OnlyMode() && !model.isUDPProxyT1OnlyMode() {
-		// The presence of these annotations will enable HTTP-based
-		// health checking from T1 to T2 nodes
+	switch {
+	case !model.isTCPProxyT1OnlyMode() && !model.isUDPProxyT1OnlyMode():
+		// In T1&T2 deployment mode, T1 service is configured to perform T1->T2 health checking using
+		// hardcoded, globally configurable and calculated values (based on the backend configs)
+		annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getT1T2HealthCheckIntervalSeconds(model))
+		annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
+		annotations[annotation.ServiceHealthThresholdHealthy] = "1"
+		annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
+		annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+
+		// The presence of these annotations will enable HTTP-based health checking from T1 to T2 nodes
 		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
 		annotations[annotation.ServiceHealthHTTPMethod] = r.config.T1T2HealthCheck.T1ProbeHttpMethod
-	} else {
-		// For T1-only frontends, L4 healthchecks will be enabled
-		// (connect for TCP, ICMP/Payload-based for UDP)
-	}
 
-	annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getHealthCheckIntervalSeconds(model))
-	annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
-	annotations[annotation.ServiceHealthThresholdHealthy] = "1"
-	annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
-	annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+	default:
+		// In T1-only deployment mode, T1 service is configured to perform the actual L4 health checking to the backends (T1->Backend).
+		// (connect for TCP, ICMP/Payload-based for UDP)
+		annotations[annotation.ServiceHealthProbeInterval] = fmt.Sprintf("%ds", r.getT1OnlyHealthCheckIntervalSeconds(model))
+		annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.getT1OnlyHealthCheckTimeoutSeconds(model))
+		annotations[annotation.ServiceHealthThresholdHealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdHealthy(model))
+		annotations[annotation.ServiceHealthThresholdUnhealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdUnhealthy(model))
+		annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+	}
 
 	return annotations
 }
 
-func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) int {
+func (r *lbServiceT1Translator) getT1T2HealthCheckIntervalSeconds(model *lbService) int {
 	shortestInterval := 0
 
 	for _, b := range model.referencedBackends {
@@ -163,6 +172,42 @@ func (r *lbServiceT1Translator) getHealthCheckIntervalSeconds(model *lbService) 
 	}
 
 	return hcInterval
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckIntervalSeconds(model *lbService) int {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		return b.healthCheckConfig.intervalSeconds // no support for unhealthy interval
+	}
+
+	return 15
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckTimeoutSeconds(model *lbService) int {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		return b.healthCheckConfig.timeoutSeconds
+	}
+
+	return 5
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckThresholdHealthy(model *lbService) int {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		return b.healthCheckConfig.healthyThreshold
+	}
+
+	return 1
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckThresholdUnhealthy(model *lbService) int {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		return b.healthCheckConfig.unhealthyThreshold
+	}
+
+	return 1
 }
 
 func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {

@@ -8,7 +8,7 @@ metadata:
     loadbalancer.isovalent.com/type: t1
     service.cilium.io/forwarding-mode: snat
     service.cilium.io/health-check-bgp-advertise-threshold: "1"
-    service.cilium.io/health-check-probe-interval: 15s
+    service.cilium.io/health-check-probe-interval: 30s
     service.cilium.io/health-check-probe-timeout: 5s
     service.cilium.io/health-check-quarantine-timeout: 0s
     service.cilium.io/health-check-threshold-healthy: "1"
