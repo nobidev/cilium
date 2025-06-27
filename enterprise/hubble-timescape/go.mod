@@ -3,13 +3,13 @@ module github.com/isovalent/cilium/enterprise/hubble-timescape
 go 1.25.0
 
 require (
-	github.com/cilium/cilium v1.17.6
+	github.com/cilium/cilium v1.17.7
 	github.com/cilium/fake/flow v0.7.0
 	github.com/google/go-cmp v0.7.0
-	github.com/isovalent/hubble-timescape/api v1.7.2
+	github.com/isovalent/hubble-timescape/api v1.8.0
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
 	k8s.io/cli-runtime v0.33.4
@@ -137,7 +137,7 @@ require (
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
-	sigs.k8s.io/yaml v1.5.0 // indirect
+	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
 replace github.com/cilium/cilium => ../..

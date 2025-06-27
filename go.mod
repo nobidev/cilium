@@ -69,7 +69,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hmarr/codeowners v1.2.1
 	github.com/int128/listener v1.1.0
-	github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59
+	github.com/isovalent/ipa v1.18.0-pre.1
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.2.0
@@ -130,7 +130,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c
 	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 	helm.sh/helm/v3 v3.18.5
 	k8s.io/api v0.33.4
 	k8s.io/apiextensions-apiserver v0.33.4
@@ -152,6 +152,7 @@ require (
 // Enterprise specific deps
 require (
 	github.com/YutaroHayakawa/go-ra v0.0.0-20241125075947-1274124821d6
+	github.com/isovalent/hubble-timescape/api v1.8.0
 	github.com/jonboulle/clockwork v0.4.0
 )
 
@@ -363,10 +364,6 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 
 // Using private fork for potential custom fixes and better control over versioning.
 replace github.com/YutaroHayakawa/go-ra => github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6
-
-// Using private fork of gobgp. See commit msg for more context as to why we
-// are using a private fork.
-replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
 
 tool (
 	github.com/AdamKorcz/go-118-fuzz-build/testing

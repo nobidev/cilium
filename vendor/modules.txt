@@ -1106,7 +1106,10 @@ github.com/int128/listener
 # github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2
 ## explicit; go 1.12
 github.com/ishidawataru/sctp
-# github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59
+# github.com/isovalent/hubble-timescape/api v1.8.0
+## explicit; go 1.24.6
+github.com/isovalent/hubble-timescape/api/timescape/v1alpha
+# github.com/isovalent/ipa v1.18.0-pre.1
 ## explicit; go 1.24
 github.com/isovalent/ipa/system_status/v1alpha
 # github.com/jeremywohl/flatten v1.0.1
@@ -1365,7 +1368,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.37.0 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
+# github.com/osrg/gobgp/v3 v3.37.0
 ## explicit; go 1.23.0
 github.com/osrg/gobgp/v3/api
 github.com/osrg/gobgp/v3/internal/pkg/table
@@ -2033,8 +2036,8 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/protobuf v1.36.7
-## explicit; go 1.22
+# google.golang.org/protobuf v1.36.8
+## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -3022,4 +3025,3 @@ sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1
 # github.com/YutaroHayakawa/go-ra => github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6
-# github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464

@@ -1,0 +1,36 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1alpha;
+
+import "flow/flow.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1alpha";
+
+// IngesterService is a service that allows for ingestion of external data
+// for Timescape.
+service IngesterService {
+  // Ingest ingests data into Timescape.
+  rpc Ingest(stream IngestRequest) returns (IngestResponse) {}
+}
+
+// IngestRequest is the request message for the Ingest rpc call.
+message IngestRequest {
+  // Data contains the data to be ingested.
+  oneof data {
+    // Flow is the flow data to be ingested.
+    flow.Flow flow = 1;
+  }
+}
+
+// IngestResponse is the response message for the Ingest rpc call.
+message IngestResponse {}

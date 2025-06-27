@@ -140,8 +140,6 @@ github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.7.0 h1:4EKBtTweQrJoD4q45qDGu8udulmYMo48Y0BhEbrB1jc=
 github.com/cilium/fake v0.7.0/go.mod h1:hA1YsEjgIs5Gdeq/DVrDWGuhLCoVok7THTvQaGDO5bc=
-github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464 h1:lQMPil6k4HhTG3PJXxKsNFzjqPHOnu55uQg+1rhl0VE=
-github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464/go.mod h1:kVHVFy1/fyZHJ8P32+ctvPeJogn9qKwa1YCeMRXXrP0=
 github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227 h1:eeiPlekde25dlwsqv87HF9/BOEbf9uujC2dB1ucwywo=
 github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227/go.mod h1:6qtm9+eQD8D1SsqGFgNE63lNeys9PZswouh37X5ZhWU=
 github.com/cilium/linters v0.2.0 h1:YxtPFl1XxOErU6I97qgmmMeGISDNHftoLRdF1G96J9U=
@@ -457,8 +455,10 @@ github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2 h1:i2fYnDurfLlJH
 github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6 h1:OV+faAvpYGaoBrm2nEx1MCp5xRHIvlVRKBq3o9nmsrA=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6/go.mod h1:r5ppO5qsH+CLp5hcc5pHvytUlOgcI0vuAwpywt6y/Eg=
-github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59 h1:C6L8ldmTG66ZLR6TwRk2HYi2QBiURXjIE6I37ggCKm8=
-github.com/isovalent/ipa v0.0.0-20250624092430-804868d5cf59/go.mod h1:OkHYSN678FJjFDRPW2++mmW9qrOuUcuwGse+VFhL4pQ=
+github.com/isovalent/hubble-timescape/api v1.8.0 h1:7X+37t9r1Pwk9e5FM0zy3UKlzYu00/EpWxQ1ehRl7H4=
+github.com/isovalent/hubble-timescape/api v1.8.0/go.mod h1:zLmmN2MZMY4hsZWdD9w8FlYMUe+VfGI56w8wcGfZgXI=
+github.com/isovalent/ipa v1.18.0-pre.1 h1:Hl7vRPljar4awKZB0YNbFlE/PmOOaVzvhSwyMHUDlQ8=
+github.com/isovalent/ipa v1.18.0-pre.1/go.mod h1:OkHYSN678FJjFDRPW2++mmW9qrOuUcuwGse+VFhL4pQ=
 github.com/jeremywohl/flatten v1.0.1 h1:LrsxmB3hfwJuE+ptGOijix1PIfOoKLJ3Uee/mzbgtrs=
 github.com/jeremywohl/flatten v1.0.1/go.mod h1:4AmD/VxjWcI5SRB0n6szE2A6s2fsNHDLO0nAlMHgfLQ=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
@@ -621,6 +621,8 @@ github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJw
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b h1:FfH+VrHHk6Lxt9HdVS0PXzSXFyS2NbZKXv33FYPol0A=
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b/go.mod h1:AC62GU6hc0BrNm+9RK9VSiwa/EUe1bkIeFORAMcHvJU=
+github.com/osrg/gobgp/v3 v3.37.0 h1:+ObuOdvj7G7nxrT0fKFta+EAupdWf/q1WzbXydr8IOY=
+github.com/osrg/gobgp/v3 v3.37.0/go.mod h1:kVHVFy1/fyZHJ8P32+ctvPeJogn9qKwa1YCeMRXXrP0=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
 github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
 github.com/pelletier/go-toml/v2 v2.2.3 h1:YmeHyLY8mFWbdkNWwpr+qIL2bEqT0o95WSdkNHvL12M=
@@ -833,8 +835,8 @@ go.opentelemetry.io/otel/sdk v1.36.0 h1:b6SYIuLRs88ztox4EyrvRti80uXIFy+Sqzoh9kFU
 go.opentelemetry.io/otel/sdk v1.36.0/go.mod h1:+lC+mTgD+MUWfjJubi2vvXWcVxyr9rmlshZni72pXeY=
 go.opentelemetry.io/otel/sdk/log v0.8.0 h1:zg7GUYXqxk1jnGF/dTdLPrK06xJdrXgqgFLnI4Crxvs=
 go.opentelemetry.io/otel/sdk/log v0.8.0/go.mod h1:50iXr0UVwQrYS45KbruFrEt4LvAdCaWWgIrsN3ZQggo=
-go.opentelemetry.io/otel/sdk/metric v1.36.0 h1:r0ntwwGosWGaa0CrSt8cuNuTcccMXERFwHX4dThiPis=
-go.opentelemetry.io/otel/sdk/metric v1.36.0/go.mod h1:qTNOhFDfKRwX0yXOqJYegL5WRaW376QbB7P4Pb0qva4=
+go.opentelemetry.io/otel/sdk/metric v1.37.0 h1:90lI228XrB9jCMuSdA0673aubgRobVZFhbjxHHspCPc=
+go.opentelemetry.io/otel/sdk/metric v1.37.0/go.mod h1:cNen4ZWfiD37l5NhS+Keb5RXVWZWpRE+9WyVCpbo5ps=
 go.opentelemetry.io/otel/trace v1.37.0 h1:HLdcFNbRQBE2imdSEgm/kwqmQj1Or1l/7bW6mxVK7z4=
 go.opentelemetry.io/otel/trace v1.37.0/go.mod h1:TlgrlQ+PtQO5XFerSPUYG0JSgGyryXewPGyayAWSBS0=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
@@ -1062,8 +1064,8 @@ google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp0
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.27.1/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.28.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
-google.golang.org/protobuf v1.36.7 h1:IgrO7UwFQGJdRNXH/sQux4R1Dj1WAKcLElzeeRaXV2A=
-google.golang.org/protobuf v1.36.7/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
+google.golang.org/protobuf v1.36.8 h1:xHScyCOEuuwZEc6UtSOvPbAT4zRh0xcNRYekJwfqyMc=
+google.golang.org/protobuf v1.36.8/go.mod h1:fuxRtAxBytpl4zzqUh6/eyUujkJdNiuEkXntxiD/uRU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
