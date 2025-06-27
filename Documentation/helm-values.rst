@@ -1971,7 +1971,7 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null},"timescape":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":null,"denyList":null,"enabled":null,"fieldMask":null,"maxBufferSize":null,"nodeName":null,"reportDroppedFlowsInterval":null,"target":null,"tls":{"ca":{"configMap":{"key":null,"name":null}},"enabled":null,"mtls":{"enabled":null,"secretName":null}}}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
@@ -2040,6 +2040,82 @@
      - - Defines the amount of events to allow per minute before being rate-limited. Leave unset or set to -1 to disable rate-limiting. @schema type: [null, integer] @schema
      - string
      - ``-1``
+   * - :spelling:ignore:`hubble.export.timescape.aggregation`
+     - - Defines the aggregation to perform pre-storage ('connection', 'identity'). Leave empty to disable aggregation. @schema type: [null, array] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.aggregationIgnoreSourcePort`
+     - - Defines whether to ignore source port during aggregation. @schema type: [null, boolean] @schema
+     - string
+     - ``true``
+   * - :spelling:ignore:`hubble.export.timescape.aggregationRenewTTL`
+     - - Defines whether to renew the flow TTL when a new flow is observed. @schema type: [null, boolean] @schema
+     - string
+     - ``true``
+   * - :spelling:ignore:`hubble.export.timescape.aggregationStateFilter`
+     - - Defines the state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed'). @schema type: [null, array] @schema
+     - string
+     - ``["new", "error", "closed"]``
+   * - :spelling:ignore:`hubble.export.timescape.aggregationTTL`
+     - - Defines the TTL for flow aggregation. @schema type: [null, string] @schema
+     - string
+     - ``30s``
+   * - :spelling:ignore:`hubble.export.timescape.allowList`
+     - - The list of allow filters to apply to exported events. Leave empty to not apply any filters.  Each filter is a JSON object with the field to filter on as key and the values to match as value. The filter is applied as an AND operation.  @schema type: [null, array] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.denyList`
+     - - The list of deny filters to apply to exported events. Leave empty to not apply any filters.  Each filter is a JSON object with the field to filter on as key and the values to match as value. The filter is applied as an AND operation.  @schema type: [null, array] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.enabled`
+     - Enable the Hubble timescape exporter. @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.fieldMask`
+     - The list of fields to include in exported events. Leave empty to include all fields. @schema type: [null, array] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.maxBufferSize`
+     - The maximum number of flows to buffer before dropping them. @schema type: [null, integer] @schema
+     - string
+     - ``4096``
+   * - :spelling:ignore:`hubble.export.timescape.nodeName`
+     - - The name used to override the node_name field in exported events. Leave empty to not override the node_name field. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.reportDroppedFlowsInterval`
+     - The interval at which to report dropped flows in logs. Set to 0s to disable reporting. @schema type: [null, string] @schema
+     - string
+     - ``1m``
+   * - :spelling:ignore:`hubble.export.timescape.target`
+     - The target server to connect to for exporting flows. @schema type: [null, string] @schema
+     - string
+     - ``hubble-timescape-export.hubble-timescape.svc.cluster.local.:4261``
+   * - :spelling:ignore:`hubble.export.timescape.tls.ca.configMap`
+     - The configmap containing the CA to validate the server certificate.
+     - object
+     - ``{"key":null,"name":null}``
+   * - :spelling:ignore:`hubble.export.timescape.tls.ca.configMap.key`
+     - The key in the configmap containing the CA certificate. @schema type: [null, string] @schema
+     - string
+     - ``ca.crt``
+   * - :spelling:ignore:`hubble.export.timescape.tls.ca.configMap.name`
+     - The name of the configmap containing the CA certificate. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.tls.enabled`
+     - Enable client TLS for the Hubble timescape exporter. @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.tls.mtls.enabled`
+     - Enable mTLS for the Hubble timescape exporter. @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.export.timescape.tls.mtls.secretName`
+     - The name of the Secret containing the TLS material to enable mTLS. The secret must be of type ``kubernetes.io/tls``. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.k8sExporter`
      - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
      - object

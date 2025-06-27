@@ -2071,6 +2071,126 @@ hubble:
             #     aggregationRenewTTL: false
             #     aggregationStateFilter: ["established", "first_error"]
             #     aggregationTTL: 1m
+    timescape:
+      # -- Enable the Hubble timescape exporter.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      enabled: ~
+      # -- The target server to connect to for exporting flows.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `hubble-timescape-export.hubble-timescape.svc.cluster.local.:4261`
+      target: ~
+      # -- The list of fields to include in exported events.
+      # Leave empty to include all fields.
+      # @schema
+      # type: [null, array]
+      # @schema
+      fieldMask: ~
+      # --- The list of allow filters to apply to exported events.
+      # Leave empty to not apply any filters.
+      #
+      # Each filter is a JSON object with the field to filter on as key and the
+      # values to match as value. The filter is applied as an AND operation.
+      #
+      # @schema
+      # type: [null, array]
+      # @schema
+      allowList: ~
+      # --- The list of deny filters to apply to exported events.
+      # Leave empty to not apply any filters.
+      #
+      # Each filter is a JSON object with the field to filter on as key and the
+      # values to match as value. The filter is applied as an AND operation.
+      #
+      # @schema
+      # type: [null, array]
+      # @schema
+      denyList: ~
+      # --- The name used to override the node_name field in exported events.
+      # Leave empty to not override the node_name field.
+      # @schema
+      # type: [null, string]
+      # @schema
+      nodeName: ~
+      # --- Defines the aggregation to perform pre-storage ('connection', 'identity').
+      # Leave empty to disable aggregation.
+      # @schema
+      # type: [null, array]
+      # @schema
+      aggregation: ~
+      # --- Defines whether to ignore source port during aggregation.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationIgnoreSourcePort: ~
+      # --- Defines whether to renew the flow TTL when a new flow is observed.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationRenewTTL: ~
+      # --- Defines the state changes to include while aggregating
+      # ('new', 'established', 'first_error', 'error', 'closed').
+      # @schema
+      # type: [null, array]
+      # @schema
+      # @default -- `["new", "error", "closed"]`
+      aggregationStateFilter: ~
+      # --- Defines the TTL for flow aggregation.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `30s`
+      aggregationTTL: ~
+      # -- The maximum number of flows to buffer before dropping them.
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # @default -- `4096`
+      maxBufferSize: ~
+      # -- The interval at which to report dropped flows in logs.
+      # Set to 0s to disable reporting.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `1m`
+      reportDroppedFlowsInterval: ~
+      tls:
+        # -- Enable client TLS for the Hubble timescape exporter.
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        enabled: ~
+        mtls:
+          # -- Enable mTLS for the Hubble timescape exporter.
+          # @schema
+          # type: [null, boolean]
+          # @schema
+          enabled: ~
+          # -- The name of the Secret containing the TLS material to enable mTLS.
+          # The secret must be of type `kubernetes.io/tls`.
+          # @schema
+          # type: [null, string]
+          # @schema
+          secretName: ~
+        ca:
+          # -- The configmap containing the CA to validate the server certificate.
+          configMap:
+            # -- The name of the configmap containing the CA certificate.
+            # @schema
+            # type: [null, string]
+            # @schema
+            name: ~
+            # -- The key in the configmap containing the CA certificate.
+            # @schema
+            # type: [null, string]
+            # @schema
+            # @default -- `ca.crt`
+            key: ~
   # -- Emit v1.Events related to pods on detection of packet drops.
   #    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
   dropEventEmitter:

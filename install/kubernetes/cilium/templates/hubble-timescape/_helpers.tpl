@@ -36,3 +36,47 @@ grpc:
   {{- toYaml . | nindent 2 }}
   {{- end }}
 {{- end }}
+
+{{- define "hubble.timescape.export.extraVolumes" -}}
+{{- if and
+  .Values.hubble.export.timescape.enabled
+  .Values.hubble.export.timescape.tls.enabled
+  (or .Values.hubble.export.timescape.tls.mtls.enabled .Values.hubble.export.timescape.tls.ca.configMap.name)
+}}
+- name: hubble-export-timescape-tls
+  projected:
+    # note: the leading zero means this number is in octal representation: do not remove it
+    defaultMode: 0400
+    sources:
+    {{- if .Values.hubble.export.timescape.tls.mtls.enabled }}
+    - secret:
+        name: {{ .Values.hubble.export.timescape.tls.mtls.secretName | default "hubble-export-timescape-mtls-certs" }}
+        optional: true
+        items:
+        - key: tls.crt
+          path: client.crt
+        - key: tls.key
+          path: client.key
+    {{- end }}
+    {{- if .Values.hubble.export.timescape.tls.ca.configMap.name }}
+    - configMap:
+        name: {{ .Values.hubble.export.timescape.tls.ca.configMap.name }}
+        optional: true
+        items:
+        - key: {{ .Values.hubble.export.timescape.tls.ca.configMap.key }}
+          path: client-ca.crt
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "hubble.timescape.export.extraVolumeMounts" -}}
+{{- if and
+  .Values.hubble.export.timescape.enabled
+  .Values.hubble.export.timescape.tls.enabled
+  (or .Values.hubble.export.timescape.tls.mtls.enabled .Values.hubble.export.timescape.tls.ca.configMap.name)
+}}
+- name: hubble-export-timescape-tls
+  mountPath: /var/lib/cilium/tls/hubble-export-timescape
+  readOnly: true
+{{- end }}
+{{- end }}

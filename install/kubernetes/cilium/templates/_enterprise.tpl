@@ -82,7 +82,7 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 
 
 # If user did not provide any extraConfig or didn't provide export-file-path,
-# use the default value for export and aggregation. 
+# use the default value for export and aggregation.
 
 {{- $defaultExportFilePath := "" }}
 {{- $defaultExportAggregation := "" }}
@@ -145,6 +145,56 @@ hubble-export-aggregation-state-filter: {{ . | join " " | quote }}
 {{- with .Values.hubble.export.static.aggregationTTL }}
 hubble-export-aggregation-ttl: {{ . | quote }}
 {{- end }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.hubble.export.timescape.enabled }}
+hubble-export-timescape-enabled: "true"
+{{- with .Values.hubble.export.timescape.target }}
+hubble-export-timescape-target: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.allowList }}
+hubble-export-timescape-allowlist: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.denyList }}
+hubble-export-timescape-denylist: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.fieldMask }}
+hubble-export-timescape-fieldmask: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.nodeName }}
+hubble-export-timescape-node-name: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregation }}
+hubble-export-timescape-aggregation: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationIgnoreSourcePort }}
+hubble-export-timescape-aggregation-ignore-source-port: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationRenewTTL }}
+hubble-export-timescape-aggregation-renew-ttl: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationStateFilter }}
+hubble-export-timescape-aggregation-state-filter: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationTTL }}
+hubble-export-timescape-aggregation-ttl: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.maxBufferSize }}
+hubble-export-timescape-max-buffer-size: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.reportDroppedFlowsInterval }}
+hubble-export-timescape-report-dropped-flows-interval: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.tls.enabled }}
+hubble-export-timescape-tls-enabled: {{ . | quote }}
+{{- end }}
+{{- if .Values.hubble.export.timescape.tls.mtls.enabled }}
+hubble-export-timescape-tls-cert-file: /var/lib/cilium/tls/hubble-export-timescape/client.crt
+hubble-export-timescape-tls-key-file: /var/lib/cilium/tls/hubble-export-timescape/client.key
+{{- end }}
+{{- if .Values.hubble.export.timescape.tls.ca.configMap.name }}
+hubble-export-timescape-tls-ca-files: /var/lib/cilium/tls/hubble-export-timescape/client-ca.crt
 {{- end }}
 {{- end }}
 

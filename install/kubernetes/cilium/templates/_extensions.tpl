@@ -7,9 +7,11 @@ to modify or extend the default chart behaviors.
 Allow packagers to add extra volumes to cilium-agent.
 */}}
 {{- define "cilium-agent.volumes.extra" }}
+{{- include "hubble.timescape.export.extraVolumes" . }}
 {{- end }}
 
 {{- define "cilium-agent.volumeMounts.extra" }}
+{{- include "hubble.timescape.export.extraVolumeMounts" . }}
 {{- end }}
 
 {{/*
@@ -18,6 +20,11 @@ Allow packagers to set dnsPolicy for cilium-agent.
 {{- define "cilium-agent.dnsPolicy" }}
 {{- if .Values.dnsPolicy }}
 dnsPolicy: {{ .Values.dnsPolicy }}
+{{- else if .Values.hubble.export.timescape.enabled }}
+# When Timescape export is enabled, cilium-agent needs to be able to resolve
+# the Timescape service name. Since cilium-agent runs with hostNetwork: true,
+# we need to set dnsPolicy to ClusterFirstWithHostNet.
+dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
 {{- end }}
 

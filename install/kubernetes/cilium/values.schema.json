@@ -3118,6 +3118,139 @@
                 }
               },
               "type": "object"
+            },
+            "timescape": {
+              "properties": {
+                "aggregation": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationIgnoreSourcePort": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationRenewTTL": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "aggregationStateFilter": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "aggregationTTL": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "allowList": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "denyList": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "enabled": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "fieldMask": {
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "maxBufferSize": {
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "nodeName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "reportDroppedFlowsInterval": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "target": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "tls": {
+                  "properties": {
+                    "ca": {
+                      "properties": {
+                        "configMap": {
+                          "properties": {
+                            "key": {
+                              "type": [
+                                "null",
+                                "string"
+                              ]
+                            },
+                            "name": {
+                              "type": [
+                                "null",
+                                "string"
+                              ]
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "mtls": {
+                      "properties": {
+                        "enabled": {
+                          "type": [
+                            "null",
+                            "boolean"
+                          ]
+                        },
+                        "secretName": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
