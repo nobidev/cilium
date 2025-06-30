@@ -1102,7 +1102,7 @@ func bgpClusterConfig(name string) *isovalentv1.IsovalentBGPClusterConfig {
 			BGPInstances: []isovalentv1.IsovalentBGPInstance{
 				{
 					Name:     "t1",
-					LocalASN: ptr.To[int64](64512),
+					LocalASN: ptr.To[int64](ciliumASN),
 				},
 			},
 		},

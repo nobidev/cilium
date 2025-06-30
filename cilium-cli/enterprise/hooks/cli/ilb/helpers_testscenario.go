@@ -35,6 +35,12 @@ import (
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
+const (
+	// use same ASN for Cilium & FRR -> IBGP
+	ciliumASN = 64512
+	frrASN    = 64512
+)
+
 type lbTestScenario struct {
 	t T
 
@@ -425,6 +431,8 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 	for i := startIndex; i < startIndex+numberOfClients; i++ {
 		clientName := fmt.Sprintf("%s-client-%d", r.testName, i)
 		env := []string{
+			fmt.Sprintf("LOCAL_ASN=%d", frrASN),
+			fmt.Sprintf("REMOTE_ASN=%d", ciliumASN),
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
@@ -603,7 +611,7 @@ func (r *lbTestScenario) doBGPPeeringForClient(ctx context.Context, name string,
 			isovalentv1.IsovalentBGPPeer{
 				Name:        "peer-" + clientIP,
 				PeerAddress: &clientIP,
-				PeerASN:     ptr.To[int64](64512),
+				PeerASN:     ptr.To[int64](frrASN),
 				PeerConfigRef: &isovalentv1.PeerConfigReference{
 					Name: r.testName,
 				},
