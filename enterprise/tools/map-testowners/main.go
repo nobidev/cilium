@@ -21,7 +21,17 @@ import (
 )
 
 var (
-	ignore        = "@isovalent/void"
+	ignore = "@isovalent/void"
+
+	// defaultOwners maps code owner teams from OSS into Enterprise.
+	// The key of the map is a team in the Cilium organization on GitHub,
+	// used in the CODEOWNERS file in the cilium/cilium main branch. The
+	// value in the map is the corresponding team that owns the same code
+	// in the Enterprise tree.
+	//
+	// If some areas do not directly map, or there are no tests that run in
+	// Enterprise for files owned by the OSS team, then those teams can be
+	// mapped to the "ignore" team declared above.
 	defaultOwners = map[string]string{
 		"@cilium/alibabacloud":       "@isovalent/infrastructure",
 		"@cilium/api":                ignore,
@@ -69,6 +79,11 @@ var (
 		"@cilium/wireguard":          "@isovalent/encryption",
 	}
 
+	// teams is a map of all of all teams in the Isovalent GitHub
+	// organization which are also present in the CODEOWNERS file.
+	//
+	// If you are extending the CODEOWNERS file to add a new team, please
+	// add an entry into this map corresponding to that new team.
 	teams = map[string]struct{}{
 		"@isovalent/backporters":                {},
 		"@isovalent/cilium-agent":               {},
