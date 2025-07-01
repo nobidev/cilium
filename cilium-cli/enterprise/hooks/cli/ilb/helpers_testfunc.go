@@ -80,7 +80,6 @@ func (r *LbTestFunc) Log(msg string, a ...any) {
 
 func (r *LbTestFunc) sysdump() error {
 	if !FlagSysdumpOnFailure || !r.failed {
-		fmt.Printf("Skipping sysdump capturing\n")
 		return nil
 	}
 
