@@ -747,8 +747,8 @@ func (r *ServiceReconciler) svcFrontendHealthy(svc *slim_corev1.Service, fronten
 	svcID := parseServiceID(svc)
 	feHealth, found := r.svcHealth[svcID]
 	if !found {
-		// if there is no health info for the service (yet), we assume it is healthy
-		return true
+		// if there is no health info for the service (yet), we assume it is not healthy
+		return false
 	}
 
 	// determine service's health check advertise threshold

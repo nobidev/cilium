@@ -257,7 +257,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
-			name:             "advertise new service with no health updates",
+			name:             "do not advertise new service with no health updates",
 			upsertedAdverts:  []*v1.IsovalentBGPAdvertisement{svcAdvertisement},
 			upsertedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates:   nil,
@@ -270,9 +270,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
-						},
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 					},
 				},
 			},
