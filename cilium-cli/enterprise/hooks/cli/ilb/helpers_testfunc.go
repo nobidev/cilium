@@ -80,8 +80,11 @@ func (r *LbTestFunc) Log(msg string, a ...any) {
 
 func (r *LbTestFunc) sysdump() error {
 	if !FlagSysdumpOnFailure || !r.failed {
+		fmt.Printf("Skipping sysdump capturing\n")
 		return nil
 	}
+
+	fmt.Printf("Capturing sysdump\n")
 
 	cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", "cilium-sysdump-"+r.name)
 	cmd.Stdout = os.Stdout
@@ -123,7 +126,9 @@ func (r *LbTestFunc) RunTestCase(f func(t T)) {
 
 func (r *LbTestFunc) runCleanups() {
 	// Get sysdump independent of whether cleanups are enabled or not.
-	r.sysdump()
+	if err := r.sysdump(); err != nil {
+		fmt.Printf("Capturing sysdump failed: %s\n", err)
+	}
 
 	if !FlagCleanup {
 		return
