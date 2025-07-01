@@ -16,8 +16,8 @@ import (
 	"github.com/containernetworking/cni/pkg/skel"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 
-	"github.com/cilium/cilium/enterprise/cilium-cni/pkg/multinetwork"
 	_ "github.com/cilium/cilium/enterprise/fips"
+	"github.com/cilium/cilium/enterprise/plugins/cilium-cni/pkg/multinetwork"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"

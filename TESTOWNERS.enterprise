@@ -412,8 +412,8 @@
 *podnetwork* @isovalent/multi-network
 /enterprise/api/extensions @isovalent/hubble-api
 /enterprise/bugtool @isovalent/cni
-/enterprise/cilium-cni/ @isovalent/cilium-agent
-/enterprise/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
+/enterprise/plugins/cilium-cni/ @isovalent/cilium-agent
+/enterprise/plugins/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/cilium-dbg/ @isovalent/cli
 /enterprise/cilium-dbg/cmd/*bpf_*egress* @isovalent/egress-gateway
 /enterprise/cilium-dbg/cmd/*bfd_* @isovalent/traffic-engineering
