@@ -272,6 +272,7 @@ jobs:
         shell: bash
         run: |
           PARAMS="--sysdump-on-failure=true"
+          PARAMS+=" --sysdump-output-filename=cilium-sysdump-${{ matrix.name }}.zip"
           if [ "${{ matrix.mode }}" == "single-node" ]; then
             export DOCKER_HOST="tcp://127.0.0.1:22376"
             PARAMS+=" --mode=single-node"

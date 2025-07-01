@@ -24,7 +24,8 @@ var (
 
 	FlagCleanup bool
 	// maybeSysdump is only effective when this option is specified.
-	FlagSysdumpOnFailure bool
+	FlagSysdumpOnFailure      bool
+	FlagSysdumpOutputFilename string
 
 	FlagVerbose bool
 
