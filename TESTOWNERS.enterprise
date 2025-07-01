@@ -449,6 +449,7 @@
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
 /enterprise/pkg/datapath/sockets/ @isovalent/egress-gateway
+/enterprise/pkg/diagnostics/ @isovalent/cni
 /enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
 /enterprise/pkg/ingresspolicy/ @isovalent/service-mesh
@@ -495,6 +496,7 @@
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
 /pkg/datapath/linux/route/enterprise_route_linux.go @isovalent/cilium-datapath
 /pkg/fqdn/dnsproxy/enterprise_* @isovalent/dns-proxy
+/pkg/metrics/enterprise_* @isovalent/cni
 /pkg/k8s/apis/isovalent.com @isovalent/sig-k8s
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbfd*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbgp*.yaml @isovalent/traffic-engineering
