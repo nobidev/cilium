@@ -389,8 +389,8 @@ spec:
                       description: |-
                         ToEntities is a list of special entities to which the endpoint subject
                         to the rule is allowed to initiate connections. Supported entities are
-                        `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`, `init`,
-                        `health`,`unmanaged` and `all`.
+                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
                           Entity specifies the class of receiver/sender endpoints that do not have
@@ -1506,8 +1506,8 @@ spec:
                       description: |-
                         ToEntities is a list of special entities to which the endpoint subject
                         to the rule is allowed to initiate connections. Supported entities are
-                        `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`, `init`,
-                        `health`,`unmanaged` and `all`.
+                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
                           Entity specifies the class of receiver/sender endpoints that do not have
@@ -2169,7 +2169,8 @@ spec:
                       description: |-
                         FromEntities is a list of special entities which the endpoint subject
                         to the rule is allowed to receive connections from. Supported entities are
-                        `world`, `cluster` and `host`
+                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
                           Entity specifies the class of receiver/sender endpoints that do not have
@@ -3141,7 +3142,8 @@ spec:
                       description: |-
                         FromEntities is a list of special entities which the endpoint subject
                         to the rule is allowed to receive connections from. Supported entities are
-                        `world`, `cluster` and `host`
+                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
                           Entity specifies the class of receiver/sender endpoints that do not have
@@ -3890,8 +3892,8 @@ spec:
                         description: |-
                           ToEntities is a list of special entities to which the endpoint subject
                           to the rule is allowed to initiate connections. Supported entities are
-                          `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`, `init`,
-                          `health`,`unmanaged` and `all`.
+                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
                             Entity specifies the class of receiver/sender endpoints that do not have
@@ -5008,8 +5010,8 @@ spec:
                         description: |-
                           ToEntities is a list of special entities to which the endpoint subject
                           to the rule is allowed to initiate connections. Supported entities are
-                          `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`, `init`,
-                          `health`,`unmanaged` and `all`.
+                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
                             Entity specifies the class of receiver/sender endpoints that do not have
@@ -5671,7 +5673,8 @@ spec:
                         description: |-
                           FromEntities is a list of special entities which the endpoint subject
                           to the rule is allowed to receive connections from. Supported entities are
-                          `world`, `cluster` and `host`
+                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
                             Entity specifies the class of receiver/sender endpoints that do not have
@@ -6644,7 +6647,8 @@ spec:
                         description: |-
                           FromEntities is a list of special entities which the endpoint subject
                           to the rule is allowed to receive connections from. Supported entities are
-                          `world`, `cluster` and `host`
+                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
                             Entity specifies the class of receiver/sender endpoints that do not have

@@ -237,7 +237,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 							reconcilerv2.AddPathToAFPathsMap(desiredEGWAFPaths, agentFamily, path, path.NLRI.String())
 
 						default:
-							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP.String())
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
 							continue
 						}
 					}
@@ -305,7 +305,7 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 							})
 
 						default:
-							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP.String())
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
 							continue
 						}
 					}
