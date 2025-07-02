@@ -1,14 +1,14 @@
 name: Conformance OpenShift (ci-openshift)
 
 # Usage with Ariane (GitHub issue comment):
-# `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}`
-# The json parameters are optional. By default no KubeVirt conformance tests are launched.
+# `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14", "kpr":"true", "ossm":"true", "region":"us-east-1"}`
+# The json parameters are optional. By default no KubeVirt and no OpenShift Service Mesh conformance tests are launched.
 # Bare-metal nodes get provisioned for running KubeVirt conformance tests, which is expensive.
+# The default region is us-east-1.
 #
 # TODO: Possibility to test with IPSec enabled: --helm-set encryption.enabled=true --helm-set encryption.type=ipsec.
 # IPSec keys would need to get generated.
 # TODO: Run scheduled workflows for the head of each supported release branch
-# TODO: make the AWS region configurable through extra-args
 # TODO: Possibility to test with dual stack
 # TODO: Make multi-arch builds and provision arm64 nodes
 # TODO: Send notifications for scheduled runs (cf enterprise-cute.yaml)
@@ -225,13 +225,17 @@ jobs:
             kpr="true"
           fi
           kubevirt=$(echo $extra_args | jq -r '.kubevirt')
+          ossm=$(echo $extra_args | jq -r '.ossm')
           ocp_version=$(echo $extra_args | jq -r '.ocp_version')
           if [ "${{ github.event_name }}" == 'schedule' ]; then
             echo kubevirt='true' >> $GITHUB_OUTPUT
+            echo ossm='true' >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == 'pull_request_target' ]; then
             echo kubevirt='false' >> $GITHUB_OUTPUT
+            echo ossm='false' >> $GITHUB_OUTPUT
           else
             echo kubevirt=${kubevirt} >> $GITHUB_OUTPUT
+            echo ossm=${ossm} >> $GITHUB_OUTPUT
           fi
           if [[ "${ocp_version}" == "null" || "${ocp_version}" == "" ]]; then
             ocp_version=$(echo ${{ env.ocp_version_multi }} | cut -f1 -d "-")
@@ -444,6 +448,14 @@ jobs:
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
 
+      - name: OpenShift Service Mesh conformance tests
+        # Please create a comment with /ci-openshift {\"ossm\":\"true\"} if you want to run them
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
+        uses: ./.github/actions/enterprise-openshift-ossm-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+
       - name: Enable KPR [if disabled]
         if: ${{ steps.vars.outputs.kpr == 'false' }}
         run: |
@@ -513,6 +525,14 @@ jobs:
         # Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' && steps.vars.outputs.kubevirt == 'true' }}
         uses: ./.github/actions/enterprise-openshift-kubevirt-tests
+        timeout-minutes: 60
+        with:
+          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+
+      - name: OpenShift Service Mesh conformance tests [KPR]
+        # Please create a comment with /ci-openshift {\"ossm\":\"true\"} if you want to run them
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' && steps.vars.outputs.ossm == 'true' }}
+        uses: ./.github/actions/enterprise-openshift-ossm-tests
         timeout-minutes: 60
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"

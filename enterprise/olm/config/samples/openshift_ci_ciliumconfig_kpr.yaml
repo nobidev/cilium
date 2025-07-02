@@ -37,6 +37,9 @@ spec:
       retryTimeout: "5s"
   sessionAffinity: true
   kubeProxyReplacement: true
+  # host namespace only is required for running OpenShift Service Mesh
+  socketLB:
+    hostNamespaceOnly: true
   k8sServiceHost: ${KUBERNETES_SERVICE_HOST}
   k8sServicePort: ${KUBERNETES_SERVICE_PORT}
   # TODO: not sure this is needed, was historically used in the CuTE configuration
