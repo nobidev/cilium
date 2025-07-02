@@ -7,9 +7,6 @@ name: Conformance OpenShift (ci-openshift)
 #
 # TODO: Possibility to test with IPSec enabled: --helm-set encryption.enabled=true --helm-set encryption.type=ipsec.
 # IPSec keys would need to get generated.
-# TODO: Possibility to test with KPR enabled: --helm-set kubeProxyReplacement=true.
-# API hostname and port number need to be configured in CiliumConfig and CLife deployment for KPR.
-# KPR deployment needs first to be supported in cute-openshift-aws
 # TODO: Run scheduled workflows for the head of each supported release branch
 # TODO: make the AWS region configurable through extra-args
 # TODO: Possibility to test with dual stack
@@ -407,8 +404,8 @@ jobs:
       - name: Verifying KPR [if enabled]
         if: ${{ steps.vars.outputs.kpr == 'true' }}
         run: |
-          kpr_status="$(kubectl -n cilium exec ds/cilium -- cilium-dbg config get KubeProxyReplacement)"
-          if [[ ${kpr_status,,} != "true" ]]
+          kpr_status="$(kubectl -n cilium exec ds/cilium -c cilium-agent -- cilium-dbg status -o json | jq --raw-output '."kube-proxy-replacement".mode')"
+          if [ ${kpr_status} != "True" ]
           then
             echo "KPR is not enabled [status: $kpr_status]"
             exit 1
@@ -464,8 +461,8 @@ jobs:
       - name: Verifying KPR has been enabled
         if: ${{ steps.vars.outputs.kpr == 'false' }}
         run: |
-          kpr_status="$(kubectl -n cilium exec ds/cilium -- cilium-dbg config get KubeProxyReplacement)"
-          if [[ ${kpr_status,,} != "true" ]]
+          kpr_status="$(kubectl -n cilium exec ds/cilium -c cilium-agent -- cilium-dbg status -o json | jq --raw-output '."kube-proxy-replacement".mode')"
+          if [ ${kpr_status} != "True" ]
           then
             echo "KPR is not enabled [status: $kpr_status]"
             exit 1
