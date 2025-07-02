@@ -35,6 +35,8 @@ import (
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_accessloggers_file_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"
+	envoy_extensions_clusters_common_dns_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/common/dns/v3"
+	envoy_extensions_clusters_dns_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dns/v3"
 	envoy_extensions_filters_http_basic_auth_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/basic_auth/v3"
 	envoy_extensions_filters_http_healthcheck_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	envoy_extensions_filters_http_jwt_authn_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
@@ -674,7 +676,7 @@ func (r *lbServiceT2Translator) toJWTAuthentication(namespace, name, httpType st
 	return &envoy_extensions_filters_http_jwt_authn_v3.JwtAuthentication{
 		Providers: providers,
 
-		// Accept the requiest if any of the provider matches.
+		// Accept the request if any of the provider matches.
 		Rules: []*envoy_extensions_filters_http_jwt_authn_v3.RequirementRule{
 			{
 				Match: &envoy_config_route_v3.RouteMatch{
@@ -1601,9 +1603,6 @@ func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatchCriteria(backen
 func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *envoy_config_cluster_v3.Cluster {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
-		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-			Type: r.mapClusterType(b.typ),
-		},
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
 			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
@@ -1634,25 +1633,35 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 		cluster.LbConfig = r.toLbConfigMaglev(b.lbAlgorithm)
 	}
 
-	if b.typ == lbBackendTypeHostname {
+	switch b.typ {
+	case lbBackendTypeHostname:
+		cluster.ClusterDiscoveryType = &envoy_config_cluster_v3.Cluster_ClusterType{
+			ClusterType: &envoy_config_cluster_v3.Cluster_CustomClusterType{
+				Name: "envoy.clusters.dns",
+				TypedConfig: toAny(&envoy_extensions_clusters_dns_v3.DnsCluster{
+					DnsRefreshRate: &durationpb.Duration{Seconds: 10},
+					DnsFailureRefreshRate: &envoy_extensions_clusters_dns_v3.DnsCluster_RefreshRate{
+						BaseInterval: &durationpb.Duration{Seconds: 10},
+						MaxInterval:  &durationpb.Duration{Seconds: 100},
+					},
+					RespectDnsTtl: true,
+					TypedDnsResolverConfig: &envoy_config_core_v3.TypedExtensionConfig{
+						Name:        "envoy.network.dns_resolver.cares",
+						TypedConfig: toAny(r.toDNSResolverConfig(b)),
+					},
+					// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
+					DnsLookupFamily:              envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_V4_ONLY,
+					AllAddressesInSingleEndpoint: false, // strict dns
+				}),
+			},
+		}
+
 		// For STRICT_DNS cluster, we must specify endpoint inline in the cluster
 		cluster.LoadAssignment = r.desiredEnvoyClusterLoadAssignment(name, b)
 
-		// Some fine tuning for DNS resolver. We can expose these settings as needed
-		cluster.DnsRefreshRate = &durationpb.Duration{Seconds: 10}
-		cluster.DnsFailureRefreshRate = &envoy_config_cluster_v3.Cluster_RefreshRate{
-			BaseInterval: &durationpb.Duration{Seconds: 10},
-			MaxInterval:  &durationpb.Duration{Seconds: 100},
-		}
-		cluster.RespectDnsTtl = true
-
-		// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
-		cluster.DnsLookupFamily = envoy_config_cluster_v3.Cluster_V4_ONLY
-
-		// Some additional settings for DNS resolver
-		cluster.TypedDnsResolverConfig = &envoy_config_core_v3.TypedExtensionConfig{
-			Name:        "envoy.network.dns_resolver.cares",
-			TypedConfig: toAny(r.toDNSResolverConfig(b)),
+	default:
+		cluster.ClusterDiscoveryType = &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_EDS,
 		}
 	}
 
@@ -1979,19 +1988,6 @@ func (r *lbServiceT2Translator) toTCPProxyHashpolicy(persistentBackendConfig *lb
 	}
 
 	return hashPolicy
-}
-
-func (r *lbServiceT2Translator) mapClusterType(lbBackendType lbBackendType) envoy_config_cluster_v3.Cluster_DiscoveryType {
-	switch lbBackendType {
-	case lbBackendTypeIP:
-		return envoy_config_cluster_v3.Cluster_EDS
-	case lbBackendTypeHostname:
-		return envoy_config_cluster_v3.Cluster_STRICT_DNS
-	default:
-		// This shouldn't happen as we should already check in the
-		// validation step
-		return envoy_config_cluster_v3.Cluster_EDS
-	}
 }
 
 func (r *lbServiceT2Translator) mapLbPolicy(lbAlgorithm lbAlgorithmType) envoy_config_cluster_v3.Cluster_LbPolicy {

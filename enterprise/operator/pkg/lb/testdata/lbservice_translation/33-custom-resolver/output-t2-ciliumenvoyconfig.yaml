@@ -6,11 +6,11 @@ metadata:
 spec:
   nodeSelector:
     matchExpressions:
-    - key: service.cilium.io/node
-      operator: In
-      values:
-      - t1-t2
-      - t2
+      - key: service.cilium.io/node
+        operator: In
+        values:
+          - t1-t2
+          - t2
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       address:
@@ -129,6 +129,29 @@ spec:
               route:
                 cluster: backend_cluster_lb-1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      clusterType:
+        name: envoy.clusters.dns
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster
+          dnsFailureRefreshRate:
+            baseInterval: 10s
+            maxInterval: 100s
+          dnsLookupFamily: V4_ONLY
+          dnsRefreshRate: 10s
+          respectDnsTtl: true
+          typedDnsResolverConfig:
+            name: envoy.network.dns_resolver.cares
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+              dnsResolverOptions:
+                noDefaultSearchDomain: true
+              resolvers:
+                - socketAddress:
+                    address: 10.0.0.1
+                    portValue: 53
+                - socketAddress:
+                    address: 10.0.0.2
+                    portValue: 1053
       commonLbConfig:
         healthyPanicThreshold: {}
       connectTimeout: 5s
@@ -145,28 +168,8 @@ spec:
           unhealthyThreshold: 1
           transportSocketMatchCriteria:
             type: healthcheck
-      dnsFailureRefreshRate:
-        baseInterval: 10s
-        maxInterval: 100s
-      dnsLookupFamily: V4_ONLY
-      dnsRefreshRate: 10s
-      respectDnsTtl: true
       ignoreHealthOnHostRemoval: true
       name: backend_cluster_lb-1
-      type: STRICT_DNS
-      typedDnsResolverConfig:
-        name: envoy.network.dns_resolver.cares
-        typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
-          dnsResolverOptions:
-            noDefaultSearchDomain: true
-          resolvers:
-          - socket_address:
-              address: 10.0.0.1
-              port_value: 53
-          - socket_address:
-              address: 10.0.0.2
-              port_value: 1053
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
@@ -183,15 +186,15 @@ spec:
       transportSocket:
         name: envoy.transport_sockets.raw_buffer
         typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       transportSocketMatches:
-      - match:
-          type: healthcheck
-        name: healthcheck
-        transportSocket:
-          name: envoy.transport_sockets.raw_buffer
-          typedConfig:
-            '@type': type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
+        - match:
+            type: healthcheck
+          name: healthcheck
+          transportSocket:
+            name: envoy.transport_sockets.raw_buffer
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
       loadAssignment:
         clusterName: backend_cluster_lb-1
         endpoints:

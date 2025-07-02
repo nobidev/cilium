@@ -105,14 +105,25 @@ spec:
       statPrefix: default_lb-1
       trafficDirection: INBOUND
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      clusterType:
+        name: envoy.clusters.dns
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster
+          dnsFailureRefreshRate:
+            baseInterval: 10s
+            maxInterval: 100s
+          dnsLookupFamily: V4_ONLY
+          dnsRefreshRate: 10s
+          respectDnsTtl: true
+          typedDnsResolverConfig:
+            name: envoy.network.dns_resolver.cares
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+              dnsResolverOptions:
+                noDefaultSearchDomain: true
       commonLbConfig:
         healthyPanicThreshold: {}
       connectTimeout: 5s
-      dnsFailureRefreshRate:
-        baseInterval: 10s
-        maxInterval: 100s
-      dnsLookupFamily: V4_ONLY
-      dnsRefreshRate: 10s
       healthChecks:
         - healthyThreshold: 1
           httpHealthCheck:
@@ -139,7 +150,6 @@ spec:
                 loadBalancingWeight: 1
       name: backend_cluster_lb-1
       perConnectionBufferLimitBytes: 32768
-      respectDnsTtl: true
       roundRobinLbConfig: {}
       trackClusterStats:
         perEndpointStats: true
@@ -157,13 +167,6 @@ spec:
             name: envoy.transport_sockets.raw_buffer
             typedConfig:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
-      type: STRICT_DNS
-      typedDnsResolverConfig:
-        name: envoy.network.dns_resolver.cares
-        typedConfig:
-          "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
-          dnsResolverOptions:
-            noDefaultSearchDomain: true
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
