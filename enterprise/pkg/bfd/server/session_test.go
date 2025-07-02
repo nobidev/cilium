@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"

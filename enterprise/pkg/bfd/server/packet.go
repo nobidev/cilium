@@ -10,7 +10,7 @@
 
 package server
 
-import "github.com/google/gopacket/layers"
+import "github.com/gopacket/gopacket/layers"
 
 // ControlPacket represent a single BFD control packet.
 type ControlPacket struct {

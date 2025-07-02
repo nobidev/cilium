@@ -17,7 +17,7 @@ import (
 	"math/rand/v2"
 	"net/netip"
 
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket/layers"
 
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	"github.com/cilium/cilium/pkg/lock"

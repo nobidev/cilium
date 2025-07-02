@@ -19,8 +19,8 @@ import (
 	"net/netip"
 	"syscall"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 

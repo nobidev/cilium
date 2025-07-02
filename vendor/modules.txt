@@ -1020,10 +1020,6 @@ github.com/google/go-licenses/licenses
 # github.com/google/go-querystring v1.1.0
 ## explicit; go 1.10
 github.com/google/go-querystring/query
-# github.com/google/gopacket v1.1.19
-## explicit; go 1.12
-github.com/google/gopacket
-github.com/google/gopacket/layers
 # github.com/google/gops v0.3.28
 ## explicit; go 1.17
 github.com/google/gops/agent
