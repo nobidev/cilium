@@ -109,6 +109,9 @@ cilium-operator hive [flags]
       --loadbalancer-cp-default-t2-label-selector string               Default K8s node label selectors that is used to define the T2 nodes (default "service.cilium.io/node in ( t2, t1-t2 )")
       --loadbalancer-cp-enabled                                        Whether or not the LoadBalancer control plane is enabled.
       --loadbalancer-cp-http-server-name string                        Server name that is used when writing the server header in T2 HTTP responses (default "ilb")
+      --loadbalancer-cp-metrics-cluster-additional-request-response    Enable additional Envoy request & response metrics on the cluster (Body size, header size & count) (default true)
+      --loadbalancer-cp-metrics-cluster-per-endpoint                   Enable per-endpoint Envoy metrics on the cluster (default true)
+      --loadbalancer-cp-metrics-cluster-timeout-budget                 Enable Envoy timeout budget metrics on the cluster (default true)
       --loadbalancer-cp-requestid-generate                             Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header
       --loadbalancer-cp-requestid-preserve                             Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header
       --loadbalancer-cp-requestid-response                             Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response

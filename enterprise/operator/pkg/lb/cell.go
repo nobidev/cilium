@@ -39,37 +39,40 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	LoadBalancerCPEnabled                           bool
-	LoadBalancerCPSecretsNamespace                  string
-	LoadBalancerCPAccessLogEnableStdOut             bool
-	LoadBalancerCPAccessLogFilePath                 string
-	LoadBalancerCPAccessLogEnableHC                 bool
-	LoadBalancerCPAccessLogEnableTCP                bool
-	LoadBalancerCPAccessLogEnableUDP                bool
-	LoadBalancerCPAccessLogFormatHC                 string
-	LoadBalancerCPAccessLogJSONFormatHC             string
-	LoadBalancerCPAccessLogFormatTCP                string
-	LoadBalancerCPAccessLogJSONFormatTCP            string
-	LoadBalancerCPAccessLogFormatUDP                string
-	LoadBalancerCPAccessLogJSONFormatUDP            string
-	LoadBalancerCPAccessLogFormatTLSPassthrough     string
-	LoadBalancerCPAccessLogJSONFormatTLSPassthrough string
-	LoadBalancerCPAccessLogFormatTLS                string
-	LoadBalancerCPAccessLogJSONFormatTLS            string
-	LoadBalancerCPAccessLogFormatHTTPS              string
-	LoadBalancerCPAccessLogJSONFormatHTTPS          string
-	LoadBalancerCPAccessLogFormatHTTP               string
-	LoadBalancerCPAccessLogJSONFormatHTTP           string
-	LoadBalancerCPRequestIDGenerate                 bool
-	LoadBalancerCPRequestIDPreserve                 bool
-	LoadBalancerCPRequestIDResponse                 bool
-	LoadBalancerCPHTTPServerName                    string
-	LoadBalancerCPT1HCProbeTimeoutSeconds           uint
-	LoadBalancerCPT2HCProbeMinHealthyBackends       uint
-	LoadBalancerCPT2UseRemoteAddress                bool
-	LoadBalancerCPT2XffNumTrustedHops               uint
-	LoadBalancerCPDefaultT1LabelSelector            string
-	LoadBalancerCPDefaultT2LabelSelector            string
+	LoadBalancerCPEnabled                                 bool
+	LoadBalancerCPSecretsNamespace                        string
+	LoadBalancerCPAccessLogEnableStdOut                   bool
+	LoadBalancerCPAccessLogFilePath                       string
+	LoadBalancerCPAccessLogEnableHC                       bool
+	LoadBalancerCPAccessLogEnableTCP                      bool
+	LoadBalancerCPAccessLogEnableUDP                      bool
+	LoadBalancerCPAccessLogFormatHC                       string
+	LoadBalancerCPAccessLogJSONFormatHC                   string
+	LoadBalancerCPAccessLogFormatTCP                      string
+	LoadBalancerCPAccessLogJSONFormatTCP                  string
+	LoadBalancerCPAccessLogFormatUDP                      string
+	LoadBalancerCPAccessLogJSONFormatUDP                  string
+	LoadBalancerCPAccessLogFormatTLSPassthrough           string
+	LoadBalancerCPAccessLogJSONFormatTLSPassthrough       string
+	LoadBalancerCPAccessLogFormatTLS                      string
+	LoadBalancerCPAccessLogJSONFormatTLS                  string
+	LoadBalancerCPAccessLogFormatHTTPS                    string
+	LoadBalancerCPAccessLogJSONFormatHTTPS                string
+	LoadBalancerCPAccessLogFormatHTTP                     string
+	LoadBalancerCPAccessLogJSONFormatHTTP                 string
+	LoadBalancerCPMetricsClusterTimeoutBudget             bool
+	LoadBalancerCPMetricsClusterAdditionalRequestResponse bool
+	LoadBalancerCPMetricsClusterPerEndpoint               bool
+	LoadBalancerCPRequestIDGenerate                       bool
+	LoadBalancerCPRequestIDPreserve                       bool
+	LoadBalancerCPRequestIDResponse                       bool
+	LoadBalancerCPHTTPServerName                          string
+	LoadBalancerCPT1HCProbeTimeoutSeconds                 uint
+	LoadBalancerCPT2HCProbeMinHealthyBackends             uint
+	LoadBalancerCPT2UseRemoteAddress                      bool
+	LoadBalancerCPT2XffNumTrustedHops                     uint
+	LoadBalancerCPDefaultT1LabelSelector                  string
+	LoadBalancerCPDefaultT2LabelSelector                  string
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -94,6 +97,9 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-accesslog-json-format-https", accesslog.GetFormatJSON(accesslog.AccessLogTypeHTTPS), "Envoy Access Log JSON format for HTTPS requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-format-http", accesslog.GetFormatText(accesslog.AccessLogTypeHTTP), "Envoy Access Log format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
 	flags.String("loadbalancer-cp-accesslog-json-format-http", accesslog.GetFormatJSON(accesslog.AccessLogTypeHTTP), "Envoy Access Log JSON format for HTTP requests that should be configured on T2 Envoy by the LoadBalancer control plane (without the trailing newline)")
+	flags.Bool("loadbalancer-cp-metrics-cluster-timeout-budget", true, "Enable Envoy timeout budget metrics on the cluster")
+	flags.Bool("loadbalancer-cp-metrics-cluster-additional-request-response", true, "Enable additional Envoy request & response metrics on the cluster (Body size, header size & count)")
+	flags.Bool("loadbalancer-cp-metrics-cluster-per-endpoint", true, "Enable per-endpoint Envoy metrics on the cluster")
 	flags.Bool("loadbalancer-cp-requestid-generate", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header")
 	flags.Bool("loadbalancer-cp-requestid-preserve", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header")
 	flags.Bool("loadbalancer-cp-requestid-response", false, "Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response")
@@ -215,6 +221,11 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 			JSONFormatHTTPS:          params.Config.LoadBalancerCPAccessLogJSONFormatHTTPS,
 			FormatHTTP:               params.Config.LoadBalancerCPAccessLogFormatHTTP,
 			JSONFormatHTTP:           params.Config.LoadBalancerCPAccessLogJSONFormatHTTP,
+		},
+		Metrics: reconcilerMetricsConfig{
+			ClusterTimeoutBudget:             params.Config.LoadBalancerCPMetricsClusterTimeoutBudget,
+			ClusterAdditionalRequestResponse: params.Config.LoadBalancerCPMetricsClusterAdditionalRequestResponse,
+			ClusterPerEndpoint:               params.Config.LoadBalancerCPMetricsClusterPerEndpoint,
 		},
 		RequestID: reconcilerRequestIDConfig{
 			Generate: params.Config.LoadBalancerCPRequestIDGenerate,

@@ -1612,6 +1612,11 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *env
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		TransportSocket:               r.toTransportSocket(b.tlsConfig, b.proxyProtocol),
 		IgnoreHealthOnHostRemoval:     true,
+		TrackClusterStats: &envoy_config_cluster_v3.TrackClusterStats{
+			TimeoutBudgets:       r.config.Metrics.ClusterTimeoutBudget,
+			RequestResponseSizes: r.config.Metrics.ClusterAdditionalRequestResponse,
+			PerEndpointStats:     r.config.Metrics.ClusterPerEndpoint,
+		},
 	}
 
 	switch cluster.LbPolicy {

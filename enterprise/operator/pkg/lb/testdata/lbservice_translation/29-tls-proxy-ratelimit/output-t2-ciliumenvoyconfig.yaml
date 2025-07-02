@@ -176,6 +176,10 @@ spec:
       name: backend_cluster_lb-1
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       transportSocket:
         name: envoy.transport_sockets.raw_buffer
         typedConfig:
@@ -217,6 +221,10 @@ spec:
       name: backend_cluster_lb-2
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       transportSocket:
         name: envoy.transport_sockets.tls
         typedConfig:

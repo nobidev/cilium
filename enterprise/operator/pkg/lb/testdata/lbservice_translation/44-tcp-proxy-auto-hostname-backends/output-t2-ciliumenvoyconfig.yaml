@@ -140,6 +140,10 @@ spec:
       perConnectionBufferLimitBytes: 32768
       respectDnsTtl: true
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       transportSocket:
         name: envoy.transport_sockets.raw_buffer
         typedConfig:

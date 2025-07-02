@@ -160,6 +160,10 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
@@ -203,6 +207,10 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       ignoreHealthOnHostRemoval: true
     - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
       clusterName: backend_cluster_lb-1

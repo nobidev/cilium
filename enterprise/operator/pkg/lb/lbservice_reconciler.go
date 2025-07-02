@@ -65,6 +65,7 @@ type reconcilerConfig struct {
 	SecretsNamespace    string
 	ServerName          string
 	AccessLog           reconcilerAccesslogConfig
+	Metrics             reconcilerMetricsConfig
 	RequestID           reconcilerRequestIDConfig
 	T1T2HealthCheck     reconcilerT1T2HealthCheckConfig
 	OriginalIPDetection reconcilerOriginalIPDetectionConfig
@@ -90,6 +91,12 @@ type reconcilerAccesslogConfig struct {
 	JSONFormatHTTPS          string
 	FormatHTTP               string
 	JSONFormatHTTP           string
+}
+
+type reconcilerMetricsConfig struct {
+	ClusterTimeoutBudget             bool
+	ClusterAdditionalRequestResponse bool
+	ClusterPerEndpoint               bool
 }
 
 type reconcilerRequestIDConfig struct {

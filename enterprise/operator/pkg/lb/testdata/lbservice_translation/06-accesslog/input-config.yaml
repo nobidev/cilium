@@ -7,6 +7,10 @@ AccessLog:
   FormatHC: "ACCESSLOG_FORMAT_STRING HC %SERVICE_NAMESPACE% %SERVICE_NAME%"
   JSONFormatHC: '{ "type": "hc", "service.namespace": "%SERVICE_NAMESPACE%", "service.name": "%SERVICE_NAME%" }'
   EnableHC: true
+Metrics:
+  ClusterAdditionalRequestResponse: true
+  ClusterTimeoutBudget: true
+  ClusterPerEndpoint: true
 RequestID:
   Generate: true
 T1T2HealthCheck:

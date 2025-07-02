@@ -1,3 +1,7 @@
+Metrics:
+  ClusterAdditionalRequestResponse: true
+  ClusterTimeoutBudget: true
+  ClusterPerEndpoint: true
 T1T2HealthCheck:
   T1ProbeTimeoutSeconds: 5
   T1ProbeHTTPPath: /health

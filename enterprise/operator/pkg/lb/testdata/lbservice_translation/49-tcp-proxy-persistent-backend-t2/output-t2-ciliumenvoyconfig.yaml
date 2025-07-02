@@ -116,6 +116,10 @@ spec:
         tableSize: "65537"
       name: backend_cluster_lb-1
       perConnectionBufferLimitBytes: 32768
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       transportSocket:
         name: envoy.transport_sockets.raw_buffer
         typedConfig:

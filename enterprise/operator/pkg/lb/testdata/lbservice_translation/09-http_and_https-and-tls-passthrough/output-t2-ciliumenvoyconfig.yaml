@@ -235,6 +235,10 @@ spec:
             httpProtocolOptions: {}
       perConnectionBufferLimitBytes: 32768
       roundRobinLbConfig: {}
+      trackClusterStats:
+        perEndpointStats: true
+        requestResponseSizes: true
+        timeoutBudgets: true
       transportSocket:
         name: envoy.transport_sockets.raw_buffer
         typedConfig:
