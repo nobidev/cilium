@@ -6,19 +6,36 @@ on:
   schedule:
     - cron:  '0 0 * * *'
 
+permissions:
+  id-token: write  # Required for the GitHub Action to authenticate to Vault
+
 jobs:
   mirror-cilium:
     # This job mirrors github.com/cilium/cilium to github.com/isovalent/cilium
     name: Mirror cilium/cilium branches
     if: github.repository == 'isovalent/cilium'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - name: Get Token for Mirroring Upstream
-        id: get_token
-        uses: getsentry/action-github-app-token@v3
+      - name: Get Mirror GitHub App Credentials from Vault
+        uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3.3.0
         with:
-          app_id: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID }}
-          private_key: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_PEM }}
+          url: ${{ vars.VAULT_URL }}
+          method: ${{ vars.VAULT_METHOD }}
+          namespace: ${{ vars.VAULT_NAMESPACE }}
+          secrets: |
+            secret/data/devops/${{ github.repository }} github_app_pem | GH_MIRROR_UPSTREAM_BOT_APP_PEM;
+
+      - name: Get Token for Mirroring Upstream
+        id: generate-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ vars.GH_MIRROR_UPSTREAM_BOT_APP_ID }}
+          private-key: ${{ env.GH_MIRROR_UPSTREAM_BOT_APP_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name}}
+          permission-contents: write
+          permission-actions: write
+
       - name: Checkout
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
@@ -26,10 +43,11 @@ jobs:
           # workflows. We need that permission because some of the commits
           # we will push want will end up creating or updating workflow files
           # token required scopes: repo, workflow
-          token: ${{ steps.get_token.outputs.token }}
+          token: ${{ steps.generate-token.outputs.token }}
+
       - name: Update mirrored branches from upstream
         env:
-          BRANCHES: "main v1.15 v1.16 v1.17"
+          BRANCHES: "main v1.15 v1.16 v1.17 v1.18"
           UPSTREAM: "https://github.com/cilium/cilium"
         run: |
           git remote add upstream "$UPSTREAM"
