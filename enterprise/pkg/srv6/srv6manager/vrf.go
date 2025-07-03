@@ -36,10 +36,6 @@ type VRF struct {
 	// Those two fields are exposed to the BGP manager can deduce which BGP
 	// route should be installed in which VRF.
 	VRFID uint32
-	// Deprecated
-	ImportRouteTarget string
-	// Deprecated
-	ExportRouteTarget string
 
 	// SID allocation information
 	LocatorPool string
@@ -234,11 +230,9 @@ func ParseVRF(csrvrf *v1alpha1.IsovalentVRF) (*VRF, error) {
 		id: types.NamespacedName{
 			Name: name,
 		},
-		VRFID:             csrvrf.Spec.VRFID,
-		ImportRouteTarget: csrvrf.Spec.ImportRouteTarget,
-		ExportRouteTarget: csrvrf.Spec.ExportRouteTarget,
-		rules:             rules,
-		LocatorPool:       csrvrf.Spec.LocatorPoolRef,
+		VRFID:       csrvrf.Spec.VRFID,
+		rules:       rules,
+		LocatorPool: csrvrf.Spec.LocatorPoolRef,
 	}, nil
 }
 

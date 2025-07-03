@@ -2242,12 +2242,6 @@ func (in *IsovalentVRFSpec) DeepEqual(other *IsovalentVRFSpec) bool {
 	if in.VRFID != other.VRFID {
 		return false
 	}
-	if in.ImportRouteTarget != other.ImportRouteTarget {
-		return false
-	}
-	if in.ExportRouteTarget != other.ExportRouteTarget {
-		return false
-	}
 	if in.LocatorPoolRef != other.LocatorPoolRef {
 		return false
 	}

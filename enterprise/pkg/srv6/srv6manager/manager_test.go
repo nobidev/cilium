@@ -930,9 +930,8 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 			Name: "vrf0",
 		},
 		Spec: v1alpha1.IsovalentVRFSpec{
-			VRFID:             1,
-			ExportRouteTarget: "65000:1",
-			LocatorPoolRef:    "pool1",
+			VRFID:          1,
+			LocatorPoolRef: "pool1",
 			Rules: []v1alpha1.IsovalentVRFRule{
 				{
 					Selectors: []v1alpha1.IsovalentVRFEgressRule{
@@ -1192,9 +1191,8 @@ func TestSIDManagerSIDRestoration(t *testing.T) {
 					Name: "vrf0",
 				},
 				Spec: v1alpha1.IsovalentVRFSpec{
-					VRFID:             1,
-					ExportRouteTarget: "65000:1",
-					LocatorPoolRef:    "pool1",
+					VRFID:          1,
+					LocatorPoolRef: "pool1",
 				},
 			},
 			existingAllocations: []*sidmanager.SIDInfo{
@@ -1234,38 +1232,14 @@ func TestSIDManagerSIDRestoration(t *testing.T) {
 			expectedAllocation: nil,
 		},
 		{
-			name: "No ExportRouteTarget",
-			vrf: &v1alpha1.IsovalentVRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vrf0",
-				},
-				Spec: v1alpha1.IsovalentVRFSpec{
-					VRFID: 1,
-				},
-			},
-			existingAllocations: []*sidmanager.SIDInfo{
-				{
-					Owner:        ownerName,
-					MetaData:     "vrf0",
-					SID:          srv6Types.MustNewSID(netip.MustParseAddr("fd00:0:0:1::")),
-					Structure:    srv6Types.MustNewSIDStructure(32, 16, 16, 0),
-					BehaviorType: srv6Types.BehaviorTypeBase,
-					Behavior:     srv6Types.BehaviorEndDT4,
-				},
-			},
-			behaviorType:       srv6Types.BehaviorTypeBase,
-			expectedAllocation: nil,
-		},
-		{
 			name: "LocatorPoolRef changed",
 			vrf: &v1alpha1.IsovalentVRF{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vrf0",
 				},
 				Spec: v1alpha1.IsovalentVRFSpec{
-					VRFID:             1,
-					ExportRouteTarget: "65000:1",
-					LocatorPoolRef:    "pool2",
+					VRFID:          1,
+					LocatorPoolRef: "pool2",
 				},
 			},
 			existingAllocations: []*sidmanager.SIDInfo{
@@ -1288,9 +1262,8 @@ func TestSIDManagerSIDRestoration(t *testing.T) {
 					Name: "vrf0",
 				},
 				Spec: v1alpha1.IsovalentVRFSpec{
-					VRFID:             1,
-					ExportRouteTarget: "65000:1",
-					LocatorPoolRef:    "pool1",
+					VRFID:          1,
+					LocatorPoolRef: "pool1",
 				},
 			},
 			existingAllocations: []*sidmanager.SIDInfo{

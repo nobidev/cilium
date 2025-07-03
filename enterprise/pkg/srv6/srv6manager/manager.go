@@ -590,21 +590,6 @@ func (manager *Manager) GetAllVRFs() []*VRF {
 	return vrfs
 }
 
-// GetVRFs returns a slice with copy of VRFs known to the SRv6 manager that
-// have the given import route-target.
-func (manager *Manager) GetVRFs(importRouteTarget string) []*VRF {
-	manager.RLock()
-	defer manager.RUnlock()
-
-	vrfs := make([]*VRF, 0, len(manager.vrfs))
-	for _, vrf := range manager.vrfs {
-		if vrf.ImportRouteTarget == importRouteTarget {
-			vrfs = append(vrfs, vrf.DeepCopy())
-		}
-	}
-	return vrfs
-}
-
 // GetVRFByName returns a copy of the VRF with the given VRF name known to the SRv6 manager.
 func (manager *Manager) GetVRFByName(vrfName types.NamespacedName) (*VRF, bool) {
 	manager.RLock()

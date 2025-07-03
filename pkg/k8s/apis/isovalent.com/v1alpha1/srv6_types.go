@@ -367,21 +367,6 @@ type IsovalentVRFSpec struct {
 	// VRFID is the ID of the VRF in which the SIDs should be looked up.
 	VRFID uint32 `json:"vrfID"`
 
-	// ImportRouteTarget is the import route-target for this VRF. It is optional and,
-	// if specified, will be used by the BGP manager to know in which VRF to install
-	// received routes.
-	//
-	// Deprecated: Use IsovalentBGPClusterConfig resource to define import/export route-targets.
-	ImportRouteTarget string `json:"importRouteTarget,omitempty"`
-
-	// ExportRouteTarget is the export route-target for this VRF. It is optional and,
-	// if specified, will instruct the SRv6 Manager to allocate a SID for this VRF
-	// and signal the BGP manager to create VPNv4 advertisements over applicable
-	// speakers.
-	//
-	// Deprecated: Use IsovalentBGPClusterConfig resource to define import/export route-targets.
-	ExportRouteTarget string `json:"exportRouteTarget,omitempty"`
-
 	// LocatorPoolRef specifies a name of the locator pool that the SRv6
 	// SID for this VRF will be allocated from.
 	LocatorPoolRef string `json:"locatorPoolRef,omitempty"`
