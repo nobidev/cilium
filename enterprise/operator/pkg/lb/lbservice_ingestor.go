@@ -1248,6 +1248,11 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
 			return tierModeT2
 		}
+
+		// Cilium Agent health checking doesn't support TLS
+		if v.healthCheckConfig.tlsConfig != nil {
+			return tierModeT2
+		}
 	}
 
 	for _, ar := range app.Routes {
@@ -1294,6 +1299,11 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 	for _, v := range referencedBackends {
 		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
 		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
+			return tierModeT2
+		}
+
+		// Cilium Agent health checking doesn't support TLS
+		if v.healthCheckConfig.tlsConfig != nil {
 			return tierModeT2
 		}
 	}
