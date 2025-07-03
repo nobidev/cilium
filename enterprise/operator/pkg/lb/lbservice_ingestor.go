@@ -1243,6 +1243,13 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 }
 
 func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
+	for _, v := range referencedBackends {
+		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
+		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
+			return tierModeT2
+		}
+	}
+
 	for _, ar := range app.Routes {
 		if ar.RateLimits != nil || referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2
@@ -1284,6 +1291,13 @@ func (r *ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 }
 
 func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
+	for _, v := range referencedBackends {
+		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
+		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
+			return tierModeT2
+		}
+	}
+
 	for _, ar := range app.Routes {
 		if referencedBackends[ar.BackendRef.Name].typ == lbBackendTypeHostname {
 			return tierModeT2

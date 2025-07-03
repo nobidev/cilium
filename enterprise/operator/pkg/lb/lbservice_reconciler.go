@@ -926,6 +926,7 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatiblePersistentBackendLBAlgorithms(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1MultipleBackendPorts(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1HostnameBackends(lbsvc, backends)...)
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1HTTPHealthCheckBackends(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getInvalidBackends(backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleProxyProtocol(lbsvc, backends)...)
 
@@ -1075,6 +1076,36 @@ func (r *lbServiceReconciler) getIncompatibleT1HostnameBackends(lbsvc *isovalent
 
 	if len(backendsWithHostname) > 0 {
 		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools of type Hostname %v", backendsWithHostname))
+	}
+
+	return incompatibleBackendMessages
+}
+
+func (r *lbServiceReconciler) getIncompatibleT1HTTPHealthCheckBackends(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+	backendMap := map[string]*isovalentv1alpha1.LBBackendPool{}
+	for _, b := range backends {
+		backendMap[b.Name] = b
+	}
+
+	backendsWithHTTPHealthCheck := []string{}
+
+	if lbsvc.Spec.Applications.TCPProxy != nil && lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 {
+		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.HealthCheck.HTTP != nil && b.Spec.HealthCheck.HTTP.Host != nil && *b.Spec.HealthCheck.HTTP.Host != "lb" {
+				backendsWithHTTPHealthCheck = append(backendsWithHTTPHealthCheck, t1r.BackendRef.Name)
+			}
+		}
+	} else if lbsvc.Spec.Applications.UDPProxy != nil && lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 {
+		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.HealthCheck.HTTP != nil && b.Spec.HealthCheck.HTTP.Host != nil && *b.Spec.HealthCheck.HTTP.Host != "lb" {
+				backendsWithHTTPHealthCheck = append(backendsWithHTTPHealthCheck, t1r.BackendRef.Name)
+			}
+		}
+	}
+	incompatibleBackendMessages := []string{}
+
+	if len(backendsWithHTTPHealthCheck) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools that configure an explicit HTTP health check host header %v", backendsWithHTTPHealthCheck))
 	}
 
 	return incompatibleBackendMessages
