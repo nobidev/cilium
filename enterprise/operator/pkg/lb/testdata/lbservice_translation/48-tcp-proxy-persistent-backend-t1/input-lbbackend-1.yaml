@@ -16,7 +16,7 @@ spec:
     unhealthyThreshold: 1
     http:
       host: lb
-      path: /healthz
+      path: /test
   loadbalancing:
     algorithm:
       consistentHashing: {}

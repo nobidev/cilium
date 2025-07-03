@@ -151,6 +151,11 @@ func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[
 		annotations[annotation.ServiceHealthThresholdHealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdHealthy(model))
 		annotations[annotation.ServiceHealthThresholdUnhealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdUnhealthy(model))
 		annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+
+		if httpPath := r.getT1OnlyHealthCheckHTTPPath(model); httpPath != "" {
+			annotations[annotation.ServiceHealthHTTPPath] = httpPath
+			annotations[annotation.ServiceHealthHTTPMethod] = "GET"
+		}
 	}
 
 	return annotations
@@ -208,6 +213,17 @@ func (r *lbServiceT1Translator) getT1OnlyHealthCheckThresholdUnhealthy(model *lb
 	}
 
 	return 1
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckHTTPPath(model *lbService) string {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		if b.healthCheckConfig.http != nil {
+			return b.healthCheckConfig.http.path
+		}
+	}
+
+	return ""
 }
 
 func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
