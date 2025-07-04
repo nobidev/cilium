@@ -317,6 +317,7 @@ func testJWTAuth(t T, proto string) {
 	for _, tt := range testsValidToken {
 		t.Log("Checking valid token %s", tt.name)
 		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName))
+		t.Log("Testing %q...", cmd)
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
 			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
@@ -324,7 +325,9 @@ func testJWTAuth(t T, proto string) {
 	}
 
 	t.Log("Checking no token")
-	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+	cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)
+	t.Log("Testing %q...", cmd)
+	stdout, stderr, err := client.Exec(t.Context(), curlCmd(cmd))
 	if err == nil {
 		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
@@ -357,9 +360,9 @@ func testJWTAuth(t T, proto string) {
 
 	for _, tt := range testsInvalidToken {
 		t.Log("Checking invalid token %s", tt.name)
-		stdout, stderr, err := client.Exec(t.Context(), curlCmd(
-			fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName)),
-		)
+		cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName)
+		t.Log("Testing %q...", cmd)
+		stdout, stderr, err := client.Exec(t.Context(), curlCmd(cmd))
 		if err == nil {
 			t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
 		}
