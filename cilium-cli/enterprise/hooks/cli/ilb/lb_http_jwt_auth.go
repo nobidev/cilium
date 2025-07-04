@@ -74,8 +74,14 @@ func newJWTProvider(name string) (*jwtProvider, error) {
 	}, nil
 }
 
-func (p *jwtProvider) Issue(t T, issuer string, audiences []string) []byte {
-	token, err := jwt.NewBuilder().Issuer(issuer).Audience(audiences).IssuedAt(time.Now()).Build()
+func (p *jwtProvider) Issue(t T, issuer string, audiences []string, claims map[string]string) []byte {
+	tokenBuilder := jwt.NewBuilder().Issuer(issuer).Audience(audiences).IssuedAt(time.Now())
+
+	for k, v := range claims {
+		tokenBuilder.Claim(k, v)
+	}
+
+	token, err := tokenBuilder.Build()
 	if err != nil {
 		t.Failedf("Failed to build token: %v", err)
 	}
@@ -227,7 +233,13 @@ func testJWTAuth(t T, proto string) {
 			// Set per-route exception
 			withHttpRoute(testName,
 				withHttpPath("/no-auth"),
-				withHttpRouteJWTAuth(true),
+				withHttpRouteJWTAuthDisabled(),
+			),
+			withHttpRoute(testName,
+				withHttpPath("/jwt-claim-requestfiltering"),
+				withHttpRequestFilteringAllowByExactJWTClaim(map[string]string{
+					"testkey": "testvalue",
+				}),
 			),
 			// Default route
 			withHttpRoute(testName),
@@ -272,7 +284,13 @@ func testJWTAuth(t T, proto string) {
 				// Set per-route exception
 				withHttpsRoute(testName,
 					withHttpPath("/no-auth"),
-					withHttpRouteJWTAuth(true),
+					withHttpRouteJWTAuthDisabled(),
+				),
+				withHttpsRoute(testName,
+					withHttpPath("/jwt-claim-requestfiltering"),
+					withHttpRequestFilteringAllowByExactJWTClaim(map[string]string{
+						"testkey": "testvalue",
+					}),
 				),
 				// Default route
 				withHttpsRoute(testName),
@@ -295,28 +313,38 @@ func testJWTAuth(t T, proto string) {
 
 	testsValidToken := []struct {
 		name  string
+		path  string
 		token []byte
 	}{
 		{
 			name:  "ValidateIssuerAndAudiences",
-			token: validProvider0.Issue(t, validIssuer, validAudiences),
+			path:  "/needs-auth",
+			token: validProvider0.Issue(t, validIssuer, validAudiences, nil),
 		},
 		{
 			name:  "ValidateIssuerOnly",
-			token: validProvider1.Issue(t, validIssuer, invalidAudiences),
+			path:  "/needs-auth",
+			token: validProvider1.Issue(t, validIssuer, invalidAudiences, nil),
 		},
 		{
 			name:  "ValidateAudiencesOnly",
-			token: validProvider2.Issue(t, invalidIssuer, validAudiences),
+			path:  "/needs-auth",
+			token: validProvider2.Issue(t, invalidIssuer, validAudiences, nil),
 		},
 		{
 			name:  "RemoteProvider",
-			token: remoteProvider0.Issue(t, validIssuer, validAudiences),
+			path:  "/needs-auth",
+			token: remoteProvider0.Issue(t, validIssuer, validAudiences, nil),
+		},
+		{
+			name:  "JWTClaimRequestFilteringWithClaim",
+			path:  "/jwt-claim-requestfiltering",
+			token: remoteProvider0.Issue(t, validIssuer, validAudiences, map[string]string{"testkey": "testvalue"}),
 		},
 	}
 	for _, tt := range testsValidToken {
 		t.Log("Checking valid token %s", tt.name)
-		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName))
+		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path))
 		t.Log("Testing %q...", cmd)
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
@@ -337,30 +365,40 @@ func testJWTAuth(t T, proto string) {
 
 	testsInvalidToken := []struct {
 		name  string
+		path  string
 		token []byte
 		code  string
 	}{
 		{
 			name:  "InvalidKey",
-			token: invalidProvider.Issue(t, validIssuer, validAudiences),
+			path:  "/needs-auth",
+			token: invalidProvider.Issue(t, validIssuer, validAudiences, nil),
 			code:  "401",
 		},
 		{
 			name:  "InvalidIssuer",
-			token: validProvider0.Issue(t, invalidIssuer, validAudiences),
+			path:  "/needs-auth",
+			token: validProvider0.Issue(t, invalidIssuer, validAudiences, nil),
 			code:  "401",
 		},
 		{
 			name:  "InvalidAudience",
-			token: validProvider0.Issue(t, validIssuer, invalidAudiences),
+			path:  "/needs-auth",
+			token: validProvider0.Issue(t, validIssuer, invalidAudiences, nil),
 			// Envoy returns "Unauthorized" error for invalid audience (https://github.com/envoyproxy/envoy/pull/7679)
 			code: "403",
+		},
+		{
+			name:  "JWTClaimRequestFilteringWithWrongClaim",
+			path:  "/jwt-claim-requestfiltering",
+			token: remoteProvider0.Issue(t, validIssuer, validAudiences, map[string]string{"testkey": "wrong-value"}),
+			code:  "403",
 		},
 	}
 
 	for _, tt := range testsInvalidToken {
 		t.Log("Checking invalid token %s", tt.name)
-		cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s/needs-auth", curlOpt, string(tt.token), proto, hostName)
+		cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path)
 		t.Log("Testing %q...", cmd)
 		stdout, stderr, err := client.Exec(t.Context(), curlCmd(cmd))
 		if err == nil {

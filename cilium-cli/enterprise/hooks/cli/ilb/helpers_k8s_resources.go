@@ -448,6 +448,30 @@ func withHttpRequestFilteringAllowByRegexHeader(headers map[string]string) httpA
 	}
 }
 
+func withHttpRequestFilteringAllowByExactJWTClaim(jwtClaims map[string]string) httpApplicationRouteOption {
+	jwtClaimRules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleJWTClaim{}
+
+	for k, v := range jwtClaims {
+		jwtClaimRules = append(jwtClaimRules, &isovalentv1alpha1.LBServiceRequestFilteringRuleJWTClaim{
+			Name: k,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleJWTClaimValue{
+				Regex: &v,
+			},
+		})
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPRouteRequestFilteringRule{
+				{
+					JWTClaims: jwtClaimRules,
+				},
+			},
+		}
+	}
+}
+
 func withHttpConnectionRateLimiting(limit uint, timePeriodSeconds uint) httpApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
 		o.RateLimits = &isovalentv1alpha1.LBServiceHTTPRateLimits{
@@ -539,11 +563,11 @@ func withJWTProviderWithRemoteJWKS(name string, issuer *string, audiences []stri
 	}
 }
 
-func withHttpRouteJWTAuth(disabled bool) httpApplicationRouteOption {
+func withHttpRouteJWTAuthDisabled() httpApplicationRouteOption {
 	return func(o *isovalentv1alpha1.LBServiceHTTPRoute) {
 		o.Auth = &isovalentv1alpha1.LBServiceHTTPRouteAuth{
 			JWT: &isovalentv1alpha1.LBServiceHTTPRouteJWTAuth{
-				Disabled: disabled,
+				Disabled: true,
 			},
 		}
 	}
