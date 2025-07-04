@@ -607,6 +607,9 @@ func (r *lbServiceT2Translator) toJWTAuthentication(namespace, name, httpType st
 			// Forward JWT. The backend application suppose to use
 			// JWT for their application specific logic.
 			Forward: true,
+
+			// put JWT payload into metadata for later use in RBAC
+			PayloadInMetadata: "payload",
 		}
 
 		if provider.issuer != nil {
@@ -2059,6 +2062,10 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
 		}
 
+		if rr.jwtClaims != nil {
+			principals = append(principals, r.toRBACPrincipalJWTPayloadMetadata(rr.jwtClaims)...)
+		}
+
 		andPermissions := []*envoy_config_rbac_v3.Permission{}
 		if rr.hostname != nil {
 			andPermissions = append(andPermissions, r.toRBACPermissionHostName(rr.hostname))
@@ -2189,6 +2196,67 @@ func (r *lbServiceT2Translator) toRBACPrincipalRemoteIP(sourceCIDRRule *lbRouteR
 			},
 		},
 	}
+}
+
+func (r *lbServiceT2Translator) toRBACPrincipalJWTPayloadMetadata(jwtClaims []*lbRouteRequestFilteringJWTClaim) []*envoy_config_rbac_v3.Principal {
+	principals := []*envoy_config_rbac_v3.Principal{}
+
+	for _, claim := range jwtClaims {
+
+		valueMatcher := &envoy_type_matcher_v3.ValueMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: nil,
+				IgnoreCase:   false,
+			},
+		}
+
+		switch claim.value.valueType {
+		case filterJWTClaimTypeExact:
+			valueMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+				Exact: claim.value.value,
+			}
+		case filterJWTClaimTypePrefix:
+			valueMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
+				Prefix: claim.value.value,
+			}
+		case filterJWTClaimTypeRegex:
+			valueMatcher.StringMatch.MatchPattern = &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+					Regex:      claim.value.value,
+				},
+			}
+		}
+
+		principals = append(principals, &envoy_config_rbac_v3.Principal{
+			Identifier: &envoy_config_rbac_v3.Principal_SourcedMetadata{
+				SourcedMetadata: &envoy_config_rbac_v3.SourcedMetadata{
+					MetadataMatcher: &envoy_type_matcher_v3.MetadataMatcher{
+						Filter: "envoy.filters.http.jwt_authn", // JWT Authentication HTTP filter writes JWT payloads into metadata
+						Path: []*envoy_type_matcher_v3.MetadataMatcher_PathSegment{
+							{
+								Segment: &envoy_type_matcher_v3.MetadataMatcher_PathSegment_Key{
+									Key: "payload",
+								},
+							},
+							{
+								Segment: &envoy_type_matcher_v3.MetadataMatcher_PathSegment_Key{
+									Key: claim.name,
+								},
+							},
+						},
+						Value: &envoy_type_matcher_v3.ValueMatcher{
+							MatchPattern: valueMatcher,
+						},
+						Invert: false,
+					},
+					MetadataSource: envoy_config_rbac_v3.MetadataSource_DYNAMIC,
+				},
+			},
+		})
+	}
+
+	return principals
 }
 
 func (r *lbServiceT2Translator) toRBACPermissionHostName(hostnameRule *lbRouteRequestFilteringHostName) *envoy_config_rbac_v3.Permission {

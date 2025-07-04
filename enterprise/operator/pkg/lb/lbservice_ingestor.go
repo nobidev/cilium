@@ -1083,7 +1083,31 @@ func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.L
 					valueType: vType,
 				},
 			})
+		}
 
+		jwtClaims := []*lbRouteRequestFilteringJWTClaim{}
+		for _, claim := range ir.JWTClaims {
+			var v string
+			var vType filterJWTClaimTypeType
+
+			if claim.Value.Exact != nil {
+				v = *claim.Value.Exact
+				vType = filterJWTClaimTypeExact
+			} else if claim.Value.Prefix != nil {
+				v = *claim.Value.Prefix
+				vType = filterJWTClaimTypePrefix
+			} else if claim.Value.Regex != nil {
+				v = *claim.Value.Regex
+				vType = filterJWTClaimTypeRegex
+			}
+
+			jwtClaims = append(jwtClaims, &lbRouteRequestFilteringJWTClaim{
+				name: claim.Name,
+				value: lbRouteRequestFilteringJWTClaimValue{
+					value:     v,
+					valueType: vType,
+				},
+			})
 		}
 
 		rules = append(rules, lbRouteHTTPRequestFilteringRule{
@@ -1091,6 +1115,7 @@ func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.L
 			hostname:   hostname,
 			path:       path,
 			headers:    headers,
+			jwtClaims:  jwtClaims,
 		})
 	}
 

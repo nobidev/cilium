@@ -386,6 +386,7 @@ type lbRouteHTTPRequestFilteringRule struct {
 	hostname   *lbRouteRequestFilteringHostName
 	path       *lbRouteRequestFilteringHTTPPath
 	headers    []*lbRouteRequestFilteringHTTPHeader
+	jwtClaims  []*lbRouteRequestFilteringJWTClaim
 }
 
 type lbRouteRequestFilteringSourceCIDR struct {
@@ -433,6 +434,24 @@ const (
 	filterHeaderTypePrefix filterHeaderTypeType = iota
 	filterHeaderTypeExact
 	filterHeaderTypeRegex
+)
+
+type lbRouteRequestFilteringJWTClaim struct {
+	name  string
+	value lbRouteRequestFilteringJWTClaimValue
+}
+
+type lbRouteRequestFilteringJWTClaimValue struct {
+	value     string
+	valueType filterJWTClaimTypeType
+}
+
+type filterJWTClaimTypeType int
+
+const (
+	filterJWTClaimTypePrefix filterJWTClaimTypeType = iota
+	filterJWTClaimTypeExact
+	filterJWTClaimTypeRegex
 )
 
 type lbRouteTLSPassthrough struct {

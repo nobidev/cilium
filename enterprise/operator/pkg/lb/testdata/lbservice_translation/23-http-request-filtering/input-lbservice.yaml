@@ -9,6 +9,17 @@ spec:
   port: 80
   applications:
     httpProxy:
+      auth:
+        jwt:
+          providers:
+            - name: provider
+              issuer: "foo@example.com"
+              audiences:
+                - "bar@example.com"
+                - "baz@example.com"
+              jwks:
+                secretRef:
+                  name: lb-1
       connectionFiltering:
         ruleType: Allow
         rules:
@@ -31,6 +42,8 @@ spec:
             rules:
               - path:
                   exact: /admin
+                hostName:
+                  exact: bar.acme.io
                 headers:
                   - name: name1
                     value:
@@ -43,3 +56,7 @@ spec:
                       regex: regex-value
                 sourceCIDR:
                   cidr: 100.64.0.100/32
+                jwtClaims:
+                  - name: testclaim
+                    value:
+                      exact: exact-value

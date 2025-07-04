@@ -9,6 +9,17 @@ spec:
   port: 80
   applications:
     httpsProxy:
+      auth:
+        jwt:
+          providers:
+            - name: provider
+              issuer: "foo@example.com"
+              audiences:
+                - "bar@example.com"
+                - "baz@example.com"
+              jwks:
+                secretRef:
+                  name: lb-1
       tlsConfig:
         certificates:
           - secretRef:
@@ -49,3 +60,7 @@ spec:
                   cidr: 100.64.0.100/32
                 hostName:
                   exact: bar.acme.io
+                jwtClaims:
+                  - name: testclaim
+                    value:
+                      exact: exact-value

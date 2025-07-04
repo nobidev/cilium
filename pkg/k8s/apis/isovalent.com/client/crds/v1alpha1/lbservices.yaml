@@ -511,6 +511,10 @@ spec:
                                         headers: {}
                                       required:
                                       - headers
+                                    - properties:
+                                        jwtClaims: {}
+                                      required:
+                                      - jwtClaims
                                     properties:
                                       headers:
                                         description: Header-based matching. Only one
@@ -583,6 +587,54 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
+                                      jwtClaims:
+                                        description: JWT claim based matching. Only
+                                          one of exact, suffix or regex match can
+                                          be specified.
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Name of the JWT claim.
+                                              minLength: 1
+                                              type: string
+                                            value:
+                                              description: Value of the JWT claim.
+                                              oneOf:
+                                              - properties:
+                                                  exact: {}
+                                                required:
+                                                - exact
+                                              - properties:
+                                                  prefix: {}
+                                                required:
+                                                - prefix
+                                              - properties:
+                                                  regex: {}
+                                                required:
+                                                - regex
+                                              properties:
+                                                exact:
+                                                  description: Exact matching. The
+                                                    value must be exactly the same
+                                                    as the value.
+                                                  minLength: 1
+                                                  type: string
+                                                prefix:
+                                                  description: Prefix matching. The
+                                                    value must start with the value.
+                                                  minLength: 1
+                                                  type: string
+                                                regex:
+                                                  description: Regex matching. The
+                                                    value must match the regex value.
+                                                  minLength: 1
+                                                  type: string
+                                              type: object
+                                          required:
+                                          - name
+                                          - value
+                                          type: object
+                                        type: array
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.
@@ -1063,6 +1115,10 @@ spec:
                                         headers: {}
                                       required:
                                       - headers
+                                    - properties:
+                                        jwtClaims: {}
+                                      required:
+                                      - jwtClaims
                                     properties:
                                       headers:
                                         description: Header-based matching. Only one
@@ -1135,6 +1191,54 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
+                                      jwtClaims:
+                                        description: JWT claim based matching. Only
+                                          one of exact, suffix or regex match can
+                                          be specified.
+                                        items:
+                                          properties:
+                                            name:
+                                              description: Name of the JWT claim.
+                                              minLength: 1
+                                              type: string
+                                            value:
+                                              description: Value of the JWT claim.
+                                              oneOf:
+                                              - properties:
+                                                  exact: {}
+                                                required:
+                                                - exact
+                                              - properties:
+                                                  prefix: {}
+                                                required:
+                                                - prefix
+                                              - properties:
+                                                  regex: {}
+                                                required:
+                                                - regex
+                                              properties:
+                                                exact:
+                                                  description: Exact matching. The
+                                                    value must be exactly the same
+                                                    as the value.
+                                                  minLength: 1
+                                                  type: string
+                                                prefix:
+                                                  description: Prefix matching. The
+                                                    value must start with the value.
+                                                  minLength: 1
+                                                  type: string
+                                                regex:
+                                                  description: Regex matching. The
+                                                    value must match the regex value.
+                                                  minLength: 1
+                                                  type: string
+                                              type: object
+                                          required:
+                                          - name
+                                          - value
+                                          type: object
+                                        type: array
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.

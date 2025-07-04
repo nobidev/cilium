@@ -112,6 +112,14 @@ spec:
                   initialStreamWindowSize: 65535
                   maxConcurrentStreams: 100
                 httpFilters:
+                  - name: envoy.filters.http.jwt_authn
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      rules:
+                        - match:
+                            prefix: /
+                          requires:
+                            requiresAny: {}
                   - name: envoy.filters.http.rbac
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
@@ -222,6 +230,15 @@ spec:
                             - remoteIp:
                                 addressPrefix: 100.64.0.100
                                 prefixLen: 32
+                            - sourcedMetadata:
+                                metadataMatcher:
+                                  filter: envoy.filters.http.jwt_authn
+                                  path:
+                                    - key: payload
+                                    - key: testclaim
+                                  value:
+                                    stringMatch:
+                                      exact: exact-value
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

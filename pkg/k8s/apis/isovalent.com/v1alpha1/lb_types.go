@@ -878,6 +878,12 @@ type LBServiceHTTPRouteRequestFilteringRule struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:AnyOf
 	Headers []*LBServiceRequestFilteringRuleHTTPHeader `json:"headers,omitempty"`
+
+	// JWT claim based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	JWTClaims []*LBServiceRequestFilteringRuleJWTClaim `json:"jwtClaims,omitempty"`
 }
 
 type LBServiceRequestFilteringRuleSourceCIDR struct {
@@ -937,6 +943,42 @@ type LBServiceRequestFilteringRuleHTTPHeader struct {
 }
 
 type LBServiceRequestFilteringRuleHTTPHeaderValue struct {
+	// Exact matching. The value must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Exact *string `json:"exact,omitempty"`
+
+	// Prefix matching. The value must start with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Prefix *string `json:"prefix,omitempty"`
+
+	// Regex matching. The value must match the regex value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Regex *string `json:"regex,omitempty"`
+}
+
+type LBServiceRequestFilteringRuleJWTClaim struct {
+	// Name of the JWT claim.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Value of the JWT claim.
+	//
+	// +kubebuilder:validation:Required
+	Value LBServiceRequestFilteringRuleJWTClaimValue `json:"value"`
+}
+
+type LBServiceRequestFilteringRuleJWTClaimValue struct {
 	// Exact matching. The value must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
