@@ -195,16 +195,17 @@ type LBServiceApplicationHTTPSProxy struct {
 	Routes []LBServiceHTTPRoute `json:"routes"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one http version must be enabled",rule="(has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2) && self.enableHTTP2)"
 type LBServiceHTTPConfig struct {
 	// Setting this to true enables HTTP/1.1.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	EnableHTTP11 *bool `json:"enableHTTP11,omitempty"`
 
 	// Setting this to true enables HTTP2.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
@@ -500,12 +501,12 @@ type LBServiceTCPRoute struct {
 	RateLimits *LBServiceTCPRouteRateLimits `json:"rateLimits,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
 type LBServiceTCPRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceIP *bool `json:"sourceIP,omitempty"`
 }
 
@@ -524,11 +525,11 @@ type LBServiceTCPRouteConnectionFiltering struct {
 	Rules []LBServiceTCPRouteRequestFilteringRule `json:"rules,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
 type LBServiceTCPRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 }
 
@@ -609,12 +610,12 @@ const (
 	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "t1-t2"
 )
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
 type LBServiceUDPRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceIP *bool `json:"sourceIP,omitempty"`
 }
 
@@ -633,11 +634,11 @@ type LBServiceUDPRouteConnectionFiltering struct {
 	Rules []LBServiceUDPRouteRequestFilteringRule `json:"rules,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
 type LBServiceUDPRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 }
 
@@ -724,22 +725,24 @@ type LBServiceHTTPRoute struct {
 	Auth *LBServiceHTTPRouteAuth `json:"auth,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP) || size(self.cookies) > 0 || size(self.headers) > 0)"
 type LBServiceHTTPRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceIP *bool `json:"sourceIP,omitempty"`
 
 	// List of cookies for which requests are sent to the same backend if they match.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Cookies []LBServiceHTTPRoutePersistentBackendCookie `json:"cookies,omitempty"`
 
 	// List of headers for which requests are sent to the same backend if they match.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Headers []LBServiceHTTPRoutePersistentBackendHeader `json:"headers,omitempty"`
 }
 
@@ -782,11 +785,11 @@ type LBServiceHTTPConnectionFiltering struct {
 	Rules []LBServiceHTTPConnectionFilteringRule `json:"rules,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR))"
 type LBServiceHTTPConnectionFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 }
 
@@ -805,39 +808,39 @@ type LBServiceHTTPRouteRequestFiltering struct {
 	Rules []LBServiceHTTPRouteRequestFilteringRule `json:"rules,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
 type LBServiceHTTPRateLimits struct {
 	// Rate limiting on connection basis.
 	// It is applied and enforced when the connection is established.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Connections *LBServiceRateLimit `json:"connections"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.requests))"
 type LBServiceHTTPRouteRateLimits struct {
 	// Configure max allowed requests for the HTTP route.
 	// It is applied and enforced before routing the HTTP request.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Requests *LBServiceRateLimit `json:"requests"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
 type LBServiceTLSRouteRateLimits struct {
 	// Configure max allowed connections for the TLS route.
 	// It is applied and enforced when the connection is established.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Connections *LBServiceRateLimit `json:"connections"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one rate limit must be configured",rule="(has(self.connections))"
 type LBServiceTCPRouteRateLimits struct {
 	// Configure max allowed connections for the TCP route.
 	// It is applied and enforced when the connection is established.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Connections *LBServiceRateLimit `json:"connections"`
 }
 
@@ -851,26 +854,29 @@ type LBServiceRateLimit struct {
 	TimePeriodSeconds uint `json:"timePeriodSeconds"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.hostName) || has(self.path) || size(self.headers) > 0)"
 type LBServiceHTTPRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 
 	// Host-based matching. Only one of exact or suffix match can be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	HostName *LBServiceRequestFilteringRuleHTTPHostname `json:"hostName,omitempty"`
 
 	// Path-based matching. Only one of exact or suffix match can be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Path *LBServiceRequestFilteringRuleHTTPPath `json:"path,omitempty"`
 
 	// Header-based matching. Only one of exact, suffix or regex match can be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	Headers []*LBServiceRequestFilteringRuleHTTPHeader `json:"headers,omitempty"`
 }
 
@@ -1097,12 +1103,12 @@ type LBServiceTLSRouteMatch struct {
 	HostNames []LBServiceHostName `json:"hostNames,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceIP))"
 type LBServiceTLSRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceIP *bool `json:"sourceIP,omitempty"`
 }
 
@@ -1121,16 +1127,17 @@ type LBServiceTLSRouteConnectionFiltering struct {
 	Rules []LBServiceTLSRouteRequestFilteringRule `json:"rules,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.sourceCIDR) || has(self.serverName))"
 type LBServiceTLSRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 
 	// Servername-based matching. Only one of exact or suffix match can be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	ServerName *LBServiceRequestFilteringRuleTLSServername `json:"serverName,omitempty"`
 }
 
@@ -2157,21 +2164,21 @@ type LBDeploymentSpec struct {
 	Nodes LBDeploymentNodes `json:"nodes"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.labelSelector))"
 type LBDeploymentServices struct {
 	// LabelSelector is a label selector that selects the LBServices within the same namespace.
 	//
 	// Note: An empty label selector (neither MatchLabels nor MatchExpressions defined) matches all LBServices in the same namespace.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	LabelSelector *slim_metav1.LabelSelector `json:"labelSelector,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one attribute must be configured",rule="(has(self.labelSelectors))"
 type LBDeploymentNodes struct {
 	// LabelSelectors selects the T1 & T2 nodes with k8s label selectors.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
 	LabelSelectors *LBDeploymentNodesLabelSelectors `json:"labelSelectors,omitempty"`
 }
 

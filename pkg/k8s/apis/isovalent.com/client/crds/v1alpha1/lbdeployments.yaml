@@ -51,6 +51,11 @@ spec:
           spec:
             properties:
               nodes:
+                anyOf:
+                - properties:
+                    labelSelectors: {}
+                  required:
+                  - labelSelectors
                 description: |-
                   Nodes defines the T1 & T2 nodes that should be used to execute
                   T1 respective T2 functionality for thee selected LBServices.
@@ -182,10 +187,12 @@ spec:
                     - t2
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: At least one attribute must be configured
-                  rule: (has(self.labelSelectors))
               services:
+                anyOf:
+                - properties:
+                    labelSelector: {}
+                  required:
+                  - labelSelector
                 description: |-
                   Services selects the LBServices that should be
                   handled by this deployment.
@@ -249,9 +256,6 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
-                x-kubernetes-validations:
-                - message: At least one attribute must be configured
-                  rule: (has(self.labelSelector))
             required:
             - nodes
             - services

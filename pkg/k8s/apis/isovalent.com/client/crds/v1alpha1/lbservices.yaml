@@ -231,6 +231,11 @@ spec:
                               Each rule needs to define at least one property to filter on.
                               The properties of each entry are logically ANDed.
                             items:
+                              anyOf:
+                              - properties:
+                                  sourceCIDR: {}
+                                required:
+                                - sourceCIDR
                               properties:
                                 sourceCIDR:
                                   description: Source CIDR based matching. This allows
@@ -249,15 +254,21 @@ spec:
                                   - cidr
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceCIDR))
                             minItems: 1
                             type: array
                         required:
                         - ruleType
                         type: object
                       httpConfig:
+                        anyOf:
+                        - properties:
+                            enableHTTP11: {}
+                          required:
+                          - enableHTTP11
+                        - properties:
+                            enableHTTP2: {}
+                          required:
+                          - enableHTTP2
                         description: The application-wide HTTP configuration.
                         properties:
                           enableHTTP2:
@@ -267,11 +278,12 @@ spec:
                             description: Setting this to true enables HTTP/1.1.
                             type: boolean
                         type: object
-                        x-kubernetes-validations:
-                        - message: At least one http version must be enabled
-                          rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
-                            && self.enableHTTP2)
                       rateLimits:
+                        anyOf:
+                        - properties:
+                            connections: {}
+                          required:
+                          - connections
                         description: |-
                           Optional global rate limit configuration for the HTTP proxy application.
                           Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -292,9 +304,6 @@ spec:
                             - timePeriodSeconds
                             type: object
                         type: object
-                        x-kubernetes-validations:
-                        - message: At least one rate limit must be configured
-                          rule: (has(self.connections))
                       routes:
                         description: The HTTP routing configuration.
                         items:
@@ -387,6 +396,19 @@ spec:
                                   type: object
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
+                              - properties:
+                                  cookies: {}
+                                required:
+                                - cookies
+                              - properties:
+                                  headers: {}
+                                required:
+                                - headers
                               description: |-
                                 The optional persistent backend configuration for this HTTP route.
                                 It defines the request attributes that should be obtained to decide
@@ -428,11 +450,12 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP) || size(self.cookies) >
-                                  0 || size(self.headers) > 0)
                             rateLimits:
+                              anyOf:
+                              - properties:
+                                  requests: {}
+                                required:
+                                - requests
                               description: |-
                                 Optional per-route rate limit configuration.
                                 Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -453,9 +476,6 @@ spec:
                                   - timePeriodSeconds
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one rate limit must be configured
-                                rule: (has(self.requests))
                             requestFiltering:
                               description: |-
                                 The optional request filtering configuration for this HTTP route.
@@ -474,6 +494,23 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
+                                    - properties:
+                                        hostName: {}
+                                      required:
+                                      - hostName
+                                    - properties:
+                                        path: {}
+                                      required:
+                                      - path
+                                    - properties:
+                                        headers: {}
+                                      required:
+                                      - headers
                                     properties:
                                       headers:
                                         description: Header-based matching. Only one
@@ -587,11 +624,6 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR) || has(self.hostName)
-                                        || has(self.path) || size(self.headers) >
-                                        0)
                                   minItems: 1
                                   type: array
                               required:
@@ -751,6 +783,11 @@ spec:
                               Each rule needs to define at least one property to filter on.
                               The properties of each entry are logically ANDed.
                             items:
+                              anyOf:
+                              - properties:
+                                  sourceCIDR: {}
+                                required:
+                                - sourceCIDR
                               properties:
                                 sourceCIDR:
                                   description: Source CIDR based matching. This allows
@@ -769,15 +806,21 @@ spec:
                                   - cidr
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceCIDR))
                             minItems: 1
                             type: array
                         required:
                         - ruleType
                         type: object
                       httpConfig:
+                        anyOf:
+                        - properties:
+                            enableHTTP11: {}
+                          required:
+                          - enableHTTP11
+                        - properties:
+                            enableHTTP2: {}
+                          required:
+                          - enableHTTP2
                         description: The application-wide HTTP configuration.
                         properties:
                           enableHTTP2:
@@ -787,11 +830,12 @@ spec:
                             description: Setting this to true enables HTTP/1.1.
                             type: boolean
                         type: object
-                        x-kubernetes-validations:
-                        - message: At least one http version must be enabled
-                          rule: (has(self.enableHTTP11) && self.enableHTTP11) || (has(self.enableHTTP2)
-                            && self.enableHTTP2)
                       rateLimits:
+                        anyOf:
+                        - properties:
+                            connections: {}
+                          required:
+                          - connections
                         description: |-
                           Optional global rate limit configuration for the HTTPS proxy application.
                           Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -812,9 +856,6 @@ spec:
                             - timePeriodSeconds
                             type: object
                         type: object
-                        x-kubernetes-validations:
-                        - message: At least one rate limit must be configured
-                          rule: (has(self.connections))
                       routes:
                         description: The HTTP routing configuration.
                         items:
@@ -907,6 +948,19 @@ spec:
                                   type: object
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
+                              - properties:
+                                  cookies: {}
+                                required:
+                                - cookies
+                              - properties:
+                                  headers: {}
+                                required:
+                                - headers
                               description: |-
                                 The optional persistent backend configuration for this HTTP route.
                                 It defines the request attributes that should be obtained to decide
@@ -948,11 +1002,12 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP) || size(self.cookies) >
-                                  0 || size(self.headers) > 0)
                             rateLimits:
+                              anyOf:
+                              - properties:
+                                  requests: {}
+                                required:
+                                - requests
                               description: |-
                                 Optional per-route rate limit configuration.
                                 Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -973,9 +1028,6 @@ spec:
                                   - timePeriodSeconds
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one rate limit must be configured
-                                rule: (has(self.requests))
                             requestFiltering:
                               description: |-
                                 The optional request filtering configuration for this HTTP route.
@@ -994,6 +1046,23 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
+                                    - properties:
+                                        hostName: {}
+                                      required:
+                                      - hostName
+                                    - properties:
+                                        path: {}
+                                      required:
+                                      - path
+                                    - properties:
+                                        headers: {}
+                                      required:
+                                      - headers
                                     properties:
                                       headers:
                                         description: Header-based matching. Only one
@@ -1107,11 +1176,6 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR) || has(self.hostName)
-                                        || has(self.path) || size(self.headers) >
-                                        0)
                                   minItems: 1
                                   type: array
                               required:
@@ -1314,6 +1378,11 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
                                     properties:
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
@@ -1332,15 +1401,17 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR))
                                   minItems: 1
                                   type: array
                               required:
                               - ruleType
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
                               description: |-
                                 The optional persistent backend configuration for this TCP route.
                                 It defines the request attributes that should be obtained to decide
@@ -1356,10 +1427,12 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP))
                             rateLimits:
+                              anyOf:
+                              - properties:
+                                  connections: {}
+                                required:
+                                - connections
                               description: |-
                                 Optional per-route rate limit configuration.
                                 Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -1380,9 +1453,6 @@ spec:
                                   - timePeriodSeconds
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one rate limit must be configured
-                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object
@@ -1438,6 +1508,15 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
+                                    - properties:
+                                        serverName: {}
+                                      required:
+                                      - serverName
                                     properties:
                                       serverName:
                                         description: Servername-based matching. Only
@@ -1480,9 +1559,6 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR) || has(self.serverName))
                                   minItems: 1
                                   type: array
                               required:
@@ -1511,6 +1587,11 @@ spec:
                                   type: array
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
                               description: |-
                                 The optional persistent backend configuration for this TLS passthrough route.
                                 It defines the request attributes that should be obtained to decide
@@ -1526,10 +1607,12 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP))
                             rateLimits:
+                              anyOf:
+                              - properties:
+                                  connections: {}
+                                required:
+                                - connections
                               description: |-
                                 Optional per-route rate limit configuration.
                                 Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -1550,9 +1633,6 @@ spec:
                                   - timePeriodSeconds
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one rate limit must be configured
-                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object
@@ -1601,6 +1681,15 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
+                                    - properties:
+                                        serverName: {}
+                                      required:
+                                      - serverName
                                     properties:
                                       serverName:
                                         description: Servername-based matching. Only
@@ -1643,9 +1732,6 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR) || has(self.serverName))
                                   minItems: 1
                                   type: array
                               required:
@@ -1674,6 +1760,11 @@ spec:
                                   type: array
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
                               description: |-
                                 The optional persistent backend configuration for this TLS proxy route.
                                 It defines the request attributes that should be obtained to decide
@@ -1689,10 +1780,12 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP))
                             rateLimits:
+                              anyOf:
+                              - properties:
+                                  connections: {}
+                                required:
+                                - connections
                               description: |-
                                 Optional per-route rate limit configuration.
                                 Currently, this is only a local rate limit (enforced on each LB node individually).
@@ -1713,9 +1806,6 @@ spec:
                                   - timePeriodSeconds
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one rate limit must be configured
-                                rule: (has(self.connections))
                           required:
                           - backendRef
                           type: object
@@ -1908,6 +1998,11 @@ spec:
                                     Each rule needs to define at least one property to filter on.
                                     The properties of each entry are logically ANDed.
                                   items:
+                                    anyOf:
+                                    - properties:
+                                        sourceCIDR: {}
+                                      required:
+                                      - sourceCIDR
                                     properties:
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
@@ -1926,15 +2021,17 @@ spec:
                                         - cidr
                                         type: object
                                     type: object
-                                    x-kubernetes-validations:
-                                    - message: At least one attribute must be configured
-                                      rule: (has(self.sourceCIDR))
                                   minItems: 1
                                   type: array
                               required:
                               - ruleType
                               type: object
                             persistentBackend:
+                              anyOf:
+                              - properties:
+                                  sourceIP: {}
+                                required:
+                                - sourceIP
                               description: |-
                                 The optional persistent backend configuration for this UDP route.
                                 It defines the request attributes that should be obtained to decide
@@ -1950,9 +2047,6 @@ spec:
                                     the same backend.
                                   type: boolean
                               type: object
-                              x-kubernetes-validations:
-                              - message: At least one attribute must be configured
-                                rule: (has(self.sourceIP))
                           required:
                           - backendRef
                           type: object
