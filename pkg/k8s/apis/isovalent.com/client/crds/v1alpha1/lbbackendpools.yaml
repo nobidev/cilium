@@ -157,6 +157,15 @@ spec:
                 type: object
               healthCheck:
                 description: The pool-wide health check configuration.
+                oneOf:
+                - properties:
+                    http: {}
+                  required:
+                  - http
+                - properties:
+                    tcp: {}
+                  required:
+                  - tcp
                 properties:
                   healthyThreshold:
                     default: 2
@@ -254,9 +263,6 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
-                x-kubernetes-validations:
-                - message: Exactly one health check (HTTP or TCP) must be specified
-                  rule: (has(self.tcp)?1:0)+(has(self.http)?1:0)==1
               httpConfig:
                 description: The pool-wide HTTP configuration.
                 properties:
@@ -272,6 +278,19 @@ spec:
                 properties:
                   algorithm:
                     description: LB algorithm configuration.
+                    oneOf:
+                    - properties:
+                        roundRobin: {}
+                      required:
+                      - roundRobin
+                    - properties:
+                        leastRequest: {}
+                      required:
+                      - leastRequest
+                    - properties:
+                        consistentHashing: {}
+                      required:
+                      - consistentHashing
                     properties:
                       consistentHashing:
                         description: The consistent hashing algorithm configuration.
@@ -310,10 +329,6 @@ spec:
                           be specified.
                         type: object
                     type: object
-                    x-kubernetes-validations:
-                    - message: Exactly one algorithm (RoundRobin, LeastRequest or
-                        ConsistentHashing) must be specified
-                      rule: (has(self.roundRobin)?1:0)+(has(self.leastRequest)?1:0)+(has(self.consistentHashing)?1:0)==1
                 required:
                 - algorithm
                 type: object

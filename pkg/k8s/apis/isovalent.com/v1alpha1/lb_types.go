@@ -82,42 +82,47 @@ type LBServiceProxyProtocolConfig struct {
 	PassthroughTLVs []LBProxyProtocolTLV `json:"passthroughTLVs,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one application must be specified", rule="(has(self.httpProxy)?1:0)+(has(self.httpsProxy)?1:0)+(has(self.tlsPassthrough)?1:0)+(has(self.tlsProxy)?1:0)+(has(self.tcpProxy)?1:0)+(has(self.udpProxy)?1:0)==1"
 type LBServiceApplications struct {
 	// Defining this stanza enables HTTPProxy application that proxies the
 	// HTTP traffic to the backends over TCP connection.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	HTTPProxy *LBServiceApplicationHTTPProxy `json:"httpProxy,omitempty"`
 
 	// Defining this stanza enables HTTPSProxy application that proxies the
 	// HTTPS traffic to the backends over TLS and TCP connections.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	HTTPSProxy *LBServiceApplicationHTTPSProxy `json:"httpsProxy,omitempty"`
 
 	// Defining this stanza enables TLSPassthrough application that proxies
 	// the TLS traffic without terminating the TLS connection.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	TLSPassthrough *LBServiceApplicationTLSPassthrough `json:"tlsPassthrough,omitempty"`
 
 	// Defining this stanza enables TLSProxy application that proxies the
 	// TLS traffic to the backends by terminating the TLS.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	TLSProxy *LBServiceApplicationTLSProxy `json:"tlsProxy,omitempty"`
 
 	// Defining this stanza enables TCPProxy application that proxies the
 	// TCP traffic to the backends by terminating the TCP.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	TCPProxy *LBServiceApplicationTCPProxy `json:"tcpProxy,omitempty"`
 
 	// Defining this stanza enables UDPProxy application that proxies the
 	// UDP traffic to the backends by terminating the UDP.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	UDPProxy *LBServiceApplicationUDPProxy `json:"udpProxy,omitempty"`
 }
 
@@ -203,16 +208,17 @@ type LBServiceHTTPConfig struct {
 	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one authN/Z method can be specified",rule="(has(self.basic)?1:0)+(has(self.jwt)?1:0)==1"
 type LBServiceHTTPAuth struct {
 	// The basic authentication configuration.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	Basic *LBServiceHTTPBasicAuth `json:"basic,omitempty"`
 
 	// The jwt authentication configuration.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	JWT *LBServiceHTTPJWTAuth `json:"jwt,omitempty"`
 }
 
@@ -879,33 +885,35 @@ type LBServiceRequestFilteringRuleSourceCIDR struct {
 	CIDR string `json:"cidr"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one hostname type (exact or suffix) must be specified",rule="(has(self.exact)?1:0)+(has(self.suffix)?1:0)==1"
 type LBServiceRequestFilteringRuleHTTPHostname struct {
 	// Exact matching. The hostname must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Exact *string `json:"exact,omitempty"`
 
 	// Suffix matching. The hostname must end with the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Suffix *string `json:"suffix,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)==1"
 type LBServiceRequestFilteringRuleHTTPPath struct {
 	// Exact matching. The path must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Exact *string `json:"exact,omitempty"`
 
 	// Prefix matching. The path must start with the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Prefix *string `json:"prefix,omitempty"`
 }
 
@@ -922,24 +930,26 @@ type LBServiceRequestFilteringRuleHTTPHeader struct {
 	Value LBServiceRequestFilteringRuleHTTPHeaderValue `json:"value"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one path type (exact, prefix or regex) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1"
 type LBServiceRequestFilteringRuleHTTPHeaderValue struct {
 	// Exact matching. The value must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Exact *string `json:"exact,omitempty"`
 
 	// Prefix matching. The value must start with the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Prefix *string `json:"prefix,omitempty"`
 
 	// Regex matching. The value must match the regex value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Regex *string `json:"regex,omitempty"`
 }
 
@@ -965,18 +975,19 @@ type LBServiceHTTPRouteMatch struct {
 	Path *LBServiceHTTPPath `json:"path,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one path type (exact or prefix) must be specified",rule="(has(self.exact)?1:0)+(has(self.prefix)?1:0)==1"
 type LBServiceHTTPPath struct {
 	// Exact matching. The path must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Exact *string `json:"exact,omitempty"`
 
 	// Prefix matching. The path must start with the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Prefix *string `json:"prefix,omitempty"`
 }
 
@@ -1123,18 +1134,19 @@ type LBServiceTLSRouteRequestFilteringRule struct {
 	ServerName *LBServiceRequestFilteringRuleTLSServername `json:"serverName,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one servername type (exact or suffix) must be specified",rule="(has(self.exact)?1:0)+(has(self.suffix)?1:0)==1"
 type LBServiceRequestFilteringRuleTLSServername struct {
 	// Exact matching. The servername must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Exact *string `json:"exact,omitempty"`
 
 	// Suffix matching. The servername must end with the value.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
 	Suffix *string `json:"suffix,omitempty"`
 }
 
@@ -1775,7 +1787,6 @@ const (
 	BackendStatusDraining BackendStatus = "Draining"
 )
 
-// +kubebuilder:validation:XValidation:message="Exactly one health check (HTTP or TCP) must be specified",rule="(has(self.tcp)?1:0)+(has(self.http)?1:0)==1"
 type HealthCheck struct {
 	// The interval between health check probes.
 	//
@@ -1818,12 +1829,14 @@ type HealthCheck struct {
 	// be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	HTTP *HealthCheckHTTP `json:"http,omitempty"`
 
 	// The TCP health check configuration. Exactly one of http or tcp must
 	// be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	TCP *HealthCheckTCP `json:"tcp,omitempty"`
 }
 
@@ -1854,21 +1867,23 @@ type Loadbalancing struct {
 	Algorithm LoadbalancingAlgorithm `json:"algorithm"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one algorithm (RoundRobin, LeastRequest or ConsistentHashing) must be specified",rule="(has(self.roundRobin)?1:0)+(has(self.leastRequest)?1:0)+(has(self.consistentHashing)?1:0)==1"
 type LoadbalancingAlgorithm struct {
 	// The round robin algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	RoundRobin *LoadbalancingAlgorithmRoundRobin `json:"roundRobin,omitempty"`
 
 	// The least request algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	LeastRequest *LoadbalancingAlgorithmLeastRequest `json:"leastRequest,omitempty"`
 
 	// The consistent hashing algorithm configuration. Exactly one of roundRobin, leastRequest or consistentHashing must be specified.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:OneOf
 	ConsistentHashing *LoadbalancingAlgorithmConsistentHashing `json:"consistentHashing,omitempty"`
 }
 

@@ -64,6 +64,31 @@ spec:
                   The configuration for the applications that running on the port.
                   While the name is plural, only one application can be specified
                   currently.
+                oneOf:
+                - properties:
+                    httpProxy: {}
+                  required:
+                  - httpProxy
+                - properties:
+                    httpsProxy: {}
+                  required:
+                  - httpsProxy
+                - properties:
+                    tlsPassthrough: {}
+                  required:
+                  - tlsPassthrough
+                - properties:
+                    tlsProxy: {}
+                  required:
+                  - tlsProxy
+                - properties:
+                    tcpProxy: {}
+                  required:
+                  - tcpProxy
+                - properties:
+                    udpProxy: {}
+                  required:
+                  - udpProxy
                 properties:
                   httpProxy:
                     description: |-
@@ -73,6 +98,15 @@ spec:
                       auth:
                         description: Optional HTTP authN/authZ configuration for the
                           HTTP proxy application.
+                        oneOf:
+                        - properties:
+                            basic: {}
+                          required:
+                          - basic
+                        - properties:
+                            jwt: {}
+                          required:
+                          - jwt
                         properties:
                           basic:
                             description: The basic authentication configuration.
@@ -179,9 +213,6 @@ spec:
                             - providers
                             type: object
                         type: object
-                        x-kubernetes-validations:
-                        - message: Exactly one authN/Z method can be specified
-                          rule: (has(self.basic)?1:0)+(has(self.jwt)?1:0)==1
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTP connections.
@@ -333,6 +364,15 @@ spec:
                                   description: |-
                                     The path matching criteria. When omitted, the route matches all
                                     paths.
+                                  oneOf:
+                                  - properties:
+                                      exact: {}
+                                    required:
+                                    - exact
+                                  - properties:
+                                      prefix: {}
+                                    required:
+                                    - prefix
                                   properties:
                                     exact:
                                       description: Exact matching. The path must be
@@ -345,10 +385,6 @@ spec:
                                       minLength: 1
                                       type: string
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: Exactly one path type (exact or prefix)
-                                      must be specified
-                                    rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                               type: object
                             persistentBackend:
                               description: |-
@@ -450,6 +486,19 @@ spec:
                                               type: string
                                             value:
                                               description: Value of the header.
+                                              oneOf:
+                                              - properties:
+                                                  exact: {}
+                                                required:
+                                                - exact
+                                              - properties:
+                                                  prefix: {}
+                                                required:
+                                                - prefix
+                                              - properties:
+                                                  regex: {}
+                                                required:
+                                                - regex
                                               properties:
                                                 exact:
                                                   description: Exact matching. The
@@ -468,10 +517,6 @@ spec:
                                                   minLength: 1
                                                   type: string
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: Exactly one path type (exact,
-                                                  prefix or regex) must be specified
-                                                rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1
                                           required:
                                           - name
                                           - value
@@ -480,6 +525,15 @@ spec:
                                       hostName:
                                         description: Host-based matching. Only one
                                           of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            suffix: {}
+                                          required:
+                                          - suffix
                                         properties:
                                           exact:
                                             description: Exact matching. The hostname
@@ -492,13 +546,18 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one hostname type (exact
-                                            or suffix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            prefix: {}
+                                          required:
+                                          - prefix
                                         properties:
                                           exact:
                                             description: Exact matching. The path
@@ -511,10 +570,6 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one path type (exact or
-                                            prefix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -563,6 +618,15 @@ spec:
                       auth:
                         description: Optional HTTP authN/authZ configuration for the
                           HTTPS proxy application.
+                        oneOf:
+                        - properties:
+                            basic: {}
+                          required:
+                          - basic
+                        - properties:
+                            jwt: {}
+                          required:
+                          - jwt
                         properties:
                           basic:
                             description: The basic authentication configuration.
@@ -669,9 +733,6 @@ spec:
                             - providers
                             type: object
                         type: object
-                        x-kubernetes-validations:
-                        - message: Exactly one authN/Z method can be specified
-                          rule: (has(self.basic)?1:0)+(has(self.jwt)?1:0)==1
                       connectionFiltering:
                         description: |-
                           The optional connection filtering configuration for all HTTPS connections.
@@ -823,6 +884,15 @@ spec:
                                   description: |-
                                     The path matching criteria. When omitted, the route matches all
                                     paths.
+                                  oneOf:
+                                  - properties:
+                                      exact: {}
+                                    required:
+                                    - exact
+                                  - properties:
+                                      prefix: {}
+                                    required:
+                                    - prefix
                                   properties:
                                     exact:
                                       description: Exact matching. The path must be
@@ -835,10 +905,6 @@ spec:
                                       minLength: 1
                                       type: string
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: Exactly one path type (exact or prefix)
-                                      must be specified
-                                    rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                               type: object
                             persistentBackend:
                               description: |-
@@ -940,6 +1006,19 @@ spec:
                                               type: string
                                             value:
                                               description: Value of the header.
+                                              oneOf:
+                                              - properties:
+                                                  exact: {}
+                                                required:
+                                                - exact
+                                              - properties:
+                                                  prefix: {}
+                                                required:
+                                                - prefix
+                                              - properties:
+                                                  regex: {}
+                                                required:
+                                                - regex
                                               properties:
                                                 exact:
                                                   description: Exact matching. The
@@ -958,10 +1037,6 @@ spec:
                                                   minLength: 1
                                                   type: string
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: Exactly one path type (exact,
-                                                  prefix or regex) must be specified
-                                                rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)+(has(self.regex)?1:0)==1
                                           required:
                                           - name
                                           - value
@@ -970,6 +1045,15 @@ spec:
                                       hostName:
                                         description: Host-based matching. Only one
                                           of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            suffix: {}
+                                          required:
+                                          - suffix
                                         properties:
                                           exact:
                                             description: Exact matching. The hostname
@@ -982,13 +1066,18 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one hostname type (exact
-                                            or suffix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       path:
                                         description: Path-based matching. Only one
                                           of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            prefix: {}
+                                          required:
+                                          - prefix
                                         properties:
                                           exact:
                                             description: Exact matching. The path
@@ -1001,10 +1090,6 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one path type (exact or
-                                            prefix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.prefix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1357,6 +1442,15 @@ spec:
                                       serverName:
                                         description: Servername-based matching. Only
                                           one of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            suffix: {}
+                                          required:
+                                          - suffix
                                         properties:
                                           exact:
                                             description: Exact matching. The servername
@@ -1369,10 +1463,6 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one servername type (exact
-                                            or suffix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1515,6 +1605,15 @@ spec:
                                       serverName:
                                         description: Servername-based matching. Only
                                           one of exact or suffix match can be specified.
+                                        oneOf:
+                                        - properties:
+                                            exact: {}
+                                          required:
+                                          - exact
+                                        - properties:
+                                            suffix: {}
+                                          required:
+                                          - suffix
                                         properties:
                                           exact:
                                             description: Exact matching. The servername
@@ -1527,10 +1626,6 @@ spec:
                                             minLength: 1
                                             type: string
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Exactly one servername type (exact
-                                            or suffix) must be specified
-                                          rule: (has(self.exact)?1:0)+(has(self.suffix)?1:0)==1
                                       sourceCIDR:
                                         description: Source CIDR based matching. This
                                           allows for matching a specific or a range
@@ -1868,9 +1963,6 @@ spec:
                     - routes
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: Exactly one application must be specified
-                  rule: (has(self.httpProxy)?1:0)+(has(self.httpsProxy)?1:0)+(has(self.tlsPassthrough)?1:0)+(has(self.tlsProxy)?1:0)+(has(self.tcpProxy)?1:0)+(has(self.udpProxy)?1:0)==1
               port:
                 description: The port that this service should listen on.
                 format: int32
