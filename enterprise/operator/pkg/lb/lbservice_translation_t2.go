@@ -541,30 +541,6 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHttpHTTPFilters(m
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
 	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
 
-	if model.usesHTTPRequestFiltering() {
-		// Only add the RBAC filter if there's at least one route that is using request filtering.
-		// The RBAC filter on the HCM provides support for overriding it per route
-		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
-			Name: "envoy.filters.http.rbac",
-			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
-			},
-		})
-	}
-
-	if model.usesHTTPRequestRateLimiting() {
-		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
-		// The filter on the HCM provides support for overriding it per route
-		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
-			Name: "envoy.filters.http.local_ratelimit",
-			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
-					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
-				}),
-			},
-		})
-	}
-
 	if model.usesHTTPBasicAuth() {
 		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 			Name: "envoy.filters.http.basic_auth",
@@ -585,6 +561,30 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpHTTPFilters(model *lbSer
 			Name: "envoy.filters.http.jwt_authn",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(r.toJWTAuthentication(model.namespace, model.name, httpTypeHTTP, model.applications.httpProxy.auth.jwtAuth)),
+			},
+		})
+	}
+
+	if model.usesHTTPRequestFiltering() {
+		// Only add the RBAC filter if there's at least one route that is using request filtering.
+		// The RBAC filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.rbac",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
+			},
+		})
+	}
+
+	if model.usesHTTPRequestRateLimiting() {
+		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
+		// The filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.local_ratelimit",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
+					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
+				}),
 			},
 		})
 	}
@@ -948,30 +948,6 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHTTPSHCM(model *lbService) *
 func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbService) []*envoy_extensions_filters_network_hcm_v3.HttpFilter {
 	httpFilters := []*envoy_extensions_filters_network_hcm_v3.HttpFilter{}
 
-	if model.usesHTTPSRequestFiltering() {
-		// Only add the RBAC filter if there's at least one route that is using request filtering.
-		// The RBAC filter on the HCM provides support for overriding it per route
-		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
-			Name: "envoy.filters.http.rbac",
-			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
-			},
-		})
-	}
-
-	if model.usesHTTPSRequestRateLimiting() {
-		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
-		// The filter on the HCM provides support for overriding it per route
-		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
-			Name: "envoy.filters.http.local_ratelimit",
-			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
-					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
-				}),
-			},
-		})
-	}
-
 	if model.usesHTTPSBasicAuth() {
 		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
 			Name: "envoy.filters.http.basic_auth",
@@ -992,6 +968,30 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHttpsHTTPFilters(model *lbSe
 			Name: "envoy.filters.http.jwt_authn",
 			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(r.toJWTAuthentication(model.namespace, model.name, httpTypeHTTPS, model.applications.httpsProxy.auth.jwtAuth)),
+			},
+		})
+	}
+
+	if model.usesHTTPSRequestFiltering() {
+		// Only add the RBAC filter if there's at least one route that is using request filtering.
+		// The RBAC filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.rbac",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_rbac_v3.RBAC{}),
+			},
+		})
+	}
+
+	if model.usesHTTPSRequestRateLimiting() {
+		// Only add the LocalRateLimit filter if there's at least one route that is using request rate limiting.
+		// The filter on the HCM provides support for overriding it per route
+		httpFilters = append(httpFilters, &envoy_extensions_filters_network_hcm_v3.HttpFilter{
+			Name: "envoy.filters.http.local_ratelimit",
+			ConfigType: &envoy_extensions_filters_network_hcm_v3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_filters_http_localratelimit_v3.LocalRateLimit{
+					StatPrefix: fmt.Sprintf("%s_%s", model.namespace, model.name), // required attribute
+				}),
 			},
 		})
 	}
@@ -1322,17 +1322,17 @@ func (r *lbServiceT2Translator) desiredEnvoyHttpRouteVirtualHosts(usesRequestFil
 
 		for _, route := range modelRoutes[routeHostname] {
 			tpfc := map[string]*anypb.Any{}
-			if usesRequestFiltering {
-				tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
-			}
-			if usesRateLimiting {
-				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits, namespace, name))
-			}
 			if usesBasicAuth && route.auth != nil && route.auth.basicAuth != nil {
 				tpfc["envoy.filters.http.basic_auth"] = toAny(r.toHTTPRouteBasicAuthFilter(route.auth.basicAuth))
 			}
 			if usesJWTAuth && route.auth != nil && route.auth.jwtAuth != nil {
 				tpfc["envoy.filters.http.jwt_authn"] = toAny(r.toHTTPRouteJWTAuthFilter(route.auth.jwtAuth))
+			}
+			if usesRequestFiltering {
+				tpfc["envoy.filters.http.rbac"] = toAny(r.toHTTPRouteRBACFilter(route.requestFiltering))
+			}
+			if usesRateLimiting {
+				tpfc["envoy.filters.http.local_ratelimit"] = toAny(r.toHTTPRateLimitFilter(route.rateLimits, namespace, name))
 			}
 
 			envoyRoutes = append(envoyRoutes, &envoy_config_route_v3.Route{
