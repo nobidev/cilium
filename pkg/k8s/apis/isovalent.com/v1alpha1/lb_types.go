@@ -1303,6 +1303,7 @@ const (
 )
 
 const (
+	ConditionTypeServiceValid       = "lb.cilium.io/ServiceValid"
 	ConditionTypeIPAssigned         = "lb.cilium.io/IPAssigned"
 	ConditionTypeLBDeploymentsUsed  = "lb.cilium.io/LBDeploymentsUsed"
 	ConditionTypeNodesAssigned      = "lb.cilium.io/NodesAssigned"
@@ -1313,6 +1314,11 @@ const (
 	ConditionTypeSecretsCompatible  = "lb.cilium.io/SecretsCompatible"
 	ConditionTypeK8sServiceExist    = "lb.cilium.io/K8sServiceExist"
 	ConditionTypeEPSlicesExist      = "lb.cilium.io/EndpointSliceExist"
+)
+
+const (
+	ServiceValidReasonValid                 = "ServiceValid"
+	ServiceValidReasonInvalidJWTAuthMissing = "ServiceInvalidJWTAuthMissing"
 )
 
 const (

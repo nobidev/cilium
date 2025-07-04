@@ -232,6 +232,9 @@ func (r *lbServiceReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 }
 
 func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) error {
+	// Validate LBService (in addition to CRD validation)
+	r.updateJWTAuthInStatus(lbsvc)
+
 	//
 	// Load dependent resources that have relevant input for the model
 	//
@@ -759,6 +762,46 @@ func (r *lbServiceReconciler) enqueueAllLBServices(onlySameNamespace bool) handl
 
 		return result
 	})
+}
+
+func (*lbServiceReconciler) updateJWTAuthInStatus(lbsvc *isovalentv1alpha1.LBService) {
+	condition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeServiceValid,
+		Status:             metav1.ConditionTrue,
+		Reason:             isovalentv1alpha1.ServiceValidReasonValid,
+		Message:            "Service is valid",
+		ObservedGeneration: lbsvc.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	var httpGlobalAuth *isovalentv1alpha1.LBServiceHTTPAuth
+	var httpRoutes []isovalentv1alpha1.LBServiceHTTPRoute
+
+	if lbsvc.Spec.Applications.HTTPProxy != nil {
+		httpGlobalAuth = lbsvc.Spec.Applications.HTTPProxy.Auth
+		httpRoutes = lbsvc.Spec.Applications.HTTPProxy.Routes
+	} else if lbsvc.Spec.Applications.HTTPSProxy != nil {
+		httpGlobalAuth = lbsvc.Spec.Applications.HTTPSProxy.Auth
+		httpRoutes = lbsvc.Spec.Applications.HTTPSProxy.Routes
+	}
+
+	globalJWTAuthConfigured := httpGlobalAuth != nil && httpGlobalAuth.JWT != nil
+
+	for _, route := range httpRoutes {
+		routeJWTAuthConfigured := route.Auth != nil && route.Auth.JWT != nil
+
+		if route.RequestFiltering != nil {
+			for _, rule := range route.RequestFiltering.Rules {
+				if rule.JWTClaims != nil && !globalJWTAuthConfigured && !routeJWTAuthConfigured {
+					condition.Status = metav1.ConditionFalse
+					condition.Reason = isovalentv1alpha1.ServiceValidReasonInvalidJWTAuthMissing
+					condition.Message = "One or more HTTP routes use JWT claim requestfiltering without configured JWT authentication"
+				}
+			}
+		}
+	}
+
+	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeServiceValid, condition)
 }
 
 func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
