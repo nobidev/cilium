@@ -121,6 +121,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             sha="${{ inputs.SHA }}"
+          elif [ "${{ github.event_name }}" == 'schedule' ]; then
+            sha="${{ github.sha }}"
           else
             sha="${{ github.event.pull_request.head.sha }}"
           fi
