@@ -70,7 +70,7 @@ features:
       enterprise.multiNetwork.enabled: true
 
   DNSProxyHA:
-    maturity: Limited
+    maturity: Stable
     description:
       Enables external DNS proxy for high availability
     flags:

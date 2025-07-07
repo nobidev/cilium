@@ -164,7 +164,6 @@ jobs:
             ${CILIUM_BASE_INSTALL} \
             --chart-directory=./untrusted/cilium-newest/install/kubernetes/cilium \
             --helm-set=enterprise.featureGate.strict=true \
-            --helm-set='enterprise.featureGate.approved={DNSProxyHA}' \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.tag=${SHA} \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
