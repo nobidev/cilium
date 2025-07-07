@@ -1,4 +1,5 @@
 {{- if and
+  (eq (include "cilium.vector.enabled" .) "true")
   .Values.hubble.timescape.vector.metrics.enabled
   .Values.hubble.timescape.vector.metrics.serviceMonitor.enabled
 }}
@@ -15,7 +16,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.hubble.timescape.vector.metrics.serviceMonitor.annotations }}
-  annotations:    
+  annotations:
       {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:

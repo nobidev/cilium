@@ -91,30 +91,37 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 
 # For cilium version <1.16 we enable export to /var/run/cilium/hubble by
 # default.
-{{- if semverCompare "<1.16" (default "1.16" .Values.upgradeCompatibility)}}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
+{{- if semverCompare "<1.16" (default "1.16" .Values.upgradeCompatibility) }}
+{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log" }}
 {{- end }}
 
 # If integrated Timescape is enabled we enable export and export aggregation by
 # default. If the export-file-path is set by the user we do not enable export
 # aggregation by default to not change the existing behavior.
-{{- if and .Values.hubble.timescape.enabled (or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path")))}}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
+{{- if and
+  .Values.hubble.timescape.enabled
+  (not .Values.hubble.timescape.useStreamAPI)
+  (or
+    (not .Values.extraConfig)
+    (empty (get .Values.extraConfig "export-file-path"))
+  )
+}}
+{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log" }}
 {{- $defaultExportAggregation = "connection" }}
 {{- $defaultExportAggregationStateFilter = "new error" }}
 {{- $defaultExportAggregationRenewTTL = "false" }}
 {{- end }}
 
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
+{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-file-path")) }}
 export-file-path: {{ $defaultExportFilePath | quote }}
 {{- end }}
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation"))}}
+{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation")) }}
 export-aggregation: {{ $defaultExportAggregation | quote }}
 {{- end }}
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation-state-filter"))}}
+{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation-state-filter")) }}
 export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
 {{- end }}
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation-renew-ttl"))}}
+{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation-renew-ttl")) }}
 export-aggregation-renew-ttl: {{ $defaultExportAggregationRenewTTL | quote }}
 {{- end }}
 
@@ -148,9 +155,35 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- end }}
 {{- end }}
 
-{{- if .Values.hubble.export.timescape.enabled }}
+# If integrated Timescape and the experimental Stream API are enabled, we enable
+# the Hubble timescape exporter and export aggregation by default.
+{{- $defaultExportTimescapeEnabled := .Values.hubble.export.timescape.enabled }}
+{{- $defaultExportTimescapeTarget := .Values.hubble.export.timescape.target }}
+{{- $defaultExportTimescapeAggregation := .Values.hubble.export.timescape.aggregation }}
+{{- $defaultExportTimescapeAggregationStateFilter := .Values.hubble.export.timescape.aggregationStateFilter }}
+{{- $defaultExportTimescapeAggregationRenewTTL := .Values.hubble.export.timescape.aggregationRenewTTL }}
+{{- $defaultExportTimescapeTLSEnabled := .Values.hubble.export.timescape.tls.enabled }}
+{{- $defaultExportTimescapeTLSCAOverriden := not (.Values.hubble.export.timescape.tls.ca.configMap.name | empty) }}
+
+{{- if and .Values.hubble.timescape.enabled .Values.hubble.timescape.useStreamAPI }}
+{{- $targetNamespace := (include "cilium.namespace" .) }}
+{{- if .Values.hubble.timescape.clustermesh.primary.namespace }}
+{{- $targetNamespace = .Values.hubble.timescape.clustermesh.primary.namespace }}
+{{- end }}
+{{- $defaultExportTimescapeEnabled = true }}
+{{- $defaultExportTimescapeTarget = printf "hubble-timescape.%s.svc.cluster.local.:4261" $targetNamespace }}
+{{- $defaultExportTimescapeAggregation = list "connection" }}
+{{- $defaultExportTimescapeAggregationStateFilter = list "new" "error" }}
+{{- $defaultExportTimescapeAggregationRenewTTL = "false" }}
+{{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+{{- $defaultExportTimescapeTLSEnabled = "true" }}
+{{- $defaultExportTimescapeTLSCAOverriden = "true" }}
+{{- end }}
+{{- end }}
+
+{{- if $defaultExportTimescapeEnabled }}
 hubble-export-timescape-enabled: "true"
-{{- with .Values.hubble.export.timescape.target }}
+{{- with $defaultExportTimescapeTarget }}
 hubble-export-timescape-target: {{ . | quote }}
 {{- end }}
 {{- with .Values.hubble.export.timescape.allowList }}
@@ -165,16 +198,16 @@ hubble-export-timescape-fieldmask: {{ . | join " " | quote }}
 {{- with .Values.hubble.export.timescape.nodeName }}
 hubble-export-timescape-node-name: {{ . | quote }}
 {{- end }}
-{{- with .Values.hubble.export.timescape.aggregation }}
+{{- with $defaultExportTimescapeAggregation }}
 hubble-export-timescape-aggregation: {{ . | join " " | quote }}
 {{- end }}
 {{- with .Values.hubble.export.timescape.aggregationIgnoreSourcePort }}
 hubble-export-timescape-aggregation-ignore-source-port: {{ . | quote }}
 {{- end }}
-{{- with .Values.hubble.export.timescape.aggregationRenewTTL }}
+{{- with $defaultExportTimescapeAggregationRenewTTL }}
 hubble-export-timescape-aggregation-renew-ttl: {{ . | quote }}
 {{- end }}
-{{- with .Values.hubble.export.timescape.aggregationStateFilter }}
+{{- with $defaultExportTimescapeAggregationStateFilter }}
 hubble-export-timescape-aggregation-state-filter: {{ . | join " " | quote }}
 {{- end }}
 {{- with .Values.hubble.export.timescape.aggregationTTL }}
@@ -186,14 +219,14 @@ hubble-export-timescape-max-buffer-size: {{ . | quote }}
 {{- with .Values.hubble.export.timescape.reportDroppedFlowsInterval }}
 hubble-export-timescape-report-dropped-flows-interval: {{ . | quote }}
 {{- end }}
-{{- with .Values.hubble.export.timescape.tls.enabled }}
+{{- with $defaultExportTimescapeTLSEnabled }}
 hubble-export-timescape-tls-enabled: {{ . | quote }}
 {{- end }}
 {{- if .Values.hubble.export.timescape.tls.mtls.enabled }}
 hubble-export-timescape-tls-cert-file: /var/lib/cilium/tls/hubble-export-timescape/client.crt
 hubble-export-timescape-tls-key-file: /var/lib/cilium/tls/hubble-export-timescape/client.key
 {{- end }}
-{{- if .Values.hubble.export.timescape.tls.ca.configMap.name }}
+{{- if $defaultExportTimescapeTLSCAOverriden }}
 hubble-export-timescape-tls-ca-files: /var/lib/cilium/tls/hubble-export-timescape/client-ca.crt
 {{- end }}
 {{- end }}

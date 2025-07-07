@@ -20,7 +20,10 @@ Allow packagers to set dnsPolicy for cilium-agent.
 {{- define "cilium-agent.dnsPolicy" }}
 {{- if .Values.dnsPolicy }}
 dnsPolicy: {{ .Values.dnsPolicy }}
-{{- else if .Values.hubble.export.timescape.enabled }}
+{{- else if or
+  .Values.hubble.export.timescape.enabled
+  (and .Values.hubble.timescape.enabled .Values.hubble.timescape.useStreamAPI)
+}}
 # When Timescape export is enabled, cilium-agent needs to be able to resolve
 # the Timescape service name. Since cilium-agent runs with hostNetwork: true,
 # we need to set dnsPolicy to ClusterFirstWithHostNet.

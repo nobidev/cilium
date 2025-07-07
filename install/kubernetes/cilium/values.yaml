@@ -2268,6 +2268,13 @@ hubble:
         enabled: false
         # -- The interval at which the K8s Importer should flush k8s events to the database.
         flushInterval: "5s"
+      streamAPI:
+        # -- The interval at which the Stream API should flush flows to the database.
+        flushInterval: "5s"
+    # -- Use experimental Stream API for Hubble Timescape.
+    # This automatically enables the Hubble Timescape exporter in Cilium and the
+    # Stream API in Hubble Timescape.
+    useStreamAPI: false
     image:
       # @schema
       # type: [null, string]

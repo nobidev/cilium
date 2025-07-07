@@ -31,7 +31,7 @@ metadata:
   name: {{ .Values.hubble.timescape.clustermesh.primary.namespace }}
 {{- end }}
 ---
-# Service exposing the Timescape server and ingester push API
+# Service exposing the Timescape server and ingester push/stream API
 apiVersion: v1
 kind: Service
 metadata:
@@ -56,6 +56,10 @@ spec:
       name: push
       targetPort: push
       port: 4260
+    - protocol: TCP
+      name: stream
+      targetPort: stream
+      port: 4261
     - protocol: TCP
       name: grpc
       port: {{ eq (include "hubble.timescape.tls.enabled" .) "true" | ternary 443 80 }}
@@ -225,6 +229,9 @@ spec:
               protocol: TCP
             - name: push
               containerPort: 4260
+              protocol: TCP
+            - name: stream
+              containerPort: 4261
               protocol: TCP
             {{- if .Values.hubble.timescape.ui.enabled }}
             - name: ui

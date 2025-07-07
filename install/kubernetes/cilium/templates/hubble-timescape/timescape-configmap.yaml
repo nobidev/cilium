@@ -50,9 +50,16 @@ data:
       enable-fgs-events-ingestion: false
       enable-k8s-events-ingestion: true
       report-interval: 60s
+      enable-stream-api: true
+      stream-api-flush-interval: {{ .Values.hubble.timescape.ingester.streamAPI.flushInterval }}
       enable-push-api: true
       push-api-listen-address: :4260
       {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+      stream-api-tls-enabled: true
+      stream-api-tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
+      stream-api-tls-key-file: /var/lib/hubble-timescape/tls/server.key
+      stream-api-tls-client-ca-files:
+        - /var/lib/hubble-timescape/tls/ca.crt
       push-api-tls-enabled: true
       push-api-tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
       push-api-tls-key-file: /var/lib/hubble-timescape/tls/server.key

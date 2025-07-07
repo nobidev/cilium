@@ -4317,6 +4317,14 @@
                     }
                   },
                   "type": "object"
+                },
+                "streamAPI": {
+                  "properties": {
+                    "flushInterval": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"
@@ -4740,6 +4748,9 @@
                 }
               },
               "type": "object"
+            },
+            "useStreamAPI": {
+              "type": "boolean"
             },
             "vector": {
               "properties": {
