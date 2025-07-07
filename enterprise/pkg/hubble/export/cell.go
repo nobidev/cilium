@@ -38,6 +38,8 @@ var Cell = cell.Module(
 	"enterprise-hubble-exporter",
 	"Hubble Enterprise flow log exporter",
 
+	timescapeExporterCell,
+
 	cell.ProvidePrivate(newMetricsHandler),
 	cell.ProvidePrivate(newMergedConfig),
 	cell.Provide(newHubbleEnterpriseExporter),
