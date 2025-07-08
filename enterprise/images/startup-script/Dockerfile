@@ -10,7 +10,7 @@
 
 # based on https://github.com/cilium/image-tools/blob/master/images/startup-script/Dockerfile
 
-ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:f172b3082a3d1bbe789a1057f03883c1113243564f01cd3020e27548b911d3f8
+ARG BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal@sha256:383329bf9c4f968e87e85d30ba3a5cb988a3bbde28b8e4932dcd3a025fd9c98c
 ARG UPSTREAM_VERSION=c54c7edeab7fde4da68e59acd319ab24af242c3f@sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c
 
 FROM quay.io/cilium/startup-script:${UPSTREAM_VERSION} AS manage-script-getter
