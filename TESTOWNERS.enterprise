@@ -352,6 +352,7 @@
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-close-fixed-issues.yaml @isovalent/backporters
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
+/.github/workflows/enterprise-codeql.yaml @isovalent/security
 /.github/workflows/enterprise-container-scan.yaml @isovalent/security
 /.github/workflows/enterprise-*egress-gateway*.yaml @isovalent/egress-gateway
 /.github/workflows/enterprise-*fqdn-ha*.yaml @isovalent/dns-proxy
