@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Copyright (C) Isovalent, Inc. - All Rights Reserved.
+
+# This script generates the bundle manifests and populates the Red Hat certified operators repository with them
+# CL_TAG: the tag use ford the release version
+# CL_RH_REPO: the location of the Red Hat repository
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+if [ -z "${CL_TAG+x}" ] ; then
+  echo "CL_TAG, containing the release version number, must be provided"
+  exit 1
+fi
+tag="${CL_TAG}"
+echo "tag: ${tag}"
+rh_repo="${CL_RH_REPO}"
+echo "Red Hat certified operators repo: ${rh_repo}"
+root_dir=$(git rev-parse --show-toplevel)
+
+# Generate manifests
+export CL_IS_CI=false
+export CL_TAG=$tag
+export CL_REGISTRY=quay.io/isovalent
+export IMG=${CL_REGISTRY}/clife:${tag}
+export USE_IMAGE_DIGESTS=true
+make manifests
+make set-images
+make bundle
+
+mkdir -p "${rh_repo}/operators/isovalent-networking/${tag}"
+cp -R ${root_dir}/enterprise/olm/bundle/manifests "${rh_repo}/operators/isovalent-networking/${tag}/"
+cp -R ${root_dir}/enterprise/olm/bundle/metadata "${rh_repo}/operators/isovalent-networking/${tag}/"
+printf "\n  # Red Hat annotations\n  com.redhat.openshift.versions: \"v4.14\"" >> "${rh_repo}/operators/isovalent-networking/${tag}/metadata/annotations.yaml"
+
+echo "Bundle manifests and metadata added"
+

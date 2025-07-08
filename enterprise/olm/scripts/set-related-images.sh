@@ -138,13 +138,6 @@ get_digest "${registry}/operator-generic${suffix}" "${tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-OPERATOR\",\"value\":\"${registry}/operator-generic${suffix}:${tag}@${digest}\"}"
-# clife
-echo "Process clife"
-echo "get digest: ${registry}/clife${suffix} ${tag}"
-get_digest "${registry}/clife" "${tag}"
-digest=${get_digest_result}
-echo "digest: ${digest}"
-related_imgs+="{\"name\": \"RELATED_IMAGE_CLIFE\",\"value\":\"${registry}/clife:${tag}@${digest}\"},"
 
 related_imgs+="]"
 # the deployment is the second document in the manifest file

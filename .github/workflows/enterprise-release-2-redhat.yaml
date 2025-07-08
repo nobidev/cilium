@@ -1,0 +1,153 @@
+name: Publish release to Red Hat catalogs
+run-name: Publish the ${{ inputs.version }} release to Red Hat catalogs
+
+# This workflow:
+# - Run the preflight checks for the component images and publish the results to Red Hat
+# - Create a pull request with the required manifests for publishing a new bundle against Red Hat repository for certified operators
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The release version, also git tag, e.g. v1.17.5-cee.1"
+        required: true
+      submit:
+        description: "Whether results are to be submitted to Red Hat"
+        required: true
+        default: 'false'
+        type: choice
+        options:
+         - 'true'
+         - 'false'
+
+permissions:
+  # To be able to access the repository with actions/checkout.
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider.
+  id-token: write
+
+env:
+  OPERATOR_NAME: isovalent-networking
+  PR_BRANCH: pr/isovalent-networking/${{ inputs.version }}
+
+jobs:
+  publish-to-redhat:
+    name: Publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+      - name: Checkout Cilium
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          path: cilium
+
+      - name: Run preflight checks and publish results
+        env:
+          CL_TAG: "${{ inputs.version }}"
+          CL_PYXIS_TOKEN: "${{ secrets.RH_API_PYXIS_TOKEN }}"
+          CL_SUBMIT: "${{ inputs.submit }}"
+        working-directory: ${{ github.workspace }}/cilium/enterprise/olm
+        run: |
+          ./scripts/publish-img-checks-to-redhat.sh
+
+      - name: Get Isovalent Bot Token (Operator PR)
+        uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3.3.0
+        with:
+          url: ${{ vars.VAULT_URL }}
+          method: jwt
+          namespace: ${{ github.repository_owner }}/github-actions
+          secrets: |
+            secret/data/release-mgmt/${{ github.repository_owner }} isovalent_bot_token  | CERTIFIED_OPERATORS_PR_TOKEN;
+
+      - name: Checkout certified-operators
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: redhat-openshift-ecosystem/certified-operators
+          token: ${{ env.CERTIFIED_OPERATORS_PR_TOKEN }}
+          path: certified-operators
+
+      - name: Create and Sync the fork
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ env.CERTIFIED_OPERATORS_PR_TOKEN }}
+          script: |
+            const { data: fork } = await github.rest.repos.createFork({
+              owner: 'isovalent-bot',
+              repo: 'certified-operators',
+              default_branch_only: true,
+            });
+
+            await github.rest.repos.mergeUpstream({
+              owner: 'isovalent-bot',
+              repo: 'certified-operators',
+              branch: fork.default_branch,
+            });
+            core.exportVariable('DOWNSTREAM_REPO_URL', fork.clone_url);
+            core.exportVariable('UPSTREAM_DEFAULT_BRANCH', fork.default_branch);
+
+      - name: Configure Fork
+        working-directory: ${{ github.workspace }}/certified-operators
+        run: |
+          git remote get-url upstream || \
+          git remote rename origin upstream && \
+          git remote add origin ${DOWNSTREAM_REPO_URL}
+          git remote -v
+
+      - name: Create PR branch
+        working-directory: ${{ github.workspace }}/certified-operators
+        run: |
+          git checkout -b ${PR_BRANCH}
+
+      - name: Generate bundle
+        env:
+          CL_TAG: "${{ inputs.version }}"
+          CL_RH_REPO: ${{ github.workspace }}/certified-operators
+        working-directory: ${{ github.workspace }}/cilium/enterprise/olm
+        run: |
+          ./scripts/generate-bundle-4-redhat.sh
+
+      - name: Generate release-config.yaml
+        env:
+          CL_TAG: "${{ inputs.version }}"
+          CL_RH_REPO: ${{ github.workspace }}/certified-operators
+        working-directory: ${{ github.workspace }}/cilium/enterprise/olm
+        run: |
+          ./scripts/generate-release-cfg-4-redhat.sh
+
+      - name: Push Bundle to certified-operators
+        working-directory: ${{ github.workspace }}/certified-operators
+        id: push-bundle
+        run: |
+          git config --global user.email "isovalent-operator[bot]@users.noreply.github.com"
+          git config --global user.name "isovalent-operator[bot]"
+
+          # Commit and push
+          COMMIT_MESSAGE="Add operator ${OPERATOR_NAME} ${{ inputs.version }}"
+          git add operators
+          git commit -m "${COMMIT_MESSAGE}"
+          git push -u origin ${PR_BRANCH}
+
+          # Set title and body
+          echo "title=${COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
+          PULL_REQUEST_MESSAGE="Created by the *${{ github.job }}* for ${OPERATOR_NAME} ${{ inputs.version }}."
+          echo "body=${PULL_REQUEST_MESSAGE}" >> $GITHUB_OUTPUT
+
+      - name: Create PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ env.CERTIFIED_OPERATORS_PR_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: 'redhat-openshift-ecosystem',
+              repo: 'certified-operators',
+              head: 'isovalent-bot:${{ env.PR_BRANCH }}',
+              base: '${{ env.UPSTREAM_DEFAULT_BRANCH }}',
+              body: '${{ steps.push-bundle.outputs.body }}',
+              title: '${{ steps.push-bundle.outputs.title }}',
+            });
+
+            console.log(`PR created: ${pr.html_url}`);
