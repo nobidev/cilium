@@ -48,12 +48,12 @@ for f in "$dashboards_dir"/*.yaml; do
   name="perses-${basename%.*}"
 
   kubectl create configmap "$name" \
-    --namespace ${MONITORING_NAMESPACE} \
+    --namespace ${MONITORING_NS} \
     --from-file="$f" || \
     echo "There was already a ConfigMap named $name"
 
   kubectl label configmap "$name" \
-    --namespace ${MONITORING_NAMESPACE} \
+    --namespace ${MONITORING_NS} \
     --overwrite \
     perses.dev/resource=true
 done
