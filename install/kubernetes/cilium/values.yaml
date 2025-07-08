@@ -2117,7 +2117,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.7.1
+      tag: v1.7.2
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -2334,7 +2334,7 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/hubble-timescape-ui
-        tag: "v1.7.1"
+        tag: "v1.7.2"
         pullPolicy: IfNotPresent
       securityContext:
         # readOnlyRootFilesystem: true
@@ -2418,7 +2418,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.7.1"
+      tag: "v1.7.2"
       digest: ""
       useDigest: false
       pullPolicy: "Always"
@@ -2467,7 +2467,7 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.10.2
+      tag: v1.10.3
       digest: ""
       useDigest: false
       pullPolicy: "Always"
