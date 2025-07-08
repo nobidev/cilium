@@ -239,7 +239,8 @@ func NewEgressGatewayManager(p Params) (out struct {
 	*Manager
 	defines.NodeOut
 	tunnel.EnablerOut
-}, err error) {
+}, err error,
+) {
 	dcfg := p.DaemonConfig
 
 	if !dcfg.EnableIPv4EgressGatewayHA {
@@ -534,7 +535,7 @@ func (manager *Manager) deletePolicyByID(tx statedb.WriteTxn, id types.Namespace
 	if err != nil {
 		manager.logger.Error("BUG: could not delete policy",
 			logfields.Error, err,
-			logfields.ID, id.String())
+			logfields.ID, id)
 		return deleted
 	}
 	return deleted
