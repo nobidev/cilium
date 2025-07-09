@@ -4291,6 +4291,9 @@
               },
               "type": "object"
             },
+            "logLevel": {
+              "type": "string"
+            },
             "metrics": {
               "properties": {
                 "clickhouse": {
@@ -4361,40 +4364,6 @@
                         "null",
                         "string"
                       ]
-                    },
-                    "ui": {
-                      "properties": {
-                        "interval": {
-                          "type": "string"
-                        },
-                        "metricRelabelings": {
-                          "type": [
-                            "null",
-                            "array"
-                          ]
-                        },
-                        "relabelings": {
-                          "type": [
-                            "null",
-                            "array"
-                          ]
-                        },
-                        "scrapeTimeout": {
-                          "type": [
-                            "null",
-                            "string"
-                          ]
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                },
-                "ui": {
-                  "properties": {
-                    "enabled": {
-                      "type": "boolean"
                     }
                   },
                   "type": "object"
@@ -4550,6 +4519,18 @@
                     },
                     "oidc": {
                       "properties": {
+                        "clientAssertionFile": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "clientAssertionType": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
                         "clientID": {
                           "type": [
                             "null",
@@ -4566,6 +4547,13 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "extraFields": {
+                          "items": {},
+                          "type": "array"
+                        },
+                        "idTokenUserClaim": {
+                          "type": "string"
                         },
                         "issuerCA": {
                           "properties": {
@@ -4597,6 +4585,22 @@
                             "null",
                             "string"
                           ]
+                        },
+                        "scopes": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -4617,32 +4621,6 @@
                 },
                 "enabled": {
                   "type": "boolean"
-                },
-                "image": {
-                  "properties": {
-                    "digest": {
-                      "type": "string"
-                    },
-                    "override": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "pullPolicy": {
-                      "type": "string"
-                    },
-                    "repository": {
-                      "type": "string"
-                    },
-                    "tag": {
-                      "type": "string"
-                    },
-                    "useDigest": {
-                      "type": "boolean"
-                    }
-                  },
-                  "type": "object"
                 },
                 "ingress": {
                   "properties": {
@@ -4675,40 +4653,54 @@
                   },
                   "type": "object"
                 },
-                "resources": {
-                  "type": "object"
-                },
-                "securityContext": {
+                "route": {
                   "properties": {
-                    "allowPrivilegeEscalation": {
-                      "type": "boolean"
+                    "additionalRules": {
+                      "items": {},
+                      "type": "array"
                     },
-                    "capabilities": {
-                      "properties": {
-                        "drop": {
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              }
-                            ]
-                          },
-                          "type": "array"
-                        }
-                      },
+                    "annotations": {
                       "type": "object"
                     },
-                    "privileged": {
+                    "enabled": {
                       "type": "boolean"
                     },
-                    "runAsGroup": {
-                      "type": "integer"
+                    "filters": {
+                      "items": {},
+                      "type": "array"
                     },
-                    "runAsNonRoot": {
-                      "type": "boolean"
+                    "hostnames": {
+                      "items": {},
+                      "type": "array"
                     },
-                    "runAsUser": {
-                      "type": "integer"
+                    "labels": {
+                      "type": "object"
+                    },
+                    "matches": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "path": {
+                                "properties": {
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "parentRefs": {
+                      "items": {},
+                      "type": "array"
                     }
                   },
                   "type": "object"

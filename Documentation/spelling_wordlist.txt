@@ -98,6 +98,7 @@ Netronome
 NewProto
 Nic
 O'Reilly
+OAuth
 PaaS
 Palantir
 Pepelnjak
@@ -237,6 +238,7 @@ classid
 cleanBpfState
 cli
 clickhouse
+clientAssertionType
 clientsets
 cls
 clusterIP

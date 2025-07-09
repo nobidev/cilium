@@ -78,12 +78,6 @@ spec:
       targetPort: ch-metrics
       protocol: TCP
     {{- end }}
-    {{- if and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled }}
-    - name: ui-metrics
-      port: 9091
-      targetPort: ui-metrics
-      protocol: TCP
-    {{- end }}
   selector:
     k8s-app: hubble-timescape
     app.kubernetes.io/name: hubble-timescape
@@ -204,13 +198,35 @@ spec:
           env:
             - name: HUBBLE_TIMESCAPE_DSN
               value: "clickhouse://localhost:9000/hubble?dial_timeout=10s"
+          {{- if and .Values.hubble.timescape.ui.enabled (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
+          {{- if not .Values.hubble.timescape.ui.auth.oidc.clientAssertionFile }}
+            - name: HUBBLE_TIMESCAPE_UI__OAUTH2__OIDC__CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretName }}
+                  key:  {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretKey }}
+          {{- end }}
+            - name: HUBBLE_TIMESCAPE_UI__SESSION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hubble.timescape.ui.auth.sessionKey.secretName }}
+                  key:  {{ .Values.hubble.timescape.ui.auth.sessionKey.secretKey }}
+          {{- end }}
           ports:
+            - name: health-grpc
+              containerPort: 8083
+              protocol: TCP
             - name: server-grpc
               containerPort: 4244
               protocol: TCP
             - name: push
               containerPort: 4260
               protocol: TCP
+            {{- if .Values.hubble.timescape.ui.enabled }}
+            - name: ui
+              containerPort: 8080
+              protocol: TCP
+            {{- end }}
             {{- if .Values.hubble.timescape.metrics.enabled }}
             - name: metrics
               containerPort: 9090
@@ -248,55 +264,6 @@ spec:
         {{- . | nindent 8}}
         {{- end }}
         {{- end }}
-        {{- if .Values.hubble.timescape.ui.enabled }}
-        - name: ui
-          securityContext: {{- toYaml .Values.hubble.timescape.ui.securityContext | nindent 12 }}
-          image: {{ include "cilium.image" .Values.hubble.timescape.ui.image | quote }}
-          imagePullPolicy: {{ .Values.hubble.timescape.ui.image.pullPolicy }}
-          terminationMessagePolicy: FallbackToLogsOnError
-          command:
-            - /usr/bin/hubble-timescape-ui
-          args:
-            - serve
-          {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
-          env:
-            - name: HUBBLE_TIMESCAPE_UI_OAUTH2__OIDC__CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretName }}
-                  key:  {{ .Values.hubble.timescape.ui.auth.oidc.clientSecret.secretKey }}
-            - name: HUBBLE_TIMESCAPE_UI_SESSION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.hubble.timescape.ui.auth.sessionKey.secretName }}
-                  key:  {{ .Values.hubble.timescape.ui.auth.sessionKey.secretKey }}
-          {{- end }}
-          ports:
-            - name: ui
-              containerPort: 8000
-            {{- if .Values.hubble.timescape.metrics.ui.enabled }}
-            - name: ui-metrics
-              containerPort: 9091
-            {{- end }}
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: ui
-              scheme: HTTP
-            initialDelaySeconds: 0
-            timeoutSeconds: 1
-          resources:
-            {{- toYaml .Values.hubble.timescape.ui.resources | nindent 12 }}
-          volumeMounts:
-          - mountPath: /etc/hubble-timescape-ui
-            name: ui-config
-            readOnly: true
-          {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-          - mountPath: /var/lib/hubble-timescape/tls
-            name: tls
-            readOnly: true
-          {{- end }}
-        {{- end }}
       volumes:
       - name: config
         configMap:
@@ -304,14 +271,6 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
-      {{- if .Values.hubble.timescape.ui.enabled }}
-      - name: ui-config
-        configMap:
-          name: hubble-timescape-ui-config
-          items:
-          - key: config.yaml
-            path: config.yaml
-      {{- end }}
       {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
       - name: tls
         projected:
@@ -354,21 +313,18 @@ spec:
             path: hubble-oidc-provider-ca.pem
       {{- end }}
       {{- end }}
-
       - name: clickhouse-config
         configMap:
           name: hubble-timescape-clickhouse-settings
           items:
           - key: clickhouse-settings.xml
             path: clickhouse-settings.xml
-
       - name: clickhouse-profile
         configMap:
           name: hubble-timescape-clickhouse-settings
           items:
           - key: clickhouse-profiles.xml
             path: clickhouse-profiles.xml
-
       - name: clickhouse-user
         configMap:
           name: hubble-timescape-clickhouse-settings
@@ -517,7 +473,7 @@ metadata:
   labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
 data:
   config.yaml: |
-    debug: false
+    log-level: {{ .Values.hubble.timescape.logLevel | quote }}
     {{- if .Values.hubble.timescape.metrics.enabled }}
     prometheus-serve-addr: ":9090"
     {{- end }}
@@ -532,6 +488,7 @@ data:
     use-distributed-ddl: false
     enable-clickhouse-server-logs: false
     log-query-progress: false
+    health-listen-address: ":8083"
     server:
       {{- if .Values.hubble.rbac.enabled }}
       listen-address: localhost:4244
@@ -565,74 +522,78 @@ data:
       push-api-async-insert-max-data-size: 104857600
       filter-batch-size: 100
       filter-batch-window: 10s
+      enable-k8s-importer: false
     migrate:
       clickhouse-nodes-count: "0"
     trimmer:
       flows-count: {{ .Values.hubble.timescape.trimmer.flowsCount }}
       trim-interval: {{ printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes }}
       timeout: {{ .Values.hubble.timescape.trimmer.timeout | default (printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes) }}
+    enable-analyzer: false
+    enable-ui: {{ .Values.hubble.timescape.ui.enabled }}
+    {{- if .Values.hubble.timescape.ui.enabled }}
+    ui:
+      http-address: ":8080"
+      {{- if .Values.hubble.rbac.enabled }}
+      timescape-address: "localhost:4245"
+      {{- else }}
+      timescape-address: "localhost:4244"
+      {{- end }}
+      {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+      timescape-enable-tls: true
+      timescape-ca-files: /var/lib/hubble-timescape/tls/ca.crt
+      {{- else }}
+      timescape-enable-tls: false
+      {{- end }}
+      {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
+      oauth2:
+        enabled: true
+        oidc:
+          {{- $clientID := .Values.hubble.timescape.ui.auth.oidc.clientID | default .Values.hubble.rbac.auth.oidc.clientID }}
+          {{- if not $clientID }}
+          {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.clientID needs to be set when authentication is enabled." }}
+          {{- end }}
+          client-id: {{ $clientID }}
+          client-assertion-type: {{ .Values.hubble.timescape.ui.auth.oidc.clientAssertionType }}
+          client-assertion-file: {{ .Values.hubble.timescape.ui.auth.oidc.clientAssertionFile }}
+
+          {{- $issuerURL := .Values.hubble.timescape.ui.auth.oidc.issuerURL | default .Values.hubble.rbac.auth.oidc.issuerUrl }}
+          {{- if not $issuerURL }}
+          {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.issuerURL needs to be set when authentication is enabled." }}
+          {{- end }}
+          issuer-url: {{ $issuerURL }}
+          {{- $oidcRedirectURL := .Values.hubble.timescape.ui.auth.oidc.redirectURL }}
+          {{- if and (not $oidcRedirectURL) .Values.hubble.timescape.ui.ingress.enabled .Values.hubble.timescape.ui.ingress.hosts }}
+          {{- if .Values.hubble.timescape.ui.ingress.tls }}
+          {{- $oidcRedirectURL = printf "https://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
+          {{- else }}
+          {{- $oidcRedirectURL = printf "http://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
+          {{- end }}
+          {{- end }}
+          {{- if not $oidcRedirectURL }}
+          {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.redirectURL needs to be set to to URI_USED_TO_ACCESS_TIMESCAPE_UI/oauth2/callback, when authentication is enabled." }}
+          {{- end }}
+          redirect-url: {{ $oidcRedirectURL }}
+          scopes: {{- .Values.hubble.timescape.ui.auth.oidc.scopes | toYaml | nindent 10 }}
+          {{- if or .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+          issuer-ca: /var/lib/hubble-timescape/tls/oidc-provider-ca.pem
+          {{- end }}
+          id-token-user-claim: {{ .Values.hubble.timescape.ui.auth.oidc.idTokenUserClaim | quote }}
+          {{- with .Values.hubble.timescape.ui.auth.oidc.extraFields }}
+          {{- $extraFields := list }}
+          {{- range . }}
+            {{- if not .key }}
+            {{ fail "Invalid configuration, .Values.hubble.timescape.ui.auth.oidc.extraFields[].key is required and cannot be empty." }}
+            {{- end }}
+            {{- $extraField := printf "%s=%s" .key (.value | default "") }}
+            {{- $extraFields = append $extraFields $extraField }}
+          {{- end }}
+          extra-fields: {{ join "," $extraFields | quote }}
+          {{- end }}
+      {{- end }}
+    {{- end }}
+---
 {{- if .Values.hubble.timescape.ui.enabled }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hubble-timescape-ui-config
-  namespace: {{ include "cilium.namespace" . }}
-  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
-data:
-  config.yaml: |
-    http-address: ":8000"
-    {{- if .Values.hubble.timescape.metrics.ui.enabled }}
-    prometheus-serve-addr: ":9091"
-    {{- else }}
-    prometheus-serve-addr: ""
-    {{- end }}
-    pprof-address: "localhost"
-    pprof-port: "6061"
-    gops: true
-    gops-port: "9899"
-    {{- if .Values.hubble.rbac.enabled }}
-    timescape-address: "localhost:4245"
-    {{- else }}
-    timescape-address: "localhost:4244"
-    {{- end }}
-    {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-    timescape-enable-tls: true
-    timescape-ca-files: /var/lib/hubble-timescape/tls/ca.crt
-    {{- else }}
-    timescape-enable-tls: false
-    {{- end }}
-    {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
-    oauth2:
-      enabled: true
-      oidc:
-        {{- $clientID := .Values.hubble.timescape.ui.auth.oidc.clientID | default .Values.hubble.rbac.auth.oidc.clientID }}
-        {{- if not $clientID }}
-        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.clientID needs to be set when authentication is enabled." }}
-        {{- end }}
-        client-id: {{ $clientID }}
-        {{- $issuerURL := .Values.hubble.timescape.ui.auth.oidc.issuerURL | default .Values.hubble.rbac.auth.oidc.issuerUrl }}
-        {{- if not $issuerURL }}
-        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.issuerURL needs to be set when authentication is enabled." }}
-        {{- end }}
-        issuer-url: {{ $issuerURL }}
-        {{- $oidcRedirectURL := .Values.hubble.timescape.ui.auth.oidc.redirectURL }}
-        {{- if and (not $oidcRedirectURL) .Values.hubble.timescape.ui.ingress.enabled .Values.hubble.timescape.ui.ingress.hosts }}
-        {{- if .Values.hubble.timescape.ui.ingress.tls }}
-        {{- $oidcRedirectURL = printf "https://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
-        {{- else }}
-        {{- $oidcRedirectURL = printf "http://%s/oauth2/callback" (index .Values.hubble.timescape.ui.ingress.hosts 0) }}
-        {{- end }}
-        {{- end }}
-        {{- if not $oidcRedirectURL }}
-        {{ fail "Invalid configuration, .hubble.timescape.ui.auth.oidc.redirectURL needs to be set to to URI_USED_TO_ACCESS_TIMESCAPE_UI/oauth2/callback, when authentication is enabled." }}
-        {{- end }}
-        redirect-url: {{ $oidcRedirectURL }}
-        {{- if or .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
-        issuer-ca: /var/lib/hubble-timescape/tls/oidc-provider-ca.pem
-        {{- end }}
-    {{- end }}
----
 {{- if .Values.hubble.timescape.ui.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -663,6 +624,42 @@ spec:
                 port:
                   name: ui
   {{- end }}
+{{- end }}
+{{- if .Values.hubble.timescape.ui.route.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hubble-timescape-ui
+  namespace: {{ include "cilium.namespace" . }}
+  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
+  {{- with .Values.hubble.timescape.ui.route.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.hubble.timescape.ui.route.parentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.hubble.timescape.ui.route.hostnames }}
+  hostnames:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if .Values.hubble.timescape.ui.route.additionalRules }}
+    {{- tpl (toYaml .Values.hubble.timescape.ui.route.additionalRules) $ | nindent 4 }}
+    {{- end }}
+    - backendRefs:
+        - name: hubble-timescape
+          port: 8080
+      {{- with .Values.hubble.timescape.ui.route.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.timescape.ui.route.matches }}
+      matches:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

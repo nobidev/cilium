@@ -2205,6 +2205,9 @@ hubble:
   # -- Enables support for integrated Hubble Timescape.
   timescape:
     enabled: false
+    # -- Configure the log level.
+    # Valid values are: trace, debug, info, warn and error.
+    logLevel: info
     # -- Experimental support for using Hubble Timescape with clustermesh.
     # If enabled, all flow log will be sent to the `primary` Timescape instance.
     clustermesh:
@@ -2261,9 +2264,9 @@ hubble:
       # type: [null, string]
       # @schema
       override: ~
-      repository: quay.io/isovalent/hubble-timescape
-      tag: v1.7.5
-      digest: sha256:6614334b71a5a5431d8f06acbb9186c7275f109cec965e2be86158409dc977db
+      repository: quay.io/isovalent/hubble-timescape-lite
+      tag: v1.8.1
+      digest: sha256:d29ed064272a6d25b67f206b9716e334a13ae67e630542b32a1e46d6cae2df20
       useDigest: true
       pullPolicy: "Always"
     clickhouse:
@@ -2338,9 +2341,6 @@ hubble:
       clickhouse:
         # -- Enables exporting timescape clickhouse metrics in OpenMetrics format.
         enabled: true
-      ui:
-        # -- Enables exporting timescape ui metrics in OpenMetrics format.
-        enabled: true
       serviceMonitor:
         # -- Enable service monitor.
         # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -2387,24 +2387,6 @@ hubble:
           # type: [null, array]
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor (Clickhouse metrics)
-          metricRelabelings: ~
-        ui:
-          # -- Interval for scrape metrics (Timescape UI metrics)
-          interval: "10s"
-          # @schema
-          # type: [null, string]
-          # @schema
-          # -- Timeout after which scrape is considered to be failed (Timescape UI metrics)
-          scrapeTimeout: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Relabeling configs for the ServiceMonitor (Timescape UI metrics)
-          relabelings: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Metrics relabeling configs for the ServiceMonitor (Timescape UI metrics)
           metricRelabelings: ~
     vector:
       image:
@@ -2473,27 +2455,6 @@ hubble:
           metricRelabelings: ~
     ui:
       enabled: true
-      image:
-        # @schema
-        # type: [null, string]
-        # @schema
-        override: ~
-        repository: quay.io/isovalent/hubble-timescape-ui
-        tag: v1.7.5
-        digest: sha256:9221f1b911b8aa76112c7f791a465dc8fc7da10d0a4ac13a100223a67bd35d90
-        useDigest: true
-        pullPolicy: IfNotPresent
-      securityContext:
-        # readOnlyRootFilesystem: true
-        privileged: false
-        allowPrivilegeEscalation: false
-        runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        capabilities:
-          drop:
-            - ALL
-      resources: {}
       ingress:
         enabled: false
         annotations: {}
@@ -2507,6 +2468,26 @@ hubble:
         #  - secretName: chart-example-tls
         #    hosts:
         #      - chart-example.local
+      route:
+        # -- Whether to create a Gateway API 'HTTPRoute' resource.
+        enabled: false
+        # -- Labels to add to the route.
+        labels: {}
+        # -- Annotations to add to the route.
+        annotations: {}
+        # -- Parent references for the route.
+        parentRefs: []
+        # -- Hostnames for the route.
+        hostnames: []
+        # -- Additional rules for the route.
+        additionalRules: []
+        # -- Filters to apply to the route.
+        filters: []
+        # -- Path matches for the route.
+        matches:
+          - path:
+              type: PathPrefix
+              value: /
       auth:
         # @schema
         # type: [null, boolean]
@@ -2552,6 +2533,30 @@ hubble:
           clientSecret:
             secretName: hubble-timescape-ui
             secretKey: client-secret
+          # -- Client assertion type. Set to urn:ietf:params:oauth:client-assertion-type:jwt-bearer to use a JWT.
+          # @schema
+          # type: [null, string]
+          # @schema
+          clientAssertionType: ~
+          # -- The file containing the client assertion to use if clientAssertionType is set.
+          # @schema
+          # type: [null, string]
+          # @schema
+          clientAssertionFile: ~
+          # -- The OAuth2 scopes to send to the OIDC provider.
+          scopes: ["openid", "email", "offline_access"]
+          # -- OIDC user claim to extract from the id_token.
+          # The extracted value is used to uniquely identifier the user and perform
+          # authorization when RBAC is enabled.
+          idTokenUserClaim: email
+          # -- OIDC auth code redirect URL extra fields.
+          # Enrich the auth code redirect URL with extra fields in the query section.
+          # Such fields are sometimes required in environments that are using a non
+          # standard OIDC implementation.
+          extraFields: []
+          # extraFields:
+          #   - key: resource
+          #     value: example
   # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
   # The exporter is enabled by default when using integrated Hubble Timescape
   k8sExporter:
@@ -2565,8 +2570,8 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: v1.7.5
-      digest: sha256:6f1be8ccd1581e974208ea71fd03771298785dd1e19748b2e8921be26aeda0a4
+      tag: v1.8.1
+      digest: sha256:35dc2075221587365ab3930d7ad1029f07dff560cc705650b85d8d73846f4b18
       useDigest: true
       pullPolicy: "Always"
     # -- Specifies the resources for the hubble-k8s-exporter pods

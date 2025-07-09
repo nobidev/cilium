@@ -4,7 +4,6 @@
   (or
     .Values.hubble.timescape.metrics.enabled
     .Values.hubble.timescape.metrics.clickhouse.enabled
-    (and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled)
   )
   (or
     (not .Values.hubble.timescape.clustermesh.primary.id)
@@ -23,7 +22,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.hubble.timescape.metrics.serviceMonitor.annotations }}
-  annotations:    
+  annotations:
       {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
@@ -46,12 +45,6 @@ spec:
     {{- include "hubble.timescape.servicemonitor.endpoint" (dict
         "values" .Values.hubble.timescape.metrics.serviceMonitor.clickhouse
         "port" "ch-metrics"
-      ) | nindent 2 }}
-  {{- end }}
-  {{- if and .Values.hubble.timescape.ui.enabled .Values.hubble.timescape.metrics.ui.enabled }}
-    {{- include "hubble.timescape.servicemonitor.endpoint" (dict
-        "values" .Values.hubble.timescape.metrics.serviceMonitor.ui
-        "port" "ui-metrics"
       ) | nindent 2 }}
   {{- end }}
 {{- end }}
