@@ -1,5 +1,5 @@
 {{- if and
-  .Values.hubble.enabled 
+  .Values.hubble.enabled
   (eq (include "hubble.k8s-exporter.enabled" .) "true")
   .Values.serviceAccounts.hubbleK8sExporter.create
   .Values.rbac.create
@@ -27,6 +27,7 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumclusterwidenetworkpolicies
+  - ciliumidentities
   verbs:
   - get
   - list

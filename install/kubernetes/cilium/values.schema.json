@@ -4174,6 +4174,17 @@
             "affinity": {
               "type": "object"
             },
+            "analyzer": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "scheduleInterval": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "clickhouse": {
               "properties": {
                 "image": {

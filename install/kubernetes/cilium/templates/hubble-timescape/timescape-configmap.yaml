@@ -71,7 +71,11 @@ data:
       flows-count: {{ .Values.hubble.timescape.trimmer.flowsCount }}
       trim-interval: {{ printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes }}
       timeout: {{ .Values.hubble.timescape.trimmer.timeout | default (printf "%.fm" .Values.hubble.timescape.trimmer.intervalMinutes) }}
-    enable-analyzer: false
+    enable-analyzer: {{ .Values.hubble.timescape.analyzer.enabled }}
+    {{- if .Values.hubble.timescape.analyzer.enabled }}
+    analyzer:
+      schedule-interval: {{ .Values.hubble.timescape.analyzer.scheduleInterval }}
+    {{- end }}
     enable-ui: {{ .Values.hubble.timescape.ui.enabled }}
     {{- if .Values.hubble.timescape.ui.enabled }}
     ui:

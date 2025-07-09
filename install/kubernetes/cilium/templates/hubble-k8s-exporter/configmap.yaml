@@ -21,7 +21,7 @@ data:
       file-path: {{ .Values.hubble.k8sExporter.export.filePath | quote }}
       file-rotation-interval: {{ .Values.hubble.k8sExporter.export.fileRotationInterval | quote }}
       k8s-endpoints: false
-      cilium-identities: false
+      cilium-identities: true
       max-file-backup: {{ .Values.hubble.k8sExporter.export.maxFileBackups | quote }}
       max-file-size: {{ .Values.hubble.k8sExporter.export.maxFileSize | quote }}
 {{- end }}

@@ -727,6 +727,7 @@ routable
 routingMode
 runnable
 runtimes
+sExporter
 sandboxing
 scaffoldings
 scalable
