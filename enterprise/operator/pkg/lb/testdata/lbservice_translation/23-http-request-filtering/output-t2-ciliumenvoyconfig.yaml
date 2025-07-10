@@ -214,18 +214,20 @@ spec:
                                           googleRe2: {}
                                           regex: regex-value
                           principals:
-                            - remoteIp:
-                                addressPrefix: 100.64.0.100
-                                prefixLen: 32
-                            - sourcedMetadata:
-                                metadataMatcher:
-                                  filter: envoy.filters.http.jwt_authn
-                                  path:
-                                    - key: payload
-                                    - key: testclaim
-                                  value:
-                                    stringMatch:
-                                      exact: exact-value
+                            - andIds:
+                                ids:
+                                  - remoteIp:
+                                      addressPrefix: 100.64.0.100
+                                      prefixLen: 32
+                                  - sourcedMetadata:
+                                      metadataMatcher:
+                                        filter: envoy.filters.http.jwt_authn
+                                        path:
+                                          - key: payload
+                                          - key: testclaim
+                                        value:
+                                          stringMatch:
+                                            exact: exact-value
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       commonLbConfig:
         healthyPanicThreshold: {}

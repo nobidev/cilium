@@ -2058,12 +2058,13 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 		permissions := []*envoy_config_rbac_v3.Permission{}
 		principals := []*envoy_config_rbac_v3.Principal{}
 
+		andPrincipals := []*envoy_config_rbac_v3.Principal{}
 		if rr.sourceCIDR != nil {
-			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+			andPrincipals = append(andPrincipals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
 		}
 
 		if rr.jwtClaims != nil {
-			principals = append(principals, r.toRBACPrincipalJWTPayloadMetadata(rr.jwtClaims)...)
+			andPrincipals = append(andPrincipals, r.toRBACPrincipalJWTPayloadMetadata(rr.jwtClaims)...)
 		}
 
 		andPermissions := []*envoy_config_rbac_v3.Permission{}
@@ -2076,6 +2077,10 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 		}
 
 		andPermissions = append(andPermissions, r.toRBACPermissionHTTPHeaders(rr.headers)...)
+
+		if len(andPrincipals) > 0 {
+			principals = append(principals, r.toRBACPrincipalAnd(andPrincipals...))
+		}
 
 		if len(andPermissions) > 0 {
 			permissions = append(permissions, r.toRBACPermissionAnd(andPermissions...))
@@ -2380,6 +2385,16 @@ func (r *lbServiceT2Translator) toRBACPermissionServerName(serverNameRule lbRout
 	return &envoy_config_rbac_v3.Permission{
 		Rule: &envoy_config_rbac_v3.Permission_RequestedServerName{
 			RequestedServerName: serverNameSM,
+		},
+	}
+}
+
+func (r *lbServiceT2Translator) toRBACPrincipalAnd(ids ...*envoy_config_rbac_v3.Principal) *envoy_config_rbac_v3.Principal {
+	return &envoy_config_rbac_v3.Principal{
+		Identifier: &envoy_config_rbac_v3.Principal_AndIds{
+			AndIds: &envoy_config_rbac_v3.Principal_Set{
+				Ids: ids,
+			},
 		},
 	}
 }
