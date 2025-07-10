@@ -118,7 +118,7 @@ type healthCheckKey struct {
 }
 
 func (k healthCheckKey) Key() index.Key {
-	return slices.Concat(index.Stringer(k.ServiceName), k.Backend.Bytes())
+	return slices.Concat(k.ServiceName.Key(), k.Backend.Bytes())
 }
 
 const (
@@ -148,7 +148,7 @@ var (
 				name = namespace
 				namespace = ""
 			}
-			return healthCheckKey{lb.ServiceName{Namespace: namespace, Name: name}, be}.Key(), nil
+			return healthCheckKey{lb.NewServiceName(namespace, name), be}.Key(), nil
 		},
 		Unique: true,
 	}

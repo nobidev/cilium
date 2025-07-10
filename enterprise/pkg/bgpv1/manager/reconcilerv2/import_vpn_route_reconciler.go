@@ -130,15 +130,15 @@ func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconcilerv
 
 	p, err := r.upgrader.upgradeState(_p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, NotInitializedErr) {
+		if errors.Is(err, ErrNotInitialized) {
 			r.logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, UpdateConfigNotSetErr) {
+		if errors.Is(err, ErrUpdateConfigNotSet) {
 			r.logger.Debug("Instance config not yet set, skipping reconciliation")
 			return nil
 		}

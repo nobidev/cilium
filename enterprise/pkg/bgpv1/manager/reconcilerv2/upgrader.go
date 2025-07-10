@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync/atomic"
@@ -32,9 +33,9 @@ import (
 )
 
 var (
-	NotInitializedErr        = fmt.Errorf("not initialized")
-	EntNodeConfigNotFoundErr = fmt.Errorf("enterprise node config not found")
-	UpdateConfigNotSetErr    = fmt.Errorf("config missing")
+	ErrNotInitialized        = errors.New("not initialized")
+	ErrEntNodeConfigNotFound = errors.New("enterprise node config not found")
+	ErrUpdateConfigNotSet    = errors.New("config missing")
 )
 
 // EnterpriseReconcileParams is an enterprise specific version of
@@ -117,7 +118,7 @@ func newReconcileParamsUpgrader(in reconcilerParamsUpgraderIn) paramUpgrader {
 
 func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error) {
 	if !u.initialized.Load() {
-		return EnterpriseReconcileParams{}, NotInitializedErr
+		return EnterpriseReconcileParams{}, ErrNotInitialized
 	}
 
 	if params.BGPInstance == nil || params.DesiredConfig == nil || params.CiliumNode == nil {
@@ -130,7 +131,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 	}
 
 	if !exists {
-		return EnterpriseReconcileParams{}, EntNodeConfigNotFoundErr
+		return EnterpriseReconcileParams{}, ErrEntNodeConfigNotFound
 	}
 
 	for i, inst := range nc.Spec.BGPInstances {
@@ -173,7 +174,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 
 func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcileParams) (EnterpriseStateReconcileParams, error) {
 	if !u.initialized.Load() {
-		return EnterpriseStateReconcileParams{}, NotInitializedErr
+		return EnterpriseStateReconcileParams{}, ErrNotInitialized
 	}
 
 	// If the instance is being deleted, we don't need to find the instance in the config.
@@ -186,7 +187,7 @@ func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcil
 	}
 
 	if params.UpdatedInstance == nil || params.UpdatedInstance.Config == nil {
-		return EnterpriseStateReconcileParams{}, UpdateConfigNotSetErr
+		return EnterpriseStateReconcileParams{}, ErrUpdateConfigNotSet
 	}
 
 	nc, exists, err := u.store.GetByKey(resource.Key{Name: u.getNodeName()})
@@ -195,7 +196,7 @@ func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcil
 	}
 
 	if !exists {
-		return EnterpriseStateReconcileParams{}, EntNodeConfigNotFoundErr
+		return EnterpriseStateReconcileParams{}, ErrEntNodeConfigNotFound
 	}
 
 	for i, inst := range nc.Spec.BGPInstances {

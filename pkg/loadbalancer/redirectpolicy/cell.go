@@ -8,7 +8,6 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -23,6 +22,8 @@ import (
 var Cell = cell.Module(
 	"local-redirect-policies",
 	"Controller for CiliumLocalRedirectPolicy",
+
+	cell.Config(DefaultConfig),
 
 	cell.Provide(
 		// Provide Table[*LocalRedirectPolicy]. Used from replaceAPI.
@@ -92,19 +93,6 @@ func newControllerMetrics() controllerMetrics {
 }
 
 type LRPMetrics interface {
-	AddLRPConfig(k8s.ServiceID)
-	DelLRPConfig(k8s.ServiceID)
-}
-
-type lrpMetricsNoop struct {
-}
-
-func (p *lrpMetricsNoop) AddLRPConfig(k8s.ServiceID) {
-}
-
-func (p *lrpMetricsNoop) DelLRPConfig(k8s.ServiceID) {
-}
-
-func NewLRPMetricsNoop() LRPMetrics {
-	return &lrpMetricsNoop{}
+	AddLRPConfig(loadbalancer.ServiceName)
+	DelLRPConfig(loadbalancer.ServiceName)
 }

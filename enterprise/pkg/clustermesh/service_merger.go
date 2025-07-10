@@ -55,8 +55,8 @@ func (sm *ceServiceMerger) MergeExternalServiceUpdate(service *serviceStore.Clus
 	// With phantom services, we'll import the phantom service into ServiceCache.
 	// Phantom services must be identified with Cluster + Name + Namespace.
 	// Otherwise, naming collision is possible if they exist in multiple clusters.
-	globalName := loadbalancer.ServiceName{Cluster: service.Cluster, Name: service.Name, Namespace: service.Namespace}
-	localName := loadbalancer.ServiceName{Name: service.Name, Namespace: service.Namespace}
+	globalName := loadbalancer.NewServiceNameInCluster(service.Cluster, service.Namespace, service.Name)
+	localName := loadbalancer.NewServiceName(service.Namespace, service.Name)
 
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
@@ -109,7 +109,7 @@ func (sm *ceServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clus
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
 
-	globalName := loadbalancer.ServiceName{Cluster: service.Cluster, Name: service.Name, Namespace: service.Namespace}
+	globalName := loadbalancer.NewServiceNameInCluster(service.Cluster, service.Namespace, service.Name)
 	_, _, globalFound := sm.writer.Services().Get(txn, loadbalancer.ServiceByName(globalName))
 	if globalFound {
 		// A service previously marked as phantom is no longer so, hence it is treated as if it had been deleted.
@@ -117,7 +117,7 @@ func (sm *ceServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clus
 		sm.writer.DeleteServiceAndFrontends(txn, globalName)
 	}
 
-	localName := loadbalancer.ServiceName{Namespace: service.Namespace, Name: service.Name}
+	localName := loadbalancer.NewServiceName(service.Namespace, service.Name)
 	sm.writer.DeleteBackendsOfServiceFromCluster(
 		txn,
 		localName,
@@ -148,11 +148,7 @@ func isPhantomService(s *serviceStore.ClusterService) bool {
 }
 
 func clusterServiceToServiceAndFrontends(cmcfg cmcfg.Config, csvc *serviceStore.ClusterService) (*loadbalancer.Service, []loadbalancer.FrontendParams) {
-	name := loadbalancer.ServiceName{
-		Name:      csvc.Name,
-		Namespace: csvc.Namespace,
-		Cluster:   csvc.Cluster,
-	}
+	name := loadbalancer.NewServiceNameInCluster(csvc.Cluster, csvc.Namespace, csvc.Name)
 	svc := &loadbalancer.Service{
 		Name:   name,
 		Source: source.ClusterMesh,
@@ -181,7 +177,7 @@ func clusterServiceToServiceAndFrontends(cmcfg cmcfg.Config, csvc *serviceStore.
 				loadbalancer.FrontendParams{
 					Address: loadbalancer.L3n4Addr{
 						AddrCluster: addrCluster,
-						L4Addr:      *l4,
+						L4Addr:      l4,
 					},
 					Type:        loadbalancer.SVCTypeClusterIP,
 					ServiceName: name,

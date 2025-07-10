@@ -113,7 +113,7 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconcilerv2.Recon
 
 	p, err := r.upgrader.upgrade(_p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}

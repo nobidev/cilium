@@ -560,9 +560,7 @@ func (r *lbServiceReconciler) loadK8sEndpointSlices(ctx context.Context, lbsvc *
 			continue
 		}
 
-		for _, es := range esList.Items {
-			result = append(result, es)
-		}
+		result = append(result, esList.Items...)
 	}
 
 	return result, missingES, nil
