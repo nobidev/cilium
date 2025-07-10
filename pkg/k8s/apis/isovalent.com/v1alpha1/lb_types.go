@@ -952,6 +952,12 @@ type LBServiceHTTPSRouteRequestFilteringRule struct {
 	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
 
+	// Client certificate SAN based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	ClientCertificateSANs []*LBServiceRequestFilteringRuleClientCertificateSAN `json:"clientCertificateSANs,omitempty"`
+
 	// Host-based matching. Only one of exact or suffix match can be specified.
 	//
 	// +kubebuilder:validation:Optional
@@ -1070,6 +1076,61 @@ type LBServiceRequestFilteringRuleJWTClaim struct {
 }
 
 type LBServiceRequestFilteringRuleJWTClaimValue struct {
+	// Exact matching. The value must be exactly the same as the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Exact *string `json:"exact,omitempty"`
+
+	// Prefix matching. The value must start with the value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Prefix *string `json:"prefix,omitempty"`
+
+	// Regex matching. The value must match the regex value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:OneOf
+	Regex *string `json:"regex,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:message="OID needs to be set for SAN type OTHER_NAME",rule="(self.type != 'OTHER_NAME' || has(self.oid))"
+type LBServiceRequestFilteringRuleClientCertificateSAN struct {
+	// Type of the SAN.
+	//
+	// +kubebuilder:validation:Required
+	Type LBServiceRequestFilteringRuleClientCertificateSANType `json:"type"`
+
+	// OID Value which is required if OTHER_NAME SAN type is used.
+	// For example, UPN OID is 1.3.6.1.4.1.311.20.2.3
+	// (Reference: http://oid-info.com/get/1.3.6.1.4.1.311.20.2.3).
+	//
+	// If set for SAN types other than OTHER_NAME, it will be ignored.
+	// +kubebuilder:validation:Optional
+	OID *string `json:"oid,omitempty"`
+
+	// Value of the SAN.
+	//
+	// +kubebuilder:validation:Required
+	Value LBServiceRequestFilteringRuleClientCertificateSANValue `json:"value"`
+}
+
+// +kubebuilder:validation:Enum=DNS;URI;EMAIL;IP_ADDRESS;OTHER_NAME
+type LBServiceRequestFilteringRuleClientCertificateSANType string
+
+const (
+	LBServiceRequestFilteringRuleClientCertificateSANTypeDNS       LBServiceRequestFilteringRuleClientCertificateSANType = "DNS"
+	LBServiceRequestFilteringRuleClientCertificateSANTypeURI       LBServiceRequestFilteringRuleClientCertificateSANType = "URI"
+	LBServiceRequestFilteringRuleClientCertificateSANTypeEMAIL     LBServiceRequestFilteringRuleClientCertificateSANType = "EMAIL"
+	LBServiceRequestFilteringRuleClientCertificateSANTypeIPADDRESS LBServiceRequestFilteringRuleClientCertificateSANType = "IP_ADDRESS"
+	LBServiceRequestFilteringRuleClientCertificateSANTypeOTHERNAME LBServiceRequestFilteringRuleClientCertificateSANType = "OTHER_NAME"
+)
+
+type LBServiceRequestFilteringRuleClientCertificateSANValue struct {
 	// Exact matching. The value must be exactly the same as the value.
 	//
 	// +kubebuilder:validation:Optional
@@ -1266,6 +1327,12 @@ type LBServiceTLSRouteRequestFilteringRule struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:AnyOf
 	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+
+	// Client certificate SAN based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	ClientCertificateSANs []*LBServiceRequestFilteringRuleClientCertificateSAN `json:"clientCertificateSANs,omitempty"`
 
 	// Servername-based matching. Only one of exact or suffix match can be specified.
 	//

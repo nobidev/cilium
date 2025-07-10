@@ -6,11 +6,11 @@ metadata:
 spec:
   nodeSelector:
     matchExpressions:
-    - key: service.cilium.io/node
-      operator: In
-      values:
-      - t1-t2
-      - t2
+      - key: service.cilium.io/node
+        operator: In
+        values:
+          - t1-t2
+          - t2
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       address:
@@ -115,19 +115,66 @@ spec:
                   policies:
                     rule-0:
                       permissions:
-                        - requestedServerName:
-                            exact: bar.acme.io
+                        - andRules:
+                            rules:
+                              - requestedServerName:
+                                  exact: bar.acme.io
                       principals:
-                        - remoteIp:
-                            addressPrefix: 100.64.0.100
-                            prefixLen: 32
+                        - andIds:
+                            ids:
+                              - remoteIp:
+                                  addressPrefix: 100.64.0.100
+                                  prefixLen: 32
                     rule-1:
                       permissions:
                         - any: true
                       principals:
-                        - remoteIp:
-                            addressPrefix: 100.64.0.101
-                            prefixLen: 32
+                        - andIds:
+                            ids:
+                              - remoteIp:
+                                  addressPrefix: 100.64.0.101
+                                  prefixLen: 32
+                              - custom:
+                                  name: envoy.rbac.principals.mtls_authenticated
+                                  typedConfig:
+                                    "@type": type.googleapis.com/envoy.extensions.rbac.principals.mtls_authenticated.v3.Config
+                                    sanMatcher:
+                                      matcher:
+                                        exact: client.acme.io
+                                      sanType: DNS
+                              - custom:
+                                  name: envoy.rbac.principals.mtls_authenticated
+                                  typedConfig:
+                                    "@type": type.googleapis.com/envoy.extensions.rbac.principals.mtls_authenticated.v3.Config
+                                    sanMatcher:
+                                      matcher:
+                                        exact: http://acme.io
+                                      sanType: URI
+                              - custom:
+                                  name: envoy.rbac.principals.mtls_authenticated
+                                  typedConfig:
+                                    "@type": type.googleapis.com/envoy.extensions.rbac.principals.mtls_authenticated.v3.Config
+                                    sanMatcher:
+                                      matcher:
+                                        exact: 192.168.1.100
+                                      sanType: IP_ADDRESS
+                              - custom:
+                                  name: envoy.rbac.principals.mtls_authenticated
+                                  typedConfig:
+                                    "@type": type.googleapis.com/envoy.extensions.rbac.principals.mtls_authenticated.v3.Config
+                                    sanMatcher:
+                                      matcher:
+                                        exact: client@acme.io
+                                      sanType: OTHER_NAME
+                              - custom:
+                                  name: envoy.rbac.principals.mtls_authenticated
+                                  typedConfig:
+                                    "@type": type.googleapis.com/envoy.extensions.rbac.principals.mtls_authenticated.v3.Config
+                                    sanMatcher:
+                                      matcher:
+                                        exact: "test@acme.io"
+                                      oid: 1.3.6.1.4.1.311.20.2.3
+                                      sanType: OTHER_NAME
                 statPrefix: tls_default_lb-1
             - name: envoy.filters.network.tcp_proxy
               typedConfig:

@@ -49,6 +49,7 @@ import (
 	envoy_extensions_filters_network_tcpproxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_filters_listener_udp_udpproxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/udp_proxy/v3"
 	envoy_extensions_network_dns_resolver_cares_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
+	envoy_extensions_rbac_principals_mtlsauthenticated_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/principals/mtls_authenticated/v3"
 	envoy_extensions_transportsockets_proxy_protocol_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	envoy_extensions_transportsockets_rawbuffer_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	envoy_extensions_transportsockets_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -2060,40 +2061,38 @@ func (r *lbServiceT2Translator) toHTTPRouteRBACFilter(config *lbRouteHTTPRequest
 		permissions := []*envoy_config_rbac_v3.Permission{}
 		principals := []*envoy_config_rbac_v3.Principal{}
 
-		andPrincipals := []*envoy_config_rbac_v3.Principal{}
 		if rr.sourceCIDR != nil {
-			andPrincipals = append(andPrincipals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
+			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
 		}
 
 		if rr.jwtClaims != nil {
-			andPrincipals = append(andPrincipals, r.toRBACPrincipalJWTPayloadMetadata(rr.jwtClaims)...)
+			principals = append(principals, r.toRBACPrincipalJWTPayloadMetadata(rr.jwtClaims)...)
 		}
 
-		andPermissions := []*envoy_config_rbac_v3.Permission{}
+		if rr.clientCertificateSANs != nil {
+			principals = append(principals, r.toRBACPrincipalMTLSAuthenticated(rr.clientCertificateSANs)...)
+		}
+
 		if rr.hostname != nil {
-			andPermissions = append(andPermissions, r.toRBACPermissionHostName(rr.hostname))
+			permissions = append(permissions, r.toRBACPermissionHostName(rr.hostname))
 		}
 
 		if rr.path != nil {
-			andPermissions = append(andPermissions, r.toRBACPermissionHTTPPath(rr.path))
+			permissions = append(permissions, r.toRBACPermissionHTTPPath(rr.path))
 		}
 
-		andPermissions = append(andPermissions, r.toRBACPermissionHTTPHeaders(rr.headers)...)
+		permissions = append(permissions, r.toRBACPermissionHTTPHeaders(rr.headers)...)
 
-		if len(andPrincipals) > 0 {
-			principals = append(principals, r.toRBACPrincipalAnd(andPrincipals...))
+		if len(principals) > 0 {
+			principals = []*envoy_config_rbac_v3.Principal{r.toRBACPrincipalAnd(principals...)}
+		} else {
+			principals = []*envoy_config_rbac_v3.Principal{r.toRBACPrincipalAny()}
 		}
 
-		if len(andPermissions) > 0 {
-			permissions = append(permissions, r.toRBACPermissionAnd(andPermissions...))
-		}
-
-		if len(principals) == 0 {
-			principals = append(principals, r.toRBACPrincipalAny())
-		}
-
-		if len(permissions) == 0 {
-			permissions = append(permissions, r.toRBACPermissionAny())
+		if len(permissions) > 0 {
+			permissions = []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAnd(permissions...)}
+		} else {
+			permissions = []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAny()}
 		}
 
 		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
@@ -2128,16 +2127,24 @@ func (r *lbServiceT2Translator) toTLSRouteRBACFilter(config *lbRouteTLSConnectio
 			principals = append(principals, r.toRBACPrincipalRemoteIP(rr.sourceCIDR))
 		}
 
+		if rr.clientCertificateSANs != nil {
+			principals = append(principals, r.toRBACPrincipalMTLSAuthenticated(rr.clientCertificateSANs)...)
+		}
+
 		if rr.servername != nil {
 			permissions = append(permissions, r.toRBACPermissionServerName(*rr.servername))
 		}
 
-		if len(principals) == 0 {
-			principals = append(principals, r.toRBACPrincipalAny())
+		if len(principals) > 0 {
+			principals = []*envoy_config_rbac_v3.Principal{r.toRBACPrincipalAnd(principals...)}
+		} else {
+			principals = []*envoy_config_rbac_v3.Principal{r.toRBACPrincipalAny()}
 		}
 
-		if len(permissions) == 0 {
-			permissions = append(permissions, r.toRBACPermissionAny())
+		if len(permissions) > 0 {
+			permissions = []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAnd(permissions...)}
+		} else {
+			permissions = []*envoy_config_rbac_v3.Permission{r.toRBACPermissionAny()}
 		}
 
 		policies[fmt.Sprintf("rule-%d", i)] = &envoy_config_rbac_v3.Policy{
@@ -2264,6 +2271,71 @@ func (r *lbServiceT2Translator) toRBACPrincipalJWTPayloadMetadata(jwtClaims []*l
 	}
 
 	return principals
+}
+
+func (r *lbServiceT2Translator) toRBACPrincipalMTLSAuthenticated(clientCertificateSANs []*lbRouteRequestFilteringClientCertificateSAN) []*envoy_config_rbac_v3.Principal {
+	principals := []*envoy_config_rbac_v3.Principal{}
+
+	for _, san := range clientCertificateSANs {
+
+		stringMatcher := &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: nil,
+			IgnoreCase:   false,
+		}
+
+		switch san.value.valueType {
+		case filterClientCertificateSANValueTypeExact:
+			stringMatcher.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+				Exact: san.value.value,
+			}
+		case filterClientCertificateSANValueTypePrefix:
+			stringMatcher.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
+				Prefix: san.value.value,
+			}
+		case filterClientCertificateSANValueTypeRegex:
+			stringMatcher.MatchPattern = &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+					Regex:      san.value.value,
+				},
+			}
+		}
+
+		principals = append(principals, &envoy_config_rbac_v3.Principal{
+			Identifier: &envoy_config_rbac_v3.Principal_Custom{
+				Custom: &envoy_config_core_v3.TypedExtensionConfig{
+					Name: "envoy.rbac.principals.mtls_authenticated",
+					TypedConfig: toAny(&envoy_extensions_rbac_principals_mtlsauthenticated_v3.Config{
+						SanMatcher: &envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher{
+							SanType: r.toSANType(san.sanType),
+							Matcher: stringMatcher,
+							Oid:     san.oid,
+						},
+						AnyValidatedClientCertificate: false,
+					}),
+				},
+			},
+		})
+	}
+
+	return principals
+}
+
+func (r *lbServiceT2Translator) toSANType(sanType string) envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_SanType {
+	switch sanType {
+	case "DNS":
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_DNS
+	case "URI":
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_URI
+	case "EMAIL":
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_EMAIL
+	case "IP_ADDRESS":
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_IP_ADDRESS
+	case "OTHER_NAME":
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_OTHER_NAME
+	default:
+		return envoy_extensions_transportsockets_tls_v3.SubjectAltNameMatcher_OTHER_NAME
+	}
 }
 
 func (r *lbServiceT2Translator) toRBACPermissionHostName(hostnameRule *lbRouteRequestFilteringHostName) *envoy_config_rbac_v3.Permission {

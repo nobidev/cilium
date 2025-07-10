@@ -6,11 +6,11 @@ metadata:
 spec:
   nodeSelector:
     matchExpressions:
-    - key: service.cilium.io/node
-      operator: In
-      values:
-      - t1-t2
-      - t2
+      - key: service.cilium.io/node
+        operator: In
+        values:
+          - t1-t2
+          - t2
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       address:
@@ -95,19 +95,25 @@ spec:
                   policies:
                     rule-0:
                       permissions:
-                        - requestedServerName:
-                            exact: bla.acme.io
+                        - andRules:
+                            rules:
+                              - requestedServerName:
+                                  exact: bla.acme.io
                       principals:
-                        - remoteIp:
-                            addressPrefix: 100.64.0.100
-                            prefixLen: 32
+                        - andIds:
+                            ids:
+                              - remoteIp:
+                                  addressPrefix: 100.64.0.100
+                                  prefixLen: 32
                     rule-1:
                       permissions:
                         - any: true
                       principals:
-                        - remoteIp:
-                            addressPrefix: 100.64.0.101
-                            prefixLen: 32
+                        - andIds:
+                            ids:
+                              - remoteIp:
+                                  addressPrefix: 100.64.0.101
+                                  prefixLen: 32
                 statPrefix: tls_default_lb-1
             - name: envoy.filters.network.tcp_proxy
               typedConfig:

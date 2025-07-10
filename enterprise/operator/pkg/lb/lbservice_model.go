@@ -382,17 +382,37 @@ type lbRouteHTTPRequestFiltering struct {
 }
 
 type lbRouteHTTPRequestFilteringRule struct {
-	sourceCIDR *lbRouteRequestFilteringSourceCIDR
-	hostname   *lbRouteRequestFilteringHostName
-	path       *lbRouteRequestFilteringHTTPPath
-	headers    []*lbRouteRequestFilteringHTTPHeader
-	jwtClaims  []*lbRouteRequestFilteringJWTClaim
+	sourceCIDR            *lbRouteRequestFilteringSourceCIDR
+	hostname              *lbRouteRequestFilteringHostName
+	path                  *lbRouteRequestFilteringHTTPPath
+	headers               []*lbRouteRequestFilteringHTTPHeader
+	jwtClaims             []*lbRouteRequestFilteringJWTClaim
+	clientCertificateSANs []*lbRouteRequestFilteringClientCertificateSAN // only populated in case of HTTPS
 }
 
 type lbRouteRequestFilteringSourceCIDR struct {
 	addressPrefix string
 	prefixLen     uint32
 }
+
+type lbRouteRequestFilteringClientCertificateSAN struct {
+	sanType string
+	oid     string
+	value   lbRouteRequestFilteringClientCertificateSANValue
+}
+
+type lbRouteRequestFilteringClientCertificateSANValue struct {
+	value     string
+	valueType filterClientCertificateSANValueType
+}
+
+type filterClientCertificateSANValueType int
+
+const (
+	filterClientCertificateSANValueTypePrefix filterClientCertificateSANValueType = iota
+	filterClientCertificateSANValueTypeExact
+	filterClientCertificateSANValueTypeRegex
+)
 
 type lbRouteRequestFilteringHostName struct {
 	hostName     string
@@ -476,8 +496,9 @@ type lbRouteTLSConnectionFiltering struct {
 }
 
 type lbRouteTLSConnectionFilteringRule struct {
-	sourceCIDR *lbRouteRequestFilteringSourceCIDR
-	servername *lbRouteRequestFilteringHostName
+	sourceCIDR            *lbRouteRequestFilteringSourceCIDR
+	clientCertificateSANs []*lbRouteRequestFilteringClientCertificateSAN
+	servername            *lbRouteRequestFilteringHostName
 }
 
 type lbRouteTLSProxy struct {

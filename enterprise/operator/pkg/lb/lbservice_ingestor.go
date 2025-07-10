@@ -1020,11 +1020,12 @@ func (r *ingestor) toHTTPSRouteRequestFilteringConfig(config *isovalentv1alpha1.
 
 	for _, ir := range config.Rules {
 		rules = append(rules, lbRouteHTTPRequestFilteringRule{
-			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
-			hostname:   r.toHTTPHostname(ir.HostName),
-			path:       r.toHTTPPath(ir.Path),
-			headers:    r.toHTTPHeaders(ir.Headers),
-			jwtClaims:  r.toJWTClaims(ir.JWTClaims),
+			sourceCIDR:            r.toSourceCIDR(ir.SourceCIDR),
+			hostname:              r.toHTTPHostname(ir.HostName),
+			path:                  r.toHTTPPath(ir.Path),
+			headers:               r.toHTTPHeaders(ir.Headers),
+			jwtClaims:             r.toJWTClaims(ir.JWTClaims),
+			clientCertificateSANs: r.toClientCertificateSAN(ir.ClientCertificateSANs),
 		})
 	}
 
@@ -1138,6 +1139,41 @@ func (r *ingestor) toJWTClaims(claims []*isovalentv1alpha1.LBServiceRequestFilte
 	return jwtClaims
 }
 
+func (r *ingestor) toClientCertificateSAN(sans []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN) []*lbRouteRequestFilteringClientCertificateSAN {
+	clientCertificateSANs := []*lbRouteRequestFilteringClientCertificateSAN{}
+
+	for _, san := range sans {
+		oid := ""
+		if san.OID != nil {
+			oid = *san.OID
+		}
+		var v string
+		var vType filterClientCertificateSANValueType
+
+		if san.Value.Exact != nil {
+			v = *san.Value.Exact
+			vType = filterClientCertificateSANValueTypeExact
+		} else if san.Value.Prefix != nil {
+			v = *san.Value.Prefix
+			vType = filterClientCertificateSANValueTypePrefix
+		} else if san.Value.Regex != nil {
+			v = *san.Value.Regex
+			vType = filterClientCertificateSANValueTypeRegex
+		}
+
+		clientCertificateSANs = append(clientCertificateSANs, &lbRouteRequestFilteringClientCertificateSAN{
+			sanType: string(san.Type),
+			oid:     oid,
+			value: lbRouteRequestFilteringClientCertificateSANValue{
+				value:     v,
+				valueType: vType,
+			},
+		})
+	}
+
+	return clientCertificateSANs
+}
+
 func (r *ingestor) toSourceCIDR(inputSourceCIDR *isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR) *lbRouteRequestFilteringSourceCIDR {
 	if inputSourceCIDR == nil {
 		return nil
@@ -1166,8 +1202,9 @@ func (r *ingestor) toTLSRequestFilteringConfig(config *isovalentv1alpha1.LBServi
 
 	for _, ir := range config.Rules {
 		rules = append(rules, lbRouteTLSConnectionFilteringRule{
-			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
-			servername: r.toTLSServerName(ir),
+			sourceCIDR:            r.toSourceCIDR(ir.SourceCIDR),
+			clientCertificateSANs: r.toClientCertificateSAN(ir.ClientCertificateSANs),
+			servername:            r.toTLSServerName(ir),
 		})
 	}
 
