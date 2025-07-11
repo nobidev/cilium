@@ -38,6 +38,7 @@ const (
 	FQDNProxyAgent_GetAllRules_FullMethodName                 = "/dnsproxy.FQDNProxyAgent/GetAllRules"
 	FQDNProxyAgent_SubscribeSelectors_FullMethodName          = "/dnsproxy.FQDNProxyAgent/SubscribeSelectors"
 	FQDNProxyAgent_SubscribeFQDNRules_FullMethodName          = "/dnsproxy.FQDNProxyAgent/SubscribeFQDNRules"
+	FQDNProxyAgent_SubscribeState_FullMethodName              = "/dnsproxy.FQDNProxyAgent/SubscribeState"
 )
 
 // FQDNProxyAgentClient is the client API for FQDNProxyAgent service.
@@ -64,6 +65,9 @@ type FQDNProxyAgentClient interface {
 	// Proxy should write an Empty response to ack receipt of the rule.
 	// Added: v1.18-ce.
 	SubscribeFQDNRules(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Empty, FQDNRules], error)
+	// SubscribeState creates a bidirectional stream for the agent and remote proxy
+	// to exchange state information.
+	SubscribeState(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RemoteProxyState, AgentState], error)
 }
 
 type fQDNProxyAgentClient struct {
@@ -169,6 +173,19 @@ func (c *fQDNProxyAgentClient) SubscribeFQDNRules(ctx context.Context, opts ...g
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FQDNProxyAgent_SubscribeFQDNRulesClient = grpc.BidiStreamingClient[Empty, FQDNRules]
 
+func (c *fQDNProxyAgentClient) SubscribeState(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RemoteProxyState, AgentState], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FQDNProxyAgent_ServiceDesc.Streams[3], FQDNProxyAgent_SubscribeState_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[RemoteProxyState, AgentState]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FQDNProxyAgent_SubscribeStateClient = grpc.BidiStreamingClient[RemoteProxyState, AgentState]
+
 // FQDNProxyAgentServer is the server API for FQDNProxyAgent service.
 // All implementations must embed UnimplementedFQDNProxyAgentServer
 // for forward compatibility.
@@ -193,6 +210,9 @@ type FQDNProxyAgentServer interface {
 	// Proxy should write an Empty response to ack receipt of the rule.
 	// Added: v1.18-ce.
 	SubscribeFQDNRules(grpc.BidiStreamingServer[Empty, FQDNRules]) error
+	// SubscribeState creates a bidirectional stream for the agent and remote proxy
+	// to exchange state information.
+	SubscribeState(grpc.BidiStreamingServer[RemoteProxyState, AgentState]) error
 	mustEmbedUnimplementedFQDNProxyAgentServer()
 }
 
@@ -226,6 +246,9 @@ func (UnimplementedFQDNProxyAgentServer) SubscribeSelectors(*Empty, grpc.ServerS
 }
 func (UnimplementedFQDNProxyAgentServer) SubscribeFQDNRules(grpc.BidiStreamingServer[Empty, FQDNRules]) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeFQDNRules not implemented")
+}
+func (UnimplementedFQDNProxyAgentServer) SubscribeState(grpc.BidiStreamingServer[RemoteProxyState, AgentState]) error {
+	return status.Errorf(codes.Unimplemented, "method SubscribeState not implemented")
 }
 func (UnimplementedFQDNProxyAgentServer) mustEmbedUnimplementedFQDNProxyAgentServer() {}
 func (UnimplementedFQDNProxyAgentServer) testEmbeddedByValue()                        {}
@@ -363,6 +386,13 @@ func _FQDNProxyAgent_SubscribeFQDNRules_Handler(srv interface{}, stream grpc.Ser
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FQDNProxyAgent_SubscribeFQDNRulesServer = grpc.BidiStreamingServer[Empty, FQDNRules]
 
+func _FQDNProxyAgent_SubscribeState_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FQDNProxyAgentServer).SubscribeState(&grpc.GenericServerStream[RemoteProxyState, AgentState]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FQDNProxyAgent_SubscribeStateServer = grpc.BidiStreamingServer[RemoteProxyState, AgentState]
+
 // FQDNProxyAgent_ServiceDesc is the grpc.ServiceDesc for FQDNProxyAgent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -405,6 +435,12 @@ var FQDNProxyAgent_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "SubscribeFQDNRules",
 			Handler:       _FQDNProxyAgent_SubscribeFQDNRules_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "SubscribeState",
+			Handler:       _FQDNProxyAgent_SubscribeState_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

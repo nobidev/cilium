@@ -46,6 +46,10 @@ service FQDNProxyAgent {
   // Proxy should write an Empty response to ack receipt of the rule.
   // Added: v1.18-ce.
   rpc SubscribeFQDNRules(stream Empty) returns (stream FQDNRules){}
+
+  // SubscribeState creates a bidirectional stream for the agent and remote proxy
+  // to exchange state information.
+  rpc SubscribeState(stream RemoteProxyState) returns (stream AgentState){}
 }
 
 service FQDNProxy {
@@ -185,4 +189,54 @@ message Endpoint {
 message Workload {
     string name = 1;
     string kind = 2;
+}
+
+message RemoteProxyState {
+  RemoteProxyStatus Status = 1;
+
+  string Version = 2;
+
+  // StartTime is the unix timestamp
+  int64 StartTime = 3;
+  
+  bool EnableOfflineMode = 4;
+}
+
+message AgentState {
+  AgentStatus Status = 1;
+
+  string Version = 2;
+
+  string IPCacheMapName = 3;
+
+  int64 StartTime = 4;
+  
+  bool EnableOfflineMode = 5;
+}
+
+enum RemoteProxyStatus {
+  RPS_UNSPECIFIED = 0;
+
+  // Indicates the remote proxy is live and has no queued state
+  RPS_LIVE = 1;
+
+  // Indicates the remote proxy has detected that the agent is offline
+  RPS_AGENT_OFFLINE = 2;
+
+  // Indicates the remote proxy has connected to the agent and is replaying all queued updates
+  RPS_REPLAYING = 3;
+
+  // Indicates the remote proxy has finished replaying all queued updates and is
+  // waiting for the agent to go live.
+  RPS_WAITING_FOR_AGENT_LIVE = 4;
+}
+
+enum AgentStatus {
+  AS_UNSPECIFIED = 0;
+
+  // Indicates the agent is fully live. All endpoints have regenerated at least once.
+  AS_LIVE = 1;
+
+  // Indicates the agent is up but still initializing.
+  AS_STARTING = 2;
 }

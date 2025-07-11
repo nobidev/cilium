@@ -136,6 +136,117 @@ func (UpdateType) EnumDescriptor() ([]byte, []int) {
 	return file_dnsproxy_dnsproxy_proto_rawDescGZIP(), []int{1}
 }
 
+type RemoteProxyStatus int32
+
+const (
+	RemoteProxyStatus_RPS_UNSPECIFIED RemoteProxyStatus = 0
+	// Indicates the remote proxy is live and has no queued state
+	RemoteProxyStatus_RPS_LIVE RemoteProxyStatus = 1
+	// Indicates the remote proxy has detected that the agent is offline
+	RemoteProxyStatus_RPS_AGENT_OFFLINE RemoteProxyStatus = 2
+	// Indicates the remote proxy has connected to the agent and is replaying all queued updates
+	RemoteProxyStatus_RPS_REPLAYING RemoteProxyStatus = 3
+	// Indicates the remote proxy has finished replaying all queued updates and is
+	// waiting for the agent to go live.
+	RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE RemoteProxyStatus = 4
+)
+
+// Enum value maps for RemoteProxyStatus.
+var (
+	RemoteProxyStatus_name = map[int32]string{
+		0: "RPS_UNSPECIFIED",
+		1: "RPS_LIVE",
+		2: "RPS_AGENT_OFFLINE",
+		3: "RPS_REPLAYING",
+		4: "RPS_WAITING_FOR_AGENT_LIVE",
+	}
+	RemoteProxyStatus_value = map[string]int32{
+		"RPS_UNSPECIFIED":            0,
+		"RPS_LIVE":                   1,
+		"RPS_AGENT_OFFLINE":          2,
+		"RPS_REPLAYING":              3,
+		"RPS_WAITING_FOR_AGENT_LIVE": 4,
+	}
+)
+
+func (x RemoteProxyStatus) Enum() *RemoteProxyStatus {
+	p := new(RemoteProxyStatus)
+	*p = x
+	return p
+}
+
+func (x RemoteProxyStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RemoteProxyStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_dnsproxy_dnsproxy_proto_enumTypes[2].Descriptor()
+}
+
+func (RemoteProxyStatus) Type() protoreflect.EnumType {
+	return &file_dnsproxy_dnsproxy_proto_enumTypes[2]
+}
+
+func (x RemoteProxyStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RemoteProxyStatus.Descriptor instead.
+func (RemoteProxyStatus) EnumDescriptor() ([]byte, []int) {
+	return file_dnsproxy_dnsproxy_proto_rawDescGZIP(), []int{2}
+}
+
+type AgentStatus int32
+
+const (
+	AgentStatus_AS_UNSPECIFIED AgentStatus = 0
+	// Indicates the agent is fully live. All endpoints have regenerated at least once.
+	AgentStatus_AS_LIVE AgentStatus = 1
+	// Indicates the agent is up but still initializing.
+	AgentStatus_AS_STARTING AgentStatus = 2
+)
+
+// Enum value maps for AgentStatus.
+var (
+	AgentStatus_name = map[int32]string{
+		0: "AS_UNSPECIFIED",
+		1: "AS_LIVE",
+		2: "AS_STARTING",
+	}
+	AgentStatus_value = map[string]int32{
+		"AS_UNSPECIFIED": 0,
+		"AS_LIVE":        1,
+		"AS_STARTING":    2,
+	}
+)
+
+func (x AgentStatus) Enum() *AgentStatus {
+	p := new(AgentStatus)
+	*p = x
+	return p
+}
+
+func (x AgentStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AgentStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_dnsproxy_dnsproxy_proto_enumTypes[3].Descriptor()
+}
+
+func (AgentStatus) Type() protoreflect.EnumType {
+	return &file_dnsproxy_dnsproxy_proto_enumTypes[3]
+}
+
+func (x AgentStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AgentStatus.Descriptor instead.
+func (AgentStatus) EnumDescriptor() ([]byte, []int) {
+	return file_dnsproxy_dnsproxy_proto_rawDescGZIP(), []int{3}
+}
+
 type RestoredRulesMap struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
 	Rules         map[uint64]*RestoredRules `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -1321,6 +1432,151 @@ func (x *Workload) GetKind() string {
 	return ""
 }
 
+type RemoteProxyState struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Status  RemoteProxyStatus      `protobuf:"varint,1,opt,name=Status,proto3,enum=dnsproxy.RemoteProxyStatus" json:"Status,omitempty"`
+	Version string                 `protobuf:"bytes,2,opt,name=Version,proto3" json:"Version,omitempty"`
+	// StartTime is the unix timestamp
+	StartTime         int64 `protobuf:"varint,3,opt,name=StartTime,proto3" json:"StartTime,omitempty"`
+	EnableOfflineMode bool  `protobuf:"varint,4,opt,name=EnableOfflineMode,proto3" json:"EnableOfflineMode,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RemoteProxyState) Reset() {
+	*x = RemoteProxyState{}
+	mi := &file_dnsproxy_dnsproxy_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoteProxyState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoteProxyState) ProtoMessage() {}
+
+func (x *RemoteProxyState) ProtoReflect() protoreflect.Message {
+	mi := &file_dnsproxy_dnsproxy_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoteProxyState.ProtoReflect.Descriptor instead.
+func (*RemoteProxyState) Descriptor() ([]byte, []int) {
+	return file_dnsproxy_dnsproxy_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RemoteProxyState) GetStatus() RemoteProxyStatus {
+	if x != nil {
+		return x.Status
+	}
+	return RemoteProxyStatus_RPS_UNSPECIFIED
+}
+
+func (x *RemoteProxyState) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *RemoteProxyState) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
+func (x *RemoteProxyState) GetEnableOfflineMode() bool {
+	if x != nil {
+		return x.EnableOfflineMode
+	}
+	return false
+}
+
+type AgentState struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Status            AgentStatus            `protobuf:"varint,1,opt,name=Status,proto3,enum=dnsproxy.AgentStatus" json:"Status,omitempty"`
+	Version           string                 `protobuf:"bytes,2,opt,name=Version,proto3" json:"Version,omitempty"`
+	IPCacheMapName    string                 `protobuf:"bytes,3,opt,name=IPCacheMapName,proto3" json:"IPCacheMapName,omitempty"`
+	StartTime         int64                  `protobuf:"varint,4,opt,name=StartTime,proto3" json:"StartTime,omitempty"`
+	EnableOfflineMode bool                   `protobuf:"varint,5,opt,name=EnableOfflineMode,proto3" json:"EnableOfflineMode,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AgentState) Reset() {
+	*x = AgentState{}
+	mi := &file_dnsproxy_dnsproxy_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentState) ProtoMessage() {}
+
+func (x *AgentState) ProtoReflect() protoreflect.Message {
+	mi := &file_dnsproxy_dnsproxy_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentState.ProtoReflect.Descriptor instead.
+func (*AgentState) Descriptor() ([]byte, []int) {
+	return file_dnsproxy_dnsproxy_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *AgentState) GetStatus() AgentStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AgentStatus_AS_UNSPECIFIED
+}
+
+func (x *AgentState) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *AgentState) GetIPCacheMapName() string {
+	if x != nil {
+		return x.IPCacheMapName
+	}
+	return ""
+}
+
+func (x *AgentState) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
+func (x *AgentState) GetEnableOfflineMode() bool {
+	if x != nil {
+		return x.EnableOfflineMode
+	}
+	return false
+}
+
 var File_dnsproxy_dnsproxy_proto protoreflect.FileDescriptor
 
 const file_dnsproxy_dnsproxy_proto_rawDesc = "" +
@@ -1417,7 +1673,19 @@ const file_dnsproxy_dnsproxy_proto_rawDesc = "" +
 	"\tworkloads\x18\x06 \x03(\v2\x12.dnsproxy.WorkloadR\tworkloads\"2\n" +
 	"\bWorkload\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04kind\x18\x02 \x01(\tR\x04kind**\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\"\xad\x01\n" +
+	"\x10RemoteProxyState\x123\n" +
+	"\x06Status\x18\x01 \x01(\x0e2\x1b.dnsproxy.RemoteProxyStatusR\x06Status\x12\x18\n" +
+	"\aVersion\x18\x02 \x01(\tR\aVersion\x12\x1c\n" +
+	"\tStartTime\x18\x03 \x01(\x03R\tStartTime\x12,\n" +
+	"\x11EnableOfflineMode\x18\x04 \x01(\bR\x11EnableOfflineMode\"\xc9\x01\n" +
+	"\n" +
+	"AgentState\x12-\n" +
+	"\x06Status\x18\x01 \x01(\x0e2\x15.dnsproxy.AgentStatusR\x06Status\x12\x18\n" +
+	"\aVersion\x18\x02 \x01(\tR\aVersion\x12&\n" +
+	"\x0eIPCacheMapName\x18\x03 \x01(\tR\x0eIPCacheMapName\x12\x1c\n" +
+	"\tStartTime\x18\x04 \x01(\x03R\tStartTime\x12,\n" +
+	"\x11EnableOfflineMode\x18\x05 \x01(\bR\x11EnableOfflineMode**\n" +
 	"\x0eIPCacheVersion\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\a\n" +
 	"\x03One\x10\x01*o\n" +
@@ -1426,7 +1694,17 @@ const file_dnsproxy_dnsproxy_proto_rawDesc = "" +
 	"\x16UPDATETYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11UPDATETYPE_UPSERT\x10\x01\x12\x15\n" +
 	"\x11UPDATETYPE_REMOVE\x10\x02\x12\x17\n" +
-	"\x13UPDATETYPE_BOOKMARK\x10\x032\xa4\x04\n" +
+	"\x13UPDATETYPE_BOOKMARK\x10\x03*\x80\x01\n" +
+	"\x11RemoteProxyStatus\x12\x13\n" +
+	"\x0fRPS_UNSPECIFIED\x10\x00\x12\f\n" +
+	"\bRPS_LIVE\x10\x01\x12\x15\n" +
+	"\x11RPS_AGENT_OFFLINE\x10\x02\x12\x11\n" +
+	"\rRPS_REPLAYING\x10\x03\x12\x1e\n" +
+	"\x1aRPS_WAITING_FOR_AGENT_LIVE\x10\x04*?\n" +
+	"\vAgentStatus\x12\x12\n" +
+	"\x0eAS_UNSPECIFIED\x10\x00\x12\v\n" +
+	"\aAS_LIVE\x10\x01\x12\x0f\n" +
+	"\vAS_STARTING\x10\x022\xee\x04\n" +
 	"\x0eFQDNProxyAgent\x12?\n" +
 	"\x0fProvideMappings\x12\x15.dnsproxy.FQDNMapping\x1a\x11.dnsproxy.Success\"\x00(\x01\x12=\n" +
 	"\x12LookupEndpointByIP\x12\x11.dnsproxy.FQDN_IP\x1a\x12.dnsproxy.Endpoint\"\x00\x12E\n" +
@@ -1435,7 +1713,8 @@ const file_dnsproxy_dnsproxy_proto_rawDesc = "" +
 	"\x12NotifyOnDNSMessage\x12\x19.dnsproxy.DNSNotification\x1a\x0f.dnsproxy.Empty\"\x00\x12<\n" +
 	"\vGetAllRules\x12\x0f.dnsproxy.Empty\x1a\x1a.dnsproxy.RestoredRulesMap\"\x00\x12C\n" +
 	"\x12SubscribeSelectors\x12\x0f.dnsproxy.Empty\x1a\x18.dnsproxy.SelectorUpdate\"\x000\x01\x12@\n" +
-	"\x12SubscribeFQDNRules\x12\x0f.dnsproxy.Empty\x1a\x13.dnsproxy.FQDNRules\"\x00(\x010\x012\xc1\x01\n" +
+	"\x12SubscribeFQDNRules\x12\x0f.dnsproxy.Empty\x1a\x13.dnsproxy.FQDNRules\"\x00(\x010\x01\x12H\n" +
+	"\x0eSubscribeState\x12\x1a.dnsproxy.RemoteProxyState\x1a\x14.dnsproxy.AgentState\"\x00(\x010\x012\xc1\x01\n" +
 	"\tFQDNProxy\x127\n" +
 	"\rUpdateAllowed\x12\x13.dnsproxy.FQDNRules\x1a\x0f.dnsproxy.Empty\"\x00\x12>\n" +
 	"\x13RemoveRestoredRules\x12\x14.dnsproxy.EndpointID\x1a\x0f.dnsproxy.Empty\"\x00\x12;\n" +
@@ -1453,85 +1732,93 @@ func file_dnsproxy_dnsproxy_proto_rawDescGZIP() []byte {
 	return file_dnsproxy_dnsproxy_proto_rawDescData
 }
 
-var file_dnsproxy_dnsproxy_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_dnsproxy_dnsproxy_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_dnsproxy_dnsproxy_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_dnsproxy_dnsproxy_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_dnsproxy_dnsproxy_proto_goTypes = []any{
 	(IPCacheVersion)(0),           // 0: dnsproxy.IPCacheVersion
 	(UpdateType)(0),               // 1: dnsproxy.UpdateType
-	(*RestoredRulesMap)(nil),      // 2: dnsproxy.RestoredRulesMap
-	(*RestoredRules)(nil),         // 3: dnsproxy.RestoredRules
-	(*IPRules)(nil),               // 4: dnsproxy.IPRules
-	(*IPRule)(nil),                // 5: dnsproxy.IPRule
-	(*EndpointID)(nil),            // 6: dnsproxy.EndpointID
-	(*Empty)(nil),                 // 7: dnsproxy.Empty
-	(*FQDNRules)(nil),             // 8: dnsproxy.FQDNRules
-	(*L7Rules)(nil),               // 9: dnsproxy.L7Rules
-	(*IdentityList)(nil),          // 10: dnsproxy.IdentityList
-	(*DNSNotification)(nil),       // 11: dnsproxy.DNSNotification
-	(*IPs)(nil),                   // 12: dnsproxy.IPs
-	(*FQDN_IP)(nil),               // 13: dnsproxy.FQDN_IP
-	(*Identity)(nil),              // 14: dnsproxy.Identity
-	(*FQDNMapping)(nil),           // 15: dnsproxy.FQDNMapping
-	(*SelectorUpdate)(nil),        // 16: dnsproxy.SelectorUpdate
-	(*FQDNSelectorUpdate)(nil),    // 17: dnsproxy.FQDNSelectorUpdate
-	(*FQDNSelector)(nil),          // 18: dnsproxy.FQDNSelector
-	(*FQDNIdentityUpdate)(nil),    // 19: dnsproxy.FQDNIdentityUpdate
-	(*Label)(nil),                 // 20: dnsproxy.Label
-	(*Success)(nil),               // 21: dnsproxy.Success
-	(*Endpoint)(nil),              // 22: dnsproxy.Endpoint
-	(*Workload)(nil),              // 23: dnsproxy.Workload
-	nil,                           // 24: dnsproxy.RestoredRulesMap.RulesEntry
-	nil,                           // 25: dnsproxy.RestoredRules.RulesEntry
-	nil,                           // 26: dnsproxy.L7Rules.SelectorRegexMappingEntry
-	nil,                           // 27: dnsproxy.L7Rules.SelectorIdentitiesMappingEntry
-	(*timestamppb.Timestamp)(nil), // 28: google.protobuf.Timestamp
+	(RemoteProxyStatus)(0),        // 2: dnsproxy.RemoteProxyStatus
+	(AgentStatus)(0),              // 3: dnsproxy.AgentStatus
+	(*RestoredRulesMap)(nil),      // 4: dnsproxy.RestoredRulesMap
+	(*RestoredRules)(nil),         // 5: dnsproxy.RestoredRules
+	(*IPRules)(nil),               // 6: dnsproxy.IPRules
+	(*IPRule)(nil),                // 7: dnsproxy.IPRule
+	(*EndpointID)(nil),            // 8: dnsproxy.EndpointID
+	(*Empty)(nil),                 // 9: dnsproxy.Empty
+	(*FQDNRules)(nil),             // 10: dnsproxy.FQDNRules
+	(*L7Rules)(nil),               // 11: dnsproxy.L7Rules
+	(*IdentityList)(nil),          // 12: dnsproxy.IdentityList
+	(*DNSNotification)(nil),       // 13: dnsproxy.DNSNotification
+	(*IPs)(nil),                   // 14: dnsproxy.IPs
+	(*FQDN_IP)(nil),               // 15: dnsproxy.FQDN_IP
+	(*Identity)(nil),              // 16: dnsproxy.Identity
+	(*FQDNMapping)(nil),           // 17: dnsproxy.FQDNMapping
+	(*SelectorUpdate)(nil),        // 18: dnsproxy.SelectorUpdate
+	(*FQDNSelectorUpdate)(nil),    // 19: dnsproxy.FQDNSelectorUpdate
+	(*FQDNSelector)(nil),          // 20: dnsproxy.FQDNSelector
+	(*FQDNIdentityUpdate)(nil),    // 21: dnsproxy.FQDNIdentityUpdate
+	(*Label)(nil),                 // 22: dnsproxy.Label
+	(*Success)(nil),               // 23: dnsproxy.Success
+	(*Endpoint)(nil),              // 24: dnsproxy.Endpoint
+	(*Workload)(nil),              // 25: dnsproxy.Workload
+	(*RemoteProxyState)(nil),      // 26: dnsproxy.RemoteProxyState
+	(*AgentState)(nil),            // 27: dnsproxy.AgentState
+	nil,                           // 28: dnsproxy.RestoredRulesMap.RulesEntry
+	nil,                           // 29: dnsproxy.RestoredRules.RulesEntry
+	nil,                           // 30: dnsproxy.L7Rules.SelectorRegexMappingEntry
+	nil,                           // 31: dnsproxy.L7Rules.SelectorIdentitiesMappingEntry
+	(*timestamppb.Timestamp)(nil), // 32: google.protobuf.Timestamp
 }
 var file_dnsproxy_dnsproxy_proto_depIdxs = []int32{
-	24, // 0: dnsproxy.RestoredRulesMap.rules:type_name -> dnsproxy.RestoredRulesMap.RulesEntry
-	25, // 1: dnsproxy.RestoredRules.rules:type_name -> dnsproxy.RestoredRules.RulesEntry
-	5,  // 2: dnsproxy.IPRules.list:type_name -> dnsproxy.IPRule
-	9,  // 3: dnsproxy.FQDNRules.rules:type_name -> dnsproxy.L7Rules
-	26, // 4: dnsproxy.L7Rules.SelectorRegexMapping:type_name -> dnsproxy.L7Rules.SelectorRegexMappingEntry
-	27, // 5: dnsproxy.L7Rules.SelectorIdentitiesMapping:type_name -> dnsproxy.L7Rules.SelectorIdentitiesMappingEntry
-	28, // 6: dnsproxy.DNSNotification.time:type_name -> google.protobuf.Timestamp
-	22, // 7: dnsproxy.DNSNotification.endpoint:type_name -> dnsproxy.Endpoint
-	17, // 8: dnsproxy.SelectorUpdate.fqdnSelector:type_name -> dnsproxy.FQDNSelectorUpdate
-	19, // 9: dnsproxy.SelectorUpdate.fqdnIdentity:type_name -> dnsproxy.FQDNIdentityUpdate
+	28, // 0: dnsproxy.RestoredRulesMap.rules:type_name -> dnsproxy.RestoredRulesMap.RulesEntry
+	29, // 1: dnsproxy.RestoredRules.rules:type_name -> dnsproxy.RestoredRules.RulesEntry
+	7,  // 2: dnsproxy.IPRules.list:type_name -> dnsproxy.IPRule
+	11, // 3: dnsproxy.FQDNRules.rules:type_name -> dnsproxy.L7Rules
+	30, // 4: dnsproxy.L7Rules.SelectorRegexMapping:type_name -> dnsproxy.L7Rules.SelectorRegexMappingEntry
+	31, // 5: dnsproxy.L7Rules.SelectorIdentitiesMapping:type_name -> dnsproxy.L7Rules.SelectorIdentitiesMappingEntry
+	32, // 6: dnsproxy.DNSNotification.time:type_name -> google.protobuf.Timestamp
+	24, // 7: dnsproxy.DNSNotification.endpoint:type_name -> dnsproxy.Endpoint
+	19, // 8: dnsproxy.SelectorUpdate.fqdnSelector:type_name -> dnsproxy.FQDNSelectorUpdate
+	21, // 9: dnsproxy.SelectorUpdate.fqdnIdentity:type_name -> dnsproxy.FQDNIdentityUpdate
 	1,  // 10: dnsproxy.FQDNSelectorUpdate.type:type_name -> dnsproxy.UpdateType
-	18, // 11: dnsproxy.FQDNSelectorUpdate.selector:type_name -> dnsproxy.FQDNSelector
+	20, // 11: dnsproxy.FQDNSelectorUpdate.selector:type_name -> dnsproxy.FQDNSelector
 	1,  // 12: dnsproxy.FQDNIdentityUpdate.type:type_name -> dnsproxy.UpdateType
-	20, // 13: dnsproxy.FQDNIdentityUpdate.labels:type_name -> dnsproxy.Label
-	23, // 14: dnsproxy.Endpoint.workloads:type_name -> dnsproxy.Workload
-	3,  // 15: dnsproxy.RestoredRulesMap.RulesEntry.value:type_name -> dnsproxy.RestoredRules
-	4,  // 16: dnsproxy.RestoredRules.RulesEntry.value:type_name -> dnsproxy.IPRules
-	10, // 17: dnsproxy.L7Rules.SelectorIdentitiesMappingEntry.value:type_name -> dnsproxy.IdentityList
-	15, // 18: dnsproxy.FQDNProxyAgent.ProvideMappings:input_type -> dnsproxy.FQDNMapping
-	13, // 19: dnsproxy.FQDNProxyAgent.LookupEndpointByIP:input_type -> dnsproxy.FQDN_IP
-	13, // 20: dnsproxy.FQDNProxyAgent.LookupSecurityIdentityByIP:input_type -> dnsproxy.FQDN_IP
-	14, // 21: dnsproxy.FQDNProxyAgent.LookupIPsBySecurityIdentity:input_type -> dnsproxy.Identity
-	11, // 22: dnsproxy.FQDNProxyAgent.NotifyOnDNSMessage:input_type -> dnsproxy.DNSNotification
-	7,  // 23: dnsproxy.FQDNProxyAgent.GetAllRules:input_type -> dnsproxy.Empty
-	7,  // 24: dnsproxy.FQDNProxyAgent.SubscribeSelectors:input_type -> dnsproxy.Empty
-	7,  // 25: dnsproxy.FQDNProxyAgent.SubscribeFQDNRules:input_type -> dnsproxy.Empty
-	8,  // 26: dnsproxy.FQDNProxy.UpdateAllowed:input_type -> dnsproxy.FQDNRules
-	6,  // 27: dnsproxy.FQDNProxy.RemoveRestoredRules:input_type -> dnsproxy.EndpointID
-	6,  // 28: dnsproxy.FQDNProxy.GetRules:input_type -> dnsproxy.EndpointID
-	21, // 29: dnsproxy.FQDNProxyAgent.ProvideMappings:output_type -> dnsproxy.Success
-	22, // 30: dnsproxy.FQDNProxyAgent.LookupEndpointByIP:output_type -> dnsproxy.Endpoint
-	14, // 31: dnsproxy.FQDNProxyAgent.LookupSecurityIdentityByIP:output_type -> dnsproxy.Identity
-	12, // 32: dnsproxy.FQDNProxyAgent.LookupIPsBySecurityIdentity:output_type -> dnsproxy.IPs
-	7,  // 33: dnsproxy.FQDNProxyAgent.NotifyOnDNSMessage:output_type -> dnsproxy.Empty
-	2,  // 34: dnsproxy.FQDNProxyAgent.GetAllRules:output_type -> dnsproxy.RestoredRulesMap
-	16, // 35: dnsproxy.FQDNProxyAgent.SubscribeSelectors:output_type -> dnsproxy.SelectorUpdate
-	8,  // 36: dnsproxy.FQDNProxyAgent.SubscribeFQDNRules:output_type -> dnsproxy.FQDNRules
-	7,  // 37: dnsproxy.FQDNProxy.UpdateAllowed:output_type -> dnsproxy.Empty
-	7,  // 38: dnsproxy.FQDNProxy.RemoveRestoredRules:output_type -> dnsproxy.Empty
-	3,  // 39: dnsproxy.FQDNProxy.GetRules:output_type -> dnsproxy.RestoredRules
-	29, // [29:40] is the sub-list for method output_type
-	18, // [18:29] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	22, // 13: dnsproxy.FQDNIdentityUpdate.labels:type_name -> dnsproxy.Label
+	25, // 14: dnsproxy.Endpoint.workloads:type_name -> dnsproxy.Workload
+	2,  // 15: dnsproxy.RemoteProxyState.Status:type_name -> dnsproxy.RemoteProxyStatus
+	3,  // 16: dnsproxy.AgentState.Status:type_name -> dnsproxy.AgentStatus
+	5,  // 17: dnsproxy.RestoredRulesMap.RulesEntry.value:type_name -> dnsproxy.RestoredRules
+	6,  // 18: dnsproxy.RestoredRules.RulesEntry.value:type_name -> dnsproxy.IPRules
+	12, // 19: dnsproxy.L7Rules.SelectorIdentitiesMappingEntry.value:type_name -> dnsproxy.IdentityList
+	17, // 20: dnsproxy.FQDNProxyAgent.ProvideMappings:input_type -> dnsproxy.FQDNMapping
+	15, // 21: dnsproxy.FQDNProxyAgent.LookupEndpointByIP:input_type -> dnsproxy.FQDN_IP
+	15, // 22: dnsproxy.FQDNProxyAgent.LookupSecurityIdentityByIP:input_type -> dnsproxy.FQDN_IP
+	16, // 23: dnsproxy.FQDNProxyAgent.LookupIPsBySecurityIdentity:input_type -> dnsproxy.Identity
+	13, // 24: dnsproxy.FQDNProxyAgent.NotifyOnDNSMessage:input_type -> dnsproxy.DNSNotification
+	9,  // 25: dnsproxy.FQDNProxyAgent.GetAllRules:input_type -> dnsproxy.Empty
+	9,  // 26: dnsproxy.FQDNProxyAgent.SubscribeSelectors:input_type -> dnsproxy.Empty
+	9,  // 27: dnsproxy.FQDNProxyAgent.SubscribeFQDNRules:input_type -> dnsproxy.Empty
+	26, // 28: dnsproxy.FQDNProxyAgent.SubscribeState:input_type -> dnsproxy.RemoteProxyState
+	10, // 29: dnsproxy.FQDNProxy.UpdateAllowed:input_type -> dnsproxy.FQDNRules
+	8,  // 30: dnsproxy.FQDNProxy.RemoveRestoredRules:input_type -> dnsproxy.EndpointID
+	8,  // 31: dnsproxy.FQDNProxy.GetRules:input_type -> dnsproxy.EndpointID
+	23, // 32: dnsproxy.FQDNProxyAgent.ProvideMappings:output_type -> dnsproxy.Success
+	24, // 33: dnsproxy.FQDNProxyAgent.LookupEndpointByIP:output_type -> dnsproxy.Endpoint
+	16, // 34: dnsproxy.FQDNProxyAgent.LookupSecurityIdentityByIP:output_type -> dnsproxy.Identity
+	14, // 35: dnsproxy.FQDNProxyAgent.LookupIPsBySecurityIdentity:output_type -> dnsproxy.IPs
+	9,  // 36: dnsproxy.FQDNProxyAgent.NotifyOnDNSMessage:output_type -> dnsproxy.Empty
+	4,  // 37: dnsproxy.FQDNProxyAgent.GetAllRules:output_type -> dnsproxy.RestoredRulesMap
+	18, // 38: dnsproxy.FQDNProxyAgent.SubscribeSelectors:output_type -> dnsproxy.SelectorUpdate
+	10, // 39: dnsproxy.FQDNProxyAgent.SubscribeFQDNRules:output_type -> dnsproxy.FQDNRules
+	27, // 40: dnsproxy.FQDNProxyAgent.SubscribeState:output_type -> dnsproxy.AgentState
+	9,  // 41: dnsproxy.FQDNProxy.UpdateAllowed:output_type -> dnsproxy.Empty
+	9,  // 42: dnsproxy.FQDNProxy.RemoveRestoredRules:output_type -> dnsproxy.Empty
+	5,  // 43: dnsproxy.FQDNProxy.GetRules:output_type -> dnsproxy.RestoredRules
+	32, // [32:44] is the sub-list for method output_type
+	20, // [20:32] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_dnsproxy_dnsproxy_proto_init() }
@@ -1544,8 +1831,8 @@ func file_dnsproxy_dnsproxy_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_dnsproxy_dnsproxy_proto_rawDesc), len(file_dnsproxy_dnsproxy_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   26,
+			NumEnums:      4,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
