@@ -21,6 +21,7 @@ import (
 	require "github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -51,15 +52,20 @@ type vrfRoute struct {
 }
 
 type testDataPlane struct {
+	mu              lock.RWMutex
 	initialRoutes   []*vrfRoute
 	receivedUpdates []*RIBUpdate
 }
 
 func (m *testDataPlane) ProcessUpdate(u *RIBUpdate) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.receivedUpdates = append(m.receivedUpdates, u)
 }
 
 func (m *testDataPlane) ForEach(cb func(uint32, *Route)) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, vrfRoute := range m.initialRoutes {
 		cb(vrfRoute.vrfID, &vrfRoute.route)
 	}

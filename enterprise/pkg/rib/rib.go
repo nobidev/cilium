@@ -498,11 +498,24 @@ type gcChFn func() <-chan time.Time
 // Inspired by the Zebra's graceful-restart feature (-K option).
 // https://docs.frrouting.org/en/latest/zebra.html#cmdoption-zebra-K
 func scheduleInitialGC(jg job.Group, r *RIB, fn gcChFn) {
+	// r.UpsertRoute may call dataplane.ProcessUpdate. Calling
+	// dataPlane.ProcessUpdate while iterating over the trie is not safe,
+	// so we need to collect all routes first and then call UpsertRoute for
+	// each of them.
+	routes := []RIBUpdate{}
+
 	r.dataPlane.ForEach(func(vrfID uint32, route *Route) {
 		route.Owner = OwnerUnknown
 		route.Protocol = ProtocolUnknown
-		r.UpsertRoute(vrfID, *route)
+		routes = append(routes, RIBUpdate{
+			VRFID:   vrfID,
+			NewBest: route,
+		})
 	})
+	for _, update := range routes {
+		r.UpsertRoute(update.VRFID, *update.NewBest)
+	}
+
 	ch := fn()
 	jg.Add(job.OneShot("initial-gc", func(ctx context.Context, health cell.Health) error {
 		select {
