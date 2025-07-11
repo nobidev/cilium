@@ -337,7 +337,7 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 					Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
 				},
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					Routes: []isovalentv1alpha1.LBServiceHTTPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+					Routes: []isovalentv1alpha1.LBServiceHTTPSRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
 				},
 				TLSPassthrough: &isovalentv1alpha1.LBServiceApplicationTLSPassthrough{
 					Routes: []isovalentv1alpha1.LBServiceTLSPassthroughRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
@@ -370,7 +370,7 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 					},
 				},
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
+					Routes: []isovalentv1alpha1.LBServiceHTTPSRoute{
 						{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}},
 						{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-2"}, PersistentBackend: &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{}},
 					},
@@ -419,7 +419,7 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 					},
 				},
 				HTTPSProxy: &isovalentv1alpha1.LBServiceApplicationHTTPSProxy{
-					Routes: []isovalentv1alpha1.LBServiceHTTPRoute{
+					Routes: []isovalentv1alpha1.LBServiceHTTPSRoute{
 						{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}},
 						{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-2"}, PersistentBackend: &isovalentv1alpha1.LBServiceHTTPRoutePersistentBackend{}},
 					},

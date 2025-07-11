@@ -17,13 +17,13 @@ import (
 func TestHTTPSRequestFiltering(t T) {
 	testCases := []struct {
 		desc      string
-		appOpt    func(clients []*frrContainer) httpApplicationRouteOption
+		appOpt    func(clients []*frrContainer) httpsApplicationRouteOption
 		testCalls []testCall
 	}{
 		{
 			desc: "deny-by-exact-path",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyByExactPath("/admin")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyByExactPath("/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -48,8 +48,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "deny-by-prefix-path",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyByPrefixPath("/admin")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyByPrefixPath("/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -74,8 +74,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "deny-by-exact-hostname",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyByExactHostname("secure2.acme.io")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyByExactHostname("secure2.acme.io")
 			},
 			testCalls: []testCall{
 				{
@@ -100,8 +100,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "deny-by-suffix-hostname",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyBySuffixHostname("moresecure.acme.io")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyBySuffixHostname("moresecure.acme.io")
 			},
 			testCalls: []testCall{
 				{
@@ -126,8 +126,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "deny-by-sourceip",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyBySourceIP(clients[1].ip + "/32")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyBySourceIP(clients[1].ip + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -146,8 +146,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "deny-by-sourceip-hostname-path",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -190,8 +190,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "allow-by-sourceip-hostname-path",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -216,8 +216,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "allow-by-exact-headers",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringAllowByExactHeader(map[string]string{
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringAllowByExactHeader(map[string]string{
 					"test-name1": "test-value1",
 					"test-name2": "test-value2",
 				})
@@ -253,8 +253,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "allow-by-prefix-headers",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringAllowByPrefixHeader(map[string]string{
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringAllowByPrefixHeader(map[string]string{
 					"test-name1": "test-value1",
 					"test-name2": "test-value2",
 				})
@@ -310,8 +310,8 @@ func TestHTTPSRequestFiltering(t T) {
 		},
 		{
 			desc: "allow-by-regex-headers",
-			appOpt: func(clients []*frrContainer) httpApplicationRouteOption {
-				return withHttpRequestFilteringAllowByRegexHeader(map[string]string{
+			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+				return withHttpsRequestFilteringAllowByRegexHeader(map[string]string{
 					"test-name1": ".*test-value1.*",
 					"test-name2": ".*test-value2.*",
 				})
@@ -411,7 +411,7 @@ func TestHTTPSRequestFiltering(t T) {
 
 			t.Log("Creating LB Service resources...")
 			opts := []httpsApplicationOption{}
-			opts = append(opts, withHttpsRoute(testName, withHttpHostname("*.acme.io"), tC.appOpt(clients)))
+			opts = append(opts, withHttpsRoute(testName, withHttpsHostname("*.acme.io"), tC.appOpt(clients)))
 			opts = append(opts, withCertificate(testName+"-secure"))
 			opts = append(opts, withCertificate(testName+"-adminsecure"))
 			opts = append(opts, withCertificate(testName+"-moresecure"))

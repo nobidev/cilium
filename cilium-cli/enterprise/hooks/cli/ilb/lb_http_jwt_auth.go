@@ -283,12 +283,12 @@ func testJWTAuth(t T, proto string) {
 				),
 				// Set per-route exception
 				withHttpsRoute(testName,
-					withHttpPath("/no-auth"),
-					withHttpRouteJWTAuthDisabled(),
+					withHttpsPath("/no-auth"),
+					withHttpsRouteJWTAuthDisabled(),
 				),
 				withHttpsRoute(testName,
-					withHttpPath("/jwt-claim-requestfiltering"),
-					withHttpRequestFilteringAllowByExactJWTClaim(map[string]string{
+					withHttpsPath("/jwt-claim-requestfiltering"),
+					withHttpsRequestFilteringAllowByExactJWTClaim(map[string]string{
 						"testkey": "testvalue",
 					}),
 				),

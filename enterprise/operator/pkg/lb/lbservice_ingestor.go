@@ -377,7 +377,7 @@ func (r *ingestor) toApplicationHTTPS(lbsvc *isovalentv1alpha1.LBService, refere
 			},
 			backendRef:        backendRef{name: lr.BackendRef.Name},
 			persistentBackend: r.toHTTPPersistentBackendConfig(lr.PersistentBackend),
-			requestFiltering:  r.toHTTPRouteRequestFilteringConfig(lr.RequestFiltering),
+			requestFiltering:  r.toHTTPSRouteRequestFilteringConfig(lr.RequestFiltering),
 			rateLimits:        r.toHTTPRouteRateLimits(lr.RateLimits),
 			auth:              r.toHTTPRouteAuth(lr.Auth),
 		}
@@ -909,15 +909,8 @@ func (r *ingestor) toHTTPConnectionFilteringConfig(config *isovalentv1alpha1.LBS
 	rules := []lbServiceHTTPConnectionFilteringRule{}
 
 	for _, ir := range config.Rules {
-
-		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
-
-		if ir.SourceCIDR != nil {
-			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
-		}
-
 		rules = append(rules, lbServiceHTTPConnectionFilteringRule{
-			sourceCIDR: sourceCIDR,
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
 		})
 	}
 
@@ -950,14 +943,8 @@ func (r *ingestor) toTCPRequestFilteringConfig(config *isovalentv1alpha1.LBServi
 	rules := []lbRouteTCPConnectionFilteringRule{}
 
 	for _, ir := range config.Rules {
-		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
-
-		if ir.SourceCIDR != nil {
-			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
-		}
-
 		rules = append(rules, lbRouteTCPConnectionFilteringRule{
-			sourceCIDR: sourceCIDR,
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
 		})
 	}
 
@@ -990,14 +977,8 @@ func (r *ingestor) toUDPRequestFilteringConfig(config *isovalentv1alpha1.LBServi
 	rules := []lbRouteUDPConnectionFilteringRule{}
 
 	for _, ir := range config.Rules {
-		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
-
-		if ir.SourceCIDR != nil {
-			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
-		}
-
 		rules = append(rules, lbRouteUDPConnectionFilteringRule{
-			sourceCIDR: sourceCIDR,
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
 		})
 	}
 
@@ -1015,107 +996,12 @@ func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.L
 	rules := []lbRouteHTTPRequestFilteringRule{}
 
 	for _, ir := range config.Rules {
-
-		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
-		var hostname *lbRouteRequestFilteringHostName
-		var path *lbRouteRequestFilteringHTTPPath
-
-		if ir.SourceCIDR != nil {
-			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
-		}
-
-		if ir.HostName != nil {
-			var hostName string
-			var hostNameType filterHostnameTypeType
-
-			if ir.HostName.Exact != nil {
-				hostName = *ir.HostName.Exact
-				hostNameType = filterHostnameTypeExact
-			} else if ir.HostName.Suffix != nil {
-				hostName = *ir.HostName.Suffix
-				hostNameType = filterHostnameTypeSuffix
-			}
-
-			hostname = &lbRouteRequestFilteringHostName{
-				hostName:     hostName,
-				hostNameType: hostNameType,
-			}
-		}
-
-		if ir.Path != nil {
-			var p string
-			var pType filterPathTypeType
-
-			if ir.Path.Exact != nil {
-				p = *ir.Path.Exact
-				pType = filterPathTypeExact
-			} else if ir.Path.Prefix != nil {
-				p = *ir.Path.Prefix
-				pType = filterPathTypePrefix
-			}
-
-			path = &lbRouteRequestFilteringHTTPPath{
-				path:     p,
-				pathType: pType,
-			}
-		}
-
-		headers := []*lbRouteRequestFilteringHTTPHeader{}
-		for _, h := range ir.Headers {
-			var v string
-			var vType filterHeaderTypeType
-
-			if h.Value.Exact != nil {
-				v = *h.Value.Exact
-				vType = filterHeaderTypeExact
-			} else if h.Value.Prefix != nil {
-				v = *h.Value.Prefix
-				vType = filterHeaderTypePrefix
-			} else if h.Value.Regex != nil {
-				v = *h.Value.Regex
-				vType = filterHeaderTypeRegex
-			}
-
-			headers = append(headers, &lbRouteRequestFilteringHTTPHeader{
-				name: h.Name,
-				value: lbRouteRequestFilteringHTTPHeaderValue{
-					value:     v,
-					valueType: vType,
-				},
-			})
-		}
-
-		jwtClaims := []*lbRouteRequestFilteringJWTClaim{}
-		for _, claim := range ir.JWTClaims {
-			var v string
-			var vType filterJWTClaimTypeType
-
-			if claim.Value.Exact != nil {
-				v = *claim.Value.Exact
-				vType = filterJWTClaimTypeExact
-			} else if claim.Value.Prefix != nil {
-				v = *claim.Value.Prefix
-				vType = filterJWTClaimTypePrefix
-			} else if claim.Value.Regex != nil {
-				v = *claim.Value.Regex
-				vType = filterJWTClaimTypeRegex
-			}
-
-			jwtClaims = append(jwtClaims, &lbRouteRequestFilteringJWTClaim{
-				name: claim.Name,
-				value: lbRouteRequestFilteringJWTClaimValue{
-					value:     v,
-					valueType: vType,
-				},
-			})
-		}
-
 		rules = append(rules, lbRouteHTTPRequestFilteringRule{
-			sourceCIDR: sourceCIDR,
-			hostname:   hostname,
-			path:       path,
-			headers:    headers,
-			jwtClaims:  jwtClaims,
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
+			hostname:   r.toHTTPHostname(ir.HostName),
+			path:       r.toHTTPPath(ir.Path),
+			headers:    r.toHTTPHeaders(ir.Headers),
+			jwtClaims:  r.toJWTClaims(ir.JWTClaims),
 		})
 	}
 
@@ -1125,14 +1011,146 @@ func (r *ingestor) toHTTPRouteRequestFilteringConfig(config *isovalentv1alpha1.L
 	}
 }
 
-func (r *ingestor) toSourceCIDR(cidr string) *lbRouteRequestFilteringSourceCIDR {
-	_, ipNet, err := net.ParseCIDR(cidr)
+func (r *ingestor) toHTTPSRouteRequestFilteringConfig(config *isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering) *lbRouteHTTPRequestFiltering {
+	if config == nil {
+		return nil
+	}
+
+	rules := []lbRouteHTTPRequestFilteringRule{}
+
+	for _, ir := range config.Rules {
+		rules = append(rules, lbRouteHTTPRequestFilteringRule{
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
+			hostname:   r.toHTTPHostname(ir.HostName),
+			path:       r.toHTTPPath(ir.Path),
+			headers:    r.toHTTPHeaders(ir.Headers),
+			jwtClaims:  r.toJWTClaims(ir.JWTClaims),
+		})
+	}
+
+	return &lbRouteHTTPRequestFiltering{
+		ruleType: r.mapRuleType(config.RuleType),
+		rules:    rules,
+	}
+}
+
+func (*ingestor) toHTTPHostname(httpHostName *isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHostname) *lbRouteRequestFilteringHostName {
+	if httpHostName == nil {
+		return nil
+	}
+
+	var hostName string
+	var hostNameType filterHostnameTypeType
+
+	if httpHostName.Exact != nil {
+		hostName = *httpHostName.Exact
+		hostNameType = filterHostnameTypeExact
+	} else if httpHostName.Suffix != nil {
+		hostName = *httpHostName.Suffix
+		hostNameType = filterHostnameTypeSuffix
+	}
+
+	return &lbRouteRequestFilteringHostName{
+		hostName:     hostName,
+		hostNameType: hostNameType,
+	}
+}
+
+func (*ingestor) toHTTPPath(httpPath *isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPPath) *lbRouteRequestFilteringHTTPPath {
+	if httpPath == nil {
+		return nil
+	}
+
+	var p string
+	var pType filterPathTypeType
+
+	if httpPath.Exact != nil {
+		p = *httpPath.Exact
+		pType = filterPathTypeExact
+	} else if httpPath.Prefix != nil {
+		p = *httpPath.Prefix
+		pType = filterPathTypePrefix
+	}
+
+	return &lbRouteRequestFilteringHTTPPath{
+		path:     p,
+		pathType: pType,
+	}
+}
+
+func (*ingestor) toHTTPHeaders(httpHeaders []*isovalentv1alpha1.LBServiceRequestFilteringRuleHTTPHeader) []*lbRouteRequestFilteringHTTPHeader {
+	headers := []*lbRouteRequestFilteringHTTPHeader{}
+
+	for _, h := range httpHeaders {
+		var v string
+		var vType filterHeaderTypeType
+
+		if h.Value.Exact != nil {
+			v = *h.Value.Exact
+			vType = filterHeaderTypeExact
+		} else if h.Value.Prefix != nil {
+			v = *h.Value.Prefix
+			vType = filterHeaderTypePrefix
+		} else if h.Value.Regex != nil {
+			v = *h.Value.Regex
+			vType = filterHeaderTypeRegex
+		}
+
+		headers = append(headers, &lbRouteRequestFilteringHTTPHeader{
+			name: h.Name,
+			value: lbRouteRequestFilteringHTTPHeaderValue{
+				value:     v,
+				valueType: vType,
+			},
+		})
+	}
+
+	return headers
+}
+
+func (r *ingestor) toJWTClaims(claims []*isovalentv1alpha1.LBServiceRequestFilteringRuleJWTClaim) []*lbRouteRequestFilteringJWTClaim {
+	jwtClaims := []*lbRouteRequestFilteringJWTClaim{}
+
+	for _, claim := range claims {
+		var v string
+		var vType filterJWTClaimTypeType
+
+		if claim.Value.Exact != nil {
+			v = *claim.Value.Exact
+			vType = filterJWTClaimTypeExact
+		} else if claim.Value.Prefix != nil {
+			v = *claim.Value.Prefix
+			vType = filterJWTClaimTypePrefix
+		} else if claim.Value.Regex != nil {
+			v = *claim.Value.Regex
+			vType = filterJWTClaimTypeRegex
+		}
+
+		jwtClaims = append(jwtClaims, &lbRouteRequestFilteringJWTClaim{
+			name: claim.Name,
+			value: lbRouteRequestFilteringJWTClaimValue{
+				value:     v,
+				valueType: vType,
+			},
+		})
+	}
+
+	return jwtClaims
+}
+
+func (r *ingestor) toSourceCIDR(inputSourceCIDR *isovalentv1alpha1.LBServiceRequestFilteringRuleSourceCIDR) *lbRouteRequestFilteringSourceCIDR {
+	if inputSourceCIDR == nil {
+		return nil
+	}
+
+	_, ipNet, err := net.ParseCIDR(inputSourceCIDR.CIDR)
 	if err != nil {
 		// return nil as this should already be covered by CRD field validation
 		return nil
 	}
 
 	prefixLen, _ := ipNet.Mask.Size()
+
 	return &lbRouteRequestFilteringSourceCIDR{
 		addressPrefix: ipNet.IP.String(),
 		prefixLen:     uint32(prefixLen),
@@ -1147,41 +1165,37 @@ func (r *ingestor) toTLSRequestFilteringConfig(config *isovalentv1alpha1.LBServi
 	rules := []lbRouteTLSConnectionFilteringRule{}
 
 	for _, ir := range config.Rules {
-
-		var sourceCIDR *lbRouteRequestFilteringSourceCIDR
-		var servername *lbRouteRequestFilteringHostName
-
-		if ir.SourceCIDR != nil {
-			sourceCIDR = r.toSourceCIDR(ir.SourceCIDR.CIDR)
-		}
-
-		if ir.ServerName != nil {
-			var serverName string
-			var serverNameType filterHostnameTypeType
-
-			if ir.ServerName.Exact != nil {
-				serverName = *ir.ServerName.Exact
-				serverNameType = filterHostnameTypeExact
-			} else if ir.ServerName.Suffix != nil {
-				serverName = *ir.ServerName.Suffix
-				serverNameType = filterHostnameTypeSuffix
-			}
-
-			servername = &lbRouteRequestFilteringHostName{
-				hostName:     serverName,
-				hostNameType: serverNameType,
-			}
-		}
-
 		rules = append(rules, lbRouteTLSConnectionFilteringRule{
-			sourceCIDR: sourceCIDR,
-			servername: servername,
+			sourceCIDR: r.toSourceCIDR(ir.SourceCIDR),
+			servername: r.toTLSServerName(ir),
 		})
 	}
 
 	return &lbRouteTLSConnectionFiltering{
 		ruleType: r.mapRuleType(config.RuleType),
 		rules:    rules,
+	}
+}
+
+func (*ingestor) toTLSServerName(ir isovalentv1alpha1.LBServiceTLSRouteRequestFilteringRule) *lbRouteRequestFilteringHostName {
+	if ir.ServerName == nil {
+		return nil
+	}
+
+	var serverName string
+	var serverNameType filterHostnameTypeType
+
+	if ir.ServerName.Exact != nil {
+		serverName = *ir.ServerName.Exact
+		serverNameType = filterHostnameTypeExact
+	} else if ir.ServerName.Suffix != nil {
+		serverName = *ir.ServerName.Suffix
+		serverNameType = filterHostnameTypeSuffix
+	}
+
+	return &lbRouteRequestFilteringHostName{
+		hostName:     serverName,
+		hostNameType: serverNameType,
 	}
 }
 

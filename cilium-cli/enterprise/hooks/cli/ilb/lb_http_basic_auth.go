@@ -96,8 +96,8 @@ func testBasicAuth(t T, proto string) {
 				withHttpsBasicAuth(secretName),
 				// Set per-route exception
 				withHttpsRoute(testName,
-					withHttpPath("/no-auth"),
-					withHttpRouteBasicAuth(true),
+					withHttpsPath("/no-auth"),
+					withHttpsRouteBasicAuth(true),
 				),
 				// Default route
 				withHttpsRoute(testName),

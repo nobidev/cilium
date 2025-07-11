@@ -772,28 +772,38 @@ func (*lbServiceReconciler) updateJWTAuthInStatus(lbsvc *isovalentv1alpha1.LBSer
 		LastTransitionTime: metav1.Now(),
 	}
 
-	var httpGlobalAuth *isovalentv1alpha1.LBServiceHTTPAuth
-	var httpRoutes []isovalentv1alpha1.LBServiceHTTPRoute
-
 	if lbsvc.Spec.Applications.HTTPProxy != nil {
-		httpGlobalAuth = lbsvc.Spec.Applications.HTTPProxy.Auth
-		httpRoutes = lbsvc.Spec.Applications.HTTPProxy.Routes
+		httpGlobalAuth := lbsvc.Spec.Applications.HTTPProxy.Auth
+		globalJWTAuthConfigured := httpGlobalAuth != nil && httpGlobalAuth.JWT != nil
+
+		for _, route := range lbsvc.Spec.Applications.HTTPProxy.Routes {
+			routeJWTAuthConfigured := route.Auth != nil && route.Auth.JWT != nil
+
+			if route.RequestFiltering != nil {
+				for _, rule := range route.RequestFiltering.Rules {
+					if rule.JWTClaims != nil && !globalJWTAuthConfigured && !routeJWTAuthConfigured {
+						condition.Status = metav1.ConditionFalse
+						condition.Reason = isovalentv1alpha1.ServiceValidReasonInvalidJWTAuthMissing
+						condition.Message = "One or more HTTP routes use JWT claim requestfiltering without configured JWT authentication"
+					}
+				}
+			}
+		}
+
 	} else if lbsvc.Spec.Applications.HTTPSProxy != nil {
-		httpGlobalAuth = lbsvc.Spec.Applications.HTTPSProxy.Auth
-		httpRoutes = lbsvc.Spec.Applications.HTTPSProxy.Routes
-	}
+		httpGlobalAuth := lbsvc.Spec.Applications.HTTPSProxy.Auth
+		globalJWTAuthConfigured := httpGlobalAuth != nil && httpGlobalAuth.JWT != nil
 
-	globalJWTAuthConfigured := httpGlobalAuth != nil && httpGlobalAuth.JWT != nil
+		for _, route := range lbsvc.Spec.Applications.HTTPSProxy.Routes {
+			routeJWTAuthConfigured := route.Auth != nil && route.Auth.JWT != nil
 
-	for _, route := range httpRoutes {
-		routeJWTAuthConfigured := route.Auth != nil && route.Auth.JWT != nil
-
-		if route.RequestFiltering != nil {
-			for _, rule := range route.RequestFiltering.Rules {
-				if rule.JWTClaims != nil && !globalJWTAuthConfigured && !routeJWTAuthConfigured {
-					condition.Status = metav1.ConditionFalse
-					condition.Reason = isovalentv1alpha1.ServiceValidReasonInvalidJWTAuthMissing
-					condition.Message = "One or more HTTP routes use JWT claim requestfiltering without configured JWT authentication"
+			if route.RequestFiltering != nil {
+				for _, rule := range route.RequestFiltering.Rules {
+					if rule.JWTClaims != nil && !globalJWTAuthConfigured && !routeJWTAuthConfigured {
+						condition.Status = metav1.ConditionFalse
+						condition.Reason = isovalentv1alpha1.ServiceValidReasonInvalidJWTAuthMissing
+						condition.Message = "One or more HTTP routes use JWT claim requestfiltering without configured JWT authentication"
+					}
 				}
 			}
 		}

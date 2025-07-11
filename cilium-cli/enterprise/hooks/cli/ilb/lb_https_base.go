@@ -47,7 +47,7 @@ func TestHTTPS(t T) {
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName)))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -118,7 +118,7 @@ func TestHTTPSRoutes(t T) {
 	// one route per backendpool (backend app)
 	routesAndCertificates := []httpsApplicationOption{}
 	for postfix, rhost := range serviceBackendMappings {
-		routesAndCertificates = append(routesAndCertificates, withHttpsRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
+		routesAndCertificates = append(routesAndCertificates, withHttpsRoute(testName+postfix, withHttpsHostname(rhost.hostname), withHttpsPath(fmt.Sprintf("/%s", rhost.path))))
 
 		// only use the reference it the TLS secret was created for this route
 		if alreadyCoveredHostnames[rhost.hostname] == postfix {
@@ -181,7 +181,7 @@ func TestHTTPS_H2(t T) {
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

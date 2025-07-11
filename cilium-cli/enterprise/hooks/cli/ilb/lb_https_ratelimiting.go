@@ -51,10 +51,10 @@ func TestHTTPSRouteRatelimiting(t T) {
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpRequestRateLimiting(5, 60)), withCertificate(testName)))
+	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsRequestRateLimiting(5, 60)), withCertificate(testName)))
 
 	// Prepending admin http route (prepending because routes are in order on the same virtualhost)
-	service.Spec.Applications.HTTPSProxy.Routes = append([]isovalentv1alpha1.LBServiceHTTPRoute{{
+	service.Spec.Applications.HTTPSProxy.Routes = append([]isovalentv1alpha1.LBServiceHTTPSRoute{{
 		Match: &isovalentv1alpha1.LBServiceHTTPRouteMatch{
 			Path: &isovalentv1alpha1.LBServiceHTTPPath{
 				Exact: ptr.To("/admin"),

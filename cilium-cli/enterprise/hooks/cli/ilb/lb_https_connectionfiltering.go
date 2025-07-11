@@ -101,7 +101,7 @@ func TestHTTPSConnectionFiltering(t T) {
 
 			t.Log("Creating LB Service resources...")
 			opts := []httpsApplicationOption{}
-			opts = append(opts, withHttpsRoute(testName, withHttpHostname("secure.acme.io")))
+			opts = append(opts, withHttpsRoute(testName, withHttpsHostname("secure.acme.io")))
 			opts = append(opts, withCertificate(testName))
 			opts = append(opts, tC.appOpt(clients))
 			service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))

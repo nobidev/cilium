@@ -192,7 +192,7 @@ type LBServiceApplicationHTTPSProxy struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Routes []LBServiceHTTPRoute `json:"routes"`
+	Routes []LBServiceHTTPSRoute `json:"routes"`
 }
 
 type LBServiceHTTPConfig struct {
@@ -725,6 +725,50 @@ type LBServiceHTTPRoute struct {
 	Auth *LBServiceHTTPRouteAuth `json:"auth,omitempty"`
 }
 
+type LBServiceHTTPSRoute struct {
+	// The HTTP route matching criteria. All conditions must be satisfied
+	// for the route to be matched.
+	//
+	// +kubebuilder:validation:Optional
+	Match *LBServiceHTTPRouteMatch `json:"match,omitempty"`
+
+	// The reference to the LBBackendPool resource that this route should
+	// forward the traffic to when the route is matched. The referred
+	// LBBackendPool must exist in the same namespace as the LBService.
+	//
+	// +kubebuilder:validation:Required
+	BackendRef LBServiceBackendRef `json:"backendRef"`
+
+	// The optional persistent backend configuration for this HTTP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be sent to persistently the same backend.
+	// The attributes are logically ANDed.
+	//
+	// Note: Persistent backend configuration is only supported by LBBackendPools
+	// with loadbalancing algorithm `consistentHashing`.
+	//
+	// +kubebuilder:validation:Optional
+	PersistentBackend *LBServiceHTTPRoutePersistentBackend `json:"persistentBackend,omitempty"`
+
+	// The optional request filtering configuration for this HTTP route.
+	// It defines the request attributes that should be obtained to decide
+	// whether requests should be denied or allowed.
+	//
+	// +kubebuilder:validation:Optional
+	RequestFiltering *LBServiceHTTPSRouteRequestFiltering `json:"requestFiltering,omitempty"`
+
+	// Optional per-route rate limit configuration.
+	// Currently, this is only a local rate limit (enforced on each LB node individually).
+	//
+	// +kubebuilder:validation:Optional
+	RateLimits *LBServiceHTTPRouteRateLimits `json:"rateLimits,omitempty"`
+
+	// Optional per-route authN/authZ configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *LBServiceHTTPRouteAuth `json:"auth,omitempty"`
+}
+
 type LBServiceHTTPRoutePersistentBackend struct {
 	// Whether requests from the same source IP should be sent to
 	// the same backend.
@@ -808,6 +852,21 @@ type LBServiceHTTPRouteRequestFiltering struct {
 	Rules []LBServiceHTTPRouteRequestFilteringRule `json:"rules,omitempty"`
 }
 
+type LBServiceHTTPSRouteRequestFiltering struct {
+	// The type of the rules.
+	//
+	// +kubebuilder:validation:Required
+	RuleType RequestFilteringRuleType `json:"ruleType"`
+
+	// Configure the rules that should be used for the HTTP route.
+	// Each rule needs to define at least one property to filter on.
+	// The properties of each entry are logically ANDed.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Rules []LBServiceHTTPSRouteRequestFilteringRule `json:"rules,omitempty"`
+}
+
 type LBServiceHTTPRateLimits struct {
 	// Rate limiting on connection basis.
 	// It is applied and enforced when the connection is established.
@@ -855,6 +914,38 @@ type LBServiceRateLimit struct {
 }
 
 type LBServiceHTTPRouteRequestFilteringRule struct {
+	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	SourceCIDR *LBServiceRequestFilteringRuleSourceCIDR `json:"sourceCIDR,omitempty"`
+
+	// Host-based matching. Only one of exact or suffix match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	HostName *LBServiceRequestFilteringRuleHTTPHostname `json:"hostName,omitempty"`
+
+	// Path-based matching. Only one of exact or suffix match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	Path *LBServiceRequestFilteringRuleHTTPPath `json:"path,omitempty"`
+
+	// Header-based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	Headers []*LBServiceRequestFilteringRuleHTTPHeader `json:"headers,omitempty"`
+
+	// JWT claim based matching. Only one of exact, suffix or regex match can be specified.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:AnyOf
+	JWTClaims []*LBServiceRequestFilteringRuleJWTClaim `json:"jwtClaims,omitempty"`
+}
+
+type LBServiceHTTPSRouteRequestFilteringRule struct {
 	// Source CIDR based matching. This allows for matching a specific or a range of IPv4 or IPv6 addresses.
 	//
 	// +kubebuilder:validation:Optional
