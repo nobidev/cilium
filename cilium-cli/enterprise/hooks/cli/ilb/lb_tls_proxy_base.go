@@ -197,6 +197,11 @@ func TestTLSProxyTLSBackend(t T) {
 		SecretRef: isovalentv1alpha1.LBServiceSecretRef{
 			Name: caCertSecretName,
 		},
+		SubjectAlternativeNames: []isovalentv1alpha1.LBTLSValidationConfigSAN{
+			{
+				Exact: "client.acme.io",
+			},
+		},
 	}
 
 	if err := ciliumCli.UpdateLBService(t.Context(), ns, curSvc, metav1.UpdateOptions{}); err != nil {
