@@ -159,12 +159,12 @@ func (msg *FQDNMapping) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *ProxyStatus) MarshalJSON() ([]byte, error) {
+func (msg *SelectorUpdate) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *ProxyStatus) UnmarshalJSON(b []byte) error {
+func (msg *SelectorUpdate) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 

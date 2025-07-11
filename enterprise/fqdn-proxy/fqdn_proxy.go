@@ -173,7 +173,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 	}
 	pc.log.Info("Starting to stream proxy status from the agent...")
 	var (
-		ps  grpc.ServerStreamingClient[pb.ProxyStatus]
+		ps  grpc.ServerStreamingClient[pb.SelectorUpdate]
 		err error
 	)
 	// todo: This method needs more work to reach maturity
@@ -181,7 +181,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 	// streams status (rather than just returning on one update)
 	// this stub works fine.
 	for {
-		ps, err = pc.client.SubscribeProxyStatuses(context.Background(), &pb.Empty{})
+		ps, err = pc.client.SubscribeSelectors(context.Background(), &pb.Empty{})
 		if err != nil {
 			sts, ok := status.FromError(err)
 			// This agent does not support proxy status.
@@ -199,13 +199,8 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 			if err != nil {
 				return fmt.Errorf("error receiving proxy status: %w", err)
 			}
-			if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
-				pc.mu.Lock()
-				pc.ipCacheV1 = true
-				pc.mu.Unlock()
-			} else {
-				pc.log.Info("got message", logfields.Message, agentProxyStatus)
-			}
+			pc.log.Info("got message", logfields.Message, agentProxyStatus)
+			// TODO: implement identity + selector streaming
 		}
 	}
 }

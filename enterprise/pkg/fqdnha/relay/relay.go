@@ -190,20 +190,11 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 		&dnsproxy.ProxyRequestContext{DataSource: "external-proxy"})
 }
 
-func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream grpc.ServerStreamingServer[pb.ProxyStatus]) error {
+func (s *FQDNProxyAgentServer) SubscribeSelectors(_ *pb.Empty, serverStream grpc.ServerStreamingServer[pb.SelectorUpdate]) error {
 	s.log.Info("Streaming proxy status to the external DNS proxy...")
 	// Writing to the same gRPC stream from multiple goroutines is not safe.
 	stream := &exclusiveStream{
 		ServerStreamingServer: serverStream,
-	}
-
-	ipVer := pb.IPCacheVersion_One
-	err := stream.Send(&pb.ProxyStatus{
-		Enum: &ipVer,
-	})
-	if err != nil {
-		s.log.Info("Failed to send ipcache version to proxy.", logfields.Error, err)
-		return fmt.Errorf("failed to send ipcache version: %w", err)
 	}
 
 	var eg errgroup.Group
@@ -214,7 +205,7 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream 
 		return s.sendIdentities(stream)
 	})
 
-	err = eg.Wait()
+	err := eg.Wait()
 	if err != nil {
 		s.log.Info("ProxyStatus stream ended.", logfields.Error, err)
 	}
@@ -222,16 +213,16 @@ func (s *FQDNProxyAgentServer) SubscribeProxyStatuses(_ *pb.Empty, serverStream 
 }
 
 type statusStream interface {
-	Send(m *pb.ProxyStatus) error
+	Send(m *pb.SelectorUpdate) error
 	Context() context.Context
 }
 
 type exclusiveStream struct {
 	mu lock.Mutex
-	grpc.ServerStreamingServer[pb.ProxyStatus]
+	grpc.ServerStreamingServer[pb.SelectorUpdate]
 }
 
-func (s *exclusiveStream) Send(m *pb.ProxyStatus) error {
+func (s *exclusiveStream) Send(m *pb.SelectorUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -250,7 +241,7 @@ func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
 			if ic.Labels == nil || !ic.Labels.HasSource(labels.LabelSourceFQDN) {
 				return
 			}
-			err = stream.Send(&pb.ProxyStatus{
+			err = stream.Send(&pb.SelectorUpdate{
 				FqdnIdentity: &pb.FQDNIdentityUpdate{
 					Type:     pb.UpdateType_UPDATETYPE_UPSERT,
 					Identity: uint64(ic.ID),
@@ -258,14 +249,14 @@ func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
 				},
 			})
 		case cache.IdentityChangeDelete:
-			err = stream.Send(&pb.ProxyStatus{
+			err = stream.Send(&pb.SelectorUpdate{
 				FqdnIdentity: &pb.FQDNIdentityUpdate{
 					Type:     pb.UpdateType_UPDATETYPE_REMOVE,
 					Identity: uint64(ic.ID),
 				},
 			})
 		case cache.IdentityChangeSync:
-			err = stream.Send(&pb.ProxyStatus{
+			err = stream.Send(&pb.SelectorUpdate{
 				FqdnIdentity: &pb.FQDNIdentityUpdate{
 					Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
 				},
@@ -306,7 +297,7 @@ func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
 	if err := s.sendSelectorBatch(stream, it); err != nil {
 		return err
 	}
-	err = stream.Send(&pb.ProxyStatus{
+	err = stream.Send(&pb.SelectorUpdate{
 		FqdnSelector: &pb.FQDNSelectorUpdate{
 			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
 		},
@@ -336,7 +327,7 @@ func (s *FQDNProxyAgentServer) sendSelectorBatch(stream statusStream, it iter.Se
 		if change.Deleted {
 			t = pb.UpdateType_UPDATETYPE_REMOVE
 		}
-		err = stream.Send(&pb.ProxyStatus{
+		err = stream.Send(&pb.SelectorUpdate{
 			FqdnSelector: &pb.FQDNSelectorUpdate{
 				Type: t,
 				Selector: &pb.FQDNSelector{

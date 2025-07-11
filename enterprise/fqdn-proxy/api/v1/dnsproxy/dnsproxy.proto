@@ -39,8 +39,8 @@ service FQDNProxyAgent {
   // GetAllRules retrieves all FQDN rules from agent proxy
   rpc GetAllRules(Empty) returns(RestoredRulesMap){}
 
-  // Returns a stream of ProxyStatuses
-  rpc SubscribeProxyStatuses(Empty) returns (stream ProxyStatus){}
+  // Returns a stream of FQDN selector and identity updates.
+  rpc SubscribeSelectors(Empty) returns (stream SelectorUpdate){}
 
   // Returns a stream of FQDNRules from the agent to the proxy
   // Proxy should write an Empty response to ack receipt of the rule.
@@ -123,10 +123,9 @@ message FQDNMapping {
     string FQDN = 2;
 }
 
-message ProxyStatus {
-  optional IPCacheVersion enum = 1;
-  FQDNSelectorUpdate fqdnSelector = 2;
-  FQDNIdentityUpdate fqdnIdentity = 3;
+message SelectorUpdate {
+  FQDNSelectorUpdate fqdnSelector = 1;
+  FQDNIdentityUpdate fqdnIdentity = 2;
 }
 
 // IPCacheVersion establishes which version of the key for
