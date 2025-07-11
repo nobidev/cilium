@@ -19,12 +19,20 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
-	"net"
-	"strings"
 	"time"
 )
 
-func genTemplate(hostName string, usage x509.KeyUsage, extUsage []x509.ExtKeyUsage) (*x509.Certificate, error) {
+type certTemplateOpts func(*x509.Certificate)
+
+func withCertificateSANDNSNames(dnsNames ...string) func(*x509.Certificate) {
+	return func(c *x509.Certificate) {
+		for _, h := range dnsNames {
+			c.DNSNames = append(c.DNSNames, h)
+		}
+	}
+}
+
+func genTemplate(usage x509.KeyUsage, extUsage []x509.ExtKeyUsage, opts ...certTemplateOpts) (*x509.Certificate, error) {
 	notBefore := time.Now().Add(-24 * time.Hour)
 	validFor := 365 * 24 * time.Hour
 	notAfter := notBefore.Add(validFor)
@@ -35,7 +43,7 @@ func genTemplate(hostName string, usage x509.KeyUsage, extUsage []x509.ExtKeyUsa
 		return nil, fmt.Errorf("failed to generate SN: %w", err)
 	}
 
-	template := x509.Certificate{
+	template := &x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			Organization: []string{"Acme Co"},
@@ -45,19 +53,13 @@ func genTemplate(hostName string, usage x509.KeyUsage, extUsage []x509.ExtKeyUsa
 		KeyUsage:              usage,
 		ExtKeyUsage:           extUsage,
 		BasicConstraintsValid: true,
-		DNSNames:              []string{hostName},
 	}
 
-	hosts := strings.Split(hostName, ",")
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
+	for _, opt := range opts {
+		opt(template)
 	}
 
-	return &template, nil
+	return template, nil
 }
 
 func encodePEM(derBytes []byte, priv *rsa.PrivateKey) (*bytes.Buffer, *bytes.Buffer, error) {
@@ -85,8 +87,7 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 		return nil, nil, fmt.Errorf("failed to generate priv key: %w", err)
 	}
 
-	template, err := genTemplate(host, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
-		[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+	template, err := genTemplate(x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, withCertificateSANDNSNames(host))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate template: %w", err)
 	}

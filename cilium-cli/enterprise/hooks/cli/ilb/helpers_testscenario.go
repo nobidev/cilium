@@ -753,7 +753,7 @@ func (r *lbTestScenario) createLBClientCertificate(caName, hostName string) {
 		r.t.Failedf("failed to generate CA priv key: %s", err)
 	}
 
-	caTemplate, err := genTemplate(caName, x509.KeyUsageDigitalSignature|x509.KeyUsageCRLSign|x509.KeyUsageCertSign, nil)
+	caTemplate, err := genTemplate(x509.KeyUsageDigitalSignature|x509.KeyUsageCRLSign|x509.KeyUsageCertSign, nil, withCertificateSANDNSNames(caName))
 	if err != nil {
 		r.t.Failedf("failed to gen CA template: %s", err)
 	}
@@ -785,8 +785,8 @@ func (r *lbTestScenario) createLBClientCertificate(caName, hostName string) {
 	}
 
 	// Generate client cert and key signed with CA cert
-	clientTemplate, err := genTemplate(hostName, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
-		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
+	clientTemplate, err := genTemplate(x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
+		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, withCertificateSANDNSNames(hostName))
 	if err != nil {
 		r.t.Failedf("failed to gen client template: %s", err)
 	}
