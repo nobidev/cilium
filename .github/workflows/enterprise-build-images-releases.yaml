@@ -97,7 +97,7 @@ jobs:
 
       - name: Set up Docker Buildx
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -142,7 +142,7 @@ jobs:
 
       - name: Build and push ${{ matrix.component }} image
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: ${{ matrix.docker-context }}
           file: ${{ matrix.dockerfile }}
@@ -166,7 +166,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign Container Images
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -262,7 +262,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -308,7 +308,7 @@ jobs:
           make ${{ matrix.name }}-image
 
       - name: Release Build ${{ matrix.name }} non-UBI based
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_release
         if: ${{ matrix.postfix != 'ubi' }}
         with:
@@ -330,7 +330,7 @@ jobs:
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign Container Images
         run: |
@@ -406,7 +406,7 @@ jobs:
           echo image_tag=quay.io/${{ env.QUAY_ORGANIZATION }}/clife:$tag >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -458,9 +458,9 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.45.4
+          yq_version: 4.46.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.55.0
+          opm_version: 1.56.0
           VERSION: "${{ steps.tag.outputs.tag }}"
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
@@ -487,7 +487,7 @@ jobs:
           echo catalog=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign Container Images
         run: |
