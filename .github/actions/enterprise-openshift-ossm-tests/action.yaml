@@ -9,7 +9,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: mkdir tests directory
+    - name: Create tests directory
+      shell: bash
       run: mkdir -p ${{ inputs.working-dir }}/tests
 
     # The sail-operators repository contains the Service Mesh conformance tests
