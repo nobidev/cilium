@@ -316,7 +316,7 @@ cilium_mesh_snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 */
 	src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 	if (src && identity_is_remote_node(src->sec_identity)) {
-		target->addr = IPV4_MASQUERADE;
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		return 1;
 	}
 #endif
