@@ -10,9 +10,7 @@ triggers:
     - enterprise-multi-network.yaml
     - enterprise-srv6-datapath.yaml
     - enterprise-multicast.yaml
-    # Disabled until https://github.com/isovalent/cilium/issues/5094
-    # TODO: Re-enable once the issue is solved and the workflow is passing.
-    #- enterprise-conformance-cilium-mesh.yaml
+    - enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
     - enterprise-encryption-policy.yaml
     - enterprise-ingress-policy.yaml
