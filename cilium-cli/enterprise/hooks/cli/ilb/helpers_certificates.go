@@ -16,17 +16,76 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"math/big"
+	"net"
+	"net/url"
 	"time"
 )
 
 type certTemplateOpts func(*x509.Certificate)
 
-func withCertificateSANDNSNames(dnsNames ...string) func(*x509.Certificate) {
+func withCertificateSANDNSNames(dnsNames ...string) certTemplateOpts {
 	return func(c *x509.Certificate) {
 		c.DNSNames = append(c.DNSNames, dnsNames...)
+	}
+}
+
+func withCertificateSANIPs(ips ...string) certTemplateOpts {
+	return func(c *x509.Certificate) {
+		for _, ip := range ips {
+			c.IPAddresses = append(c.IPAddresses, net.ParseIP(ip))
+		}
+	}
+}
+
+func withCertificateSANMails(mails ...string) certTemplateOpts {
+	return func(c *x509.Certificate) {
+		c.EmailAddresses = append(c.EmailAddresses, mails...)
+	}
+}
+
+func withCertificateSANURIs(uris ...string) certTemplateOpts {
+	return func(c *x509.Certificate) {
+		for _, uri := range uris {
+			uri, err := url.Parse(uri)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			c.URIs = append(c.URIs, uri)
+		}
+	}
+}
+
+// can not be combined with other SAN types
+func withCertificateSANOtherNameUPN(upn string) certTemplateOpts {
+	return func(c *x509.Certificate) {
+		upnExt, err := asn1.Marshal(GeneralNames{
+			OtherName: OtherName{
+				// init our ASN.1 object identifier
+				OID: asn1.ObjectIdentifier{
+					1, 3, 6, 1, 4, 1, 311, 20, 2, 3, // OID for UPN
+				},
+				Value: UPN{
+					A: upn,
+				},
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		extSubjectAltName := pkix.Extension{
+			Id:       asn1.ObjectIdentifier{2, 5, 29, 17}, // OID for SAN extension
+			Critical: false,
+			Value:    upnExt,
+		}
+
+		c.ExtraExtensions = append(c.ExtraExtensions, extSubjectAltName)
 	}
 }
 
@@ -101,4 +160,21 @@ func genSelfSignedX509(host string) (*bytes.Buffer, *bytes.Buffer, error) {
 	}
 
 	return key, cert, nil
+}
+
+// UPN type for asn1 encoding. This will hold
+// our utf-8 encoded string.
+type UPN struct {
+	A string `asn1:"utf8"`
+}
+
+// OtherName type for asn1 encoding
+type OtherName struct {
+	OID   asn1.ObjectIdentifier
+	Value interface{} `asn1:"tag:0"`
+}
+
+// GeneralNames type for asn1 encoding
+type GeneralNames struct {
+	OtherName OtherName `asn1:"tag:0"`
 }

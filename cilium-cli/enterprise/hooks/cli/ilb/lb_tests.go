@@ -38,6 +38,8 @@ var Tests = []func(t T){
 	TestHTTPSRouteRatelimiting,
 	TestHTTPSApplicationRatelimiting,
 	TestHTTPSRequestFiltering,
+	TestHTTPSProxyMutualTLS,
+	TestHTTPSProxyMutualTLSRequestFiltering,
 	TestDNSBackend,
 	TestHeadlessService,
 	TestTCPProxyT1OnlyConnectionFiltering,

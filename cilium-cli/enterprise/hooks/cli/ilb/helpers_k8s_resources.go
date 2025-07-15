@@ -701,6 +701,117 @@ func withHttpsRequestFilteringAllowByExactJWTClaim(jwtClaims map[string]string) 
 	}
 }
 
+func withHttpsRequestFilteringAllowByExactClientCertSANDNS(dns string) httpsApplicationRouteOption {
+	rules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN{
+		{
+			Type: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANTypeDNS,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANValue{
+				Exact: &dns,
+			},
+		},
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPSRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPSRouteRequestFilteringRule{
+				{
+					ClientCertificateSANs: rules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpsRequestFilteringAllowByExactClientCertSANIP(ip string) httpsApplicationRouteOption {
+	rules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN{
+		{
+			Type: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANTypeIPADDRESS,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANValue{
+				Exact: &ip,
+			},
+		},
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPSRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPSRouteRequestFilteringRule{
+				{
+					ClientCertificateSANs: rules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpsRequestFilteringAllowByExactClientCertSANURI(uri string) httpsApplicationRouteOption {
+	rules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN{
+		{
+			Type: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANTypeURI,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANValue{
+				Exact: &uri,
+			},
+		},
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPSRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPSRouteRequestFilteringRule{
+				{
+					ClientCertificateSANs: rules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpsRequestFilteringAllowByExactClientCertSANEmail(email string) httpsApplicationRouteOption {
+	rules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN{
+		{
+			Type: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANTypeEMAIL,
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANValue{
+				Exact: &email,
+			},
+		},
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPSRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPSRouteRequestFilteringRule{
+				{
+					ClientCertificateSANs: rules,
+				},
+			},
+		}
+	}
+}
+
+func withHttpsRequestFilteringAllowByExactClientCertSANOtherNameUPN(upn string) httpsApplicationRouteOption {
+	rules := []*isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSAN{
+		{
+			Type: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANTypeOTHERNAME,
+			OID:  ptr.To("1.3.6.1.4.1.311.20.2.3"),
+			Value: isovalentv1alpha1.LBServiceRequestFilteringRuleClientCertificateSANValue{
+				Exact: &upn,
+			},
+		},
+	}
+
+	return func(o *isovalentv1alpha1.LBServiceHTTPSRoute) {
+		o.RequestFiltering = &isovalentv1alpha1.LBServiceHTTPSRouteRequestFiltering{
+			RuleType: isovalentv1alpha1.RequestFilteringRuleTypeAllow,
+			Rules: []isovalentv1alpha1.LBServiceHTTPSRouteRequestFilteringRule{
+				{
+					ClientCertificateSANs: rules,
+				},
+			},
+		}
+	}
+}
+
 func withHttpConnectionRateLimiting(limit uint, timePeriodSeconds uint) httpApplicationOption {
 	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {
 		o.RateLimits = &isovalentv1alpha1.LBServiceHTTPRateLimits{
@@ -907,6 +1018,16 @@ func withCertificate(secretRefName string) httpsApplicationOption {
 		o.TLSConfig.Certificates = append(o.TLSConfig.Certificates, isovalentv1alpha1.LBServiceTLSCertificate{
 			SecretRef: isovalentv1alpha1.LBServiceSecretRef{Name: secretRefName},
 		})
+	}
+}
+
+func withClientCertificateValidation(secretRefName string) httpsApplicationOption {
+	return func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {
+		o.TLSConfig.Validation = &isovalentv1alpha1.LBTLSValidationConfig{
+			SecretRef: isovalentv1alpha1.LBServiceSecretRef{
+				Name: secretRefName,
+			},
+		}
 	}
 }
 

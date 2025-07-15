@@ -746,7 +746,7 @@ func (r *lbTestScenario) createLBServerCertificate(secretName string, hostName s
 //
 // Note: Certificates need to be created before creating any FRR client that references the cert.
 // Otherwise loading the cert into the corresponding docker container fails.
-func (r *lbTestScenario) createLBClientCertificate(caName, hostName string) {
+func (r *lbTestScenario) createLBClientCertificate(caName, hostName string, opts ...certTemplateOpts) {
 	// Generate CA cert and key
 	caPriv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -784,9 +784,18 @@ func (r *lbTestScenario) createLBClientCertificate(caName, hostName string) {
 		r.t.Failedf("failed to generate priv key: %s", err)
 	}
 
+	templateOpts := []certTemplateOpts{}
+	templateOpts = append(templateOpts, opts...)
+
+	if len(opts) == 0 {
+		templateOpts = append(templateOpts, withCertificateSANDNSNames(hostName))
+	}
+
 	// Generate client cert and key signed with CA cert
 	clientTemplate, err := genTemplate(x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
-		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, withCertificateSANDNSNames(hostName))
+		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		templateOpts...,
+	)
 	if err != nil {
 		r.t.Failedf("failed to gen client template: %s", err)
 	}
