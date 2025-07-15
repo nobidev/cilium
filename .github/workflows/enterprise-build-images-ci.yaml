@@ -249,7 +249,7 @@ jobs:
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
+          cosign attest -y --predicate sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
 
       - name: CI Image Releases digests
         shell: bash

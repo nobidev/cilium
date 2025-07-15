@@ -114,4 +114,4 @@ jobs:
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"
+          cosign attest -y --predicate sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci:${{ steps.tag.outputs.tag }}"

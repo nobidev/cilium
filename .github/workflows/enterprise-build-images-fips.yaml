@@ -395,7 +395,7 @@ jobs:
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json --type spdxjson ${{ steps.docker_push.outputs.image }}
+          cosign attest -y --predicate sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json --type spdxjson ${{ steps.docker_push.outputs.image }}
 
       - name: Pass image to next job
         id: pass_image

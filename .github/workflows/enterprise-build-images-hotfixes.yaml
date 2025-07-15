@@ -177,8 +177,8 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev@${{ steps.docker_digest.outputs.digest }}
-          cosign attest -r -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_digest.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev@${{ steps.docker_digest.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_digest.outputs.digest }}
 
       - name: Image Release Digest
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}

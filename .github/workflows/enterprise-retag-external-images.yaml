@@ -165,7 +165,7 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: false # cosign signing is disabled for now
         run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json \
+          cosign attest -y --predicate sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json \
             --type spdxjson ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}
 
       - name: Image Release Digest
