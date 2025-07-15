@@ -1,0 +1,30 @@
+name: Get Wolfi Packages
+description: >
+  This action will take a wolfi image filepath as input, and execute the wolfi_packages script
+  The wolfi_packages script will :
+  - Pull the x86 APKINDEX tarball from packages.wolfi.dev (we assume both x86 and arm64 packages will be released at the same time)
+  - Retrieve the packages needed from the image file, and extract the versions of said packages from the tarball
+  - Will generate a file <package>.json, containing all existing versions for said package, in a format Renovate can exploit
+  - Will store all <package>.json files in /tmp/wolfi-packages in the runner, so we can mount it to Renovate container
+
+inputs:
+  image_file_path:
+    description: Path to the wolfi image yaml file
+    required: false
+    default: './enterprise/images/wolfi/runtime-base/image.yaml'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up latest Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install PyYAML requests
+      shell: bash
+
+    - name: Run script
+      run: python ${{ github.action_path }}/wolfi_packages.py ${{ inputs.image_file_path }}
+      shell: bash
