@@ -165,5 +165,3 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 #define invoke_traced_tailcall_if(COND, NAME, FUNC, TRACE, EXT_ERR)	\
 	__eval(__invoke_traced_tailcall_if_, COND)(NAME, FUNC, TRACE,	\
 						   EXT_ERR)
-
-#include "enterprise_maps.h"
