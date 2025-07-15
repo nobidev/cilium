@@ -16,4 +16,35 @@ module.exports = {
   allowedCommands: [
     '^make .*$',
   ],
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^enterprise/images/wolfi/runtime-base/image\\.yaml$/'],
+      matchStrings: [
+        '-\\s*(?<packageName>[a-zA-Z0-9_.+-]+)=(?<currentValue>[a-zA-Z0-9_.+-]+)'
+      ],
+      datasourceTemplate: 'custom.wolfi',
+      depNameTemplate: '{{packageName}}',
+      versioningTemplate: 'loose'
+    }
+  ],
+  packageRules: [
+    {
+      matchDatasources: ['custom.wolfi'],
+      groupName: 'Wolfi packages',
+    },
+    {
+      matchDatasources: ['custom.wolfi'],
+      matchPackageNames: ['iptables', 'ip6tables'],
+      enabled: false
+    }
+  ],
+  customDatasources: {
+    wolfi: {
+      defaultRegistryUrlTemplate: 'http://localhost:8000/{{packageName}}.json',
+      transformTemplates: [
+        '{"releases": $map($, function($v) { { "version": $v } })}'
+      ]
+    }
+  },
 };

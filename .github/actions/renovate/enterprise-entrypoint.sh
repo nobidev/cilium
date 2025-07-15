@@ -27,4 +27,7 @@ REPL=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< "$RH_REGISTRY_PASSWORD
 sed -i "s/{{ process.env.RH_REGISTRY_PASSWORD }}/${REPL}/g" /tmp/new-renovate.js
 cp /tmp/new-renovate.js "$RENOVATE_CONFIG_FILE"
 
+# Serve wolfi-packages files as an API because renovate can't access files outside repository dir
+python3 -m http.server 8000 --directory /tmp/renovate/wolfi-packages &
+
 runuser -u ubuntu -w RENOVATE_CONFIG_FILE,RENOVATE_TOKEN renovate
