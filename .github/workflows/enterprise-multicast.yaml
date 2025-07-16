@@ -97,19 +97,19 @@ jobs:
         include:
           - name: 1
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250521.025913'
+            kernel: '5.15-20250714.120609'
             encryption: false
           - name: 2
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250521.025913'
+            kernel: '6.6-20250714.120609'
             encryption: false
           - name: 3
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250521.025913'
+            kernel: '5.15-20250714.120609'
             encryption: true
           - name: 4
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250521.025913'
+            kernel: '6.6-20250714.120609'
             encryption: true
     timeout-minutes: 60
     steps:
@@ -159,7 +159,7 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

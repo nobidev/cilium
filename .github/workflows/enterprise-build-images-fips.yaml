@@ -45,7 +45,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.3
+  go_version: 1.24.5
 
 # This workflow builds each platform as part of separate jobs and then merges the
 # built images into a manifest before pushing. This is done for two reasons:
@@ -383,7 +383,7 @@ jobs:
           cosign sign -y ${{ steps.docker_push.outputs.image }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
         with:
           artifact-name: sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json
           output-file: ./sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json

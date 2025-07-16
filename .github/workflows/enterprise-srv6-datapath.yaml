@@ -100,19 +100,19 @@ jobs:
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250521.025913'
+            kernel: '5.15-20250714.120609'
             encap-mode: 'srh' # reduced not supported on kernels below 6.0
             sid-manger-enabled: 'true'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20250521.025913'
+            kernel: '6.1-20250714.120609'
             encap-mode: 'reduced'
             sid-manger-enabled: 'true'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250521.025913'
+            kernel: '6.6-20250714.120609'
             encap-mode: 'reduced'
             sid-manger-enabled: 'false'
 
@@ -176,7 +176,7 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -215,7 +215,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
       - name: Run SRv6 datapath tests
-        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
         with:
           provision: 'false'
           cmd: |
