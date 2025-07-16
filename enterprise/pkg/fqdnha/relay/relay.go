@@ -28,7 +28,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	"github.com/cilium/cilium/daemon/cmd"
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
@@ -58,7 +57,6 @@ type FQDNProxyAgentServer struct {
 
 	grpcServer *grpc.Server
 
-	daemonPromise   promise.Promise[*cmd.Daemon]
 	restorerPromise promise.Promise[endpointstate.Restorer]
 
 	ipCacheGetter     IPCacheGetter
@@ -77,7 +75,6 @@ type params struct {
 	cell.In
 
 	Logger            *slog.Logger
-	DaemonPromise     promise.Promise[*cmd.Daemon]
 	RestorerPromise   promise.Promise[endpointstate.Restorer]
 	IPCacheGetter     IPCacheGetter
 	EndpointManager   endpointmanager.EndpointManager
@@ -417,7 +414,6 @@ func NewFQDNProxyAgentServer(
 	}
 	s := &FQDNProxyAgentServer{
 		log:               p.Logger,
-		daemonPromise:     p.DaemonPromise,
 		restorerPromise:   p.RestorerPromise,
 		ipCacheGetter:     p.IPCacheGetter,
 		endpointManager:   p.EndpointManager,
@@ -433,18 +429,8 @@ func NewFQDNProxyAgentServer(
 	return s
 }
 
+// Start opens the local gRPC server
 func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
-	_, err := s.daemonPromise.Await(ctx)
-	if err != nil {
-		return err
-	}
-
-	restorer, err := s.restorerPromise.Await(ctx)
-	if err != nil {
-		return err
-	}
-	restorer.WaitForEndpointRestore(ctx)
-
 	socket := "/var/run/cilium/proxy-agent.sock"
 	os.Remove(socket)
 	lis, err := net.Listen("unix", socket)
