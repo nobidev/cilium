@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -62,16 +61,16 @@ type FQDNProxyAgentServer struct {
 	daemonPromise   promise.Promise[*cmd.Daemon]
 	restorerPromise promise.Promise[endpointstate.Restorer]
 
-	ipCacheGetter   IPCacheGetter
-	endpointManager endpointmanager.EndpointManager
-	localIDs        stream.Observable[cache.IdentityChange]
-	requestHandler  messagehandler.DNSMessageHandler
+	ipCacheGetter     IPCacheGetter
+	endpointManager   endpointmanager.EndpointManager
+	identityAllocator identityCell.CachingIdentityAllocator
+	requestHandler    messagehandler.DNSMessageHandler
 
-	db          *statedb.DB
-	selectors   statedb.RWTable[FQDNSelector]
-	configTable statedb.Table[*tables.ProxyConfig]
+	db            *statedb.DB
+	selectorTable statedb.RWTable[FQDNSelector]
+	configTable   statedb.Table[*tables.ProxyConfig]
 
-	dp *doubleproxy.DoubleProxy
+	doubleProxy *doubleproxy.DoubleProxy
 }
 
 type params struct {
@@ -243,7 +242,7 @@ func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
 	complete := make(chan error)
 	// Subscribe to locally-scoped identities
 	ctx, cancel := context.WithCancelCause(stream.Context())
-	s.localIDs.Observe(ctx, func(ic cache.IdentityChange) {
+	s.identityAllocator.LocalIdentityChanges().Observe(ctx, func(ic cache.IdentityChange) {
 		var err error
 
 		switch ic.Kind {
@@ -294,8 +293,8 @@ func (s *FQDNProxyAgentServer) sendIdentities(stream statusStream) error {
 }
 
 func (s *FQDNProxyAgentServer) sendSelectors(stream statusStream) error {
-	wtx := s.db.WriteTxn(s.selectors)
-	selUpdates, err := s.selectors.Changes(wtx)
+	wtx := s.db.WriteTxn(s.selectorTable)
+	selUpdates, err := s.selectorTable.Changes(wtx)
 	defer wtx.Abort()
 	if err != nil {
 		s.log.Info("BUG: failed to subscribe to the selector table.", logfields.Error, err)
@@ -378,8 +377,8 @@ func (s *FQDNProxyAgentServer) SubscribeFQDNRules(stream grpc.BidiStreamingServe
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
 
-	at := s.dp.RegisterRemote()
-	defer s.dp.UnregisterRemote(at)
+	at := s.doubleProxy.RegisterRemote()
+	defer s.doubleProxy.UnregisterRemote(at)
 
 	wtxn := s.db.WriteTxn(s.configTable)
 	changeIter, err := s.configTable.Changes(wtxn)
@@ -426,17 +425,17 @@ func NewFQDNProxyAgentServer(
 		return nil
 	}
 	s := &FQDNProxyAgentServer{
-		log:             p.Logger,
-		daemonPromise:   p.DaemonPromise,
-		restorerPromise: p.RestorerPromise,
-		ipCacheGetter:   p.IPCacheGetter,
-		endpointManager: p.EndpointManager,
-		localIDs:        p.IdentityAllocator.LocalIdentityChanges(),
-		requestHandler:  p.RequestHandler,
-		db:              p.DB,
-		selectors:       p.Table,
-		configTable:     p.ConfigTable,
-		dp:              p.DP,
+		log:               p.Logger,
+		daemonPromise:     p.DaemonPromise,
+		restorerPromise:   p.RestorerPromise,
+		ipCacheGetter:     p.IPCacheGetter,
+		endpointManager:   p.EndpointManager,
+		identityAllocator: p.IdentityAllocator,
+		requestHandler:    p.RequestHandler,
+		db:                p.DB,
+		selectorTable:     p.Table,
+		configTable:       p.ConfigTable,
+		doubleProxy:       p.DP,
 	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	lc.Append(s)

@@ -83,11 +83,10 @@ func (dp *DoubleProxy) UnregisterRemote(at *AckTracker) {
 type proxyWrapper struct {
 	fqdnproxy.DNSProxier
 
-	log *slog.Logger
-	dp  *DoubleProxy
+	dp *DoubleProxy
 }
 
-// decorateDNSProxy wraps the existing local DNS proxy, adding  a shim to intercept
+// decorateDNSProxy wraps the existing local DNS proxy, adding a shim to intercept
 // updateAllowed calls.
 func DecorateDNSProxy(dp *DoubleProxy, dnsProxy fqdnproxy.DNSProxier) fqdnproxy.DNSProxier {
 	if dp == nil {
@@ -97,7 +96,6 @@ func DecorateDNSProxy(dp *DoubleProxy, dnsProxy fqdnproxy.DNSProxier) fqdnproxy.
 	return &proxyWrapper{
 		DNSProxier: dnsProxy,
 		dp:         dp,
-		log:        dp.log,
 	}
 }
 

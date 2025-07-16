@@ -17,10 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-type FQDNSelectorKey = string
 type FQDNSelector api.FQDNSelector
 
-var FQDNSelectorIndex = statedb.Index[FQDNSelector, FQDNSelectorKey]{
+var FQDNSelectorIndex = statedb.Index[FQDNSelector, string]{
 	Name: "id",
 	FromObject: func(obj FQDNSelector) index.KeySet {
 		return index.NewKeySet(index.String(obj.String()))

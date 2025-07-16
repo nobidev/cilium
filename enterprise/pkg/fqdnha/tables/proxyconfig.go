@@ -135,24 +135,6 @@ func NewProxyConfig(endpointID uint64, destPortProto restore.PortProto, newRules
 	return pc
 }
 
-// NewProxyConfig converts a gRPC FQDNRules message to a ProxyConfig table row.
-func NewProxyConfigFromMsg(pb *fqdnpb.FQDNRules) *ProxyConfig {
-	pc := &ProxyConfig{
-		ProxyConfigKey: ProxyConfigKey{
-			EndpointID: uint16(pb.EndpointID),
-			PortProto:  restore.MakeV2PortProto(uint16(pb.DestPort), u8proto.U8proto(pb.DestProto)),
-		},
-		SelectorRegexMapping:      pb.Rules.SelectorRegexMapping,
-		SelectorIdentitiesMapping: make(map[string][]uint32, len(pb.Rules.SelectorIdentitiesMapping)),
-	}
-
-	for k, v := range pb.Rules.SelectorIdentitiesMapping {
-		pc.SelectorIdentitiesMapping[k] = v.List
-	}
-
-	return pc
-}
-
 // ToMsg converts a ProxyConfig to a gRPC FQDNRules message.
 func (pc *ProxyConfig) ToMsg(deleted bool) *fqdnpb.FQDNRules {
 	out := &fqdnpb.FQDNRules{

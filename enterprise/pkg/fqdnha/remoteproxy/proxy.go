@@ -78,9 +78,9 @@ type Params struct {
 	ConfigTable statedb.Table[*tables.ProxyConfig]
 }
 
-func NewRemoteFQDNProxy(p Params) (*RemoteFQDNProxy, error) {
+func NewRemoteFQDNProxy(p Params) *RemoteFQDNProxy {
 	if !p.Cfg.EnableExternalDNSProxy {
-		return nil, nil
+		return nil
 	}
 
 	rp := &RemoteFQDNProxy{
@@ -91,7 +91,7 @@ func NewRemoteFQDNProxy(p Params) (*RemoteFQDNProxy, error) {
 		log: p.Log.WithGroup("remote-fqdn-proxy"),
 	}
 	p.JobGroup.Add(job.OneShot("forward-fqdn-updates", rp.run))
-	return rp, nil
+	return rp
 }
 
 func (r *RemoteFQDNProxy) run(ctx context.Context, health cell.Health) error {

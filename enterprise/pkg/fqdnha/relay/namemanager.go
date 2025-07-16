@@ -24,7 +24,7 @@ type namemanagerWrapper struct {
 }
 
 // Decorate the NameManager with additional, enterprise-only functionality: The
-// FQDN HA proxy needs to now about FQDN selectors for offline policy updates,
+// FQDN HA proxy needs to know about FQDN selectors for offline policy updates,
 // hence we interpose a NameManager wrapper here which forwards the registration
 // (and deregistration) of FQDN Selectors to a statedb table.
 
@@ -37,11 +37,10 @@ type namemanagerWrapperParams struct {
 	DB    *statedb.DB
 }
 
-func NewNameManagerWrapper(params namemanagerWrapperParams) (*namemanagerWrapper, error) {
-	w := &namemanagerWrapper{
+func NewNameManagerWrapper(params namemanagerWrapperParams) *namemanagerWrapper {
+	return &namemanagerWrapper{
 		p: params,
 	}
-	return w, nil
 }
 
 // Used via DecorateAll, this replaces the normal NameManager with the namemanagerWrapper in the
