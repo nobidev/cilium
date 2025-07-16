@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"google.golang.org/grpc"
@@ -147,11 +148,11 @@ func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, erro
 type proxyContext struct {
 	log    *slog.Logger
 	cfg    Config
-	rwLock *lock.RWMutex
 	ipc    ipCacheLookup
 	client *fqdnAgentClient
 	cache  AgentDataCache
 
+	mu        lock.RWMutex
 	ipCacheV1 bool
 }
 
@@ -159,7 +160,6 @@ func newProxyContext(cfg Config, client *fqdnAgentClient, log *slog.Logger) *pro
 	return &proxyContext{
 		log:    log,
 		ipc:    &bpfIPC{},
-		rwLock: &lock.RWMutex{},
 		client: client,
 		cfg:    cfg,
 		cache:  NewCache(),
@@ -167,8 +167,8 @@ func newProxyContext(cfg Config, client *fqdnAgentClient, log *slog.Logger) *pro
 }
 
 func (pc *proxyContext) establishAgentProxyStream() error {
-	if !(pc.cfg.EnableOfflineMode) {
-		pc.log.Info("The proxy status stream from the agent is not needed, because \"enable-offline-mode\" has been set to false.")
+	if !pc.cfg.EnableOfflineMode {
+		pc.log.Info(`The proxy status stream from the agent is not needed, because "enable-offline-mode" has been set to false.`)
 		return nil
 	}
 	pc.log.Info("Starting to stream proxy status from the agent...")
@@ -190,8 +190,7 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				time.Sleep(time.Minute)
 				continue
 			}
-			err = fmt.Errorf("SubscribeProxyStatuses failed: %w", err)
-			return err
+			return fmt.Errorf("SubscribeProxyStatuses failed: %w", err)
 		}
 
 		pc.log.Info("The agent proxy status stream is established.")
@@ -201,9 +200,9 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				return fmt.Errorf("error receiving proxy status: %w", err)
 			}
 			if agentProxyStatus.Enum != nil && *agentProxyStatus.Enum == pb.IPCacheVersion_One {
-				pc.rwLock.Lock()
+				pc.mu.Lock()
 				pc.ipCacheV1 = true
-				pc.rwLock.Unlock()
+				pc.mu.Unlock()
 			} else {
 				pc.log.Info("got message", logfields.Message, agentProxyStatus)
 			}
@@ -212,11 +211,11 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 }
 
 func (pc *proxyContext) supportsIPCacheV1() bool {
-	if !(pc.cfg.EnableOfflineMode) {
+	if !pc.cfg.EnableOfflineMode {
 		return false
 	}
-	pc.rwLock.RLock()
-	defer pc.rwLock.RUnlock()
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
 	return pc.ipCacheV1
 }
 
@@ -324,7 +323,6 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 // ipcache.
 func (pc *proxyContext) LookupByIdentity(nid identity.NumericIdentity) []string {
 	ips, err := pc.client.LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
-
 	if err != nil {
 		if pc.client.shouldLog(err) {
 			pc.log.Error("LookupByIdentity request failed", logfields.Error, err)
@@ -365,12 +363,7 @@ func (s *SimpleSelector) GetSelections(v *versioned.VersionHandle) identity.Nume
 }
 
 func (s *SimpleSelector) Selects(v *versioned.VersionHandle, nid identity.NumericIdentity) bool {
-	for _, id := range s.identities {
-		if id == nid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.identities, nid)
 }
 
 func (s *SimpleSelector) IsWildcard() bool {

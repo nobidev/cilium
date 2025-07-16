@@ -41,6 +41,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// fqdnAgentClient holds the gRPC connection and gRPC agent client interface.
+type fqdnAgentClient struct {
+	pb.FQDNProxyAgentClient
+	conn *grpc.ClientConn
+	log  *slog.Logger
+}
+
 func newAgentClient(log *slog.Logger, jg job.Group) (*fqdnAgentClient, error) {
 	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
 	if err != nil {
@@ -114,13 +121,6 @@ func (c *fqdnAgentClient) shouldLog(err error) bool {
 		return true // not a gRPC error
 	}
 	return c.conn.GetState() == connectivity.Ready
-}
-
-// fqdnAgentClient holds the gRPC connection and gRPC agent client interface.
-type fqdnAgentClient struct {
-	pb.FQDNProxyAgentClient
-	conn *grpc.ClientConn
-	log  *slog.Logger
 }
 
 // WaitMaybeConnected waits for the gRPC connection to succeed or ctx to expire.
@@ -347,8 +347,8 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 	// request/response.
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(DNSNotificationSendTimeout))
 	defer cancel()
-	_, err = n.client.NotifyOnDNSMessage(ctx, notification)
 
+	_, err = n.client.NotifyOnDNSMessage(ctx, notification)
 	if err != nil {
 		if n.client.shouldLog(err) {
 			n.log.Error("NotifyOnDNSMsg request failed", logfields.Error, err)

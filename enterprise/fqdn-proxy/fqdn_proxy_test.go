@@ -25,7 +25,6 @@ import (
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/lock"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/time"
 
@@ -547,7 +546,6 @@ func newTestProxyContext(ipc ipCacheLookup, client *fqdnAgentClient, enableOffli
 	return &proxyContext{
 		log:    slog.Default(),
 		cfg:    Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
-		rwLock: &lock.RWMutex{},
 		ipc:    ipc,
 		client: client,
 		cache:  NewCache(),
