@@ -1,4 +1,3 @@
-//nolint:goheader
 //  Copyright (C) Isovalent, Inc. - All Rights Reserved.
 //
 //  NOTICE: All information contained herein is, and remains the property of
