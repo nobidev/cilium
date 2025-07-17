@@ -1018,10 +1018,8 @@ func (manager *Manager) reconcileLocked() {
 		manager.updatePoliciesMatchedEndpointIDs(tx)
 		manager.updateNodesByIP()
 	} else {
-		if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventAddPolicy, eventDeletePolicy) {
-			if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint) {
-				manager.updatePoliciesMatchedEndpointIDs(tx)
-			}
+		if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint) {
+			manager.updatePoliciesMatchedEndpointIDs(tx)
 		}
 
 		if manager.eventBitmapIsSet(eventUpdateNode, eventDeleteNode) {
