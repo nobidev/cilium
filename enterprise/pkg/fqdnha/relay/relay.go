@@ -48,6 +48,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+const ProxyRelaySocket = "/var/run/cilium/proxy-agent.sock"
+
 type FQDNProxyAgentServer struct {
 	pb.UnimplementedFQDNProxyAgentServer
 
@@ -55,6 +57,8 @@ type FQDNProxyAgentServer struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	// path to gRPC server socket; only changed for testing
+	socketPath string
 	grpcServer *grpc.Server
 
 	restorerPromise promise.Promise[endpointstate.Restorer]
@@ -64,11 +68,17 @@ type FQDNProxyAgentServer struct {
 	identityAllocator identityCell.CachingIdentityAllocator
 	requestHandler    messagehandler.DNSMessageHandler
 
-	db            *statedb.DB
-	selectorTable statedb.RWTable[FQDNSelector]
-	configTable   statedb.Table[*tables.ProxyConfig]
+	offlineEnabled bool
+	db             *statedb.DB
+	selectorTable  statedb.RWTable[FQDNSelector]
+	configTable    statedb.Table[*tables.ProxyConfig]
+	rpsTable       statedb.RWTable[tables.RemoteProxyState]
+	agentTable     statedb.RWTable[tables.AgentState]
 
 	doubleProxy *doubleproxy.DoubleProxy
+
+	// ensure that only one remote proxy connects at a time
+	remoteProxyLock lock.Mutex
 }
 
 type params struct {
@@ -86,6 +96,9 @@ type params struct {
 	DB          *statedb.DB
 	Table       statedb.RWTable[FQDNSelector]
 	ConfigTable statedb.Table[*tables.ProxyConfig]
+
+	RemoteProxyStateTable statedb.RWTable[tables.RemoteProxyState]
+	AgentStateTable       statedb.RWTable[tables.AgentState]
 }
 
 func (s *FQDNProxyAgentServer) ProvideMappings(stream pb.FQDNProxyAgent_ProvideMappingsServer) error {
@@ -414,14 +427,18 @@ func NewFQDNProxyAgentServer(
 	}
 	s := &FQDNProxyAgentServer{
 		log:               p.Logger,
+		socketPath:        ProxyRelaySocket,
 		restorerPromise:   p.RestorerPromise,
 		ipCacheGetter:     p.IPCacheGetter,
 		endpointManager:   p.EndpointManager,
 		identityAllocator: p.IdentityAllocator,
 		requestHandler:    p.RequestHandler,
+		offlineEnabled:    p.Cfg.EnableOfflineMode,
 		db:                p.DB,
 		selectorTable:     p.Table,
 		configTable:       p.ConfigTable,
+		rpsTable:          p.RemoteProxyStateTable,
+		agentTable:        p.AgentStateTable,
 		doubleProxy:       p.DP,
 	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
@@ -431,9 +448,10 @@ func NewFQDNProxyAgentServer(
 
 // Start opens the local gRPC server
 func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
-	socket := "/var/run/cilium/proxy-agent.sock"
-	os.Remove(socket)
-	lis, err := net.Listen("unix", socket)
+	s.setState(pb.AgentStatus_AS_STARTING)
+
+	os.Remove(s.socketPath)
+	lis, err := net.Listen("unix", s.socketPath)
 	if err != nil {
 		s.log.Error("failed to listen", logfields.Error, err)
 		return err
@@ -448,13 +466,33 @@ func (s *FQDNProxyAgentServer) Start(ctx cell.HookContext) error {
 			s.log.Error("Cannot start FQDN relay gRPC server", logfields.Error, err)
 		}
 	}()
+
+	// queue after-regen tasks.
+	go s.waitForRegen()
+
 	return nil
+}
+
+// waitForRegen waits for endpoint regeneration to complete, then updates
+// the agent state to LIVE
+func (s *FQDNProxyAgentServer) waitForRegen() {
+	if s.restorerPromise == nil {
+		return
+	}
+	restorer, err := s.restorerPromise.Await(s.ctx)
+	if err != nil {
+		return // can only fail if ctx cancelled
+	}
+	if err := restorer.WaitForEndpointRestore(s.ctx); err != nil {
+		return // can only fail if ctx cancelled
+	}
+	s.setState(pb.AgentStatus_AS_LIVE)
 }
 
 func (s *FQDNProxyAgentServer) Stop(ctx cell.HookContext) error {
 	s.log.Info("Stopping FQDN relay gRPC server")
-	s.grpcServer.Stop()
 	s.cancel()
+	s.grpcServer.Stop()
 	return nil
 }
 

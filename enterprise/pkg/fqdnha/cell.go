@@ -31,7 +31,7 @@ var Cell = cell.Module(
 	"enterprise-fqdn-ha-proxy",
 	"FQDN HA proxy",
 
-	cell.Provide(tables.NewProxyConfigTable),
+	cell.Provide(tables.NewProxyConfigTable, tables.NewAgentStateTable, tables.NewRemoteProxyStateTable),
 
 	cell.Provide(doubleproxy.NewDoubleProxy),
 	cell.DecorateAll(doubleproxy.DecorateDNSProxy),
