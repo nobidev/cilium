@@ -21,12 +21,12 @@ type reader struct {
 	name string
 }
 
-func podReaders(ctx context.Context, podNameFilter string, follow bool) ([]reader, error) {
+func podReaders(ctx context.Context, ciliumNamespace, podNameFilter string, follow bool) ([]reader, error) {
 	var readers []reader
 
 	k8sClient, _ := api.GetK8sClientContextValue(ctx)
 
-	pods, err := k8sClient.ListPods(ctx, "kube-system", metav1.ListOptions{
+	pods, err := k8sClient.ListPods(ctx, ciliumNamespace, metav1.ListOptions{
 		LabelSelector: "name=cilium-envoy",
 	})
 	if err != nil {

@@ -24,3 +24,11 @@ func NewCmdLoadbalancer() *cobra.Command {
 
 	return cmd
 }
+
+func ciliumNamespace(cmd *cobra.Command) string {
+	parentCmd := cmd
+	for parentCmd.Parent() != nil {
+		parentCmd = parentCmd.Parent()
+	}
+	return parentCmd.Flag("namespace").Value.String()
+}

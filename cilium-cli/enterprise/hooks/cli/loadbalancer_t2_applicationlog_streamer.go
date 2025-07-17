@@ -32,7 +32,7 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 			errGrp, ctx := errgroup.WithContext(c.Context())
 
 			if len(applicationLogFiles) == 0 {
-				readers, err = podReaders(ctx, applicationLogPodNameFilter, applicationLogFollow)
+				readers, err = podReaders(ctx, ciliumNamespace(c), applicationLogPodNameFilter, applicationLogFollow)
 			} else {
 				readers, err = fileReaders(applicationLogFiles)
 			}

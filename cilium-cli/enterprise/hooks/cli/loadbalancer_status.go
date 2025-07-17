@@ -43,6 +43,7 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 			if params.Verbose && params.Output != "json" {
 				return fmt.Errorf("--verbose can be enabled only with --output=json")
 			}
+			params.CiliumNamespace = ciliumNamespace(c)
 
 			k8sClient, _ := api.GetK8sClientContextValue(c.Context())
 
@@ -55,12 +56,11 @@ func newCmdLoadbalancerStatus() *cobra.Command {
 			}
 
 			return lsm.Output(c.OutOrStdout(), params)
-
 		},
 	}
 
-	cmd.Flags().StringVarP(&params.ServiceNamespace, "namespace", "m", "", "Filter for service namespace")
-	cmd.Flags().StringVarP(&params.ServiceName, "name", "n", "", "Filter for service name")
+	cmd.Flags().StringVarP(&params.ServiceNamespace, "service-namespace", "m", "", "Filter for service namespace")
+	cmd.Flags().StringVarP(&params.ServiceName, "name", "", "", "Filter for service name")
 	cmd.Flags().StringVarP(&params.ServiceVIP, "vip", "v", "", "Filter for service VIP")
 	cmd.Flags().UintVarP(&params.ServicePort, "port", "p", 0, "Filter for service port")
 	cmd.Flags().StringVarP(&params.ServiceStatus, "status", "s", "", "Filter for service health status")

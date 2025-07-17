@@ -20,6 +20,7 @@ type Parameters struct {
 	Output         string
 	RelationOutput string
 
+	CiliumNamespace  string
 	ServiceNamespace string
 	ServiceName      string
 	ServiceVIP       string
@@ -71,7 +72,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		t2NodeNames = append(t2NodeNames, t2.Name)
 	}
 
-	agentPods, err := s.client.ListPods(ctx, "kube-system", metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	agentPods, err := s.client.ListPods(ctx, s.params.CiliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
 		return fmt.Errorf("failed to list agent pods: %w", err)
 	}

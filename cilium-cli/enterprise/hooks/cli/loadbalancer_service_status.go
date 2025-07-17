@@ -42,11 +42,10 @@ func newCmdServiceStatus() *cobra.Command {
 			}
 
 			return lsm.Output(c.OutOrStdout(), params)
-
 		},
 	}
 
-	cmd.Flags().StringVarP(&params.ServiceNamespace, "namespace", "n", "", "Filter for service namespace")
+	cmd.Flags().StringVarP(&params.ServiceNamespace, "service-namespace", "m", "", "Filter for service namespace")
 
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
