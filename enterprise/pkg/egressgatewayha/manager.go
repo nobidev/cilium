@@ -677,9 +677,10 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs(tx statedb.WriteTxn) error {
 	for policy := range manager.policyConfigsTable.All(tx) {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
-		if _, _, err := manager.policyConfigsTable.Insert(tx, policy.clone()); err != nil {
-			return fmt.Errorf("failed to update matched endpoint ID: %w", err)
+		if needsUpdate := policy.updateMatchedEndpointIDs(manager.epDataStore); needsUpdate {
+			if _, _, err := manager.policyConfigsTable.Insert(tx, policy.clone()); err != nil {
+				return fmt.Errorf("failed to update matched endpoint ID: %w", err)
+			}
 		}
 	}
 	return nil

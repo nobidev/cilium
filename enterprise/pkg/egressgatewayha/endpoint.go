@@ -5,7 +5,9 @@ package egressgatewayha
 
 import (
 	"fmt"
+	"maps"
 	"net/netip"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -24,6 +26,11 @@ type endpointMetadata struct {
 	ips []netip.Addr
 	// nodeIP is the internal IP of the node where the endpoint's pod is running
 	nodeIP netip.Addr
+}
+
+func (ep *endpointMetadata) equals(other *endpointMetadata) bool {
+	return maps.Equal(ep.labels, other.labels) && ep.id == other.id &&
+		slices.Equal(ep.ips, other.ips) && ep.nodeIP == other.nodeIP
 }
 
 // endpointID is based on endpoint's UID

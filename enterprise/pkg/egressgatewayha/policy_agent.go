@@ -115,13 +115,27 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 }
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
+func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) bool {
+	prevMatchedEndpoints := config.matchedEndpoints
 	config.matchedEndpoints = map[endpointID]*endpointMetadata{}
+	dirty := false
 	for _, endpoint := range epDataStore {
-		if config.matchesEndpointLabels(endpoint) {
+		prevEp, prevMatched := prevMatchedEndpoints[endpoint.id]
+		currMatched := config.matchesEndpointLabels(endpoint)
+		if currMatched {
 			config.matchedEndpoints[endpoint.id] = endpoint
 		}
+
+		// If the endpoint was matched/unmatched since the last state, or
+		// the endpoint was matched and remains matched but the endpoint metadata
+		// has changed, then we return true to denote that the policyConfig should
+		// be updated back into the table.
+		if currMatched != prevMatched ||
+			(currMatched && prevMatched && !endpoint.equals(prevEp)) {
+			dirty = true
+		}
 	}
+	return dirty
 }
 
 func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
