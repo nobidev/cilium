@@ -92,6 +92,9 @@ type IsovalentEgressGatewayPolicyParams struct {
 	// Name controls the name of the policy
 	Name string
 
+	// Labels controls the labels of the policy
+	Labels map[string]string
+
 	// PodSelectorKind is used to select the client pods. The parameter is used to select pods with a matching "kind" label
 	PodSelectorKind string
 
@@ -133,6 +136,9 @@ func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgress
 
 		// Set the policy name
 		pl[i].Name = params.Name
+
+		// Set the policy label
+		pl[i].Labels = params.Labels
 
 		// Set the pod selector
 		pl[i].Spec.Selectors[0].PodSelector.MatchLabels["kind"] = params.PodSelectorKind

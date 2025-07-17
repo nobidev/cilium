@@ -20,6 +20,11 @@ const (
 
 	// ExternalCiliumDNSProxyName is the prefix for the external Cilium DNS proxy pods (and the daemonset).
 	ExternalCiliumDNSProxyName = "cilium-dnsproxy"
+
+	// EgressGatewayPeerASN is the default number of BGP ASN
+	EgressGatewayPeerASN = 65000
+
+	EgressGatewayPeerAddress = ""
 )
 
 // EgressGatewayCIDRsDefault is the default list of CIDRs to use when allocating egress IPs for EGW IPAM tests

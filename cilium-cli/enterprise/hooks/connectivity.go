@@ -114,6 +114,8 @@ func (ec *EnterpriseConnectivity) addConnectivityTestFlags(flags *pflag.FlagSet)
 	flags.StringSliceVar(&enterpriseTests.Params.EgressGateway.CIDRs, "egw-ipam-cidrs", nil, "CIDRs to use to allocate Egress IPs in egress gateway ha ipam connectivity tests")
 	flags.UintVar(&enterpriseTests.Params.EgressGateway.Retry, "egw-ipam-retry", defaults.EgressGatewayConnectRetryDefault, "Number of retries on connection failure to external targets for egress gateway ha IPAM tests")
 	flags.DurationVar(&enterpriseTests.Params.EgressGateway.RetryDelay, "egw-ipam-retry-delay", defaults.EgressGatewayConnectRetryDelayDefault, "Delay between retries to external targets for egress gateway ha IPAM tests")
+	flags.Int64Var(&enterpriseTests.Params.EgressGateway.PeerASN, "egw-bgp-asn", defaults.EgressGatewayPeerASN, "Number of peer ASN")
+	flags.StringVar(&enterpriseTests.Params.EgressGateway.PeerAddress, "egw-bgp-peer-address", "", "")
 }
 
 func (ec *EnterpriseConnectivity) addHubbleVersionTests(cts ...*check.ConnectivityTest) error {
@@ -304,6 +306,23 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			}).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(enterpriseTests.EgressGatewayHAIPAMMultipleGateways())
+	}
+
+	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement").
+			WithFeatureRequirements(
+				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
+				features.RequireEnabled(enterpriseFeatures.BFD),
+			).
+			WithCondition(func() bool { return enterpriseTests.Params.EgressGateway.PeerAddress != "" }).
+			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
+				Name:            "iegp-sample-client",
+				Labels:          map[string]string{"egw": "bgp-advertise"},
+				PodSelectorKind: "client",
+				EgressGroup:     enterpriseCheck.AllCiliumNodes,
+			}).
+			WithScenarios(enterpriseTests.EgressGatewayHABGPAdvertisement())
 	}
 
 	return nil

@@ -17,28 +17,42 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	v1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
 	EgressGroupLabelKey   = "egress-group"
 	EgressGroupLabelValue = "test"
 
-	K8sZoneLabel = v1.LabelTopologyZone
+	K8sZoneLabel = corev1.LabelTopologyZone
 
 	EgressGatewayIPAMRoutingTable = 2050
+
+	egwBGPAdvertisementName = "test-egw-bgp-advertisement"
+	egwBGPPeerConfigName    = "test-egw-bgp-peer-config"
+	egwBGPClusterConfigName = "test-egw-bgp-cluster-config"
+	egwBFDProfileName       = "test-egw-bfd-profile"
+
+	egwBGPCiliumASN = 65001
 )
 
 // bpfEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
@@ -1383,4 +1397,369 @@ func getTargetEntriesForEmptyMultipleGateways(t *check.Test, ciliumPod check.Pod
 	}
 
 	return targetEntries
+}
+
+func EgressGatewayHABGPAdvertisement() check.Scenario {
+	return &egressGatewayHABGPAdvertisement{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type egressGatewayHABGPAdvertisement struct {
+	check.ScenarioBase
+}
+
+func (s *egressGatewayHABGPAdvertisement) Name() string {
+	return "egress-gateway-ha-ipam-bgp-advertisement"
+}
+
+func (s *egressGatewayHABGPAdvertisement) Run(ctx context.Context, t *check.Test) {
+	defer deleteEGWBGPK8sResources(ctx, t)
+	configureBGPPeeringForEGW(ctx, t, features.IPFamilyV4, egwBFDProfileName)
+	bfdProfile := generateBFDProfileForEGW()
+	configureBFDProfileForEGW(ctx, t, bfdProfile)
+
+	ct := t.Context()
+
+	gatewayIPsToNames := map[string]string{}
+	for _, node := range ct.Nodes() {
+		if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
+			continue
+		}
+
+		gatewayIP := getGatewayNodeInternalIP(ct, node.Name)
+		if gatewayIP == nil {
+			t.Fatal("Cannot get egress gateway node internal IP")
+		}
+
+		gatewayIPsToNames[gatewayIP.String()] = node.Name
+	}
+
+	policyName := "iegp-sample-client"
+
+	gatewayIPsToMasqueradeIPs := make(map[string]net.IP, len(gatewayIPsToNames))
+	masqueradeIPs := make([]string, 0, len(gatewayIPsToNames))
+	for gatewayIP := range gatewayIPsToNames {
+		masqueradeIP := waitForAllocatedEgressIP(ctx, t, policyName, 0, gatewayIP)
+		masqueradeIPs = append(masqueradeIPs, masqueradeIP.String())
+		gatewayIPsToMasqueradeIPs[gatewayIP] = masqueradeIP
+	}
+
+	// wait for the policy map to be populated
+	if err := waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+		return getTargetEntriesForMultipleGateways(t, ciliumPod, gatewayIPsToNames, gatewayIPsToMasqueradeIPs)
+	}); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	waitforGwNetworkConfig(ctx, t, func(ciliumPod check.Pod) *net.IP {
+		for gatewayIP, nodeName := range gatewayIPsToNames {
+			if ciliumPod.Pod.Spec.NodeName == nodeName {
+				masqueradeIP := gatewayIPsToMasqueradeIPs[gatewayIP]
+				return &masqueradeIP
+			}
+		}
+		return nil
+	})
+
+	// run the test
+	i := 0
+	responsesByClientIP := map[string]struct{}{}
+
+	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP of one of the multiple GWs (pod to external service using DNS)
+	for _, client := range ct.ClientPods() {
+		for _, externalEchoSvc := range ct.EchoExternalServices() {
+			externalEcho := externalEchoSvc.ToEchoIPService()
+
+			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				curlOpts := append(curlRetryOptions(), "-4")
+				a.ExecInPod(ctx, ct.CurlCommandParallelWithOutput(externalEcho, features.IPFamilyV4, 100, curlOpts...))
+				clientIPs := extractClientIPsFromEchoServiceResponses(a.CmdOutput())
+
+				for _, clientIP := range clientIPs {
+					responsesByClientIP[clientIP.String()] = struct{}{}
+				}
+			})
+			i++
+		}
+	}
+
+	// all client IPs should be egress IPs
+	for clientIP := range responsesByClientIP {
+		if !slices.Contains(masqueradeIPs, clientIP) {
+			t.Fatalf("Request reached external echo service with wrong source IP %s", clientIP)
+		}
+	}
+
+	// and traffic should go through all gateways, masqueraded with theirs egress IPs
+	for _, egressIP := range masqueradeIPs {
+		if _, ok := responsesByClientIP[egressIP]; !ok {
+			t.Fatalf("No request has gone through gateway with egress IP %s", egressIP)
+		}
+	}
+
+	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP of one of the multiple GWs (pod to external service)
+	i = 0
+	responsesByClientIP = map[string]struct{}{}
+	for _, client := range ct.ClientPods() {
+		client := client
+
+		for _, externalEcho := range ct.ExternalEchoPods() {
+			externalEcho := externalEcho.ToEchoIPPod()
+
+			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommandParallelWithOutput(externalEcho, features.IPFamilyV4, 100, curlRetryOptions()...))
+				clientIPs := extractClientIPsFromEchoServiceResponses(a.CmdOutput())
+
+				for _, clientIP := range clientIPs {
+					responsesByClientIP[clientIP.String()] = struct{}{}
+				}
+			})
+		}
+		i++
+	}
+
+	// all client IPs should be egress IPs
+	for clientIP := range responsesByClientIP {
+		if !slices.Contains(masqueradeIPs, clientIP) {
+			t.Fatalf("Request reached external echo service with wrong source IP %s", clientIP)
+		}
+	}
+
+	// and traffic should go through all gateways, masqueraded with theirs egress IPs
+	for _, egressIP := range masqueradeIPs {
+		if _, ok := responsesByClientIP[egressIP]; !ok {
+			t.Fatalf("No request has gone through gateway with egress IP %s", egressIP)
+		}
+	}
+}
+
+func configureBGPPeeringForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
+	deleteBGPPeeringResources(ctx, t)
+
+	if versioncheck.MustCompile(">=1.17.2")(t.Context().CiliumVersion) {
+		// use v1 API version
+		configureBGPPeeringV1ForEGW(ctx, t, ipFamily, bfdProfile)
+	} else {
+		// use v1alpha1 API version
+		configureBGPPeeringV1Alpha1ForEGW(ctx, t, ipFamily, bfdProfile)
+	}
+}
+
+func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
+	ct := t.Context()
+	client := ct.K8sClient().CiliumClientset.IsovalentV1()
+
+	// configure advertisement
+	advertisement := &v1.IsovalentBGPAdvertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   egwBGPAdvertisementName,
+			Labels: map[string]string{"test": "bgp"},
+		},
+		Spec: v1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPEGWAdvert,
+					Selector: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{"egw": "bgp-advertise"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := client.IsovalentBGPAdvertisements().Create(ctx, advertisement, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPAdvertisement: %v", err)
+	}
+
+	// configure peer config
+	peerConfig := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwBGPPeerConfigName,
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
+				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+							Afi:  ipFamily.String(),
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: advertisement.Labels,
+						},
+					},
+				},
+			},
+		},
+	}
+	if bfdProfile != "" {
+		peerConfig.Spec.BFDProfileRef = &bfdProfile
+	}
+	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, peerConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPPeerConfig: %v", err)
+	}
+
+	// configure cluster config
+	clusterConfig := &v1.IsovalentBGPClusterConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwBGPClusterConfigName,
+		},
+		Spec: v1.IsovalentBGPClusterConfigSpec{
+			BGPInstances: []v1.IsovalentBGPInstance{
+				{
+					Name:     "test-instance",
+					LocalASN: ptr.To[int64](egwBGPCiliumASN),
+				},
+			},
+		},
+	}
+	clusterConfig.Spec.BGPInstances[0].Peers = append(clusterConfig.Spec.BGPInstances[0].Peers,
+		v1.IsovalentBGPPeer{
+			Name:        "peer-" + Params.EgressGateway.PeerAddress,
+			PeerAddress: ptr.To[string](Params.EgressGateway.PeerAddress),
+			PeerASN:     ptr.To[int64](Params.EgressGateway.PeerASN),
+			PeerConfigRef: &v1.PeerConfigReference{
+				Name: peerConfig.Name,
+			},
+		})
+	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clusterConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPClusterConfig: %v", err)
+	}
+}
+
+func configureBGPPeeringV1Alpha1ForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
+	ct := t.Context()
+	client := ct.K8sClient().CiliumClientset.IsovalentV1alpha1()
+
+	// configure advertisement
+	advertisement := &v1alpha1.IsovalentBGPAdvertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   egwBGPAdvertisementName,
+			Labels: map[string]string{"test": "bgp"},
+		},
+		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
+			Advertisements: []v1alpha1.BGPAdvertisement{
+				{
+					AdvertisementType: v1alpha1.BGPEGWAdvert,
+					Selector: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{"egw": "bgp-advertise"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := client.IsovalentBGPAdvertisements().Create(ctx, advertisement, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPAdvertisement: %v", err)
+	}
+
+	// configure peer config
+	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwBGPPeerConfigName,
+		},
+		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
+				Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
+							Afi:  ipFamily.String(),
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: advertisement.Labels,
+						},
+					},
+				},
+			},
+		},
+	}
+	if bfdProfile != "" {
+		peerConfig.Spec.BFDProfileRef = &bfdProfile
+	}
+	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, peerConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPPeerConfig: %v", err)
+	}
+
+	// configure cluster config
+	clusterConfig := &v1alpha1.IsovalentBGPClusterConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwBGPClusterConfigName,
+		},
+		Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
+			BGPInstances: []v1alpha1.IsovalentBGPInstance{
+				{
+					Name:     "test-instance",
+					LocalASN: ptr.To[int64](egwBGPCiliumASN),
+				},
+			},
+		},
+	}
+	clusterConfig.Spec.BGPInstances[0].Peers = append(clusterConfig.Spec.BGPInstances[0].Peers,
+		v1alpha1.IsovalentBGPPeer{
+			Name:        "peer-" + Params.EgressGateway.PeerAddress,
+			PeerAddress: ptr.To[string](Params.EgressGateway.PeerAddress),
+			PeerASN:     ptr.To[int64](Params.EgressGateway.PeerASN),
+			PeerConfigRef: &v1alpha1.PeerConfigReference{
+				Name: peerConfig.Name,
+			},
+		})
+	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clusterConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPClusterConfig: %v", err)
+	}
+}
+
+func deleteEGWBGPK8sResources(ctx context.Context, t *check.Test) {
+	client := t.Context().K8sClient().CiliumClientset.IsovalentV1alpha1()
+
+	deleteEGWBGPPeeringResources(ctx, t)
+
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBFDProfiles(), egwBFDProfileName)
+}
+
+func deleteEGWBGPPeeringResources(ctx context.Context, t *check.Test) {
+	if versioncheck.MustCompile(">=1.17.2")(t.Context().CiliumVersion) {
+		// cleanup v1 resources
+		client := t.Context().K8sClient().CiliumClientset.IsovalentV1()
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwBGPClusterConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwBGPPeerConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPAdvertisements(), egwBGPAdvertisementName)
+	} else {
+		// cleanup v1alpha1 resources
+		client := t.Context().K8sClient().CiliumClientset.IsovalentV1alpha1()
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwBGPClusterConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwBGPPeerConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPAdvertisements(), egwBGPAdvertisementName)
+	}
+}
+
+func generateBFDProfileForEGW() *v1alpha1.IsovalentBFDProfile {
+	profile := &v1alpha1.IsovalentBFDProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwBFDProfileName,
+		},
+		Spec: v1alpha1.BFDProfileSpec{
+			ReceiveIntervalMilliseconds:  ptr.To[int32](300),
+			TransmitIntervalMilliseconds: ptr.To[int32](300),
+			DetectMultiplier:             ptr.To[int32](3),
+		},
+	}
+	return profile
+}
+
+func configureBFDProfileForEGW(ctx context.Context, t *check.Test, profile *v1alpha1.IsovalentBFDProfile) {
+	ct := t.Context()
+	client := ct.K8sClient().CiliumClientset.IsovalentV1alpha1()
+
+	_, err := client.IsovalentBFDProfiles().Create(ctx, profile, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBFDProfile: %v", err)
+	}
 }
