@@ -1,7 +1,11 @@
 apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
-  creationTimestamp: null
+  annotations:
+    cec.cilium.io/inject-cilium-filters: "true"
+    cec.cilium.io/is-l7lb: "true"
+  labels:
+    cilium.io/use-original-source-address: "false"
   name: lbfe-lb-1
   namespace: special-namespace
 spec:
@@ -103,9 +107,6 @@ spec:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
             "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
-        - name: cilium.bpf_metadata
-          typedConfig:
-            "@type": type.googleapis.com/cilium.BpfMetadata
       name: frontend_listener_tcp
       perConnectionBufferLimitBytes: 32768
       statPrefix: special-namespace_lb-1

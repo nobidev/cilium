@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	cilium_proxy_api "github.com/cilium/proxy/go/cilium/api"
 	cncf_xds_core_v3 "github.com/cncf/xds/go/xds/core/v3"
 	cncf_xds_matcher_v3 "github.com/cncf/xds/go/xds/type/matcher/v3"
 	envoy_config_accesslog_v3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -65,7 +64,9 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -145,6 +146,18 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
 			Name:      model.getOwningResourceName(),
+
+			// Explicitly instruct the CEC parsing to handle the CEC as N/S L7 loadbalancing.
+			// This is mainly to change the source IP of the Envoy upstream connection to the
+			// node-local "Ingress" IP so that Cilium NetworkPolicies with the special identity
+			// "Ingress" can be defined and enforced.
+			Annotations: map[string]string{
+				annotation.CECIsL7LB:              strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
+				annotation.CECInjectCiliumFilters: strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
+			},
+			Labels: map[string]string{
+				k8s.UseOriginalSourceAddressLabel: "false",
+			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: t2NodeLabelselector,
@@ -243,39 +256,11 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListenerFilters(model *lbService)
 		})
 	}
 
-	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
-	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
-	// comes with BPF map lookups enabled.
-	// The BPFMetadata listener filter is required because it also sets the required
-	// socket options (e.g. `IP_TRANSPARENT`) on the sockets.
-	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
-		Name: "cilium.bpf_metadata",
-		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
-				BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
-			}),
-		},
-	})
-
 	return listenerFilters
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
 	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
-
-	// Explicit configuration of Cilium's BPF Metadata Listener Filter with BPF map lookups
-	// disabled. This prevents the CiliumEnvoyConfig parse logic to inject the default one that
-	// comes with BPF map lookups enabled.
-	// The BPFMetadata listener filter is required because it also sets the required
-	// socket options (e.g. `IP_TRANSPARENT`) on the sockets.
-	listenerFilters = append(listenerFilters, &envoy_config_listener_v3.ListenerFilter{
-		Name: "cilium.bpf_metadata",
-		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
-				BpfRoot: "", // disable actual BPF map lookup (no policy enforcement and hubble flows either)
-			}),
-		},
-	})
 
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 

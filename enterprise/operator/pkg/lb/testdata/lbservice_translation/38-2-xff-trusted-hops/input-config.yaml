@@ -12,3 +12,5 @@ T1T2HealthCheck:
 OriginalIPDetection:
   UseRemoteAddress: false
   XffNumTrustedHops: 2
+Policy:
+  EnableCiliumPolicyFilters: true

@@ -73,6 +73,7 @@ type Config struct {
 	LoadBalancerCPT2XffNumTrustedHops                     uint
 	LoadBalancerCPDefaultT1LabelSelector                  string
 	LoadBalancerCPDefaultT2LabelSelector                  string
+	LoadBalancerCPPolicyEnableCiliumPolicyFilters         bool
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -112,6 +113,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 		"More information can be found at https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-forwarded-for")
 	flags.String("loadbalancer-cp-default-t1-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT1, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T1 nodes")
 	flags.String("loadbalancer-cp-default-t2-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT2, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T2 nodes")
+	flags.Bool("loadbalancer-cp-policy-enable-cilium-policy-filters", true, "Whether or not the LoadBalancer control plane should configure the Cilium Policy filters on the T2 Envoy listeners")
 }
 
 type reconcilerParams struct {
@@ -242,6 +244,9 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 		OriginalIPDetection: reconcilerOriginalIPDetectionConfig{
 			UseRemoteAddress:  params.Config.LoadBalancerCPT2UseRemoteAddress,
 			XffNumTrustedHops: params.Config.LoadBalancerCPT2XffNumTrustedHops,
+		},
+		Policy: reconcilerPolicyConfig{
+			EnableCiliumPolicyFilters: params.Config.LoadBalancerCPPolicyEnableCiliumPolicyFilters,
 		},
 	}
 }

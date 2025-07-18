@@ -117,6 +117,7 @@ cilium-operator-aws hive dot-graph [flags]
       --loadbalancer-cp-metrics-cluster-additional-request-response    Enable additional Envoy request & response metrics on the cluster (Body size, header size & count) (default true)
       --loadbalancer-cp-metrics-cluster-per-endpoint                   Enable per-endpoint Envoy metrics on the cluster (default true)
       --loadbalancer-cp-metrics-cluster-timeout-budget                 Enable Envoy timeout budget metrics on the cluster (default true)
+      --loadbalancer-cp-policy-enable-cilium-policy-filters            Whether or not the LoadBalancer control plane should configure the Cilium Policy filters on the T2 Envoy listeners (default true)
       --loadbalancer-cp-requestid-generate                             Whether or not the LoadBalancer control plane should configure T2 Envoy to generate the X-Request-ID HTTP header
       --loadbalancer-cp-requestid-preserve                             Whether or not the LoadBalancer control plane should configure T2 Envoy to preserve any existing X-Request-ID HTTP header
       --loadbalancer-cp-requestid-response                             Whether or not the LoadBalancer control plane should configure T2 Envoy to add the X-Request-ID HTTP header to the response

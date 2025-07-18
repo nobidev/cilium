@@ -9,3 +9,5 @@ T1T2HealthCheck:
   T1ProbeHTTPMethod: GET
   T1ProbeHTTPUserAgentPrefix: cilium-probe/
   T2ProbeMinHealthyBackendPercentage: 20
+Policy:
+  EnableCiliumPolicyFilters: true

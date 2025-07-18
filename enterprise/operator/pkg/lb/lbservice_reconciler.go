@@ -69,6 +69,7 @@ type reconcilerConfig struct {
 	RequestID           reconcilerRequestIDConfig
 	T1T2HealthCheck     reconcilerT1T2HealthCheckConfig
 	OriginalIPDetection reconcilerOriginalIPDetectionConfig
+	Policy              reconcilerPolicyConfig
 }
 
 type reconcilerAccesslogConfig struct {
@@ -116,6 +117,10 @@ type reconcilerT1T2HealthCheckConfig struct {
 type reconcilerOriginalIPDetectionConfig struct {
 	UseRemoteAddress  bool
 	XffNumTrustedHops uint
+}
+
+type reconcilerPolicyConfig struct {
+	EnableCiliumPolicyFilters bool
 }
 
 func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {
