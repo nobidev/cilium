@@ -32,6 +32,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/relay"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -49,7 +50,7 @@ type fqdnAgentClient struct {
 }
 
 func newAgentClient(log *slog.Logger, jg job.Group) (*fqdnAgentClient, error) {
-	conn, err := createClient("unix:///var/run/cilium/proxy-agent.sock")
+	conn, err := createClient("unix://" + relay.ProxyRelaySocket)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create grpc client to talk to agent: %w", err)
 	}
@@ -173,8 +174,14 @@ type notifier struct {
 	queue   chan *pb.DNSNotification
 	wg      sync.WaitGroup
 
+	stateManager *stateManager
+
 	// Just used to coalesce log lines
 	overflowed atomic.Bool
+
+	// number of queued notifications, so we can detect
+	// zero crossing
+	pending atomic.Int32
 }
 
 type notifierMetrics struct {
@@ -193,7 +200,8 @@ type notifierParams struct {
 	LC       cell.Lifecycle
 	Registry *metrics.Registry
 
-	Client *fqdnAgentClient
+	Client       *fqdnAgentClient
+	StateManager *stateManager
 }
 
 func newNotifier(params notifierParams) *notifier {
@@ -201,8 +209,10 @@ func newNotifier(params notifierParams) *notifier {
 		log: params.Log,
 		cfg: params.Cfg,
 
-		client: params.Client,
-		queue:  make(chan *pb.DNSNotification, params.Cfg.DNSNotificationChannelSize),
+		client:       params.Client,
+		stateManager: params.StateManager,
+
+		queue: make(chan *pb.DNSNotification, params.Cfg.DNSNotificationChannelSize),
 	}
 	n.metrics = makeNotifierMetrics(n, params.Registry)
 
@@ -242,7 +252,7 @@ func makeNotifierMetrics(n *notifier, reg *metrics.Registry) *notifierMetrics {
 			Subsystem: "external_dns_proxy",
 			Help:      "Size of the queue for deferred DNS notifications to the cilium-agent",
 		}, func() float64 {
-			return float64(len(n.queue))
+			return float64(n.pending.Load())
 		}),
 	}
 
@@ -361,10 +371,21 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 		// Cilium-agent is down or unable to successfully plumb the policy
 		// right now, so queue this DNSNotification until cilium is able to
 		// handle the message.
+		pending := n.pending.Add(1)
+		if pending == 1 {
+			// We have gone offline! Transition to agent-is-offline state
+			n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_UNSPECIFIED, pb.RemoteProxyStatus_RPS_AGENT_OFFLINE)
+		}
 		select {
 		case n.queue <- notification:
 			n.overflowed.Store(false)
 		default:
+			// reduce pending count, since we're dropping this message on the floor.
+			// It is very very very very very unlikely, but this may have been the last pending message,
+			// so handle the zero transition here too.
+			if n.pending.Add(-1) == 0 {
+				n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_UNSPECIFIED, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE)
+			}
 			metricError = metricErrorOverflow
 			n.metrics.ProxyUpdateErrors.WithLabelValues(metricErrorOverflow).Inc()
 			if n.overflowed.CompareAndSwap(false, true) {
@@ -385,6 +406,15 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 }
 
 func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
+	// regardless of success or failure,
+	// we must reduce the number of pending requests
+	defer func() {
+		pending := n.pending.Add(-1)
+		if pending == 0 {
+			n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_REPLAYING, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE)
+		}
+	}()
+
 	for {
 		// We are purposefully not backing off exponentially because we want to
 		// constantly retry to reach the Agent in case it is down in order to
@@ -411,6 +441,11 @@ func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotificat
 			cancel()
 			continue
 		}
+
+		// connection succeeded
+		// Transition to the "flushing queue" state
+		n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_AGENT_OFFLINE, pb.RemoteProxyStatus_RPS_REPLAYING)
+
 		n.log.Debug("Successfully relayed queued DNS notification")
 
 		return

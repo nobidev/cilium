@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -37,6 +38,10 @@ var (
 		cell.Provide(newAgentClient),
 		cell.Provide(newNotifier),
 		cell.Provide(newRulesWatcher),
+
+		cell.Provide(tables.NewAgentStateTable, tables.NewRemoteProxyStateTable),
+		cell.Provide(newStateManager),
+		cell.Invoke(func(_ *stateManager) {}),
 
 		gops.Cell(defaults.EnableGops, DefaultGopsPort),
 		pprof.Cell(pprofConfig),
