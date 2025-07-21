@@ -16,6 +16,9 @@ module.exports = {
   allowedCommands: [
     '^make .*$',
   ],
+  customEnvVariables: {
+    GOPRIVATE: "github.com/isovalent/*",
+  },
   customManagers: [
     {
       customType: 'regex',
