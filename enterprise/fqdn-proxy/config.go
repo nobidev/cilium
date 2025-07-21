@@ -20,7 +20,7 @@ import (
 
 type Config struct {
 	Debug                         bool          `mapstructure:"debug"`
-	EnableOfflineMode             bool          `mapstructure:"enable-offline-mode"`
+	EnableOfflineMode             bool          `mapstructure:"tofqdns-enable-offline-mode"`
 	EnableIPV6                    bool          `mapstructure:"enable-ipv6"`
 	EnableIPV4                    bool          `mapstructure:"enable-ipv4"`
 	EnableDNSCompression          bool          `mapstructure:"tofqdns-enable-dns-compression"`
@@ -64,7 +64,7 @@ var pprofConfig = pprof.Config{
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("debug", def.Debug, "Enable debugging mode")
-	flags.Bool("enable-offline-mode", def.EnableOfflineMode, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
+	flags.Bool("tofqdns-enable-offline-mode", def.EnableOfflineMode, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")
 	flags.Bool("enable-ipv6", def.EnableIPV6, "")
 	flags.Bool("enable-ipv4", def.EnableIPV4, "")
 	flags.Bool("tofqdns-enable-dns-compression", def.EnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")

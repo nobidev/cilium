@@ -24,6 +24,7 @@ import (
 
 var defaultConfig = config.Config{
 	EnableExternalDNSProxy: false,
+	EnableOfflineMode:      false,
 }
 
 var Cell = cell.Module(
