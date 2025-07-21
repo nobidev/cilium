@@ -254,10 +254,12 @@ jobs:
              --helm-set=bpf.monitorAggregation=none \
              --helm-set=bpf.lbAlgorithmAnnotation=true \
              --helm-set=bpf.lbModeAnnotation=true \
+             --helm-set=bpf.masquerade=true \
              --helm-set=kubeProxyReplacement=true \
              --helm-set=routingMode=native \
              --helm-set=autoDirectNodeRoutes=true \
-             --helm-set=enableIPv4Masquerade=false \
+             --helm-set=enableIPv4Masquerade=true \
+             --helm-set=ipv4NativeRoutingCIDR="10.244.0.0/16" \
              --helm-set=loadBalancer.acceleration=native \
              --helm-set=loadBalancer.dsrDispatch=ipip \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
