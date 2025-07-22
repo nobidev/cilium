@@ -1,6 +1,8 @@
 module.exports = {
   repositories: ["isovalent/cilium"],
   username: "isovalent-renovate[bot]",
+  prConcurrentLimit: 0,
+  prHourlyLimit: 0,
   secrets: {
     RH_REGISTRY_USERNAME: "{{ process.env.RH_REGISTRY_USERNAME }}",
     RH_REGISTRY_PASSWORD: "{{ process.env.RH_REGISTRY_PASSWORD }}",
