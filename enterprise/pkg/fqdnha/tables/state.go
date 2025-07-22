@@ -11,6 +11,9 @@
 package tables
 
 import (
+	"context"
+	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/cilium/statedb"
@@ -152,4 +155,33 @@ func NewAgentStateTable(db *statedb.DB) (statedb.RWTable[AgentState], statedb.Ta
 		statedb.Indexer[AgentState](AgentStateIndex),
 	)
 	return tbl, tbl, err
+}
+
+// WaitForRemoteProxyStatus waits for the status of the remote proxy to reach any of the
+// desired statuses supplied. If it transitions to RPS_UNSPECIFIED, then it will stop
+// and return error.
+// This is shared between a few modules.
+func WaitForRemoteProxyStatus(ctx context.Context, db *statedb.DB, table statedb.Table[RemoteProxyState], wantStatuses ...pb.RemoteProxyStatus) (pb.RemoteProxyStatus, error) {
+	for {
+		var proxyStatus pb.RemoteProxyStatus
+
+		rps, _, watch, found := table.GetWatch(db.ReadTxn(), RemoteProxyStateIndex.Query(""))
+		if found {
+			proxyStatus = rps.Status
+			if slices.Contains(wantStatuses, proxyStatus) {
+				return proxyStatus, nil
+			}
+
+			// remote proxy went down; we should abort
+			if proxyStatus == pb.RemoteProxyStatus_RPS_UNSPECIFIED {
+				return proxyStatus, fmt.Errorf("remote proxy went down while waiting for status")
+			}
+		}
+
+		select {
+		case <-watch:
+		case <-ctx.Done():
+			return proxyStatus, ctx.Err()
+		}
+	}
 }

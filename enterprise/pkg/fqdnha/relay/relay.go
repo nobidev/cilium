@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/doubleproxy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -92,6 +93,7 @@ type params struct {
 	IdentityAllocator identityCell.CachingIdentityAllocator
 	RequestHandler    messagehandler.DNSMessageHandler
 	DP                *doubleproxy.DoubleProxy
+	RegenFence        regeneration.Fence
 
 	DB          *statedb.DB
 	Table       statedb.RWTable[FQDNSelector]
@@ -443,6 +445,13 @@ func NewFQDNProxyAgentServer(
 	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	lc.Append(s)
+
+	if p.Cfg.EnableOfflineMode {
+		// Block regeneration until the remote proxy reconnects and replays its queued DNS requests.
+		// For resiliency purposes, this has a hard timeout of 15 seconds so we don't
+		// unnecessarily prevent the agent from starting up.
+		p.RegenFence.Add("fqdnha-remote-proxy-replay", s.waitRemoteProxyReplayed)
+	}
 	return s
 }
 

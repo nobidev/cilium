@@ -129,4 +129,34 @@ func (s *FQDNProxyAgentServer) setRemoteProxyState(rps *pb.RemoteProxyState) {
 	wtxn.Commit()
 }
 
+// waitRemoteProxyReplayed waits for a remote proxy to connect and enter state LIVE or WAITING_FOR_AGENT_LIVE.
+// It will wait a maximum of 15 seconds for resiliency purposes. (A few dropped packets are
+// preferable to an agent permanently blocked from starting up).
+//
+// This is to allow a remote proxy to reconnect and replay any pending DNS messages. It is used
+// with fqdnha offline mode to ensure that endpoints do not experience any drops while being regenerated.
+// Otherwise, there may be a newly-learned IP in the outgoing ipcache and the replay queue.
+func (s *FQDNProxyAgentServer) waitRemoteProxyReplayed(ctx context.Context) error {
+	if !s.offlineEnabled {
+		return nil
+	}
+
+	s.log.Info("FQDN-HA offline mode enabled. Blocking regeneration up to 15 seconds for remote proxy to replay any queued DNS messages.")
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	proxyStatus, err := tables.WaitForRemoteProxyStatus(ctx, s.db, s.rpsTable, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE, pb.RemoteProxyStatus_RPS_LIVE)
+	if err == nil {
+		s.log.Info("Remote proxy has finished replaying DNS messages, proceeding with regeneration")
+	} else {
+		if proxyStatus == pb.RemoteProxyStatus_RPS_UNSPECIFIED {
+			s.log.Info("FQDN-HA offine mode enabled, but remote proxy did did not send a state. Proceeding.")
+		} else {
+			s.log.Warn("FQDN-HA offline mode enabled, but remote proxy did not reach state LIVE or WAITING_FOR_AGENT_LIVE before deadline",
+				logfields.State, proxyStatus)
+		}
+	}
+	return nil
+}
+
 var startTime = time.Now().Unix()
