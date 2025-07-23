@@ -26,9 +26,7 @@ type certTemplateOpts func(*x509.Certificate)
 
 func withCertificateSANDNSNames(dnsNames ...string) func(*x509.Certificate) {
 	return func(c *x509.Certificate) {
-		for _, h := range dnsNames {
-			c.DNSNames = append(c.DNSNames, h)
-		}
+		c.DNSNames = append(c.DNSNames, dnsNames...)
 	}
 }
 
