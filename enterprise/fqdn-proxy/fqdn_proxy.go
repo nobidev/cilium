@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	_ "github.com/cilium/cilium/enterprise/fips"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -91,7 +92,7 @@ func run(ctx context.Context, params runParams) error {
 	time.Sleep(2 * time.Second) // grace period to get all endpoints from the agent
 
 	log.Info("Got endpoint configurations, opening sockets.")
-	err := proxy.Listen(10001)
+	err := proxy.Listen(config.DNSProxyPort) // use hard-coded port, must be same as agent
 	if err != nil {
 		return fmt.Errorf("failed to start DNS proxy: %w", err)
 	}

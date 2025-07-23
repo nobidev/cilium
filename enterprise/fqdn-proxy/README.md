@@ -49,6 +49,38 @@ The proxy also exposes its own gRPC server. When the agent learns of a new endpo
 it calls the proxy's `UpdateAllowed()` method. When the agent first detects that a proxy has newly
 started, it calls `UpdateAllowed()` for all known existing endpoints.
 
+
+
+FQDN-HA Offline
+---------------
+
+When enabled, the proxy supports a mode where, when the agent is down, it writes directly to the BPF
+IPCache. This will determine the identity for a given name and, if possible, write the identity
+for that IP directly to the ipcache.
+
+This is safe-to-do because the agent always creates a new BPF IPCache on restart. Once the agent
+goes down, only the FQDN proxy will be writing to the old, outgoing IPCache. As the agent starts
+up and endpoints are regenerated, they will switch to the new ipcache map. Once all endpoints
+are regenerated, the proxy can drop its reference to the outgoing map.
+
+## Handback
+
+Once the proxy detects the agent is down, it queues the calls to `NotifyOnDNSMsg()` and writes
+the newly-learned IPs to the BPF IPCache. Once the agent comes back up, there is a somewhat complicated
+handback procedure.
+
+1. Before the agent can proceed with regeneration, the notification queue must be empty.
+   This is because the queue may contain newly-learned IPs. Those IPs have been written in to
+   the "old" IPCache, but not the new one. Thus, they must also first be programmed in the new one.
+2. The agent must not listen on the DNS proxy port until all endpoints have been regenerated. This
+   is because all un-regenerated endpoints are still referencing the old IPCache. Only the ha-proxy
+   can write to this. So, by delaying opening the port, all newly-learned IPs go to both IPCache maps.
+   If the agent opened the port immediately, then a DNS message may be served by the agent, which cannot
+   write to the outgoing IPCache, leading to a drop.
+3. Once the agent has regenerated all endpoints, the proxy stops writing to the IPCache and reloads
+   its BPF map.
+
+
 How to Publish a New Version
 ----------------------------
 
@@ -57,7 +89,7 @@ How to Publish a New Version
 The following files contain references to the semantic version of the codebase and should
 be up to date before the image or helm chart is published:
 
-- ./installation/Chart.yaml (run `make -C installation update-chart to update it base on the `VERSION` file in the root directory of the repository)
+- ./installation/Chart.yaml (run `make -C installation update-chart` to update it based on the `VERSION` file in the root directory of the repository)
 - ./installation/README.md (run `./installation/test.sh` to generate this file).
 
 ### Run Compatibility Tests

@@ -13,17 +13,24 @@ package doubleproxy
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
+	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -38,9 +45,16 @@ const RemoteProxyWaitTime = 10 * time.Second
 // When it is initialized, it "takes over" the existing DNS proxy singleton.
 type DoubleProxy struct {
 	log *slog.Logger
+	ctx context.Context
 
-	db          *statedb.DB
-	configTable statedb.RWTable[*tables.ProxyConfig]
+	db              *statedb.DB
+	configTable     statedb.RWTable[*tables.ProxyConfig]
+	rpsTable        statedb.RWTable[tables.RemoteProxyState]
+	restorerPromise promise.Promise[endpointstate.Restorer]
+	shutdowner      hive.Shutdowner
+	proxyPorts      *proxyports.ProxyPorts
+
+	offlineEnabled bool
 
 	// tracks consumers for synchronous proxy updates
 	at *AckTrackers
@@ -49,11 +63,16 @@ type DoubleProxy struct {
 type Params struct {
 	cell.In
 
-	Cfg fqdnhaconfig.Config
-	Log *slog.Logger
+	Cfg        fqdnhaconfig.Config
+	Log        *slog.Logger
+	LC         cell.Lifecycle
+	Shutdowner hive.Shutdowner
 
-	DB          *statedb.DB
-	ConfigTable statedb.RWTable[*tables.ProxyConfig]
+	DB                    *statedb.DB
+	ConfigTable           statedb.RWTable[*tables.ProxyConfig]
+	RemoteProxyStateTable statedb.RWTable[tables.RemoteProxyState]
+	RestorerPromise       promise.Promise[endpointstate.Restorer]
+	ProxyPorts            *proxyports.ProxyPorts
 }
 
 func NewDoubleProxy(p Params) *DoubleProxy {
@@ -62,11 +81,28 @@ func NewDoubleProxy(p Params) *DoubleProxy {
 	}
 
 	dp := &DoubleProxy{
-		log:         p.Log,
-		db:          p.DB,
-		configTable: p.ConfigTable,
+		log:             p.Log,
+		db:              p.DB,
+		configTable:     p.ConfigTable,
+		rpsTable:        p.RemoteProxyStateTable,
+		restorerPromise: p.RestorerPromise,
+		shutdowner:      p.Shutdowner,
+		proxyPorts:      p.ProxyPorts,
+
+		offlineEnabled: p.Cfg.EnableOfflineMode,
 
 		at: NewAckTrackers(),
+	}
+	var cancel context.CancelFunc
+
+	if p.LC != nil {
+		dp.ctx, cancel = context.WithCancel(context.Background())
+		p.LC.Append(cell.Hook{
+			OnStop: func(hc cell.HookContext) error {
+				cancel()
+				return nil
+			},
+		})
 	}
 
 	return dp
@@ -99,9 +135,78 @@ func DecorateDNSProxy(dp *DoubleProxy, dnsProxy fqdnproxy.DNSProxier) fqdnproxy.
 	}
 }
 
+// Listen opens the proxy, but also does a special dance when in fqdn-ha offline mode.
+// Specifically, if offline mode is enabled *and* the remote proxy is running, then
+// we must delay opening the socket until regeneration is complete.
+//
+// However, we must return immediately so that regeneration can proceed. This is OK,
+// as there *is* a functioning DNS proxy listening on the desired port... it just
+// isn't in-process.
+// So, we return only when we're quite sure the remote proxy is up and running.
+//
+// In parallel, fqdnha/relay also blocks regeneration until the remote proxy has checked in,
+// so we're certain that regeneration can't proceed without at least one working FQDN proxy.
 func (pw *proxyWrapper) Listen(uint16) error {
-	// FQDN proxy must be 10001
-	return pw.DNSProxier.Listen(10001)
+	if !pw.dp.offlineEnabled {
+		// FQDN proxy must be 10001
+		return pw.DNSProxier.Listen(config.DNSProxyPort)
+	}
+	dp := pw.dp
+	log := dp.log
+
+	log.Info("--tofqdns-enable-offline-mode set; delaying opening FQDN proxy until regeneration completes")
+
+	if dp.proxyPorts != nil { // nil for unit tests (otherwise we can't test this method)
+		// Check local ports to see if there is a proxy running
+		if _, ok := dp.proxyPorts.GetOpenLocalPorts()[config.DNSProxyPort]; !ok {
+			log.Info("remote proxy is not running, opening DNS proxy immediately")
+			return pw.DNSProxier.Listen(config.DNSProxyPort)
+		}
+	}
+
+	// restartCtx is cancelled when we're ready to restart.
+	// A bit of an abuse of contexts, but it's the easiest way to have
+	// multiple parallel blockers that all get cleaned up.
+	restartCtx, restartCancel := context.WithCancel(dp.ctx)
+
+	// Paranoia: if the remote proxy goes down, then start the local one ASAP.
+	go func() {
+		_, err := tables.WaitForRemoteProxyStatus(restartCtx, dp.db, dp.rpsTable, pb.RemoteProxyStatus_RPS_UNSPECIFIED)
+		if err == nil { // nil err means context wasn't canceled
+			log.Warn("Remote FQDN-HA proxy went down! Starting DNS proxy.")
+			restartCancel()
+		}
+	}()
+
+	// Wait for regeneration to complete
+	go func() {
+		restorer, err := dp.restorerPromise.Await(restartCtx)
+		if err != nil {
+			restartCancel()
+			return
+		}
+		restorer.WaitForEndpointRestore(restartCtx)
+		log.Info("Endpoint regeneration complete. Starting DNS proxy.")
+		restartCancel()
+	}()
+
+	// goroutine 3: wait until any blocker is done, then open local dns proxy.
+	go func() {
+		<-restartCtx.Done()
+		err := pw.DNSProxier.Listen(config.DNSProxyPort)
+		if err != nil {
+			// Since this is in a goroutine, we must manually kill the agent.
+			// The un-wrapped proxy would do so by returning `err`
+			dp.shutdowner.Shutdown(hive.ShutdownWithError(fmt.Errorf("error opening dns proxy socket(s): %w", err)))
+		}
+	}()
+
+	// return immediately: there is a functioning DNS proxy: the remote one.
+	return nil
+}
+
+func (pw *proxyWrapper) GetBindPort() uint16 {
+	return config.DNSProxyPort
 }
 
 func (pw *proxyWrapper) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error) {

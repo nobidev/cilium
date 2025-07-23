@@ -12,6 +12,9 @@ package config
 
 import "github.com/spf13/pflag"
 
+// Agent and proxy must use the same hardcoded port for the DNS server
+const DNSProxyPort = 10001
+
 // Config is the enterprise FQDN proxy configuration.
 type Config struct {
 	EnableExternalDNSProxy bool `mapstructure:"external-dns-proxy"`
