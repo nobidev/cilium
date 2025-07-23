@@ -11,7 +11,7 @@ contents:
     - util-linux-misc=2.41-r41 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
     - bash=5.2.37-r30
     - busybox=1.37.0-r40
-    - ca-certificates=20241121-r40
+    - ca-certificates=20250619-r3
     - ip6tables=1.8.9
     - iproute2=6.13.0-r20
     - ipset=7.22-r3
