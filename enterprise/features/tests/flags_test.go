@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	daemonCmd "github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/features"

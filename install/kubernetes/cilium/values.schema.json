@@ -5456,6 +5456,20 @@
       },
       "type": "object"
     },
+    "localRedirectPolicies": {
+      "properties": {
+        "addressMatcherCIDRs": {
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "localRedirectPolicy": {
       "type": "boolean"
     },

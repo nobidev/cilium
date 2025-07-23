@@ -91,11 +91,7 @@ ports:
 
 -- healthchecks-expected.json --
 {
-  "Service": {
-    "Namespace": "test",
-    "Name": "echo",
-    "Cluster": ""
-  },
+  "Service": "test/echo",
   "Backend": {
     "AddrCluster": "127.0.0.1",
     "Protocol": "TCP",

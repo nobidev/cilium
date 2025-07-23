@@ -270,7 +270,7 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 	}
 	var (
 		id  identity.NumericIdentity
-		src source.Source = source.Unspec
+		src = source.Unspec
 		err error
 	)
 	if pc.supportsIPCacheV1() {

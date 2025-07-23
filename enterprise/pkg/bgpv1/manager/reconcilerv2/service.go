@@ -78,8 +78,8 @@ type ServiceReconciler struct {
 	frontends statedb.Table[*loadbalancer.Frontend]
 
 	// internal service health state
-	svcHealth        map[k8s.ServiceID]svcFrontendHealthMap // local cache of service health metadata
-	svcHealthChanged map[string]map[k8s.ServiceID]struct{}  // instance-specific tracker of services with modified health since last reconciliation
+	svcHealth        map[loadbalancer.ServiceName]svcFrontendHealthMap // local cache of service health metadata
+	svcHealthChanged map[string]map[loadbalancer.ServiceName]struct{}  // instance-specific tracker of services with modified health since last reconciliation
 
 	// node status tracking
 	nodeStatusProvider NodeStatusProvider
@@ -144,8 +144,8 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		svcDiffStore:       in.SvcDiffStore,
 		epDiffStore:        in.EPDiffStore,
 		metadata:           make(map[string]ServiceReconcilerMetadata),
-		svcHealth:          make(map[k8s.ServiceID]svcFrontendHealthMap),
-		svcHealthChanged:   make(map[string]map[k8s.ServiceID]struct{}),
+		svcHealth:          make(map[loadbalancer.ServiceName]svcFrontendHealthMap),
+		svcHealthChanged:   make(map[string]map[loadbalancer.ServiceName]struct{}),
 	}
 
 	// start observing frontends for backend health changes.
@@ -178,7 +178,7 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: service reconciler initialization with nil BGPInstance")
 	}
 	// initialize service health tracker map for this instance
-	r.svcHealthChanged[i.Name] = make(map[k8s.ServiceID]struct{})
+	r.svcHealthChanged[i.Name] = make(map[loadbalancer.ServiceName]struct{})
 
 	r.svcDiffStore.InitDiff(r.diffID(i.Name))
 	r.epDiffStore.InitDiff(r.diffID(i.Name))
@@ -222,7 +222,7 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 
 	fe := change.Object
 
-	if fe.Type != loadbalancer.SVCTypeLoadBalancer || fe.ServiceName.Name == "" {
+	if fe.Type != loadbalancer.SVCTypeLoadBalancer || fe.ServiceName.Name() == "" {
 		return nil // ignore updates for non-LB svcFrontendsHealth and unknown services
 	}
 	if fe.Address.Scope != loadbalancer.ScopeExternal {
@@ -231,16 +231,10 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 		return nil
 	}
 
-	svcID := k8s.ServiceID{
-		Name:      fe.ServiceName.Name,
-		Namespace: fe.ServiceName.Namespace,
-		Cluster:   fe.ServiceName.Cluster,
-	}
-
-	svcFrontendsHealth, found := r.svcHealth[svcID]
+	svcFrontendsHealth, found := r.svcHealth[fe.ServiceName]
 	if change.Deleted {
 		r.logger.Debug("Service health update: frontend deleted",
-			types.ServiceIDLogField, svcID,
+			types.ServiceIDLogField, fe.ServiceName,
 			types.ServiceAddressLogField, fe.Address,
 		)
 		if found {
@@ -253,7 +247,7 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 	} else {
 		if !found {
 			svcFrontendsHealth = make(svcFrontendHealthMap)
-			r.svcHealth[svcID] = svcFrontendsHealth
+			r.svcHealth[fe.ServiceName] = svcFrontendsHealth
 		}
 
 		backendsCount := 0
@@ -264,7 +258,7 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 		}
 
 		r.logger.Debug("Service health update",
-			types.ServiceIDLogField, svcID,
+			types.ServiceIDLogField, fe.ServiceName,
 			types.ServiceAddressLogField, fe.Address,
 			types.BackendCountLogField, backendsCount,
 		)
@@ -283,7 +277,7 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 
 	// mark the service for reconciliation
 	for _, instanceMap := range r.svcHealthChanged {
-		instanceMap[svcID] = struct{}{}
+		instanceMap[fe.ServiceName] = struct{}{}
 	}
 
 	// trigger a reconciliation
@@ -298,7 +292,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
@@ -361,8 +355,8 @@ endpointsLoop:
 		}
 
 		svcKey := resource.Key{
-			Name:      eps.ServiceID.Name,
-			Namespace: eps.ServiceID.Namespace,
+			Name:      eps.ServiceName.Name(),
+			Namespace: eps.ServiceName.Namespace(),
 		}
 
 		for _, be := range eps.Backends {
@@ -451,7 +445,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p EnterpriseR
 	if r.cfg.SvcHealthCheckingEnabled {
 		// delete the svc from the service-specific health caches
 		for _, key := range toWithdraw {
-			svcID := k8s.ServiceID{Name: key.Name, Namespace: key.Namespace}
+			svcID := loadbalancer.NewServiceName(key.Namespace, key.Name)
 			delete(r.svcHealth, svcID)
 			delete(r.svcHealthChanged[p.BGPInstance.Name], svcID)
 		}
@@ -506,7 +500,7 @@ func (r *ServiceReconciler) healthModifiedServices(p EnterpriseReconcileParams) 
 
 	if shrink {
 		// re-create the health tracking map
-		r.svcHealthChanged[p.BGPInstance.Name] = make(map[k8s.ServiceID]struct{})
+		r.svcHealthChanged[p.BGPInstance.Name] = make(map[loadbalancer.ServiceName]struct{})
 	}
 	return modified
 }
@@ -795,10 +789,10 @@ func (r *ServiceReconciler) svcHasNoAdvertisementAnnotations(svc *slim_corev1.Se
 }
 
 // getSvcByID retrieves a service by the provided service ID.
-func (r *ServiceReconciler) getSvcByID(svcID k8s.ServiceID) (*slim_corev1.Service, bool, error) {
+func (r *ServiceReconciler) getSvcByID(svcID loadbalancer.ServiceName) (*slim_corev1.Service, bool, error) {
 	key := resource.Key{
-		Name:      svcID.Name,
-		Namespace: svcID.Namespace,
+		Name:      svcID.Name(),
+		Namespace: svcID.Namespace(),
 	}
 	return r.svcDiffStore.GetByKey(key)
 }
@@ -1093,8 +1087,8 @@ func checkServiceAdvertisement(advert v1.BGPAdvertisement, advertServiceType v2.
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
 	k := resource.Key{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
+		Name:      eps.ServiceName.Name(),
+		Namespace: eps.ServiceName.Namespace(),
 	}
 	return r.svcDiffStore.GetByKey(k)
 }
@@ -1156,9 +1150,6 @@ func svcProtocolToLBL4Type(svcProto slim_corev1.Protocol) loadbalancer.L4Type {
 	}
 }
 
-func parseServiceID(svc *slim_corev1.Service) k8s.ServiceID {
-	return k8s.ServiceID{
-		Name:      svc.Name,
-		Namespace: svc.Namespace,
-	}
+func parseServiceID(svc *slim_corev1.Service) loadbalancer.ServiceName {
+	return loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 }

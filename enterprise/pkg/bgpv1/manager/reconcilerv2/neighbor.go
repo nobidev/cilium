@@ -152,7 +152,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 
 	p, err := r.upgrader.upgrade(_p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.Logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}

@@ -81,15 +81,15 @@ func (r *legacyImportVPNRouteReconciler) Priority() int {
 func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconcilerv2.StateReconcileParams) error {
 	iParams, err := r.Upgrader.upgradeState(p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.Logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, NotInitializedErr) {
+		if errors.Is(err, ErrNotInitialized) {
 			r.Logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, UpdateConfigNotSetErr) {
+		if errors.Is(err, ErrUpdateConfigNotSet) {
 			r.Logger.Debug("Instance config not yet set, skipping reconciliation")
 			return nil
 		}

@@ -161,11 +161,11 @@ func (r *ServiceVRFReconciler) Priority() int {
 func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, NotInitializedErr) {
+		if errors.Is(err, ErrNotInitialized) {
 			r.logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}
@@ -515,8 +515,8 @@ endpointsLoop:
 		}
 
 		svcKey := resource.Key{
-			Name:      eps.ServiceID.Name,
-			Namespace: eps.ServiceID.Namespace,
+			Name:      eps.ServiceName.Name(),
+			Namespace: eps.ServiceName.Namespace(),
 		}
 
 		for _, be := range eps.Backends {
@@ -538,8 +538,8 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls sets.Set[resource.Key]) bool
 
 func (r *ServiceVRFReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
 	k := resource.Key{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
+		Name:      eps.ServiceName.Name(),
+		Namespace: eps.ServiceName.Namespace(),
 	}
 	return r.svcDiffStore.GetByKey(k)
 }

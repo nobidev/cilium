@@ -279,7 +279,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name: "advertise the service after healthy backend update",
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -306,19 +306,19 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				// first no healthy backends
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive, Unhealthy: true}}, // unhealthy
 				},
 				// frontend not matching the service - unrelated
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}},
 				},
 				// finally with healthy backends
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -345,13 +345,13 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				// no active backends
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				// frontend not matching the service - unrelated
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       fakeV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
 				},
@@ -376,7 +376,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				// frontend not matching the service - unrelated
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
@@ -403,13 +403,13 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				// first with active backends
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
 				},
 				// then no active backends
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
@@ -433,7 +433,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			deletedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -449,7 +449,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{testSvc},
 			backendUpdates: []backendUpdate{
 				{
-					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
@@ -457,7 +457,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 				{
-					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
@@ -485,7 +485,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name: "withdraw the service with multiple frontend ports - 1 unhealthy port",
 			backendUpdates: []backendUpdate{
 				{
-					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
@@ -493,7 +493,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
-					svcName: loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend: loadbalancer.L3n4Addr{
 						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
 						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
@@ -520,12 +520,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{testSvcDualStack},
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV6Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -554,12 +554,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name: "partially advertise dual-stack service with multiple frontend IPs - 1 unhealthy IP",
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV6Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -586,12 +586,12 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name: "do not advertise dual-stack service with multiple frontend IPs - all unhealthy",
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV6Frontend,
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
@@ -617,7 +617,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{testSvcThreshold2},
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // 2 backends - healthy
 				},
@@ -642,7 +642,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			name: "withdraw existing service after a backend update - non-default threshold, unhealthy",
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // 1 backend - unhealthy
 				},
@@ -666,7 +666,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{testSvcNoAdvertisement},
 			backendUpdates: []backendUpdate{
 				{
-					svcName:        loadbalancer.ServiceName{Name: svcKey.Name, Namespace: svcKey.Namespace},
+					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
 					frontend:       ingressV4Frontend,
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
@@ -1620,10 +1620,7 @@ var (
 			Namespace: "non-default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1642,10 +1639,7 @@ var (
 			Namespace: "non-default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1666,10 +1660,7 @@ var (
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -1688,10 +1679,7 @@ var (
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      redSvcKey.Name,
-				Namespace: redSvcKey.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
 			EndpointSliceName: "svc-1",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{

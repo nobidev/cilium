@@ -17,7 +17,7 @@ import (
 	"regexp"
 
 	"github.com/blang/semver/v4"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type ID = string

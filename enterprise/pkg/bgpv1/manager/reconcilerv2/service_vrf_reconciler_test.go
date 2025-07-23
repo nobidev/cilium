@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type afSimplePathsMap map[bgptypes.Family][]string // list of nlris
@@ -138,10 +139,7 @@ var (
 			Name: "vrf1-svc",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      vrf1LBSvc.Name,
-				Namespace: vrf1LBSvc.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(vrf1LBSvc.Namespace, vrf1LBSvc.Name),
 			EndpointSliceName: "vrf1-svc",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
@@ -156,10 +154,7 @@ var (
 			Name: "vrf2-svc",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      vrf2LBSvc.Name,
-				Namespace: vrf2LBSvc.Namespace,
-			},
+			ServiceName:       loadbalancer.NewServiceName(vrf2LBSvc.Namespace, vrf2LBSvc.Name),
 			EndpointSliceName: "vrf2-svc",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{

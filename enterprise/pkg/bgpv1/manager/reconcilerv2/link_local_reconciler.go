@@ -165,11 +165,11 @@ func (r *LinkLocalReconciler) Cleanup(i *instance.BGPInstance) {
 func (r *LinkLocalReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
-		if errors.Is(err, NotInitializedErr) {
+		if errors.Is(err, ErrNotInitialized) {
 			r.logger.Debug("Initialization is not done, skipping reconciliation")
 			return nil
 		}

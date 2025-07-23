@@ -134,7 +134,7 @@ func (r *BFDStateReconciler) Cleanup(i *instance.BGPInstance) {
 func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
 	params, err := r.upgrader.upgrade(p)
 	if err != nil {
-		if errors.Is(err, EntNodeConfigNotFoundErr) {
+		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.log.Debug("Enterprise node config not found yet, skipping reconciliation")
 			return nil
 		}
