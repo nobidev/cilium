@@ -92,6 +92,8 @@ jobs:
           git config --global --add url."https://${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}:@github.com/".insteadOf "git@github.com:"
 
       - name: Run go mod tidy in enterprise/hubble-timescape
+        env:
+          GOPRIVATE: github.com/isovalent
         run: |
           cd enterprise/hubble-timescape
           go mod tidy
