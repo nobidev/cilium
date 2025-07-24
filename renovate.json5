@@ -17,6 +17,9 @@
     'images/cilium/download-hubble-enterprise.sh',
     'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
   ],
+  "schedule": [
+    "on monday"
+  ],
   postUpdateOptions: [
     "gomodTidy"
   ],
@@ -112,9 +115,6 @@
         'pin',
         'pinDigest',
       ],
-      schedule: [
-        'on monday',
-      ],
       matchDepNames: [
         '!quay.io/cilium/kindest-node',
       ],
@@ -144,9 +144,6 @@
         'patch',
         'pin',
         'pinDigest',
-      ],
-      schedule: [
-        'on monday',
       ],
     },
     {
