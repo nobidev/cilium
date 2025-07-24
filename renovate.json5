@@ -17,6 +17,9 @@
     'images/cilium/download-hubble-enterprise.sh',
     'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
   ],
+  postUpdateOptions: [
+    "gomodTidy"
+  ],
   pinDigests: true,
   separateMajorMinor: true,
   separateMultipleMajor: true,
