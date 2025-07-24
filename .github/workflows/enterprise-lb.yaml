@@ -288,7 +288,7 @@ jobs:
             PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
-          DOCKER_API_VERSION=1.45 cilium lb test $PARAMS
+          DOCKER_API_VERSION=1.45 cilium lb test --verbose=true $PARAMS
 
       - name: Upload sysdumps
         if: ${{ !success() }}
