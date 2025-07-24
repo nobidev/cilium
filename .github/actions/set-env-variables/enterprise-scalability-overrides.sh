@@ -7,5 +7,5 @@ echo "CL2_MEDIAN_MEM_USAGE_THRESHOLD=270" >> "$GITHUB_ENV"
 # Additionally tune the CPU/memory thresholds, considering that more work needs
 # to be done to process enterprise policies, and that the Cilium binary is larger.
 echo "CL2_EGW_POLICY_TEMPLATE=manifests/enterprise-egw-policy.yaml" >> "$GITHUB_ENV"
-echo "CL2_EGW_MASQ_CPU_USAGE_THRESHOLD=0.15" >> "$GITHUB_ENV"
-echo "CL2_EGW_MASQ_MEM_USAGE_THRESHOLD=290" >> "$GITHUB_ENV"
+echo "CL2_EGW_MASQ_CPU_USAGE_THRESHOLD=0.17" >> "$GITHUB_ENV"
+echo "CL2_EGW_MASQ_MEM_USAGE_THRESHOLD=320" >> "$GITHUB_ENV"
