@@ -229,6 +229,7 @@ spec:
             typedConfig:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      dnsLookupFamily: V4_ONLY
       loadAssignment:
         clusterName: jwks_cluster_https_provider1
         endpoints:
@@ -245,6 +246,7 @@ spec:
         typedConfig:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      dnsLookupFamily: V4_ONLY
       loadAssignment:
         clusterName: jwks_cluster_https_provider2
         endpoints:
@@ -257,6 +259,7 @@ spec:
       name: jwks_cluster_https_provider2
       type: STRICT_DNS
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      dnsLookupFamily: V4_ONLY
       loadAssignment:
         clusterName: jwks_cluster_https_provider3
         endpoints:

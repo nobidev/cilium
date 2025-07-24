@@ -1546,6 +1546,8 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(httpType string, provide
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
 			Type: envoy_config_cluster_v3.Cluster_STRICT_DNS,
 		},
+		// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
+		DnsLookupFamily: envoy_config_cluster_v3.Cluster_V4_ONLY,
 		TransportSocket: transportSocket,
 		LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: r.jwksClusterName(httpType, provider.name),
