@@ -81,9 +81,6 @@
         // update source import paths on major updates
         'gomodUpdateImportPaths',
       ],
-      matchBaseBranches: [
-        'main-ce',
-      ],
     },
     {
       groupName: 'Hubble CLI Enterprise',
