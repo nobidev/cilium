@@ -3,7 +3,7 @@ module github.com/isovalent/cilium/enterprise/hubble-timescape
 go 1.24.4
 
 require (
-	github.com/cilium/cilium v1.17.5
+	github.com/cilium/cilium v1.17.6
 	github.com/cilium/fake/flow v0.7.0
 	github.com/google/go-cmp v0.7.0
 	github.com/isovalent/hubble-timescape/api v1.7.2
