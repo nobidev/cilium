@@ -173,14 +173,14 @@ func TestLookupSecIDByIP(t *testing.T) {
 		identity identity.NumericIdentity
 	}
 	tests := []struct {
-		name               string
-		disableOfflineMode bool
-		ipCacheVersion     pb.IPCacheVersion
-		ipIdentities       []ipIdentity
-		lookupAddr         netip.Addr
-		exists             bool
-		expectedID         identity.NumericIdentity
-		fakeIPCacheCalls   []*fakeIPCacheCall
+		name                   string
+		disableOfflineMode     bool
+		ipCacheVersion         pb.IPCacheVersion
+		ipIdentities           []ipIdentity
+		lookupAddr             netip.Addr
+		exists                 bool
+		expectedID             identity.NumericIdentity
+		fakeIPCacheLookupCalls []fakeIPCacheCall
 	}{
 		{
 			name:           "world ipv4 identity",
@@ -198,10 +198,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			lookupAddr: netip.MustParseAddr("172.217.4.78"),
 			exists:     true,
 			expectedID: identity.ReservedIdentityWorld,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: identity.ReservedIdentityWorld,
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.ReservedIdentityWorld,
 				},
 			},
 		},
@@ -221,10 +221,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			lookupAddr: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
 			exists:     true,
 			expectedID: identity.ReservedIdentityWorld,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
-					ret: identity.ReservedIdentityWorld,
+					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					identity: identity.ReservedIdentityWorld,
 				},
 			},
 		},
@@ -244,10 +244,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			lookupAddr: netip.MustParseAddr("172.217.4.78"),
 			exists:     true,
 			expectedID: identity.ReservedIdentityWorldIPv4,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: identity.ReservedIdentityWorldIPv4,
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.ReservedIdentityWorldIPv4,
 				},
 			},
 		},
@@ -267,10 +267,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			lookupAddr: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
 			exists:     true,
 			expectedID: identity.ReservedIdentityWorldIPv6,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
-					ret: identity.ReservedIdentityWorldIPv6,
+					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
+					identity: identity.ReservedIdentityWorldIPv6,
 				},
 			},
 		},
@@ -286,10 +286,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			lookupAddr: netip.MustParseAddr("172.217.4.78"),
 			exists:     true,
 			expectedID: identity.MaxLocalIdentity,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: identity.MaxLocalIdentity,
+					addr:     netip.MustParseAddr("172.217.4.78"),
+					identity: identity.MaxLocalIdentity,
 				},
 			},
 		},
@@ -331,10 +331,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 			lookupAddr: netip.MustParseAddr("172.217.4.79"),
 			exists:     false,
-			fakeIPCacheCalls: []*fakeIPCacheCall{
+			fakeIPCacheLookupCalls: []fakeIPCacheCall{
 				{
-					arg: netip.MustParseAddr("172.217.4.79"),
-					err: ebpf.ErrKeyNotExist,
+					addr: netip.MustParseAddr("172.217.4.79"),
+					err:  ebpf.ErrKeyNotExist,
 				},
 			},
 		},
@@ -384,34 +384,34 @@ func TestLookupSecIDByIP(t *testing.T) {
 					t.Fatalf("Expected identity %d, but got %d", tt.expectedID, secID.ID)
 				}
 				if !tt.disableOfflineMode && tt.ipCacheVersion == pb.IPCacheVersion_One {
-					if len(fIPC.calls) == 0 {
-						t.Fatal("Expected a call to the bpf ip cache, but got none")
+					if len(fIPC.lookupCalls) == 0 {
+						t.Fatal("Expected a lookup call to the bpf ip cache, but got none")
 					}
-					call := fIPC.calls[0]
-					if tt.lookupAddr != call.arg {
-						t.Fatalf("Expected lookup address of %s, but got %s", tt.lookupAddr, call.arg)
+					call := fIPC.lookupCalls[0]
+					if tt.lookupAddr != call.addr {
+						t.Fatalf("Expected lookup address of %s, but got %s", tt.lookupAddr, call.addr)
 					}
 				} else {
-					if len(fIPC.calls) > 0 {
-						t.Fatalf("Expected no calls to the bpf ip cache, but got %d", len(fIPC.calls))
+					if len(fIPC.lookupCalls) > 0 {
+						t.Fatalf("Expected no lookup calls to the bpf ip cache, but got %d", len(fIPC.lookupCalls))
 					}
 				}
 			}
-			if len(tt.fakeIPCacheCalls) > 0 {
-				if len(fIPC.calls) != len(tt.fakeIPCacheCalls) {
-					t.Fatalf("expected ipcache calls %+v, but got %+v", tt.fakeIPCacheCalls, fIPC.calls)
+			if len(tt.fakeIPCacheLookupCalls) > 0 {
+				if len(fIPC.lookupCalls) != len(tt.fakeIPCacheLookupCalls) {
+					t.Fatalf("expected ipcache lookup calls %+v, but got %+v", tt.fakeIPCacheLookupCalls, fIPC.lookupCalls)
 				}
-				for i := range tt.fakeIPCacheCalls {
-					expected := tt.fakeIPCacheCalls[i]
-					got := fIPC.calls[i]
-					if expected.arg != got.arg {
-						t.Fatalf("expected ipcache call argument of %s, but got %s", expected.arg, got.arg)
+				for i := range tt.fakeIPCacheLookupCalls {
+					expected := tt.fakeIPCacheLookupCalls[i]
+					got := fIPC.lookupCalls[i]
+					if expected.addr != got.addr {
+						t.Fatalf("expected ipcache lookup call argument of %s, but got %s", expected.addr, got.addr)
 					}
-					if expected.ret != got.ret {
-						t.Fatalf("expected ipcache return value of %+v, but got %+v", expected.ret, got.ret)
+					if expected.identity != got.identity {
+						t.Fatalf("expected ipcache lookup return value of %+v, but got %+v", expected.identity, got.identity)
 					}
 					if !errors.Is(got.err, expected.err) {
-						t.Fatalf("expected error %v from ipcache call, but got %v", expected.err, got.err)
+						t.Fatalf("expected error %v from ipcache lookup call, but got %v", expected.err, got.err)
 					}
 				}
 			}
@@ -541,25 +541,36 @@ func newTestProxyContext(ipc bpfIPCache, client *fqdnAgentClient, enableOfflineM
 type fakeIPCache struct {
 	ipEndpointMap map[netip.Addr]identity.NumericIdentity
 
-	calls []*fakeIPCacheCall
+	lookupCalls []fakeIPCacheCall
+	writeCalls  []fakeIPCacheCall
 }
 
 type fakeIPCacheCall struct {
-	arg netip.Addr
-	ret identity.NumericIdentity
-	err error
+	addr     netip.Addr
+	identity identity.NumericIdentity
+	err      error
 }
 
-func (fIPC *fakeIPCache) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
-	call := &fakeIPCacheCall{
-		arg: addr,
+func (f *fakeIPCache) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
+	call := fakeIPCacheCall{
+		addr: addr,
 	}
-	id, ok := fIPC.ipEndpointMap[addr]
+	id, ok := f.ipEndpointMap[addr]
 	if !ok {
 		call.err = ebpf.ErrKeyNotExist
 	} else {
-		call.ret = id
+		call.identity = id
 	}
-	fIPC.calls = append(fIPC.calls, call)
-	return call.ret, call.err
+	f.lookupCalls = append(f.lookupCalls, call)
+	return call.identity, call.err
+}
+
+func (f *fakeIPCache) write(addr netip.Addr, identity identity.NumericIdentity) error {
+	call := fakeIPCacheCall{
+		addr:     addr,
+		identity: identity,
+	}
+	f.ipEndpointMap[addr] = identity
+	f.writeCalls = append(f.writeCalls, call)
+	return nil
 }

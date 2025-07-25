@@ -22,6 +22,7 @@ import (
 
 type bpfIPCache interface {
 	lookup(netip.Addr) (identity.NumericIdentity, error)
+	write(netip.Addr, identity.NumericIdentity) error
 }
 
 type bpfIPC struct {
@@ -50,4 +51,18 @@ func (b *bpfIPC) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
 		return identity.NumericIdentity(0), fmt.Errorf("could not cast ipcache bpf map value (%[1]T) %[1]v to %T", rei, &ipcache.RemoteEndpointInfo{})
 	}
 	return identity.NumericIdentity(rei.SecurityIdentity), nil
+}
+
+// write writes the IP address to identity mapping to the BPF ipcache map.
+func (b *bpfIPC) write(addr netip.Addr, identity identity.NumericIdentity) error {
+	b.logger.Debug("BPF ipcache write",
+		logfields.Address, addr,
+		logfields.Identity, identity,
+	)
+
+	key := ipcache.NewKey(addr.Unmap().AsSlice(), nil, 0)
+	val := ipcache.RemoteEndpointInfo{
+		SecurityIdentity: uint32(identity),
+	}
+	return ipcache.IPCacheMap(nil).Update(&key, &val)
 }
