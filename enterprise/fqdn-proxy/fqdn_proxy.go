@@ -82,7 +82,7 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(log, cfg, params.Client, params.BPFIPCache)
+	proxyCtx := newProxyContext(log, cfg, params.Client, params.BPFIPCache, params.Notifier.remoteNameManager)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -123,11 +123,12 @@ func run(ctx context.Context, params runParams) error {
 }
 
 type proxyContext struct {
-	log    *slog.Logger
-	cfg    Config
-	ipc    bpfIPCache
-	client *fqdnAgentClient
-	cache  AgentDataCache
+	log               *slog.Logger
+	cfg               Config
+	ipc               bpfIPCache
+	client            *fqdnAgentClient
+	cache             AgentDataCache
+	remoteNameManager *remoteNameManager
 
 	mu        lock.RWMutex
 	ipCacheV1 bool
@@ -138,13 +139,15 @@ func newProxyContext(
 	cfg Config,
 	client *fqdnAgentClient,
 	ipc bpfIPCache,
+	remoteNameManager *remoteNameManager,
 ) *proxyContext {
 	return &proxyContext{
-		log:    log,
-		ipc:    ipc,
-		client: client,
-		cfg:    cfg,
-		cache:  NewCache(),
+		log:               log,
+		ipc:               ipc,
+		client:            client,
+		cfg:               cfg,
+		cache:             NewCache(),
+		remoteNameManager: remoteNameManager,
 	}
 }
 
@@ -172,17 +175,17 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 				time.Sleep(time.Minute)
 				continue
 			}
-			return fmt.Errorf("SubscribeProxyStatuses failed: %w", err)
+			return fmt.Errorf("subscribing to selector stream from agent failed: %w", err)
 		}
 
-		pc.log.Info("The agent proxy status stream is established.")
+		pc.log.Info("The selector update stream is established.")
 		for {
-			agentProxyStatus, err := ps.Recv()
+			selectorUpdate, err := ps.Recv()
 			if err != nil {
-				return fmt.Errorf("error receiving proxy status: %w", err)
+				return fmt.Errorf("error receiving selector update: %w", err)
 			}
-			pc.log.Info("got message", logfields.Message, agentProxyStatus)
-			// TODO: implement identity + selector streaming
+
+			pc.remoteNameManager.HandleSelectorUpdate(selectorUpdate)
 		}
 	}
 }

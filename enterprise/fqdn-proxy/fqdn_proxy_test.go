@@ -544,11 +544,12 @@ func newTestProxyContext(
 
 	cfg := Config{EnableOfflineMode: enableOfflineMode} //nolint:exhaustruct
 	return &proxyContext{
-		log:    logger,
-		cfg:    cfg,
-		ipc:    ipcache,
-		client: client,
-		cache:  NewCache(),
+		log:               logger,
+		cfg:               cfg,
+		ipc:               ipcache,
+		client:            client,
+		cache:             NewCache(),
+		remoteNameManager: newRemoteNameManager(logger, cfg),
 	}
 }
 

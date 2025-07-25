@@ -174,7 +174,8 @@ type notifier struct {
 	queue   chan *pb.DNSNotification
 	wg      sync.WaitGroup
 
-	stateManager *stateManager
+	stateManager      *stateManager
+	remoteNameManager *remoteNameManager
 
 	// Just used to coalesce log lines
 	overflowed atomic.Bool
@@ -200,8 +201,9 @@ type notifierParams struct {
 	LC       cell.Lifecycle
 	Registry *metrics.Registry
 
-	Client       *fqdnAgentClient
-	StateManager *stateManager
+	Client            *fqdnAgentClient
+	StateManager      *stateManager
+	RemoteNameManager *remoteNameManager
 }
 
 func newNotifier(params notifierParams) *notifier {
@@ -209,8 +211,9 @@ func newNotifier(params notifierParams) *notifier {
 		log: params.Log,
 		cfg: params.Cfg,
 
-		client:       params.Client,
-		stateManager: params.StateManager,
+		client:            params.Client,
+		stateManager:      params.StateManager,
+		remoteNameManager: params.RemoteNameManager,
 
 		queue: make(chan *pb.DNSNotification, params.Cfg.DNSNotificationChannelSize),
 	}
