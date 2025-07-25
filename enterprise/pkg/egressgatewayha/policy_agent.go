@@ -37,9 +37,9 @@ import (
 // AgentPolicyConfig is composed of a PolicyConfig but also contains
 // fields specific to the agent control-plane manager.
 type AgentPolicyConfig struct {
-	PolicyConfig
+	*PolicyConfig
 
-	gatewayConfig    gatewayConfig
+	gatewayConfig    *gatewayConfig
 	matchedEndpoints map[endpointID]*endpointMetadata
 }
 
@@ -51,7 +51,7 @@ func parseAgentIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) 
 		return nil, err
 	}
 	return &AgentPolicyConfig{
-		PolicyConfig: *config,
+		PolicyConfig: config,
 	}, nil
 }
 
@@ -125,7 +125,7 @@ func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpoi
 }
 
 func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
-	config.gatewayConfig = gatewayConfig{
+	config.gatewayConfig = &gatewayConfig{
 		egressIP:             netip.IPv4Unspecified(),
 		activeGatewayIPs:     []netip.Addr{},
 		activeGatewayIPsByAZ: map[string]azActiveGatewayIPs{},
@@ -151,7 +151,7 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 	var egressIPs []gwEgressIPConfig
 
-	gwc := &config.gatewayConfig
+	gwc := config.gatewayConfig
 	for groupIndex, gc := range config.groupConfigs {
 		groupStatus := &config.groupStatuses[groupIndex]
 		// We use the local node IP to determine if the current node
@@ -406,12 +406,12 @@ func (config *AgentPolicyConfig) forEachEndpointAndCIDR(f func(*endpointMetadata
 	for _, endpoint := range config.matchedEndpoints {
 		isExcludedCIDR := false
 		for _, dstCIDR := range config.dstCIDRs {
-			f(endpoint, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
+			f(endpoint, dstCIDR, isExcludedCIDR, config.gatewayConfig)
 		}
 
 		isExcludedCIDR = true
 		for _, excludedCIDR := range config.excludedCIDRs {
-			f(endpoint, excludedCIDR, isExcludedCIDR, &config.gatewayConfig)
+			f(endpoint, excludedCIDR, isExcludedCIDR, config.gatewayConfig)
 		}
 	}
 }

@@ -536,7 +536,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 
 func (manager *Manager) deletePolicyByID(tx statedb.WriteTxn, id types.NamespacedName) bool {
 	_, deleted, err := manager.policyConfigsTable.Delete(tx, &AgentPolicyConfig{
-		PolicyConfig: PolicyConfig{id: id},
+		PolicyConfig: &PolicyConfig{id: id},
 	})
 	if err != nil {
 		manager.logger.Error("BUG: could not delete policy",

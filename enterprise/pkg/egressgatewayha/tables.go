@@ -71,13 +71,24 @@ func (p *AgentPolicyConfig) TableRow() []string {
 		}
 		ss = append(ss, gs)
 	}
+	var (
+		localNodeIsGateway string
+		ifaceName          string
+		egressIP           string
+	)
+
+	if p.gatewayConfig != nil {
+		localNodeIsGateway = fmt.Sprintf("%t", p.gatewayConfig.localNodeConfiguredAsGateway)
+		ifaceName = p.gatewayConfig.ifaceName
+		egressIP = p.gatewayConfig.egressIP.String()
+	}
 	return []string{
 		strings.TrimPrefix(p.id.String(), "/"),
 		matched,
 		fmt.Sprintf("%d", p.generation),
-		fmt.Sprintf("%t", p.gatewayConfig.localNodeConfiguredAsGateway),
-		p.gatewayConfig.ifaceName,
-		p.gatewayConfig.egressIP.String(),
+		localNodeIsGateway,
+		ifaceName,
+		egressIP,
 		fmt.Sprintf("%v", ss),
 	}
 }
