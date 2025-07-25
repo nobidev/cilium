@@ -177,7 +177,6 @@ func TestLookupSecIDByIP(t *testing.T) {
 	tests := []struct {
 		name                   string
 		disableOfflineMode     bool
-		ipCacheVersion         pb.IPCacheVersion
 		ipIdentities           []ipIdentity
 		lookupAddr             netip.Addr
 		exists                 bool
@@ -185,8 +184,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 		fakeIPCacheLookupCalls []fakeIPCacheCall
 	}{
 		{
-			name:           "world ipv4 identity",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "world ipv4 identity",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("172.217.4.78"),
@@ -208,8 +206,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 		},
 		{
-			name:           "world ipv6 identity",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "world ipv6 identity",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
@@ -231,8 +228,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 		},
 		{
-			name:           "world ipv4 identity dual stack",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "world ipv4 identity dual stack",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
@@ -254,8 +250,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 		},
 		{
-			name:           "world ipv6 identity dual stack",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "world ipv6 identity dual stack",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
@@ -277,8 +272,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 		},
 		{
-			name:           "local identity",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "local identity",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("172.217.4.78"),
@@ -296,8 +290,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			},
 		},
 		{
-			name:           "no agent support",
-			ipCacheVersion: pb.IPCacheVersion_Unspecified,
+			name: "no agent support",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("172.217.4.78"),
@@ -311,7 +304,6 @@ func TestLookupSecIDByIP(t *testing.T) {
 		{
 			name:               "no offline mode support",
 			disableOfflineMode: true,
-			ipCacheVersion:     pb.IPCacheVersion_One,
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("172.217.4.78"),
@@ -323,8 +315,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			expectedID: identity.MaxLocalIdentity,
 		},
 		{
-			name:           "does not exist",
-			ipCacheVersion: pb.IPCacheVersion_One,
+			name: "does not exist",
 			ipIdentities: []ipIdentity{
 				{
 					addr:     netip.MustParseAddr("172.217.4.78"),
@@ -349,7 +340,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 				ipIDMap[ipID.addr] = &pb.Identity{ID: uint32(ipID.identity)}
 				ipEndpointMap[ipID.addr] = ipID.identity
 			}
-			socket, err := startFakeServer(t, WithIPCacheVersion(tt.ipCacheVersion), WithIPIdentites(ipIDMap))
+			socket, err := startFakeServer(t, WithIPIdentites(ipIDMap))
 			if err != nil {
 				t.Fatalf("failed to setup the fake agent gRPC server: %v", err)
 			}
@@ -388,7 +379,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 				if tt.expectedID != secID.ID {
 					t.Fatalf("Expected identity %d, but got %d", tt.expectedID, secID.ID)
 				}
-				if !tt.disableOfflineMode && tt.ipCacheVersion == pb.IPCacheVersion_One {
+				if !tt.disableOfflineMode {
 					if len(fIPC.lookupCalls) == 0 {
 						t.Fatal("Expected a lookup call to the bpf ip cache, but got none")
 					}
@@ -489,12 +480,6 @@ func WithFixedSocketPath(p string) fakeServerOpt {
 	}
 }
 
-func WithIPCacheVersion(ipv pb.IPCacheVersion) fakeServerOpt {
-	return func(fa *fakeAgent) {
-		fa.ipcacheVersion = ipv
-	}
-}
-
 func WithIPIdentites(ipIDMap map[netip.Addr]*pb.Identity) fakeServerOpt {
 	return func(fa *fakeAgent) {
 		fa.ipIdentityMap = ipIDMap
@@ -509,8 +494,7 @@ type fakeAgent struct {
 
 	socketPath string
 
-	ipcacheVersion pb.IPCacheVersion
-	ipIdentityMap  map[netip.Addr]*pb.Identity
+	ipIdentityMap map[netip.Addr]*pb.Identity
 }
 
 func (*fakeAgent) GetAllRules(context.Context, *pb.Empty) (*pb.RestoredRulesMap, error) {
@@ -546,10 +530,9 @@ func newTestProxyContext(
 	return &proxyContext{
 		log:               logger,
 		cfg:               cfg,
-		ipc:               ipcache,
 		client:            client,
 		cache:             NewCache(),
-		remoteNameManager: newRemoteNameManager(logger, cfg),
+		remoteNameManager: newRemoteNameManager(logger, cfg, ipcache),
 	}
 }
 

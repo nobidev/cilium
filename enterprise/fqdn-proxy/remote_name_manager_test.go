@@ -42,6 +42,7 @@ func TestRemoteNameManagerHandleSelectorUpdate(t *testing.T) {
 		Config{
 			EnableOfflineMode: true,
 		},
+		&fakeIPCache{},
 	)
 	assert.Equal(t, 0, r.identities.len())
 	assert.Equal(t, 0, r.selectors.len())

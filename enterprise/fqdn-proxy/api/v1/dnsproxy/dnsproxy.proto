@@ -132,16 +132,6 @@ message SelectorUpdate {
   FQDNIdentityUpdate fqdnIdentity = 2;
 }
 
-// IPCacheVersion establishes which version of the key for
-// the IP bpf map is being used. While it is the case that
-// the IP bpf map is currently unversioned if the key format
-// were to change in the future the proxy would read from
-// the bpf map incorrectly.
-enum IPCacheVersion {
-  Unspecified = 0;
-  One = 1;
-}
-
 enum UpdateType {
   UPDATETYPE_UNSPECIFIED = 0;
   UPDATETYPE_UPSERT = 1;

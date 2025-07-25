@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
@@ -44,11 +43,10 @@ import (
 type runParams struct {
 	cell.In
 
-	Health     cell.Health
-	Cfg        Config
-	Log        *slog.Logger
-	Watcher    *rulesWatcher
-	BPFIPCache bpfIPCache
+	Health  cell.Health
+	Cfg     Config
+	Log     *slog.Logger
+	Watcher *rulesWatcher
 
 	Client   *fqdnAgentClient
 	Notifier *notifier
@@ -82,7 +80,7 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(log, cfg, params.Client, params.BPFIPCache, params.Notifier.remoteNameManager)
+	proxyCtx := newProxyContext(log, cfg, params.Client, params.Notifier.remoteNameManager)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -125,25 +123,19 @@ func run(ctx context.Context, params runParams) error {
 type proxyContext struct {
 	log               *slog.Logger
 	cfg               Config
-	ipc               bpfIPCache
 	client            *fqdnAgentClient
 	cache             AgentDataCache
 	remoteNameManager *remoteNameManager
-
-	mu        lock.RWMutex
-	ipCacheV1 bool
 }
 
 func newProxyContext(
 	log *slog.Logger,
 	cfg Config,
 	client *fqdnAgentClient,
-	ipc bpfIPCache,
 	remoteNameManager *remoteNameManager,
 ) *proxyContext {
 	return &proxyContext{
 		log:               log,
-		ipc:               ipc,
 		client:            client,
 		cfg:               cfg,
 		cache:             NewCache(),
@@ -188,15 +180,6 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 			pc.remoteNameManager.HandleSelectorUpdate(selectorUpdate)
 		}
 	}
-}
-
-func (pc *proxyContext) supportsIPCacheV1() bool {
-	if !pc.cfg.EnableOfflineMode {
-		return false
-	}
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return pc.ipCacheV1
 }
 
 // LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
@@ -248,40 +231,34 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 	if !ip.IsValid() {
 		return ipcache.Identity{}, false
 	}
-	var (
-		id  identity.NumericIdentity
-		src = source.Unspec
-		err error
-	)
-	if pc.supportsIPCacheV1() {
-		id, err = pc.ipc.lookup(ip)
-	} else {
-		var ident *pb.Identity
-		ident, err = pc.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
-		if err == nil {
-			id = identity.NumericIdentity(ident.ID)
-			src = source.Source(ident.Source)
-		}
-	}
+	var src = source.Unspec
+	id, err := pc.remoteNameManager.LookupIPCache(ip)
 	if err != nil {
-		if pc.client.shouldLog(err) {
-			pc.log.Error("LookupSecIDByIP request failed", logfields.Error, err)
+		ident, err := pc.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+		if err != nil {
+			if pc.client.shouldLog(err) {
+				pc.log.Error("LookupSecIDByIP request failed", logfields.Error, err)
+			}
+
+			pc.cache.lock.RLock()
+			cachedID, ok := pc.cache.identityByIP[ip]
+			pc.cache.lock.RUnlock()
+			if !ok {
+				pc.log.Error("LookupSecIDByIP: agent down, IP not in cache", logfields.IPAddr, ip)
+				return ipcache.Identity{}, false
+			}
+			// TODO: check if this assumption is correct
+			// we assume that the identity exists if it's in the cache
+			pc.log.Debug("LookupSecIDByIP: agent down, IP in cache",
+				logfields.IPAddr, ip,
+				logfields.Identity, secID)
+			return cachedID, true
 		}
 
-		pc.cache.lock.RLock()
-		cachedID, ok := pc.cache.identityByIP[ip]
-		pc.cache.lock.RUnlock()
-		if !ok {
-			pc.log.Error("LookupSecIDByIP: agent down, IP not in cache", logfields.IPAddr, ip)
-			return ipcache.Identity{}, false
-		}
-		// TODO: check if this assumption is correct
-		// we assume that the identity exists if it's in the cache
-		pc.log.Debug("LookupSecIDByIP: agent down, IP in cache",
-			logfields.IPAddr, ip,
-			logfields.Identity, secID)
-		return cachedID, true
+		id = identity.NumericIdentity(ident.ID)
+		src = source.Source(ident.Source)
 	}
+
 	identity := ipcache.Identity{
 		ID:     id,
 		Source: src,

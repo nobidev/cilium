@@ -11,7 +11,9 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
+	"net/netip"
 	"regexp"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -26,19 +28,28 @@ import (
 type remoteNameManager struct {
 	logger *slog.Logger
 
-	cfg Config
+	cfg     Config
+	ipcache bpfIPCache
 
 	identities *identityStore
 	selectors  *selectorStore
 }
 
-func newRemoteNameManager(logger *slog.Logger, cfg Config) *remoteNameManager {
+func newRemoteNameManager(logger *slog.Logger, cfg Config, ipcache bpfIPCache) *remoteNameManager {
 	return &remoteNameManager{
 		logger:     logger,
 		cfg:        cfg,
+		ipcache:    ipcache,
 		identities: newIdentityStore(),
 		selectors:  newSelectorStore(logger, cfg),
 	}
+}
+
+func (r *remoteNameManager) LookupIPCache(addr netip.Addr) (identity.NumericIdentity, error) {
+	if !r.cfg.EnableOfflineMode {
+		return identity.NumericIdentity(0), errors.New("BPF IP cache map access not available")
+	}
+	return r.ipcache.lookup(addr)
 }
 
 func (r *remoteNameManager) HandleSelectorUpdate(su *pb.SelectorUpdate) {
