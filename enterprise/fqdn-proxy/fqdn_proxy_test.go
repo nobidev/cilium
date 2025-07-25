@@ -22,11 +22,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"google.golang.org/grpc"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -361,11 +363,14 @@ func TestLookupSecIDByIP(t *testing.T) {
 				conn:                 conn,
 			}
 
+			logger := hivetest.Logger(t)
+
 			fIPC := &fakeIPCache{
+				logger:        logger,
 				ipEndpointMap: ipEndpointMap,
 			}
 
-			pc := newTestProxyContext(fIPC, client, !tt.disableOfflineMode)
+			pc := newTestProxyContext(t, logger, fIPC, client, !tt.disableOfflineMode)
 			pc.establishAgentProxyStream()
 			secID, exists := pc.LookupSecIDByIP(tt.lookupAddr)
 			if tt.exists != exists {
@@ -528,17 +533,28 @@ func (fa *fakeAgent) SubscribeSelectors(_ *pb.Empty, stream grpc.ServerStreaming
 	return stream.Send(&pb.SelectorUpdate{}) // TODO
 }
 
-func newTestProxyContext(ipc bpfIPCache, client *fqdnAgentClient, enableOfflineMode bool) *proxyContext {
+func newTestProxyContext(
+	t *testing.T,
+	logger *slog.Logger,
+	ipcache bpfIPCache,
+	client *fqdnAgentClient,
+	enableOfflineMode bool,
+) *proxyContext {
+	t.Helper()
+
+	cfg := Config{EnableOfflineMode: enableOfflineMode} //nolint:exhaustruct
 	return &proxyContext{
-		log:    slog.Default(),
-		cfg:    Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
-		ipc:    ipc,
+		log:    logger,
+		cfg:    cfg,
+		ipc:    ipcache,
 		client: client,
 		cache:  NewCache(),
 	}
 }
 
 type fakeIPCache struct {
+	logger *slog.Logger
+
 	ipEndpointMap map[netip.Addr]identity.NumericIdentity
 
 	lookupCalls []fakeIPCacheCall
@@ -552,6 +568,7 @@ type fakeIPCacheCall struct {
 }
 
 func (f *fakeIPCache) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
+	f.logger.Debug("fake BPF ipcache map lookup", logfields.Address, addr)
 	call := fakeIPCacheCall{
 		addr: addr,
 	}
@@ -566,6 +583,10 @@ func (f *fakeIPCache) lookup(addr netip.Addr) (identity.NumericIdentity, error) 
 }
 
 func (f *fakeIPCache) write(addr netip.Addr, identity identity.NumericIdentity) error {
+	f.logger.Debug("fake BPF ipcache map write",
+		logfields.Address, addr,
+		logfields.Identity, identity,
+	)
 	call := fakeIPCacheCall{
 		addr:     addr,
 		identity: identity,
