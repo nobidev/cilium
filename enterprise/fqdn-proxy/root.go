@@ -38,6 +38,7 @@ var (
 		cell.Provide(newAgentClient),
 		cell.Provide(newNotifier),
 		cell.Provide(newRulesWatcher),
+		cell.Provide(newBPFIPCache),
 
 		cell.Provide(tables.NewAgentStateTable, tables.NewRemoteProxyStateTable),
 		cell.Provide(newStateManager),

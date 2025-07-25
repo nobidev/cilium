@@ -22,13 +22,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"google.golang.org/grpc"
+
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
-	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/time"
-
-	"google.golang.org/grpc"
 )
 
 // Each test should be ~fast, but time is a weird soup in CI.
@@ -202,9 +201,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			fakeIPCacheCalls: []*fakeIPCacheCall{
 				{
 					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: &ipcacheMap.RemoteEndpointInfo{
-						SecurityIdentity: identity.ReservedIdentityWorld.Uint32(),
-					},
+					ret: identity.ReservedIdentityWorld,
 				},
 			},
 		},
@@ -227,9 +224,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			fakeIPCacheCalls: []*fakeIPCacheCall{
 				{
 					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
-					ret: &ipcacheMap.RemoteEndpointInfo{
-						SecurityIdentity: identity.ReservedIdentityWorld.Uint32(),
-					},
+					ret: identity.ReservedIdentityWorld,
 				},
 			},
 		},
@@ -252,9 +247,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			fakeIPCacheCalls: []*fakeIPCacheCall{
 				{
 					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: &ipcacheMap.RemoteEndpointInfo{
-						SecurityIdentity: identity.ReservedIdentityWorldIPv4.Uint32(),
-					},
+					ret: identity.ReservedIdentityWorldIPv4,
 				},
 			},
 		},
@@ -277,9 +270,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			fakeIPCacheCalls: []*fakeIPCacheCall{
 				{
 					arg: netip.MustParseAddr("2607:f8b0:4002:c06::8b"),
-					ret: &ipcacheMap.RemoteEndpointInfo{
-						SecurityIdentity: identity.ReservedIdentityWorldIPv6.Uint32(),
-					},
+					ret: identity.ReservedIdentityWorldIPv6,
 				},
 			},
 		},
@@ -298,9 +289,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 			fakeIPCacheCalls: []*fakeIPCacheCall{
 				{
 					arg: netip.MustParseAddr("172.217.4.78"),
-					ret: &ipcacheMap.RemoteEndpointInfo{
-						SecurityIdentity: identity.MaxLocalIdentity.Uint32(),
-					},
+					ret: identity.MaxLocalIdentity,
 				},
 			},
 		},
@@ -353,10 +342,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ipIDMap := make(map[netip.Addr]*pb.Identity)
-			ipEndpointMap := make(map[netip.Addr]*ipcacheMap.RemoteEndpointInfo)
+			ipEndpointMap := make(map[netip.Addr]identity.NumericIdentity)
 			for _, ipID := range tt.ipIdentities {
 				ipIDMap[ipID.addr] = &pb.Identity{ID: uint32(ipID.identity)}
-				ipEndpointMap[ipID.addr] = &ipcacheMap.RemoteEndpointInfo{SecurityIdentity: uint32(ipID.identity)}
+				ipEndpointMap[ipID.addr] = ipID.identity
 			}
 			socket, err := startFakeServer(t, WithIPCacheVersion(tt.ipCacheVersion), WithIPIdentites(ipIDMap))
 			if err != nil {
@@ -418,9 +407,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 					if expected.arg != got.arg {
 						t.Fatalf("expected ipcache call argument of %s, but got %s", expected.arg, got.arg)
 					}
-					if (expected.ret != nil && got.ret == nil) ||
-						(expected.ret == nil && got.ret != nil) ||
-						(expected.ret != nil && *expected.ret != *got.ret) {
+					if expected.ret != got.ret {
 						t.Fatalf("expected ipcache return value of %+v, but got %+v", expected.ret, got.ret)
 					}
 					if !errors.Is(got.err, expected.err) {
@@ -541,7 +528,7 @@ func (fa *fakeAgent) SubscribeSelectors(_ *pb.Empty, stream grpc.ServerStreaming
 	return stream.Send(&pb.SelectorUpdate{}) // TODO
 }
 
-func newTestProxyContext(ipc ipCacheLookup, client *fqdnAgentClient, enableOfflineMode bool) *proxyContext {
+func newTestProxyContext(ipc bpfIPCache, client *fqdnAgentClient, enableOfflineMode bool) *proxyContext {
 	return &proxyContext{
 		log:    slog.Default(),
 		cfg:    Config{EnableOfflineMode: enableOfflineMode}, //nolint:exhaustruct
@@ -552,26 +539,26 @@ func newTestProxyContext(ipc ipCacheLookup, client *fqdnAgentClient, enableOffli
 }
 
 type fakeIPCache struct {
-	ipEndpointMap map[netip.Addr]*ipcacheMap.RemoteEndpointInfo
+	ipEndpointMap map[netip.Addr]identity.NumericIdentity
 
 	calls []*fakeIPCacheCall
 }
 
 type fakeIPCacheCall struct {
 	arg netip.Addr
-	ret *ipcacheMap.RemoteEndpointInfo
+	ret identity.NumericIdentity
 	err error
 }
 
-func (fIPC *fakeIPCache) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
+func (fIPC *fakeIPCache) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
 	call := &fakeIPCacheCall{
 		arg: addr,
 	}
-	rei, ok := fIPC.ipEndpointMap[addr]
+	id, ok := fIPC.ipEndpointMap[addr]
 	if !ok {
 		call.err = ebpf.ErrKeyNotExist
 	} else {
-		call.ret = rei
+		call.ret = id
 	}
 	fIPC.calls = append(fIPC.calls, call)
 	return call.ret, call.err

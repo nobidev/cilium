@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -45,10 +44,11 @@ import (
 type runParams struct {
 	cell.In
 
-	Health  cell.Health
-	Cfg     Config
-	Log     *slog.Logger
-	Watcher *rulesWatcher
+	Health     cell.Health
+	Cfg        Config
+	Log        *slog.Logger
+	Watcher    *rulesWatcher
+	BPFIPCache bpfIPCache
 
 	Client   *fqdnAgentClient
 	Notifier *notifier
@@ -82,7 +82,7 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(cfg, params.Client, log)
+	proxyCtx := newProxyContext(log, cfg, params.Client, params.BPFIPCache)
 	go func() {
 		err := proxyCtx.establishAgentProxyStream()
 		if err != nil {
@@ -122,33 +122,10 @@ func run(ctx context.Context, params runParams) error {
 	return nil
 }
 
-type ipCacheLookup interface {
-	lookup(netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error)
-}
-
-type bpfIPC struct {
-	log *slog.Logger
-}
-
-func (ipc *bpfIPC) lookup(addr netip.Addr) (*ipcacheMap.RemoteEndpointInfo, error) {
-	ipc.log.Debug("real ipcache bpf read for", logfields.Address, addr)
-	ipKey := ipcacheMap.NewKey(net.IP(addr.Unmap().AsSlice()), nil, 0)
-	// todo: Add IPCacheMap reload logic
-	val, err := ipcacheMap.IPCacheMap(nil).Lookup(&ipKey)
-	if err != nil {
-		return nil, err
-	}
-	rei, ok := val.(*ipcacheMap.RemoteEndpointInfo)
-	if !ok {
-		return nil, fmt.Errorf("could not cast ipcache bpf map value (%[1]T) %[1]v to %T", rei, &ipcacheMap.RemoteEndpointInfo{})
-	}
-	return rei, nil
-}
-
 type proxyContext struct {
 	log    *slog.Logger
 	cfg    Config
-	ipc    ipCacheLookup
+	ipc    bpfIPCache
 	client *fqdnAgentClient
 	cache  AgentDataCache
 
@@ -156,10 +133,15 @@ type proxyContext struct {
 	ipCacheV1 bool
 }
 
-func newProxyContext(cfg Config, client *fqdnAgentClient, log *slog.Logger) *proxyContext {
+func newProxyContext(
+	log *slog.Logger,
+	cfg Config,
+	client *fqdnAgentClient,
+	ipc bpfIPCache,
+) *proxyContext {
 	return &proxyContext{
 		log:    log,
-		ipc:    &bpfIPC{},
+		ipc:    ipc,
 		client: client,
 		cfg:    cfg,
 		cache:  NewCache(),
@@ -269,12 +251,7 @@ func (pc *proxyContext) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, 
 		err error
 	)
 	if pc.supportsIPCacheV1() {
-		rei, ipcErr := pc.ipc.lookup(ip)
-		if ipcErr != nil {
-			err = ipcErr
-		} else {
-			id = identity.NumericIdentity(rei.SecurityIdentity)
-		}
+		id, err = pc.ipc.lookup(ip)
 	} else {
 		var ident *pb.Identity
 		ident, err = pc.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
