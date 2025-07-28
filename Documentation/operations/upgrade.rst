@@ -338,6 +338,13 @@ from Cilium.
 * The previously deprecated Helm value ``clustermesh.enableMCSAPISupport`` was
   removed in favor of the ``clustermesh.mcsapi.enabled`` Helm value.
 
+* Support for Envoy Go Extensions (proxylib) and Kafka-aware network policies
+  has been removed. These features were deprecated in v1.18.
+
+* The Helm value ``hubble.redact.kafka.apiKey`` and the corresponding
+  ``hubble-redact-kafka-apikey`` agent flag have been removed as part of
+  dropping Kafka support.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
@@ -349,7 +356,8 @@ Added Metrics
 Changed Metrics
 ###############
 
-* TODO
+* The ``cilium_feature_np_other_l7_policies_total`` metric no longer counts
+  Kafka policies, as Kafka-aware network policy support has been removed.
 
 Deprecated Metrics
 ##################
