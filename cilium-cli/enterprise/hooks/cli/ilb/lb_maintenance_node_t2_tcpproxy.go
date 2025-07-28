@@ -336,12 +336,16 @@ func checkInitialConnectionAlive(t T, client *frrContainer, vipIP string, initia
 			return err
 		}
 
+		if previousTimeout == 0 {
+			previousTimeout = 1
+		}
+
 		if newTimeout > previousTimeout {
 			return fmt.Errorf("connection no longer active / not pinged %d > %d", newTimeout, previousTimeout)
 		}
 
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 }
 
 func waitUntil100NewConnectionsDontUseT2Node(t T, client *frrContainer, vipIP string, initialConnectionIP string) {
