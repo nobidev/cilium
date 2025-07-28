@@ -190,25 +190,32 @@ func (sm *stateManager) syncState(ctx context.Context, _ cell.Health) error {
 	sm.setAgentState(nil, true)
 	sm.UpdateProxyState(pb.RemoteProxyStatus_RPS_UNSPECIFIED, pb.RemoteProxyStatus_RPS_LIVE)
 
+	var nextLog time.Time
+
 	for {
 		err := sm.trySyncState(ctx)
 		if ctx.Err() != nil {
 			break
 		}
+
+		// backoff for up to 1 second, or 5 minutes if agent version is old.
+		// immediately retry if gRPC connection state changes.
+		retryInterval := time.Second
 		if isUnimplementedError(err) {
-			// every 5 minutes, retry subscription
-			sctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			sm.client.WaitMaybeReconnected(sctx) // Wait for agent to restart, then try again
-			cancel()
+			// older agent version, every 5 minutes, retry subscription
+			retryInterval = 5 * time.Minute
 		} else {
-			sm.log.Info("error synchronizing state with agent", logfields.Error, err)
-			select {
-			case <-ctx.Done():
-				break
-			case <-time.After(5 * time.Second):
+			now := time.Now()
+			if now.After(nextLog) { // silence needless logs.
+				sm.log.Info("error synchronizing state with agent", logfields.Error, err)
+				nextLog = now.Add(30 * time.Second)
 			}
 		}
+		sctx, cancel := context.WithTimeout(ctx, retryInterval)
+		sm.client.WaitMaybeReconnected(sctx)
+		cancel()
 	}
+
 	sm.stateDone(ctx.Err())
 	return ctx.Err()
 }
