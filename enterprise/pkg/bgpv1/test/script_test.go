@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	osstest "github.com/cilium/cilium/pkg/bgpv1/test"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -241,6 +242,10 @@ func TestScript(t *testing.T) {
 				},
 				BGPTestScriptCmds,
 			),
+			cell.Invoke(func(m agent.BGPRouterManager) {
+				bgpMgr = m
+				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
+			}),
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true

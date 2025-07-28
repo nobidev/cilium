@@ -317,6 +317,7 @@ func TestSRv6RouteImport(t *testing.T) {
 
 	t.Cleanup(func() {
 		hive.Stop(logger, t.Context())
+		router.Stop(t.Context(), types.StopRequest{FullDestroy: true})
 	})
 
 	// Allow all route import for VPNv4 paths. As we don't have
