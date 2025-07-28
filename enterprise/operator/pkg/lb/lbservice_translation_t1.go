@@ -137,7 +137,7 @@ func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[
 		annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 		annotations[annotation.ServiceHealthThresholdHealthy] = "1"
 		annotations[annotation.ServiceHealthThresholdUnhealthy] = "1"
-		annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+		annotations[annotation.ServiceHealthQuarantineTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 
 		// The presence of these annotations will enable HTTP-based health checking from T1 to T2 nodes
 		annotations[annotation.ServiceHealthHTTPPath] = r.config.T1T2HealthCheck.T1ProbeHttpPath
@@ -150,7 +150,7 @@ func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[
 		annotations[annotation.ServiceHealthProbeTimeout] = fmt.Sprintf("%ds", r.getT1OnlyHealthCheckTimeoutSeconds(model))
 		annotations[annotation.ServiceHealthThresholdHealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdHealthy(model))
 		annotations[annotation.ServiceHealthThresholdUnhealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdUnhealthy(model))
-		annotations[annotation.ServiceHealthQuarantineTimeout] = "0s" // disable quarantine timeout (defaults to 30s)
+		annotations[annotation.ServiceHealthQuarantineTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
 
 		if httpPath := r.getT1OnlyHealthCheckHTTPPath(model); httpPath != "" {
 			annotations[annotation.ServiceHealthHTTPPath] = httpPath

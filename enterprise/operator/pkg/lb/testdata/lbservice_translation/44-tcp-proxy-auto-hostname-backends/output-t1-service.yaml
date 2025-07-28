@@ -12,7 +12,7 @@ metadata:
     service.cilium.io/health-check-bgp-advertise-threshold: "1"
     service.cilium.io/health-check-probe-interval: 15s
     service.cilium.io/health-check-probe-timeout: 5s
-    service.cilium.io/health-check-quarantine-timeout: 0s
+    service.cilium.io/health-check-quarantine-timeout: 5s
     service.cilium.io/health-check-threshold-healthy: "1"
     service.cilium.io/health-check-threshold-unhealthy: "1"
     service.cilium.io/lb-algorithm: maglev
