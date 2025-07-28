@@ -166,7 +166,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Sign Container Images
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -175,7 +175,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
         with:
           artifact-name: sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
           output-file: ./sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
@@ -330,14 +330,14 @@ jobs:
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Sign Container Images
         run: |
           cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -487,7 +487,7 @@ jobs:
           echo catalog=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Sign Container Images
         run: |
@@ -496,7 +496,7 @@ jobs:
           cosign sign -y ${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0@${{ steps.clife_docker_digests.outputs.catalog }}
 
       - name: Generate SBOM for CLife
-        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
         with:
           artifact-name: sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
@@ -508,7 +508,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag }}
 
       - name: Generate SBOM for the bundle
-        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
         with:
           artifact-name: sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
@@ -520,7 +520,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM for the catalog
-        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
         with:
           artifact-name: sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
