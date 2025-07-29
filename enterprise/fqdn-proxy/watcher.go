@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -26,10 +27,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -218,6 +222,37 @@ func (rw *rulesWatcher) RemoveRestoredRules(ctx context.Context, endpointIDMsg *
 func (rw *rulesWatcher) GetRules(ctx context.Context, endpointIDMsg *pb.EndpointID) (*pb.RestoredRules, error) {
 	// noop, never actually called by the agent, return empty result
 	return &pb.RestoredRules{}, nil
+}
+
+var _ policy.CachedSelector = &SimpleSelector{}
+
+type SimpleSelector struct {
+	identities []identity.NumericIdentity
+	name       string
+}
+
+func (s *SimpleSelector) GetSelections(v *versioned.VersionHandle) identity.NumericIdentitySlice {
+	return s.identities
+}
+
+func (s *SimpleSelector) Selects(v *versioned.VersionHandle, nid identity.NumericIdentity) bool {
+	return slices.Contains(s.identities, nid)
+}
+
+func (s *SimpleSelector) IsWildcard() bool {
+	return false
+}
+
+func (s *SimpleSelector) IsNone() bool {
+	return len(s.identities) == 0
+}
+
+func (s *SimpleSelector) String() string {
+	return s.name
+}
+
+func (s *SimpleSelector) GetMetadataLabels() labels.LabelArray {
+	return nil
 }
 
 func (rw *rulesWatcher) updateAllowed(rules *pb.FQDNRules) error {
