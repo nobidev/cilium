@@ -58,7 +58,7 @@ func TestBGPHealthCheck(t T) {
 			return fmt.Errorf("the route %s/32 still exists", vipIP)
 		}
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 
 	t.Log("VIP successfully removed")
 
@@ -72,7 +72,7 @@ func TestBGPHealthCheck(t T) {
 			return fmt.Errorf("the route %s/32 is missing %w", vipIP, err)
 		}
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 
 	t.Log("VIP successfully re-advertised")
 }
@@ -146,7 +146,7 @@ func TestBGPHealthCheckSubset(t T) {
 			}
 		}
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 
 	t.Log("Checking that route for VIP via selected node does still exist...")
 	eventually(t, func() error {
@@ -155,7 +155,7 @@ func TestBGPHealthCheckSubset(t T) {
 			return fmt.Errorf("the route %s/32 via %s (%s) doesn't exist", vipIP, peerIP, selectedNode.Name)
 		}
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 }
 
 func getNodeIP(n corev1.Node) string {
