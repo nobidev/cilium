@@ -507,13 +507,15 @@ func Test_BFDSessionUpdate(t *testing.T) {
 	f.session.Unlock()
 
 	// Session update from our side -> send Poll
+	inPkt = createTestControlPacket(f.remoteDiscriminator, f.localDiscriminator, layers.BFDStateUp)
+	f.session.inPacketsCh <- inPkt
 	cfg := f.sessionCfg
 	cfg.ReceiveInterval = 30 * time.Millisecond
 	cfg.TransmitInterval = 35 * time.Millisecond
 	cfg.DetectMultiplier = 4
 	err := f.session.update(cfg)
 	require.NoError(t, err)
-	outPkt = waitEgressPacketWithState(t, f.session, nil, layers.BFDStateUp)
+	outPkt = waitEgressPacketWithState(t, f.session, inPkt, layers.BFDStateUp)
 	require.True(t, outPkt.Poll)
 	require.False(t, outPkt.Final)
 	f.session.Lock()
