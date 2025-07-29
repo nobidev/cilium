@@ -1,0 +1,116 @@
+{{- if and
+  .Values.hubble.timescape.enabled
+  (or
+    (not .Values.hubble.timescape.clustermesh.primary.id)
+    (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+  )
+}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-timescape-clickhouse-settings
+  namespace: {{ include "cilium.namespace" . }}
+  {{/* The timescape labels already contain the .Values.commonLabels */}}
+  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
+data:
+  clickhouse-users.xml: |-
+    <?xml version="1.0"?>
+    <clickhouse>
+      <users>
+        <default>
+          <networks>
+            <!-- only listen on localhost for default user -->
+            <ip>::1</ip>
+            <ip>127.0.0.1</ip>
+          </networks>
+          <profile>default</profile>
+          <quota>default</quota>
+        </default>
+      </users>
+    </clickhouse>
+  clickhouse-profiles.xml: |-
+    <?xml version="1.0"?>
+    <clickhouse>
+        <profiles>
+            <default>
+              <allow_ddl>1</allow_ddl>
+              <log_queries>1</log_queries>
+              <prefer_global_in_and_join>1</prefer_global_in_and_join>
+              <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
+              <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+              <readonly>0</readonly>
+              <skip_unavailable_shards>1</skip_unavailable_shards>
+            </default>
+        </profiles>
+    </clickhouse>
+  clickhouse-settings.xml: |-
+    <?xml version="1.0"?>
+    <clickhouse>
+      <!-- Listen wildcard address to allow accepting connections from other containers and host network. -->
+      <listen_host>::</listen_host>
+      <listen_host>0.0.0.0</listen_host>
+      <listen_try>1</listen_try>
+      <!-- see https://clickhouse.com/docs/en/operations/server-configuration-parameters/settings/#max-table-size-to-drop -->
+      <max_table_size_to_drop>0</max_table_size_to_drop>
+      <max_concurrent_queries>100</max_concurrent_queries>
+      <max_connections>4096</max_connections>
+      <asynchronous_insert_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </asynchronous_insert_log>
+      <asynchronous_metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </asynchronous_metric_log>
+      <backup_log remove="1"></backup_log>
+      <blob_storage_log remove="1"></blob_storage_log>
+      <crash_log replace="1">
+        <partition_by>event_date</partition_by>
+        <ttl>event_date + INTERVAL 1 month</ttl>
+      </crash_log>
+      <error_log replace="1">
+        <partition_by>event_date</partition_by>
+        <ttl>event_date + INTERVAL 14 day</ttl>
+      </error_log>
+      <metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </metric_log>
+      <opentelemetry_span_log remove="1"></opentelemetry_span_log>
+      <part_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </part_log>
+      <processors_profile_log remove="1"></processors_profile_log>
+      <query_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </query_log>
+      <query_metric_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </query_metric_log>
+      <query_thread_log remove="1"></query_thread_log>
+      <query_views_log replace="1">
+        <ttl>event_time + INTERVAL 30 minute</ttl>
+      </query_views_log>
+      <session_log remove="1"></session_log>
+      <text_log remove="1"></text_log>
+      <trace_log remove="1"></trace_log>
+      <zookeeper_log remove="1"></zookeeper_log>
+      <logger>
+          <console>true</console>
+          <level>information</level>
+      </logger>
+      {{- if .Values.hubble.timescape.metrics.clickhouse.enabled }}
+      <prometheus>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <endpoint>/metrics</endpoint>
+        <events>true</events>
+        <metrics>true</metrics>
+        <port>8001</port>
+      </prometheus>
+      {{- else }}
+      <prometheus remove="1"></prometheus>
+      {{- end }}
+      <postgresql_port remove="1"></postgresql_port>
+      <mysql_port remove="1"></mysql_port>
+      <!-- we're always running with a single replica, no point in opening it -->
+      <interserver_http_port remove="1"></interserver_http_port>
+    </clickhouse>
+{{- end }}

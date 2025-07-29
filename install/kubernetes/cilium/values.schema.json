@@ -4205,6 +4205,9 @@
                 "resources": {
                   "type": "object"
                 },
+                "rollOutPods": {
+                  "type": "boolean"
+                },
                 "securityContext": {
                   "properties": {
                     "allowPrivilegeEscalation": {
@@ -4409,6 +4412,9 @@
             },
             "resources": {
               "type": "object"
+            },
+            "rollOutPods": {
+              "type": "boolean"
             },
             "securityContext": {
               "properties": {

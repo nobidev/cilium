@@ -2233,6 +2233,8 @@ hubble:
       # type: [null, string]
       # @schema
       storageClassName: ~
+    # -- Roll out Timescape pods automatically when configmap is updated.
+    rollOutPods: false
     # -- Configures the time-to-live for flows. Flows older than the TTL are
     # automatically pruned. This is the main method to limit storage usage
     # under normal operation. Defaults to 6 hours or 1 hour if Timescape runs
@@ -2270,6 +2272,9 @@ hubble:
       useDigest: true
       pullPolicy: "Always"
     clickhouse:
+      # -- Roll out hubble-timescape pod when the clickhouse configmap is updated
+      # (hubble.timescape.rollOutPods must also be true).
+      rollOutPods: true
       image:
         # @schema
         # type: [null, string]

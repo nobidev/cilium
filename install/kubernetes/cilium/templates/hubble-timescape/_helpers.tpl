@@ -1,3 +1,18 @@
+{{- define "hubble.timescape.podAnnotations" -}}
+{{- if .Values.hubble.timescape.rollOutPods }}
+hubble-timescape-config-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-timescape/timescape-configmap.yaml") . | sha256sum | quote }}
+{{- if .Values.hubble.timescape.clickhouse.rollOutPods }}
+hubble-timescape-clickhouse-settings-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-timescape/timescape-clickhouse-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
+{{- /* This annotation will ensure that the pod is restarted on pvc size change */}}
+{{- if .Values.hubble.timescape.persistence.enabled }}
+{{- with .Values.hubble.timescape.persistence.volumeSize }}
+hubble-timescape-clickhouse-volume-size: {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "hubble.timescape.tls.enabled" -}}
 {{- and .Values.hubble.timescape.enabled
 (or
