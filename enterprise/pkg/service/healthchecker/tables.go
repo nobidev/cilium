@@ -49,11 +49,13 @@ type healthCheck struct {
 	// counts and configured thresholds.
 	Healthy bool
 
-	// HealthyBackendsCount is the number of healthy backends  from last probe
-	HealthyBackendsCount uint
+	// HealthyProbeStreak is the length of healthy probe streak. When this is above
+	// [Config.ThresholdHealthy] the backend is considered healthy.
+	HealthyProbeStreak uint
 
-	// healthyBackendsCount is the number of unhealthy backends from last probe
-	UnhealthyBackendsCount uint
+	// UnhealthyProbeStreak is the length of the unhealthy probe streak. When this is above
+	// [Config.ThresholdUnhealthy] the backend is considered unhealthy.
+	UnhealthyProbeStreak uint
 
 	// Message gives additional details on result of the probe
 	Message string
@@ -86,8 +88,8 @@ func (h *healthCheck) TableHeader() []string {
 		"Backend",
 		"Service",
 		"Healthy",
-		"HealthyBackends",
-		"UnhealthyBackends",
+		"HealthyProbeStreak",
+		"UnhealthyProbeStreak",
 		"Message",
 		"Updated",
 		"Probed",
@@ -101,8 +103,8 @@ func (h *healthCheck) TableRow() []string {
 		h.Backend.StringWithProtocol(),
 		h.Service.String(),
 		strconv.FormatBool(h.Healthy),
-		strconv.FormatInt(int64(h.HealthyBackendsCount), 10),
-		strconv.FormatInt(int64(h.UnhealthyBackendsCount), 10),
+		strconv.FormatInt(int64(h.HealthyProbeStreak), 10),
+		strconv.FormatInt(int64(h.UnhealthyProbeStreak), 10),
 		h.Message,
 		duration.HumanDuration(time.Since(h.ProbedAt)),
 		duration.HumanDuration(time.Since(h.UpdatedAt)),

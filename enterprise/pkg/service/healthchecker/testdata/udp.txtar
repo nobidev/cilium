@@ -29,11 +29,11 @@ lb/maps-dump maps.actual
 * cmp maps.actual maps-bad.expected
 
 -- healthchecks.table --
-Backend               Service     Healthy   UnhealthyBackends   Message
-127.0.0.1:$PORT/UDP   test/echo   true      0                   success
+Backend               Service     Healthy   UnhealthyProbeStreak Message
+127.0.0.1:$PORT/UDP   test/echo   true      0                    success
 
 -- healthchecks-bad.table --
-Backend           Service     Healthy  HealthyBackends
+Backend           Service     Healthy  HealthyProbeStreak
 127.0.0.1:1/UDP   test/echo   false    0
 
 -- service.yaml --

@@ -55,12 +55,12 @@ lb/maps-dump maps.actual
 * cmp maps.actual maps-healthy2.expected
 
 -- healthchecks.table --
-Backend               Service     Healthy   UnhealthyBackends   Message
-127.0.0.1:$PORT/TCP   test/echo   true      0                   success
+Backend               Service     Healthy   UnhealthyProbeStreak Message
+127.0.0.1:$PORT/TCP   test/echo   true      0                    success
 
 -- healthchecks-bad.table --
-Backend           Service     Healthy  HealthyBackends  Message
-127.0.0.1:1/TCP   test/echo   false    0                failed: Get "http://127.0.0.1:1/success": dial tcp 127.0.0.1:1: connect: connection refused
+Backend           Service     Healthy  HealthyProbeStreak Message
+127.0.0.1:1/TCP   test/echo   false    0                  failed: Get "http://127.0.0.1:1/success": dial tcp 127.0.0.1:1: connect: connection refused
 
 -- service.yaml --
 apiVersion: v1

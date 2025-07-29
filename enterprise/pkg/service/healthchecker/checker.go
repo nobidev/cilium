@@ -189,17 +189,17 @@ func probeFunc(log *slog.Logger, db *statedb.DB, healthChecks statedb.RWTable[*h
 		})
 		hc.Message = result.message
 		if result.healthy {
-			hc.HealthyBackendsCount++
-			hc.UnhealthyBackendsCount = 0
+			hc.HealthyProbeStreak++
+			hc.UnhealthyProbeStreak = 0
 		} else {
-			hc.HealthyBackendsCount = 0
-			hc.UnhealthyBackendsCount++
+			hc.HealthyProbeStreak = 0
+			hc.UnhealthyProbeStreak++
 		}
 
 		switch {
-		case !hc.Healthy && hc.HealthyBackendsCount >= hc.Config.ThresholdHealthy:
+		case !hc.Healthy && hc.HealthyProbeStreak >= hc.Config.ThresholdHealthy:
 			hc.Healthy = true
-		case hc.Healthy && hc.UnhealthyBackendsCount >= hc.Config.ThresholdUnhealthy:
+		case hc.Healthy && hc.UnhealthyProbeStreak >= hc.Config.ThresholdUnhealthy:
 			hc.Healthy = false
 		}
 		hc.ProbedAt = time.Now()

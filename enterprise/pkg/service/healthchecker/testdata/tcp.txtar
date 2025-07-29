@@ -35,12 +35,12 @@ sed '.*UpdatedAt.*' '  "UpdatedAt": "<redacted>",' healthchecks.json
 cmp healthchecks-expected.json healthchecks.json
 
 -- healthchecks.table --
-Backend               Service     Healthy   UnhealthyBackends   Message
-127.0.0.1:$PORT/TCP   test/echo   true      0                   success
+Backend               Service     Healthy   UnhealthyProbeStreak Message
+127.0.0.1:$PORT/TCP   test/echo   true      0                    success
 
 -- healthchecks-bad.table --
-Backend           Service     Healthy  HealthyBackends  Message
-127.0.0.1:1/TCP   test/echo   false    0                failed: err: dial tcp 127.0.0.1:1: connect: connection refused
+Backend           Service     Healthy  HealthyProbeStreak Message
+127.0.0.1:1/TCP   test/echo   false    0                  failed: err: dial tcp 127.0.0.1:1: connect: connection refused
 
 -- service.yaml --
 apiVersion: v1
@@ -123,8 +123,8 @@ ports:
   "UpdatedAt": "<redacted>",
   "ProbedAt": "<redacted>",
   "Healthy": false,
-  "HealthyBackendsCount": 0,
-  "UnhealthyBackendsCount": 1,
+  "HealthyProbeStreak": 0,
+  "UnhealthyProbeStreak": 1,
   "Message": "failed: err: dial tcp 127.0.0.1:1: connect: connection refused"
 }
 -- maps-healthy.expected --
