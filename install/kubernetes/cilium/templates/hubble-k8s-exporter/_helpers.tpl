@@ -6,7 +6,11 @@ app.kubernetes.io/part-of: cilium
 
 {{- define "hubble.k8s-exporter.enabled" -}}
 {{- or .Values.hubble.k8sExporter.enabled
- (and (kindIs "invalid" .Values.hubble.k8sExporter.enabled) .Values.hubble.timescape.enabled)
+  (and
+    (kindIs "invalid" .Values.hubble.k8sExporter.enabled)
+    .Values.hubble.timescape.enabled
+    (not .Values.hubble.timescape.ingester.k8sImporter.enabled)
+  )
 -}}
 {{- end }}
 

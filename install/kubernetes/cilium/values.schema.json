@@ -4305,6 +4305,22 @@
               },
               "type": "object"
             },
+            "ingester": {
+              "properties": {
+                "k8sImporter": {
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "flushInterval": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
             "logLevel": {
               "type": "string"
             },

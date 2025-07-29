@@ -2261,6 +2261,13 @@ hubble:
       # type: [null, string]
       # @schema
       timout: ~
+    ingester:
+      k8sImporter:
+        # -- *experimental* Whether to enable the k8s event watcher for the K8s Importer.
+        # When enabled, this effectively replaces the K8sExporter deployment.
+        enabled: false
+        # -- The interval at which the K8s Importer should flush k8s events to the database.
+        flushInterval: "5s"
     image:
       # @schema
       # type: [null, string]

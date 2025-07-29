@@ -45,7 +45,7 @@ data:
       enable-experimental-api: true
     ingester:
       batch-size: 10000
-      cluster-name: "{{ .Values.cluster.name }}"
+      cluster-name: {{ .Values.cluster.name | quote }}
       enable-flows-ingestion: true
       enable-fgs-events-ingestion: false
       enable-k8s-events-ingestion: true
@@ -64,7 +64,14 @@ data:
       push-api-async-insert-max-data-size: 104857600
       filter-batch-size: 100
       filter-batch-window: 10s
-      enable-k8s-importer: false
+      {{- if .Values.hubble.timescape.ingester.k8sImporter.enabled }}
+      enable-k8s-importer: true
+      k8s-importer-cluster-name: {{ .Values.cluster.name | quote }}
+      k8s-importer-flush-interval: {{ .Values.hubble.timescape.ingester.k8sImporter.flushInterval | quote }}
+      k8s-importer-k8s-endpoints: false
+      k8s-importer-cilium-endpoints: false
+      k8s-importer-cilium-identities: true
+      {{- end }}
     migrate:
       clickhouse-nodes-count: "0"
     trimmer:

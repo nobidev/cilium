@@ -95,3 +95,24 @@ grpc:
   readOnly: true
 {{- end }}
 {{- end }}
+
+{{- define "hubble.timescape.ingester.k8sImporter.clusterRole.rules" -}}
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  - ciliumclusterwidenetworkpolicies
+  - ciliumidentities
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
