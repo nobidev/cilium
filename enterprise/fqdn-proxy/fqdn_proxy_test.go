@@ -545,6 +545,13 @@ type fakeIPCache struct {
 	writeCalls  []fakeIPCacheCall
 }
 
+func newFakeIPCache(logger *slog.Logger) *fakeIPCache {
+	return &fakeIPCache{
+		logger:        logger,
+		ipEndpointMap: make(map[netip.Addr]identity.NumericIdentity),
+	}
+}
+
 type fakeIPCacheCall struct {
 	addr     netip.Addr
 	identity identity.NumericIdentity

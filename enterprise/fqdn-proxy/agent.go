@@ -297,8 +297,18 @@ const (
 	metricErrorAllow    = "allow"
 )
 
-// NotifyOnDNSMsghandles propagating DNS response data
-func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, agentAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+// NotifyOnDNSMsg handles propagating DNS response data
+func (n *notifier) NotifyOnDNSMsg(
+	lookupTime time.Time,
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	agentAddr netip.AddrPort,
+	msg *dns.Msg,
+	protocol string,
+	allowed bool,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
 	stat.ProcessingTime.Start()
 	metricError := metricErrorAllow
 	endMetric := func() {
@@ -316,8 +326,6 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 		return nil
 	case stat.Err != nil:
 		metricError = metricErrorProxy
-	case allowed, !allowed:
-		break
 	}
 
 	n.metrics.PolicyTotal.WithLabelValues("received").Inc()
@@ -395,6 +403,11 @@ func (n *notifier) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, e
 				n.log.Warn("Cilium agent is down and notification channel is full. Skipping notification.")
 			}
 		}
+	}
+
+	// Best effort: try plumping BPF ipcache map while agent is offline (i.e. not in state LIVE).
+	if n.stateManager.GetCurrentProxyState() != pb.RemoteProxyStatus_RPS_LIVE {
+		n.remoteNameManager.MaybeUpdateIPCache(msg)
 	}
 
 	// Release the DNS response back to the user application. If Cilium

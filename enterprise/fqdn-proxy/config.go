@@ -36,6 +36,11 @@ type Config struct {
 	DNSProxySocketLingerTimeout   uint          `mapstructure:"dnsproxy-socket-linger-timeout"`
 }
 
+// IsDualStack returns whether both IPv4 and IPv6 are enabled.
+func (cfg Config) IsDualStack() bool {
+	return cfg.EnableIPV4 && cfg.EnableIPV6
+}
+
 var defaultConfig = Config{
 	Debug:                         false,
 	EnableOfflineMode:             false,

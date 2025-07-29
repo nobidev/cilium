@@ -13,10 +13,17 @@ package main
 import (
 	"errors"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"regexp"
+	"slices"
+
+	"github.com/cilium/dns"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
+	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,17 +38,21 @@ type remoteNameManager struct {
 	cfg     Config
 	ipcache bpfIPCache
 
-	identities *identityStore
-	selectors  *selectorStore
+	identities       *identityStore
+	selectors        *selectorStore
+	identitiesSynced bool
+	selectorsSynced  bool
 }
 
 func newRemoteNameManager(logger *slog.Logger, cfg Config, ipcache bpfIPCache) *remoteNameManager {
 	return &remoteNameManager{
-		logger:     logger,
-		cfg:        cfg,
-		ipcache:    ipcache,
-		identities: newIdentityStore(),
-		selectors:  newSelectorStore(logger, cfg),
+		logger:           logger,
+		cfg:              cfg,
+		ipcache:          ipcache,
+		identities:       newIdentityStore(),
+		selectors:        newSelectorStore(logger, cfg),
+		identitiesSynced: false,
+		selectorsSynced:  false,
 	}
 }
 
@@ -49,7 +60,99 @@ func (r *remoteNameManager) LookupIPCache(addr netip.Addr) (identity.NumericIden
 	if !r.cfg.EnableOfflineMode {
 		return identity.NumericIdentity(0), errors.New("BPF IP cache map access not available")
 	}
+
 	return r.ipcache.lookup(addr)
+}
+
+func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
+	if !r.cfg.EnableOfflineMode {
+		r.logger.Debug("offline mode disabled, not updating BPF ipcache")
+		return
+	}
+
+	if !r.identitiesSynced || !r.selectorsSynced {
+		r.logger.Debug("full list of identities and selectors not yet synchronized, not updating BPF ipcache")
+		return
+	}
+
+	// Not a successful DNS response, don't bother.
+	if !msg.Response || msg.Rcode != dns.RcodeSuccess {
+		r.logger.Debug("not a successful DNS response, not updating BPF ipcache")
+		return
+	}
+
+	qname, responseAddrs, _, _, _, _, _, err := dnsproxy.ExtractMsgDetails(msg)
+	if err != nil {
+		r.logger.Debug("error extracting DNS response message details", logfields.Error, err)
+		return
+	}
+
+	// No addresses in DNS response. What even is this?
+	if len(responseAddrs) == 0 {
+		r.logger.Debug("no addresses in DNS response")
+		return
+	}
+
+	r.selectors.mu.RLock()
+	selLbls := namemanager.DeriveLabelsForName(qname, r.selectors.selectors)
+	r.selectors.mu.RUnlock()
+
+	if len(selLbls) == 0 {
+		// No matching toFQDN selectors.
+		r.logger.Debug("no matching toFQDN selectors")
+		return
+	}
+
+	for _, addr := range responseAddrs {
+		id, err := r.ipcache.lookup(addr)
+		if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			r.logger.Warn("failed to lookup BPF ipcache map",
+				logfields.Error, err,
+				logfields.Address, addr,
+				logfields.Identity, id,
+			)
+			continue
+		}
+
+		if err == nil && id != identity.GetWorldIdentityFromIP(addr) {
+			// There's information in the ipcache about this IP already. The proxy
+			// cannot overwrite this, since it only has a partial view of the world.
+			r.logger.Debug("can't override mapping, identity doesn't match address world identity",
+				logfields.Address, addr,
+				logfields.Identity, id,
+				logfields.WorldIdentity, identity.GetWorldIdentityFromIP(addr),
+			)
+			continue
+		}
+
+		identityLbls := r.identityLabelsForSelectorLabels(selLbls, addr)
+		id, exists := r.identities.find(identityLbls)
+		if !exists {
+			// no identity matches all toFQDN selectors.
+			r.logger.Debug("no identity matches toFQDN selector labels",
+				logfields.IdentityLabels, identityLbls,
+				logfields.Labels, selLbls,
+			)
+			continue
+		}
+
+		r.logger.Debug("writing to BPF ipcache map",
+			logfields.Address, addr,
+			logfields.Identity, id,
+			logfields.IdentityLabels, identityLbls,
+			logfields.Labels, selLbls,
+		)
+
+		err = r.ipcache.write(addr, id)
+		if err != nil {
+			r.logger.Warn("failed to write to BPF ipcache map",
+				logfields.Error, err,
+				logfields.Address, addr,
+				logfields.Identity, id,
+			)
+			continue
+		}
+	}
 }
 
 func (r *remoteNameManager) HandleSelectorUpdate(su *pb.SelectorUpdate) {
@@ -78,7 +181,7 @@ func (r *remoteNameManager) updateFQDNIdentity(m *pb.FQDNIdentityUpdate) {
 	case pb.UpdateType_UPDATETYPE_REMOVE:
 		r.identities.remove(identity.NumericIdentity(m.GetIdentity()))
 	case pb.UpdateType_UPDATETYPE_BOOKMARK:
-		// TODO
+		r.identitiesSynced = true
 	default:
 		r.logger.Warn("Unknown FQDN identity update type", logfields.Type, m.Type)
 	}
@@ -167,6 +270,33 @@ func isWorldLabel(l *pb.Label) bool {
 	return false
 }
 
+var (
+	worldLabelNonDualStack = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorld}
+	worldLabelV4           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv4}
+	worldLabelV6           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv6}
+)
+
+func (r *remoteNameManager) worldLabel(addr netip.Addr) labels.Label {
+	if r.cfg.IsDualStack() {
+		if addr.Is4() {
+			return worldLabelV4
+		} else {
+			return worldLabelV6
+		}
+	} else {
+		return worldLabelNonDualStack
+	}
+}
+
+// identityLabelsForSelectorLabels returns a sorted LabelArray which corresponds to the identity
+// labels of the set of selector labels plus the world label corresponding to addr.
+func (r *remoteNameManager) identityLabelsForSelectorLabels(lbls labels.Labels, addr netip.Addr) labels.LabelArray {
+	idLbls := make(labels.LabelArray, 0, len(lbls)+1)
+	idLbls = slices.AppendSeq(idLbls, maps.Values(lbls))
+	idLbls = append(idLbls, r.worldLabel(addr))
+	return idLbls.Sort()
+}
+
 func (r *remoteNameManager) updateFQDNSelector(m *pb.FQDNSelectorUpdate) {
 	switch m.Type {
 	case pb.UpdateType_UPDATETYPE_UPSERT:
@@ -180,7 +310,7 @@ func (r *remoteNameManager) updateFQDNSelector(m *pb.FQDNSelectorUpdate) {
 	case pb.UpdateType_UPDATETYPE_REMOVE:
 		r.selectors.remove(transformSelector(m.GetSelector()))
 	case pb.UpdateType_UPDATETYPE_BOOKMARK:
-		// TODO
+		r.selectorsSynced = true
 	default:
 		r.logger.Warn("Unknown FQDN selector update type", logfields.Type, m.Type)
 	}

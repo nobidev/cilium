@@ -102,6 +102,14 @@ func (sm *stateManager) setAgentState(msg *pb.AgentState, offline bool) {
 	wtxn.Commit()
 }
 
+// GetCurrentProxyState returns the currently existing state of the remote proxy.
+func (sm *stateManager) GetCurrentProxyState() pb.RemoteProxyStatus {
+	if state, _, found := sm.proxyState.Get(sm.db.ReadTxn(), tables.RemoteProxyStateIndex.Query("")); found {
+		return state.Status
+	}
+	return pb.RemoteProxyStatus_RPS_UNSPECIFIED
+}
+
 // UpdateProxyState records a change in proxy state.
 // If `from“ is not UNSPEC, then this will only set the state to `to` if
 // already in state `from`.

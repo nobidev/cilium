@@ -11,8 +11,11 @@
 package main
 
 import (
+	"log/slog"
+	"net/netip"
 	"testing"
 
+	"github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
@@ -36,27 +39,74 @@ func (s *selectorStore) len() int {
 	return len(s.selectors)
 }
 
-func TestRemoteNameManagerHandleSelectorUpdate(t *testing.T) {
+func newDNSMsg(addr netip.Addr, fqdn string) *dns.Msg {
+	return &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Response: true,
+			Rcode:    dns.RcodeSuccess,
+		},
+		Question: []dns.Question{{
+			Name: fqdnDNS.FQDN(fqdn),
+		}},
+		Answer: []dns.RR{
+			&dns.CNAME{
+				Hdr: dns.RR_Header{
+					Name:   fqdnDNS.FQDN(fqdn),
+					Rrtype: dns.TypeCNAME,
+					Class:  dns.ClassINET,
+					Ttl:    3600,
+				},
+			},
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Name:   fqdnDNS.FQDN(fqdn),
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    3600,
+				},
+				A: addr.AsSlice(),
+			},
+		},
+	}
+}
+
+func TestRemoteNameManager(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	ipCache := newFakeIPCache(logger)
 	r := newRemoteNameManager(
-		hivetest.Logger(t),
+		logger,
 		Config{
 			EnableOfflineMode: true,
+			EnableIPV4:        true,
+			EnableIPV6:        true,
 		},
-		&fakeIPCache{},
+		ipCache,
 	)
 	assert.Equal(t, 0, r.identities.len())
 	assert.Equal(t, 0, r.selectors.len())
+	assert.False(t, r.identitiesSynced)
+	assert.False(t, r.selectorsSynced)
+
+	ipAddr := netip.MustParseAddr("192.168.1.42")
+	fqdn := "isovalent.com"
+
+	// BPF ipcache is empty, we don't expect to find a mapping
+	id, err := r.LookupIPCache(ipAddr)
+	assert.EqualError(t, err, "key does not exist")
+	assert.Equal(t, identity.NumericIdentity(0), id)
+	assert.Len(t, ipCache.lookupCalls, 1)
+	assert.Equal(t, ipAddr, ipCache.lookupCalls[0].addr)
 
 	worldLabel := labels.LabelWorldIPv4[labels.IDNameWorldIPv4]
-	id := 42
+	wantID := identity.NumericIdentity(42)
 	su := &pb.SelectorUpdate{
 		FqdnIdentity: &pb.FQDNIdentityUpdate{
 			Type:     pb.UpdateType_UPDATETYPE_UPSERT,
-			Identity: uint64(id),
+			Identity: uint64(wantID),
 			Labels: []*pb.Label{
 				{
 					Source: labels.LabelSourceFQDN,
-					Key:    "isovalent.com",
+					Key:    fqdn,
 				},
 				{
 					Source: worldLabel.Source,
@@ -75,7 +125,7 @@ func TestRemoteNameManagerHandleSelectorUpdate(t *testing.T) {
 		FqdnSelector: &pb.FQDNSelectorUpdate{
 			Type: pb.UpdateType_UPDATETYPE_UPSERT,
 			Selector: &pb.FQDNSelector{
-				MatchName: "isovalent.com",
+				MatchName: fqdn,
 			},
 		},
 	}
@@ -84,6 +134,46 @@ func TestRemoteNameManagerHandleSelectorUpdate(t *testing.T) {
 
 	assert.Equal(t, 1, r.identities.len())
 	assert.Equal(t, 1, r.selectors.len())
+
+	// Bookmark
+	su = &pb.SelectorUpdate{
+		FqdnSelector: &pb.FQDNSelectorUpdate{
+			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+		},
+	}
+	r.HandleSelectorUpdate(su)
+	su = &pb.SelectorUpdate{
+		FqdnIdentity: &pb.FQDNIdentityUpdate{
+			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+		},
+	}
+	r.HandleSelectorUpdate(su)
+
+	assert.True(t, r.identitiesSynced)
+	assert.True(t, r.selectorsSynced)
+
+	// Expect to find a mapping based on the DNS response
+	r.MaybeUpdateIPCache(newDNSMsg(ipAddr, fqdn))
+	id, err = r.LookupIPCache(ipAddr)
+	assert.NoError(t, err)
+	assert.Equal(t, wantID, id)
+
+	// No mapping expected to be found because we have no stored identity/selector for
+	// example.org
+	unknownFQDN := "example.org"
+	ipAddrForUnknown := netip.MustParseAddr("10.0.1.2")
+	r.MaybeUpdateIPCache(newDNSMsg(ipAddrForUnknown, unknownFQDN))
+	id, err = r.LookupIPCache(ipAddrForUnknown)
+	assert.Error(t, err)
+	assert.Equal(t, identity.NumericIdentity(0), id)
+
+	// Expect to find a new mapping for the existing isovalent.com identity/selector based on
+	// the DNS response
+	newIPAddr := netip.MustParseAddr("192.168.1.99")
+	r.MaybeUpdateIPCache(newDNSMsg(newIPAddr, fqdn))
+	id, err = r.LookupIPCache(newIPAddr)
+	assert.NoError(t, err)
+	assert.Equal(t, wantID, id)
 }
 
 func TestIdentityStore(t *testing.T) {

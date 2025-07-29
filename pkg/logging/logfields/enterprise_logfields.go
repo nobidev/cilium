@@ -106,4 +106,6 @@ const (
 	ToUpdate = "toUpdate"
 
 	ToRemove = "toRemove"
+
+	WorldIdentity = "worldIdentity"
 )
