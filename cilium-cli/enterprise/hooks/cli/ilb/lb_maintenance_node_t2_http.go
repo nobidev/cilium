@@ -162,7 +162,10 @@ func waitForReconnect(t T, testClientOutput *strings.Builder, vipIP string) {
 	eventually(t, func() error {
 		output := testClientOutput.String()
 
-		if !strings.Contains(output, "connection-close: true") {
+		// Check whether Envoy already successfully drained the open connection. This is either detected by the
+		// response header `connection: close` or the presence of the logoutput `HTTP transport creates new connection to <VIP>:80`
+		// (It needs to present twice - once for the initial connection setup and once for the reconnect).
+		if !strings.Contains(output, "connection-close: true") && strings.Count(output, fmt.Sprintf("HTTP transport creates new connection to %s:80", vipIP)) != 2 {
 			return errors.New("T2 Envoy didn't terminated http connection yet")
 		}
 
