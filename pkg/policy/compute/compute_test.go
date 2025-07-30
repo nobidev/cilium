@@ -171,16 +171,14 @@ func TestWatchChannelFiresOnUpdate(t *testing.T) {
 			assert.GreaterOrEqual(t, r.obj.Revision, wantedRevision)
 			t.Logf("loop completed in %d iterations", r.iterations)
 		case <-time.After(2 * time.Second):
-			t.Fatal("endpoint goroutine did not receive result in time")
+			t.Fatal("watch loop did not receive result in time")
 		}
 	})
 }
 
 func TestRecomputeIdentityPolicy(t *testing.T) {
 	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
-	db, table, computer := fixture(t)
-	assert.NotNil(t, db)
-	assert.NotNil(t, table)
+	_, _, computer := fixture(t)
 
 	init, err := computer.RecomputeIdentityPolicy(&identity.Identity{ID: identity.NumericIdentity(4)}, 0)
 	assert.NoError(t, err)
@@ -218,13 +216,11 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 
 	<-ch
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ch, err := computer.RecomputeIdentityPolicy(&identity.Identity{ID: identity.NumericIdentity(1)}, 0)
 		assert.NoError(t, err)
 		<-ch
-	}()
+	})
 
 	wg.Wait()
 
