@@ -12,9 +12,7 @@ jobs:
   dispatch:
     name: Dispatch kubespec.dev workflow event
     runs-on:
-      labels:
-        - self-hosted
-        - extra-small
+      labels: extra-small
       group: isovalent-wait-runners
     steps:
       - name: Get Vault Credentials
