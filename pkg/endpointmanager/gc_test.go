@@ -14,13 +14,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
-	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
 // fakeCheck detects endpoints as unhealthy if they have an even EndpointID.
@@ -48,17 +42,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-			NamedPortsGetter: testipcache.NewMockIPCache(),
-			Allocator:        testidentity.NewMockIdentityAllocator(nil),
-			CTMapGC:          ctmap.NewFakeGCRunner(),
-			WgConfig:         &fakewireguard.Config{},
-			IPSecConfig:      fakeipsec.Config{},
-			Logger:           logger,
-			IdentityManager:  identitymanager.NewIDManager(logger),
-			PolicyRepo:       s.repo,
-		}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 		require.NoError(t, err)
 
 		ep.Start(uint16(model.ID))

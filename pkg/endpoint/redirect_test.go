@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
@@ -69,6 +70,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	s.do.idmgr = identitymanager.NewIDManager(logger)
 	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	s.do.fetcher = compute.InstantiateCellForTesting(tb, logger, "endpoint", "setupRedirectSuite", s.do.repo, s.do.idmgr)
 
 	s.rsp = &RedirectSuiteProxy{
 		parserProxyPortMap: map[string]uint16{
@@ -136,8 +138,9 @@ func (r *RedirectSuiteProxy) IsSDPEnabled() bool {
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
-	repo  policy.PolicyRepository
-	idmgr identitymanager.IDManager
+	repo    policy.PolicyRepository
+	fetcher compute.PolicyRecomputer
+	idmgr   identitymanager.IDManager
 }
 
 // GetNodeSuffix does nothing.
@@ -168,6 +171,7 @@ func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
 		EPBuildQueue:     &MockEndpointBuildQueue{},
 		Orchestrator:     &fakeendpoint.FakeOrchestrator{},
 		PolicyRepo:       s.do.repo,
+		PolicyFetcher:    s.do.fetcher,
 		IdentityManager:  s.do.idmgr,
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		IPSecConfig:      fakeipsec.Config{},
@@ -199,9 +203,13 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	return ep
 }
 
-func (s *RedirectSuite) AddRules(rules api.Rules) {
+func (s *RedirectSuite) AddRules(rules api.Rules) uint64 {
 	repo := s.do.repo.(*policy.Repository)
-	repo.MustAddList(rules)
+	orig := repo.GetRevision()
+	slice, rev := repo.MustAddList(rules)
+	affected := slice.AllIdentitySelections()
+	s.do.fetcher.UpdatePolicy(affected, orig, rev)
+	return rev
 }
 
 func (s *RedirectSuite) TearDownTest(t *testing.T) {
@@ -354,7 +362,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	ep := s.NewTestEndpoint(t)
 
 	// Policy denies anything to "foo"
-	s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
 		ruleL3DenyFoo.WithEndpointSelector(selectBar_),
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
@@ -483,7 +491,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
 
-	s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
 		ruleL4AllowListener1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
@@ -536,7 +544,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
-	s.AddRules(api.Rules{
+	s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(api.Rules{
 		ruleL4L7AllowListener1Priority1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
