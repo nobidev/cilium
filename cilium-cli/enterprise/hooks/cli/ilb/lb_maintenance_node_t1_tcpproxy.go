@@ -70,9 +70,16 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		backends := []backendPoolOption{
 			withTCPHealthCheck(),
 		}
+
+		sqlServerIP := ""
+		sqlServerPort := uint32(0)
+
 		for _, b := range scenario.backendApps {
+			sqlServerIP = b.ip
+			sqlServerPort = b.port
 			backends = append(backends, withIPBackend(b.ip, b.port))
 		}
+
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
@@ -102,7 +109,7 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		}
 
 		t.Log("Waiting for connection on SQL server side...")
-		t2NodeIP, t2NodeSourcePort, connTimeout := waitForConnectionOnSQLServer(t, client, vipIP)
+		t2NodeIP, t2NodeSourcePort, connTimeout := waitForConnectionOnSQLServer(t, client, sqlServerIP, sqlServerPort)
 
 		t.Log("Connection found with client IP %s, port %s and timeout %s", t2NodeIP, t2NodeSourcePort, connTimeout)
 
@@ -153,6 +160,6 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		}
 
 		t.Log("Checking existing connection is still alive / pinged")
-		checkInitialConnectionAlive(t, client, vipIP, t2NodeIP, t2NodeSourcePort)
+		checkInitialConnectionAlive(t, client, sqlServerIP, sqlServerPort, t2NodeIP, t2NodeSourcePort)
 	})
 }

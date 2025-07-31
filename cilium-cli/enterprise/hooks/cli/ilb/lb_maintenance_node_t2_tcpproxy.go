@@ -82,9 +82,16 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		backends := []backendPoolOption{
 			withTCPHealthCheck(),
 		}
+
+		sqlServerIP := ""
+		sqlServerPort := uint32(0)
+
 		for _, b := range scenario.backendApps {
+			sqlServerIP = b.ip
+			sqlServerPort = b.port
 			backends = append(backends, withIPBackend(b.ip, b.port))
 		}
+
 		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
@@ -114,7 +121,7 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		}
 
 		t.Log("Waiting for connection on SQL server side...")
-		t2NodeIP, t2NodeSourcePort, connTimeout := waitForConnectionOnSQLServer(t, client, vipIP)
+		t2NodeIP, t2NodeSourcePort, connTimeout := waitForConnectionOnSQLServer(t, client, sqlServerIP, sqlServerPort)
 
 		t.Log("Connection found with client IP %s, port %s and timeout %s", t2NodeIP, t2NodeSourcePort, connTimeout)
 
@@ -128,31 +135,31 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		t.RegisterCleanup(markAllNodesAsSchedulable(k8sCli))
 
 		t.Log("Waiting until 100 consecutive new connections don't use T2 node %s that is marked as unschedulable", t2Node.Name)
-		waitUntil100NewConnectionsDontUseT2Node(t, client, vipIP, t2NodeIP)
+		waitUntil100NewConnectionsDontUseT2Node(t, client, vipIP, 80, t2NodeIP)
 
 		t.Log("Checking existing connection is still alive / pinged")
-		checkInitialConnectionAlive(t, client, vipIP, t2NodeIP, t2NodeSourcePort)
+		checkInitialConnectionAlive(t, client, sqlServerIP, sqlServerPort, t2NodeIP, t2NodeSourcePort)
 
 		t.Log("Checking that 100 additional new connections don't use T2 node %s that is marked as unschedulable", t2Node.Name)
-		check100NewConnectionsDontUseT2Node(t, client, vipIP, t2NodeIP)
+		check100NewConnectionsDontUseT2Node(t, client, vipIP, 80, t2NodeIP)
 
 		t.Log("Marking T2 node %s as schedulable", t2Node.Name)
 		markNodeAsSchedulable(t, k8sCli, t2Node.Name)
 
 		t.Log("Checking that new connections eventually use T2 node %s again", t2Node.Name)
-		checkNewConnectionsUseT2(t, client, vipIP, t2NodeIP)
+		checkNewConnectionsUseT2(t, client, vipIP, 80, t2NodeIP)
 
 		t.Log("Checking existing connection is still alive / pinged")
-		checkInitialConnectionAlive(t, client, vipIP, t2NodeIP, t2NodeSourcePort)
+		checkInitialConnectionAlive(t, client, sqlServerIP, sqlServerPort, t2NodeIP, t2NodeSourcePort)
 	})
 }
 
-func toMySqlCommand(ip string, command string) string {
-	return fmt.Sprintf(`mysql -h%s -P%s -u%s -p%s --skip-column-names --raw --silent --execute "%s"`, ip, "80", mySqlUser, mySqlPassword, command)
+func toMySQLCommand(sqlServerIP string, sqlServerPort uint32, command string) string {
+	return fmt.Sprintf(`mysql -h%s -P%d -u%s -p%s --skip-column-names --raw --silent --execute "%s"`, sqlServerIP, sqlServerPort, mySqlUser, mySqlPassword, command)
 }
 
-func waitForConnectionOnSQLServer(t T, client *frrContainer, vipIP string) (string, string, string) {
-	checkCmd := toMySqlCommand(vipIP, "SELECT HOST, TIME FROM information_schema.processlist WHERE DB = 'sys';")
+func waitForConnectionOnSQLServer(t T, client *frrContainer, sqlServerIP string, sqlServerPort uint32) (string, string, string) {
+	checkCmd := toMySQLCommand(sqlServerIP, sqlServerPort, "SELECT HOST, TIME FROM information_schema.processlist WHERE DB = 'sys';")
 	result := ""
 
 	eventually(t, func() error {
@@ -282,8 +289,8 @@ func markAllNodesAsSchedulable(k8sCli *clientset.Clientset) func(context.Context
 	}
 }
 
-func checkInitialConnectionAlive(t T, client *frrContainer, vipIP string, initialConnectionIP string, initialConnectionPort string) {
-	checkCmd := toMySqlCommand(vipIP, "SELECT HOST, TIME FROM information_schema.processlist WHERE DB = 'sys';")
+func checkInitialConnectionAlive(t T, client *frrContainer, sqlServerIP string, sqlServerPort uint32, initialConnectionIP string, initialConnectionPort string) {
+	checkCmd := toMySQLCommand(sqlServerIP, sqlServerPort, "SELECT HOST, TIME FROM information_schema.processlist WHERE DB = 'sys';")
 
 	stdout, _, err := client.Exec(t.Context(), checkCmd)
 	if err != nil {
@@ -348,8 +355,8 @@ func checkInitialConnectionAlive(t T, client *frrContainer, vipIP string, initia
 	}, longTimeout, pollInterval)
 }
 
-func waitUntil100NewConnectionsDontUseT2Node(t T, client *frrContainer, vipIP string, initialConnectionIP string) {
-	checkCmd := toMySqlCommand(vipIP, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
+func waitUntil100NewConnectionsDontUseT2Node(t T, client *frrContainer, ip string, port uint32, initialConnectionIP string) {
+	checkCmd := toMySQLCommand(ip, port, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
 
 	eventually(t, func() error {
 		for range 100 {
@@ -368,8 +375,8 @@ func waitUntil100NewConnectionsDontUseT2Node(t T, client *frrContainer, vipIP st
 	}, shortTimeout, pollInterval)
 }
 
-func check100NewConnectionsDontUseT2Node(t T, client *frrContainer, vipIP string, initialConnectionIP string) {
-	checkCmd := toMySqlCommand(vipIP, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
+func check100NewConnectionsDontUseT2Node(t T, client *frrContainer, ip string, port uint32, initialConnectionIP string) {
+	checkCmd := toMySQLCommand(ip, port, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
 	for range 100 {
 		stdout, _, err := client.Exec(t.Context(), checkCmd)
 		if err != nil {
@@ -383,8 +390,8 @@ func check100NewConnectionsDontUseT2Node(t T, client *frrContainer, vipIP string
 	}
 }
 
-func checkNewConnectionsUseT2(t T, client *frrContainer, vipIP string, initialConnectionIP string) {
-	checkCmd := toMySqlCommand(vipIP, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
+func checkNewConnectionsUseT2(t T, client *frrContainer, ip string, port uint32, initialConnectionIP string) {
+	checkCmd := toMySQLCommand(ip, port, "SELECT HOST FROM information_schema.processlist WHERE COMMAND = 'query';")
 	eventually(t, func() error {
 		stdout, _, err := client.Exec(t.Context(), checkCmd)
 		if err != nil {
