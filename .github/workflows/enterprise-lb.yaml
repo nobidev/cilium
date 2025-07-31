@@ -261,6 +261,7 @@ jobs:
              --helm-set=loadBalancer.acceleration=native \
              --helm-set=loadBalancer.dsrDispatch=ipip \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
+             --helm-set-string=extraConfig.loadbalancer-cp-accesslog-file-path=/var/log/envoy-accesslog.log \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
              --helm-set-string=extraConfig.loadbalancer-flow-logs-enabled=true \
              --helm-set-string=extraConfig.loadbalancer-flow-logs-sender=stdout \
@@ -298,6 +299,23 @@ jobs:
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Download T2 Envoy accesslogs from Pods
+        if: ${{ !success() }}
+        shell: bash
+        run: |
+          for pod in $(kubectl -n kube-system get pods -l app.kubernetes.io/name=cilium-envoy --no-headers -o custom-columns=NAME:metadata.name); do
+            echo "Downloadinmg accesslog from Pod $pod..."
+            kubectl -n kube-system cp $pod:/var/log/envoy-accesslog.log "cilium-envoy-accesslog-$pod.log"
+          done
+
+      - name: Upload T2 Envoy accesslogs
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-envoy-accesslogs-${{ matrix.name }}
+          path: cilium-envoy-accesslog-*.log
           retention-days: 5
 
   merge-upload:
