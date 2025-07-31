@@ -262,6 +262,8 @@ jobs:
              --helm-set=loadBalancer.dsrDispatch=ipip \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
+             --helm-set-string=extraConfig.loadbalancer-flow-logs-enabled=true \
+             --helm-set-string=extraConfig.loadbalancer-flow-logs-sender=stdout \
              $EXTRA
 
           cilium status --wait
