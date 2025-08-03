@@ -421,11 +421,17 @@ func TestSRv6RouteImport(t *testing.T) {
 			d := replayer.Dialer{
 				OpenMessage: openMsg,
 			}
-			conn, err := d.Connect(
-				t.Context(),
-				netip.MustParseAddrPort("127.0.0.1:11799"),
-			)
-			require.NoError(t, err)
+
+			var conn *replayer.Conn
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				conn, err = d.Connect(
+					t.Context(),
+					netip.MustParseAddrPort("127.0.0.1:11799"),
+				)
+				if !assert.NoError(ct, err, "Failed to connect to GoBGP server") {
+					return
+				}
+			}, time.Second*5, 100*time.Millisecond)
 			defer conn.Close()
 
 			for {
