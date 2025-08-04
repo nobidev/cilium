@@ -26,6 +26,7 @@ export CL_TAG=$tag
 export CL_REGISTRY=quay.io/isovalent
 export IMG=${CL_REGISTRY}/clife:${tag}
 export USE_IMAGE_DIGESTS=true
+export VERSION=${tag#v}
 make manifests
 make set-images
 make bundle
