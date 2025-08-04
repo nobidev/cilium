@@ -127,6 +127,7 @@ func (c *controller) evalLoop(ctx context.Context, health cell.Health) error {
 				cond.Condition,
 			)
 			if cond.Latest.Failure {
+				cond.LastFailure = cond.Latest
 				cond.FailedCount++
 				totalFailures++
 			}

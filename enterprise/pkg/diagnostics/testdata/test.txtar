@@ -1,4 +1,4 @@
-#! --diagnostics-interval=20ms --diagnostics-export-file=$WORK/status.log
+#! --diagnostics-interval=100ms --diagnostics-export-file=$WORK/status.log
 
 hive/start
 
@@ -7,17 +7,24 @@ hive/start
 * grep '"system_status":{"status":.*"total_conditions":2}' status.log
 ! grep '"system_status":{"status":.*failing_conditions' status.log
 
-# Validate table and JSON output (for sysdump)
+# Validate table
 db/cmp diagnostics diagnostics.table
+
+
+# Toggle the simulated failure
+diagnostics/toggle-fail
+db/cmp diagnostics diagnostics_fail.table
+
+# Validate JSON output (for sysdump as part of statedb dump)
 db/show diagnostics -f json -o diagnostics-actual.json
 sed '"EvaluatedAt": .*' '"EvaluatedAt": <sanitized>,' diagnostics-actual.json
 sed '"Avg.*' '<sanitized>' diagnostics-actual.json
 sed '"P[59].*' '<sanitized>' diagnostics-actual.json
-sed '"TotalCount": .*' '"TotalCount": <sanitized>' diagnostics-actual.json
-cmp diagnostics-actual.json diagnostics.json
-
-# Toggle the simulated failure
-diagnostics/toggle-fail
+sed '"TotalCount": 0,' '"TotalCount": <zero>,' diagnostics-actual.json
+sed '"TotalCount": \d+,' '"TotalCount": <not-zero>,' diagnostics-actual.json
+sed '"FailedCount": 0,' '"FailedCount": <zero>,' diagnostics-actual.json
+sed '"FailedCount": \d+,' '"FailedCount": <not-zero>,' diagnostics-actual.json
+* cmp diagnostics-actual.json diagnostics.json
 
 # Verify that a failing conditions is posted
 * grep '"system_status":{"status":.*failing_conditions.*diagnostics_simulated_failure' status.log
@@ -25,9 +32,14 @@ diagnostics/toggle-fail
 ###
 
 -- diagnostics.table --
-ID                              Failed  Evaluator
-diagnostics_evaluation_duration 0       diagnostics.(*internalConditions).checkEvaluationDuration
-diagnostics_simulated_failure   0       diagnostics.(*internalConditions).checkSimulatedFailure
+ID                              Failed  Latest                      LastFailure     Evaluator
+diagnostics_evaluation_duration 0       Succeeded 0s ago (OK)       <none>          diagnostics.(*internalConditions).checkEvaluationDuration
+diagnostics_simulated_failure   0       Succeeded 0s ago (OK)       <none>          diagnostics.(*internalConditions).checkSimulatedFailure
+
+-- diagnostics_fail.table --
+ID                              Latest                                      LastFailure
+diagnostics_evaluation_duration Succeeded 0s ago (OK)                       <none>
+diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Failed 0s ago: Simulated failure triggered
 
 -- diagnostics.json --
 {
@@ -35,12 +47,17 @@ diagnostics_simulated_failure   0       diagnostics.(*internalConditions).checkS
     "ID": "diagnostics_evaluation_duration",
     "Evaluator": "diagnostics.(*internalConditions).checkEvaluationDuration"
   },
-  "TotalCount": <sanitized>
-  "FailedCount": 0,
+  "TotalCount": <not-zero>,
+  "FailedCount": <zero>,
   "Latest": {
     "EvaluatedAt": <sanitized>,
     "Failure": false,
-    "Message": "OK 0.00s"
+    "Message": "OK"
+  },
+  "LastFailure": {
+    "EvaluatedAt": <sanitized>,
+    "Failure": false,
+    "Message": ""
   },
   "Sampler": {
     "Type": "Histogram",
@@ -68,12 +85,17 @@ diagnostics_simulated_failure   0       diagnostics.(*internalConditions).checkS
     "ID": "diagnostics_simulated_failure",
     "Evaluator": "diagnostics.(*internalConditions).checkSimulatedFailure"
   },
-  "TotalCount": <sanitized>
-  "FailedCount": 0,
+  "TotalCount": <not-zero>,
+  "FailedCount": <not-zero>,
   "Latest": {
     "EvaluatedAt": <sanitized>,
-    "Failure": false,
-    "Message": "OK"
+    "Failure": true,
+    "Message": "Simulated failure triggered"
+  },
+  "LastFailure": {
+    "EvaluatedAt": <sanitized>,
+    "Failure": true,
+    "Message": "Simulated failure triggered"
   },
   "Sampler": null
 }

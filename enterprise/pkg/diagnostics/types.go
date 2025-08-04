@@ -228,6 +228,7 @@ type ConditionStatus struct {
 	TotalCount  int
 	FailedCount int
 	Latest      Evaluation
+	LastFailure Evaluation
 
 	Sampler sampler
 }
@@ -239,6 +240,7 @@ func (c ConditionStatus) TableHeader() []string {
 		"Total",
 		"Failed",
 		"Latest",
+		"LastFailure",
 		"Sampler",
 		"Evaluator",
 	}
@@ -255,6 +257,7 @@ func (c ConditionStatus) TableRow() []string {
 		strconv.FormatInt(int64(c.TotalCount), 10),
 		strconv.FormatInt(int64(c.FailedCount), 10),
 		c.Latest.String(),
+		c.LastFailure.String(),
 		samplerStatus,
 		funcNameAndLocation(c.Condition.Evaluator),
 	}
@@ -271,7 +274,7 @@ type Evaluation struct {
 
 func (e Evaluation) String() string {
 	if e.EvaluatedAt.IsZero() {
-		return "<not evaluated>"
+		return "<none>"
 	}
 
 	var b strings.Builder

@@ -68,7 +68,7 @@ func (ic *internalConditions) checkEvaluationDuration(env Environment) (Message,
 			true
 	}
 
-	return fmt.Sprintf("OK %.2fs", stats.Avg_Latest), false
+	return "OK", false
 }
 
 func (ic *internalConditions) checkSimulatedFailure(env Environment) (Message, bool) {
