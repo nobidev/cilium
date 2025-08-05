@@ -67,17 +67,21 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	proxyCtx := newProxyContext(log, cfg, params.Client, params.Notifier.remoteNameManager)
-	go func() {
-		err := proxyCtx.establishAgentProxyStream()
-		if err != nil {
-			log.Error("Proxy stream error", logfields.Error, err)
-		}
-	}()
+	remoteNameManager := params.Notifier.remoteNameManager
+	if !cfg.EnableOfflineMode {
+		log.Info(`The proxy status stream from the agent is not needed, because "enable-offline-mode" has been set to false.`)
+	} else {
+		go func() {
+			err := remoteNameManager.establishAgentProxyStream()
+			if err != nil {
+				log.Error("Proxy stream error", logfields.Error, err)
+			}
+		}()
+	}
 
 	proxy := dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
-		proxyCtx,
+		remoteNameManager,
 		params.Notifier.NotifyOnDNSMsg,
 	)
 

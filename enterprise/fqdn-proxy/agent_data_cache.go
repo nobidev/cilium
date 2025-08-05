@@ -29,7 +29,7 @@ type AgentDataCache struct {
 	lock lock.RWMutex
 }
 
-func NewCache() AgentDataCache {
+func newAgentDataCache() AgentDataCache {
 	return AgentDataCache{
 		endpointByIP: make(map[netip.Addr]*endpoint.Endpoint),
 		identityByIP: make(map[netip.Addr]ipcache.Identity),

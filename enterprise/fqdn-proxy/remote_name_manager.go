@@ -11,30 +11,42 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"regexp"
 	"slices"
 
 	"github.com/cilium/dns"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type remoteNameManager struct {
 	logger *slog.Logger
 
 	cfg     Config
+	client  *fqdnAgentClient
+	cache   AgentDataCache
 	ipcache bpfIPCache
 
 	identities       *identityStore
@@ -43,10 +55,17 @@ type remoteNameManager struct {
 	selectorsSynced  bool
 }
 
-func newRemoteNameManager(logger *slog.Logger, cfg Config, ipcache bpfIPCache) *remoteNameManager {
+func newRemoteNameManager(
+	logger *slog.Logger,
+	cfg Config,
+	client *fqdnAgentClient,
+	ipcache bpfIPCache,
+) *remoteNameManager {
 	return &remoteNameManager{
 		logger:           logger,
 		cfg:              cfg,
+		client:           client,
+		cache:            newAgentDataCache(),
 		ipcache:          ipcache,
 		identities:       newIdentityStore(),
 		selectors:        newSelectorStore(),
@@ -55,12 +74,167 @@ func newRemoteNameManager(logger *slog.Logger, cfg Config, ipcache bpfIPCache) *
 	}
 }
 
-func (r *remoteNameManager) LookupIPCache(addr netip.Addr) (identity.NumericIdentity, error) {
+func (r *remoteNameManager) establishAgentProxyStream() error {
+	r.logger.Info("Starting to stream proxy status from the agent...")
+	var (
+		ps  grpc.ServerStreamingClient[pb.SelectorUpdate]
+		err error
+	)
+	// TODO: This method needs more work to reach maturity
+	// but until the SubscribeProxyStatus server implementation
+	// streams status (rather than just returning on one update)
+	// this stub works fine.
+	for {
+		ps, err = r.client.SubscribeSelectors(context.Background(), &pb.Empty{})
+		if err != nil {
+			sts, ok := status.FromError(err)
+			// This agent does not support proxy status.
+			// Keep checking though in case the agent upgrades.
+			if ok && sts.Code() == codes.Unimplemented {
+				time.Sleep(time.Minute)
+				continue
+			}
+			return fmt.Errorf("subscribing to selector stream from agent failed: %w", err)
+		}
+
+		r.logger.Info("The selector update stream is established.")
+		for {
+			selectorUpdate, err := ps.Recv()
+			if err != nil {
+				return fmt.Errorf("error receiving selector update: %w", err)
+			}
+
+			r.handleSelectorUpdate(selectorUpdate)
+		}
+	}
+}
+
+// LookupRegisteredEndpoint wraps logic to lookup an endpoint with any backend.
+func (r *remoteNameManager) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+	// Make sure to send IPv4 addresses as [4]byte instead of [16]byte over gRPC, so they aren't
+	// mistakenly treated as IPv6-mapped IPv4 addresses anywhere in the Cilium agent.
+	var bs []byte
+
+	if ip.Is4In6() {
+		b := ip.As4()
+		bs = b[:]
+	} else {
+		bs = ip.AsSlice()
+	}
+
+	ep, err := r.client.LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: bs})
+	if err != nil {
+		if r.client.shouldLog(err) {
+			r.logger.Error("LookupRegisteredEndpoint request failed", logfields.Error, err)
+		}
+
+		r.cache.lock.RLock()
+		endpoint, ok := r.cache.endpointByIP[ip]
+		r.cache.lock.RUnlock()
+		if !ok {
+			r.logger.Error("LookupRegisteredEndpoint: agent down and endpoint IP not in cache", logfields.IPAddr, ip)
+			return nil, false, fmt.Errorf("could not lookup endpoint for ip %s: %w", ip, err)
+		}
+		r.logger.Debug("LookupRegisteredEndpoint: agent down, endpoint IP in cache", logfields.IPAddr, ip)
+		return endpoint, false, nil
+	}
+	endpoint := &endpoint.Endpoint{
+		ID: uint16(ep.ID),
+		SecurityIdentity: &identity.Identity{
+			ID: identity.NumericIdentity(ep.Identity),
+		},
+		K8sNamespace: ep.Namespace,
+		K8sPodName:   ep.PodName,
+	}
+	r.cache.lock.Lock()
+	r.cache.endpointByIP[ip] = endpoint
+	r.cache.lock.Unlock()
+	return endpoint, false, nil
+}
+
+func (r *remoteNameManager) lookupIPCache(addr netip.Addr) (identity.NumericIdentity, error) {
 	if !r.cfg.EnableOfflineMode {
 		return identity.NumericIdentity(0), errors.New("BPF IP cache map access not available")
 	}
 
 	return r.ipcache.lookup(addr)
+}
+
+// LookupSecIDByIP wraps logic to lookup an IP's security ID from the ipcache.
+func (r *remoteNameManager) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
+	if !ip.IsValid() {
+		return ipcache.Identity{}, false
+	}
+	var src = source.Unspec
+	id, err := r.lookupIPCache(ip)
+	if err != nil {
+		ident, err := r.client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip.AsSlice()})
+		if err != nil {
+			if r.client.shouldLog(err) {
+				r.logger.Error("LookupSecIDByIP request failed", logfields.Error, err)
+			}
+
+			r.cache.lock.RLock()
+			cachedID, ok := r.cache.identityByIP[ip]
+			r.cache.lock.RUnlock()
+			if !ok {
+				r.logger.Error("LookupSecIDByIP: agent down, IP not in cache", logfields.IPAddr, ip)
+				return ipcache.Identity{}, false
+			}
+			// TODO: check if this assumption is correct
+			// we assume that the identity exists if it's in the cache
+			r.logger.Debug("LookupSecIDByIP: agent down, IP in cache",
+				logfields.IPAddr, ip,
+				logfields.Identity, secID)
+			return cachedID, true
+		}
+
+		id = identity.NumericIdentity(ident.ID)
+		src = source.Source(ident.Source)
+	}
+
+	identity := ipcache.Identity{
+		ID:     id,
+		Source: src,
+	}
+
+	r.cache.lock.Lock()
+	r.cache.identityByIP[ip] = identity
+	r.cache.lock.Unlock()
+
+	return identity, true
+}
+
+// LookupByIdentity wraps logic to lookup an IPs by security ID from the
+// ipcache.
+func (r *remoteNameManager) LookupByIdentity(nid identity.NumericIdentity) []string {
+	ips, err := r.client.LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
+	if err != nil {
+		if r.client.shouldLog(err) {
+			r.logger.Error("LookupByIdentity request failed", logfields.Error, err)
+		}
+
+		r.cache.lock.RLock()
+		cachedIPs, ok := r.cache.ipBySecID[nid]
+		r.cache.lock.RUnlock()
+		if !ok {
+			r.logger.Error("LookupByIdentity: agent down, id not in cache", logfields.Identity, nid)
+			return nil
+		}
+
+		r.logger.Debug("LookupByIdentity: agent down, id in cache", logfields.Identity, nid)
+		return cachedIPs
+	}
+
+	result := make([]string, 0, len(ips.IPs))
+	for _, ip := range ips.IPs {
+		result = append(result, net.IP(ip).String())
+	}
+
+	r.cache.lock.Lock()
+	r.cache.ipBySecID[nid] = result
+	r.cache.lock.Unlock()
+	return result
 }
 
 func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
@@ -154,7 +328,7 @@ func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
 	}
 }
 
-func (r *remoteNameManager) HandleSelectorUpdate(su *pb.SelectorUpdate) {
+func (r *remoteNameManager) handleSelectorUpdate(su *pb.SelectorUpdate) {
 	r.logger.Debug("got selector update message", logfields.Message, su)
 
 	if fqdnIdentity := su.GetFqdnIdentity(); fqdnIdentity != nil {

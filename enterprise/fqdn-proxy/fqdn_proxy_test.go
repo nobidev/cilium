@@ -361,9 +361,13 @@ func TestLookupSecIDByIP(t *testing.T) {
 				ipEndpointMap: ipEndpointMap,
 			}
 
-			pc := newTestProxyContext(t, logger, fIPC, client, !tt.disableOfflineMode)
-			pc.establishAgentProxyStream()
-			secID, exists := pc.LookupSecIDByIP(tt.lookupAddr)
+			cfg := Config{EnableOfflineMode: !tt.disableOfflineMode} //nolint:exhaustruct
+
+			remoteNameManager := newRemoteNameManager(logger, cfg, client, fIPC)
+			go func() {
+				remoteNameManager.establishAgentProxyStream()
+			}()
+			secID, exists := remoteNameManager.LookupSecIDByIP(tt.lookupAddr)
 			if tt.exists != exists {
 				expected := ""
 				got := "does"
@@ -515,25 +519,6 @@ func (fa *fakeAgent) LookupSecurityIdentityByIP(ctx context.Context, in *pb.FQDN
 
 func (fa *fakeAgent) SubscribeSelectors(_ *pb.Empty, stream grpc.ServerStreamingServer[pb.SelectorUpdate]) error {
 	return stream.Send(&pb.SelectorUpdate{}) // TODO
-}
-
-func newTestProxyContext(
-	t *testing.T,
-	logger *slog.Logger,
-	ipcache bpfIPCache,
-	client *fqdnAgentClient,
-	enableOfflineMode bool,
-) *proxyContext {
-	t.Helper()
-
-	cfg := Config{EnableOfflineMode: enableOfflineMode} //nolint:exhaustruct
-	return &proxyContext{
-		log:               logger,
-		cfg:               cfg,
-		client:            client,
-		cache:             NewCache(),
-		remoteNameManager: newRemoteNameManager(logger, cfg, ipcache),
-	}
 }
 
 type fakeIPCache struct {

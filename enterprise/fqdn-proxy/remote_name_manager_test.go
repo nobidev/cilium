@@ -79,6 +79,7 @@ func TestRemoteNameManager(t *testing.T) {
 			EnableIPV4:        true,
 			EnableIPV6:        true,
 		},
+		&fqdnAgentClient{},
 		ipCache,
 	)
 	assert.Equal(t, 0, r.identities.len())
@@ -90,7 +91,7 @@ func TestRemoteNameManager(t *testing.T) {
 	fqdn := "isovalent.com"
 
 	// BPF ipcache is empty, we don't expect to find a mapping
-	id, err := r.LookupIPCache(ipAddr)
+	id, err := r.lookupIPCache(ipAddr)
 	assert.EqualError(t, err, "key does not exist")
 	assert.Equal(t, identity.NumericIdentity(0), id)
 	assert.Len(t, ipCache.lookupCalls, 1)
@@ -115,7 +116,7 @@ func TestRemoteNameManager(t *testing.T) {
 		},
 	}
 
-	r.HandleSelectorUpdate(su)
+	r.handleSelectorUpdate(su)
 
 	assert.Equal(t, 1, r.identities.len())
 	assert.Equal(t, 0, r.selectors.len())
@@ -129,7 +130,7 @@ func TestRemoteNameManager(t *testing.T) {
 		},
 	}
 
-	r.HandleSelectorUpdate(su)
+	r.handleSelectorUpdate(su)
 
 	assert.Equal(t, 1, r.identities.len())
 	assert.Equal(t, 1, r.selectors.len())
@@ -140,20 +141,20 @@ func TestRemoteNameManager(t *testing.T) {
 			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
 		},
 	}
-	r.HandleSelectorUpdate(su)
+	r.handleSelectorUpdate(su)
 	su = &pb.SelectorUpdate{
 		FqdnIdentity: &pb.FQDNIdentityUpdate{
 			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
 		},
 	}
-	r.HandleSelectorUpdate(su)
+	r.handleSelectorUpdate(su)
 
 	assert.True(t, r.identitiesSynced)
 	assert.True(t, r.selectorsSynced)
 
 	// Expect to find a mapping based on the DNS response
 	r.MaybeUpdateIPCache(newDNSMsg(ipAddr, fqdn))
-	id, err = r.LookupIPCache(ipAddr)
+	id, err = r.lookupIPCache(ipAddr)
 	assert.NoError(t, err)
 	assert.Equal(t, wantID, id)
 
@@ -162,7 +163,7 @@ func TestRemoteNameManager(t *testing.T) {
 	unknownFQDN := "example.org"
 	ipAddrForUnknown := netip.MustParseAddr("10.0.1.2")
 	r.MaybeUpdateIPCache(newDNSMsg(ipAddrForUnknown, unknownFQDN))
-	id, err = r.LookupIPCache(ipAddrForUnknown)
+	id, err = r.lookupIPCache(ipAddrForUnknown)
 	assert.Error(t, err)
 	assert.Equal(t, identity.NumericIdentity(0), id)
 
@@ -170,7 +171,7 @@ func TestRemoteNameManager(t *testing.T) {
 	// the DNS response
 	newIPAddr := netip.MustParseAddr("192.168.1.99")
 	r.MaybeUpdateIPCache(newDNSMsg(newIPAddr, fqdn))
-	id, err = r.LookupIPCache(newIPAddr)
+	id, err = r.lookupIPCache(newIPAddr)
 	assert.NoError(t, err)
 	assert.Equal(t, wantID, id)
 }
