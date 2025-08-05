@@ -18,7 +18,7 @@ struct non_pinned_policy_map {
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, struct endpoint_key);
-	__type(value, int);
+	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EXT_EPS_POLICY_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC);

@@ -18,7 +18,7 @@ import (
 func init() {
 	registerToCheckSizes(map[string][]any{
 		"endpoint_key":            {extepspolicy.Key{}},
-		"int":                     {extepspolicy.Value{}},
+		"__u32":                   {extepspolicy.Value{}},
 		"encryption_policy_key":   {encryptionpolicymap.EncryptionPolicyKey{}},
 		"encryption_policy_entry": {encryptionpolicymap.EncryptionPolicyVal{}},
 	})
