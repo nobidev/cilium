@@ -46,7 +46,7 @@ type remoteNameManager struct {
 
 	cfg     Config
 	client  *fqdnAgentClient
-	cache   AgentDataCache
+	cache   *agentDataCache
 	ipcache bpfIPCache
 
 	identities       *identityStore
@@ -128,9 +128,7 @@ func (r *remoteNameManager) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 			r.logger.Error("LookupRegisteredEndpoint request failed", logfields.Error, err)
 		}
 
-		r.cache.lock.RLock()
-		endpoint, ok := r.cache.endpointByIP[ip]
-		r.cache.lock.RUnlock()
+		endpoint, ok := r.cache.GetEndpointByIP(ip)
 		if !ok {
 			r.logger.Error("LookupRegisteredEndpoint: agent down and endpoint IP not in cache", logfields.IPAddr, ip)
 			return nil, false, fmt.Errorf("could not lookup endpoint for ip %s: %w", ip, err)
@@ -146,9 +144,7 @@ func (r *remoteNameManager) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		K8sNamespace: ep.Namespace,
 		K8sPodName:   ep.PodName,
 	}
-	r.cache.lock.Lock()
-	r.cache.endpointByIP[ip] = endpoint
-	r.cache.lock.Unlock()
+	r.cache.UpsertEndpoint(ip, endpoint)
 	return endpoint, false, nil
 }
 
@@ -174,9 +170,7 @@ func (r *remoteNameManager) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identi
 				r.logger.Error("LookupSecIDByIP request failed", logfields.Error, err)
 			}
 
-			r.cache.lock.RLock()
-			cachedID, ok := r.cache.identityByIP[ip]
-			r.cache.lock.RUnlock()
+			cachedID, ok := r.cache.GetIdentityByIP(ip)
 			if !ok {
 				r.logger.Error("LookupSecIDByIP: agent down, IP not in cache", logfields.IPAddr, ip)
 				return ipcache.Identity{}, false
@@ -197,11 +191,7 @@ func (r *remoteNameManager) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identi
 		ID:     id,
 		Source: src,
 	}
-
-	r.cache.lock.Lock()
-	r.cache.identityByIP[ip] = identity
-	r.cache.lock.Unlock()
-
+	r.cache.UpsertIdentity(ip, identity)
 	return identity, true
 }
 
@@ -214,9 +204,7 @@ func (r *remoteNameManager) LookupByIdentity(nid identity.NumericIdentity) []str
 			r.logger.Error("LookupByIdentity request failed", logfields.Error, err)
 		}
 
-		r.cache.lock.RLock()
-		cachedIPs, ok := r.cache.ipBySecID[nid]
-		r.cache.lock.RUnlock()
+		cachedIPs, ok := r.cache.GetIPsBySecID(nid)
 		if !ok {
 			r.logger.Error("LookupByIdentity: agent down, id not in cache", logfields.Identity, nid)
 			return nil
@@ -230,10 +218,7 @@ func (r *remoteNameManager) LookupByIdentity(nid identity.NumericIdentity) []str
 	for _, ip := range ips.IPs {
 		result = append(result, net.IP(ip).String())
 	}
-
-	r.cache.lock.Lock()
-	r.cache.ipBySecID[nid] = result
-	r.cache.lock.Unlock()
+	r.cache.UpsertIPs(nid, result)
 	return result
 }
 

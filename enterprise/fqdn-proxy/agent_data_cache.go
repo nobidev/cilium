@@ -19,20 +19,68 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// AgentDataCache is a cache which stores data retrieved from agent by
-// DNS proxy so that proxy can function when agent is unavailable
-type AgentDataCache struct {
-	endpointByIP map[netip.Addr]*endpoint.Endpoint
-	identityByIP map[netip.Addr]ipcache.Identity
-	ipBySecID    map[identity.NumericIdentity][]string
-
-	lock lock.RWMutex
+type lockedMap[K comparable, V any] struct {
+	mu lock.RWMutex
+	m  map[K]V
 }
 
-func newAgentDataCache() AgentDataCache {
-	return AgentDataCache{
-		endpointByIP: make(map[netip.Addr]*endpoint.Endpoint),
-		identityByIP: make(map[netip.Addr]ipcache.Identity),
-		ipBySecID:    make(map[identity.NumericIdentity][]string),
+func newLockedMap[K comparable, V any]() *lockedMap[K, V] {
+	return &lockedMap[K, V]{
+		m: make(map[K]V),
 	}
+}
+
+func (m *lockedMap[K, V]) Load(k K) (V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	v, ok := m.m[k]
+	return v, ok
+}
+
+func (m *lockedMap[K, V]) Store(k K, v V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.m[k] = v
+}
+
+// agentDataCache is a cache which stores data retrieved from agent by
+// DNS proxy so that proxy can function when agent is unavailable
+type agentDataCache struct {
+	endpointByIP *lockedMap[netip.Addr, *endpoint.Endpoint]
+	identityByIP *lockedMap[netip.Addr, ipcache.Identity]
+	ipBySecID    *lockedMap[identity.NumericIdentity, []string]
+}
+
+func newAgentDataCache() *agentDataCache {
+	return &agentDataCache{
+		endpointByIP: newLockedMap[netip.Addr, *endpoint.Endpoint](),
+		identityByIP: newLockedMap[netip.Addr, ipcache.Identity](),
+		ipBySecID:    newLockedMap[identity.NumericIdentity, []string](),
+	}
+}
+
+func (c *agentDataCache) GetEndpointByIP(ip netip.Addr) (*endpoint.Endpoint, bool) {
+	return c.endpointByIP.Load(ip)
+}
+
+func (c *agentDataCache) UpsertEndpoint(ip netip.Addr, endpoint *endpoint.Endpoint) {
+	c.endpointByIP.Store(ip, endpoint)
+}
+
+func (c *agentDataCache) GetIdentityByIP(ip netip.Addr) (ipcache.Identity, bool) {
+	return c.identityByIP.Load(ip)
+}
+
+func (c *agentDataCache) UpsertIdentity(ip netip.Addr, identity ipcache.Identity) {
+	c.identityByIP.Store(ip, identity)
+}
+
+func (c *agentDataCache) GetIPsBySecID(nid identity.NumericIdentity) ([]string, bool) {
+	return c.ipBySecID.Load(nid)
+}
+
+func (c *agentDataCache) UpsertIPs(nid identity.NumericIdentity, ips []string) {
+	c.ipBySecID.Store(nid, ips)
 }
