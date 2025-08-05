@@ -406,7 +406,7 @@ func (n *notifier) NotifyOnDNSMsg(
 	}
 
 	// Best effort: try plumping BPF ipcache map while agent is offline (i.e. not in state LIVE).
-	if n.stateManager.GetCurrentProxyState() != pb.RemoteProxyStatus_RPS_LIVE {
+	if state := n.stateManager.GetCurrentProxyState(); state.Status != pb.RemoteProxyStatus_RPS_LIVE {
 		n.remoteNameManager.MaybeUpdateIPCache(msg)
 	}
 
