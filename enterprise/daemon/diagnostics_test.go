@@ -11,14 +11,17 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/statedb"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/cilium/cilium/enterprise/pkg/diagnostics"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 )
@@ -86,4 +89,86 @@ func newHealthTable(db *statedb.DB) (statedb.RWTable[types.Status], error) {
 		return nil, err
 	}
 	return statusTable, nil
+}
+
+func TestStateDBCondition_WriteTxn(t *testing.T) {
+	statedbMetrics := hive.NewStateDBMetrics()
+	fakeEnv := &diagnostics.FakeEnvironment{}
+	strp := func(s string) *string { return &s }
+	eval := evalStateDB(statedbMetrics)
+
+	// Evaluate without any matching metrics
+	msg, fail := eval(fakeEnv)
+	assert.Contains(t, msg, "OK")
+	assert.False(t, fail)
+
+	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
+		{
+			Name: statedbMetrics.WriteTxnDuration.Opts().ConfigName,
+			Raw: &dto.Metric{
+				Label: []*dto.LabelPair{{
+					Name:  strp("handle"),
+					Value: strp("foo"),
+				}},
+			},
+		},
+	}
+	fakeEnv.FakeHistogram.Avg_Latest = defaultStateDBWriteTxnThresholdSeconds / 2
+
+	// Evaluate with a matching metric but below the threshold
+	msg, fail = eval(fakeEnv)
+	assert.Equal(t, fmt.Sprintf("WriteTxn OK (max %.1fs), Graveyard OK", fakeEnv.FakeHistogram.Avg_Latest), msg)
+	assert.False(t, fail, "Succeed with metric below threshold")
+
+	// Set the metrics above the threshold
+	fakeEnv.FakeHistogram.Avg_Latest = defaultStateDBWriteTxnThresholdSeconds * 2
+
+	// Evaluate with metric above the threshold
+	msg, fail = eval(fakeEnv)
+	assert.Equal(t, fmt.Sprintf("WriteTxn latency >%.1fs for [handle=foo], Graveyard OK", defaultStateDBWriteTxnThresholdSeconds), msg)
+	assert.True(t, fail, "Fail with metric above threshold")
+
+	// Test with a custom user constant
+	fakeEnv.FakeUserConstants = map[string]float64{
+		keyStateDBWriteTxnThreshold: 2.0,
+	}
+	fakeEnv.FakeHistogram.Avg_Latest = 1.5
+	_, fail = eval(fakeEnv)
+	assert.False(t, fail)
+	fakeEnv.FakeHistogram.Avg_Latest = 2.5
+	_, fail = eval(fakeEnv)
+	assert.True(t, fail)
+}
+
+func TestStateDBCondition_Graveyard(t *testing.T) {
+	statedbMetrics := hive.NewStateDBMetrics()
+	fakeEnv := &diagnostics.FakeEnvironment{}
+	strp := func(s string) *string { return &s }
+	eval := evalStateDB(statedbMetrics)
+
+	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
+		{
+			Name: statedbMetrics.TableGraveyardObjectCount.Opts().ConfigName,
+			Raw: &dto.Metric{
+				Label: []*dto.LabelPair{{
+					Name:  strp("table"),
+					Value: strp("foo"),
+				}},
+			},
+		},
+	}
+	fakeEnv.FakeGauge.Avg_1h = 0.1
+
+	// Evaluate with a matching metric but below the threshold
+	msg, fail := eval(fakeEnv)
+	assert.Regexp(t, `WriteTxn OK.*Graveyard OK`, msg)
+	assert.False(t, fail, "Succeed with metric below threshold")
+
+	// Set the metrics above the threshold
+	fakeEnv.FakeGauge.Avg_1h = 2.0
+
+	// Evaluate with metric above the threshold
+	msg, fail = eval(fakeEnv)
+	assert.Regexp(t, `WriteTxn OK.*Graveyard: Potentially stuck.*for \[table=foo\]`, msg)
+	assert.True(t, fail, "Fail with metric above threshold")
 }

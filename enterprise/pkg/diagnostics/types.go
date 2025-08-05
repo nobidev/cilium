@@ -148,19 +148,35 @@ type Metric struct {
 	Raw *dto.Metric
 }
 
-// Labels returns the labels as a comma-separated list, e.g. "foo=bar, baz=quux"
-func (m *Metric) Labels() string {
+func (m *Metric) Labels() prometheus.Labels {
+	if m.Raw == nil {
+		return nil
+	}
+	labels := make(prometheus.Labels, len(m.Raw.Label))
+	for _, lp := range m.Raw.Label {
+		if lp.Name != nil && lp.Value != nil {
+			labels[*lp.Name] = *lp.Value
+		}
+	}
+	return labels
+}
+
+// LabelsString returns the labels as a comma-separated list, e.g. "foo=bar, baz=quux"
+func (m *Metric) LabelsString() string {
+	if m.Raw == nil {
+		return ""
+	}
 	var labels []string
 	for _, lp := range m.Raw.Label {
 		if lp.Name != nil && lp.Value != nil {
-			labels = append(labels, fmt.Sprintf("%s=%s ", *lp.Name, *lp.Value))
+			labels = append(labels, fmt.Sprintf("%s=%s", *lp.Name, *lp.Value))
 		}
 	}
-	return strings.Join(labels, ", ")
+	return strings.Join(labels, ",")
 }
 
 func (m *Metric) key() string {
-	return m.Name + "[" + m.Labels() + "]"
+	return m.Name + "[" + m.LabelsString() + "]"
 }
 
 type HistogramStats struct {

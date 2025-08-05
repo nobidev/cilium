@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/diagnostics"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -39,9 +40,22 @@ const (
 	// keyEndpointRegenMultiplier is the key for setting the threshold for endpoint regeneration latency, e.g.
 	// how many times the 24h average latency should the latency be before the condition fails.
 	keyEndpointRegenMultiplier = "endpoint_regen_multiplier"
+
+	// defaultEndpointRegenMultiplier is the default threshold multiplier, e.g. if the current average latency
+	// (average latency since the last evaluation) multiplied by this multiplier is above the 24h average then
+	// the condition is marked failed.
+	defaultEndpointRegenMultiplier = 3.0
+
+	// keyStateDBWriteTxnThreshold is the threshold for when to report that there are StateDB WriteTxns that
+	// are taking too long.
+	keyStateDBWriteTxnThreshold = "statedb_write_txn_latency_seconds"
+
+	// defaultStateDBWriteTxnThresholdSeconds is the default threshold for write transaction durations that
+	// we use if a user constant with key [keyStateDBWriteTxnThreshold] is not present.
+	defaultStateDBWriteTxnThresholdSeconds = 5.0
 )
 
-func registerConditions(reg *diagnostics.Registry, db *statedb.DB, healthTable statedb.Table[healthTypes.Status]) error {
+func registerConditions(reg *diagnostics.Registry, db *statedb.DB, dbMetrics hive.StateDBMetrics, healthTable statedb.Table[healthTypes.Status]) error {
 	return reg.Register(
 		diagnostics.Condition{
 			ID:          "endpoint_regeneration",
@@ -58,6 +72,14 @@ func registerConditions(reg *diagnostics.Registry, db *statedb.DB, healthTable s
 			Severity:    diagnostics.SeverityDebug,
 			Evaluator:   evalHiveHealth(db, healthTable),
 		},
+
+		diagnostics.Condition{
+			ID:          "statedb",
+			SubSystem:   "StateDB",
+			Description: "StateDB metrics indicate a potentially problematic access patterns",
+			Severity:    diagnostics.SeverityDebug,
+			Evaluator:   evalStateDB(dbMetrics),
+		},
 	)
 }
 
@@ -68,10 +90,11 @@ func evalEndpointRegeneration(env diagnostics.Environment) (msg string, failed b
 	}
 
 	// Default to 3x the 24h average as the threshold, but allow override with "endpoint_regen_multiplier" constant.
-	multp := env.UserConstant(keyEndpointRegenMultiplier, 3)
+	multp := env.UserConstant(keyEndpointRegenMultiplier, defaultEndpointRegenMultiplier)
 
 	if stats.Avg_24h > 0.0 && stats.Avg_Latest > multp*stats.Avg_24h {
-		msg = fmt.Sprintf("current average endpoint regeneration latency %.1fs is >%.1fx the 24 hour average of %.1fs", stats.Avg_Latest, multp, stats.Avg_24h)
+		msg = fmt.Sprintf("Current average endpoint regeneration latency %.1fs is >%.1fx the 24 hour average of %.1fs",
+			stats.Avg_Latest, multp, stats.Avg_24h)
 		failed = true
 		return
 	}
@@ -89,4 +112,76 @@ func evalHiveHealth(db *statedb.DB, healthTable statedb.Table[healthTypes.Status
 		}
 		return "", false
 	}
+}
+
+func evalStateDB(statedbMetrics hive.StateDBMetrics) diagnostics.Evaluator {
+	return func(env diagnostics.Environment) (msg string, failed bool) {
+		msgTxn, failedTxn := evalStateDBWriteTxnDuration(statedbMetrics, env)
+		msgGraveyard, failedGraveyard := evalStateDBGraveyardObjects(statedbMetrics, env)
+		return strings.Join([]string{msgTxn, msgGraveyard}, ", "), failedTxn || failedGraveyard
+	}
+}
+
+// evalStateDB_WriteTxnDuration checks if there are any write transactions that take longer than expected.
+// In StateDB it's preferred to keep write transactions fairly short by breaking up processing into batches.
+// This reduces table contention when there are multiple writers and keeps the overall latency of the system low.
+func evalStateDBWriteTxnDuration(statedbMetrics hive.StateDBMetrics, env diagnostics.Environment) (msg string, failed bool) {
+	// Grab all matching "write_txn_duration" metrics regardless of the labels
+	writeTxnMetricName := statedbMetrics.WriteTxnDuration.Opts().ConfigName
+	writeTxnMetrics, err := env.MetricsMatchingLabels(
+		writeTxnMetricName,
+		nil)
+	if err != nil {
+		return err.Error(), true
+	}
+
+	// See if any of the metrics has an average latency above the threshold
+	maxAverage := 0.0
+	txnThreshold := env.UserConstant(keyStateDBWriteTxnThreshold, defaultStateDBWriteTxnThresholdSeconds)
+	var slowHandles []string
+	for _, m := range writeTxnMetrics {
+		stats, err := env.Histogram(writeTxnMetricName, m.Labels())
+		if err != nil {
+			continue
+		}
+		maxAverage = max(maxAverage, stats.Avg_Latest)
+		if stats.Avg_Latest > txnThreshold {
+			slowHandles = append(slowHandles, m.LabelsString())
+		}
+	}
+	if len(slowHandles) > 0 {
+		return fmt.Sprintf("WriteTxn latency >%.1fs for %v", txnThreshold, slowHandles), true
+	}
+	return fmt.Sprintf("WriteTxn OK (max %.1fs)", maxAverage), false
+}
+
+// evalStateDB_GraveyardObjects checks if there are objects in the graveyard index that are never collected.
+// The "graveyard" index is how StateDB implements change events for deleted objects in the Changes() API, e.g.
+// if there are consumers for change events then on deletion object is inserted into the graveyard index until
+// it has been observed by all consumers. This condition makes sure we don't have stuck consumers for deleted objects.
+func evalStateDBGraveyardObjects(statedbMetrics hive.StateDBMetrics, env diagnostics.Environment) (msg string, failed bool) {
+	metricName := statedbMetrics.TableGraveyardObjectCount.Opts().ConfigName
+	metrics, err := env.MetricsMatchingLabels(
+		metricName,
+		nil)
+	if err != nil {
+		return err.Error(), true
+	}
+
+	// Look at the graveyard object count of each table and fail if the 1 hour average is above 1 object,
+	// e.g. this indicates the gauge has not been below 1 in the last hour.
+	var failedTables []string
+	for _, m := range metrics {
+		stats, err := env.Gauge(metricName, m.Labels())
+		if err != nil {
+			continue
+		}
+		if stats.Avg_1h > 1.0 {
+			failedTables = append(failedTables, m.LabelsString())
+		}
+	}
+	if len(failedTables) > 0 {
+		return fmt.Sprintf("Graveyard: Potentially stuck Changes() consumers detected for %v", failedTables), true
+	}
+	return "Graveyard OK", false
 }
