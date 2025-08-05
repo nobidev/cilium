@@ -20,7 +20,7 @@ import (
 )
 
 func Test_MergePolicies(t *testing.T) {
-	neighbor1 := []string{"192.168.1.1"}
+	neighbor1 := []netip.Addr{netip.MustParseAddr("192.168.1.1")}
 
 	v4PrefixAExact1 := &types.RoutePolicyPrefixMatch{
 		CIDR:         netip.MustParsePrefix("10.100.1.1/32"),

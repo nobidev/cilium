@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
-	"github.com/cilium/cilium/pkg/defaults"
 	fqdnDNS "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -213,7 +212,7 @@ func TestIdentityStore(t *testing.T) {
 }
 
 func TestSelectorStore(t *testing.T) {
-	s := newSelectorStore(hivetest.Logger(t), Config{FQDNRegexCompileLRUSize: uint(defaults.FQDNRegexCompileLRUSize)})
+	s := newSelectorStore()
 	assert.Equal(t, 0, s.len())
 
 	fqdnIsovalent := fqdnDNS.FQDN("isovalent.com")

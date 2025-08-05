@@ -145,6 +145,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	struct ct_buffer6 ct_buffer = {};
 	bool need_hostfw = false;
 	bool is_host_id = false;
+	bool skip_host_firewall = false;
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -172,10 +173,13 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 		if (likely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, ext_err, !from_host);
-			if (ret == SKIP_HOST_FIREWALL)
-				goto skip_host_firewall;
-			if (IS_ERR(ret))
+			if (ret == SKIP_HOST_FIREWALL) {
+#ifdef ENABLE_HOST_FIREWALL
+				skip_host_firewall = true;
+#endif /* ENABLE_HOST_FIREWALL */
+			} else if (IS_ERR(ret)) {
 				return ret;
+			}
 		}
 	}
 
@@ -200,6 +204,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
+	if (skip_host_firewall)
+		goto skip_host_firewall;
+
 	if (from_host) {
 		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
 			if (unlikely(ct_buffer.ret < 0))
@@ -226,8 +233,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-skip_host_firewall:
 #ifdef ENABLE_HOST_FIREWALL
+skip_host_firewall:
 	ctx_store_meta(ctx, CB_FROM_HOST,
 		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0) |
 		       (is_host_id ? FROM_HOST_FLAG_HOST_ID : 0));
@@ -1012,14 +1019,15 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
 #ifdef ENABLE_L2_ANNOUNCEMENTS
-static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
+static __always_inline
+int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
-	union macaddr mac = THIS_INTERFACE_MAC;
+	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
-	__be32 sip;
-	__be32 tip;
-	struct l2_responder_v4_key key;
-	struct l2_responder_v4_stats *stats;
+	__be32 __maybe_unused sip;
+	__be32 __maybe_unused tip;
+	union v6addr __maybe_unused tip6;
+	struct l2_responder_stats *stats;
 	int ret;
 	__u64 time;
 
@@ -1034,22 +1042,48 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	if (ktime_get_ns() - (time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
 		return CTX_ACT_OK;
 
-	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
-		return CTX_ACT_OK;
+	if (!ip6) {
+		struct l2_responder_v4_key key;
 
-	key.ip4 = tip;
-	key.ifindex = ctx->ingress_ifindex;
-	stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
-	if (!stats)
-		return CTX_ACT_OK;
+		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+			return CTX_ACT_OK;
 
-	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+		key.ip4 = tip;
+		key.ifindex = ctx->ingress_ifindex;
+		stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
+		if (!stats)
+			return CTX_ACT_OK;
+
+		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	} else {
+#ifdef ENABLE_IPV6
+		struct l2_responder_v6_key key6;
+		int l3_off;
+
+		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &tip6))
+			return CTX_ACT_OK;
+
+		key6.ip6 = tip6;
+		key6.ifindex = ctx->ingress_ifindex;
+		key6.pad = 0;
+		stats = map_lookup_elem(&cilium_l2_responder_v6, &key6);
+		if (!stats)
+			return CTX_ACT_OK;
+
+		l3_off = (int)((__u8 *)ip6 - (__u8 *)ctx_data(ctx));
+
+		ret = icmp6_send_ndisc_adv(ctx, l3_off, &mac, false);
+#else
+		return CTX_ACT_OK;
+#endif
+	}
 
 	if (ret == CTX_ACT_REDIRECT)
 		__sync_fetch_and_add(&stats->responses_sent, 1);
 
 	return ret;
-};
+}
+
 #endif
 
 static __always_inline int
@@ -1078,7 +1112,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
-			ret = handle_l2_announcement(ctx);
+			ret = handle_l2_announcement(ctx, NULL);
 		#else
 			ret = CTX_ACT_OK;
 		#endif
@@ -1087,8 +1121,22 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-			return send_drop_notify_error(ctx, identity, DROP_INVALID,
+			return send_drop_notify_error(ctx, identity,
+						      DROP_INVALID,
 						      METRIC_INGRESS);
+#ifdef ENABLE_L2_ANNOUNCEMENTS
+		if (ip6->nexthdr == NEXTHDR_ICMP) {
+			ret = handle_l2_announcement(ctx, ip6);
+			if (ret != CTX_ACT_OK)
+				break;
+			/* Verifier invalidates ip6 for some reason.. sigh*/
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+				return send_drop_notify_error(ctx, identity,
+							      DROP_INVALID,
+							      METRIC_INGRESS);
+		}
+
+#endif /*ENABLE_L2_ANNOUNCEMENTS */
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);

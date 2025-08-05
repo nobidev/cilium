@@ -143,6 +143,7 @@ cilium-agent [flags]
       --enable-enterprise-bgp-control-plane                            Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report              Enable enterprise BGP status report in Cilium (default true)
       --enable-envoy-config                                            Enable Envoy Config CRDs
+      --enable-extended-ip-protocols                                   Enable traffic with extended IP protocols in datapath
       --enable-gateway-api                                             Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                    Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                            Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
@@ -174,7 +175,7 @@ cilium-agent [flags]
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-l2-announcements                                        Enable L2 announcements
       --enable-l2-neigh-discovery                                      Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
-      --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP
+      --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-l7-proxy                                                Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                                        Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                                   Enable Local Redirect Policy
@@ -354,7 +355,7 @@ cilium-agent [flags]
       --l2-announcements-lease-duration duration                       Duration of inactivity after which a new leader is selected (default 15s)
       --l2-announcements-renew-deadline duration                       Interval at which the leader renews a lease (default 5s)
       --l2-announcements-retry-period duration                         Timeout after a renew failure, before the next retry (default 2s)
-      --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous arp messages
+      --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous ARP and NDP messages
       --label-prefix-file string                                       Valid label prefixes file path
       --labels strings                                                 List of label prefixes used to determine identity of an endpoint
       --lb-state-file string                                           Synchronize load-balancing state from the specified file

@@ -95,7 +95,7 @@ const (
 	llAddr2EnvVar = "LLADDR2"
 )
 
-func TestScript(t *testing.T) {
+func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 	k8sVersion.Force(k8sTestutils.DefaultVersion)

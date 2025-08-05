@@ -43,7 +43,7 @@ var (
 	testIf2IPv6Addr = netip.MustParsePrefix("fc00::101/64")
 )
 
-func Test_BFDServer(t *testing.T) {
+func TestPrivileged_BFDServer(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))

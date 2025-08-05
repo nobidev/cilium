@@ -17,7 +17,7 @@ db/insert devices device.yaml
 db/insert neighbors neighbor.yaml
 
 # Configure gobgp server (bind to :: as GoBGP does not support binding to a LL address with zone)
-gobgp/add-server --router-id=1.2.3.4 65001 :: 1799
+gobgp/add-server test --router-id=1.2.3.4 65001 :: 1799
 gobgp/add-peer $LLADDR2%$LINK1 65001
 
 # Configure BGP on Cilium

@@ -205,16 +205,13 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 }
 
 func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr netip.Addr) *types.RoutePolicy {
-	// create /32 or /128 prefix from peer address
-	peerPrefix := netip.PrefixFrom(peerAddr, peerAddr.BitLen())
-
 	return &types.RoutePolicy{
 		Name: name,
 		Type: policyType,
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{peerPrefix.String()},
+					MatchNeighbors: []netip.Addr{peerAddr},
 					MatchFamilies: []types.Family{
 						{
 							Afi:  types.AfiIPv4,

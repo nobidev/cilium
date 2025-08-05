@@ -238,7 +238,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	*Manager
 	defines.NodeOut
-	tunnel.EnablerOut
 }, err error,
 ) {
 	dcfg := p.DaemonConfig
@@ -281,11 +280,18 @@ func NewEgressGatewayManager(p Params) (out struct {
 		"ENABLE_EGRESS_GATEWAY_HA": "1",
 	}
 
-	out.EnablerOut = tunnel.NewEnabler(true)
-
 	out.health = p.Health
 
 	return out, nil
+}
+
+// tunnel.EnablerOut used to be returned from the NewEgressGatewayManager.
+// However, that makes tunnel.Config depends on the Manager and that introduces
+// lots of unnecessary dependencies. As a result, we hit the circular
+// dependency issue, so we moved the tunnel.EnablerOut creation to a separate
+// function.
+func newTunnelEnabler(dcfg *option.DaemonConfig) tunnel.EnablerOut {
+	return tunnel.NewEnabler(dcfg.EnableIPv4EgressGatewayHA)
 }
 
 func newEgressGatewayManager(p Params) (*Manager, error) {

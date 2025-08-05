@@ -413,6 +413,7 @@ spec:
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "cilium-agent.volumeMounts.extra" . | nindent 8 }}
       {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -509,6 +510,16 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        securityContext:
+          {{- if .Values.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          capabilities:
+            add:
+              - NET_ADMIN
+            drop:
+              - ALL
+          {{- end}}
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
@@ -1093,4 +1104,5 @@ spec:
       {{- with .Values.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+      {{- include "cilium-agent.volumes.extra" . | nindent 6 }}
 {{- end }}

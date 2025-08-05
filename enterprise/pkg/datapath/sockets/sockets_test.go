@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProbetInetDiagDestroyEnabled(t *testing.T) {
+func TestPrivilegedProbetInetDiagDestroyEnabled(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, InetDiagDestroyEnabled())
 }

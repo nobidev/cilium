@@ -44,7 +44,7 @@ const (
 
 // Test_socketsManager tests underying socketManager implementation which iterates
 // CNI Pod sockets and terminates them if they match the tuple set.
-func Test_socketsManager(t *testing.T) {
+func TestPrivileged_socketsManager(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	// use default netns dir not the cilium mounted one.
 	tmp := netNSDir

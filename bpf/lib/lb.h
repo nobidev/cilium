@@ -499,10 +499,19 @@ ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 		    union v6addr *new_addr, struct csum_offset *csum_off,
 		    enum ct_dir dir)
 {
-	int flag = 0;
+	int flag = 0, ret;
 	__be32 sum;
 
 	sum = csum_diff(old_addr->addr, 16, new_addr->addr, 16, 0);
+
+	/* Newer kernels support the BPF_F_IPV6 flag which addresses the below
+	 * bug. So let's try this first. -EINVAL indicates the flag probably isn't
+	 * supported.
+	 */
+	ret = csum_l4_replace(ctx, l4_off, csum_off, 0, sum,
+			      BPF_F_PSEUDO_HDR | BPF_F_IPV6);
+	if (ret != -EINVAL)
+		return ret;
 
 	/* We need this to workaround a bug in bpf_l4_csum_replace's usage of
 	 * inet_proto_csum_replace_by_diff. In short, for IPv6 we don't want to
@@ -589,9 +598,7 @@ static __always_inline void
 lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
 		     __u8 protocol __maybe_unused)
 {
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	key->proto = protocol;
-#endif
 }
 
 static __always_inline void
@@ -681,13 +688,11 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 
 	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != IPPROTO_ANY) {
 		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 	}
-#endif
 
 	return svc;
 }
@@ -1324,9 +1329,7 @@ static __always_inline void
 lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
 		     __u8 protocol __maybe_unused)
 {
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	key->proto = protocol;
-#endif
 }
 
 static __always_inline void
@@ -1416,13 +1419,11 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != IPPROTO_ANY) {
 		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 	}
-#endif
 
 	return svc;
 }

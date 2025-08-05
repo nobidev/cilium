@@ -149,6 +149,7 @@ Zannoni
 Zhou
 aarch
 addr
+agentNotReadyTaintKey
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -289,6 +290,7 @@ debuginfo
 decapsulate
 decapsulated
 decapsulation
+declaratively
 decrypt
 decrypted
 deduplicate
@@ -808,6 +810,7 @@ toGroups
 tofqdns
 tolerations
 toolchain
+topologies
 toto
 traceparent
 tracepoint

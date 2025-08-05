@@ -8,6 +8,8 @@
   // self-hosted configuration
   "username": "cilium-renovate[bot]",
   "repositories": ["cilium/cilium"],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
   // renovate first reads this configuration, then reads the repository
   // configuration, since we don't split between the self-hosted and the
   // repository configuration, this can lead to duplicate of some areas of the
@@ -61,7 +63,6 @@
     "google/oss-fuzz"
   ],
   "pinDigests": true,
-  "ignorePresets": [":prHourlyLimit2"],
   // We don't want to separate major and minor upgrades in separate PRs since
   // we can upgrade them together in a single PR.
   "separateMajorMinor": false,
@@ -71,6 +72,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.18",
     "v1.17",
     "v1.16",
     "v1.15",
@@ -230,8 +232,15 @@
       "matchPackageNames": [
         "github.com/miekg/dns",
         "github.com/cilium/dns",
+
+        // See https://github.com/cilium/cilium/pull/11607
         "sigs.k8s.io/controller-tools",
         "github.com/cilium/controller-tools",
+
+        // See https://github.com/cilium/cilium/pull/40566
+        "github.com/osrg/gobgp/v3",
+        "github.com/cilium/gobgp/v3",
+
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
@@ -365,6 +374,16 @@
         "v1.16",
         "v1.15",
       ]
+    },
+    {
+      // Disable major updates for go-github as those require updating import paths
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/google/go-github",
+      ],
+      "matchUpdateTypes": [
+        "major",
+      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes
@@ -593,7 +612,7 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.33\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
@@ -607,6 +626,7 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.18",
         "main",
       ]
     },
@@ -653,22 +673,6 @@
       "matchUpdateTypes": [
         "major",
         "minor"
-      ],
-    },
-    {
-      "enabled": false,
-      "matchFileNames": [
-        ".github/workflows/lint-build-commits.yaml",
-        ".github/workflows/lint-bpf-checks.yaml"
-      ],
-      "matchDepTypes": [
-        "github-runner",
-      ],
-      "matchPackageNames": [
-        "ubuntu",
-      ],
-      "matchUpdateTypes": [
-        "major"
       ],
     },
     {

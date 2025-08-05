@@ -29,12 +29,14 @@ jobs:
             hourModulo: 4
           - branch: '1.17-ce'
             hourModulo: 5
+          - branch: '1.18-ce'
+            hourModulo: 6
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: v${{ matrix.branch }}
+          ref: ${{ matrix.branch }}
           persist-credentials: false
 
       - name: Manually run Ariane workflows from the branch
@@ -49,7 +51,7 @@ jobs:
             exit 0
           fi
 
-          REF="v${{ matrix.branch }}"
+          REF="${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
           readarray workflows < <((
             yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml

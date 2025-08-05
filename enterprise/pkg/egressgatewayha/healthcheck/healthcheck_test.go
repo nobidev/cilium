@@ -56,7 +56,7 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 	require.True(t, hc.NodeIsHealthy(n.Name))
 }
 
-func TestHealthCheckerHealthyNodeWithICMPProber(t *testing.T) {
+func TestPrivilegedHealthCheckerHealthyNodeWithICMPProber(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	hc, nodeAddr := setup(t, 50*time.Millisecond,
@@ -121,7 +121,7 @@ func TestHealthCheckerUnhealthyNode(t *testing.T) {
 	require.False(t, hc.NodeIsHealthy(n.Name))
 }
 
-func TestHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
+func TestPrivilegedHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	hc, _ := setup(t, 50*time.Millisecond, nil)

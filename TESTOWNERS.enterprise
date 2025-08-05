@@ -219,6 +219,7 @@
 /pkg/datapath/linux/probes/ @isovalent/networking-framework
 /pkg/datapath/linux/requirements.go @isovalent/networking-framework
 /pkg/datapath/loader/ @isovalent/networking-framework
+/pkg/datapath/loader/verifier_load_test.go @isovalent/cni
 /pkg/datapath/types/ipsec.go @isovalent/encryption
 /pkg/datapath/types/loader.go @isovalent/networking-framework
 /pkg/datapath/sockets/ @isovalent/isovalent-loadbalancer
@@ -270,7 +271,7 @@
 /pkg/loadbalancer @isovalent/isovalent-loadbalancer
 /pkg/loadinfo/ @isovalent/cni
 /pkg/lock @isovalent/cni
-/pkg/logging/ @isovalent/ci-structure
+/pkg/logging/ @isovalent/cni
 /pkg/mac @isovalent/cni
 /pkg/maglev @isovalent/isovalent-loadbalancer
 /pkg/maps/ @isovalent/cni
@@ -329,7 +330,6 @@
 /test/k8s/services.go @isovalent/isovalent-loadbalancer
 /test/k8s/bandwidth.go @isovalent/cni
 /test/k8s/datapath_configuration.go @isovalent/cni
-/test/verifier @isovalent/networking-framework
 /test/k8s/net_policies.go @isovalent/policy-identity-networking
 /test/runtime/net_policies.go @isovalent/policy-identity-networking
 /test/k8s/hubble.go @isovalent/hubble
@@ -489,13 +489,13 @@
 /install/kubernetes/cilium/templates/_rbac_helpers.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
-/install/kubernetes/cilium/templates/hubble-timescape/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/install/kubernetes/cilium/templates/hubble-k8s-exporter/* @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
+/install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
+/install/kubernetes/cilium/templates/hubble-k8s-exporter/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /pkg/bgpv1/**/*enterprise* @isovalent/traffic-engineering
 /pkg/clustermesh/enterprise_* @isovalent/clustermesh
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
 /pkg/datapath/linux/route/enterprise_route_linux.go @isovalent/cilium-datapath
-/pkg/fqdn/dnsproxy/enterprise_* @isovalent/dns-proxy
+/pkg/fqdn/**/*enterprise* @isovalent/dns-proxy
 /pkg/metrics/enterprise_* @isovalent/cni
 /pkg/k8s/apis/isovalent.com @isovalent/sig-k8s
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbfd*.yaml @isovalent/traffic-engineering

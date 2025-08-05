@@ -51,9 +51,9 @@ func run(ctx context.Context, params runParams) error {
 	cfg := params.Cfg
 
 	log.Info("starting cilium dns proxy server")
-	if err := re.InitRegexCompileLRU(log, int(cfg.FQDNRegexCompileLRUSize)); err != nil {
-		return fmt.Errorf("failed to start DNS proxy: failed to init regex LRU cache: %w", err)
-	}
+
+	re.Resize(log, cfg.FQDNRegexCompileLRUSize)
+
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
 		Logger:                 log.WithGroup("dns-proxy"),
 		Address:                "",

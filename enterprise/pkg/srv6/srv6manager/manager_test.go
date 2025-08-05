@@ -396,7 +396,7 @@ func eventuallyWithT(t *testing.T, f func(t *assert.CollectT)) {
 	require.EventuallyWithT(t, f, time.Second*3, time.Millisecond*10)
 }
 
-func TestSRv6Manager(t *testing.T) {
+func TestPrivilegedSRv6Manager(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// Fixtures
@@ -922,7 +922,7 @@ func TestSRv6Manager(t *testing.T) {
 	}
 }
 
-func TestSRv6ManagerWithSIDManager(t *testing.T) {
+func TestPrivilegedSRv6ManagerWithSIDManager(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	vrf0 := &v1alpha1.IsovalentVRF{
@@ -1174,7 +1174,7 @@ func TestSRv6ManagerWithSIDManager(t *testing.T) {
 	})
 }
 
-func TestSIDManagerSIDRestoration(t *testing.T) {
+func TestPrivilegedSIDManagerSIDRestoration(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	tests := []struct {

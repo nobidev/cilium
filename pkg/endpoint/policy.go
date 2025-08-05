@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
@@ -378,15 +377,12 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	ctx.Stats = regenerationStatistics{}
 	stats := &ctx.Stats
 	stats.totalTime.Start()
-	debugLogsEnabled := e.getLogger().Enabled(context.Background(), slog.LevelDebug)
 
-	if debugLogsEnabled {
-		e.getLogger().Debug(
-			"Regenerating endpoint",
-			logfields.StartTime, time.Now(),
-			logfields.Reason, ctx.Reason,
-		)
-	}
+	e.getLogger().Debug(
+		"Regenerating endpoint",
+		logfields.StartTime, time.Now(),
+		logfields.Reason, ctx.Reason,
+	)
 
 	defer func() {
 		// This has to be within a func(), not deferred directly, so that the
@@ -1029,10 +1025,10 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				logger := e.getLogger()
 
 				ID := e.SecurityIdentity.ID
-				hostIP, ok := netipx.FromStdIP(node.GetIPv4(logger))
-				if !ok {
+				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(logger))
+				if err != nil {
 					e.runlock()
-					return controller.NewExitReason("Failed to convert node IPv4 address")
+					return controller.NewExitReason("Failed to get node IP")
 				}
 				key := node.GetEndpointEncryptKeyIndex(logger)
 				metadata := e.FormatGlobalEndpointID()
@@ -1089,8 +1085,12 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.
-	e.runIPIdentitySync(e.IPv4)
-	e.runIPIdentitySync(e.IPv6)
+	if option.Config.EnableIPv4 {
+		e.runIPIdentitySync(e.IPv4)
+	}
+	if option.Config.EnableIPv6 {
+		e.runIPIdentitySync(e.IPv6)
+	}
 
 	if oldIdentity != identity.StringID() {
 		e.getLogger().Info(

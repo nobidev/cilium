@@ -304,7 +304,7 @@ podSecurityContext:
   appArmorProfile:
     type: "Unconfined"
   seccompProfile:
-    type: RuntimeDefault
+    type: "Unconfined"
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 # -- Labels to be added to agent pods
@@ -553,6 +553,9 @@ bpf:
   events:
     # -- Default settings for all types of events except dbg and pcap.
     default:
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the limit of messages per second that can be written to
       # BPF events map. The number of messages is averaged, meaning that if no messages
       # were written to the map over 5 seconds, it's possible to write more events
@@ -561,6 +564,9 @@ bpf:
       # and rateLimit to 0 disables BPF events rate limiting.
       # @default -- `0`
       rateLimit: ~
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the maximum number of messages that can be written to BPF events
       # map in 1 second. If burstLimit is greater than 0, non-zero value for rateLimit must
       # also be provided lest the configuration is considered invalid. Setting both burstLimit
@@ -856,9 +862,6 @@ forceDeviceDetection: false
 
 # -- Enable setting identity mark for local traffic.
 # enableIdentityMark: true
-
-# -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
-# enableK8sEndpointSlice: true
 
 # -- CiliumEndpointSlice configuration options.
 ciliumEndpointSlice:
@@ -3020,9 +3023,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.34.1-1750869463-42c7e8cf0f93ea19c9cb7e4d0ad2a339b3f81ad2"
+    tag: "v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770"
     pullPolicy: "Always"
-    digest: "sha256:892cab92ffaf8499be90bd227bf07181e4b460ecd97750032ea7e91710a8acce"
+    digest: "sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -3447,12 +3450,17 @@ operator:
     kubernetes.io/os: linux
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  # Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods.
+  # @schema
+  # type: [null, array]
+  # @schema
   tolerations:
-    - operator: Exists
-      # - key: "key"
-      #   operator: "Equal|Exists"
-      #   value: "value"
-      #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: Exists
+    - key: "node-role.kubernetes.io/master" #deprecated
+      operator: Exists
+    - key: "node.kubernetes.io/not-ready"
+      operator: Exists
   # -- Additional cilium-operator container arguments.
   extraArgs: []
   # -- Additional cilium-operator environment variables.
@@ -3711,9 +3719,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.34.1-1750869463-42c7e8cf0f93ea19c9cb7e4d0ad2a339b3f81ad2"
+      tag: "v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770"
       pullPolicy: "Always"
-      digest: "sha256:892cab92ffaf8499be90bd227bf07181e4b460ecd97750032ea7e91710a8acce"
+      digest: "sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""

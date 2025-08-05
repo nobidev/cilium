@@ -341,9 +341,9 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		return desiredRoutePolicies
 	}
 
-	routeReflectors := []string{}
-	clients := []string{}
-	eBGPPeers := []string{}
+	routeReflectors := []netip.Addr{}
+	clients := []netip.Addr{}
+	eBGPPeers := []netip.Addr{}
 
 	for _, peer := range instance.Peers {
 		if peer.PeerAddress == nil {
@@ -355,31 +355,25 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 			continue
 		}
 
-		var prefix string
-		switch {
-		case addr.Is4():
-			prefix = netip.PrefixFrom(addr, 32).String()
-		case addr.Is6():
-			prefix = netip.PrefixFrom(addr, 128).String()
-		default:
-			continue
-		}
-
 		if peer.RouteReflector != nil {
 			switch peer.RouteReflector.Role {
 			case v1.RouteReflectorRoleRouteReflector:
-				routeReflectors = append(routeReflectors, prefix)
+				routeReflectors = append(routeReflectors, addr)
 			case v1.RouteReflectorRoleClient:
-				clients = append(clients, prefix)
+				clients = append(clients, addr)
 			}
 		} else if peer.PeerASN != nil && instance.LocalASN != nil && (*peer.PeerASN != *instance.LocalASN) {
 			// Record non-RR eBGP peers
-			eBGPPeers = append(eBGPPeers, prefix)
+			eBGPPeers = append(eBGPPeers, addr)
 		}
 	}
 
-	slices.Sort(routeReflectors)
-	slices.Sort(clients)
+	slices.SortFunc(routeReflectors, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
+	slices.SortFunc(clients, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
 
 	switch instance.RouteReflector.Role {
 	case v1.RouteReflectorRoleRouteReflector:
