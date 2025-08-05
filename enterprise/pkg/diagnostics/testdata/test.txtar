@@ -59,26 +59,31 @@ diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Fail
     "Failure": false,
     "Message": ""
   },
-  "Sampler": {
-    "Type": "Histogram",
-    "Count": 1,
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-    <sanitized>
-  }
+  "Samplers": [
+    {
+      "k": "cilium_diagnostics_controller_duration_seconds[]",
+      "v": {
+        "Type": "Histogram",
+        "Count": 1,
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+        <sanitized>
+      }
+    }
+  ]
 }
 {
   "Condition": {
@@ -97,5 +102,5 @@ diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Fail
     "Failure": true,
     "Message": "Simulated failure triggered"
   },
-  "Sampler": null
+  "Samplers": []
 }

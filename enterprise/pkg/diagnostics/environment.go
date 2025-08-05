@@ -90,10 +90,10 @@ func (e *environment) Gauge(name string, labels prometheus.Labels) (stats GaugeS
 		return
 	}
 
-	gs := e.cond.Sampler
-	if gs == nil {
+	gs, found := e.cond.Samplers.Get(sample.key())
+	if !found {
 		gs = newGaugeSampler(e.now)
-		e.cond.Sampler = gs
+		e.cond.Samplers = e.cond.Samplers.Set(sample.key(), gs)
 	}
 	gs.observe(e.now, sample)
 
@@ -114,10 +114,10 @@ func (e *environment) Histogram(name string, labels prometheus.Labels) (stats Hi
 		return
 	}
 
-	hs := e.cond.Sampler
-	if hs == nil {
+	hs, found := e.cond.Samplers.Get(sample.key())
+	if !found {
 		hs = newHistogramSampler(e.now)
-		e.cond.Sampler = hs
+		e.cond.Samplers = e.cond.Samplers.Set(sample.key(), hs)
 	}
 	hs.observe(e.now, sample)
 

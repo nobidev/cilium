@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/part"
 	ipasys "github.com/isovalent/ipa/system_status/v1alpha"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -147,6 +148,21 @@ type Metric struct {
 	Raw *dto.Metric
 }
 
+// Labels returns the labels as a comma-separated list, e.g. "foo=bar, baz=quux"
+func (m *Metric) Labels() string {
+	var labels []string
+	for _, lp := range m.Raw.Label {
+		if lp.Name != nil && lp.Value != nil {
+			labels = append(labels, fmt.Sprintf("%s=%s ", *lp.Name, *lp.Value))
+		}
+	}
+	return strings.Join(labels, ", ")
+}
+
+func (m *Metric) key() string {
+	return m.Name + "[" + m.Labels() + "]"
+}
+
 type HistogramStats struct {
 	Avg_24h, Avg_4h, Avg_1h, Avg_Latest float64
 	P50_24h, P50_4h, P50_1h, P50_Latest float64
@@ -230,7 +246,7 @@ type ConditionStatus struct {
 	Latest      Evaluation
 	LastFailure Evaluation
 
-	Sampler sampler
+	Samplers part.Map[string, sampler]
 }
 
 // TableHeader implements statedb.TableWritable.
@@ -241,16 +257,16 @@ func (c ConditionStatus) TableHeader() []string {
 		"Failed",
 		"Latest",
 		"LastFailure",
-		"Sampler",
+		"Samplers",
 		"Evaluator",
 	}
 }
 
 // TableRow implements statedb.TableWritable.
 func (c ConditionStatus) TableRow() []string {
-	var samplerStatus string
-	if c.Sampler != nil {
-		samplerStatus = c.Sampler.Status()
+	var samplerStatus []string
+	for key, s := range c.Samplers.All() {
+		samplerStatus = append(samplerStatus, key+": "+s.Status())
 	}
 	return []string{
 		string(c.Condition.ID),
@@ -258,7 +274,7 @@ func (c ConditionStatus) TableRow() []string {
 		strconv.FormatInt(int64(c.FailedCount), 10),
 		c.Latest.String(),
 		c.LastFailure.String(),
-		samplerStatus,
+		strings.Join(samplerStatus, ", "),
 		funcNameAndLocation(c.Condition.Evaluator),
 	}
 }
