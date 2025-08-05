@@ -11,20 +11,16 @@
 package ciliummesh
 
 import (
-	"fmt"
-
-	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 )
 
-func datapathNodeHeaderConfigProvider(cfg ciliummeshpolicymap.Config) dpcfgdef.NodeFnOut {
+func datapathNodeHeaderConfigProvider(cfg Config) dpcfgdef.NodeFnOut {
 	return dpcfgdef.NewNodeFnOut(func() (dpcfgdef.Map, error) {
 		output := make(dpcfgdef.Map)
 		if !cfg.EnableCiliumMesh {
 			return output, nil
 		}
 
-		output["CILIUM_MESH_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", ciliummeshpolicymap.MaxEntries)
 		output["CILIUM_MESH"] = "1"
 
 		return output, nil

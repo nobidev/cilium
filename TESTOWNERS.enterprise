@@ -378,6 +378,7 @@
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_cilium_mesh.h @isovalent/cilium-mesh
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
+/bpf/lib/enterprise_ext_eps_policy.h @isovalent/private-networking
 /bpf/complexity-tests/**/**/*enterprise_*.txt @isovalent/cilium-datapath
 /bpf/lib/egress_gateway_ha.h @isovalent/egress-gateway
 /bpf/tests/*egressgw_ha_*.c @isovalent/egress-gateway
@@ -463,7 +464,7 @@
 /enterprise/pkg/lb/metrics @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/status @isovalent/isovalent-loadbalancer
 /enterprise/pkg/maps/ @isovalent/cilium-datapath
-/enterprise/pkg/maps/ciliummeshpolicymap/ @isovalent/cilium-mesh
+/enterprise/pkg/maps/extepspolicy/ @isovalent/private-networking
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
 /enterprise/pkg/maps/egressmapha/ @isovalent/egress-gateway
 /enterprise/pkg/maps/encryptionpolicymap/ @isovalent/encryption

@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -64,7 +64,9 @@ type CiliumMeshController struct {
 	// endpointsLookup will be used to lookup IME from the local daemon.
 	endpointsLookup endpointmanager.EndpointsLookup
 
-	ciliumMeshPolicyMap ciliummeshpolicymap.CiliumMeshPolicyWriter
+	// extEpsPolMapWriter allows to upsert and delete entries from the
+	// external endpoints policy map.
+	extEpsPolMapWriter extepspolicy.Writer
 }
 
 type ciliumMeshParams struct {
@@ -75,7 +77,7 @@ type ciliumMeshParams struct {
 
 	DaemonCfg *option.DaemonConfig
 
-	Config ciliummeshpolicymap.Config
+	Config Config
 
 	EndpointsModify endpointmanager.EndpointsModify
 
@@ -84,7 +86,7 @@ type ciliumMeshParams struct {
 	EndpointRestorer   promise.Promise[endpointstate.Restorer]
 	EndpointAPIManager endpointapi.EndpointAPIManager
 
-	CiliumMeshPolicyWriter ciliummeshpolicymap.CiliumMeshPolicyWriter
+	ExtEpsPolMapWriter extepspolicy.Writer
 
 	Resource IsovalentMeshEndpointResource
 }
@@ -96,14 +98,14 @@ func newCiliumMeshController(p ciliumMeshParams) *CiliumMeshController {
 	}
 
 	cmm := &CiliumMeshController{
-		clusterName:         p.DaemonCfg.ClusterName,
-		resource:            p.Resource,
-		logger:              p.Logger,
-		meshEndpoints:       make(map[string]struct{}),
-		endpointsModify:     p.EndpointsModify,
-		endpointsLookup:     p.EndpointsLookup,
-		ciliumMeshPolicyMap: p.CiliumMeshPolicyWriter,
-		endpointAPIManager:  p.EndpointAPIManager,
+		clusterName:        p.DaemonCfg.ClusterName,
+		resource:           p.Resource,
+		logger:             p.Logger,
+		meshEndpoints:      make(map[string]struct{}),
+		endpointsModify:    p.EndpointsModify,
+		endpointsLookup:    p.EndpointsLookup,
+		extEpsPolMapWriter: p.ExtEpsPolMapWriter,
+		endpointAPIManager: p.EndpointAPIManager,
 	}
 
 	p.JobGroup.Add(
@@ -181,7 +183,7 @@ func populatePolicyMetaMap(cmm *CiliumMeshController, ep *endpoint.Endpoint) err
 		return err
 	}
 
-	err = cmm.ciliumMeshPolicyMap.WriteEndpoint(ep.IPv4, policyMap)
+	err = cmm.extEpsPolMapWriter.Upsert(ep.IPv4, policyMap)
 	if err != nil {
 		cmm.logger.Warn(
 			"failed to write to the ciliummeshpolicymap",
@@ -281,7 +283,7 @@ type IsovalentMeshEndpointResource resource.Resource[*v1alpha1.IsovalentMeshEndp
 type meshEndpointResourceParams struct {
 	cell.In
 
-	Config ciliummeshpolicymap.Config
+	Config Config
 }
 
 func NewIsovalentMeshEndpointResource(p meshEndpointResourceParams, lc cell.Lifecycle, cs client.Clientset) IsovalentMeshEndpointResource {

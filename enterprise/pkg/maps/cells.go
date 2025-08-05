@@ -13,10 +13,10 @@ package maps
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 )
 
 var Cell = cell.Module(
@@ -26,8 +26,8 @@ var Cell = cell.Module(
 	// CT and NAT per-cluster maps.
 	cectnat.Cell,
 
-	// Cilium Mesh map
-	ciliummeshpolicymap.Cell,
+	// External endpoints policy maps.
+	extepspolicy.Cell,
 
 	// Egress Gateway HA maps
 	egressmapha.Cell,

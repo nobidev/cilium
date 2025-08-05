@@ -107,6 +107,7 @@ var (
 		"@isovalent/networking-framework":       {},
 		"@isovalent/openshift":                  {},
 		"@isovalent/policy-identity-networking": {},
+		"@isovalent/private-networking":         {},
 		"@isovalent/release-managers":           {},
 		"@isovalent/scalability-performance":    {},
 		"@isovalent/security":                   {},

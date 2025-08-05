@@ -137,6 +137,7 @@ cilium-agent hive dot-graph [flags]
       --export-format-version string                                   Default to v1 format. Set to '' to use the legacy format (default "v1")
       --export-node-name string                                        Override the node_name field in exported flows
       --export-rate-limit int                                          Rate limit (per minute) for flow exports. Set to -1 to disable (default -1)
+      --ext-eps-policy-map-max uint32                                  Maximum number of entries in the external endpoints policy map (default 65536)
       --external-dns-proxy                                             Enable Cilium agent to use an external DNS proxy
       --fallback-routing-mode string                                   Enable fallback routing mode, used in case of mismatch between source and destination node (supported: tunnel)
       --feature-gates-approved strings                                 Features approved to be enabled regardless of maturity level

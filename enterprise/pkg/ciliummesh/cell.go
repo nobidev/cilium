@@ -12,12 +12,17 @@ package ciliummesh
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 )
 
 var (
 	CiliumMeshCell = cell.Module(
 		"cilium-mesh",
 		"Cilium Mesh is the feature that connects your past legacy into the future",
+
+		cell.Config(defaultConfig),
 
 		cell.Provide(
 			// Provide the MeshEndpoint resource watcher.
@@ -32,5 +37,20 @@ var (
 
 		// Invoke an empty function to force its construction.
 		cell.Invoke(func(*CiliumMeshController) {}),
+
+		// Enable the external endpoints policy map.
+		extepspolicy.Enable(func(cfg Config) bool { return cfg.EnableCiliumMesh }),
 	)
+
+	defaultConfig = Config{
+		EnableCiliumMesh: false,
+	}
 )
+
+type Config struct {
+	EnableCiliumMesh bool `mapstructure:"enable-cilium-mesh"`
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-cilium-mesh", def.EnableCiliumMesh, "Enables Cilium Mesh feature")
+}

@@ -11,13 +11,14 @@
 package alignchecker
 
 import (
-	"github.com/cilium/cilium/enterprise/pkg/maps/ciliummeshpolicymap"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 )
 
 func init() {
 	registerToCheckSizes(map[string][]any{
-		"int":                     {ciliummeshpolicymap.CiliumMeshPolicyValue{}},
+		"endpoint_key":            {extepspolicy.Key{}},
+		"int":                     {extepspolicy.Value{}},
 		"encryption_policy_key":   {encryptionpolicymap.EncryptionPolicyKey{}},
 		"encryption_policy_entry": {encryptionpolicymap.EncryptionPolicyVal{}},
 	})
