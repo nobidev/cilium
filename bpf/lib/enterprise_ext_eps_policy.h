@@ -25,28 +25,22 @@ struct {
 	__array(values, struct non_pinned_policy_map);
 } cilium_ext_eps_policy __section_maps_btf;
 
-static __always_inline void *ext_eps_policy_map(__u32 ip __maybe_unused)
-{
-	struct endpoint_key key = {};
-
-	key.ip4 = ip;
-	key.family = ENDPOINT_KEY_IPV4;
-
-	return map_lookup_elem(&cilium_ext_eps_policy, &key);
-}
-
 static __always_inline int
-__ext_eps_policy_can_access(struct __ctx_buff *ctx, __be32 ip, __u32 sec_identity,
-			    __be16 dport, __u8 proto, int l4_off, __u8 *match_type, int dir,
-			    __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+__ext_eps_policy_can_access(struct __ctx_buff *ctx, struct endpoint_key *key,
+			    __u32 sec_identity, __u16 ethertype, __be16 dport,
+			    __u8 proto, int l4_off, __u8 *match_type, int dir,
+			    bool is_untracked_fragment, __u8 *audited,
+			    __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 	void *map;
-	__u32 local_id = 0; /* XXX */
-	bool is_untracked_fragment = false; /* XXX */
-	__u16 ethertype = ETH_P_IP; /* XXX */
 
-	map = ext_eps_policy_map(ip);
+	/* __policy_can_access uses local_id to output a debug message only,
+	 * hence it is fine to pass a dummy value there.
+	 */
+	__u32 local_id = 0;
+
+	map = map_lookup_elem(&cilium_ext_eps_policy, key);
 	if (!map)
 		return CTX_ACT_OK; /* XXX ? actually, isn't this a fatal error? need to report somehow */
 
@@ -78,15 +72,26 @@ ext_eps_policy_can_egress4(struct __ctx_buff *ctx, __be32 ip, __u32 dst_id,
 			   __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
 			   __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return __ext_eps_policy_can_access(ctx, ip, dst_id, dport, proto, l4_off,
-			match_type, EGRESS_POLICY, audited, ext_err, proxy_port);
+	struct endpoint_key key = {
+		.ip4 = ip,
+		.family = ENDPOINT_KEY_IPV4,
+	};
+
+	return __ext_eps_policy_can_access(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+			l4_off, match_type, EGRESS_POLICY, false, audited, ext_err, proxy_port);
 }
 
 static __always_inline int
 ext_eps_policy_can_ingress4(struct __ctx_buff *ctx, __be32 ip, __u32 dst_id,
-			    __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
-			    __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+			    __be16 dport, __u8 proto, int l4_off, bool is_untracked_fragment,
+			    __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return __ext_eps_policy_can_access(ctx, ip, dst_id, dport, proto, l4_off,
-			match_type, INGRESS_POLICY, audited, ext_err, proxy_port);
+	struct endpoint_key key = {
+		.ip4 = ip,
+		.family = ENDPOINT_KEY_IPV4,
+	};
+
+	return __ext_eps_policy_can_access(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+			l4_off, match_type, INGRESS_POLICY, is_untracked_fragment, audited,
+			ext_err, proxy_port);
 }

@@ -155,9 +155,17 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 	int l4_off;
 	int ret;
 	fraginfo_t fraginfo;
+	bool is_untracked_fragment = false;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+#ifndef ENABLE_IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#endif
 
 	tuple.nexthdr = ip4->protocol;
 	tuple.saddr = ip4->daddr;
@@ -180,8 +188,8 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 		goto out;
 
 	verdict = ext_eps_policy_can_ingress4(ctx, ip4->daddr, src_sec_identity, tuple.dport,
-					      ip4->protocol, l4_off, &policy_match_type,
-					      &audited, ext_err, &proxy_port);
+					      ip4->protocol, l4_off, is_untracked_fragment,
+					      &policy_match_type, &audited, ext_err, &proxy_port);
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		/* XXX: implement me */
