@@ -95,3 +95,32 @@ ext_eps_policy_can_ingress4(struct __ctx_buff *ctx, __be32 ip, __u32 dst_id,
 			l4_off, match_type, INGRESS_POLICY, is_untracked_fragment, audited,
 			ext_err, proxy_port);
 }
+
+static __always_inline int
+ext_eps_policy_can_egress6(struct __ctx_buff *ctx, union v6addr ip6, __u32 dst_id,
+			   __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
+			   __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+{
+	struct endpoint_key key = {
+		.ip6 = ip6,
+		.family = ENDPOINT_KEY_IPV6,
+	};
+
+	return __ext_eps_policy_can_access(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+			l4_off, match_type, EGRESS_POLICY, false, audited, ext_err, proxy_port);
+}
+
+static __always_inline int
+ext_eps_policy_can_ingress6(struct __ctx_buff *ctx, union v6addr ip6, __u32 dst_id,
+			    __be16 dport, __u8 proto, int l4_off, bool is_untracked_fragment,
+			    __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+{
+	struct endpoint_key key = {
+		.ip6 = ip6,
+		.family = ENDPOINT_KEY_IPV6,
+	};
+
+	return __ext_eps_policy_can_access(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+			l4_off, match_type, INGRESS_POLICY, is_untracked_fragment, audited,
+			ext_err, proxy_port);
+}
