@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -582,17 +581,14 @@ func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regene
 func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
-	debugEnabled := e.getLogger().Enabled(context.Background(), slog.LevelDebug)
 
-	if debugEnabled {
-		e.getLogger().Debug(
-			"Preparing to compile BPF",
-			fieldRegenLevel, datapathRegenCtxt.regenerationLevel,
-		)
-	}
+	e.getLogger().Debug(
+		"Preparing to compile BPF",
+		fieldRegenLevel, datapathRegenCtxt.regenerationLevel,
+	)
 
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
-		if debugEnabled {
+		if e.Options.IsEnabled(option.Debug) {
 			debugFunc := func(format string, args ...interface{}) {
 				e.getLogger().Debug(fmt.Sprintf(format, args))
 			}
@@ -619,7 +615,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 
 		e.getLogger().Info("Reloaded endpoint BPF program")
 		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
-	} else if debugEnabled {
+	} else {
 		e.getLogger().Debug(
 			"BPF header file unchanged, skipping BPF compilation and installation",
 			logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash,
@@ -856,14 +852,6 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		}
 		e.getLogger().Debug("Finished reverting endpoint changes after BPF regeneration failed")
 	}
-}
-
-// InitMap creates the policy map in the kernel.
-func (e *Endpoint) InitMap() error {
-	if e.policyMapFactory == nil {
-		return fmt.Errorf("endpoint has nil policyMapFactory")
-	}
-	return e.policyMapFactory.CreateEndpoint(e.ID)
 }
 
 // deleteMaps deletes the endpoint's entry from the global

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -50,7 +49,7 @@ func newRemoteNameManager(logger *slog.Logger, cfg Config, ipcache bpfIPCache) *
 		cfg:              cfg,
 		ipcache:          ipcache,
 		identities:       newIdentityStore(),
-		selectors:        newSelectorStore(logger, cfg),
+		selectors:        newSelectorStore(),
 		identitiesSynced: false,
 		selectorsSynced:  false,
 	}
@@ -322,10 +321,7 @@ type selectorStore struct {
 	selectors map[api.FQDNSelector]*regexp.Regexp
 }
 
-func newSelectorStore(logger *slog.Logger, cfg Config) *selectorStore {
-	// TODO: drop this and the logger and cfg params once https://github.com/cilium/cilium/pull/40365 landed in main-ce
-	re.InitRegexCompileLRU(logger, int(cfg.FQDNRegexCompileLRUSize))
-
+func newSelectorStore() *selectorStore {
 	return &selectorStore{
 		selectors: make(map[api.FQDNSelector]*regexp.Regexp),
 	}

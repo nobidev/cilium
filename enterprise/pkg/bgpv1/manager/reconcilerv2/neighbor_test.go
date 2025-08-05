@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -496,7 +497,10 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.1"),
+									netip.MustParseAddr("10.0.0.2"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -546,7 +550,10 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.1"),
+									netip.MustParseAddr("10.0.0.2"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -608,7 +615,10 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.1"),
+									netip.MustParseAddr("10.0.0.2"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -622,7 +632,10 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.3/32", "10.0.0.4/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.3"),
+									netip.MustParseAddr("10.0.0.4"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -672,7 +685,10 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.1/32", "10.0.0.2/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.1"),
+									netip.MustParseAddr("10.0.0.2"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -710,7 +726,9 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.1/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.1"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
@@ -724,7 +742,9 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []string{"10.0.0.2/32"},
+								MatchNeighbors: []netip.Addr{
+									netip.MustParseAddr("10.0.0.2"),
+								},
 							},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,

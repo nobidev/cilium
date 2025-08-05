@@ -203,7 +203,7 @@ func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.Recon
 			peerLogger.Info("BFD peer went down, resetting BGP peer")
 
 			resetErr := params.BGPInstance.Router.ResetNeighbor(ctx, bgptypes.ResetNeighborRequest{
-				PeerAddress:        peer.PeerAddress.String(),
+				PeerAddress:        peer.PeerAddress,
 				Soft:               false,
 				AdminCommunication: "BFD session down",
 			})

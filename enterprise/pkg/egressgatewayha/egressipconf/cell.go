@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -32,7 +32,7 @@ func startReconciler(
 	params reconciler.Params,
 	table statedb.RWTable[*tables.EgressIPEntry],
 	dCfg *option.DaemonConfig,
-	garpSender garp.Sender,
+	gneighSender gneigh.Sender,
 ) (reconciler.Reconciler[*tables.EgressIPEntry], error) {
 	if !dCfg.EnableIPv4EgressGatewayHA {
 		return nil, nil
@@ -44,7 +44,7 @@ func startReconciler(
 		(*tables.EgressIPEntry).Clone,
 		(*tables.EgressIPEntry).SetStatus,
 		(*tables.EgressIPEntry).GetStatus,
-		newOps(params.Log, garpSender),
+		newOps(params.Log, gneighSender),
 		nil,
 	)
 	return reconciler, err

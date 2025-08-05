@@ -145,12 +145,12 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 
 type bfdFakeRouter struct {
 	bgptypes.FakeRouter
-	resetPeersCh chan string
+	resetPeersCh chan netip.Addr
 }
 
 func newBFDFakeRouter() *bfdFakeRouter {
 	return &bfdFakeRouter{
-		resetPeersCh: make(chan string, 10),
+		resetPeersCh: make(chan netip.Addr, 10),
 	}
 }
 
@@ -224,7 +224,7 @@ func TestBFDStateReconciler(t *testing.T) {
 		peerChanges   []*types.BFDPeerStatus
 		deletePeers   bool
 		expectSignal  bool
-		expectReset   []string
+		expectReset   []netip.Addr
 	}{
 		{
 			name:          "peer 1 goes AdminDown",
@@ -306,7 +306,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectReset:  []string{peer1Addr.String()},
+			expectReset:  []netip.Addr{peer1Addr},
 		},
 		{
 			name:          "peer 1 stays Down - no action",
@@ -355,7 +355,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectReset:  []string{peer1Addr.String()},
+			expectReset:  []netip.Addr{peer1Addr},
 		},
 		{
 			name:          "peer 2 goes Down",
@@ -405,7 +405,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				},
 			},
 			expectSignal: true,
-			expectReset:  []string{peer2Addr.String()},
+			expectReset:  []netip.Addr{peer2Addr},
 		},
 		{
 			name:          "peer 2 goes Up once more",

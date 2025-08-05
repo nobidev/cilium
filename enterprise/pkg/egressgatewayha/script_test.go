@@ -33,7 +33,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -109,7 +109,7 @@ func TestOperatorScripts(t *testing.T) {
 		}, []string{}, "testdata/operator_*.txtar")
 }
 
-func TestAgentScripts(t *testing.T) {
+func TestPrivilegedAgentScripts(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 	ctx := t.Context()
@@ -133,7 +133,7 @@ func TestAgentScripts(t *testing.T) {
 				// using the mock node sync type.
 				node.LocalNodeStoreCell,
 				endpointmanager.Cell,
-				garp.Cell,
+				gneigh.Cell,
 
 				testCell,
 

@@ -712,9 +712,9 @@ func (s *fakeSockets) closeSockets(toClose sets.Set[tuple.TupleKey4]) (socketClo
 	return socketCloseStats{deleted: len(toClose)}, nil
 }
 
-// TestRemoveExpiredCTOnNoMatchingPolicies tests egwha-ct expired entry
+// TestPrivilegedRemoveExpiredCTOnNoMatchingPolicies tests egwha-ct expired entry
 // removal.
-func TestRemoveExpiredCTOnNoMatchingPolicies(t *testing.T) {
+func TestPrivilegedRemoveExpiredCTOnNoMatchingPolicies(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	k.manager.config.EnableEgressGatewayHASocketTermination = true
 	sm := &fakeSockets{}
@@ -801,11 +801,11 @@ func TestRemoveExpiredCTOnNoMatchingPolicies(t *testing.T) {
 	})
 }
 
-// TestEgressGatewayManagerHASocketTermination tests the socket termination feature
+// TestPrivilegedEgressGatewayManagerHASocketTermination tests the socket termination feature
 // of the agent control plane manager.
 // Specifically, this ensures that the socket manager is handed the correct set of
 // connection tuples to possibly evict via client sockets.
-func TestEgressGatewayManagerHASocketTermination(t *testing.T) {
+func TestPrivilegedEgressGatewayManagerHASocketTermination(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	k.manager.config.EnableEgressGatewayHASocketTermination = true
 	sm := &fakeSockets{}
@@ -910,7 +910,7 @@ func TestEgressGatewayManagerHASocketTermination(t *testing.T) {
 	}, time.Second*5, time.Millisecond*500)
 }
 
-func TestEgressGatewayManagerHAGroup(t *testing.T) {
+func TestPrivilegedEgressGatewayManagerHAGroup(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	// Create a new HA policy that selects k8s1 and k8s2 nodes
@@ -1135,7 +1135,7 @@ func TestEgressGatewayManagerHAGroup(t *testing.T) {
 	k.assertEgressRules(t, []egressRule{})
 }
 
-func TestEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
+func TestPrivilegedEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	k.addNode(t, node1Name, node1IP, nodeGroup1LabelsAZ1)
 	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ2)
@@ -1232,7 +1232,7 @@ func TestEgressGatewayManagerHAGroupAZAffinity(t *testing.T) {
 	})
 }
 
-func TestEgressGatewayManagerCtEntries(t *testing.T) {
+func TestPrivilegedEgressGatewayManagerCtEntries(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	// Create a new HA policy based on a group config
@@ -1479,7 +1479,7 @@ func TestEgressGatewayManagerCtEntries(t *testing.T) {
 	k.assertEgressCtEntries(t, []egressCtEntry{})
 }
 
-func TestEndpointDataStore(t *testing.T) {
+func TestPrivilegedEndpointDataStore(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	// Create a new policy
@@ -1537,7 +1537,7 @@ func TestEndpointDataStore(t *testing.T) {
 	})
 }
 
-func TestAdvertisedEgressIPs(t *testing.T) {
+func TestPrivilegedAdvertisedEgressIPs(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	// Create a new HA policy (policy-1) using testInterface1,
@@ -1713,7 +1713,7 @@ func TestAdvertisedEgressIPs(t *testing.T) {
 	k.assertAdvertisedEgressIPs(t, k.manager, advertisePolicySelector, map[types.NamespacedName][]string{})
 }
 
-func TestSameGatewayInMultipleEgressGroups(t *testing.T) {
+func TestPrivilegedSameGatewayInMultipleEgressGroups(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	// Create a new HA policy (policy-1) using the same nodeGroup in two egress groups,

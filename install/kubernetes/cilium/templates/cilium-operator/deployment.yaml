@@ -170,6 +170,7 @@ spec:
         - name: AZURE_RESOURCE_GROUP
           value: {{ .Values.azure.resourceGroup }}
         {{- end }}
+        {{- if .Values.azure.clientID }}
         - name: AZURE_CLIENT_ID
           valueFrom:
             secretKeyRef:
@@ -180,6 +181,7 @@ spec:
             secretKeyRef:
               name: cilium-azure
               key: AZURE_CLIENT_SECRET
+        {{- end }}
         {{- end }}
         {{- with .Values.operator.extraEnv }}
         {{- toYaml . | nindent 8 }}
@@ -308,6 +310,10 @@ spec:
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{- if hasKey .Values "agentNotReadyTaintKey" }}
+        - key: {{ .Values.agentNotReadyTaintKey }}
+          operator: Exists
+      {{ end}}
       volumes:
         # To read the configuration from the config map
       - name: cilium-config-path

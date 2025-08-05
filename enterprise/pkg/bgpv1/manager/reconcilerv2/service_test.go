@@ -156,7 +156,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -178,7 +178,7 @@ func Test_ServiceHealthChecker(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV6Prefix),
@@ -848,7 +848,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -880,7 +880,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -903,7 +903,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -919,7 +919,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -943,7 +943,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV6Prefix),
@@ -965,7 +965,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -988,7 +988,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(ingressV6Prefix),
@@ -1004,7 +1004,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -1057,7 +1057,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(externalV4Prefix),
@@ -1079,7 +1079,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -1102,7 +1102,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(externalV4Prefix),
@@ -1118,7 +1118,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -1142,7 +1142,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(externalV6Prefix),
@@ -1164,7 +1164,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -1187,7 +1187,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(externalV6Prefix),
@@ -1203,7 +1203,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -1249,7 +1249,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(clusterV4Prefix),
@@ -1271,7 +1271,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -1294,7 +1294,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(clusterV4Prefix),
@@ -1310,7 +1310,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV4Prefix24),
@@ -1334,7 +1334,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(clusterV6Prefix),
@@ -1356,7 +1356,7 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -1379,7 +1379,7 @@ var (
 			// Sorted from longest to shortest prefix length
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(clusterV6Prefix),
@@ -1395,7 +1395,7 @@ var (
 			},
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         netip.MustParsePrefix(aggregateV6Prefix120),
@@ -3731,7 +3731,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -3753,7 +3753,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV6Prefix),
@@ -3837,7 +3837,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.99/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.99")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -3859,7 +3859,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.99/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.99")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV6Prefix),
@@ -4034,7 +4034,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -4092,7 +4092,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -4144,7 +4144,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
@@ -4202,7 +4202,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 							Statements: []*types.RoutePolicyStatement{
 								{
 									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []string{"10.10.10.1/32"},
+										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 											{
 												CIDR:         netip.MustParsePrefix(ingressV4Prefix),

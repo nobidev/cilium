@@ -139,6 +139,10 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	struct ipv4_revnat_tuple key = {};
 	int ret = 0;
 
+	/* Note that for the revnat map the protocol is not needed since the
+	 * cookie is already part of the key which is an unique identifier,
+	 * meaning across the TCP/UDP universe a socket cookie is unique.
+	 */
 	key.cookie = sock_local_cookie(ctx);
 	key.address = backend->address;
 	key.port = backend->port;
@@ -262,9 +266,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb4_key key = {
 		.address	= dst_ip,
 		.dport		= dst_port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	}, orig_key = key;
 	struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -298,6 +300,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port));
+
+	/* Do not perform service translation for these services
+	 * in case of E/W traffic, but rather let the fabric
+	 * hairpin the traffic into the entry points from N/S.
+	 */
+	if (lb4_svc_is_l7_punt_proxy(svc))
+		return SYS_PROCEED;
 
 	/* Do not perform service translation for external IPs
 	 * that are not a local address because we don't want
@@ -438,9 +447,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	struct lb4_key key = {
 		.address	= ctx->src_ip4,
 		.dport		= ctx_src_port(ctx),
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	};
 
 	if (!sock_proto_enabled(protocol) ||
@@ -559,9 +566,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		struct lb4_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 			.proto		= protocol,
-#endif
 		};
 
 		svc = lb4_lookup_service(&svc_key, true);
@@ -860,9 +865,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	struct lb6_service *svc;
 	struct lb6_key key = {
 		.dport		= ctx_src_port(ctx),
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	};
 
 	if (!sock_proto_enabled(protocol) ||
@@ -996,9 +999,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	__u8 protocol = ctx_protocol(ctx);
 	struct lb6_key key = {
 		.dport		= dst_port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	}, orig_key;
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -1032,6 +1033,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port));
 
+	if (lb6_svc_is_l7_punt_proxy(svc))
+		return SYS_PROCEED;
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
@@ -1184,9 +1187,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		struct lb6_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 			.proto		= protocol,
-#endif
 		};
 
 		svc = lb6_lookup_service(&svc_key, true);

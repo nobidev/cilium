@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -64,14 +65,14 @@ var (
 		},
 	}
 
-	expectedPeerRoutePolicy = func(policyType types.RoutePolicyType, name, peerAddr string) *types.RoutePolicy {
+	expectedPeerRoutePolicy = func(policyType types.RoutePolicyType, name string, peerAddr netip.Addr) *types.RoutePolicy {
 		return &types.RoutePolicy{
 			Name: name,
 			Type: policyType,
 			Statements: []*types.RoutePolicyStatement{
 				{
 					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: []string{peerAddr},
+						MatchNeighbors: []netip.Addr{peerAddr},
 						MatchFamilies: []types.Family{
 							{
 								Afi:  types.AfiIPv4,
@@ -90,13 +91,13 @@ var (
 	importPeerPolicy = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeImport,
 		"VPNRoutePolicy-import-red-peer-65001",
-		"192.168.0.10/32",
+		netip.MustParseAddr("192.168.0.10"),
 	)
 
 	exportPeerPolicy = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeExport,
 		"VPNRoutePolicy-export-red-peer-65001",
-		"192.168.0.10/32",
+		netip.MustParseAddr("192.168.0.10"),
 	)
 )
 

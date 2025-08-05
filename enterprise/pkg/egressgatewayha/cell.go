@@ -26,6 +26,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
+	cell.Provide(newTunnelEnabler),
 	cell.Provide(func(mgr *Manager) EgressIPsProvider { return mgr }),
 
 	cell.ProvidePrivate(newAgentTables),

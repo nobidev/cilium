@@ -81,13 +81,14 @@ cilium-agent hive [flags]
       --enable-hubble-open-metrics                                     Enable exporting hubble metrics in OpenMetrics format.
       --enable-ingress-controller                                      Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-inter-cluster-snat                                      Enable inter-cluster SNAT, to support overlapping PodCIDRs
+      --enable-ip-masq-agent                                           Enable BPF ip-masq-agent
       --enable-ipv4-big-tcp                                            Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv4-standalone-egress-gateway                          Enable standalone egress gateway for IPv4
       --enable-ipv6-big-tcp                                            Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-l2-neigh-discovery                                      Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
-      --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP
+      --enable-l2-pod-announcements                                    Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-monitor                                                 Enable the monitor unix domain socket server (default true)
       --enable-multi-network                                           Enable support for multiple pod networks
       --enable-phantom-services                                        Enable phantom services handling (default true)
@@ -193,6 +194,7 @@ cilium-agent hive [flags]
       --identity-management-mode string                                Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ignore-flags-drift-checker strings                             Ignores specified flags during drift checking
       --ingress-secrets-namespace string                               IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
+      --ip-masq-agent-config-path string                               ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --iptables-lock-timeout duration                                 Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                          Set iptables flag random-fully on masquerading rules
       --k8s-api-server-urls strings                                    Kubernetes API server URLs
@@ -209,7 +211,7 @@ cilium-agent hive [flags]
       --kvstore-lease-ttl duration                                     Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                     Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                     Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
-      --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous arp messages
+      --l2-pod-announcements-interface-pattern string                  Regex matching interfaces used for sending gratuitous ARP and NDP messages
       --lb-state-file string                                           Synchronize load-balancing state from the specified file
       --loadbalancer-envoy-health-state-sync-enabled                   Enables LB health state sync between K8s node and the node-local Envoy proxy
       --loadbalancer-envoy-health-state-sync-interval duration         Interval for the periodic (fallback) LB health state sync between K8s node and the node-local Envoy proxy (default 1m0s)

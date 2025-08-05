@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.18.0-dev](https://img.shields.io/badge/Version-1.18.0--dev-informational?style=flat-square) ![AppVersion: 1.18.0-dev](https://img.shields.io/badge/AppVersion-1.18.0--dev-informational?style=flat-square)
+![Version: 1.19.0-dev](https://img.shields.io/badge/Version-1.19.0--dev-informational?style=flat-square) ![AppVersion: 1.19.0-dev](https://img.shields.io/badge/AppVersion-1.19.0--dev-informational?style=flat-square)
 
 Cilium is open source software for providing and transparently securing
 network connectivity and loadbalancing between application workloads such as
@@ -428,7 +428,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:892cab92ffaf8499be90bd227bf07181e4b460ecd97750032ea7e91710a8acce","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.1-1750869463-42c7e8cf0f93ea19c9cb7e4d0ad2a339b3f81ad2","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770","useDigest":true}` | Envoy container image. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
@@ -934,7 +934,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.setNodeNetworkStatus | bool | `true` | Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod. |
 | operator.setNodeTaints | string | same as removeNodeTaints | Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider. |
 | operator.skipCRDCreation | bool | `false` | Skip CRDs creation for cilium-operator |
-| operator.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
+| operator.tolerations | list | `[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node.kubernetes.io/not-ready","operator":"Exists"}]` | Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods. @schema type: [null, array] @schema |
 | operator.topologySpreadConstraints | list | `[]` | Pod topology spread constraints for cilium-operator |
 | operator.unmanagedPodWatcher.intervalSeconds | int | `15` | Interval, in seconds, to check if there are any pods that are not managed by Cilium. |
 | operator.unmanagedPodWatcher.restart | bool | `true` | Restart any pod that are not managed by Cilium. |
@@ -942,7 +942,7 @@ contributors across the globe, there is almost always someone available to help.
 | pmtuDiscovery.enabled | bool | `false` | Enable path MTU discovery to send ICMP fragmentation-needed replies to the client. |
 | podAnnotations | object | `{}` | Annotations to be added to agent pods |
 | podLabels | object | `{}` | Labels to be added to agent pods |
-| podSecurityContext | object | `{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"RuntimeDefault"}}` | Security Context for cilium-agent pods. |
+| podSecurityContext | object | `{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"Unconfined"}}` | Security Context for cilium-agent pods. |
 | podSecurityContext.appArmorProfile | object | `{"type":"Unconfined"}` | AppArmorProfile options for the `cilium-agent` and init containers |
 | policyCIDRMatchMode | string | `nil` | policyCIDRMatchMode is a list of entities that may be selected by CIDR selector. The possible value is "nodes". |
 | policyEnforcementMode | string | `"default"` | The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes |
@@ -952,7 +952,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:892cab92ffaf8499be90bd227bf07181e4b460ecd97750032ea7e91710a8acce","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.1-1750869463-42c7e8cf0f93ea19c9cb7e4d0ad2a339b3f81ad2","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |

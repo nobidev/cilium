@@ -27,14 +27,14 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func TestOps(t *testing.T) {
+func TestPrivilegedOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var (
@@ -320,7 +320,7 @@ func TestOps(t *testing.T) {
 	require.Error(t, err, "expected error from delete of non-existing device")
 }
 
-func TestUpdateWithNextHop(t *testing.T) {
+func TestPrivilegedUpdateWithNextHop(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var (
@@ -546,7 +546,7 @@ func TestUpdateWithNextHop(t *testing.T) {
 	require.False(t, gw2.IsValid(), "expected no next hop for route with egress IP %s dest %s, found %s", egressIP, destinations[0], routes[0].Gw)
 }
 
-func TestPrune(t *testing.T) {
+func TestPrivilegedPrune(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var (
@@ -815,16 +815,20 @@ func newFakeIterator(objs ...*tables.EgressIPEntry) iter.Seq2[*tables.EgressIPEn
 	}
 }
 
-func newMockGARPSender() garp.Sender {
+func newMockGARPSender() gneigh.Sender {
 	return &mockGARPSender{}
 }
 
 type mockGARPSender struct{}
 
-func (gs *mockGARPSender) Send(iface garp.Interface, ip netip.Addr) error {
+func (gs *mockGARPSender) SendArp(iface gneigh.Interface, ip netip.Addr) error {
 	return nil
 }
 
-func (gs *mockGARPSender) InterfaceByIndex(idx int) (garp.Interface, error) {
-	return garp.Interface{}, nil
+func (gs *mockGARPSender) SendNd(iface gneigh.Interface, ip netip.Addr) error {
+	return nil
+}
+
+func (gs *mockGARPSender) InterfaceByIndex(idx int) (gneigh.Interface, error) {
+	return gneigh.Interface{}, nil
 }

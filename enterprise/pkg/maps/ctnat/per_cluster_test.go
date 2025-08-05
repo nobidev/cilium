@@ -61,7 +61,7 @@ func ctname(family nat.IPFamily, clusterID ...uint32) string {
 	return name
 }
 
-func TestPerClusterMapsLifecycle(t *testing.T) {
+func TestPrivilegedPerClusterMapsLifecycle(t *testing.T) {
 	setup(t)
 
 	tests := []struct {

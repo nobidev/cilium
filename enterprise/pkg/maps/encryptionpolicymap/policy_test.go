@@ -39,7 +39,7 @@ func iterateWithCallback(m *PolicyMap, cb encryptionPolicyIterateCallback) error
 	})
 }
 
-func TestPolicyMap(t *testing.T) {
+func TestPrivilegedPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 

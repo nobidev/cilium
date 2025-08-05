@@ -130,7 +130,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator1.Prefix,
@@ -151,7 +151,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator2.Prefix,
@@ -174,7 +174,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator1.Prefix,
@@ -195,7 +195,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator2.Prefix,
@@ -218,7 +218,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator2.Prefix,
@@ -239,7 +239,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator3.Prefix,
@@ -262,7 +262,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator2.Prefix,
@@ -283,7 +283,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         locator3.Prefix,

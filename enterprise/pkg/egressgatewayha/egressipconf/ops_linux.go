@@ -31,7 +31,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -65,12 +65,12 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 		return fmt.Errorf("failed to add egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
-	garpIface, err := ops.garpSender.InterfaceByIndex(iface.Attrs().Index)
+	gneighIface, err := ops.gneighSender.InterfaceByIndex(iface.Attrs().Index)
 	if err != nil {
 		return fmt.Errorf("failed to get device %s by index: %w", entry.Interface, err)
 	}
 
-	err = ops.garpSender.Send(garpIface, entry.Addr)
+	err = ops.gneighSender.SendArp(gneighIface, entry.Addr)
 	if err != nil {
 		ops.logger.Warn("failed to send gratuitous arp reply",
 			logfields.Address, entry.Addr,
@@ -288,16 +288,16 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 	return nil
 }
 
-func newOps(logger *slog.Logger, garpSender garp.Sender) *ops {
+func newOps(logger *slog.Logger, gneighSender gneigh.Sender) *ops {
 	return &ops{
-		logger:     logger,
-		garpSender: garpSender,
+		logger:       logger,
+		gneighSender: gneighSender,
 	}
 }
 
 type ops struct {
-	logger     *slog.Logger
-	garpSender garp.Sender
+	logger       *slog.Logger
+	gneighSender gneigh.Sender
 }
 
 var _ reconciler.Operations[*tables.EgressIPEntry] = &ops{}

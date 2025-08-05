@@ -139,7 +139,9 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{
+						netip.MustParseAddr("10.10.10.1"),
+					},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         egwPrefix,
@@ -163,7 +165,9 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.2/32"},
+					MatchNeighbors: []netip.Addr{
+						netip.MustParseAddr("10.10.10.2"),
+					},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         egwPrefix,
@@ -187,7 +191,9 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{
+						netip.MustParseAddr("10.10.10.1"),
+					},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         egwPrefix2,
@@ -210,7 +216,9 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []string{"10.10.10.1/32"},
+					MatchNeighbors: []netip.Addr{
+						netip.MustParseAddr("10.10.10.1"),
+					},
 					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 						{
 							CIDR:         egwPrefix2,

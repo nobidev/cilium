@@ -549,10 +549,16 @@
             "default": {
               "properties": {
                 "burstLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 },
                 "rateLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 }
               },
               "type": "object"
@@ -6075,6 +6081,29 @@
             "anyOf": [
               {
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
                   "operator": {
                     "type": "string"
                   }
@@ -6082,7 +6111,10 @@
               }
             ]
           },
-          "type": "array"
+          "type": [
+            "null",
+            "array"
+          ]
         },
         "topologySpreadConstraints": {
           "items": {},

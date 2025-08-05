@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func TestEgressCTMap(t *testing.T) {
+func TestPrivilegedEgressCTMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 

@@ -84,6 +84,21 @@ build-container-clustermesh-apiserver: ## Builds components required for the clu
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
+tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
+	@$(ECHO_CHECK) running privileged tests...
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
+	$(MAKE) generate-cov
+
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
 	## We split tests into two parts: one that can be run in parallel
@@ -93,7 +108,8 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
 	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
 	tail -n+2 coverage2.out >> coverage.out
 	rm coverage2.out
 	$(MAKE) generate-cov
@@ -132,7 +148,7 @@ else
 endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
+integration-tests: start-kvstores ## Run non-privileged Go tests and including ones that are marked as integration tests.
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -340,7 +356,6 @@ endef
 define K8S_PROTO_PACKAGES
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
@@ -455,6 +470,8 @@ endif
 	$(QUIET) contrib/scripts/check-datapathconfig.sh
 	@$(ECHO_CHECK) $(GO) run ./tools/slogloggercheck .
 	$(QUIET)$(GO) run ./tools/slogloggercheck .
+	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
+	$(QUIET) contrib/scripts/check-fipsonly.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
