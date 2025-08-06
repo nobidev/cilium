@@ -128,12 +128,9 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 		t.Log("Connection found with client IP %s, port %s and timeout %s", t2NodeIP, t2NodeSourcePort, connTimeout)
 
-		t.Log("Looping through all T1 nodes and marking them as unschedulable")
-		//  register cleanup to revert all k8s nodes to be schedulable (in case we abort early due to an error)
-		t.RegisterCleanup(markAllNodesAsSchedulable(k8sCli))
+		t.Log("Looping through all T1 nodes and check that they are used for BGP")
 
 		for _, t1Node := range t1NodeList.Items {
-
 			t.Log("Checking that T1 node %s is used as route", t1Node.Name)
 			eventually(t, func() error {
 				peerIP := getNodeIP(t1Node)
@@ -142,6 +139,12 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 				}
 				return nil
 			}, shortTimeout, pollInterval)
+		}
+
+		t.Log("Looping through all T1 nodes and marking them as unschedulable")
+		//  register cleanup to revert all k8s nodes to be schedulable (in case we abort early due to an error)
+		t.RegisterCleanup(markAllNodesAsSchedulable(k8sCli))
+		for _, t1Node := range t1NodeList.Items {
 
 			t.Log("Mark T1 node %s as unschedulable", t1Node.Name)
 			markNodeAsUnschedulable(t, k8sCli, t1Node.Name)
