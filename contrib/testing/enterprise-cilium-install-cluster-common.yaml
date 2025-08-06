@@ -19,14 +19,14 @@ debug:
   verbose: datapath
 endpointHealthChecking:
   enabled: false
-endpointStatus:
-  enabled: true
-  status: policy
 enterprise:
   clustermesh:
     enableOverlappingPodCIDRSupport: true
   ciliummesh:
     enabled: true
+  featureGate:
+    approved:
+    - ClusterMeshOverlappingPodCIDR
 image:
   pullPolicy: Never
   repository: quay.io/isovalent-dev/cilium-ci
@@ -56,7 +56,7 @@ serviceAccounts:
 socketLB:
   enabled: true
   hostNamespaceOnly: true
-tunnel: vxlan
+routingMode: tunnel
 extraConfig:
   # Disable Hubble flow export.
   export-file-path: ""
