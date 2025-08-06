@@ -367,7 +367,7 @@ func checkInitialConnectionAlive(t T, client *frrContainer, sqlServerIP string, 
 		}
 
 		return nil
-	}, longTimeout, pollInterval)
+	}, shortTimeout, pollInterval)
 }
 
 func waitUntil100NewConnectionsDontUseT2Node(t T, client *frrContainer, ip string, port uint32, initialConnectionIP string) {
