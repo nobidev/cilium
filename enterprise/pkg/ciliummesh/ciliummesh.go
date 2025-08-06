@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -264,6 +265,20 @@ func (cmm *CiliumMeshController) addMeshEndpoint(e *v1alpha1.IsovalentMeshEndpoi
 	return nil
 }
 
+func (cmm *CiliumMeshController) deletePolicyMetaMap(ip netip.Addr) error {
+	err := cmm.extEpsPolMapWriter.Delete(ip)
+	if err != nil {
+		cmm.logger.Warn(
+			"failed to delete entry from the ciliummeshpolicymap",
+			logfields.Error, err,
+			logfields.IPAddr, ip,
+		)
+		return err
+	}
+
+	return nil
+}
+
 func (cmm *CiliumMeshController) delMeshEndpoint(e *v1alpha1.IsovalentMeshEndpoint) error {
 	ip := e.Spec.IP // indexing by other fields are currently broken
 
@@ -275,7 +290,7 @@ func (cmm *CiliumMeshController) delMeshEndpoint(e *v1alpha1.IsovalentMeshEndpoi
 	if len(errs) != 0 {
 		return errs[0]
 	}
-	return nil
+	return cmm.deletePolicyMetaMap(ep.IPv4)
 }
 
 // IsovalentMeshEndpointResource is a Resource[T] for the local
