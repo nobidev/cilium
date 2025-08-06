@@ -1,4 +1,4 @@
-//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved
 //
 //  NOTICE: All information contained herein is, and remains the property of
 //  Isovalent Inc and its suppliers, if any. The intellectual and technical
@@ -45,6 +45,11 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 	if !versioncheck.MustCompile(minVersion)(currentVersion) {
 		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
 		return
+	}
+
+	t1NodeList, err := k8sCli.CoreV1().Nodes().List(t.Context(), metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
+	if err != nil {
+		t.Failedf("failed to retrieve t1 k8s nodes: %s", err)
 	}
 
 	// Skip test in environments with only one T2 node instance because this breaks connection
@@ -101,6 +106,16 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 
 		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
+
+		// Additional check to prevent the persistent connection from being killed because there's not a single healthy T2 endpoint available.
+		// This can be caused for two reasons:
+		// 1. Initial BGP status / Service health flapping. The service gets created in `healthy` state and then gets reconciled based on the active health check.
+		//    In this short period, the service might already be advertised via BGP (initial state healthy) and gets withdraw immediately after (endpoint not ready yet).
+		// 2. There's only one healthy T2 instance at the time of testing - and that's the one that gets put into maintenance
+		//
+		// In both cases, the BGP route gets withdraw if there's no healthy (T2) endpoint available. Which leads to terminating the persistent connection if the same happens on all T1 nodes.
+		t.Log("Waiting until all T2 endpoints are active on all T1 nodes...")
+		scenario.waitForAllT2EndpointsActive(testName, vipIP, 80, t1NodeList, t2NodeList)
 
 		//
 		// Actual start of tests

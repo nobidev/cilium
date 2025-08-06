@@ -42,6 +42,11 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		t.Failedf("failed to retrieve t1 k8s nodes: %s", err)
 	}
 
+	t2NodeList, err := k8sCli.CoreV1().Nodes().List(t.Context(), metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t2, t1-t2 )"})
+	if err != nil {
+		t.Failedf("failed to retrieve t2 k8s nodes: %s", err)
+	}
+
 	if len(t1NodeList.Items) < 2 {
 		fmt.Printf("skipping due to not at least 2 T1 nodes available\n")
 		return
@@ -89,6 +94,16 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(testName)
+
+		// Additional check to prevent the persistent connection from being killed because there's not a single healthy T2 endpoint available.
+		// This can be caused for two reasons:
+		// 1. Initial BGP status / Service health flapping. The service gets created in `healthy` state and then gets reconciled based on the active health check.
+		//    In this short period, the service might already be advertised via BGP (initial state healthy) and gets withdraw immediately after (endpoint not ready yet).
+		// 2. There's only one healthy T2 instance at the time of testing - and that's the one that gets put into maintenance
+		//
+		// In both cases, the BGP route gets withdraw if there's no healthy (T2) endpoint available. Which leads to terminating the persistent connection if the same happens on all T1 nodes.
+		t.Log("Waiting until all T2 endpoints are active on all T1 nodes...")
+		scenario.waitForAllT2EndpointsActive(testName, vipIP, 80, t1NodeList, t2NodeList)
 
 		//
 		// Actual start of tests

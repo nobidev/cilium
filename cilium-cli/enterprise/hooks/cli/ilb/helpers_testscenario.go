@@ -16,6 +16,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -98,6 +100,75 @@ func (r *lbTestScenario) waitForFullVIPConnectivity(vipName string) string {
 	}
 
 	return ip
+}
+
+func (r *lbTestScenario) waitForAllT2EndpointsActive(testName string, vipIP string, vipPort uint16, t1NodeList *corev1.NodeList, t2NodeList *corev1.NodeList) {
+	eventually(r.t, func() error {
+		return r.allT2EndpointsActive(testName, vipIP, vipPort, t1NodeList, t2NodeList)
+	}, longTimeout, pollInterval)
+}
+
+// allT2EndpointsActive checks that all T2 endpoints are active on all T1 nodes
+func (r *lbTestScenario) allT2EndpointsActive(testName string, vipIP string, vipPort uint16, t1NodeList *corev1.NodeList, t2NodeList *corev1.NodeList) error {
+	podList, err := r.k8sCli.CoreV1().Pods(ciliumNamespace).List(r.t.Context(), metav1.ListOptions{
+		LabelSelector: ciliumAgentPodLabelSelector,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list cilium agent pods: %w", err)
+	}
+
+	for _, t1 := range t1NodeList.Items {
+		podName := ciliumAgentPodNameForNode(podList, t1.Name)
+		if podName == "" {
+			return fmt.Errorf("failed to get cilium agent pod for node %s: %w", t1.Name, err)
+		}
+
+		stdout, _, err := execIntoPod(r.t, r.k8sCli, ciliumNamespace, podName, "cilium-agent", []string{"cilium-dbg", "service", "list", "-o", "json"})
+		if err != nil {
+			return fmt.Errorf("failed to list service info on node %s: %w", t1.Name, err)
+		}
+
+		services := make([]*models.Service, 0)
+
+		if err := json.Unmarshal(stdout.Bytes(), &services); err != nil {
+			return fmt.Errorf("failed to unmarshal service status from %s: %w", podName, err)
+		}
+
+		for _, s := range services {
+			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
+				s.Status.Realized.Flags.Type == "LoadBalancer" &&
+				s.Status.Realized.Flags.Name == "lbfe-"+testName &&
+				s.Status.Realized.FrontendAddress.IP == vipIP &&
+				s.Status.Realized.FrontendAddress.Port == vipPort {
+
+				allT2Active := true
+				for _, backendAddress := range s.Status.Realized.BackendAddresses {
+					if backendAddress.State != "active" {
+						allT2Active = false
+						break
+					}
+				}
+
+				if len(s.Status.Realized.BackendAddresses) != len(t2NodeList.Items) || !allT2Active {
+					return fmt.Errorf("not all t2 endpointsare active yet")
+				}
+
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+func ciliumAgentPodNameForNode(podList *corev1.PodList, nodeName string) string {
+	for _, p := range podList.Items {
+		if p.Spec.NodeName == nodeName {
+			return p.Name
+		}
+	}
+
+	return ""
 }
 
 func (r *lbTestScenario) addCoreDNS() *coreDNSContainer {
