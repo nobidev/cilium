@@ -50,6 +50,7 @@ type mixedRouting struct {
 
 	nativeSniffers map[sniff.Mode]map[check.NodeIdentity]*sniff.Sniffer
 	tunnelSniffers map[sniff.Mode]map[check.NodeIdentity]*sniff.Sniffer
+	finalizers     []func() error
 }
 
 func (mr *mixedRouting) Name() string {
@@ -86,19 +87,21 @@ func (mr *mixedRouting) setup(ctx context.Context, ct *check.ConnectivityTest) e
 
 		for _, sm := range []sniff.Mode{sniff.ModeAssert, sniff.ModeSanity} {
 			if filter := mr.buildNativeFilter(ct, nodeID, sm); filter != "" {
-				sniffer, err := sniff.Sniff(ctx, "mixed-routing-native-"+string(sm), &hp, iface, filter, sm, ct)
+				sniffer, cancel, err := sniff.Sniff(ctx, "mixed-routing-native-"+string(sm), &hp, iface, filter, sm, enterpriseSniff.SniffKillTimeout, ct)
 				if err != nil {
 					return fmt.Errorf("failed to setup mixed routing mode sniff on %s (%s): %w", hp.String(), hp.NodeName(), err)
 				}
+				mr.finalizers = append(mr.finalizers, cancel)
 
 				mr.nativeSniffers[sm][nodeID] = sniffer
 			}
 
 			if filter := mr.buildTunnelFilter(ct, nodeID, sm); filter != "" {
-				sniffer, err := sniff.Sniff(ctx, "mixed-routing-tunnel-"+string(sm), &hp, iface, filter, sm, ct)
+				sniffer, cancel, err := sniff.Sniff(ctx, "mixed-routing-tunnel-"+string(sm), &hp, iface, filter, sm, enterpriseSniff.SniffKillTimeout, ct)
 				if err != nil {
 					return fmt.Errorf("failed to setup mixed routing mode sniff on %s (%s): %w", hp.String(), hp.NodeName(), err)
 				}
+				mr.finalizers = append(mr.finalizers, cancel)
 
 				mr.tunnelSniffers[sm][nodeID] = sniffer
 			}
@@ -109,13 +112,22 @@ func (mr *mixedRouting) setup(ctx context.Context, ct *check.ConnectivityTest) e
 }
 
 func (mr *mixedRouting) Run(ctx context.Context, t *check.Test) {
+	// on exit, run registered finalizers
+	defer func() {
+		for _, f := range mr.finalizers {
+			if err := f(); err != nil {
+				t.Infof("Failed to run finalizer: %w", err)
+			}
+		}
+	}()
+
 	for _, sm := range []sniff.Mode{sniff.ModeAssert, sniff.ModeSanity} {
 		for id, sniff := range mr.nativeSniffers[sm] {
-			t.NewGenericAction(mr, "native-routing-"+string(sm)+"-"+id.Name).Run(func(a *check.Action) { sniff.Validate(ctx, a) })
+			t.NewGenericAction(mr, "native-routing-"+string(sm)+"-"+id.Name).Run(func(a *check.Action) { sniff.Validate(a) })
 		}
 
 		for id, sniff := range mr.tunnelSniffers[sm] {
-			t.NewGenericAction(mr, "tunnel-routing-"+string(sm)+"-"+id.Name).Run(func(a *check.Action) { sniff.Validate(ctx, a) })
+			t.NewGenericAction(mr, "tunnel-routing-"+string(sm)+"-"+id.Name).Run(func(a *check.Action) { sniff.Validate(a) })
 		}
 	}
 }

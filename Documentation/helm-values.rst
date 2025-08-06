@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:f85340bf132ae937d2c2a763b8335c9bab35d6e8293f70f606b9c6178d84f42b","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -925,17 +925,93 @@
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableMCSAPISupport`
-     - Enable Multi-Cluster Services API support
+     - Enable Multi-Cluster Services API support (deprecated; use clustermesh.mcsapi.enabled)
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.maxConnectedClusters`
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.affinity`
+     - Affinity for coredns-mcsapi-autoconfig
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.annotations`
+     - Annotations to be added to the coredns-mcsapi-autoconfig Job
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clusterDomain`
+     - The cluster domain for the cluster CoreDNS service
+     - string
+     - ``"cluster.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clustersetDomain`
+     - The clusterset domain for the cluster CoreDNS service
+     - string
+     - ``"clusterset.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName`
+     - The ConfigMap name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName`
+     - The Deployment for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace`
+     - The namespace for the cluster CoreDNS service
+     - string
+     - ``"kube-system"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.serviceAccountName`
+     - The Service Account name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.enabled`
+     - Enable auto-configuration of CoreDNS for Multi-Cluster Services API.    CoreDNS MUST be at least in version v1.12.2 to run this.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraArgs`
+     - Additional arguments to ``clustermesh-apiserver coredns-mcsapi-auto-configure``.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumeMounts`
+     - Additional coredns-mcsapi-autoconfig volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumes`
+     - Additional coredns-mcsapi-autoconfig volumes.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.nodeSelector`
+     - Node selector for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.podLabels`
+     - Labels to be added to coredns-mcsapi-autoconfig pods
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.priorityClassName`
+     - Priority class for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+     - string
+     - ``""``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.resources`
+     - Resource limits for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.ttlSecondsAfterFinished`
+     - Seconds after which the completed job pod will be deleted
+     - int
+     - ``1800``
+   * - :spelling:ignore:`clustermesh.mcsapi.enabled`
+     - Enable Multi-Cluster Services API support
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
      - Control whether policy rules assume by default the local cluster if not explicitly selected
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool
@@ -1515,7 +1591,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770","useDigest":true}``
+     - ``{"digest":"sha256:b7f1091ce8aa7f4a85e4c40f85c97d1d4d8e1ceb24ac2e5e0b5635c74642c4fe","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754349807-36a9762613bb0e808c1cde52eff5100230055e17","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -3611,7 +3687,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:163bca97f461ecb678d4841c1a7feb98f017af7700fa5555055289d2f38bdff5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.3-1753248459-b81139e4a186163120cb62a251e3e61098c20770","useDigest":true}``
+     - ``{"digest":"sha256:b7f1091ce8aa7f4a85e4c40f85c97d1d4d8e1ceb24ac2e5e0b5635c74642c4fe","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754349807-36a9762613bb0e808c1cde52eff5100230055e17","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3836,6 +3912,10 @@
      - Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"clustermesh-apiserver-generate-certs"}``
+   * - :spelling:ignore:`serviceAccounts.corednsMCSAPI`
+     - CorednsMCSAPI is used if clustermesh.mcsapi.corednsAutoConfigure.enabled=true
+     - object
+     - ``{"annotations":{},"automount":true,"create":true,"name":"cilium-coredns-mcsapi-autoconfig"}``
    * - :spelling:ignore:`serviceAccounts.hubblecertgen`
      - Hubblecertgen is used if hubble.tls.auto.method=cronJob
      - object

@@ -22,6 +22,7 @@ import (
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -312,7 +313,7 @@ func getGatewayNodeInternalIP(ct *check.ConnectivityTest, egressGatewayNode stri
 	}
 
 	for _, addr := range gatewayNode.Status.Addresses {
-		if addr.Type != v1.NodeInternalIP {
+		if addr.Type != slimcorev1.NodeInternalIP {
 			continue
 		}
 

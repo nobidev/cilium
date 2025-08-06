@@ -19,12 +19,21 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+type fakeWgConfig struct {
+	EnableWireguard bool
+}
+
+func (fwc fakeWgConfig) Enabled() bool {
+	return fwc.EnableWireguard
+}
+
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
 		name      string
 		cfg       Config
 		dcfg      *option.DaemonConfig
 		kprCfg    kpr.KPRConfig
+		wgCfg     fakeWgConfig
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
@@ -172,15 +181,16 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg:      &option.DaemonConfig{EnableWireguard: true},
+			dcfg:      &option.DaemonConfig{},
 			kprCfg:    kpr.KPRConfig{},
+			wgCfg:     fakeWgConfig{EnableWireguard: true},
 			assertion: assert.Error,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.kprCfg))
+			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.kprCfg, tt.wgCfg))
 		})
 	}
 }

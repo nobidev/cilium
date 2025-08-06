@@ -145,7 +145,7 @@ cilium-operator-generic hive dot-graph [flags]
       --operator-pprof-address string                                  Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                                     Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                          Address to serve Prometheus metrics (default ":9963")
-      --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected
+      --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                                Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --skip-crd-creation                                              When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                      Enable SRv6 locator pool in Cilium

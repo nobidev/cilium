@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var Cell = cell.Module(
@@ -128,6 +129,7 @@ type engineParams struct {
 	Registry  job.Registry
 	Health    cell.Health
 	Tunnel    tunnel.Config
+	Wireguard wgTypes.WireguardConfig
 
 	IdentityChanges stream.Observable[IdentityChangeBatch]
 	DaemonConfig    *option.DaemonConfig
@@ -150,7 +152,7 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		return nil
 	}
 
-	if !params.DaemonConfig.EnableWireguard {
+	if !params.Wireguard.Enabled() {
 		params.Log.Error("Encryption Policy requires WireGuard to be enabled")
 		return nil
 	}

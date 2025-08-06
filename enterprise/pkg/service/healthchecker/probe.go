@@ -43,9 +43,9 @@ func probe(p probeParams) probeResult {
 	switch {
 	case p.config.L7:
 		return sendL7Probe(p)
-	case p.beAddr.Protocol == lb.TCP:
+	case p.beAddr.Protocol() == lb.TCP:
 		return sendTCPProbe(p)
-	case p.beAddr.Protocol == lb.UDP:
+	case p.beAddr.Protocol() == lb.UDP:
 		return sendUDPProbe(p)
 	default:
 		return probeResult{ts: time.Now(), healthy: true, message: "unsupported protocol"}
@@ -349,9 +349,9 @@ func sendL7Probe(p probeParams) probeResult {
 }
 
 func getAddrStr(addr lb.L3n4Addr) string {
-	portStr := strconv.FormatUint(uint64(addr.Port), 10)
+	portStr := strconv.FormatUint(uint64(addr.Port()), 10)
 
-	return addr.AddrCluster.String() + ":" + portStr
+	return addr.AddrCluster().String() + ":" + portStr
 }
 
 func getSvcHTTPMethod(config HealthCheckConfig) string {
@@ -371,10 +371,10 @@ func getConnURL(config HealthCheckConfig, connAddr lb.L3n4Addr) string {
 	default:
 		scheme = "http"
 	}
-	if connAddr.AddrCluster.Addr().Is6() {
-		addr = fmt.Sprintf("[%s]", connAddr.AddrCluster.Addr().String())
+	if connAddr.AddrCluster().Addr().Is6() {
+		addr = fmt.Sprintf("[%s]", connAddr.AddrCluster().Addr().String())
 	} else {
-		addr = connAddr.AddrCluster.Addr().String()
+		addr = connAddr.AddrCluster().Addr().String()
 	}
 	if config.HTTPPath != "" {
 		path = config.HTTPPath
@@ -382,5 +382,5 @@ func getConnURL(config HealthCheckConfig, connAddr lb.L3n4Addr) string {
 			path = "/" + path // make sure the path always starts with a slash
 		}
 	}
-	return fmt.Sprintf("%s://%s:%d%s", scheme, addr, connAddr.L4Addr.Port, path)
+	return fmt.Sprintf("%s://%s:%d%s", scheme, addr, connAddr.Port(), path)
 }

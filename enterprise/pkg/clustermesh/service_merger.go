@@ -175,10 +175,12 @@ func clusterServiceToServiceAndFrontends(cmcfg cmcfg.Config, csvc *serviceStore.
 			portName := loadbalancer.FEPortName(portName)
 			fes = append(fes,
 				loadbalancer.FrontendParams{
-					Address: loadbalancer.L3n4Addr{
-						AddrCluster: addrCluster,
-						L4Addr:      l4,
-					},
+					Address: loadbalancer.NewL3n4Addr(
+						l4.Protocol,
+						addrCluster,
+						l4.Port,
+						loadbalancer.ScopeExternal,
+					),
 					Type:        loadbalancer.SVCTypeClusterIP,
 					ServiceName: name,
 					PortName:    portName,

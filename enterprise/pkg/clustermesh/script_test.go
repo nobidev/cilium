@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -63,6 +64,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
@@ -131,6 +133,7 @@ func TestScript(t *testing.T) {
 				func() *loadbalancer.TestConfig {
 					return &loadbalancer.TestConfig{}
 				},
+				func() wgTypes.WireguardConfig { return fakeTypes.WireguardConfig{} },
 				NewClusterMeshMetricsNoop,
 				func() cm.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
