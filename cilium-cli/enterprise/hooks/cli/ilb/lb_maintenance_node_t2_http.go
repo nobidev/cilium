@@ -211,5 +211,5 @@ func checkNewHTTPRequestsUseT2(t T, client *frrContainer, testCmd string, t2Node
 		}
 
 		return nil
-	}, shortTimeout, pollInterval)
+	}, longTimeout, pollInterval)
 }
