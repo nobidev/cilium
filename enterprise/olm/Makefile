@@ -191,6 +191,10 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	$(KUSTOMIZE) build config/default > dist/install.yaml
 	$(KUSTOMIZE) build config/default -o dist/manifests
 
+.PHONY: release-archive
+release-archive: build-installer ## Generate a deployment archive, which can be uploaded to the doc website.
+	./scripts/release-archive.sh
+
 ##@ Deployment
 
 ifndef ignore-not-found

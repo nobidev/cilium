@@ -1,0 +1,12 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: clife
+  namespace: cilium
+spec:
+  channel: "1.17"
+  installPlanApproval: Manual
+  name: clife
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+

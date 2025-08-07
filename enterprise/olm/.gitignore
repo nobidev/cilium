@@ -34,3 +34,6 @@ LICENSE.all
 
 # vendor dir generated only for getting the licenses
 vendor
+
+# Directory containing the generated release archive
+.docs/*
