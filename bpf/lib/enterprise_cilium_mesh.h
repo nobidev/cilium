@@ -116,6 +116,11 @@ cilium_mesh_policy_egress(struct __ctx_buff *ctx __maybe_unused,
 					     &policy_match_type, &audited, ext_err,
 					     &proxy_port);
 
+	if (verdict == DROP_EP_NOT_READY) {
+		/* XXX ? actually, isn't this a fatal error? need to report somehow */
+		verdict = CTX_ACT_OK;
+	}
+
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		/* XXX: implement me */
 	}
@@ -190,6 +195,11 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 	verdict = ext_eps_policy_can_ingress4(ctx, ip4->daddr, src_sec_identity, tuple.dport,
 					      ip4->protocol, l4_off, is_untracked_fragment,
 					      &policy_match_type, &audited, ext_err, &proxy_port);
+
+	if (verdict == DROP_EP_NOT_READY) {
+		/* XXX ? actually, isn't this a fatal error? need to report somehow */
+		verdict = CTX_ACT_OK;
+	}
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		/* XXX: implement me */

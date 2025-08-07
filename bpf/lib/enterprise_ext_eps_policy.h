@@ -42,7 +42,8 @@ __ext_eps_policy_can_access(struct __ctx_buff *ctx, struct endpoint_key *key,
 
 	map = map_lookup_elem(&cilium_ext_eps_policy, key);
 	if (!map)
-		return CTX_ACT_OK; /* XXX ? actually, isn't this a fatal error? need to report somehow */
+		return DROP_EP_NOT_READY;
+
 
 	/* shouldn't this be set here instead? XXX: check with the normal path */
 	*audited = 0;
