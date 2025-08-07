@@ -4,6 +4,7 @@ run-name: Publish the ${{ inputs.version }} release to Red Hat catalogs
 # This workflow:
 # - Run the preflight checks for the component images and publish the results to Red Hat
 # - Create a pull request with the required manifests for publishing a new bundle against Red Hat repository for certified operators
+# - Create a pull request with the new installation archive against the documentation repository for Isovalent Networking for Kubernetes
 
 on:
   workflow_dispatch:
@@ -29,10 +30,11 @@ permissions:
 env:
   OPERATOR_NAME: isovalent-networking
   PR_BRANCH: pr/isovalent-networking/${{ inputs.version }}
+  VERSION: ${{ inputs.version }}
 
 jobs:
   publish-to-redhat:
-    name: Publish
+    name: Publish to Red Hat
     runs-on: ubuntu-24.04
     steps:
       - name: Echo Workflow Dispatch Inputs
@@ -47,7 +49,7 @@ jobs:
 
       - name: Run preflight checks and publish results
         env:
-          CL_TAG: "${{ inputs.version }}"
+          CL_TAG: "${{ env.VERSION }}"
           CL_PYXIS_TOKEN: "${{ secrets.RH_API_PYXIS_TOKEN }}"
           CL_SUBMIT: "${{ inputs.submit }}"
         working-directory: ${{ github.workspace }}/cilium/enterprise/olm
@@ -104,7 +106,7 @@ jobs:
 
       - name: Generate bundle
         env:
-          CL_TAG: "${{ inputs.version }}"
+          CL_TAG: "${{ env.VERSION }}"
           CL_RH_REPO: ${{ github.workspace }}/certified-operators
         working-directory: ${{ github.workspace }}/cilium/enterprise/olm
         run: |
@@ -112,7 +114,7 @@ jobs:
 
       - name: Generate release-config.yaml
         env:
-          CL_TAG: "${{ inputs.version }}"
+          CL_TAG: "${{ env.VERSION }}"
           CL_RH_REPO: ${{ github.workspace }}/certified-operators
         working-directory: ${{ github.workspace }}/cilium/enterprise/olm
         run: |
@@ -126,14 +128,14 @@ jobs:
           git config --global user.name "isovalent-operator[bot]"
 
           # Commit and push
-          COMMIT_MESSAGE="Add operator ${OPERATOR_NAME} ${{ inputs.version }}"
+          COMMIT_MESSAGE="Add operator ${OPERATOR_NAME} ${VERSION}"
           git add operators
           git commit -m "${COMMIT_MESSAGE}"
           git push -u origin ${PR_BRANCH}
 
           # Set title and body
           echo "title=${COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
-          PULL_REQUEST_MESSAGE="Created by the *${{ github.job }}* for ${OPERATOR_NAME} ${{ inputs.version }}."
+          PULL_REQUEST_MESSAGE="Created by the *${{ github.job }}* for ${OPERATOR_NAME} ${VERSION}."
           echo "body=${PULL_REQUEST_MESSAGE}" >> $GITHUB_OUTPUT
 
       - name: Create PR
@@ -151,3 +153,83 @@ jobs:
             });
 
             console.log(`PR created: ${pr.html_url}`);
+
+  publish-to-doc:
+    name: Publish to doc site
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+      - name: Checkout Cilium
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          path: cilium
+
+      - name: Get Release Management Github App Credentials
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ vars.VAULT_URL }}
+          method: jwt
+          namespace: ${{ github.repository_owner }}/github-actions
+          secrets: |
+            secret/data/devops/${{ github.repository_owner }} github_app_pem | GH_READWRITE_APP_PEM;
+            secret/data/devops/${{ github.repository_owner }} github_app_id | GH_READWRITE_APP_ID;
+
+      - id: generate-token
+        name: Generate Token
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        with:
+          app-id: ${{ env.GH_READWRITE_APP_ID }}
+          private-key: ${{ env.GH_READWRITE_APP_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            cilium-enterprise-docs
+
+      - name: Checkout Enterprise Docs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          repository: isovalent/cilium-enterprise-docs
+          path: enterprise-docs
+
+      - name: Create docs release archives
+        working-directory: cilium/enterprise/olm
+        env:
+          CL_TAG: "${{ env.VERSION }}"
+        run: |
+          make release-archive
+
+      - name: Commit and push release archives and links
+        working-directory: enterprise-docs
+        run: |
+          # upload the archive and SHA
+          cp ../cilium/enterprise/olm/.docs/* docs/_static/public/clife
+          # update doc link
+          version="$(echo "${{ env.VERSION }}" | cut -d - -f -1 | cut -d \+ -f -1)"
+          version="${version#v}"
+          echo "${version}" > docs/CLIFE_VERSION_"$(tr . _ <<< "$(echo "${version}" | cut -d . -f1,2)")"
+          message="Update Enterprise Docs with CLife Release for Isovalent Networking for Kubernetes ${{ env.VERSION }}"
+          echo "TITLE=${message}" >> "$GITHUB_ENV"
+          git config --global user.email "release-management[bot]@users.noreply.github.com"
+          git config --global user.name "release-management[bot]"
+          git add docs
+          git commit docs -m "${message}"
+          git push origin HEAD:pr/clife-release/${{ env.VERSION }}
+
+      - name: Create PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: '${{ github.repository_owner }}',
+              repo: 'cilium-enterprise-docs',
+              title: '${{ env.TITLE }}',
+              head: '${{ github.repository_owner }}:pr/clife-release/${{ env.VERSION }}',
+              base: 'main',
+              body: 'CLife Release for Isovalent Networking for Kubernetes ${{ env.VERSION }}',
+            });
+            console.log(pr.html_url);
