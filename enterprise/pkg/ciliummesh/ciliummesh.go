@@ -134,6 +134,8 @@ func (cmm *CiliumMeshController) run(ctx context.Context) {
 	for ev := range cmm.resource.Events(ctx) {
 		switch ev.Kind {
 		case resource.Sync:
+			cmm.extEpsPolMapWriter.MarkInitialized()
+
 		case resource.Delete:
 			ep := ev.Object
 

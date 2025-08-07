@@ -22,13 +22,17 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 
 	cell.Provide(
+		newWriter,
 		newMap,
-
-		func(m *extEpsPolMap) Writer { return m },
 	),
 
 	cell.ProvidePrivate(
+		newTable,
 		toEnabled,
+	),
+
+	cell.Invoke(
+		registerReconciler,
 	),
 )
 

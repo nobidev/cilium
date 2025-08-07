@@ -11,7 +11,11 @@
 package extepspolicy
 
 import (
+	"errors"
 	"net/netip"
+
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
@@ -22,4 +26,74 @@ type Writer interface {
 	Upsert(ip netip.Addr, pm *policymap.PolicyMap) error
 	// Delete unregisters the policy map associated with the given IP address.
 	Delete(ip netip.Addr) error
+
+	// MarkInitialized must be called when the initial set of entries has been written.
+	MarkInitialized()
+}
+
+type writer struct {
+	en   enabled
+	db   *statedb.DB
+	tbl  statedb.RWTable[*entry]
+	done func(statedb.WriteTxn)
+}
+
+func newWriter(en enabled, db *statedb.DB, tbl statedb.RWTable[*entry]) Writer {
+	var done func(statedb.WriteTxn)
+	if en {
+		wtx := db.WriteTxn(tbl)
+		done = tbl.RegisterInitializer(wtx, "writer")
+		wtx.Commit()
+	}
+
+	return &writer{en: en, db: db, tbl: tbl, done: done}
+}
+
+func (w *writer) Upsert(ip netip.Addr, pm *policymap.PolicyMap) error {
+	if !w.en {
+		return errors.New("map is not enabled")
+	}
+
+	if !ip.IsValid() {
+		return errors.New("invalid ip address")
+	}
+
+	if pm == nil || pm.FD() < 0 {
+		return errors.New("invalid policy map")
+	}
+
+	wtx := w.db.WriteTxn(w.tbl)
+	w.tbl.Insert(wtx, &entry{
+		ip: ip, policyMapName: pm.Name(), policyMapFD: uint32(pm.FD()),
+		status: reconciler.StatusPending(),
+	})
+	wtx.Commit()
+
+	return nil
+}
+
+func (w *writer) Delete(ip netip.Addr) error {
+	if !w.en {
+		return errors.New("map is not enabled")
+	}
+
+	if !ip.IsValid() {
+		return errors.New("invalid ip address")
+	}
+
+	wtx := w.db.WriteTxn(w.tbl)
+	w.tbl.Delete(wtx, &entry{ip: ip})
+	wtx.Commit()
+
+	return nil
+}
+
+func (w *writer) MarkInitialized() {
+	if !w.en {
+		return
+	}
+
+	wtx := w.db.WriteTxn(w.tbl)
+	w.done(wtx)
+	wtx.Commit()
 }

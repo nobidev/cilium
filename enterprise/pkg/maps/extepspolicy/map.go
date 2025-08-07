@@ -11,9 +11,7 @@
 package extepspolicy
 
 import (
-	"errors"
 	"fmt"
-	"net/netip"
 	"strconv"
 	"unsafe"
 
@@ -101,34 +99,4 @@ func (m *extEpsPolMap) Stop(cell.HookContext) error {
 	}
 
 	return nil
-}
-
-func (m *extEpsPolMap) Upsert(ip netip.Addr, pm *policymap.PolicyMap) error {
-	var (
-		key Key
-		val Value
-	)
-
-	if !ip.IsValid() {
-		return errors.New("invalid ip address")
-	}
-
-	if pm == nil || pm.FD() < 0 {
-		return errors.New("invalid policy map")
-	}
-
-	key.EndpointKey = bpf.NewEndpointKey(ip.AsSlice(), 0)
-	val.Fd = uint32(pm.FD())
-	return m.m.Update(&key, &val)
-}
-
-func (m *extEpsPolMap) Delete(ip netip.Addr) error {
-	var key Key
-
-	if !ip.IsValid() {
-		return errors.New("invalid ip address")
-	}
-
-	key.EndpointKey = bpf.NewEndpointKey(ip.AsSlice(), 0)
-	return m.m.Delete(&key)
 }
