@@ -23,14 +23,14 @@ jobs:
         include:
         # DON'T USE hourModulo=0 to avoid running ariane scheduled-workflows
         # at the same time as regular main scheduled workflows
-          - branch: '1.15-ce'
+          - branch: 'v1.15-ce'
             hourModulo: 3
-          - branch: '1.16-ce'
+          - branch: 'v1.16-ce'
             hourModulo: 4
-          - branch: '1.17-ce'
+          - branch: 'v1.17-ce'
             hourModulo: 5
-          - branch: '1.18-ce'
-            hourModulo: 6
+          - branch: 'v1.18-ce'
+            hourModulo: 1
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
