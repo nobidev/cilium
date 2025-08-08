@@ -42,5 +42,8 @@ spec:
         - podSelector:
             matchLabels:
               app: client
+            matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: Exists
       ports:
         - port: 80

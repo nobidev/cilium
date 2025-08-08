@@ -54,6 +54,9 @@ spec:
         - podSelector:
             matchLabels:
               app: client
+            matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: Exists
       ports:
         - port: 80
 EOF
@@ -77,6 +80,9 @@ spec:
         - podSelector:
             matchLabels:
               run: nginx
+            matchExpressions:
+            - key: io.cilium.k8s.policy.cluster
+              operator: Exists
       ports:
         - port: 80
 EOF
