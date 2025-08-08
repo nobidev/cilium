@@ -184,8 +184,8 @@ func TestScript(t *testing.T) {
 				MaxRetryInterval: 500 * time.Millisecond,
 			}
 		}, []string{
-			fmt.Sprintf("HTTP_PORT=%d", httpAddr.Port),
-			fmt.Sprintf("HTTPS_PORT=%d", httpsAddr.Port),
+			fmt.Sprintf("HTTP_PORT=%d", httpAddr.Port()),
+			fmt.Sprintf("HTTPS_PORT=%d", httpsAddr.Port()),
 			fmt.Sprintf("UDP_PORT=%d", udpServer.port()),
 		},
 		"testdata/*.txtar")

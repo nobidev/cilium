@@ -488,6 +488,7 @@ Makefile* @cilium/build
 /operator/pkg/model @cilium/sig-servicemesh
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
+/operator/pkg/workqueuemetrics @cilium/metrics
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -508,6 +509,7 @@ Makefile* @cilium/build
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
+/pkg/clustermesh/*/metrics* @cilium/metrics @cilium/sig-clustermesh
 /pkg/cmdref @cilium/cli
 /pkg/command/ @cilium/cli
 /pkg/common/ @cilium/sig-agent
@@ -651,6 +653,7 @@ Makefile* @cilium/build
 /SECURITY.md @cilium/contributing
 /SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/release-managers
+/standalone-dns-proxy/ @cilium/fqdn
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
@@ -672,6 +675,7 @@ Makefile* @cilium/build
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /tools/dpgen @cilium/loader
+/tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor

@@ -269,5 +269,5 @@ func getTestServerL3n4Addr(t *testing.T, addr net.Addr) lb.L3n4Addr {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(addrParts[0]), L4Addr: lb.L4Addr{Port: uint16(port)}}
+	return lb.NewL3n4Addr(lb.TCP, cmtypes.MustParseAddrCluster(addrParts[0]), uint16(port), lb.ScopeExternal)
 }

@@ -195,6 +195,7 @@
 /pkg/ciliumenvoyconfig/ @isovalent/service-mesh @isovalent/service-mesh
 /pkg/cleanup/ @isovalent/cni
 /pkg/clustermesh @isovalent/clustermesh
+/pkg/clustermesh/*/metrics* @isovalent/clustermesh
 /pkg/cmdref @isovalent/ci-structure
 /pkg/command/ @isovalent/ci-structure
 /pkg/common/ @isovalent/cni
@@ -327,6 +328,7 @@
 /pkg/wireguard @isovalent/encryption
 /pkg/xds/ @isovalent/service-mesh
 /plugins/cilium-cni/ @isovalent/sig-k8s
+/standalone-dns-proxy/ @isovalent/dns-proxy
 /test/k8s/services.go @isovalent/isovalent-loadbalancer
 /test/k8s/bandwidth.go @isovalent/cni
 /test/k8s/datapath_configuration.go @isovalent/cni

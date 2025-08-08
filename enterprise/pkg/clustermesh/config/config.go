@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -48,7 +49,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnablePhantomServices, def.EnablePhantomServices, "Enable phantom services handling")
 }
 
-func (cfg Config) Validate(dcfg *option.DaemonConfig, kprConfig kpr.KPRConfig) error {
+func (cfg Config) Validate(dcfg *option.DaemonConfig, kprConfig kpr.KPRConfig, wgConfig wgTypes.WireguardConfig) error {
 	if !cfg.EnableClusterAwareAddressing {
 		if cfg.EnableInterClusterSNAT {
 			return fmt.Errorf("%s depends on %s", EnableInterClusterSNAT, EnableClusterAwareAddressing)
@@ -71,7 +72,7 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, kprConfig kpr.KPRConfig) e
 		option.EnableEndpointRoutes:         dcfg.EnableEndpointRoutes,
 		option.EnableEndpointHealthChecking: dcfg.EnableEndpointHealthChecking,
 		option.EnableIPSecName:              dcfg.EnableIPSec,
-		option.EnableWireguard:              dcfg.EnableWireguard,
+		wgTypes.EnableWireguard:             wgConfig.Enabled(),
 	}
 
 	for cfgname, enabled := range incompatibilities {

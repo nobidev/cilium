@@ -238,6 +238,6 @@ func addrsEqual(a, b []lb.L3n4Addr) bool {
 	return slices.EqualFunc(
 		a, b,
 		func(a, b lb.L3n4Addr) bool {
-			return a.DeepEqual(&b)
+			return a == b
 		})
 }

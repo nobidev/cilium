@@ -22,12 +22,14 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -96,7 +98,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
 			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
 			ep.Start(uint16(model.ID))
 			tb.Cleanup(ep.Stop)
 			return ep, false, err
@@ -531,6 +533,27 @@ func makeMapOfRuleIPOrCIDR(addrs ...string) map[restore.RuleIPOrCIDR]struct{} {
 	return m
 }
 
+func assertRulesEqual(t *testing.T, da, db restore.DNSRules) {
+	t.Helper()
+
+	assert.True(t, maps.EqualFunc(da, db, func(ia, ib restore.IPRules) bool {
+		cmpIPRule := func(ra, rb restore.IPRule) int {
+			if ra.Re.Pattern != nil && rb.Re.Pattern != nil {
+				return strings.Compare(*ra.Re.Pattern, *rb.Re.Pattern)
+			}
+			if ra.Re.Pattern != nil {
+				return +1
+			}
+			return -1
+		}
+		slices.SortStableFunc(ia, cmpIPRule)
+		slices.SortStableFunc(ib, cmpIPRule)
+		return slices.EqualFunc(ia, ib, func(ra, rb restore.IPRule) bool {
+			return assert.Equal(t, ra, rb) && assert.Equal(t, ra.IPs, rb.IPs)
+		})
+	}))
+}
+
 func TestPrivilegedFullPathDependence(t *testing.T) {
 	logger := hivetest.Logger(t)
 	s := setupDNSProxyTestSuite(t)
@@ -754,7 +777,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		udpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], makeMapOfRuleIPOrCIDR("127.0.0.1", "127.0.0.2")),
-		}.Sort(nil),
+		},
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
@@ -763,27 +786,24 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		},
 	}
 	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
-	restored1.Sort(nil)
-	require.Equal(t, expected1, restored1)
+	assertRulesEqual(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
 	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
-	restored2.Sort(nil)
-	require.Equal(t, expected2, restored2)
+	assertRulesEqual(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID4Selector], makeMapOfRuleIPOrCIDR()),
-		}.Sort(nil),
+		},
 		tcpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
 	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
-	restored3.Sort(nil)
-	require.Equal(t, expected3, restored3)
+	assertRulesEqual(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
 	oldUsed := s.proxy.usedServers
@@ -793,7 +813,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		udpProtoPort53: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], makeMapOfRuleIPOrCIDR("127.0.0.2")),
-		}.Sort(nil),
+		},
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
@@ -802,8 +822,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		},
 	}
 	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
-	restored1b.Sort(nil)
-	require.Equal(t, expected1b, restored1b)
+	assertRulesEqual(t, expected1b, restored1b)
 
 	// unlimited again
 	s.proxy.usedServers = oldUsed
@@ -855,7 +874,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -907,7 +926,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3)
+	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 
 	ep3.Start(uint16(modelEP3.ID))
@@ -994,9 +1013,8 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	// Restore Unmarshaled rules
 	var rules restore.DNSRules
 	err = json.Unmarshal(jsn, &rules)
-	rules = rules.Sort(nil)
 	require.NoError(t, err, "Could not unmarshal restored rules from json")
-	require.Equal(t, expected1, rules)
+	assertRulesEqual(t, expected1, rules)
 
 	// Marshal again & compare
 	// Marshal restored rules to JSON
@@ -1101,7 +1119,6 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 
 	// Get restored rules
 	restored, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
-	restored.Sort(nil)
 
 	// remove rules
 	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
@@ -1120,7 +1137,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))

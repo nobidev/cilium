@@ -88,7 +88,7 @@ cilium-agent [flags]
       --datapath-mode string                                           Datapath mode name (veth, netkit, netkit-l2) (default "veth")
   -D, --debug                                                          Enable debugging mode
       --debug-verbose strings                                          List of enabled verbose debug groups
-      --devices strings                                                List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
+      --devices strings                                                List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'; support '!' to exclude devices, e.g. '!eth+' excludes any device with prefix 'eth'. Note '!' says nothing about which ones to include. A device must match other criteria to be selected; The filters are matched in order and whatever matched first wins.
       --diagnostics-constants stringToString                           Constant overrides (default [])
       --diagnostics-export-file string                                 File to which diagnostics events are appended to
       --diagnostics-interval duration                                  Interval for evaluating diagnostic conditions (default 5m0s)
@@ -406,7 +406,7 @@ cilium-agent [flags]
       --policy-accounting                                              Enable policy accounting (default true)
       --policy-audit-mode                                              Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                                 The entities that can be selected by CIDR policy. Supported values: 'nodes'
-      --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected
+      --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-queue-size uint                                         Size of queue for policy-related events (default 100)
       --policy-secrets-namespace string                                PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --policy-secrets-only-from-secrets-namespace                     Configures the agent to only read policy Secrets from the policy-secrets-namespace

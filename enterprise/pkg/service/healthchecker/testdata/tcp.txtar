@@ -92,12 +92,7 @@ ports:
 -- healthchecks-expected.json --
 {
   "Service": "test/echo",
-  "Backend": {
-    "AddrCluster": "127.0.0.1",
-    "Protocol": "TCP",
-    "Port": 1,
-    "Scope": 0
-  },
+  "Backend": "127.0.0.1:1/TCP",
   "Config": {
     "State": 1,
     "L7": false,
@@ -113,12 +108,7 @@ ports:
     "DSR": false
   },
   "Frontends": [
-    {
-      "AddrCluster": "172.16.1.1",
-      "Protocol": "TCP",
-      "Port": 80,
-      "Scope": 0
-    }
+    "172.16.1.1:80/TCP"
   ],
   "UpdatedAt": "<redacted>",
   "ProbedAt": "<redacted>",

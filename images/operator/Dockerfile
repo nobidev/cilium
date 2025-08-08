@@ -1,10 +1,12 @@
+# check=error=true
+
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:14fd8a55e59a560704e5fc44970b301d00d344e45d6b914dda228e09f359a088
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:ef5b4be1f94b36c90385abd9b6b4f201723ae28e71acacb76d00687333c17282
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:8f01623e397c5237f0a494c4ee40f0c2d3719627@sha256:c96b986279f402bda3c082da9a8d2066881ff52d2d824e5c6cf57689f321eb0d
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:2d7dd56be52e536b378df17179d0fe6d111af297@sha256:cae8dc0cad2c100ba6f05b9ab47958166c807390474f508ace9192d9daa96bb3
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -97,7 +99,7 @@ FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} AS debug-tools
 #
 # Cilium Operator debug image.
 #
-# Typical image bulids will stop above at the 'release' target, but
+# Typical image builds will stop above at the 'release' target, but
 # developers follow this Dockerfile to the end. Starting from a release
 # image, install delve debugger and wrap the cilium-operator binary calls
 # with a script that automatically provisions the debugger on a

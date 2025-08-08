@@ -245,13 +245,14 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 	if inst == nil {
 		return false, loadbalancer.ErrServiceNotFound
 	}
-	if inst.Unhealthy == !healthy && !inst.UnhealthyUpdatedAt.IsZero() {
+	if inst.Unhealthy == !healthy && inst.UnhealthyUpdatedAt != nil {
 		return false, nil
 	}
 
 	be = be.Clone()
 	inst.Unhealthy = !healthy
-	inst.UnhealthyUpdatedAt = time.Now()
+	now := time.Now()
+	inst.UnhealthyUpdatedAt = &now
 	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(inst.Source)}, *inst)
 	w.bes.Insert(txn, be)
 	return true, w.RefreshFrontends(txn, serviceName)
@@ -259,7 +260,7 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 
 func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.FrontendParams, svc *loadbalancer.Service) (old *loadbalancer.Frontend, err error) {
 	if params.ServicePort == 0 {
-		params.ServicePort = params.Address.Port
+		params.ServicePort = params.Address.Port()
 	}
 	fe := &loadbalancer.Frontend{
 		FrontendParams: params,
@@ -382,7 +383,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 			node, err := w.lns.Get(context.Background())
 			if err == nil {
 				isLocalProxyDelegation = func(addr loadbalancer.L3n4Addr) bool {
-					return node.IsNodeIP(addr.AddrCluster.Addr()) != ""
+					return node.IsNodeIP(addr.Addr()) != ""
 				}
 			}
 		}
@@ -390,7 +391,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 
 	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
 		for be, rev := range bes {
-			if fe != nil && fe.Address.Protocol != be.Address.Protocol {
+			if fe != nil && fe.Address.Protocol() != be.Address.Protocol() {
 				continue
 			}
 			if be.Address.IsIPv6() {
@@ -413,9 +414,9 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 					fe.RedirectTo == nil &&
 					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
 					thisZone := w.nodeZone.Load()
-					if len(be.ForZones) > 0 && thisZone != nil {
+					if be.Zone != nil && len(be.Zone.ForZones) > 0 && thisZone != nil {
 						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
-						if !slices.Contains(be.ForZones, *thisZone) {
+						if !slices.Contains(be.Zone.ForZones, *thisZone) {
 							continue
 						}
 					}
@@ -740,7 +741,7 @@ func isIntLocal(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) 
 func shouldUseLocalBackends(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) bool {
 	// When both traffic policies are Local, there is only the external scope, which
 	// should contain node-local backends only. Checking isExtLocal is still enough.
-	switch fe.Address.Scope {
+	switch fe.Address.Scope() {
 	case loadbalancer.ScopeExternal:
 		if fe.Type == loadbalancer.SVCTypeClusterIP {
 			// ClusterIP doesn't support externalTrafficPolicy and has only the

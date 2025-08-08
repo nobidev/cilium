@@ -1,10 +1,12 @@
+# check=error=true
+
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1732033829-330cbaf@sha256:5c54f614fb8ee7939492aa4b7d74b37922d98199f5993f6d957a1637ce30eb9e
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:cbf9f1a3a39676bfdc250b4d0ee5c231577a1e08@sha256:d9c2a1aa042cc6faa5b1fe7bfe61f72cd85c2b0ec55d5fb4e693ce39eee45b8e
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:30803685cd0ff7897876e57fdac234a5caede8f0@sha256:551b44ea9c8e5dc6f6e8c55e8be84ad834d265f9024ed9fde8edf88abdd9424e
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1751996942-195b4d9@sha256:a5a3e2d8c597305ff5bb65185898ff52a47a6d53252957852334406830a431a0
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:14fd8a55e59a560704e5fc44970b301d00d344e45d6b914dda228e09f359a088
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:ef5b4be1f94b36c90385abd9b6b4f201723ae28e71acacb76d00687333c17282
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1752738770-9ae054f@sha256:f71a1e4200d4e17b83eff2ce0655b6f442b18e807511806828efc22f58bf9dba
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
@@ -44,7 +46,9 @@ RUN \
       git \
       libc6-dev \
       make \
-      ccache && \
+      ccache \
+      python3-scapy \
+      python3-jinja2 && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -53,9 +57,9 @@ COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gn
 
 COPY --from=golang-dist /usr/local/go /usr/local/go
 RUN mkdir -p /go
-ENV GOROOT /usr/local/go
-ENV GOPATH /go
-ENV PATH "${GOROOT}/bin:${GOPATH}/bin:${PATH}"
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/go
+ENV PATH="${GOROOT}/bin:${GOPATH}/bin:${PATH}"
 
 RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -88,13 +92,13 @@ COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin
 RUN mkdir -p /.cache && chmod 777 /.cache && \
     mkdir -p /go/bin && chmod 777 /go/bin
 
-FROM ${TESTER_IMAGE} as test
+FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
 COPY test /test
 RUN /test/bin/cst
 
 # this image is large, and re-using layers is beneficial,
 # so final images is not squashed
-FROM rootfs as release
+FROM rootfs AS release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium

@@ -63,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -85,7 +84,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -94,7 +92,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -377,9 +375,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPSecEncryptedOverlay, defaults.EnableIPSecEncryptedOverlay, "Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.")
 	option.BindEnv(vp, option.EnableIPSecEncryptedOverlay)
 
-	flags.Bool(option.EnableWireguard, false, "Enable WireGuard")
-	option.BindEnv(vp, option.EnableWireguard)
-
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
 	option.BindEnv(vp, option.EnableL2Announcements)
 
@@ -391,12 +386,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Duration(option.L2AnnouncerRetryPeriod, 2*time.Second, "Timeout after a renew failure, before the next retry")
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
-
-	flags.Duration(option.WireguardPersistentKeepalive, 0, "The Wireguard keepalive interval as a Go duration string")
-	option.BindEnv(vp, option.WireguardPersistentKeepalive)
-
-	flags.String(option.NodeEncryptionOptOutLabels, defaults.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
-	option.BindEnv(vp, option.NodeEncryptionOptOutLabels)
 
 	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
 	option.BindEnv(vp, option.EnableEncryptionStrictMode)
@@ -705,9 +694,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
 	option.BindEnv(vp, option.ToFQDNsMaxIPsPerHost)
 
-	flags.Int(option.DNSMaxIPsPerRestoredRule, defaults.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
-	option.BindEnv(vp, option.DNSMaxIPsPerRestoredRule)
-
 	flags.Bool(option.DNSPolicyUnloadOnShutdown, false, "Unload DNS policy rules on graceful shutdown")
 	option.BindEnv(vp, option.DNSPolicyUnloadOnShutdown)
 
@@ -727,14 +713,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(vp, option.ToFQDNsPreCache)
 
-	flags.Bool(option.ToFQDNsEnableDNSCompression, defaults.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
-	option.BindEnv(vp, option.ToFQDNsEnableDNSCompression)
-
 	flags.Int(option.DNSProxyConcurrencyLimit, 0, "Limit concurrency of DNS message processing")
 	option.BindEnv(vp, option.DNSProxyConcurrencyLimit)
-
-	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
-	option.BindEnv(vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
 	flags.Int(option.DNSProxyLockCount, defaults.DNSProxyLockCount, "Array size containing mutexes which protect against parallel handling of DNS response names. Preferably use prime numbers")
 	flags.MarkHidden(option.DNSProxyLockCount)
@@ -907,10 +887,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
-
-	flags.Bool(option.WireguardTrackAllIPsFallback, defaults.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
-	flags.MarkHidden(option.WireguardTrackAllIPsFallback)
-	option.BindEnv(vp, option.WireguardTrackAllIPsFallback)
 
 	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
 	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
@@ -1272,10 +1248,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, fmt.Sprintf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM))
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMMultiPool && option.Config.EnableIPSec && !option.Config.TunnelingEnabled() {
-		logging.Fatal(logger, fmt.Sprintf("IPAM mode %s with %s is supported only in tunnel mode.", option.Config.IPAM, option.EnableIPSecName))
-	}
-
 	if option.Config.InstallNoConntrackIptRules {
 		// InstallNoConntrackIptRules can only be enabled in direct
 		// routing mode as in tunneling mode the encapsulated traffic is
@@ -1346,7 +1318,7 @@ type daemonParams struct {
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
-	WGAgent             *wireguard.Agent
+	WGAgent             wgTypes.WireguardAgent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner
 	Resources           agentK8s.Resources
@@ -1354,7 +1326,6 @@ type daemonParams struct {
 	CacheStatus         k8sSynced.CacheStatus
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
-	NodeManager         nodeManager.NodeManager
 	NodeHandler         datapath.NodeHandler
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
@@ -1399,7 +1370,6 @@ type daemonParams struct {
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
-	IPMasqAgent         *ipmasq.IPMasqAgent
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1517,30 +1487,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	params.CTNATMapGC.Observe4().Observe(d.ctx, ctmap.NatMapNext4, func(err error) {})
 	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
-
-	if params.WGAgent != nil {
-		go func() {
-			// Wait until the kvstore synchronization completed, to avoid
-			// causing connectivity blips due incorrectly removing
-			// WireGuard peers that have not yet been discovered.
-			// WaitForKVStoreSync returns immediately in CRD mode.
-			if err := d.nodeDiscovery.WaitForKVStoreSync(d.ctx); err != nil {
-				return
-			}
-
-			// When running in KVStore mode, we need to additionally wait until
-			// we have discovered all remote IP addresses, to prevent triggering
-			// the collection of stale AllowedIPs entries too early, leading to
-			// the disruption of otherwise valid long running connections.
-			if err := params.IPIdentityWatcher.WaitForSync(d.ctx); err != nil {
-				return
-			}
-
-			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
-				d.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
-			}
-		}()
-	}
 
 	if d.endpointManager.HostEndpointExists() {
 		d.endpointManager.InitHostEndpointLabels(d.ctx)

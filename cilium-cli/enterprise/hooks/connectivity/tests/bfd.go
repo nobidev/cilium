@@ -22,7 +22,6 @@ import (
 	"text/template"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -399,7 +399,7 @@ func getBFDProfile(ctx context.Context, t *check.Test) *isovalentv1alpha1.Isoval
 	return profile
 }
 
-func configureBFDNodeConfig(ctx context.Context, t *check.Test, node *corev1.Node, ipFamily features.IPFamily) {
+func configureBFDNodeConfig(ctx context.Context, t *check.Test, node *slimcorev1.Node, ipFamily features.IPFamily) {
 	ct := t.Context()
 	client := ct.K8sClient().CiliumClientset.IsovalentV1alpha1()
 

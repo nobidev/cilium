@@ -115,6 +115,17 @@ func testPolicyApplied(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost, serverHost *check.Pod,
 	ipFam features.IPFamily, packetsExpected bool,
 ) {
+	var finalizers []func() error
+
+	// on exit, run registered finalizers
+	defer func() {
+		for _, f := range finalizers {
+			if err := f(); err != nil {
+				t.Infof("Failed to run finalizer: %w", err)
+			}
+		}
+	}()
+
 	iface := "cilium_wg0"
 	srcFilter := getFilter(ctx, t, client, server, ipFam)
 
@@ -123,24 +134,26 @@ func testPolicyApplied(ctx context.Context, t *check.Test, s check.Scenario,
 		snifferMode = sniff.ModeSanity
 	}
 
-	srcSniffer, err := sniff.Sniff(ctx, s.Name(), clientHost, iface, srcFilter, snifferMode, t)
+	srcSniffer, cancel, err := sniff.Sniff(ctx, s.Name(), clientHost, iface, srcFilter, snifferMode, sniff.SniffKillTimeout, t)
 	if err != nil {
 		t.Fatal(err)
 	}
+	finalizers = append(finalizers, cancel)
 
 	var dstSniffer *sniff.Sniffer
 	dstFilter := getFilter(ctx, t, server, client, ipFam)
 
-	dstSniffer, err = sniff.Sniff(ctx, s.Name(), serverHost, iface, dstFilter, snifferMode, t)
+	dstSniffer, cancel, err = sniff.Sniff(ctx, s.Name(), serverHost, iface, dstFilter, snifferMode, sniff.SniffKillTimeout, t)
 	if err != nil {
 		t.Fatal(err)
 	}
+	finalizers = append(finalizers, cancel)
 
 	// Curl the server from the client to generate some traffic
 	t.NewAction(s, fmt.Sprintf("curl-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 		a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam, true, nil))
-		srcSniffer.Validate(ctx, a)
-		dstSniffer.Validate(ctx, a)
+		srcSniffer.Validate(a)
+		dstSniffer.Validate(a)
 	})
 }
 

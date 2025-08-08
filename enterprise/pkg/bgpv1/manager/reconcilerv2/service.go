@@ -225,7 +225,7 @@ func (r *ServiceReconciler) frontendChanged(ctx context.Context, change statedb.
 	if fe.Type != loadbalancer.SVCTypeLoadBalancer || fe.ServiceName.Name() == "" {
 		return nil // ignore updates for non-LB svcFrontendsHealth and unknown services
 	}
-	if fe.Address.Scope != loadbalancer.ScopeExternal {
+	if fe.Address.Scope() != loadbalancer.ScopeExternal {
 		// We are only interested in updates with external address lookup scope.
 		// In case of ExternalTraficPolicy == local, these contain only local endpoints, otherwise they contain all endpoints.
 		return nil
@@ -756,19 +756,19 @@ func (r *ServiceReconciler) svcFrontendHealthy(svc *slim_corev1.Service, fronten
 	// compile service port set
 	svcPorts := sets.New[loadbalancer.L4Addr]()
 	for _, svcPort := range svc.Spec.Ports {
-		svcPorts.Insert(loadbalancer.L4Addr{Protocol: svcProtocolToLBL4Type(svcPort.Protocol), Port: uint16(svcPort.Port)})
+		svcPorts.Insert(loadbalancer.NewL4Addr(svcProtocolToLBL4Type(svcPort.Protocol), uint16(svcPort.Port)))
 	}
 
 	// loop over all service frontend addresses with known health state
 	for _, fe := range feHealth {
 		// ignore frontends with non-matching frontend address
 		// (e.g. in case of dual-stack with an IPv4 and IPv6 frontend, only consider proper address family)
-		if fe.frontendAddr.AddrCluster.Addr() != frontendIP {
+		if fe.frontendAddr.Addr() != frontendIP {
 			continue
 		}
 		// ignore frontends with non-matching L4 proto / port
 		// (e.g. ignore stale frontend health after removing a service port)
-		if !svcPorts.Has(fe.frontendAddr.L4Addr) {
+		if !svcPorts.Has(loadbalancer.NewL4Addr(fe.frontendAddr.Protocol(), fe.frontendAddr.Port())) {
 			continue
 		}
 		// if for any frontend we do not have enough backends, we declare the service as not healthy

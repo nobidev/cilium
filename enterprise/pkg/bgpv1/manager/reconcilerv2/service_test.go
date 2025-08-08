@@ -54,18 +54,24 @@ func Test_ServiceHealthChecker(t *testing.T) {
 
 	svcSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"advertise": "bgp"}}
 	svcKey := resource.Key{Name: "test-svc", Namespace: "default"}
-	ingressV4Frontend := loadbalancer.L3n4Addr{
-		AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
-		L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
-	}
-	ingressV6Frontend := loadbalancer.L3n4Addr{
-		AddrCluster: cmtypes.MustParseAddrCluster(ingressV6),
-		L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
-	}
-	fakeV4Frontend := loadbalancer.L3n4Addr{
-		AddrCluster: cmtypes.MustParseAddrCluster("1.2.3.4"),
-		L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
-	}
+	ingressV4Frontend := loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		cmtypes.MustParseAddrCluster(ingressV4),
+		80,
+		loadbalancer.ScopeExternal,
+	)
+	ingressV6Frontend := loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		cmtypes.MustParseAddrCluster(ingressV6),
+		80,
+		loadbalancer.ScopeExternal,
+	)
+	fakeV4Frontend := loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		cmtypes.MustParseAddrCluster("1.2.3.4"),
+		80,
+		loadbalancer.ScopeExternal,
+	)
 
 	instanceConfig := &v1.IsovalentBGPNodeInstance{
 		Name:     "bgp-65001",
@@ -450,18 +456,22 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				{
 					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.L3n4Addr{
-						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
-						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
-					},
+					frontend: loadbalancer.NewL3n4Addr(
+						loadbalancer.TCP,
+						cmtypes.MustParseAddrCluster(ingressV4),
+						80,
+						loadbalancer.ScopeExternal,
+					),
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 				{
 					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.L3n4Addr{
-						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
-						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
-					},
+					frontend: loadbalancer.NewL3n4Addr(
+						loadbalancer.TCP,
+						cmtypes.MustParseAddrCluster(ingressV4),
+						443,
+						loadbalancer.ScopeExternal,
+					),
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},
@@ -486,18 +496,22 @@ func Test_ServiceHealthChecker(t *testing.T) {
 			backendUpdates: []backendUpdate{
 				{
 					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.L3n4Addr{
-						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
-						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
-					},
+					frontend: loadbalancer.NewL3n4Addr(
+						loadbalancer.TCP,
+						cmtypes.MustParseAddrCluster(ingressV4),
+						80,
+						loadbalancer.ScopeExternal,
+					),
 					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
 				},
 				{
 					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.L3n4Addr{
-						AddrCluster: cmtypes.MustParseAddrCluster(ingressV4),
-						L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
-					},
+					frontend: loadbalancer.NewL3n4Addr(
+						loadbalancer.TCP,
+						cmtypes.MustParseAddrCluster(ingressV4),
+						443,
+						loadbalancer.ScopeExternal,
+					),
 					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
 				},
 			},

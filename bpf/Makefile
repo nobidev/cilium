@@ -189,6 +189,7 @@ testdata:
 
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
@@ -212,6 +213,10 @@ bpf_sock.o:: bpf_sock.c $(LIB)
 
 $(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_sock.o,$(OPTS))))
 
+bpf_sock_term.o:: bpf_sock_term.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
 bpf_overlay.o:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
@@ -228,7 +233,7 @@ bpf_wireguard.o:: bpf_wireguard.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_WIREGUARD_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
-$(foreach OPTS,$(WIREGUARD_OPTIONS),$(eval $(call PERMUTATION_template,bpf_wireguard.o,$(OPTS) -DENCAP_IFINDEX=1 -DDIRECT_ROUTING_DEV_IFINDEX=0)))
+$(foreach OPTS,$(WIREGUARD_OPTIONS),$(eval $(call PERMUTATION_template,bpf_wireguard.o,$(OPTS) -DENCAP_IFINDEX=1)))
 
 bpf_xdp.o:: bpf_xdp.c $(LIB)
 	@$(ECHO_CC)

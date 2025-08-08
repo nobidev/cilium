@@ -4,29 +4,29 @@ go 1.24.0
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.2
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7 v7.0.0
 	github.com/YutaroHayakawa/bgplay v0.0.3
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
-	github.com/aws/aws-sdk-go-v2 v1.36.6
-	github.com/aws/aws-sdk-go-v2/config v1.29.18
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.233.1
-	github.com/aws/smithy-go v1.22.4
+	github.com/aws/aws-sdk-go-v2 v1.37.1
+	github.com/aws/aws-sdk-go-v2/config v1.30.2
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.239.0
+	github.com/aws/smithy-go v1.22.5
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250701173857-e956e45834c7
+	github.com/cilium/charts v0.0.0-20250731160311-35ab4afc4691
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.0
+	github.com/cilium/ebpf v0.19.1-0.20250729164112-d994daa25101
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
+	github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1
-	github.com/cilium/statedb v0.4.4
+	github.com/cilium/statedb v0.4.5
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
@@ -35,10 +35,10 @@ require (
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v28.3.2+incompatible
+	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
-	github.com/envoyproxy/go-control-plane/contrib v1.32.4
-	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250722125442-5321204dac14
+	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250730150711-3e244ce327ba
+	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250730150711-3e244ce327ba
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -52,14 +52,14 @@ require (
 	github.com/go-openapi/swag v0.23.1
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/cel-go v0.25.0
+	github.com/google/cel-go v0.26.0
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-github/v73 v73.0.0
+	github.com/google/go-github/v74 v74.0.0
 	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.6.0
-	github.com/gopacket/gopacket v1.3.2-0.20250513021322-b23ac340366c
+	github.com/gopacket/gopacket v1.4.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -86,7 +86,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus-community/pro-bing v0.7.0
-	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.65.0
 	github.com/prometheus/procfs v0.17.0
@@ -96,7 +96,7 @@ require (
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cast v1.9.2
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/spiffe/go-spiffe/v2 v2.5.0
 	github.com/spiffe/spire-api-sdk v1.12.4
@@ -106,9 +106,9 @@ require (
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vishvananda/netns v0.0.5
 	github.com/vmware/go-ipfix v0.12.0
-	go.etcd.io/etcd/api/v3 v3.6.2
-	go.etcd.io/etcd/client/pkg/v3 v3.6.2
-	go.etcd.io/etcd/client/v3 v3.6.2
+	go.etcd.io/etcd/api/v3 v3.6.4
+	go.etcd.io/etcd/client/pkg/v3 v3.6.4
+	go.etcd.io/etcd/client/v3 v3.6.4
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
 	go.uber.org/goleak v1.3.0
@@ -126,8 +126,8 @@ require (
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.35.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
-	google.golang.org/grpc v1.73.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0
+	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 	helm.sh/helm/v3 v3.18.4
 	k8s.io/api v0.33.3
@@ -136,14 +136,14 @@ require (
 	k8s.io/cli-runtime v0.33.3
 	k8s.io/client-go v0.33.3
 	k8s.io/component-base v0.33.3
-	k8s.io/endpointslice v0.33.2
+	k8s.io/endpointslice v0.33.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257
 	sigs.k8s.io/yaml v1.5.0
 )
 
@@ -154,10 +154,10 @@ require (
 )
 
 require (
-	cel.dev/expr v0.23.1 // indirect
-	cloud.google.com/go/compute/metadata v0.6.0 // indirect
+	cel.dev/expr v0.24.0 // indirect
+	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
@@ -170,15 +170,15 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.71 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.37 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.18 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.25.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.26.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.31.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.35.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 // indirect
@@ -371,9 +371,12 @@ replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-2025071719
 
 tool (
 	github.com/cilium/deepequal-gen
+	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
 	golang.org/x/tools/cmd/goimports
+	golang.org/x/tools/go/analysis/analysistest
+	golang.org/x/tools/go/analysis/singlechecker
 	k8s.io/code-generator
 	k8s.io/code-generator/cmd/client-gen
 	k8s.io/code-generator/cmd/go-to-protobuf
