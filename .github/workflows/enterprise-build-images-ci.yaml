@@ -55,21 +55,21 @@ jobs:
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
             # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
             postfix: ubi
             image_name: operator-generic
 
           - name: hubble-relay
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
             # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
             postfix: ubi
             image_name: hubble-relay
 
           - name: clustermesh-apiserver
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
             # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
+            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
             postfix: ubi
             image_name: clustermesh-apiserver
 
