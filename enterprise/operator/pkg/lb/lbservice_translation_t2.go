@@ -66,7 +66,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -152,11 +151,9 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 			// node-local "Ingress" IP so that Cilium NetworkPolicies with the special identity
 			// "Ingress" can be defined and enforced.
 			Annotations: map[string]string{
-				annotation.CECIsL7LB:              strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
-				annotation.CECInjectCiliumFilters: strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
-			},
-			Labels: map[string]string{
-				k8s.UseOriginalSourceAddressLabel: "false",
+				annotation.CECUseOriginalSourceAddress: "false",
+				annotation.CECIsL7LB:                   strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
+				annotation.CECInjectCiliumFilters:      strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{

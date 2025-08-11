@@ -4,8 +4,7 @@ metadata:
   annotations:
     cec.cilium.io/inject-cilium-filters: "true"
     cec.cilium.io/is-l7lb: "true"
-  labels:
-    cilium.io/use-original-source-address: "false"
+    cec.cilium.io/use-original-source-address: "false"
   name: lbfe-lb-1
   namespace: special-namespace
 spec:
