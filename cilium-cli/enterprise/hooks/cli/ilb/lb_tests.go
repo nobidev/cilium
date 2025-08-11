@@ -19,6 +19,7 @@ var Tests = []func(t T){
 	TestHTTP2,
 	TestHTTPPath,
 	TestHTTPMultiNamespaceInClusterHostname,
+	TestHTTPMultiNamespaceLabelBased,
 	TestHTTPRoutes,
 	TestHTTPClientIP,
 	TestHTTPBasicAuth,
