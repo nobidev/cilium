@@ -13,6 +13,13 @@ spec:
     verbose: "envoy"
   bpf:
     monitorAggregation: "none"
+    masquerade: true
+    tproxy: true
+    ctAccounting: true
+    hostLegacyRouting: true
+    lbAlgorithmAnnotation: true
+    lbModeAnnotation: true
+  enableIPv4Masquerade: true
   securityContext:
     privileged: true
   ipam:
@@ -27,16 +34,19 @@ spec:
     confPath: "/var/run/multus/cni/net.d"
     chainingMode: none
     exclusive: false
+  autoDirectNodeRoutes: true
+  directRoutingSkipUnreachable: true
+  ipv4NativeRoutingCIDR: ${POD_CIDR}
   prometheus:
     serviceMonitor:
       enabled: false
   hubble:
-    enabled: true
-    relay:
-      enabled: true
-      retryTimeout: "5s"
+    enabled: false
   sessionAffinity: true
   kubeProxyReplacement: true
+  routingMode: native
+  ipv6:
+    enabled: false
   # host namespace only is required for running OpenShift Service Mesh
   socketLB:
     hostNamespaceOnly: true
@@ -47,13 +57,52 @@ spec:
   # avoid conflicts
   clusterHealthPort: 9940
   # default firewall configuration
-  tunnelPort: 4789
   enterprise:
+    bfd:
+      enabled: true
+    bgpControlPlane:
+      enabled: true
+      enableServiceHealthChecking: true
+    egressGatewayHA:
+      enabled: false
     featureGate:
-      minimumMaturity: "Alpha"
-    clustermesh:
-      phantomServices:
+      minimumMaturity: Alpha
+      approved:
+        - BFD
+        - EnterpriseBGPControlPlane
+        - IPAMMultiPool
+    loadbalancer:
+      enabled: true
+  loadBalancer:
+    acceleration: disabled
+    dsrDispatch: ipip
+    mode: dsr
+  envoy:
+    nodeSelector:
+      service.cilium.io/node: "t2"
+    dnsPolicy: ClusterFirstWithHostNet
+    extraHostPathMounts:
+      - name: envoy-accesslog
+        mountPath: /var/log/envoy
+        hostPath: /var/log/envoy
+        hostPathType: DirectoryOrCreate
+        readOnly: false
+        mountPropagation: HostToContainer
+    prometheus:
+      enabled: true
+      serviceMonitor:
         enabled: true
+  envoyConfig:
+    enabled: true
+  extraConfig:
+    loadbalancer-cp-requestid-generate: "true"
+    loadbalancer-cp-requestid-response: "true"
+    loadbalancer-cp-accesslog-file-path: "/var/log/envoy/accesslog.log"
+    loadbalancer-cp-accesslog-enable-hc: "true"
+    loadbalancer-cp-t2-use-remote-address: "true"
+    loadbalancer-cp-t2-xff-num-trusted-hops: "0"
+    # Disable hubble-flow-exporter
+    export-file-path: "" # performance optimization
   extraEnv:
   - name: "KUBE_CACHE_MUTATION_DETECTOR"
     value: "true"
@@ -62,3 +111,15 @@ spec:
   # Disabling Envoy version check as it gets reported in the logs
   # although the default defined in values.yaml is used.
   disableEnvoyVersionCheck: true
+  nodeinit:
+    enabled: true
+    startup:
+      preScript: |
+        # Enable netfilter
+        sudo modprobe br_netfilter
+        # Enable IP forwarding and allow Envoy to bind to all ports
+        sudo tee /etc/sysctl.d/kubernetes.conf <<EOF
+        net.ipv4.ip_forward = 1
+        net.ipv4.ip_unprivileged_port_start = 0
+        EOF
+        sudo sysctl --system
