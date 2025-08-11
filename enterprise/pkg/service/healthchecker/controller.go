@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,7 +39,11 @@ func registerController(p controllerParams) error {
 		serviceWatchSets:   map[lb.ServiceName]*statedb.WatchSet{},
 		closedChannels:     nil,
 	}
+
+	p.Writer.SetIsServiceHealthCheckedFunc(c.isServiceHealthChecked)
+
 	p.JobGroup.Add(job.OneShot("run", c.run))
+
 	return nil
 }
 
@@ -54,7 +59,7 @@ type controllerParams struct {
 	HealthChecks statedb.RWTable[*healthCheck]
 }
 
-// controller perfoms the following tasks:
+// controller performs the following tasks:
 // - 1. Create Table[healthCheck] objects for backends that require health checking
 // - 2. Synchronize the healthy status from Table[healthCheck] back to backends.
 //
@@ -152,11 +157,11 @@ func (c *controller) computeHealthChecks(watchSet *statedb.WatchSet, closedChann
 				statedb.Filter(fesSeq, func(fe *lb.Frontend) bool { return fe.Type == lb.SVCTypeLoadBalancer }),
 				func(fe *lb.Frontend) lb.L3n4Addr { return fe.Address }))
 
-		// Iterate over all backends associated with the frontends and create/update the correspending
+		// Iterate over all backends associated with the frontends and create/update the corresponding
 		// HealthChecks.
 		beAddrs := sets.New[lb.L3n4Addr]()
 		for fe := range fesSeq {
-			for be := range fe.Backends {
+			for be := range fe.HealthCheckBackends {
 				if beAddrs.Has(be.Address) {
 					continue
 				}
@@ -232,6 +237,11 @@ func (c *controller) updateBackendHealth(watchSet *statedb.WatchSet, deletedHeal
 		}
 	}
 	wtxn.Commit()
+}
+
+func (c *controller) isServiceHealthChecked(svc *loadbalancer.Service) bool {
+	cfg := getAnnotationHealthCheckConfig(svc.Annotations)
+	return cfg.State == HealthCheckEnabledNative
 }
 
 func addrsEqual(a, b []lb.L3n4Addr) bool {
