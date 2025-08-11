@@ -46,8 +46,9 @@ const (
 type lbTestScenario struct {
 	t T
 
-	testName     string
-	k8sNamespace string
+	testName      string
+	k8sNamespace  string   // primary namespace for LB resources
+	k8sNamespaces []string // all namespaces this scenario manages
 
 	ciliumCli *ciliumCli
 	k8sCli    *k8s.Clientset
@@ -71,10 +72,19 @@ type tlsCertificate struct {
 }
 
 func newLBTestScenario(t T, testName string, k8sNamespace string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
+	return newLBTestScenarioWithNamespaces(t, testName, []string{k8sNamespace}, ciliumCli, k8sCli, dockerCli)
+}
+
+func newLBTestScenarioWithNamespaces(t T, testName string, k8sNamespaces []string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
+	if len(k8sNamespaces) == 0 {
+		k8sNamespaces = []string{"default"}
+	}
+
 	return &lbTestScenario{
 		t:                   t,
 		testName:            testName,
-		k8sNamespace:        k8sNamespace,
+		k8sNamespace:        k8sNamespaces[0],
+		k8sNamespaces:       k8sNamespaces,
 		ciliumCli:           ciliumCli,
 		k8sCli:              k8sCli,
 		dockerCli:           dockerCli,
@@ -87,8 +97,52 @@ func newLBTestScenario(t T, testName string, k8sNamespace string, ciliumCli *cil
 	}
 }
 
+func (r *lbTestScenario) createAllNamespaces() {
+	for _, ns := range r.k8sNamespaces {
+		if err := r.createNamespace(ns); err != nil {
+			r.t.Failedf("failed to create namespace (%s): %s", ns, err)
+		}
+	}
+}
+
+func (r *lbTestScenario) createNamespace(namespace string) error {
+	if namespace == "default" {
+		// We don't want to register cleanup for the default namespace
+		return nil
+	}
+
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
+	if _, err := r.k8sCli.CoreV1().Namespaces().Create(r.t.Context(), ns, metav1.CreateOptions{}); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create namespace (%s): %w", namespace, err)
+		}
+	}
+
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		err := r.k8sCli.CoreV1().Namespaces().Delete(ctx, namespace,
+			metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
+		if err != nil {
+			return fmt.Errorf("failed to delete namespace (%s): %w", namespace, err)
+		}
+		r.t.Log("Waiting for namespace %s to be deleted...", namespace)
+		eventually(r.t, func() error {
+			_, err := r.k8sCli.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("namespace (%s) still exists", namespace)
+		}, longTimeout, pollInterval)
+		return nil
+	})
+	return nil
+}
+
 func (r *lbTestScenario) waitForFullVIPConnectivity(vipName string) string {
-	ip, err := r.ciliumCli.WaitForLBVIP(r.t.Context(), r.k8sNamespace, vipName)
+	return r.waitForFullVIPConnectivityInNamespace(r.k8sNamespace, vipName)
+}
+
+func (r *lbTestScenario) waitForFullVIPConnectivityInNamespace(namespace, vipName string) string {
+	ip, err := r.ciliumCli.WaitForLBVIP(r.t.Context(), namespace, vipName)
 	if err != nil {
 		r.t.Failedf("failed to wait for VIP (%s): %s", vipName, err)
 	}
@@ -399,7 +453,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name str
 	}
 
 	if _, err := r.k8sCli.AppsV1().Deployments(namespace).Create(r.t.Context(), deployment, metav1.CreateOptions{}); err != nil {
-		r.t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
+		r.t.Failedf("failed to create deployment (%s) in namespace (%s): %s", deployment.Name, namespace, err)
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
 		return r.k8sCli.AppsV1().Deployments(namespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
@@ -407,7 +461,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name str
 
 	service := r.desiredBackendK8sService(name, 8080, 8080)
 	if _, err := r.k8sCli.CoreV1().Services(namespace).Create(r.t.Context(), service, metav1.CreateOptions{}); err != nil {
-		r.t.Failedf("failed to create service (%s): %s", service.Name, err)
+		r.t.Failedf("failed to create service (%s) in namespace (%s): %s", service.Name, namespace, err)
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
 		return r.k8sCli.CoreV1().Services(namespace).Delete(ctx, service.Name, metav1.DeleteOptions{})
@@ -417,7 +471,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name str
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		r.t.Failedf("failed to watch deployment (%s): %s", name, err)
+		r.t.Failedf("failed to watch deployment (%s) in namespace (%s): %s", name, namespace, err)
 	}
 	defer watch.Stop()
 
@@ -439,7 +493,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name str
 			}
 			completed = true
 		case <-timeout:
-			r.t.Failedf("timed out waiting for deployment (%s)", name)
+			r.t.Failedf("timed out waiting for deployment (%s) in namespace (%s)", name, namespace)
 		}
 		if completed {
 			break
@@ -450,7 +504,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(namespace, name str
 		LabelSelector: "app=" + name,
 	})
 	if err != nil {
-		r.t.Failedf("failed to list pods (%s): %s", name, err)
+		r.t.Failedf("failed to list pods (%s) in namespace (%s): %s", name, namespace, err)
 	}
 
 	return pods
@@ -734,13 +788,19 @@ type frrClientConfig struct {
 // createLBVIP creates the LBVIP
 // In addition, BGP peering is established for the VIP to all existing clients.
 func (r *lbTestScenario) createLBVIP(vip *isovalentv1alpha1.LBVIP) {
-	if err := r.ciliumCli.CreateLBVIP(r.t.Context(), r.k8sNamespace, vip, metav1.CreateOptions{}); err != nil {
+	r.createLBVIPInNamespace(r.k8sNamespace, vip)
+}
+
+// createLBVIPinNamespace creates the LBVIP in the specified namespace.
+// In addition, BGP peering is established for the VIP to all existing clients.
+func (r *lbTestScenario) createLBVIPInNamespace(namespace string, vip *isovalentv1alpha1.LBVIP) {
+	if err := r.ciliumCli.CreateLBVIP(r.t.Context(), namespace, vip, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Failedf("cannot create LB VIP (%s): %s", r.testName, err)
 		}
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		return r.ciliumCli.DeleteLBVIP(ctx, vip.Namespace, vip.Name, metav1.DeleteOptions{})
+		return r.ciliumCli.DeleteLBVIP(ctx, namespace, vip.Name, metav1.DeleteOptions{})
 	})
 
 	// Create BGPAdvertisement corresponding to the VIP
@@ -748,24 +808,33 @@ func (r *lbTestScenario) createLBVIP(vip *isovalentv1alpha1.LBVIP) {
 }
 
 func (r *lbTestScenario) createLBBackendPool(bp *isovalentv1alpha1.LBBackendPool) {
-	if err := r.ciliumCli.CreateLBBackendPool(r.t.Context(), r.k8sNamespace, bp, metav1.CreateOptions{}); err != nil {
+	r.createLBBackendPoolInNamespace(r.k8sNamespace, bp)
+}
+
+func (r *lbTestScenario) createLBBackendPoolInNamespace(namespace string, bp *isovalentv1alpha1.LBBackendPool) {
+	if err := r.ciliumCli.CreateLBBackendPool(r.t.Context(), namespace, bp, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Failedf("cannot create LB BackendPool (%s): %s", r.testName, err)
+			r.t.Failedf("cannot create LB BackendPool (%s) in namespace (%s): %s", bp.Name, namespace, err)
 		}
 	}
+
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		return r.ciliumCli.DeleteLBBackendPool(ctx, bp.Namespace, bp.Name, metav1.DeleteOptions{})
+		return r.ciliumCli.DeleteLBBackendPool(ctx, namespace, bp.Name, metav1.DeleteOptions{})
 	})
 }
 
 func (r *lbTestScenario) createLBService(svc *isovalentv1alpha1.LBService) {
-	if err := r.ciliumCli.CreateLBService(r.t.Context(), r.k8sNamespace, svc, metav1.CreateOptions{}); err != nil {
+	r.createLBServiceInNamespace(r.k8sNamespace, svc)
+}
+
+func (r *lbTestScenario) createLBServiceInNamespace(namespace string, svc *isovalentv1alpha1.LBService) {
+	if err := r.ciliumCli.CreateLBService(r.t.Context(), namespace, svc, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			r.t.Failedf("cannot create LB Service (%s): %s", r.testName, err)
+			r.t.Failedf("cannot create LB Service (%s) in namespace (%s): %s", svc.Name, namespace, err)
 		}
 	}
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		return r.ciliumCli.DeleteLBService(ctx, svc.Namespace, svc.Name, metav1.DeleteOptions{})
+		return r.ciliumCli.DeleteLBService(ctx, namespace, svc.Name, metav1.DeleteOptions{})
 	})
 }
 

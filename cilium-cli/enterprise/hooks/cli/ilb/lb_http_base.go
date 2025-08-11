@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"fmt"
+	"strconv"
 )
 
 func TestHTTPAndT2HealthChecks(t T) {
@@ -279,5 +280,78 @@ func TestHTTPRoutes(t T) {
 		if appResponse.ServiceName != testName+"-app"+postfix {
 			t.Failedf("request not handled by the expected backend %s != %s (cmd: %q, stdout: %q, stderr: %q): %s", appResponse.ServiceName, testName+"-app"+postfix, testCmd, stdout, stderr, err)
 		}
+	}
+}
+
+func TestHTTPMultiNamespaceInClusterHostname(t T) {
+	testName := "http-multi-namespace-incluster-hostname"
+
+	namespaces := []string{"backend-1", "backend-2", "backend-3"}
+
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	scenario := newLBTestScenarioWithNamespaces(t, testName, namespaces, ciliumCli, k8sCli, dockerCli)
+	scenario.createAllNamespaces()
+
+	t.Log("Creating backend apps in separate namespaces...")
+	for i, namespace := range namespaces {
+		scenario.AddAndWaitForK8sBackendApplications(namespace, "backend-"+strconv.Itoa(i+1), 1, "")
+	}
+
+	t.Log("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
+
+	t.Log("Creating LB VIP resources in separate namespaces...")
+	for i, namespace := range namespaces {
+		vip := lbVIP(namespace, "vip-"+strconv.Itoa(i+1))
+		scenario.createLBVIPInNamespace(namespace, vip)
+	}
+
+	t.Log("Creating LB BackendPool resources in separate namespaces...")
+	for i, namespace := range namespaces {
+		backendSvcHostname := fmt.Sprintf("backend-%d.%s.svc.cluster.local", i+1, namespace)
+		backendPool := lbBackendPool(namespace, "pool-"+strconv.Itoa(i+1),
+			withHostnameBackend(backendSvcHostname, 8080))
+		scenario.createLBBackendPoolInNamespace(namespace, backendPool)
+	}
+
+	t.Log("Creating LB Service resources in separate namespaces...")
+	for i, namespace := range namespaces {
+		vipName := fmt.Sprintf("vip-%d", i+1)
+		service := lbService(namespace, "service-"+strconv.Itoa(i+1), withPort(80),
+			withVIPRef(vipName),
+			withHTTPProxyApplication(
+				withHttpRoute("pool-"+strconv.Itoa(i+1),
+					withHttpHostname(fmt.Sprintf("backend-%d.acme.io", i+1)))))
+		scenario.createLBServiceInNamespace(namespace, service)
+	}
+
+	t.Log("Waiting for full VIP connectivity...")
+	vips := []string{}
+	for i, namespace := range namespaces {
+		vipName := fmt.Sprintf("vip-%d", i+1)
+		vips = append(vips, scenario.waitForFullVIPConnectivityInNamespace(namespace, vipName))
+	}
+
+	for i := range namespaces {
+		backendHostname := fmt.Sprintf("backend-%d.acme.io", i+1)
+		t.Log("Testing backend %d connectivity via hostname %s...", i+1, backendHostname)
+		testCmd := curlCmd(
+			fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80",
+				backendHostname, vips[i], backendHostname))
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
+		if err != nil {
+			t.Failedf("curl failed for backend %d (cmd: %q, stdout: %q, stderr: %q): %s",
+				i+1, testCmd, stdout, stderr, err)
+		}
+
+		resp := toTestAppResponse(t, stdout)
+		expectedServiceName := fmt.Sprintf("backend-%d", i+1)
+		if resp.ServiceName != expectedServiceName {
+			t.Failedf("unexpected backend service name for backend %d: got %q, expected %q",
+				i+1, resp.ServiceName, expectedServiceName)
+		}
+		t.Log("Backend %d responded with service name %s", i+1, resp.ServiceName)
 	}
 }

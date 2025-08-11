@@ -18,6 +18,7 @@ var Tests = []func(t T){
 	TestHTTPAndT2HealthChecks,
 	TestHTTP2,
 	TestHTTPPath,
+	TestHTTPMultiNamespaceInClusterHostname,
 	TestHTTPRoutes,
 	TestHTTPClientIP,
 	TestHTTPBasicAuth,
