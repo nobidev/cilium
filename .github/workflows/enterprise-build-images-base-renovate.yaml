@@ -23,4 +23,4 @@ jobs:
     with:
       # Build the base images from this environment which is set up specifically
       # for renovate.
-      environment: release-base-images-renovate
+      environment: release-base-images
