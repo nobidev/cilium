@@ -1,0 +1,485 @@
+name: Conformance ILB OpenShift (ci-ilb-openshift)
+
+# Usage with Ariane (GitHub issue comment):
+# `/ci-ilb-openshift {"ocp_version":"4.17.14", "region":"us-east-1"}`
+# The json parameters are optional. The default region is us-east-1.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+        - 'enterprise/olm/**'
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Not used (enterprise only wf). Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: false
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # For the purpose of testing the workflow
+  # push:
+  #   branches:
+  #     - 'yourbranch'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action.
+  actions: read
+  # To be able to access the repository with actions/checkout.
+  contents: read
+  # To allow retrieving information from the PR API.
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider.
+  id-token: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - pull_request: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'pull_request' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: ${{ github.run_id }}-${{ github.run_attempt }}
+  # renovate: datasource=docker depName=quay.io/openshift-release-dev/ocp-release
+  ocp_version_multi: 4.18.20-multi
+  pod_cidr: 10.244.0.0/16
+  pod_cidr_host_prefix: 23
+
+jobs:
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  images:
+    name: Prepare images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Cilium
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            sha="${{ inputs.SHA }}"
+          elif [ "${{ github.event_name }}" == 'schedule' ]; then
+            sha="${{ github.sha }}"
+          else
+            sha="${{ github.event.pull_request.head.sha }}"
+          fi
+          echo sha=${sha} >> $GITHUB_OUTPUT
+
+      - name: Wait for images to be available
+        id: wait_images
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ubi-ci operator-generic-ubi-ci hubble-relay-ubi-ci clustermesh-apiserver-ubi-ci; do
+            until docker manifest inspect quay.io/isovalent-dev/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+          echo "images available"
+          # Some special handling is needed for clife as it does not get built for every push / PR, per default
+          # only when enterprise/olm is modified.
+          i=0
+          until docker manifest inspect quay.io/isovalent-dev/clife-ci:${{ steps.vars.outputs.sha }} &> /dev/null || [[ "${i}" -gt 10 ]]; do sleep 30s; i=$((i + 1)); done
+          if [[ "${i}" -gt 10 ]]; then
+            echo "CLife rebuild needed"
+            echo rebuild_clife='true' >> $GITHUB_OUTPUT
+          else
+            echo "Clife image available"
+            echo rebuild_clife='false' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to quay.io
+        if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
+
+      - name: Login to registry.redhat.io for pulling images
+        if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_USERNAME_CI }}
+          password: ${{ secrets.REDHAT_PASSWORD_CI }}
+
+      - name: Setup go
+        if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.24.5
+
+      - name: Build and Push CLife image
+        if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
+        env:
+          IMG: "quay.io/isovalent-dev/clife-ci:${{ steps.vars.outputs.sha }}"
+          CL_TAG: "${{ steps.vars.outputs.sha }}"
+        working-directory: ./enterprise/olm
+        run: |
+          make docker-buildx VERSION=${{ steps.vars.outputs.sha }}
+
+  installation-and-connectivity:
+    name: Installation and Connectivity Test
+    runs-on: ubuntu-24.04
+    needs: [images]
+    timeout-minutes: 240
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout Cilium
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" == 'workflow_dispatch' ]; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            sha="${{ inputs.SHA }}"
+          elif [ "${{ github.event_name }}" == 'schedule' ]; then
+            sha="${{ github.sha }}"
+          else
+            sha="${{ github.event.pull_request.head.sha }}"
+          fi
+          extra_args=${{ inputs.extra-args }}
+          ocp_version=$(echo $extra_args | jq -r '.ocp_version')
+          if [[ "${ocp_version}" == "null" || "${ocp_version}" == "" ]]; then
+            ocp_version=$(echo ${{ env.ocp_version_multi }} | cut -f1 -d "-")
+          fi
+          region=$(echo $extra_args | jq -r '.region')
+          if [[ "${region}" == "null" || "${region}" == "" ]]; then
+            region="us-east-1"
+          fi
+          zone=$(echo $extra_args | jq -r '.zone')
+          if [[ "${zone}" == "null" || "${zone}" == "" ]]; then
+            zone="${region}a"
+          fi
+          ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
+          echo ocp_version=${ocp_version} | tee -a $GITHUB_OUTPUT
+          echo ocp_minor_version=${ocp_minor_version} | tee -a $GITHUB_OUTPUT
+          echo sha=${sha} | tee -a $GITHUB_OUTPUT
+          echo owner=${OWNER} | tee -a $GITHUB_OUTPUT
+          echo region=${region} | tee -a $GITHUB_OUTPUT
+          echo zone=${zone} | tee -a $GITHUB_OUTPUT
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-${{ steps.vars.outputs.ocp_minor_version }}/openshift-client-linux.tar.gz"
+          curl -sLO "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest-${{ steps.vars.outputs.ocp_minor_version }}/sha256sum.txt"
+          echo "$(cat sha256sum.txt | grep 'openshift-client-linux-4' | cut -f1 -d ' ') openshift-client-linux.tar.gz" | sha256sum --check
+          tar -zxvf openshift-client-linux.tar.gz oc
+          sudo install -o root -g root -m 0755 oc /usr/local/bin/kubectl
+          sudo mv oc /usr/local/bin/
+          kubectl version --client
+          mkdir -p /home/runner/.kube
+          touch /home/runner/.kube/config
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.region }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "^1.10.4"
+          terraform_wrapper: false
+
+      - name: Install Cilium CLI
+        run: |
+          curl -LO https://github.com/isovalent/cilium-cli-releases/releases/latest/download/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz
+
+      - name: Checkout the OpenShift CuTE repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: isovalent/cute-openshift-aws
+          token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
+          path: cute
+
+      - name: Configuration for the OpenShift cluster installation
+        id: cute_config
+        working-directory: ./cute
+        run: |
+          cute_dir=ocp-$(echo ${{ steps.vars.outputs.ocp_minor_version }} | tr '.' '-')
+          echo dir="${cute_dir}" >> $GITHUB_OUTPUT
+          cd "${cute_dir}"
+          # Generation of the terraform configuration.
+          echo "${{ secrets.OPENSHIFT_PULL_SECRET }}" | base64 -d > .pullsecret.json
+          cat > terraform.tfvars << EOF
+          cluster_name="${{ env.clusterName }}"
+          owner="${{ steps.vars.outputs.owner }}"
+          region="${{ steps.vars.outputs.region }}"
+          availability_zones = ["${{ steps.vars.outputs.zone }}"]
+          pull_secret_path="${PWD}/.pullsecret.json"
+          base_domain="${{ vars.AWS_BASE_DOMAIN }}"
+          pod_cidr="${{ env.pod_cidr }}"
+          pod_cidr_host_prefix="${{ env.pod_cidr_host_prefix }}"
+          cilium_kpr_enabled="true"
+          cilium_olm_repo_type="clife"
+          cilium_olm_repo="dir:$(pwd)/../.."
+          cilium_olm_repo_branch="${{ steps.vars.outputs.sha }}"
+          cilium_version="${{ steps.vars.outputs.sha }}"
+          cilium_path_to_ciliumconfig_file="clife-ciliumconfig.yaml"
+          openshift_version="${{ steps.vars.outputs.ocp_version }}"
+          masters_source_dest_check = false
+          worker_instance_type="m5.xlarge"
+          workers_count=3
+          workers_source_dest_check = false
+          EOF
+          cat terraform.tfvars
+          cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig_ilb.yaml clife-ciliumconfig.yaml
+
+      # replace git SSH by HTTPS and use a private access token so that `terraform get`
+      # can download modules from private repositories.
+      - name: Git config for terraform
+        run: |
+          git config --global url."https://oauth2:${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}@github.com".insteadOf ssh://git@github.com
+
+      - name: Provision the OpenShift cluster
+        id: cluster
+        timeout-minutes: 60
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          make apply AUTO_APPROVE=true
+
+      - name: Kubeconfig Setup
+        if: always() && steps.cluster.outcome != 'skipped'
+        id: kubeconfig
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          eval "$(make kubeconfig | grep KUBECONFIG)"
+          [[ ! "$KUBECONFIG" =~ ^/.* ]] && KUBECONFIG="$(pwd)/$KUBECONFIG"
+          echo "base64 encoded kubeconfig:"
+          cat $KUBECONFIG | base64 # useful for troubleshooting
+          # required by the Cilium CLI container
+          cp $KUBECONFIG /home/runner/.kube/config
+
+      - name: Cluster state
+        if: always() && steps.cluster.outcome != 'skipped'
+        run: |
+          function retry {
+            local retries=$1
+            shift
+            local count=0
+            until "$@"; do
+              exit=$?
+              wait=$((2 ** count))
+              count=$((count + 1))
+              if [ $count -lt "${retries}" ]; then
+                echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+                sleep $wait
+              else
+                echo "Retry $count/$retries exited $exit, no more retries left."
+                return $exit
+              fi
+            done
+            return 0
+          }
+
+          retry 3 kubectl get pods -A -o wide
+          retry 3 kubectl get nodes
+          retry 3 kubectl get co
+          retry 3 kubectl get ciliumconfig -o yaml
+          retry 3 kubectl get events -n cilium
+          retry 3 kubectl get pods -n cilium -o yaml
+          retry 3 kubectl logs -n cilium deployment/clife-controller-manager
+          retry 3 kubectl logs -n cilium daemonset/cilium --all-containers=true
+
+      - name: Wait for Cluster operators to be ready
+        if: ${{ steps.cluster.outcome == 'success' }}
+        id: wait-for-co
+        timeout-minutes: 15
+        run: |
+          set +e
+          while true; do
+            if ! co_status=$(kubectl get co -o jsonpath="{range .items[*]}{.status.conditions[?(@.type=='Available')].status}{'\n'}{end}"); then
+              sleep 30s
+              continue
+            fi
+            if echo "$co_status" | grep False; then
+              sleep 30s
+              continue
+            fi
+            break
+          done
+          set -e
+
+      - name: Cluster operators not ready
+        if: ${{ steps.cluster.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
+        run: |
+          kubectl get co -o yaml
+          kubectl get events -n cilium
+          kubectl get pods -n cilium -o yaml
+          kubectl logs -n cilium deployment/clife-controller-manager
+          kubectl logs -n cilium daemonset/cilium --all-containers=true
+
+      - name: Retrieve cluster info
+        id: cluster-info
+        run: |
+          api_server="$(kubectl config view --minify | yq -r '.clusters[0].cluster.server')"
+          echo "k8s_service_host=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $1}')" >> $GITHUB_OUTPUT
+          echo "k8s_service_port=$(echo $api_server | awk -F '/' '{print $3}' | awk -F ':' '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Verify OpenShift kube-proxy removed
+        run: |
+          count="$(kubectl get pods -A -l app=kube-proxy | wc -l)"
+          if [[ $count -gt 0 ]]
+          then
+            echo "OpenShift kube-proxy was not removed!"
+            exit 1
+          fi
+
+      - name: Display Cilium status
+        run: |
+          cilium status -n cilium
+
+      - name: Display ILB status
+        run: |
+          cilium lb status -n cilium
+
+      - name: Collect sysdumps
+        if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
+        shell: bash
+        working-directory: ./cute/${{ steps.cute_config.outputs.dir }}
+        run: |
+          mkdir -p ./test-results
+          cilium status -n cilium
+          cilium lb status -n cilium
+          cilium sysdump -n cilium --output-filename ./test-results/cilium-sysdump.dmp
+
+      # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
+      # against the workspace, which causes an "Invalid pattern" if the CuTE repo dir is ".".
+      - name: Prepare upload
+        if: always() && steps.wait-for-co.outcome != 'skipped'
+        id: upload_dir
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          if test -d ./test-results; then
+            echo path="$(realpath ./test-results)" >> $GITHUB_OUTPUT
+          else
+            echo path=nothingtoupload >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Artifacts
+        if: always() && steps.wait-for-co.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: output-ilb-tests
+          path: ${{ steps.upload_dir.outputs.path }}
+          if-no-files-found: ignore
+          retention-days: 3
+
+      # refresh credentials
+      - name: Set up AWS CLI credentials
+        if: always() && steps.cluster.outcome != 'skipped'
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.region }}
+
+      # Happens independently of the success or the failure of the provisioning and tests
+      - name: Clean up Cluster
+        if: always() && steps.cluster.outcome != 'skipped'
+        timeout-minutes: 60
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          echo "killing terraform processes ..."
+          pkill -9 terraform || true
+          if [ -f .terraform.tfstate.lock.info ]; then
+            echo "unlocking terraform state ..."
+            LOCK_ID=$(jq -r '.ID' .terraform.tfstate.lock.info)
+            terraform force-unlock -force "$LOCK_ID" || true
+          fi
+          echo "destroying infra ..."
+          make destroy AUTO_APPROVE=true
+
+  termination:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: installation-and-connectivity
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.installation-and-connectivity.result }}
+
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
+          description: 'Skipped'

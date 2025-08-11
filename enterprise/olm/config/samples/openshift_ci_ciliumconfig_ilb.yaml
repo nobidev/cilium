@@ -1,0 +1,64 @@
+apiVersion: cilium.io/v1alpha1
+kind: CiliumConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: clife
+    app.kubernetes.io/managed-by: kustomize
+  name: config
+spec:
+  cluster:
+    name: default
+  debug:
+    enabled: true
+    verbose: "envoy"
+  bpf:
+    monitorAggregation: "none"
+  securityContext:
+    privileged: true
+  ipam:
+    mode: "cluster-pool"
+    operator:
+      # it gets automatically populated by the CuTE
+      clusterPoolIPv4MaskSize: ${POD_CIDR_HOST_PREFIX}
+      clusterPoolIPv4PodCIDRList:
+      - ${POD_CIDR}
+  cni:
+    binPath: "/var/lib/cni/bin"
+    confPath: "/var/run/multus/cni/net.d"
+    chainingMode: none
+    exclusive: false
+  prometheus:
+    serviceMonitor:
+      enabled: false
+  hubble:
+    enabled: true
+    relay:
+      enabled: true
+      retryTimeout: "5s"
+  sessionAffinity: true
+  kubeProxyReplacement: true
+  # host namespace only is required for running OpenShift Service Mesh
+  socketLB:
+    hostNamespaceOnly: true
+  k8sServiceHost: ${KUBERNETES_SERVICE_HOST}
+  k8sServicePort: ${KUBERNETES_SERVICE_PORT}
+  # TODO: not sure this is needed, was historically used in the CuTE configuration
+  endpointRoutes: {enabled: true}
+  # avoid conflicts
+  clusterHealthPort: 9940
+  # default firewall configuration
+  tunnelPort: 4789
+  enterprise:
+    featureGate:
+      minimumMaturity: "Alpha"
+    clustermesh:
+      phantomServices:
+        enabled: true
+  extraEnv:
+  - name: "KUBE_CACHE_MUTATION_DETECTOR"
+    value: "true"
+  - name: "CILIUM_FEATURE_METRICS_WITH_DEFAULTS"
+    value: "true"
+  # Disabling Envoy version check as it gets reported in the logs
+  # although the default defined in values.yaml is used.
+  disableEnvoyVersionCheck: true
