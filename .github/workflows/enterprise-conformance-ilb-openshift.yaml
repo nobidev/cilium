@@ -401,7 +401,44 @@ jobs:
 
       - name: Display Cilium status
         run: |
-          cilium status -n cilium
+          cilium status -n cilium --wait --wait-duration=10m
+
+      - name: Label ILB nodes
+        run: |
+          function retry {
+            local retries=$1
+            shift
+            local count=0
+            until "$@"; do
+              exit=$?
+              wait=$((2 ** count))
+              count=$((count + 1))
+              if [ $count -lt "${retries}" ]; then
+                echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+                sleep $wait
+              else
+                echo "Retry $count/$retries exited $exit, no more retries left."
+                return $exit
+              fi
+            done
+            return 0
+          }
+
+          nodes=$(kubectl get nodes -l node-role.kubernetes.io/worker --no-headers -o custom-columns=":metadata.name")
+          tier=1
+          for node in $nodes
+          do
+            echo "Labeling ${node} as tier: ${tier}"
+            retry 3 kubectl label node $node service.cilium.io/node=t$tier
+            if [[ $tier -eq 1 ]]
+            then
+              tier=2
+            fi
+          done
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status -n cilium --wait --wait-duration=10m
 
       - name: Display ILB status
         run: |
