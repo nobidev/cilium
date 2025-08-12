@@ -500,7 +500,7 @@ func (r *NeighborReconciler) getPeerConfig(peerConfig *v1.PeerConfigReference) (
 		return nil, exists, err
 	}
 
-	conf = &config.Spec
+	conf = config.Spec.DeepCopy() // copy to not ever modify config in store in SetDefaults()
 	conf.SetDefaults()
 	return conf, true, nil
 }
