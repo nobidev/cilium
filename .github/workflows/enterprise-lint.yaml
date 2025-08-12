@@ -22,23 +22,27 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
         with:
           persist-credentials: false
           fetch-depth: '0'
       - name: Fetch OSS branch
+        id: checkout-oss
         env:
           UPSTREAM: "https://github.com/cilium/cilium"
         run: |
           git remote add upstream "$UPSTREAM"
           git fetch --no-write-fetch-head upstream "refs/heads/main:refs/remotes/upstream/main"
       - name: Diff against upstream tree for files that should not diverge from OSS
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
         run: |
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --debug
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --stat --exit-code
       - name: Diff against upstream tree for files that may diverge from OSS
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
         run: |
           # Note: This does not fail when encountering a diff!
           contrib/scripts/enterprise-meditation.sh \
@@ -48,6 +52,7 @@ jobs:
             --repo cilium/cilium --stat \
             --noisy
       - name: Check TESTOWNERS.enterprise is up to date
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
         run: |
           ./contrib/scripts/enterprise-testowners.sh
           if ! git diff --exit-code; then
