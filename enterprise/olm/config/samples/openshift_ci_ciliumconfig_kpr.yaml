@@ -55,8 +55,10 @@ spec:
       phantomServices:
         enabled: true
   extraEnv:
-  - name: "KUBE_CACHE_MUTATION_DETECTOR"
-    value: "true"
+  # Disabling due to the cache being altered -> panic
+  # https://github.com/cilium/cilium/pull/41005/commits/645be2636bd6c67a0d1fcbb8a5524da71919e124
+  # - name: "KUBE_CACHE_MUTATION_DETECTOR"
+  #   value: "true"
   - name: "CILIUM_FEATURE_METRICS_WITH_DEFAULTS"
     value: "true"
   # Disabling Envoy version check as it gets reported in the logs
