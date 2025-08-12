@@ -27,9 +27,9 @@ ADDITIONAL_KIND_VALUES_FILE := contrib/testing/enterprise-kind.yaml
 endif
 
 ifneq ($(FIPS),)
+export CGO_ENABLED = 1
 export GOEXPERIMENT = boringcrypto
 GO_TAGS_FLAGS += fips
-GO_BUILD = $(GO_BUILD_WITH_CGO)
 GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
 endif
 
