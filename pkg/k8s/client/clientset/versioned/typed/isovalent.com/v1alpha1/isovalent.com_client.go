@@ -15,6 +15,7 @@ import (
 
 type IsovalentV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	ClusterwidePrivateNetworksGetter
 	IsovalentBFDNodeConfigsGetter
 	IsovalentBFDNodeConfigOverridesGetter
 	IsovalentBFDProfilesGetter
@@ -45,6 +46,10 @@ type IsovalentV1alpha1Interface interface {
 // IsovalentV1alpha1Client is used to interact with features provided by the isovalent.com group.
 type IsovalentV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *IsovalentV1alpha1Client) ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInterface {
+	return newClusterwidePrivateNetworks(c)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentBFDNodeConfigs() IsovalentBFDNodeConfigInterface {

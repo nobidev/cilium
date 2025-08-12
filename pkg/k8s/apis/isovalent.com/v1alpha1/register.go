@@ -116,6 +116,11 @@ const (
 	IsovalentClusterwideNetworkPolicyKindDefinition = "IsovalentClusterwideNetworkPolicy"
 	IsovalentNetworkPolicyName                      = IsovalentNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentClusterwideNetworkPolicyName           = IsovalentClusterwideNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
+
+	// ClusterwidePrivateNetwork
+	ClusterwidePrivateNetworkPluralName     = "clusterwideprivatenetworks"
+	ClusterwidePrivateNetworkKindDefinition = "ClusterwidePrivateNetwork"
+	ClusterwidePrivateNetworkName           = ClusterwidePrivateNetworkPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -208,6 +213,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentNetworkPolicyList{},
 		&IsovalentClusterwideNetworkPolicy{},
 		&IsovalentClusterwideNetworkPolicyList{},
+		&ClusterwidePrivateNetwork{},
+		&ClusterwidePrivateNetworkList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

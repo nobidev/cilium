@@ -104,6 +104,9 @@ const (
 
 	// IsovalentClusterwideNetworkPolicyName is the full name of the IsovalentClusterwideNetworkPolicy CRD.
 	IsovalentClusterwideNetworkPolicyCRDName = k8sconstv1alpha1.IsovalentClusterwideNetworkPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// ClusterwidePrivateNetworkCRDName is the full name of the ClusterwidePrivateNetwork CRD.
+	ClusterwidePrivateNetworkCRDName = k8sconstv1alpha1.ClusterwidePrivateNetworkKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -218,6 +221,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     IsovalentClusterwideNetworkPolicyCRDName,
 			FullName: k8sconstv1alpha1.IsovalentClusterwideNetworkPolicyName,
 		},
+		synced.CRDResourceName(k8sconstv1alpha1.ClusterwidePrivateNetworkName): {
+			Name:     ClusterwidePrivateNetworkCRDName,
+			FullName: k8sconstv1alpha1.ClusterwidePrivateNetworkName,
+		},
 	}
 }
 
@@ -318,6 +325,9 @@ var (
 
 	//go:embed crds/v1alpha1/isovalentclusterwidenetworkpolicies.yaml
 	crdsv1Alpha1IsovalentClusterwideNetworkPolicies []byte
+
+	//go:embed crds/v1alpha1/clusterwideprivatenetworks.yaml
+	crdsv1Alpha1ClusterwidePrivateNetworks []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -385,6 +395,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv1Alpha1IsovalentNetworkPolicies
 	case IsovalentClusterwideNetworkPolicyCRDName:
 		crdBytes = crdsv1Alpha1IsovalentClusterwideNetworkPolicies
+	case ClusterwidePrivateNetworkCRDName:
+		crdBytes = crdsv1Alpha1ClusterwidePrivateNetworks
 	default:
 		logging.Fatal(scopedLog, "Pregenerated CRD does not exist")
 	}

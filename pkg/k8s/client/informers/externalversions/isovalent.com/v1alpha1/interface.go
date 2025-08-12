@@ -11,6 +11,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ClusterwidePrivateNetworks returns a ClusterwidePrivateNetworkInformer.
+	ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInformer
 	// IsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigInformer.
 	IsovalentBFDNodeConfigs() IsovalentBFDNodeConfigInformer
 	// IsovalentBFDNodeConfigOverrides returns a IsovalentBFDNodeConfigOverrideInformer.
@@ -72,6 +74,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// ClusterwidePrivateNetworks returns a ClusterwidePrivateNetworkInformer.
+func (v *version) ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInformer {
+	return &clusterwidePrivateNetworkInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigInformer.

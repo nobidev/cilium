@@ -5,6 +5,10 @@
 
 package v1alpha1
 
+// ClusterwidePrivateNetworkListerExpansion allows custom methods to be added to
+// ClusterwidePrivateNetworkLister.
+type ClusterwidePrivateNetworkListerExpansion interface{}
+
 // IsovalentBFDNodeConfigListerExpansion allows custom methods to be added to
 // IsovalentBFDNodeConfigLister.
 type IsovalentBFDNodeConfigListerExpansion interface{}

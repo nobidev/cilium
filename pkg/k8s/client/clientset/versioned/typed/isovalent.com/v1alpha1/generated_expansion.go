@@ -5,6 +5,8 @@
 
 package v1alpha1
 
+type ClusterwidePrivateNetworkExpansion interface{}
+
 type IsovalentBFDNodeConfigExpansion interface{}
 
 type IsovalentBFDNodeConfigOverrideExpansion interface{}

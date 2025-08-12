@@ -15,6 +15,10 @@ type FakeIsovalentV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeIsovalentV1alpha1) ClusterwidePrivateNetworks() v1alpha1.ClusterwidePrivateNetworkInterface {
+	return newFakeClusterwidePrivateNetworks(c)
+}
+
 func (c *FakeIsovalentV1alpha1) IsovalentBFDNodeConfigs() v1alpha1.IsovalentBFDNodeConfigInterface {
 	return newFakeIsovalentBFDNodeConfigs(c)
 }
