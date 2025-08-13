@@ -132,3 +132,11 @@ type LBVIPListerExpansion interface{}
 // LBVIPNamespaceListerExpansion allows custom methods to be added to
 // LBVIPNamespaceLister.
 type LBVIPNamespaceListerExpansion interface{}
+
+// PrivateNetworkEndpointSliceListerExpansion allows custom methods to be added to
+// PrivateNetworkEndpointSliceLister.
+type PrivateNetworkEndpointSliceListerExpansion interface{}
+
+// PrivateNetworkEndpointSliceNamespaceListerExpansion allows custom methods to be added to
+// PrivateNetworkEndpointSliceNamespaceLister.
+type PrivateNetworkEndpointSliceNamespaceListerExpansion interface{}

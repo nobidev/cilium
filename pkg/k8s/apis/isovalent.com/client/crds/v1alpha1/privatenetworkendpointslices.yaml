@@ -1,0 +1,127 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: privatenetworkendpointslices.isovalent.com
+spec:
+  group: isovalent.com
+  names:
+    categories:
+    - cilium
+    - isovalent
+    kind: PrivateNetworkEndpointSlice
+    listKind: PrivateNetworkEndpointSliceList
+    plural: privatenetworkendpointslices
+    shortNames:
+    - ipnes
+    singular: privatenetworkendpointslice
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PrivateNetworkEndpointSlice contains the list of endpoints and
+          their network mappings.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          endpoints:
+            description: |-
+              The list of managed endpoints. Each entry contains the mapping of an
+              endpoint belonging to a given private network to the corresponding
+              identifiers in the main pod network.
+            items:
+              properties:
+                activatedAt:
+                  description: |-
+                    The instant in time in which this entry was marked as active. If
+                    multiple entries are advertized by different nodes and/or clusters for
+                    the same private network endpoint, the latest that has been activated
+                    takes precedence.
+                  format: date-time
+                  type: string
+                endpoint:
+                  description: The endpoint identifiers from the pod network point
+                    of view.
+                  properties:
+                    addressing:
+                      description: |-
+                        The endpoint addresses (IPv4 and/or IPv6) from the pod network point
+                        of view.
+                      minProperties: 1
+                      properties:
+                        ipv4:
+                          description: The IPv4 endpoint address.
+                          format: ipv4
+                          type: string
+                        ipv6:
+                          description: The IPv6 endpoint address.
+                          format: ipv6
+                          type: string
+                      type: object
+                    name:
+                      description: The name identifying the target endpoint.
+                      type: string
+                  required:
+                  - addressing
+                  - name
+                  type: object
+                interface:
+                  description: The endpoint identifiers from the private network point
+                    of view.
+                  properties:
+                    addressing:
+                      description: |-
+                        The endpoint addresses (IPv4 and/or IPv6) from the private network point
+                        of view.
+                      minProperties: 1
+                      properties:
+                        ipv4:
+                          description: The IPv4 endpoint address.
+                          format: ipv4
+                          type: string
+                        ipv6:
+                          description: The IPv6 endpoint address.
+                          format: ipv6
+                          type: string
+                      type: object
+                    mac:
+                      description: The MAC address of the endpoint from the private
+                        network point of view.
+                      format: mac
+                      type: string
+                    network:
+                      description: |-
+                        Name of the target private network, as defined by a
+                        ClusterwidePrivateNetwork resource.
+                      type: string
+                  required:
+                  - addressing
+                  - mac
+                  - network
+                  type: object
+              required:
+              - endpoint
+              - interface
+              type: object
+            type: array
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+        type: object
+    served: true
+    storage: true

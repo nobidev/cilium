@@ -121,6 +121,11 @@ const (
 	ClusterwidePrivateNetworkPluralName     = "clusterwideprivatenetworks"
 	ClusterwidePrivateNetworkKindDefinition = "ClusterwidePrivateNetwork"
 	ClusterwidePrivateNetworkName           = ClusterwidePrivateNetworkPluralName + "." + CustomResourceDefinitionGroup
+
+	// PrivateNetworkEndpointSlice
+	PrivateNetworkEndpointSlicePluralName     = "privatenetworkendpointslices"
+	PrivateNetworkEndpointSliceKindDefinition = "PrivateNetworkEndpointSlice"
+	PrivateNetworkEndpointSliceName           = PrivateNetworkEndpointSlicePluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -215,6 +220,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentClusterwideNetworkPolicyList{},
 		&ClusterwidePrivateNetwork{},
 		&ClusterwidePrivateNetworkList{},
+		&PrivateNetworkEndpointSlice{},
+		&PrivateNetworkEndpointSliceList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

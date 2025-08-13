@@ -63,6 +63,8 @@ type Interface interface {
 	LBServices() LBServiceInformer
 	// LBVIPs returns a LBVIPInformer.
 	LBVIPs() LBVIPInformer
+	// PrivateNetworkEndpointSlices returns a PrivateNetworkEndpointSliceInformer.
+	PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInformer
 }
 
 type version struct {
@@ -204,4 +206,9 @@ func (v *version) LBServices() LBServiceInformer {
 // LBVIPs returns a LBVIPInformer.
 func (v *version) LBVIPs() LBVIPInformer {
 	return &lBVIPInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PrivateNetworkEndpointSlices returns a PrivateNetworkEndpointSliceInformer.
+func (v *version) PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInformer {
+	return &privateNetworkEndpointSliceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
