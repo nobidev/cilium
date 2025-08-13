@@ -31,9 +31,6 @@ IGNORE_HUNK_REGEXES=(
 # These globs are expected to diverge from the upstream main branch, so the
 # script always excludes these from consideration as part of the mindfulness
 # diff.
-#
-# When modifying these filters, also modify the corresponding paths-filter in
-# .github/workflows/enterprise-meditation.yaml (search for DIFF_EXCL_GLOBS).
 DIFF_EXCL_GLOBS=(
   ':!*/*generated*.go' # Auto-generated
   ':!.gitattributes' # Merge directives for go.* in main-ce
