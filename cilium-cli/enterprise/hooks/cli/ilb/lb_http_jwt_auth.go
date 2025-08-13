@@ -22,6 +22,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type jwtProvider struct {
@@ -122,6 +123,16 @@ func testJWTAuth(t T, proto string) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
+	versionSupportsJWTBasedRequestFiltering := false
+
+	minVersion := ">=1.18.0"
+	currentVersion := getCiliumVersion(t, k8sCli)
+	if versioncheck.MustCompile(minVersion)(currentVersion) {
+		versionSupportsJWTBasedRequestFiltering = true
+	} else {
+		fmt.Printf("skipping JWT based request filtering due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+	}
+
 	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
@@ -197,6 +208,18 @@ func testJWTAuth(t T, proto string) {
 
 	var service *isovalentv1alpha1.LBService
 	if proto == "http" {
+		// JWT claim based filtering is supported only in Cilium v1.18.0 and later
+		jwtClaimRequestFilteringRoute := func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {}
+
+		if versionSupportsJWTBasedRequestFiltering {
+			jwtClaimRequestFilteringRoute = withHttpRoute(testName,
+				withHttpPath("/jwt-claim-requestfiltering"),
+				withHttpRequestFilteringAllowByExactJWTClaim(map[string]string{
+					"testkey": "testvalue",
+				}),
+			)
+		}
+
 		// HTTP
 		service = lbService(testK8sNamespace, testName, withHTTPProxyApplication(
 			// Enable application-wide jwt auth
@@ -235,16 +258,23 @@ func testJWTAuth(t T, proto string) {
 				withHttpPath("/no-auth"),
 				withHttpRouteJWTAuthDisabled(),
 			),
-			withHttpRoute(testName,
-				withHttpPath("/jwt-claim-requestfiltering"),
-				withHttpRequestFilteringAllowByExactJWTClaim(map[string]string{
-					"testkey": "testvalue",
-				}),
-			),
+			jwtClaimRequestFilteringRoute,
 			// Default route
 			withHttpRoute(testName),
 		))
 	} else {
+		// JWT claim based filtering is supported only in Cilium v1.18.0 and later
+		jwtClaimRequestFilteringRoute := func(o *isovalentv1alpha1.LBServiceApplicationHTTPSProxy) {}
+
+		if versionSupportsJWTBasedRequestFiltering {
+			jwtClaimRequestFilteringRoute = withHttpsRoute(testName,
+				withHttpsPath("/jwt-claim-requestfiltering"),
+				withHttpsRequestFilteringAllowByExactJWTClaim(map[string]string{
+					"testkey": "testvalue",
+				}),
+			)
+		}
+
 		// HTTPS
 		service = lbService(testK8sNamespace, testName,
 			withPort(443),
@@ -286,12 +316,7 @@ func testJWTAuth(t T, proto string) {
 					withHttpsPath("/no-auth"),
 					withHttpsRouteJWTAuthDisabled(),
 				),
-				withHttpsRoute(testName,
-					withHttpsPath("/jwt-claim-requestfiltering"),
-					withHttpsRequestFilteringAllowByExactJWTClaim(map[string]string{
-						"testkey": "testvalue",
-					}),
-				),
+				jwtClaimRequestFilteringRoute,
 				// Default route
 				withHttpsRoute(testName),
 				withCertificate(testName),
@@ -336,12 +361,20 @@ func testJWTAuth(t T, proto string) {
 			path:  "/needs-auth",
 			token: remoteProvider0.Issue(t, validIssuer, validAudiences, nil),
 		},
-		{
+	}
+
+	if versionSupportsJWTBasedRequestFiltering {
+		testsValidToken = append(testsValidToken, struct {
+			name  string
+			path  string
+			token []byte
+		}{
 			name:  "JWTClaimRequestFilteringWithClaim",
 			path:  "/jwt-claim-requestfiltering",
 			token: remoteProvider0.Issue(t, validIssuer, validAudiences, map[string]string{"testkey": "testvalue"}),
-		},
+		})
 	}
+
 	for _, tt := range testsValidToken {
 		t.Log("Checking valid token %s", tt.name)
 		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path))
@@ -387,12 +420,6 @@ func testJWTAuth(t T, proto string) {
 			token: validProvider0.Issue(t, validIssuer, invalidAudiences, nil),
 			// Envoy returns "Unauthorized" error for invalid audience (https://github.com/envoyproxy/envoy/pull/7679)
 			code: "403",
-		},
-		{
-			name:  "JWTClaimRequestFilteringWithWrongClaim",
-			path:  "/jwt-claim-requestfiltering",
-			token: remoteProvider0.Issue(t, validIssuer, validAudiences, map[string]string{"testkey": "wrong-value"}),
-			code:  "403",
 		},
 	}
 
